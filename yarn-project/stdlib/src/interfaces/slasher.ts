@@ -1,49 +1,50 @@
-import type { SecretValue } from '@aztec/foundation/config';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+export type SlasherClientType = 'empire' | 'tally';
+
 export interface SlasherConfig {
   slashOverridePayload?: EthAddress;
-  slashPayloadTtlSeconds: number; // TTL for payloads, in seconds
-  slashPruneEnabled: boolean;
+  slashMinPenaltyPercentage: number;
+  slashMaxPenaltyPercentage: number;
+  slashSelfAllowed?: boolean; // Whether to allow slashes to own validators
+  slashValidatorsAlways: EthAddress[]; // Array of validator addresses
+  slashValidatorsNever: EthAddress[]; // Array of validator addresses
+  slashInactivityTargetPercentage: number; // 0-1, 0.9 means 90%. Must be greater than 0
+  slashInactivityConsecutiveEpochThreshold: number; // Number of consecutive epochs a validator must be inactive before slashing
   slashPrunePenalty: bigint;
-  slashPruneMaxPenalty: bigint;
-  slashInvalidBlockEnabled: boolean;
-  slashInvalidBlockPenalty: bigint;
-  slashInvalidBlockMaxPenalty: bigint;
-  slashInactivityEnabled: boolean;
-  slashInactivityCreateTargetPercentage: number; // 0-1, 0.9 means 90%. Must be greater than 0
-  slashInactivitySignalTargetPercentage: number; // 0-1, 0.6 means 60%. Must be greater than 0
-  slashInactivityCreatePenalty: bigint;
-  slashInactivityMaxPenalty: bigint;
-  slashProposerRoundPollingIntervalSeconds: number;
+  slashDataWithholdingPenalty: bigint;
+  slashInactivityPenalty: bigint;
+  slashBroadcastedInvalidBlockPenalty: bigint;
   slashProposeInvalidAttestationsPenalty: bigint;
-  slashProposeInvalidAttestationsMaxPenalty: bigint;
   slashAttestDescendantOfInvalidPenalty: bigint;
-  slashAttestDescendantOfInvalidMaxPenalty: bigint;
-  slasherPrivateKey: SecretValue<string | undefined>; // Private key of the slasher account used for creating slash payloads
+  slashUnknownPenalty: bigint;
+  slashOffenseExpirationRounds: number; // Number of rounds after which pending offenses expire
+  slashMaxPayloadSize: number; // Maximum number of offenses to include in a single slash payload
+  slashGracePeriodL2Slots: number; // Number of L2 slots to wait after genesis before slashing for most offenses
+  slashExecuteRoundsLookBack: number; // How many rounds to look back when searching for a round to execute
 }
 
 export const SlasherConfigSchema = z.object({
   slashOverridePayload: schemas.EthAddress.optional(),
-  slashPayloadTtlSeconds: z.number(),
-  slashPruneEnabled: z.boolean(),
+  slashMinPenaltyPercentage: z.number(),
+  slashMaxPenaltyPercentage: z.number(),
+  slashValidatorsAlways: z.array(schemas.EthAddress),
+  slashValidatorsNever: z.array(schemas.EthAddress),
   slashPrunePenalty: schemas.BigInt,
-  slashPruneMaxPenalty: schemas.BigInt,
-  slashInvalidBlockEnabled: z.boolean(),
-  slashInvalidBlockPenalty: schemas.BigInt,
-  slashInvalidBlockMaxPenalty: schemas.BigInt,
-  slashInactivityEnabled: z.boolean(),
-  slashInactivityCreateTargetPercentage: z.number(),
-  slashInactivitySignalTargetPercentage: z.number(),
-  slashInactivityCreatePenalty: schemas.BigInt,
-  slashInactivityMaxPenalty: schemas.BigInt,
-  slashProposerRoundPollingIntervalSeconds: z.number(),
+  slashDataWithholdingPenalty: schemas.BigInt,
+  slashInactivityTargetPercentage: z.number(),
+  slashInactivityConsecutiveEpochThreshold: z.number(),
+  slashInactivityPenalty: schemas.BigInt,
   slashProposeInvalidAttestationsPenalty: schemas.BigInt,
-  slashProposeInvalidAttestationsMaxPenalty: schemas.BigInt,
   slashAttestDescendantOfInvalidPenalty: schemas.BigInt,
-  slashAttestDescendantOfInvalidMaxPenalty: schemas.BigInt,
-  slasherPrivateKey: schemas.SecretValue(z.string().optional()),
+  slashUnknownPenalty: schemas.BigInt,
+  slashOffenseExpirationRounds: z.number(),
+  slashMaxPayloadSize: z.number(),
+  slashGracePeriodL2Slots: z.number(),
+  slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
+  slashExecuteRoundsLookBack: z.number(),
+  slashSelfAllowed: z.boolean().optional(),
 }) satisfies ZodFor<SlasherConfig>;

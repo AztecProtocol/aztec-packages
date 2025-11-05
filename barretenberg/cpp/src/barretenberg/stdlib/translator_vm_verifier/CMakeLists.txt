@@ -1,1 +1,1 @@
-barretenberg_module(stdlib_translator_vm_verifier translator_vm stdlib_transcript)
+barretenberg_module(stdlib_translator_vm_verifier translator_vm transcript stdlib_poseidon2 stdlib_circuit_builders)

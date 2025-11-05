@@ -58,4 +58,19 @@ export interface PublicContractsDBInterface {
    * @returns The name of the function or undefined if not found.
    */
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+
+  /**
+   * Creates a checkpoint of the current contract state.
+   */
+  createCheckpoint(): void;
+
+  /**
+   * Commits the current checkpoint, merging its state with the parent.
+   */
+  commitCheckpoint(): void;
+
+  /**
+   * Reverts the current checkpoint, discarding its state.
+   */
+  revertCheckpoint(): void;
 }

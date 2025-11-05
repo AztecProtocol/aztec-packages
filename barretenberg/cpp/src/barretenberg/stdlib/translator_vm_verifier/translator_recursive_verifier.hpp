@@ -10,7 +10,6 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
@@ -22,13 +21,14 @@ class TranslatorRecursiveVerifier {
     using FF = Flavor::FF;
     using NativeBF = Flavor::Curve::BaseFieldNative;
     using Builder = Flavor::CircuitBuilder;
+    using Curve = Flavor::Curve;
     using BF = Flavor::BF;
     using Commitment = Flavor::Commitment;
     using GroupElement = Flavor::GroupElement;
     using VerificationKey = Flavor::VerificationKey;
     using NativeVerificationKey = Flavor::NativeVerificationKey;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Curve>;
     using TranslationEvaluations = TranslationEvaluations_<BF>;
     using Transcript = Flavor::Transcript;
     using RelationParams = ::bb::RelationParameters<FF>;
@@ -66,6 +66,6 @@ class TranslatorRecursiveVerifier {
      * the same commitments to the op queue as part of the proof.
      */
     void verify_consistency_with_final_merge(
-        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments);
+        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& merge_commitments);
 };
 } // namespace bb

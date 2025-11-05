@@ -8,7 +8,6 @@
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix_mem.hpp"
-#include "barretenberg/vm2/generated/relations/perms_to_radix_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -45,13 +44,12 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
             FF limb_p_diff = limb == p_limb ? 0 : limb > p_limb ? limb - p_limb - 1 : p_limb - limb - 1;
 
             bool is_unsafe_limb = i == safe_limbs;
-            FF safety_diff_inverse = is_unsafe_limb ? FF(0) : (FF(i) - FF(safe_limbs)).invert();
+            FF safety_diff = FF(i) - FF(safe_limbs);
 
             acc += exponent * limb;
 
             FF rem = value - acc;
             found = rem == 0;
-            FF rem_inverse = found ? 0 : rem.invert();
 
             bool end = i == (event.limbs.size() - 1);
 
@@ -70,10 +68,10 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::to_radix_acc, acc },
                           { C::to_radix_found, found },
                           { C::to_radix_limb_radix_diff, radix - 1 - limb },
-                          { C::to_radix_rem_inverse, rem_inverse },
+                          { C::to_radix_rem_inverse, rem }, // Will be inverted in batch later
                           { C::to_radix_safe_limbs, safe_limbs },
                           { C::to_radix_is_unsafe_limb, is_unsafe_limb },
-                          { C::to_radix_safety_diff_inverse, safety_diff_inverse },
+                          { C::to_radix_safety_diff_inverse, safety_diff }, // Will be inverted in batch later
                           { C::to_radix_p_limb, p_limb },
                           { C::to_radix_acc_under_p, acc_under_p },
                           { C::to_radix_limb_lt_p, limb < p_limb },
@@ -88,6 +86,9 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
             exponent *= radix;
         }
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::to_radix_safety_diff_inverse, C::to_radix_rem_inverse } });
 }
 
 void ToRadixTraceBuilder::process_with_memory(
@@ -97,16 +98,15 @@ void ToRadixTraceBuilder::process_with_memory(
 
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
     for (const auto& event : events) {
-
         // Helpers
-        uint8_t num_limbs_is_zero = event.limbs.empty() ? 1 : 0;
-        FF num_limbs_inv = event.limbs.empty() ? FF(0) : FF(event.limbs.size()).invert();
+        uint8_t num_limbs_is_zero = event.num_limbs == 0 ? 1 : 0;
+        FF num_limbs_inv = event.num_limbs == 0 ? FF(0) : FF(event.num_limbs); // Will be inverted in batch later
         uint8_t value_is_zero = event.value == FF(0) ? 1 : 0;
-        FF value_inv = event.value == FF(0) ? FF(0) : event.value.invert();
+        FF value_inv = event.value == FF(0) ? FF(0) : event.value; // Will be inverted in batch later
 
         // Error Handling - Out of Memory Access
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_addr);
-        uint64_t max_write_addr = dst_addr + event.limbs.size() - 1;
+        uint64_t max_write_addr = dst_addr + event.num_limbs - 1;
         bool write_out_of_range = max_write_addr > AVM_HIGHEST_MEM_ADDRESS;
 
         // Error Handling - Radix Range
@@ -114,86 +114,134 @@ void ToRadixTraceBuilder::process_with_memory(
         bool invalid_bitwise_radix = event.is_output_bits && event.radix != 2;
 
         // Error Handling - Num Limbs and Value
-        bool invalid_num_limbs = event.limbs.empty() && !(event.value == FF(0));
+        bool invalid_num_limbs = event.num_limbs == 0 && !(event.value == FF(0));
 
-        if (write_out_of_range || invalid_radix) {
+        // Common values for the first row
+        trace.set(row,
+                  { {
+                      { C::to_radix_mem_sel, 1 },
+                      { C::to_radix_mem_start, 1 },
+                      // Unconditional Inputs
+                      { C::to_radix_mem_execution_clk, event.execution_clk },
+                      { C::to_radix_mem_space_id, event.space_id },
+                      { C::to_radix_mem_dst_addr, dst_addr },
+                      { C::to_radix_mem_value_to_decompose, event.value },
+                      { C::to_radix_mem_radix, event.radix },
+                      { C::to_radix_mem_num_limbs, event.num_limbs },
+                      { C::to_radix_mem_is_output_bits, event.is_output_bits ? 1 : 0 },
+                      // Helpers
+                      { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+                      { C::to_radix_mem_max_write_addr, max_write_addr },
+                      { C::to_radix_mem_two, 2 },
+                      { C::to_radix_mem_two_five_six, 256 },
+                      { C::to_radix_mem_sel_num_limbs_is_zero, num_limbs_is_zero },
+                      { C::to_radix_mem_num_limbs_inv, num_limbs_inv },
+                      { C::to_radix_mem_sel_value_is_zero, value_is_zero },
+                      { C::to_radix_mem_value_inv, value_inv },
+                  } });
+
+        // Input validation errors
+        if (write_out_of_range || invalid_radix || invalid_bitwise_radix || invalid_num_limbs) {
             trace.set(row,
                       { {
-                          { C::to_radix_mem_sel, 1 },
-                          { C::to_radix_mem_start, 1 },
                           { C::to_radix_mem_last, 1 },
-                          // Unconditional Inputs
-                          { C::to_radix_mem_execution_clk, event.execution_clk },
-                          { C::to_radix_mem_space_id, event.space_id },
-                          { C::to_radix_mem_dst_addr, dst_addr },
-                          { C::to_radix_mem_value_to_decompose, event.value },
-                          { C::to_radix_mem_radix, event.radix },
-                          { C::to_radix_mem_num_limbs, static_cast<uint32_t>(event.limbs.size()) },
-                          { C::to_radix_mem_is_output_bits, event.is_output_bits ? 1 : 0 },
-                          // Helpers
-                          { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
-                          { C::to_radix_mem_max_write_addr, max_write_addr },
-                          { C::to_radix_mem_two, 2 },
-                          { C::to_radix_mem_two_five_six, 256 },
-                          { C::to_radix_mem_sel_num_limbs_is_zero, num_limbs_is_zero },
-                          { C::to_radix_mem_num_limbs_inv, num_limbs_inv },
-                          { C::to_radix_mem_sel_value_is_zero, value_is_zero },
-                          { C::to_radix_mem_value_inv, value_inv },
-                          // Error Handling
+                          { C::to_radix_mem_input_validation_error, 1 },
+                          { C::to_radix_mem_err, 1 },
                           { C::to_radix_mem_sel_dst_out_of_range_err, write_out_of_range },
                           { C::to_radix_mem_sel_radix_lt_2_err, event.radix < 2 },
                           { C::to_radix_mem_sel_radix_gt_256_err, event.radix > 256 },
                           { C::to_radix_mem_sel_invalid_bitwise_radix, invalid_bitwise_radix ? 1 : 0 },
                           { C::to_radix_mem_sel_invalid_num_limbs_err, invalid_num_limbs ? 1 : 0 },
-                          { C::to_radix_mem_err, 1 },
                       } });
             row++;
             continue;
         }
 
-        // At this point there are no errors, so we process the limbs
-        uint32_t num_limbs = static_cast<uint32_t>(event.limbs.size());
-        for (uint32_t i = 0; i < event.limbs.size(); ++i) {
-            MemoryValue limb_value = event.limbs[i];
-            bool start = i == 0;
-            bool last = i == (event.limbs.size() - 1);
+        // At this point, a decomposition has happened, so we can process the limbs
 
-            trace.set(
-                row,
-                { {
-                    { C::to_radix_mem_sel, 1 },
-                    { C::to_radix_mem_start, start ? 1 : 0 },
-                    { C::to_radix_mem_num_limbs_minus_one_inv, num_limbs - 1 == 0 ? 0 : FF(num_limbs - 1).invert() },
-                    { C::to_radix_mem_last, last ? 1 : 0 },
-                    // Unconditional Inputs
-                    { C::to_radix_mem_execution_clk, event.execution_clk },
-                    { C::to_radix_mem_space_id, event.space_id },
-                    { C::to_radix_mem_dst_addr, dst_addr },
-                    { C::to_radix_mem_value_to_decompose, event.value },
-                    { C::to_radix_mem_radix, event.radix },
-                    { C::to_radix_mem_num_limbs, num_limbs },
-                    { C::to_radix_mem_is_output_bits, event.is_output_bits ? 1 : 0 },
-                    // Helpers
-                    { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
-                    { C::to_radix_mem_max_write_addr, max_write_addr },
-                    { C::to_radix_mem_two, start ? 2 : 0 },
-                    { C::to_radix_mem_two_five_six, start ? 256 : 0 },
-                    { C::to_radix_mem_sel_num_limbs_is_zero, start ? num_limbs_is_zero : 0 },
-                    { C::to_radix_mem_num_limbs_inv, num_limbs_inv },
-                    { C::to_radix_mem_sel_value_is_zero, start ? value_is_zero : 0 },
-                    { C::to_radix_mem_value_inv, value_inv },
-                    // Output
-                    { C::to_radix_mem_sel_should_exec, !event.limbs.empty() ? 1 : 0 },
-                    { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
-                    { C::to_radix_mem_output_limb_value, limb_value.as_ff() },
-                    { C::to_radix_mem_output_tag, static_cast<uint8_t>(limb_value.get_tag()) },
-                } });
+        // Compute found for the given decomposition
+        FF acc = 0;
+        FF exponent = 1;
+        std::vector<bool> found(event.limbs.size(), false);
+        for (size_t i = 0; i < event.limbs.size(); ++i) {
+            // Limbs are BE, we compute found in LE since the to_radix subtrace is little endian
+            size_t reverse_index = event.limbs.size() - i - 1;
+            FF limb_value = event.limbs[reverse_index].as_ff();
+            acc += exponent * limb_value;
+            exponent *= event.radix;
+            found[reverse_index] = acc == event.value;
+        }
 
-            num_limbs--; // Decrement the number of limbs
-            dst_addr++;  // Increment the destination address for the next limb
+        // Num limbs = 0 short circuit
+        if (event.num_limbs == 0) {
+            trace.set(row,
+                      { {
+                          { C::to_radix_mem_last, 1 },
+                      } });
+            row++;
+            continue;
+        }
+
+        // Truncation error (still does decomposition)
+        bool truncation_error = event.num_limbs != 0 && !found.at(0);
+
+        if (truncation_error) {
+            trace.set(row,
+                      { {
+                          { C::to_radix_mem_last, 1 },
+                          { C::to_radix_mem_err, 1 },
+                          { C::to_radix_mem_sel_truncation_error, 1 },
+                          // Decomposition
+                          { C::to_radix_mem_sel_should_decompose, 1 },
+                          { C::to_radix_mem_limb_index_to_lookup, event.num_limbs - 1 },
+                          { C::to_radix_mem_limb_value, event.limbs.at(0).as_ff() },
+                          { C::to_radix_mem_value_found, 0 },
+                      } });
+
+            row++;
+            continue;
+        }
+
+        uint32_t remaining_limbs = static_cast<uint32_t>(event.num_limbs);
+
+        // Base case
+        for (uint32_t i = 0; i < event.num_limbs; ++i) {
+            MemoryValue limb_value = event.limbs.at(i);
+            bool last = i == (event.num_limbs - 1);
+
+            trace.set(row,
+                      { {
+                          { C::to_radix_mem_sel, 1 },
+                          { C::to_radix_mem_num_limbs, remaining_limbs },
+                          { C::to_radix_mem_num_limbs_minus_one_inv,
+                            remaining_limbs - 1 == 0 ? 0 : FF(remaining_limbs - 1) }, // Will be inverted in batch later
+                          { C::to_radix_mem_last, last ? 1 : 0 },
+                          // Decomposition
+                          { C::to_radix_mem_sel_should_decompose, 1 },
+                          { C::to_radix_mem_value_to_decompose, event.value },
+                          { C::to_radix_mem_limb_index_to_lookup, remaining_limbs - 1 },
+                          { C::to_radix_mem_radix, event.radix },
+                          { C::to_radix_mem_limb_value, limb_value.as_ff() },
+                          { C::to_radix_mem_value_found, found.at(i) ? 1 : 0 },
+                          // Memory write
+                          { C::to_radix_mem_sel_should_write_mem, 1 },
+                          { C::to_radix_mem_execution_clk, event.execution_clk },
+                          { C::to_radix_mem_space_id, event.space_id },
+                          { C::to_radix_mem_dst_addr, dst_addr },
+                          { C::to_radix_mem_output_tag, static_cast<uint8_t>(limb_value.get_tag()) },
+                          { C::to_radix_mem_is_output_bits, event.is_output_bits ? 1 : 0 },
+                      } });
+
+            remaining_limbs--; // Decrement the number of limbs
+            dst_addr++;        // Increment the destination address for the next limb
+
             row++;
         }
     }
+
+    // Batch invert the columns.
+    trace.invert_columns(
+        { { C::to_radix_mem_num_limbs_inv, C::to_radix_mem_value_inv, C::to_radix_mem_num_limbs_minus_one_inv } });
 }
 
 const InteractionDefinition ToRadixTraceBuilder::interactions =
@@ -205,14 +253,10 @@ const InteractionDefinition ToRadixTraceBuilder::interactions =
         .add<lookup_to_radix_limb_p_diff_range_settings, InteractionType::LookupIntoIndexedByClk>()
         // Mem Aware To Radix
         // GT checks
-        .add<lookup_to_radix_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_to_radix_mem_check_radix_gt_256_settings, InteractionType::LookupGeneric>()
+        .add<lookup_to_radix_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_to_radix_mem_check_radix_gt_256_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Dispatch to To Radix
-        .add<lookup_to_radix_mem_input_output_to_radix_settings, InteractionType::LookupGeneric>()
-        // Write to Memory (this should be a permutation)
-        .add<lookup_to_radix_mem_write_mem_settings, InteractionType::LookupGeneric>()
-        // Permutation to execution (should be moved later)
-        .add<perm_to_radix_mem_dispatch_exec_to_radix_settings, InteractionType::Permutation>();
+        .add<lookup_to_radix_mem_input_output_to_radix_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

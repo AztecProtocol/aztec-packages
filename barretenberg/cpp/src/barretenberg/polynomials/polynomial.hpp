@@ -6,8 +6,9 @@
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/mem.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
@@ -35,14 +36,14 @@ template <typename Fr> struct PolynomialSpan {
     size_t size() const { return span.size(); }
     Fr& operator[](size_t index)
     {
-        BB_ASSERT_GTE(index, start_index);
-        BB_ASSERT_LT(index, end_index());
+        BB_ASSERT_DEBUG(index >= start_index);
+        BB_ASSERT_DEBUG(index < end_index());
         return span[index - start_index];
     }
     const Fr& operator[](size_t index) const
     {
-        BB_ASSERT_GTE(index, start_index);
-        BB_ASSERT_LT(index, end_index());
+        BB_ASSERT_DEBUG(index >= start_index);
+        BB_ASSERT_DEBUG(index < end_index());
         return span[index - start_index];
     }
     PolynomialSpan subspan(size_t offset, size_t length)
@@ -79,7 +80,7 @@ template <typename Fr> class Polynomial {
     Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
-        : Polynomial(size, size){};
+        : Polynomial(size, size) {};
 
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
@@ -101,14 +102,18 @@ template <typename Fr> class Polynomial {
     {}
 
     /**
-     * @brief Utility to efficiently construct a shift from the original polynomial.
-     *
-     * @param virtual_size the size of the polynomial to be shifted
-     * @return Polynomial
+     * @brief Utility to create a shiftable polynomial of given virtual size.
      */
     static Polynomial shiftable(size_t virtual_size)
     {
         return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1);
+    }
+    /**
+     * @brief Utility to create a shiftable polynomial of given size and virtual size.
+     */
+    static Polynomial shiftable(size_t size, size_t virtual_size)
+    {
+        return Polynomial(/*actual size*/ size - 1, virtual_size, /*shiftable offset*/ 1);
     }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
@@ -203,29 +208,7 @@ template <typename Fr> class Polynomial {
      */
     Fr evaluate_mle(std::span<const Fr> evaluation_points, bool shift = false) const;
 
-    /**
-     * @brief Partially evaluates in the last k variables a polynomial interpreted as a multilinear extension.
-     *
-     * @details Partially evaluates p(X) = (a_0, ..., a_{2^n-1}) considered as multilinear extension
-     * p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{m-1}), m < n, in the last m variables
-     * X_n-m,…,X_{n-1}. The result is a multilinear polynomial in n-m variables g(X_0,…,X_{n-m-1})) =
-     * p(X_0,…,X_{n-m-1},u_0,...u_{m-1}).
-     *
-     * @note Intuitively, partially evaluating in one variable collapses the hypercube in one dimension, halving the
-     * number of coefficients needed to represent the result. To partially evaluate starting with the first variable
-     * (as is done in evaluate_mle), the vector of coefficents is halved by combining adjacent rows in a pairwise
-     * fashion (similar to what is done in Sumcheck via "edges"). To evaluate starting from the last variable, we
-     * instead bisect the whole vector and combine the two halves. I.e. rather than coefficents being combined with
-     * their immediate neighbor, they are combined with the coefficient that lives n/2 indices away.
-     *
-     * @param evaluation_points an MLE partial evaluation point u = (u_0,…,u_{m-1})
-     * @return DensePolynomial<Fr> g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1})
-     */
-    Polynomial partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
-
     Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
-        requires polynomial_arithmetic::SupportsFFT<Fr>;
-    Fr compute_kate_opening_coefficients(const Fr& z)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
 
     /**
@@ -251,6 +234,8 @@ template <typename Fr> class Polynomial {
      */
     void add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &;
 
+    void add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, Fr scaling_factor) &;
+
     /**
      * @brief adds the polynomial q(X) 'other'.
      *
@@ -271,6 +256,8 @@ template <typename Fr> class Polynomial {
      * @param scaling_factor s
      */
     Polynomial& operator*=(Fr scaling_factor);
+
+    void multiply_chunk(const ThreadChunk& chunk, Fr scaling_factor);
 
     /**
      * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
@@ -311,7 +298,7 @@ template <typename Fr> class Polynomial {
 
     static Polynomial random(size_t size, size_t start_index = 0)
     {
-        PROFILE_THIS_NAME("generate random polynomial");
+        BB_BENCH_NAME("generate random polynomial");
 
         return random(size - start_index, size, start_index);
     }
@@ -333,14 +320,6 @@ template <typename Fr> class Polynomial {
      * @return a polynomial initialized with zero on the range defined by size
      */
     static Polynomial create_non_parallel_zero_init(size_t size, size_t virtual_size);
-
-    /**
-     * @brief Expands the polynomial with new start_index and end_index
-     * The value of the polynomial remains the same, but defined memory region differs.
-     *
-     * @return a polynomial with a larger size() but same virtual_size()
-     */
-    Polynomial expand(const size_t new_start_index, const size_t new_end_index) const;
 
     /**
      * @brief The end_index of the polynomial is decreased without any memory de-allocation.
@@ -395,7 +374,7 @@ template <typename Fr> class Polynomial {
      */
     void set_if_valid_index(size_t index, const Fr& value)
     {
-        ASSERT(value.is_zero() || is_valid_set_index(index));
+        BB_ASSERT(value.is_zero() || is_valid_set_index(index));
         if (is_valid_set_index(index)) {
             at(index) = value;
         }
@@ -464,7 +443,7 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
 {
     constexpr bool is_native = IsAnyOf<Fr_, bb::fr, grumpkin::fr>;
     // shift ==> native
-    ASSERT(!shift || is_native);
+    BB_ASSERT(!shift || is_native);
 
     if (coefficients.size() == 0) {
         return Fr_(0);

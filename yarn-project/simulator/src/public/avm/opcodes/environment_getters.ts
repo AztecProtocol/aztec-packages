@@ -20,8 +20,8 @@ export enum EnvironmentVariable {
   DAGASLEFT,
 }
 
-function getValue(e: EnvironmentVariable, ctx: AvmContext) {
-  switch (e) {
+function getValue(varEnum: EnvironmentVariable, ctx: AvmContext) {
+  switch (varEnum) {
     case EnvironmentVariable.ADDRESS:
       return new Field(ctx.environment.address.toField());
     case EnvironmentVariable.SENDER:
@@ -47,7 +47,7 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
     case EnvironmentVariable.DAGASLEFT:
       return new Uint32(ctx.machineState.daGasLeft);
     default:
-      throw new Error(`Unknown environment variable ${e}`);
+      throw new InstructionExecutionError(`Invalid GETENVVAR var enum ${varEnum}`);
   }
 }
 
@@ -77,13 +77,11 @@ export class GetEnvVar extends Instruction {
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
     );
 
-    if (!(this.varEnum in EnvironmentVariable)) {
-      throw new InstructionExecutionError(`Invalid GETENVVAR var enum ${this.varEnum}`);
-    }
-
     const operands = [this.dstOffset];
     const [dstOffset] = addressing.resolve(operands, memory);
 
-    memory.set(dstOffset, getValue(this.varEnum as EnvironmentVariable, context));
+    const value = getValue(this.varEnum as EnvironmentVariable, context);
+
+    memory.set(dstOffset, value);
   }
 }

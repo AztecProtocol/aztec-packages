@@ -4,7 +4,7 @@ import { EmpireBaseAbi } from '@aztec/l1-artifacts/EmpireBaseAbi';
 
 import { type Hex, type TypedDataDefinition, encodeFunctionData } from 'viem';
 
-import type { L1TxRequest } from '../l1_tx_utils.js';
+import type { L1TxRequest } from '../l1_tx_utils/index.js';
 
 export interface IEmpireBase {
   get address(): EthAddress;
@@ -51,8 +51,8 @@ export function encodeSignalWithSignature(payload: Hex, signature: Signature) {
 export async function signSignalWithSig(
   signer: (msg: TypedDataDefinition) => Promise<Hex>,
   payload: Hex,
-  nonce: bigint,
-  round: bigint,
+  slot: bigint,
+  instance: Hex,
   verifyingContract: Hex,
   chainId: number,
 ): Promise<Signature> {
@@ -64,17 +64,23 @@ export async function signSignalWithSig(
   };
 
   const types = {
+    EIP712Domain: [
+      { name: 'name', type: 'string' },
+      { name: 'version', type: 'string' },
+      { name: 'chainId', type: 'uint256' },
+      { name: 'verifyingContract', type: 'address' },
+    ],
     Signal: [
       { name: 'payload', type: 'address' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'round', type: 'uint256' },
+      { name: 'slot', type: 'uint256' },
+      { name: 'instance', type: 'address' },
     ],
   };
 
   const message = {
     payload,
-    nonce,
-    round,
+    slot,
+    instance,
   };
 
   const typedData = { domain, types, primaryType: 'Signal', message };

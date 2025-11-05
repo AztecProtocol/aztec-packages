@@ -1,0 +1,1 @@
+barretenberg_module(chonk_bench chonk stdlib_honk_verifier stdlib_sha256 stdlib_primitives)

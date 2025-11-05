@@ -81,23 +81,31 @@ export type ClientCircuitName =
   | 'private-kernel-reset'
   | 'private-kernel-tail'
   | 'private-kernel-tail-to-public'
+  | 'hiding-kernel-to-rollup'
+  | 'hiding-kernel-to-public'
   | 'app-circuit';
 
 export type ServerCircuitName =
-  | 'base-parity'
-  | 'root-parity'
-  | 'private-base-rollup'
-  | 'public-base-rollup'
-  | 'merge-rollup'
-  | 'block-root-rollup'
-  | 'single-tx-block-root-rollup'
-  | 'empty-block-root-rollup'
-  | 'padding-block-root-rollup'
-  | 'block-merge-rollup'
-  | 'root-rollup'
-  | 'avm-circuit'
-  | 'tube-circuit';
+  | 'parity-base'
+  | 'parity-root'
+  | 'chonk-verifier-public'
+  | 'rollup-tx-base-private'
+  | 'rollup-tx-base-public'
+  | 'rollup-tx-merge'
+  | 'rollup-block-root-first'
+  | 'rollup-block-root-first-single-tx'
+  | 'rollup-block-root-first-empty-tx'
+  | 'rollup-block-root'
+  | 'rollup-block-root-single-tx'
+  | 'rollup-block-merge'
+  | 'rollup-checkpoint-root'
+  | 'rollup-checkpoint-root-single-block'
+  | 'rollup-checkpoint-padding'
+  | 'rollup-checkpoint-merge'
+  | 'rollup-root'
+  | 'avm-circuit';
 
+// Circuit names should match the corresponding names in noir-protocol-circuits.
 export type CircuitName = ClientCircuitName | ServerCircuitName;
 
 /** Stats for circuit simulation. */
@@ -173,8 +181,8 @@ export type CircuitVerificationStats = {
   eventName: 'circuit-verification';
   /** Name of the circuit. */
   circuitName: CircuitName;
-  /** Type of proof (client-ivc, honk, etc) */
-  proofType: 'client-ivc' | 'ultra-honk';
+  /** Type of proof (chonk, honk, etc) */
+  proofType: 'chonk' | 'ultra-honk';
   /** Duration in ms. */
   duration: number;
 };
@@ -200,9 +208,9 @@ export type L2BlockHandledStats = {
   /** Total duration in ms. */
   duration: number;
   /** Pending block number. */
-  unfinalisedBlockNumber: bigint;
+  unfinalizedBlockNumber: bigint;
   /** Proven block number. */
-  finalisedBlockNumber: bigint;
+  finalizedBlockNumber: bigint;
   /** Oldest historic block number. */
   oldestHistoricBlock: bigint;
 } & L2BlockStats;

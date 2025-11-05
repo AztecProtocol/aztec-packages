@@ -52,24 +52,35 @@ impl AztecAddress {
         Self { inner: 0 }
     }
 
-    pub fn to_address_point(self) -> AddressPoint {
+    /// Returns an address's `AddressPoint`, which can be used to create shared secrets with the owner
+    /// of the address. If the address is invalid (i.e. it is not a properly derived Aztec address), then this
+    /// returns `Option::none()`, and no shared secrets can be created.
+    pub fn to_address_point(self) -> Option<AddressPoint> {
         // We compute the address point by taking our address, setting it to x, and then solving for y in the
         // equation which defines our bn curve:
         // y^2 = x^3 - 17; x = address
         let x = self.inner;
         let y_squared = pow(x, 3) - 17;
 
-        // TODO (#8970): Handle cases where we cannot recover a point from an address
-        let mut y = sqrt(y_squared);
+        // An invalid AztecAddress is one for which no y coordinate satisfies the curve equation, which we'll
+        // identify by proving that the square root of y_squared does not exist.
+        let mut y_opt = sqrt(y_squared);
+        if y_opt.is_none() {
+            Option::none()
+        } else {
+            let mut y = y_opt.unwrap();
 
-        // If we get a negative y coordinate (any y where y > MAX_FIELD_VALUE / 2), we pin it to the
-        // positive one (any value where y <= MAX_FIELD_VALUE / 2) by subtracting it from the Field modulus
-        // note: The field modulus is MAX_FIELD_VALUE + 1
-        if (!(y.lt(MAX_FIELD_VALUE / 2) | y.eq(MAX_FIELD_VALUE / 2))) {
-            y = (MAX_FIELD_VALUE + 1) - y;
+            // If we get a negative y coordinate (any y where y > MAX_FIELD_VALUE / 2), we pin it to the
+            // positive one (any value where y <= MAX_FIELD_VALUE / 2) by subtracting it from the Field modulus
+            // note: The field modulus is MAX_FIELD_VALUE + 1
+            if (!(y.lt(MAX_FIELD_VALUE / 2) | y.eq(MAX_FIELD_VALUE / 2))) {
+                y = (MAX_FIELD_VALUE + 1) - y;
+            }
+
+            Option::some(
+                AddressPoint { inner: Point { x: self.inner, y, is_infinite: false } },
+            )
         }
-
-        AddressPoint { inner: Point { x: self.inner, y, is_infinite: false } }
     }
 
     pub fn compute(public_keys: PublicKeys, partial_address: PartialAddress) -> AztecAddress {
@@ -188,4 +199,27 @@ fn serde() {
     let serialized: [Field; AZTEC_ADDRESS_LENGTH] = address.serialize();
     let deserialized = AztecAddress::deserialize(serialized);
     assert_eq(address, deserialized);
+}
+
+#[test]
+fn to_address_point_valid() {
+    // x = 8 where x^3 - 17 = 512 - 17 = 495, which is a residue in this field
+    let address = AztecAddress { inner: 8 };
+    let maybe_point = address.to_address_point();
+    assert(maybe_point.is_some());
+
+    let point = maybe_point.unwrap().inner;
+    // check that x is preserved
+    assert_eq(point.x, Field::from(8));
+
+    // check that the curve equation holds: y^2 == x^3 - 17
+    assert_eq(pow(point.y, 2), pow(point.x, 3) - 17);
+}
+
+#[test]
+unconstrained fn to_address_point_invalid() {
+    // x = 3 where x^3 - 17 = 27 - 17 = 10, which is a non-residue in this field
+    let address = AztecAddress { inner: 3 }; //
+    let maybe_point = address.to_address_point();
+    assert(maybe_point.is_none());
 }

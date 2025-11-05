@@ -43,9 +43,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
      *
      * The bits removed by the right-shifts are stored in the wnaf's respective `least_significant_wnaf_fragment` member
      * variable
+     *
+     * We do NOT range constrain the wNAF entries, because we will use them to lookup in a ROM/regular table.
+     * The ROM/regular table lookup implicitly enforces the range constraint
      */
-    const auto [u1_lo_wnaf, u1_hi_wnaf] = compute_secp256k1_endo_wnaf<8, 2, 3>(u1);
-    const auto [u2_lo_wnaf, u2_hi_wnaf] = compute_secp256k1_endo_wnaf<4, 0, 1>(u2);
+    const auto [u1_lo_wnaf, u1_hi_wnaf] = compute_secp256k1_endo_wnaf<8, 2, 3>(u1, false);
+    const auto [u2_lo_wnaf, u2_hi_wnaf] = compute_secp256k1_endo_wnaf<4, 0, 1>(u2, false);
 
     /**
      * Construct our 4-bit variable-base and 8-bit fixed base lookup tables
@@ -108,8 +111,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
     const auto& add_1 = endoP1_table[u1_hi_wnaf.least_significant_wnaf_fragment];
     const auto& add_2 = endoP2_table[u2_hi_wnaf.least_significant_wnaf_fragment];
     const auto& add_3 = P1_table[u1_lo_wnaf.least_significant_wnaf_fragment];
-    accumulator = element::chain_add_end(
-        element::chain_add(add_3, element::chain_add(add_2, element::chain_add_start(accumulator, add_1))));
+    accumulator += add_1;
+    accumulator += add_2;
+    accumulator += add_3;
 
     /**
      * Handle wNAF skew.
@@ -117,21 +121,17 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
      * scalars represented via the non-adjacent form can only be odd. If our scalars are even, we must either
      * add or subtract the relevant base point into the accumulator
      **/
-    // TODO REMOVE BOOL CASTS, VALUES HAVE ALREADY BEEN RANGE CONSTRAINED
     const auto conditional_add = [](const element& accumulator,
                                     const element& base_point,
-                                    const field_t<C>& positive_skew,
-                                    const field_t<C>& negative_skew) {
-        const bool_ct positive_skew_bool(positive_skew);
-        const bool_ct negative_skew_bool(negative_skew);
+                                    const bool_ct& positive_skew,
+                                    const bool_ct& negative_skew) {
         auto to_add = base_point;
-        to_add.y = to_add.y.conditional_negate(negative_skew_bool);
+        to_add._y = to_add._y.conditional_negate(negative_skew);
         element result = accumulator + to_add;
 
         // when computing the wNAF we have already validated that positive_skew and negative_skew cannot both be true
-        bool_ct skew_combined = positive_skew_bool ^ negative_skew_bool;
-        result.x = accumulator.x.conditional_select(result.x, skew_combined);
-        result.y = accumulator.y.conditional_select(result.y, skew_combined);
+        bool_ct skew_combined = positive_skew ^ negative_skew;
+        result = accumulator.conditional_select(result, skew_combined);
         return result;
     };
 

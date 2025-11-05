@@ -12,38 +12,25 @@ hash=$(
       awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
 
-echo "hash=$hash"
-
 if semver check $REF_NAME; then
   # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
   hash+=$REF_NAME
   export COMMIT_TAG=$REF_NAME
 fi
 
-function build_and_deploy {
+function build {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
     echo "Not building bb docs for arm64 in CI."
     return
   fi
-  echo_header "build docs"
-  if ! cache_download bb-docs-$hash.tar.gz; then
-    denoise "yarn install && yarn build"
-    cache_upload bb-docs-$hash.tar.gz build
+  echo_header "build bb docs"
+  npm_install_deps
+  if cache_download bb-docs-$hash.tar.gz; then
+    echo "Skipping deployment - no bb doc changes compared to cache."
+    return
   fi
-
-  if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
-    if [ "$REF_NAME" == "next" ]; then
-      echo_header "deploying to production"
-      denoise "yarn install && yarn build"
-      do_or_dryrun yarn netlify deploy --site barretenberg --prod
-    else
-      echo_header "deploying preview for branch: $REF_NAME"
-      denoise "yarn install && yarn build"
-      do_or_dryrun yarn netlify deploy --site barretenberg
-    fi
-  else
-    echo "Skipping deployment - only deploy in CI on amd64."
-  fi
+  denoise "yarn build"
+  cache_upload bb-docs-$hash.tar.gz build
 }
 
 function test_cmds {
@@ -51,9 +38,12 @@ function test_cmds {
 }
 
 function test {
+  if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
+    echo "Not testing bb docs for arm64 in CI."
+    return
+  fi
   echo_header "test docs"
 
-  denoise "yarn install"
   denoise "yarn test"
 }
 
@@ -62,7 +52,7 @@ case "$cmd" in
     git clean -fdx
     ;;
   ""|"full"|"fast"|"ci")
-    build_and_deploy
+    build
     ;;
   "hash")
     echo "$hash"

@@ -10,12 +10,12 @@ pub contract SchnorrAccount {
         authwit::{
             account::AccountActions,
             auth::{compute_authwit_message_hash, compute_authwit_nullifier},
-            entrypoint::{app::AppPayload, fee::FeePayload},
+            entrypoint::app::AppPayload,
         },
         context::PrivateContext,
         hash::compute_siloed_nullifier,
-        macros::{functions::{initializer, noinitcheck, private, utility, view}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
+        macros::{functions::{external, initializer, noinitcheck, view}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         oracle::{
             auth_witness::get_auth_witness,
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
@@ -35,17 +35,16 @@ pub contract SchnorrAccount {
     }
 
     // Constructs the contract
-    #[private]
+    #[external("private")]
     #[initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
-        let this = context.this_address();
-        let pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
+        let pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, self.address);
 
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
         // it is safe to load from an unconstrained context.
         // TODO(#15752): Improve the sender_for_tags handling here when the original sender is undefined.
-        let original_sender = unsafe { get_sender_for_tags().unwrap_or(this) };
+        let original_sender = unsafe { get_sender_for_tags().unwrap_or(self.address) };
 
         // We set the sender for tags to this contract because we don't want to force the user corresponding to this
         // account to add the account deployer as a sender to their PXE. By setting it to this contract, user's PXE
@@ -53,34 +52,34 @@ pub contract SchnorrAccount {
         // `pxe.registerSender(accountDeployer)` was not called)
 
         // Safety: Comment from above applies here as well.
-        unsafe { set_sender_for_tags(this) };
-        storage.signing_public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
-            &mut context,
-            this,
-        ));
+        unsafe { set_sender_for_tags(self.address) };
+        self.storage.signing_public_key.initialize(pub_key_note).emit(
+            self.address,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(original_sender) };
     }
 
-    // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
+    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file (specifically `getEntrypointAbi()`).
     // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
-    #[private]
+    #[external("private")]
     #[noinitcheck]
-    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
+    fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
         // it is safe to set from a constrained context.
-        unsafe { set_sender_for_tags(context.this_address()) };
+        unsafe { set_sender_for_tags(self.address) };
 
-        let actions = AccountActions::init(&mut context, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payload, cancellable);
+        let actions = AccountActions::init(self.context, is_valid_impl);
+        actions.entrypoint(app_payload, fee_payment_method, cancellable);
     }
 
-    #[private]
+    #[external("private")]
     #[noinitcheck]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::init(&mut context, is_valid_impl);
+        let actions = AccountActions::init(self.context, is_valid_impl);
         actions.verify_private_authwit(inner_hash)
     }
 
@@ -116,14 +115,14 @@ pub contract SchnorrAccount {
     * @param message_hash The message hash of the message to check the validity
     * @return True if the message_hash can be consumed, false otherwise
     */
-    #[utility]
+    #[external("utility")]
     unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> bool {
-        let public_key = storage.signing_public_key.view_note();
+        let public_key = self.storage.signing_public_key.view_note();
 
         let message_hash = compute_authwit_message_hash(
             consumer,
-            context.chain_id(),
-            context.version(),
+            self.context.chain_id(),
+            self.context.version(),
             inner_hash,
         );
 
@@ -143,10 +142,10 @@ pub contract SchnorrAccount {
         // Compute the nullifier and check if it is spent
         // This will BLINDLY TRUST the oracle, but the oracle is us, and
         // it is not as part of execution of the contract, so we are good.
-        let nullifier = compute_authwit_nullifier(context.this_address(), inner_hash);
+        let nullifier = compute_authwit_nullifier(self.address, inner_hash);
         let siloed_nullifier = compute_siloed_nullifier(consumer, nullifier);
         let lower_wit =
-            get_low_nullifier_membership_witness(context.block_number(), siloed_nullifier);
+            get_low_nullifier_membership_witness(self.context.block_number(), siloed_nullifier);
         let is_spent = lower_wit.leaf_preimage.nullifier == siloed_nullifier;
 
         !is_spent & valid_in_private

@@ -1,4 +1,7 @@
-import { type AztecAddress, BatchCall, type Logger, type Wallet } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import chunk from 'lodash.chunk';
@@ -13,6 +16,7 @@ export class TokenSimulator {
   constructor(
     protected token: TokenContract,
     protected defaultWallet: Wallet,
+    protected defaultAddress: AztecAddress,
     protected logger: Logger,
     protected accounts: AztecAddress[],
   ) {}
@@ -102,7 +106,9 @@ export class TokenSimulator {
     ];
 
     const results = (
-      await Promise.all(chunk(calls, 4).map(batch => new BatchCall(this.defaultWallet, batch).simulate()))
+      await Promise.all(
+        chunk(calls, 5).map(batch => new BatchCall(this.defaultWallet, batch).simulate({ from: this.defaultAddress })),
+      )
     ).flat();
     expect(results[0]).toEqual(this.totalSupply);
 
@@ -127,7 +133,11 @@ export class TokenSimulator {
 
     const defaultCalls = defaultLookups.map(address => this.token.methods.balance_of_private(address));
     const results = (
-      await Promise.all(chunk(defaultCalls, 4).map(batch => new BatchCall(this.defaultWallet, batch).simulate()))
+      await Promise.all(
+        chunk(defaultCalls, 4).map(batch =>
+          new BatchCall(this.defaultWallet, batch).simulate({ from: this.defaultAddress }),
+        ),
+      )
     ).flat();
     for (let i = 0; i < defaultLookups.length; i++) {
       expect(results[i]).toEqual(this.balanceOfPrivate(defaultLookups[i]));
@@ -139,7 +149,9 @@ export class TokenSimulator {
       const wallet = this.lookupProvider.get(address.toString());
       const asset = wallet ? this.token.withWallet(wallet) : this.token;
 
-      const actualPrivateBalance = await asset.methods.balance_of_private({ address }).simulate();
+      const actualPrivateBalance = await asset.methods
+        .balance_of_private({ address })
+        .simulate({ from: this.defaultAddress });
       expect(actualPrivateBalance).toEqual(this.balanceOfPrivate(address));
     }
   }

@@ -12,7 +12,6 @@ import {
     NUMBER_UNSHIFTED,
     NUMBER_TO_BE_SHIFTED,
     BATCHED_RELATION_PARTIAL_LENGTH,
-    CONST_PROOF_SIZE_LOG_N,
     PAIRING_POINTS_SIZE
 } from "./HonkTypes.sol";
 
@@ -45,31 +44,62 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     // Errors
     error ProofLengthWrong();
+    error ProofLengthWrongWithLogN(uint256 logN, uint256 actualLength, uint256 expectedLength);
     error PublicInputsLengthWrong();
     error SumcheckFailed();
     error ShpleminiFailed();
 
-    // Number of field elements in a ultra honk proof, including pairing point object.
-    uint256 constant PROOF_SIZE = 383;
+    // Constants for proof length calculation (matching UltraKeccakFlavor)
+    uint256 constant NUM_WITNESS_ENTITIES = 8;
+    uint256 constant NUM_ELEMENTS_COMM = 2; // uint256 elements for curve points
+    uint256 constant NUM_ELEMENTS_FR = 1; // uint256 elements for field elements
+
+    // Calculate proof size based on log_n (matching UltraKeccakFlavor formula)
+    function calculateProofSize(uint256 logN) internal pure returns (uint256) {
+        // Witness commitments
+        uint256 proofLength = NUM_WITNESS_ENTITIES * NUM_ELEMENTS_COMM; // witness commitments
+
+        // Sumcheck
+        proofLength += logN * BATCHED_RELATION_PARTIAL_LENGTH * NUM_ELEMENTS_FR; // sumcheck univariates
+        proofLength += NUMBER_OF_ENTITIES * NUM_ELEMENTS_FR; // sumcheck evaluations
+
+        // Gemini
+        proofLength += (logN - 1) * NUM_ELEMENTS_COMM; // Gemini Fold commitments
+        proofLength += logN * NUM_ELEMENTS_FR; // Gemini evaluations
+
+        // Shplonk and KZG commitments
+        proofLength += NUM_ELEMENTS_COMM * 2; // Shplonk Q and KZG W commitments
+
+        // Pairing points
+        proofLength += PAIRING_POINTS_SIZE; // pairing inputs carried on public inputs
+
+        return proofLength;
+    }
+
+    // Number of field elements in a ultra keccak honk proof for log_n = 25, including pairing point object.
+    uint256 constant PROOF_SIZE = 350; // Legacy constant - will be replaced by calculateProofSize($LOG_N)
     uint256 constant SHIFTED_COMMITMENTS_START = 29;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
+        // Calculate expected proof size based on $LOG_N
+        uint256 expectedProofSize = calculateProofSize($LOG_N);
+
         // Check the received proof is the expected size where each field element is 32 bytes
-        if (proof.length != PROOF_SIZE * 32) {
-            revert ProofLengthWrong();
+        if (proof.length != expectedProofSize * 32) {
+            revert ProofLengthWrongWithLogN($LOG_N, proof.length, expectedProofSize * 32);
         }
 
         Honk.VerificationKey memory vk = loadVerificationKey();
-        Honk.Proof memory p = TranscriptLib.loadProof(proof);
+        Honk.Proof memory p = TranscriptLib.loadProof(proof, $LOG_N);
         if (publicInputs.length != vk.publicInputsSize - PAIRING_POINTS_SIZE) {
             revert PublicInputsLengthWrong();
         }
 
         // Generate the fiat shamir challenges for the whole protocol
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
-        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, $VK_HASH, $NUM_PUBLIC_INPUTS);
+        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, $VK_HASH, $NUM_PUBLIC_INPUTS, $LOG_N);
 
         // Derive public input delta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
@@ -91,6 +121,8 @@ abstract contract BaseHonkVerifier is IVerifier {
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
 
+    uint256 constant PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
+
     function computePublicInputDelta(
         bytes32[] memory publicInputs,
         Fr[PAIRING_POINTS_SIZE] memory pairingPointObject,
@@ -101,7 +133,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr numerator = ONE;
         Fr denominator = ONE;
 
-        Fr numeratorAcc = gamma + (beta * FrLib.from($N + offset));
+        Fr numeratorAcc = gamma + (beta * FrLib.from(PERMUTATION_ARGUMENT_VALUE_SEPARATOR + offset));
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
@@ -227,12 +259,11 @@ abstract contract BaseHonkVerifier is IVerifier {
         CommitmentSchemeLib.ShpleminiIntermediates memory mem; // stack
 
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
-        Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge =
-            CommitmentSchemeLib.computeSquares(tp.geminiR);
+        Fr[] memory powers_of_evaluation_challenge = CommitmentSchemeLib.computeSquares(tp.geminiR, $LOG_N);
 
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
-        Fr[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
-        Honk.G1Point[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
+        Fr[] memory scalars = new Fr[](NUMBER_UNSHIFTED + $LOG_N + 2);
+        Honk.G1Point[] memory commitments = new Honk.G1Point[](NUMBER_UNSHIFTED + $LOG_N + 2);
 
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
@@ -360,7 +391,7 @@ abstract contract BaseHonkVerifier is IVerifier {
          */
 
         // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., $LOG_N - 1
-        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
+        Fr[] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
             tp.sumCheckUChallenges,
             mem.batchedEvaluation,
             proof.geminiAEvaluations,
@@ -377,40 +408,37 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         // Compute Shplonk constant term contributions from Aₗ(± r^{2ˡ}) for l = 1, ..., m-1;
         // Compute scalar multipliers for each fold commitment
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-            bool dummy_round = i >= ($LOG_N - 1);
+        for (uint256 i = 0; i < $LOG_N - 1; ++i) {
+            // Update inverted denominators
+            mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
+            mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
 
-            if (!dummy_round) {
-                // Update inverted denominators
-                mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
-                mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
+            // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
+            mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
+            mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
+            // [Aₗ] is multiplied by -v^{2l}/(z-r^{2^l}) - v^{2l+1} /(z+ r^{2^l})
+            scalars[NUMBER_UNSHIFTED + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
 
-                // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
-                mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
-                mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
-                // [Aₗ] is multiplied by -v^{2l}/(z-r^{2^l}) - v^{2l+1} /(z+ r^{2^l})
-                scalars[NUMBER_UNSHIFTED + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
+            // Accumulate the const term contribution given by
+            // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
+            Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
 
-                // Accumulate the const term contribution given by
-                // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
-                Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
-                accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
-                mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
-                // Update the running power of v
-                mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
-            }
+            accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
+            mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
+            // Update the running power of v
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
 
             commitments[NUMBER_UNSHIFTED + 1 + i] = proof.geminiFoldComms[i];
         }
 
-        // Finalise the batch opening claim
-        commitments[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
-        scalars[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
+        // Finalize the batch opening claim
+        commitments[NUMBER_UNSHIFTED + $LOG_N] = Honk.G1Point({x: 1, y: 2});
+        scalars[NUMBER_UNSHIFTED + $LOG_N] = mem.constantTermAccumulator;
 
         Honk.G1Point memory quotient_commitment = proof.kzgQuotient;
 
-        commitments[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
-        scalars[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
+        commitments[NUMBER_UNSHIFTED + $LOG_N + 1] = quotient_commitment;
+        scalars[NUMBER_UNSHIFTED + $LOG_N + 1] = tp.shplonkZ; // evaluation challenge
 
         Honk.G1Point memory P_0_agg = batchMul(commitments, scalars);
         Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);
@@ -431,32 +459,24 @@ abstract contract BaseHonkVerifier is IVerifier {
         return pairing(P_0_agg, P_1_agg);
     }
 
-    function batchMul(
-        Honk.G1Point[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 2] memory base,
-        Fr[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
-    ) internal view returns (Honk.G1Point memory result) {
-        uint256 limit = NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 2;
+    function batchMul(Honk.G1Point[] memory base, Fr[] memory scalars)
+        internal
+        view
+        returns (Honk.G1Point memory result)
+    {
+        uint256 limit = NUMBER_UNSHIFTED + $LOG_N + 2;
 
         // Validate all points are on the curve
         for (uint256 i = 0; i < limit; ++i) {
             validateOnCurve(base[i]);
         }
 
+        bool success = true;
         assembly {
-            let success := 0x01
             let free := mload(0x40)
 
-            // Write the original into the accumulator
-            // Load into memory for ecMUL, leave offset for eccAdd result
-            // base is an array of pointers, so we have to dereference them
-            mstore(add(free, 0x40), mload(mload(base)))
-            mstore(add(free, 0x60), mload(add(0x20, mload(base))))
-            // Add scalar
-            mstore(add(free, 0x80), mload(scalars))
-            success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, free, 0x40))
-
             let count := 0x01
-            for {} lt(count, limit) { count := add(count, 1) } {
+            for {} lt(count, add(limit, 1)) { count := add(count, 1) } {
                 // Get loop offsets
                 let base_base := add(base, mul(count, 0x20))
                 let scalar_base := add(scalars, mul(count, 0x20))
@@ -475,5 +495,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             mstore(result, mload(free))
             mstore(add(result, 0x20), mload(add(free, 0x20)))
         }
+
+        require(success, ShpleminiFailed());
     }
 }

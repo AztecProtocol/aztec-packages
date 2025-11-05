@@ -41,17 +41,4 @@ class UltraHonkAPI : public API {
                                  const std::filesystem::path& vk_path) override;
 };
 
-template <typename Flavor>
-void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
-                                       const std::string& witness_path,
-                                       const std::string& output_path);
-
-extern template void write_recursion_inputs_ultra_honk<UltraFlavor>(const std::string& bytecode_path,
-                                                                    const std::string& witness_path,
-                                                                    const std::string& output_path);
-
-extern template void write_recursion_inputs_ultra_honk<UltraRollupFlavor>(const std::string& bytecode_path,
-                                                                          const std::string& witness_path,
-                                                                          const std::string& output_path);
-
 } // namespace bb

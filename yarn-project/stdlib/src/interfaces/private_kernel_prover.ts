@@ -1,4 +1,6 @@
 import type {
+  HidingKernelToPublicPrivateInputs,
+  HidingKernelToRollupPrivateInputs,
   PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
@@ -8,7 +10,7 @@ import type {
   PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
 } from '../kernel/index.js';
-import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
+import type { ChonkProofWithPublicInputs } from '../proofs/chonk_proof.js';
 
 /**
  * PrivateKernelProver provides functionality to simulate and validate circuits, and retrieve
@@ -95,12 +97,20 @@ export interface PrivateKernelProver {
     privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
 
+  generateHidingToRollupOutput(
+    inputs: HidingKernelToRollupPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
+
+  generateHidingToPublicOutput(
+    inputs: HidingKernelToPublicPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
+
   /**
    * Based of a program stack, create a folding proof.
    * @param acirs The program bytecode.
    * @param witnessStack The witnessses for each program bytecode.
    */
-  createClientIvcProof(executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProof>;
+  createChonkProof(executionSteps: PrivateExecutionStep[]): Promise<ChonkProofWithPublicInputs>;
 
   /**
    * Compute the gate count for a given circuit.

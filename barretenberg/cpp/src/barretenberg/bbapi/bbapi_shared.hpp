@@ -6,7 +6,8 @@
  * This file contains common data structures used across multiple bbapi modules,
  * including circuit input types and proof system settings.
  */
-#include "barretenberg/client_ivc/client_ivc.hpp"
+
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include <cstdint>
@@ -16,8 +17,18 @@
 namespace bb::bbapi {
 
 /**
+ * @enum VkPolicy
+ * @brief Policy for handling verification keys during IVC accumulation
+ */
+enum class VkPolicy {
+    DEFAULT,  // Use the provided VK as-is (default behavior)
+    CHECK,    // Verify the provided VK matches the computed VK, throw error if mismatch
+    RECOMPUTE // Always ignore the provided VK and treat it as nullptr
+};
+
+/**
  * @struct CircuitInputNoVK
- * @brief A circuit to be used in either ultrahonk or chonk (ClientIVC+honk) verification key derivation.
+ * @brief A circuit to be used in either ultrahonk or chonk verification key derivation.
  */
 struct CircuitInputNoVK {
     /**
@@ -42,7 +53,7 @@ struct CircuitInputNoVK {
 
 /**
  * @struct CircuitInput
- * @brief A circuit to be used in either ultrahonk or ClientIVC-honk proving.
+ * @brief A circuit to be used in either ultrahonk or Chonk proving.
  */
 struct CircuitInput {
     /**
@@ -92,19 +103,10 @@ struct ProofSystemSettings {
      */
     bool disable_zk = false;
 
-    /**
-     * @brief Honk recursion setting.
-     * 0 = no recursion, 1 = UltraHonk recursion, 2 = UltraRollupHonk recursion.
-     * Controls whether pairing point accumulators and IPA claims are added to public inputs.
-     */
-    uint32_t honk_recursion = 0;
+    // TODO(md): remove this once considered stable
+    bool optimized_solidity_verifier = false;
 
-    /**
-     * @brief Flag to indicate if this circuit will be recursively verified.
-     */
-    bool recursive = false;
-
-    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, honk_recursion, recursive);
+    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, optimized_solidity_verifier);
     bool operator==(const ProofSystemSettings& other) const = default;
 };
 
@@ -124,17 +126,66 @@ inline OracleHashType parse_oracle_hash_type(const std::string& type)
     return OracleHashType::POSEIDON2; // default
 }
 
+/**
+ * @brief Convert VK policy string to enum for internal use
+ */
+inline VkPolicy parse_vk_policy(const std::string& policy)
+{
+    if (policy == "check") {
+        return VkPolicy::CHECK;
+    }
+    if (policy == "recompute") {
+        return VkPolicy::RECOMPUTE;
+    }
+    return VkPolicy::DEFAULT; // default
+}
+
 struct BBApiRequest {
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
-    std::shared_ptr<ClientIVC> ivc_in_progress;
+    std::shared_ptr<IVCBase> ivc_in_progress;
     // Name of the last loaded circuit
     std::string loaded_circuit_name;
     // Store the parsed constraint system to get ahead of parsing before accumulate
     std::optional<acir_format::AcirFormat> loaded_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> loaded_circuit_vk;
+    // Policy for handling verification keys during accumulation
+    VkPolicy vk_policy = VkPolicy::DEFAULT;
+    // Error message - empty string means no error
+    std::string error_message;
+};
+
+/**
+ * @brief Error response returned when a command fails
+ */
+struct ErrorResponse {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ErrorResponse";
+    std::string message;
+    MSGPACK_FIELDS(message);
+    bool operator==(const ErrorResponse&) const = default;
+};
+
+/**
+ * @brief Macro to set error in BBApiRequest and return default response
+ */
+#define BBAPI_ERROR(request, msg)                                                                                      \
+    do {                                                                                                               \
+        (request).error_message = (msg);                                                                               \
+        return {};                                                                                                     \
+    } while (0)
+
+struct Shutdown {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Shutdown";
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ShutdownResponse";
+        // Empty response - success indicated by no exception
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
+    };
+    void msgpack(auto&& pack_fn) { pack_fn(); }
+    Response execute(const BBApiRequest&) && { return {}; }
+    bool operator==(const Shutdown&) const = default;
 };
 
 } // namespace bb::bbapi

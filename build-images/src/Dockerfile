@@ -1,7 +1,7 @@
 # cspell: disable
 
 ########################################################################################################################
-# Base build. Used as base in subsequent builds of foundry, wasi-sdk, osxcross, etc.
+# Base build. Used as base in subsequent builds of foundry, wasi-sdk, etc.
 FROM ubuntu:noble AS base-build
 RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt update && apt install --no-install-recommends -y \
@@ -21,67 +21,25 @@ RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-
-########################################################################################################################
-# Build wasi-sdk.
-FROM base-build AS wasi-sdk
-RUN apt update && apt install cargo -y
-RUN git clone --depth 1 --recursive --branch wasi-sdk-22 https://github.com/WebAssembly/wasi-sdk.git \
-    && mkdir -p /wasi-sdk/build/install/opt/wasi-sdk \
-    && cd /wasi-sdk \
-    && export MAKEFLAGS="-j$(nproc)" \
-    && make build/llvm.BUILT \
-    && make build/wasi-libc.BUILT \
-    && make build/compiler-rt.BUILT \
-    && make build/libcxx.BUILT \
-    && make build/config.BUILT \
-    && make build/version.BUILT \
-    && mv build/install/opt/wasi-sdk /opt/wasi-sdk \
-    && cd / && rm -rf /wasi-sdk
-
-
-########################################################################################################################
-# Build osxcross.
-FROM base-build AS osxcross
-RUN apt update && apt-get install --no-install-recommends -y \
-        binutils-multiarch-dev \
-        libbz2-dev \
-        libmpc-dev \
-        libmpfr-dev \
-        libgmp-dev \
-        liblzma-dev \
-        libpsi3-dev \
-        libssl-dev \
-        libxml2-dev \
-        libz-dev \
-        lzma-dev \
-        patch \
-        uuid-dev \
-        xz-utils \
-        zlib1g-dev \
-    && apt-get -y autoremove \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-RUN git clone https://github.com/tpoechtrager/osxcross.git \
-    && cd /osxcross \
-    && git reset --hard ff8d100f3f026b4ffbe4ce96d8aac4ce06f1278b \
-    && export OSX_SDK="MacOSX14.0.sdk" \
-    && export OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz" \
-    && curl -sSL "$OSX_SDK_URL" -o "./tarballs/$OSX_SDK.tar.xz" \
-    && OSX_VERSION_MIN=14.0 UNATTENDED=1 ENABLE_COMPILER_RT_INSTALL=1 TARGET_DIR=/opt/osxcross ./build.sh \
-    && rm -rf /osxcross /opt/osxcross/SDK/$OSX_SDK
+# Install rust and cross-compilers. Noir specifically uses 1.85.0.
+# We give everyone write ownership so downstream boxes can write.
+ENV RUSTUP_HOME=/opt/rust/rustup
+ENV CARGO_HOME=/opt/rust/cargo
+ENV PATH="/opt/rust/cargo/bin:$PATH"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
+    rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
+    chmod -R a+w /opt/rust
 
 
 ########################################################################################################################
 # Build foundry.
 FROM base-build AS foundry
-ENV FOUNDRY_VERSION=nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8
+ENV FOUNDRY_VERSION=v1.4.1
 ENV FOUNDRY_BIN_DIR="/root/.foundry/bin"
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
 ENV RUSTFLAGS="-C target-cpu=generic"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN curl -L https://foundry.paradigm.xyz | bash \
     && $FOUNDRY_BIN_DIR/foundryup -i $FOUNDRY_VERSION \
     && mkdir -p /opt/foundry/bin \
@@ -103,7 +61,7 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
 # We use this image for test isolation.
 FROM base-build AS build
 
-# APT repo for node (22.15.0)
+# APT repo for node (22.16.0)
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
 ENV NODE_MAJOR=22
 RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
@@ -124,17 +82,28 @@ RUN apt update && \
         lsof \
         xxd \
         zstd \
-        # C++ (clang=18, which we will move to. 16 is for current build.)
+        # C++
+        lsb-release \
+        gnupg \
+        software-properties-common \
         build-essential \
-        cmake \
-        ninja-build \
         clang \
         clang-16 \
         clang-format-16 \
+        cmake \
+        ninja-build \
         libc++-dev \
         libomp-dev \
         doxygen \
-        nodejs \
+        # C++ stack trace support
+        libdw-dev \
+        libelf-dev \
+        # Rust
+        pkg-config \
+        libssl-dev \
+        # Node
+        # WARNING: Need to downgrade to this version in the basebox below as well.
+        nodejs=22.16.0-1nodesource1 \
         # Python (clang bindings for wasm bindgen.)
         python3 \
         python3-clang \
@@ -144,21 +113,24 @@ RUN apt update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Install clang 18/20.
+RUN wget https://apt.llvm.org/llvm.sh && \
+    chmod +x llvm.sh && \
+    ./llvm.sh 18 all && \
+    ./llvm.sh 20 all && \
+    rm llvm.sh
+
 # Install wasi-sdk.
-COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
+RUN arch=$(uname -m) && \
+    if [ "$arch" = "aarch64" ]; then arch="arm64"; fi && \
+    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-${arch}-linux.tar.gz && \
+    tar xvf wasi-sdk-27.0-${arch}-linux.tar.gz && \
+    mv wasi-sdk-27.0-${arch}-linux /opt/wasi-sdk && \
+    rm wasi-sdk-27.0-${arch}-linux.tar.gz
 
 # Install foundry.
 COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
-
-# Install rust and cross-compilers. Noir specifically uses 1.85.0.
-# We give everyone write ownership so downstream boxes can write.
-ENV RUSTUP_HOME=/opt/rust/rustup
-ENV CARGO_HOME=/opt/rust/cargo
-ENV PATH="/opt/rust/cargo/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
-    rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
-    chmod -R a+w /opt/rust
 
 # Install corepack and yarn.
 RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
@@ -189,6 +161,13 @@ RUN curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v2
     && mv wasmtime-v20.0.2-$(uname -m)-linux/wasmtime /usr/local/bin \
     && rm -rf wasmtime*
 
+# Install zig.
+RUN arch=$(uname -m) && \
+    zig_version=0.15.1 && \
+    curl -fsSL https://ziglang.org/download/${zig_version}/zig-${arch}-linux-${zig_version}.tar.xz | tar xJ && \
+    mv zig-${arch}-linux-${zig_version} /opt/zig && \
+    ln -s /opt/zig/zig /usr/local/bin/zig
+
 # Install yq
 RUN curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
         -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
@@ -206,9 +185,10 @@ RUN yes | unminimize
 
 # Install stuff devs need.
 RUN apt update && \
-    apt install -y \
+    apt install -y --allow-downgrades \
         cgroup-tools \
         clangd-16 \
+        clangd-18 \
         fzf \
         gnupg \
         htop \
@@ -234,12 +214,14 @@ RUN apt update && \
         vim \
         zsh \
         inotify-tools \
+        # Annoyingly unminimize upgrades nodejs.
+        nodejs=22.16.0-1nodesource1 \
+        # smt_verification dependencies
+        python3-venv \
+        python3-pip \
+        m4 \
+        bison \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Install osxcross. Requires developer to mount SDK from their mac host.
-COPY --from=osxcross /opt/osxcross /opt/osxcross
-ENV PATH="/opt/osxcross/bin:$PATH"
-ENV LD_LIBRARY_PATH="/opt/osxcross/lib:$LD_LIBRARY_PATH"
 
 # Install gh (github cli).
 RUN mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg > /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -250,6 +232,10 @@ RUN mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packag
 
 # Install gt (graphite).
 RUN npm install -g @withgraphite/graphite-cli@stable
+
+# Install ldid for mac cross-compile signing.
+RUN curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o /usr/local/bin/ldid \
+    && chmod +x /usr/local/bin/ldid
 
 # fzf seems to not install this file for some reason.
 COPY ./key-bindings.zsh /usr/share/doc/fzf/examples/key-bindings.zsh
@@ -381,8 +367,6 @@ RUN curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh \
     # Add user "ubuntu" to the Docker group
     && usermod -a -G docker ubuntu
 RUN curl -fsSL https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker -o /etc/bash_completion.d/docker.sh
-# Temp hack to downgrade containerd.io: https://github.com/opencontainers/runc/issues/4542
-RUN apt install containerd.io=1.6.33-1 --allow-downgrades -y
 
 # Install sshd.
 RUN apt install --no-install-recommends -y openssh-server \
@@ -401,5 +385,12 @@ RUN apt update && apt install -y libpam-google-authenticator
 # Sets RUSTUP_HOME.
 # Adds foundry and cargo bin dirs to PATH.
 COPY environment /etc/environment
+
+# Bump thread limits in line with whatever the container is launched with.
+RUN sed -i 's/^#\?DefaultTasksMax=.*/DefaultTasksMax=infinity/' /etc/systemd/system.conf
+RUN mkdir -p /etc/systemd/user.conf.d /etc/systemd/user/user.slice.d /etc/systemd/system/user-.slice.d && \
+    printf "[Manager]\nDefaultTasksMax=infinity\n" > /etc/systemd/user.conf.d/override.conf && \
+    printf "[Slice]\nTasksMax=infinity\n" > /etc/systemd/user/user.slice.d/override.conf && \
+    printf "[Slice]\nTasksMax=infinity\n" > /etc/systemd/system/user-.slice.d/override.conf
 
 EXPOSE 22

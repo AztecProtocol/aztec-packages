@@ -17,6 +17,11 @@ contract InitiateWithdrawTest is GovernanceBase {
     _;
   }
 
+  function test_WhenToIsAddressZero() external {
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__CannotWithdrawToAddressZero.selector));
+    governance.initiateWithdraw(address(0), 1);
+  }
+
   function test_GivenNoCheckpoints(uint256 _amount) external whenCallerHaveInsufficientDeposits {
     // it revert
     uint256 amount = bound(_amount, 1, type(uint224).max);
@@ -62,6 +67,10 @@ contract InitiateWithdrawTest is GovernanceBase {
     // it creates a pending withdrawal with time of unlock
     // it emits {WithdrawalInitiated} event
 
+    for (uint256 i = 0; i < WITHDRAWAL_COUNT; i++) {
+      vm.assume(_recipient[i] != address(0));
+    }
+
     uint256 deposit = bound(_activationThreshold, 1, type(uint224).max);
     uint256 sum = deposit;
     uint256 withdrawalId = 0;
@@ -91,10 +100,13 @@ contract InitiateWithdrawTest is GovernanceBase {
 
       Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
       assertEq(withdrawal.amount, amount, "invalid amount");
-      assertEq(withdrawal.unlocksAt, Timestamp.wrap(block.timestamp) + config.withdrawalDelay(), "Invalid timestamp");
+      Configuration memory memConfig = config;
+      assertEq(
+        withdrawal.unlocksAt, Timestamp.wrap(block.timestamp) + upw.getWithdrawalDelay(memConfig), "Invalid timestamp"
+      );
       assertEq(withdrawal.recipient, recipient, "invalid recipient");
       assertFalse(withdrawal.claimed, "already claimed");
-      assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), sum);
+      assertEq(governance.totalPowerNow(), sum);
 
       withdrawalId++;
 

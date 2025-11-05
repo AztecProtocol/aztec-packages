@@ -1,23 +1,26 @@
-import { createCompatibleClient, sleep } from '@aztec/aztec.js';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 
 import { expect, jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import type { AlertConfig } from '../quality_of_service/alert_checker.js';
+import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 import {
   applyBootNodeFailure,
   applyNetworkShaping,
   applyValidatorKill,
   awaitL2BlockNumber,
-  enableValidatorDynamicBootNode,
-  isK8sConfig,
+  getGitProjectRoot,
+  installTransferBot,
   restartBot,
-  runAlertCheck,
   setupEnvironment,
   startPortForward,
+  startPortForwardForEthereum,
+  startPortForwardForRPC,
+  uninstallTransferBot,
 } from './utils.js';
 
 const qosAlerts: AlertConfig[] = [
@@ -39,53 +42,93 @@ const qosAlerts: AlertConfig[] = [
 ];
 
 const config = setupEnvironment(process.env);
-if (!isK8sConfig(config)) {
-  throw new Error('This test must be run in a k8s environment');
-}
-const { NAMESPACE, CONTAINER_PXE_PORT, CONTAINER_ETHEREUM_PORT, SPARTAN_DIR, INSTANCE_NAME } = config;
+const { NAMESPACE } = config;
 const debugLogger = createLogger('e2e:spartan-test:gating-passive');
 
 describe('a test that passively observes the network in the presence of network chaos', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 
   let ETHEREUM_HOST: string;
-  let PXE_URL: string;
+  let alertChecker: AlertChecker;
+  let spartanDir: string;
   const forwardProcesses: ChildProcess[] = [];
 
+  beforeAll(async () => {
+    // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
+    let promPort = 0;
+    let promProc: ChildProcess | undefined;
+    {
+      const { process: p, port } = await startPortForward({
+        resource: `svc/metrics-prometheus-server`,
+        namespace: 'metrics',
+        containerPort: 80,
+      });
+      promProc = p;
+      promPort = port;
+      if (promPort === 0 && p) {
+        p.kill();
+      }
+    }
+
+    if (promPort === 0) {
+      // Fall back to Prometheus in the same namespace (service name: prometheus-server on port 80)
+      const { process: p, port } = await startPortForward({
+        resource: `svc/prometheus-server`,
+        namespace: NAMESPACE,
+        containerPort: 80,
+      });
+      promProc = p;
+      promPort = port;
+    }
+
+    if (promProc && promPort !== 0) {
+      forwardProcesses.push(promProc);
+      const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
+      const grafanaCredentials = '';
+      alertChecker = new AlertChecker(debugLogger, { grafanaEndpoint, grafanaCredentials });
+    } else {
+      debugLogger.warn('Prometheus not reachable; skipping QoS alert checks for this run.');
+    }
+
+    spartanDir = `${getGitProjectRoot()}/spartan`;
+
+    // Ensure the transfer bot is enabled for this test only
+    await installTransferBot({
+      namespace: NAMESPACE,
+      spartanDir,
+      logger: debugLogger,
+      replicas: 1,
+      txIntervalSeconds: 10,
+      followChain: 'PENDING',
+    });
+  });
+
   afterAll(async () => {
-    await runAlertCheck(config, qosAlerts, debugLogger);
+    if (alertChecker) {
+      await alertChecker.runAlertCheck(qosAlerts);
+    }
+    // Teardown transfer bot installed for this test
+    await uninstallTransferBot(NAMESPACE, debugLogger);
     forwardProcesses.forEach(p => p.kill());
   });
 
   it('survives network chaos', async () => {
-    const { process: pxeProcess, port: pxePort } = await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
-      namespace: NAMESPACE,
-      containerPort: CONTAINER_PXE_PORT,
-    });
-    forwardProcesses.push(pxeProcess);
-    PXE_URL = `http://127.0.0.1:${pxePort}`;
+    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(NAMESPACE);
+    forwardProcesses.push(aztecRpcProcess);
+    const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
-    const { process: ethProcess, port: ethPort } = await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
-      namespace: NAMESPACE,
-      containerPort: CONTAINER_ETHEREUM_PORT,
-    });
+    const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(NAMESPACE);
     forwardProcesses.push(ethProcess);
     ETHEREUM_HOST = `http://127.0.0.1:${ethPort}`;
 
-    const client = await createCompatibleClient(PXE_URL, debugLogger);
-    const ethCheatCodes = new EthCheatCodesWithState([ETHEREUM_HOST]);
+    const node = createAztecNodeClient(nodeUrl);
+    const ethCheatCodes = new EthCheatCodesWithState([ETHEREUM_HOST], new DateProvider());
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
-      await client.getNodeInfo().then(n => n.l1ContractAddresses),
+      await node.getNodeInfo().then(n => n.l1ContractAddresses),
     );
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();
 
-    // make it so the validator will use its peers to bootstrap
-    await enableValidatorDynamicBootNode(INSTANCE_NAME, NAMESPACE, SPARTAN_DIR, debugLogger);
-
-    // restart the bot to ensure that it's not affected by the previous test
     await restartBot(NAMESPACE, debugLogger);
 
     // wait for the chain to build at least 1 epoch's worth of blocks
@@ -98,14 +141,14 @@ describe('a test that passively observes the network in the presence of network 
     deploymentOutput = await applyNetworkShaping({
       valuesFile: 'network-requirements.yaml',
       namespace: NAMESPACE,
-      spartanDir: SPARTAN_DIR,
+      spartanDir,
       logger: debugLogger,
     });
     debugLogger.info(deploymentOutput);
     deploymentOutput = await applyBootNodeFailure({
       durationSeconds: 60 * 60 * 24,
       namespace: NAMESPACE,
-      spartanDir: SPARTAN_DIR,
+      spartanDir,
       logger: debugLogger,
     });
     debugLogger.info(deploymentOutput);
@@ -116,13 +159,14 @@ describe('a test that passively observes the network in the presence of network 
       debugLogger.info(`Round ${i + 1}/${rounds}`);
       deploymentOutput = await applyValidatorKill({
         namespace: NAMESPACE,
-        spartanDir: SPARTAN_DIR,
+        spartanDir,
         logger: debugLogger,
       });
       debugLogger.info(deploymentOutput);
-      debugLogger.info(`Waiting for 1 epoch to pass`);
+      debugLogger.info(`Waiting for chain to progress by at least 1 block`);
       const controlTips = await rollupCheatCodes.getTips();
-      await sleep(Number(epochDuration * slotDuration) * 1000);
+      const timeoutSeconds = Math.ceil(Number(epochDuration * slotDuration) * 2);
+      await awaitL2BlockNumber(rollupCheatCodes, controlTips.pending + 1n, timeoutSeconds, debugLogger);
       const newTips = await rollupCheatCodes.getTips();
 
       // calculate the percentage of slots missed for debugging purposes

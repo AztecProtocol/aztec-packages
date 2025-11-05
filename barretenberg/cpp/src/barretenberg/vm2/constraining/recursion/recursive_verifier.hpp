@@ -18,14 +18,12 @@ class AvmRecursiveVerifier {
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
     using PCS = typename Flavor::PCS;
-    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Curve>;
     using StdlibProof = stdlib::Proof<Builder>;
 
   public:
-    explicit AvmRecursiveVerifier(Builder& builder,
-                                  const std::shared_ptr<NativeVerificationKey>& native_verification_key);
     explicit AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey);
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
@@ -35,8 +33,9 @@ class AvmRecursiveVerifier {
                                                       // stdlib_proof_with_pi_flag to stdlib_proof
         const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
 
-    std::shared_ptr<VerificationKey> key;
     Builder& builder;
+    std::shared_ptr<VerificationKey> key;
+    FF vk_hash;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   private:

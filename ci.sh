@@ -23,6 +23,8 @@ function print_usage {
   echo_cmd "docs"           "Spin up an EC2 instance and run docs-only CI."
   echo_cmd "barretenberg"   "Spin up an EC2 instance and run barretenberg-only CI."
   echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
+  echo_cmd "network-deploy" "Spin up an EC2 instance to deploy a network."
+  echo_cmd "network-tests"  "Spin up an EC2 instance to run tests on a network."
   echo_cmd "nightly"        "Spin up an EC2 instance and run bootstrap nightly."
   echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"      "Spin up an EC2 instance, clone the repo, and drop into a shell."
@@ -78,26 +80,45 @@ function prep_vars {
   export DENOISE_WIDTH=32
 }
 
+# We want to run CI with caching - even though it internally uses caching - to quickly catch no-ops that have the same
+# git contents.
+function run_ci_with_cache {
+  local ci_mode=$1
+  local job_id=$2
+  local bootstrap_cmd=$3
+
+  # Check if CI already succeeded for this content
+  local content_hash=$(git rev-parse HEAD^{tree} | cut -c1-16)
+  local cache_key="ci-success-${ci_mode}-${content_hash}.txt"
+
+  if cache_download "$cache_key" 2>/dev/null; then
+    if [ -f "$cache_key" ] && grep -q "success" "$cache_key"; then
+      echo "Found cached success for ${ci_mode} mode with hash $content_hash"
+      exit 0
+    fi
+  fi
+
+  # Spin up ec2 instance and run the CI flow
+  export JOB_ID="$job_id"
+  bootstrap_ec2 "$bootstrap_cmd"
+
+  # Upload success marker
+  echo "success" > success.txt
+  cache_upload "$cache_key" success.txt
+}
+
 case "$cmd" in
   "fast")
-    # Spin up ec2 instance and run the fast flow.
-    export JOB_ID="x1-fast"
-    exec bootstrap_ec2 "./bootstrap.sh ci-fast"
+    run_ci_with_cache "fast" "x1-fast" "./bootstrap.sh ci-fast"
     ;;
   "full")
-    # Spin up ec2 instance and run the full flow.
-    export JOB_ID="x1-full"
-    exec bootstrap_ec2 "./bootstrap.sh ci-full"
+    run_ci_with_cache "full" "x1-full" "./bootstrap.sh ci-full"
     ;;
   "docs")
-    # Spin up ec2 instance and run docs-only CI.
-    export JOB_ID="x1-docs"
-    exec bootstrap_ec2 "./bootstrap.sh ci-docs"
+    run_ci_with_cache "docs" "x1-docs" "./bootstrap.sh ci-docs"
     ;;
   "barretenberg")
-    # Spin up ec2 instance and run barretenberg-only CI.
-    export JOB_ID="x1-barretenberg"
-    exec bootstrap_ec2 "./bootstrap.sh ci-barretenberg"
+    run_ci_with_cache "barretenberg" "x1-barretenberg" "./bootstrap.sh ci-barretenberg"
     ;;
   "grind")
     # Spin up ec2 instance and run the merge-queue flow.
@@ -121,6 +142,15 @@ case "$cmd" in
       'run x3-full amd64 ci-full' \
       'run x4-full amd64 ci-full' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
+    ;;
+  "network-deploy")
+    export JOB_ID="x-${NAMESPACE}-network-deploy"
+    bootstrap_ec2 "./bootstrap.sh ci-network-deploy"
+    ;;
+  "network-tests")
+    export JOB_ID="x-${NAMESPACE}-network-tests"
+    export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
+    bootstrap_ec2 "./bootstrap.sh ci-network-tests"
     ;;
   "nightly")
     prep_vars
@@ -291,7 +321,7 @@ case "$cmd" in
     print_usage
     ;;
   "gh-bench")
-    cache_download bench-$COMMIT_HASH.tar.gz
+    cache_download bench-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
   "uncached-tests")
     if [ -z "$CI_REDIS_AVAILABLE" ]; then

@@ -8,6 +8,9 @@
 #include <cstddef>
 #include <iomanip>
 #include <iostream>
+#ifndef NO_MULTITHREADING
+#include <mutex>
+#endif
 
 #if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
 #include <sys/resource.h>
@@ -33,13 +36,13 @@ std::size_t peak_rss_bytes()
         return static_cast<std::size_t>(pmc.PeakWorkingSetSize);
 
 #elif defined(__APPLE__) || defined(__FreeBSD__)
-    struct rusage usage {};
+    struct rusage usage{};
     if (getrusage(RUSAGE_SELF, &usage) == 0)
         // ru_maxrss is already bytes on macOS / BSD
         return static_cast<std::size_t>(usage.ru_maxrss);
 
 #elif defined(__linux__)
-    struct rusage usage {};
+    struct rusage usage{};
     if (getrusage(RUSAGE_SELF, &usage) == 0)
         // ru_maxrss is kilobytes on Linux → convert to bytes
         return static_cast<std::size_t>(usage.ru_maxrss) * 1024ULL;
@@ -62,6 +65,17 @@ std::size_t peak_rss_bytes()
 //---------------------------------------------------------------------
 extern "C" void logstr(char const* msg)
 {
+#ifndef NO_MULTITHREADING
+    static std::mutex log_mutex;
+    std::lock_guard<std::mutex> lock(log_mutex);
+#endif
+
+    static bool disable_mem_usage = std::getenv("BB_DISABLE_MEM_USAGE") != nullptr;
+    if (disable_mem_usage) {
+        std::cerr << msg << '\n';
+        return;
+    }
+
     const std::size_t bytes = peak_rss_bytes();
     std::cerr << msg;
 

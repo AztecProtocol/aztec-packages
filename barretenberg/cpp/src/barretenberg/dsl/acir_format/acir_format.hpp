@@ -6,21 +6,17 @@
 
 #pragma once
 #include "aes128_constraint.hpp"
-
-#ifndef DISABLE_AZTEC_VM
 #include "avm2_recursion_constraint.hpp"
-#endif
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "bigint_constraint.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
 #include "ec_operations.hpp"
-#include "ecdsa_secp256k1.hpp"
-#include "ecdsa_secp256r1.hpp"
+#include "ecdsa_constraints.hpp"
 #include "honk_recursion_constraint.hpp"
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
@@ -56,10 +52,8 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> ec_add_constraints;
     std::vector<size_t> honk_recursion_constraints;
     std::vector<size_t> avm_recursion_constraints;
-    std::vector<size_t> ivc_recursion_constraints;
-    std::vector<size_t> bigint_from_le_bytes_constraints;
-    std::vector<size_t> bigint_to_le_bytes_constraints;
-    std::vector<size_t> bigint_operations;
+    std::vector<size_t> hn_recursion_constraints;
+    std::vector<size_t> chonk_recursion_constraints;
     std::vector<size_t> assert_equalities;
     std::vector<size_t> poly_triple_constraints;
     std::vector<size_t> quad_constraints;
@@ -88,8 +82,8 @@ struct AcirFormat {
     std::vector<RangeConstraint> range_constraints;
     std::vector<AES128Constraint> aes128_constraints;
     std::vector<Sha256Compression> sha256_compression;
-    std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
-    std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
+    std::vector<EcdsaConstraint> ecdsa_k1_constraints;
+    std::vector<EcdsaConstraint> ecdsa_r1_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<Blake3Constraint> blake3_constraints;
     std::vector<Keccakf1600> keccak_permutations;
@@ -98,10 +92,8 @@ struct AcirFormat {
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
     std::vector<RecursionConstraint> avm_recursion_constraints;
-    std::vector<RecursionConstraint> ivc_recursion_constraints;
-    std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
-    std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
-    std::vector<BigIntOperation> bigint_operations;
+    std::vector<RecursionConstraint> hn_recursion_constraints;
+    std::vector<RecursionConstraint> chonk_recursion_constraints;
     std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
@@ -119,14 +111,14 @@ struct AcirFormat {
 
     // Number of gates added to the circuit per original opcode.
     // Has length equal to num_acir_opcodes.
-    std::vector<size_t> gates_per_opcode = {};
+    std::vector<size_t> gates_per_opcode;
 
     // Set of constrained witnesses
-    std::set<uint32_t> constrained_witness = {};
+    std::set<uint32_t> constrained_witness;
     // map witness with their minimal bit-range
-    std::map<uint32_t, uint32_t> minimal_range = {};
+    std::map<uint32_t, uint32_t> minimal_range;
     // map witness with their minimal bit-range implied by array operations
-    std::map<uint32_t, uint32_t> index_range = {};
+    std::map<uint32_t, uint32_t> index_range;
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
@@ -148,14 +140,12 @@ struct AcirFormat {
                    ec_add_constraints,
                    honk_recursion_constraints,
                    avm_recursion_constraints,
-                   ivc_recursion_constraints,
+                   hn_recursion_constraints,
+                   chonk_recursion_constraints,
                    poly_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
                    block_constraints,
-                   bigint_from_le_bytes_constraints,
-                   bigint_to_le_bytes_constraints,
-                   bigint_operations,
                    assert_equalities);
 
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
@@ -202,19 +192,12 @@ struct AcirProgramStack {
 struct ProgramMetadata {
 
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
-    std::shared_ptr<ClientIVC> ivc = nullptr;
+    std::shared_ptr<bb::IVCBase> ivc = nullptr;
 
-    bool recursive = false; // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
-                            // The proof produced when this flag is true should be friendly for recursive verification
-                            // inside of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen
-                            // for hashing in its transcript, while we still want a prove that uses Keccak for its
-                            // transcript in order to be able to verify SNARKs on Ethereum.
-    uint32_t honk_recursion = 0; // honk_recursion means we will honk to recursively verify this
-                                 // circuit. This distinction is needed to not add the default
-                                 // aggregation object when we're not using the honk RV.
-                                 // 0 means we are not proving with honk
-                                 // 1 means we are using the UltraHonk flavor
-                                 // 2 means we are using the UltraRollupHonk flavor
+    bool has_ipa_claim =
+        false; // Boolean describing whether the circuit should propagate an IPA claim or not. If `True`, the circuit
+               // should propagate an IPA claim. In our codebase, circuits that propagate IPA claims are the ones whose
+               // proof is constructed/verified using Rollup flavors.
     bool collect_gates_per_opcode = false;
     size_t size_hint = 0;
 };
@@ -242,7 +225,7 @@ template <typename Builder> class GateCounter {
         if (!collect_gates_per_opcode) {
             return 0;
         }
-        size_t new_gate_count = builder->get_estimated_num_finalized_gates();
+        size_t new_gate_count = builder->get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false);
         size_t diff = new_gate_count - prev_gate_count;
         prev_gate_count = new_gate_count;
         return diff;

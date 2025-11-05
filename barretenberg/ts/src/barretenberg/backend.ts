@@ -1,14 +1,6 @@
 import { BackendOptions, Barretenberg, CircuitOptions } from './index.js';
-import { RawBuffer } from '../types/raw_buffer.js';
-import {
-  deflattenFields,
-  flattenFieldsAsArray,
-  ProofData,
-  reconstructHonkProof,
-  splitHonkProof,
-  PAIRING_POINTS_SIZE,
-} from '../proof/index.js';
-import { fromClientIVCProof, toClientIVCProof } from '../cbind/generated/api_types.js';
+import { ProofData, uint8ArrayToHex, hexToUint8Array } from '../proof/index.js';
+import { fromChonkProof, toChonkProof } from '../cbind/generated/api_types.js';
 import { ungzip } from 'pako';
 import { Buffer } from 'buffer';
 import { Decoder, Encoder } from 'msgpackr';
@@ -45,6 +37,70 @@ export type UltraHonkBackendOptions = {
   starknetZK?: boolean;
 };
 
+function getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
+  ipaAccumulation: boolean;
+  oracleHashType: string;
+  disableZk: boolean;
+  optimizedSolidityVerifier: boolean;
+} {
+  return {
+    ipaAccumulation: false,
+    oracleHashType:
+      options?.keccak || options?.keccakZK
+        ? 'keccak'
+        : options?.starknet || options?.starknetZK
+          ? 'starknet'
+          : 'poseidon2',
+    // TODO no current way to target non-zk poseidon2 hash
+    disableZk: options?.keccak || options?.starknet ? true : false,
+    optimizedSolidityVerifier: false,
+  };
+}
+
+export class UltraHonkVerifierBackend {
+  protected api!: Barretenberg;
+
+  constructor(
+    protected backendOptions: BackendOptions = { threads: 1 },
+    protected circuitOptions: CircuitOptions = { recursive: false },
+  ) {}
+  /** @ignore */
+  private async instantiate(): Promise<void> {
+    if (!this.api) {
+      const api = await Barretenberg.new(this.backendOptions);
+      const honkRecursion = true;
+      await api.initSRSForCircuitSize(0);
+
+      this.api = api;
+    }
+  }
+
+  async verifyProof(
+    proofData: ProofData & { verificationKey: Uint8Array },
+    options?: UltraHonkBackendOptions,
+  ): Promise<boolean> {
+    await this.instantiate();
+
+    const proofFrs: Uint8Array[] = [];
+    for (let i = 0; i < proofData.proof.length; i += 32) {
+      proofFrs.push(proofData.proof.slice(i, i + 32));
+    }
+    const { verified } = await this.api.circuitVerify({
+      verificationKey: proofData.verificationKey,
+      publicInputs: proofData.publicInputs.map(hexToUint8Array),
+      proof: proofFrs,
+      settings: getProofSettingsFromOptions(options),
+    });
+    return verified;
+  }
+  destroy(): Promise<void> {
+    if (!this.api) {
+      return Promise.resolve();
+    }
+    return this.api.destroy();
+  }
+}
+
 export class UltraHonkBackend {
   // These type assertions are used so that we don't
   // have to initialize `api` in the constructor.
@@ -68,8 +124,6 @@ export class UltraHonkBackend {
       const honkRecursion = true;
       await api.acirInitSRS(this.acirUncompressedBytecode, this.circuitOptions.recursive, honkRecursion);
 
-      // We don't init a proving key here in the Honk API
-      // await api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode);
       this.api = api;
     }
   }
@@ -77,92 +131,72 @@ export class UltraHonkBackend {
   async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
     await this.instantiate();
 
-    // Write VK to get the number of public inputs
-    const writeVKUltraHonk = options?.keccak
-      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
-      : options?.keccakZK
-        ? this.api.acirWriteVkUltraKeccakZkHonk.bind(this.api)
-        : options?.starknet
-          ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-          : options?.starknetZK
-            ? this.api.acirWriteVkUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirWriteVkUltraHonk.bind(this.api);
+    const witness = ungzip(compressedWitness);
+    const { proof, publicInputs } = await this.api.circuitProve({
+      witness,
+      circuit: {
+        name: 'circuit',
+        bytecode: Buffer.from(this.acirUncompressedBytecode),
+        verificationKey: Buffer.from([]), // Empty VK - lower performance.
+      },
+      settings: getProofSettingsFromOptions(options),
+    });
+    console.log(`Generated proof for circuit with ${publicInputs.length} public inputs and ${proof.length} fields.`);
 
-    const vkBuf = await writeVKUltraHonk(this.acirUncompressedBytecode);
-    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vkBuf));
+    // We return ProofData as a flat buffer and an array of strings to match the current ProofData class.
+    const flatProof = new Uint8Array(proof.length * 32);
+    proof.forEach((fr, i) => {
+      flatProof.set(fr, i * 32);
+    });
 
-    const proveUltraHonk = options?.keccak
-      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
-      : options?.keccakZK
-        ? this.api.acirProveUltraKeccakZkHonk.bind(this.api)
-        : options?.starknet
-          ? this.api.acirProveUltraStarknetHonk.bind(this.api)
-          : options?.starknetZK
-            ? this.api.acirProveUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirProveUltraZKHonk.bind(this.api);
-
-    const proofWithPublicInputs = await proveUltraHonk(
-      this.acirUncompressedBytecode,
-      ungzip(compressedWitness),
-      new RawBuffer(vkBuf),
-    );
-
-    // Item at index 1 in VK is the number of public inputs
-    const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
-    const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - PAIRING_POINTS_SIZE;
-
-    const { proof, publicInputs: publicInputsBytes } = splitHonkProof(proofWithPublicInputs, numPublicInputs);
-    const publicInputs = deflattenFields(publicInputsBytes);
-
-    return { proof, publicInputs };
+    return { proof: flatProof, publicInputs: publicInputs.map(uint8ArrayToHex) };
   }
 
   async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions): Promise<boolean> {
     await this.instantiate();
 
-    const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
-
-    const writeVkUltraHonk = options?.keccak
-      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
-      : options?.keccakZK
-        ? this.api.acirWriteVkUltraKeccakZkHonk.bind(this.api)
-        : options?.starknet
-          ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-          : options?.starknetZK
-            ? this.api.acirWriteVkUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirWriteVkUltraHonk.bind(this.api);
-    const verifyUltraHonk = options?.keccak
-      ? this.api.acirVerifyUltraKeccakHonk.bind(this.api)
-      : options?.keccakZK
-        ? this.api.acirVerifyUltraKeccakZkHonk.bind(this.api)
-        : options?.starknet
-          ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
-          : options?.starknetZK
-            ? this.api.acirVerifyUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirVerifyUltraZKHonk.bind(this.api);
-
-    const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode);
-    return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
+    const proofFrs: Uint8Array[] = [];
+    for (let i = 0; i < proofData.proof.length; i += 32) {
+      proofFrs.push(proofData.proof.slice(i, i + 32));
+    }
+    // TODO reconsider API - computing the VK at this point is not optimal
+    const vkResult = await this.api.circuitComputeVk({
+      circuit: {
+        name: 'circuit',
+        bytecode: this.acirUncompressedBytecode,
+      },
+      settings: getProofSettingsFromOptions(options),
+    });
+    const { verified } = await this.api.circuitVerify({
+      verificationKey: vkResult.bytes,
+      publicInputs: proofData.publicInputs.map(hexToUint8Array),
+      proof: proofFrs,
+      settings: getProofSettingsFromOptions(options),
+    });
+    return verified;
   }
 
   async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
     await this.instantiate();
-    return options?.keccak
-      ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode)
-      : options?.keccakZK
-        ? await this.api.acirWriteVkUltraKeccakZkHonk(this.acirUncompressedBytecode)
-        : options?.starknet
-          ? await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode)
-          : options?.starknetZK
-            ? await this.api.acirWriteVkUltraStarknetZkHonk(this.acirUncompressedBytecode)
-            : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+
+    const vkResult = await this.api.circuitComputeVk({
+      circuit: {
+        name: 'circuit',
+        bytecode: Buffer.from(this.acirUncompressedBytecode),
+      },
+      settings: getProofSettingsFromOptions(options),
+    });
+    return vkResult.bytes;
   }
 
   /** @description Returns a solidity verifier */
-  async getSolidityVerifier(vk?: Uint8Array): Promise<string> {
+  async getSolidityVerifier(vk: Uint8Array, options?: UltraHonkBackendOptions): Promise<string> {
     await this.instantiate();
-    const vkBuf = vk ?? (await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode));
-    return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(vkBuf));
+    const result = await this.api.circuitWriteSolidityVerifier({
+      verificationKey: vk,
+      settings: getProofSettingsFromOptions(options),
+    });
+    return result.solidityCode;
   }
 
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
@@ -183,17 +217,29 @@ export class UltraHonkBackend {
 
     // TODO: perhaps we should put this in the init function. Need to benchmark
     // TODO how long it takes.
-    const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
-    const vk = await this.api.acirVkAsFieldsUltraHonk(vkBuf);
+    const vkResult = await this.api.circuitComputeVk({
+      circuit: {
+        name: 'circuit',
+        bytecode: Buffer.from(this.acirUncompressedBytecode),
+      },
+      settings: getProofSettingsFromOptions({}),
+    });
+
+    // Convert VK bytes to field elements (32-byte chunks)
+    const vkAsFields: string[] = [];
+    for (let i = 0; i < vkResult.bytes.length; i += 32) {
+      const chunk = vkResult.bytes.slice(i, i + 32);
+      vkAsFields.push(uint8ArrayToHex(chunk));
+    }
 
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
       proofAsFields: [],
-      vkAsFields: vk.map(vk => vk.toString()),
+      vkAsFields,
       // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
       // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
       // they expect
-      vkHash: '',
+      vkHash: uint8ArrayToHex(vkResult.hash),
     };
   }
 
@@ -222,12 +268,12 @@ export class AztecClientBackend {
   private async instantiate(): Promise<void> {
     if (!this.api) {
       const api = await Barretenberg.new(this.options);
-      await api.initSRSClientIVC();
+      await api.initSRSChonk();
       this.api = api;
     }
   }
 
-  async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<[Uint8Array, Uint8Array]> {
+  async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<[Uint8Array[], Uint8Array, Uint8Array]> {
     if (vksBuf.length !== 0 && this.acirBuf.length !== witnessBuf.length) {
       throw new AztecClientBackendError('Witness and bytecodes must have the same stack depth!');
     }
@@ -238,7 +284,7 @@ export class AztecClientBackend {
     await this.instantiate();
 
     // Queue IVC start with the number of circuits
-    this.api.clientIvcStart({ numCircuits: this.acirBuf.length });
+    this.api.chonkStart({ numCircuits: this.acirBuf.length });
 
     // Queue load and accumulate for each circuit
     for (let i = 0; i < this.acirBuf.length; i++) {
@@ -248,42 +294,51 @@ export class AztecClientBackend {
       const functionName = `unknown_wasm_${i}`;
 
       // Load the circuit
-      this.api.clientIvcLoad({
+      this.api.chonkLoad({
         circuit: {
           name: functionName,
           bytecode: Buffer.from(bytecode),
           verificationKey: Buffer.from(vk),
-        }
+        },
       });
 
       // Accumulate with witness
-      this.api.clientIvcAccumulate({
+      this.api.chonkAccumulate({
         witness: Buffer.from(witness),
       });
     }
 
     // Generate the proof (and wait for all previous steps to finish)
-    const proveResult = await this.api.clientIvcProve({});
-
+    const proveResult = await this.api.chonkProve({});
     // The API currently expects a msgpack-encoded API.
-    const proof = new Encoder({useRecords: false}).encode(fromClientIVCProof(proveResult.proof));
+    const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
     // Generate the VK
-    const vkResult = await this.api.clientIvcComputeIvcVk({ circuit: {
-      name: 'tail',
-      bytecode: this.acirBuf[this.acirBuf.length - 1],
-    } });
+    const vkResult = await this.api.chonkComputeIvcVk({
+      circuit: {
+        name: 'hiding',
+        bytecode: this.acirBuf[this.acirBuf.length - 1],
+      },
+    });
+
+    const proofFields = [
+      proveResult.proof.megaProof,
+      proveResult.proof.goblinProof.mergeProof,
+      proveResult.proof.goblinProof.eccvmProof.preIpaProof,
+      proveResult.proof.goblinProof.eccvmProof.ipaProof,
+      proveResult.proof.goblinProof.translatorProof,
+    ].flat();
 
     // Note: Verification may not work correctly until we properly serialize the proof
     if (!(await this.verify(proof, vkResult.bytes))) {
-      throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
+      throw new AztecClientBackendError('Failed to verify the private (Chonk) transaction proof!');
     }
-    return [proof, vkResult.bytes];
+    return [proofFields, proof, vkResult.bytes];
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
     await this.instantiate();
-    const result = await this.api.clientIvcVerify({
-      proof: toClientIVCProof(new Decoder({useRecords: false}).decode(proof)),
+    const result = await this.api.chonkVerify({
+      proof: toChonkProof(new Decoder({ useRecords: false }).decode(proof)),
       vk: Buffer.from(vk),
     });
     return result.valid;
@@ -293,12 +348,12 @@ export class AztecClientBackend {
     await this.instantiate();
     const circuitSizes: number[] = [];
     for (const buf of this.acirBuf) {
-      const gates = await this.api.clientIvcGates({
+      const gates = await this.api.chonkStats({
         circuit: {
           name: 'circuit',
           bytecode: buf,
         },
-        includeGatesPerOpcode: false
+        includeGatesPerOpcode: false,
       });
       circuitSizes.push(gates.circuitSize);
     }

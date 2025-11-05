@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -11,11 +11,15 @@ import { NativeWorldStateService } from '@aztec/world-state';
 
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { PublicContractsDB } from '../../public_db_sources.js';
+import { CppPublicTxSimulator } from '../../public_tx_simulator/cpp_public_tx_simulator.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
 import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
-describe('Public Processor app tests: TokenContract', () => {
+describe.each([
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public Processor app tests: TokenContract ($simulatorName)', ({ useCppSimulator }) => {
   const logger = createLogger('public-processor-apps-tests-token');
 
   const NUM_TRANSFERS = 10;
@@ -23,6 +27,7 @@ describe('Public Processor app tests: TokenContract', () => {
   const sender = AztecAddress.fromNumber(111);
 
   let token: ContractInstanceWithAddress;
+  let worldStateService: NativeWorldStateService;
   let contractsDB: PublicContractsDB;
   let tester: PublicTxSimulationTester;
   let processor: PublicProcessor;
@@ -33,10 +38,17 @@ describe('Public Processor app tests: TokenContract', () => {
     globals.gasFees = new GasFees(2, 3);
 
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    worldStateService = await NativeWorldStateService.tmp();
+    const merkleTrees = await worldStateService.fork();
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
-    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, /*doMerkleOperations=*/ true);
+    const simulator = useCppSimulator
+      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
+          doMerkleOperations: true,
+        })
+      : new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
+          doMerkleOperations: true,
+        });
 
     processor = new PublicProcessor(
       globals,
@@ -54,8 +66,12 @@ describe('Public Processor app tests: TokenContract', () => {
     await tester.setFeePayerBalance(sender);
   });
 
+  afterEach(async () => {
+    await worldStateService.close();
+  });
+
   it('token constructor, mint, many transfers', async () => {
-    const startTime = performance.now();
+    const timer = new Timer();
 
     const mintAmount = 1_000_000n;
     const transferAmount = 10n;
@@ -112,7 +128,6 @@ describe('Public Processor app tests: TokenContract', () => {
     expect(processedTxs.length).toBe(NUM_TRANSFERS + 2); // constructor, mint, transfers
     expect(failedTxs.length).toBe(0);
 
-    const endTime = performance.now();
-    logger.verbose(`TokenContract public processor test took ${endTime - startTime}ms\n`);
+    logger.verbose(`TokenContract public processor test took ${timer.ms()}ms\n`);
   });
 });

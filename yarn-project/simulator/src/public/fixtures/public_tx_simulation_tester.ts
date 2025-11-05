@@ -16,8 +16,10 @@ import {
   getFunctionSelector,
 } from '../avm/fixtures/utils.js';
 import { PublicContractsDB } from '../public_db_sources.js';
+import { MeasuredCppPublicTxSimulator } from '../public_tx_simulator/cpp_public_tx_simulator.js';
 import { MeasuredPublicTxSimulator } from '../public_tx_simulator/measured_public_tx_simulator.js';
 import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
+import type { MeasuredPublicTxSimulatorInterface } from '../public_tx_simulator/public_tx_simulator_interface.js';
 import { TestExecutorMetrics } from '../test_executor_metrics.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';
 import { type TestPrivateInsertions, createTxForPublicCalls } from './utils.js';
@@ -40,7 +42,7 @@ export type TestEnqueuedCall = {
  */
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   protected txCount: number = 0;
-  private simulator: MeasuredPublicTxSimulator;
+  private simulator: MeasuredPublicTxSimulatorInterface;
   private metricsPrefix?: string;
 
   constructor(
@@ -48,28 +50,30 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     contractDataSource: SimpleContractDataSource,
     globals: GlobalVariables = defaultGlobals(),
     private metrics: TestExecutorMetrics = new TestExecutorMetrics(),
+    useCppSimulator: boolean = false,
   ) {
     super(contractDataSource, merkleTree);
 
     const contractsDB = new PublicContractsDB(contractDataSource);
-    this.simulator = new MeasuredPublicTxSimulator(
-      merkleTree,
-      contractsDB,
-      globals,
-      /*doMerkleOperations=*/ true,
-      /*skipFeeEnforcement=*/ false,
-      /*clientInitiatedSimulation=*/ true,
-      this.metrics,
-    );
+    const config = {
+      doMerkleOperations: true,
+      skipFeeEnforcement: false,
+      clientInitiatedSimulation: true,
+    };
+    this.simulator = useCppSimulator
+      ? new MeasuredCppPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config)
+      : new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
   }
 
   public static async create(
+    worldStateService: NativeWorldStateService, // make sure to close this later
     globals: GlobalVariables = defaultGlobals(),
     metrics: TestExecutorMetrics = new TestExecutorMetrics(),
+    useCppSimulator = false,
   ): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTree = await (await NativeWorldStateService.tmp()).fork();
-    return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics);
+    const merkleTree = await worldStateService.fork();
+    return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics, useCppSimulator);
   }
 
   public setMetricsPrefix(prefix: string) {
@@ -141,6 +145,12 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     return avmResult;
   }
 
+  /**
+   * Just simulate the transaction and return the result.
+   *
+   * This wrapper around simulation allows for easy labeling of a TX
+   * which is especially useful when reporting benchmarks or metrics.
+   */
   public async simulateTxWithLabel(
     txLabel: string,
     sender: AztecAddress,
@@ -151,6 +161,33 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     privateInsertions?: TestPrivateInsertions,
   ): Promise<PublicTxResult> {
     return await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions, txLabel);
+  }
+
+  /**
+   * Execute a transaction and return the result.
+   *
+   * This function can be (it is) overridden by a subclass (AvmProvingTester)
+   * to do more work (like prove and verify) while still reusing existing
+   * test fixtures (like amm_test). That is why it is not named "simulate*".
+   */
+  public async executeTxWithLabel(
+    txLabel: string,
+    sender: AztecAddress,
+    setupCalls?: TestEnqueuedCall[],
+    appCalls?: TestEnqueuedCall[],
+    teardownCall?: TestEnqueuedCall,
+    feePayer?: AztecAddress,
+    privateInsertions?: TestPrivateInsertions,
+  ): Promise<PublicTxResult> {
+    return await this.simulateTxWithLabel(
+      txLabel,
+      sender,
+      setupCalls,
+      appCalls,
+      teardownCall,
+      feePayer,
+      privateInsertions,
+    );
   }
 
   public prettyPrintMetrics() {

@@ -1,9 +1,8 @@
 #!/usr/bin/env -S node --no-warnings
-import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import {
   NULL_KEY,
@@ -19,19 +18,18 @@ import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
   initTelemetryClient,
 } from '@aztec/telemetry-client';
+import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAddress } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createAccountLogs } from '../cli/util.js';
@@ -76,11 +74,12 @@ export async function deployContractsToL1(
       ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
       ...aztecNodeConfig,
       vkTreeRoot: getVKTreeRoot(),
-      protocolContractTreeRoot,
+      protocolContractsHash,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
       aztecTargetCommitteeSize: 0, // no committee in sandbox
+      slasherFlavor: 'none', // no slashing in sandbox
       realVerifier: false,
     },
   );
@@ -98,9 +97,7 @@ export type SandboxConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
   l1Mnemonic: string;
   /** Salt used to deploy L1 contracts.*/
-  l1Salt: string;
-  /** Whether to expose PXE service on sandbox start.*/
-  noPXE: boolean;
+  deployAztecContractsSalt: string;
   /** Whether to deploy test accounts on sandbox start.*/
   testAccounts: boolean;
 };
@@ -121,19 +118,21 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
-  if (!aztecNodeConfig.publisherPrivateKey.getValue() || aztecNodeConfig.publisherPrivateKey.getValue() === NULL_KEY) {
+  if (
+    aztecNodeConfig.publisherPrivateKeys == undefined ||
+    !aztecNodeConfig.publisherPrivateKeys.length ||
+    aztecNodeConfig.publisherPrivateKeys[0].getValue() === NULL_KEY
+  ) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
+    aztecNodeConfig.publisherPrivateKeys = [new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const)];
   }
   if (!aztecNodeConfig.validatorPrivateKeys?.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
   }
-  if (!aztecNodeConfig.slasherPrivateKey?.getValue() || aztecNodeConfig.slasherPrivateKey?.getValue() === NULL_KEY) {
-    const account = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic, { accountIndex: 1 });
-    const privKey = account.getHdKey().privateKey;
-    aztecNodeConfig.slasherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
-  }
+  aztecNodeConfig.coinbase = EthAddress.fromString(
+    privateKeyToAddress(aztecNodeConfig.validatorPrivateKeys.getValue()[0]),
+  );
 
   const initialAccounts = await (async () => {
     if (config.testAccounts === true || config.testAccounts === undefined) {
@@ -141,7 +140,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
         userLog(`Not setting up test accounts as we are connecting to a network`);
       } else {
         userLog(`Setting up test accounts`);
-        return await getInitialTestAccounts();
+        return await getInitialTestAccountsData();
       }
     }
     return [];
@@ -160,7 +159,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
       genesisArchiveRoot,
-      salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
+      salt: config.deployAztecContractsSalt ? parseInt(config.deployAztecContractsSalt) : undefined,
       feeJuicePortalInitialBalance: fundingNeeded,
     });
 
@@ -175,7 +174,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     });
 
     watcher = new AnvilTestWatcher(
-      new EthCheatCodes([l1RpcUrl]),
+      new EthCheatCodes([l1RpcUrl], dateProvider),
       l1ContractAddresses.rollupAddress,
       publicClient,
       dateProvider,
@@ -192,22 +191,26 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     { telemetry, blobSinkClient, dateProvider },
     { prefilledPublicData },
   );
-  const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
-  const pxe = await createAztecPXE(node, pxeServiceConfig);
 
   if (initialAccounts.length) {
+    const PXEConfig = { proverEnabled: aztecNodeConfig.realProofs };
+    const wallet = await TestWallet.create(node, PXEConfig);
+
     userLog('Setting up funded test accounts...');
-    const accounts = await deployFundedSchnorrAccounts(pxe, initialAccounts);
-    const accountsWithSecrets = accounts.map((account, i) => ({
-      account,
+    const accountManagers = await deployFundedSchnorrAccounts(wallet, node, initialAccounts);
+    const accountsWithSecrets = accountManagers.map((manager, i) => ({
+      account: manager,
       secretKey: initialAccounts[i].secret,
     }));
-    const accLogs = await createAccountLogs(accountsWithSecrets, pxe);
+    const accLogs = await createAccountLogs(accountsWithSecrets, wallet);
     userLog(accLogs.join(''));
 
-    const deployer = await getSchnorrWallet(pxe, initialAccounts[0].address, initialAccounts[0].signingKey);
-    await setupBananaFPC(initialAccounts, deployer, userLog);
-    await setupSponsoredFPC(pxe, userLog);
+    await setupBananaFPC(initialAccounts, wallet, userLog);
+
+    userLog(`SponsoredFPC: ${await getSponsoredFPCAddress()}`);
+
+    // We no longer need the wallet once we've setup the accounts so we stop the underlying PXE job queue
+    await wallet.stop();
   }
 
   const stop = async () => {
@@ -215,7 +218,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     await watcher?.stop();
   };
 
-  return { node, pxe, stop };
+  return { node, stop };
 }
 
 /**
@@ -236,14 +239,4 @@ export async function createAztecNode(
   };
   const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps, options);
   return node;
-}
-
-/**
- * Create and start a new Aztec PXE HTTP Server
- * @param config - Optional PXE settings.
- */
-export async function createAztecPXE(node: AztecNode, config: Partial<PXEServiceConfig> = {}) {
-  const pxeServiceConfig: PXEServiceConfig = { ...getPXEServiceConfig(), ...config };
-  const pxe = await createPXEService(node, pxeServiceConfig);
-  return pxe;
 }

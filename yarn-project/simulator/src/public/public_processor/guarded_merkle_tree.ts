@@ -11,11 +11,12 @@ import type {
   TreeInfo,
 } from '@aztec/stdlib/trees';
 import type { BlockHeader, StateReference } from '@aztec/stdlib/tx';
+import type { WorldStateRevision, WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
 
 /**
  * Wraps an instance of `MerkleTreeWriteOperations` to allow the sequencer to gate access.
  * If transactions execution goes past the deadline, the simulator will continue to execute and update the world state
- * The public processor however requires that the world state remain constant after the deadline in order to finalise the block
+ * The public processor however requires that the world state remain constant after the deadline in order to finalize the block
  * The public processor provides this implementation of MerkleTreeWriteOperations to the simulator
  */
 
@@ -87,6 +88,9 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   }
   getInitialHeader(): BlockHeader {
     return this.target.getInitialHeader();
+  }
+  public getRevision(): WorldStateRevision | WorldStateRevisionWithHandle {
+    return this.target.getRevision();
   }
   getSiblingPath<ID extends MerkleTreeId>(treeId: ID, index: bigint): Promise<SiblingPath<TreeHeights[ID]>> {
     return this.guardAndPush(() => this.target.getSiblingPath(treeId, index));

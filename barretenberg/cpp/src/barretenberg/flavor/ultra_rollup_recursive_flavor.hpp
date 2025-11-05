@@ -17,7 +17,6 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
@@ -70,9 +69,9 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->log_circuit_size = FF::from_witness(builder, native_key->log_circuit_size);
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->log_circuit_size = FF::from_witness(builder, typename FF::native(native_key->log_circuit_size));
+            this->num_public_inputs = FF::from_witness(builder, typename FF::native(native_key->num_public_inputs));
+            this->pub_inputs_offset = FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset));
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -86,18 +85,18 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          * @param builder
          * @param elements
          */
-        VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
+        VerificationKey(std::span<FF> elements)
         {
-            using namespace bb::stdlib::field_conversion;
+            using Codec = stdlib::StdlibCodec<FF>;
 
             size_t num_frs_read = 0;
 
-            this->log_circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->log_circuit_size = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->num_public_inputs = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->pub_inputs_offset = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
 
             for (Commitment& commitment : this->get_all()) {
-                commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
+                commitment = Codec::template deserialize_from_frs<Commitment>(elements, num_frs_read);
             }
         }
 
@@ -116,7 +115,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             for (const auto& idx : witness_indices) {
                 vk_fields.emplace_back(FF::from_witness_index(&builder, idx));
             }
-            return VerificationKey(builder, vk_fields);
+            return VerificationKey(vk_fields);
         }
     };
 

@@ -1,4 +1,5 @@
 #include "sumcheck_round.hpp"
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/relations/utils.hpp"
 
@@ -14,7 +15,8 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using Utils = RelationUtils<Flavor>;
+    using SubrelationSeparators = typename Utils::SubrelationSeparators;
 
     // Define three linear univariates of different sizes
     Univariate<FF, 3> univariate_1({ 1, 2, 3 });
@@ -23,13 +25,14 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     const size_t MAX_LENGTH = 5;
 
     // Construct a tuple of tuples of the form { {univariate_1}, {univariate_2, univariate_3} }
-    auto tuple_of_tuples = std::make_tuple(std::make_tuple(univariate_1), std::make_tuple(univariate_2, univariate_3));
+    auto tuple_of_tuples = flat_tuple::make_tuple(flat_tuple::make_tuple(univariate_1),
+                                                  flat_tuple::make_tuple(univariate_2, univariate_3));
 
     // Use scale_univariate_accumulators to scale by challenge powers
-    SubrelationSeparators challenge = {};
+    SubrelationSeparators challenge{};
     challenge[0] = 5;
     challenge[1] = 25;
-    RelationUtils<Flavor>::scale_univariates(tuple_of_tuples, challenge);
+    Utils::scale_univariates(tuple_of_tuples, challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
     GateSeparatorPolynomial<FF> gate_separators({ 1 });
@@ -65,14 +68,14 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
     using Flavor = UltraFlavor;
     using Utils = RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparators = typename Utils::SubrelationSeparators;
 
     // Define two arrays of arbitrary elements
     std::array<FF, 2> evaluations_1 = { 4, 3 };
     std::array<FF, 2> evaluations_2 = { 6, 2 };
 
     // Construct a tuple
-    auto tuple_of_arrays = std::make_tuple(evaluations_1, evaluations_2);
+    auto tuple_of_arrays = flat_tuple::make_tuple(evaluations_1, evaluations_2);
 
     // Use scale_and_batch_elements to scale by challenge powers
     SubrelationSeparators challenge{ 5, 25, 125 };
@@ -117,10 +120,10 @@ TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
     Univariate<FF, 3> expected_sum_3 = univariate_3 + univariate_6;
 
     // Construct two tuples of tuples of univariates
-    auto tuple_of_tuples_1 =
-        std::make_tuple(std::make_tuple(univariate_1), std::make_tuple(univariate_2, univariate_3));
-    auto tuple_of_tuples_2 =
-        std::make_tuple(std::make_tuple(univariate_4), std::make_tuple(univariate_5, univariate_6));
+    auto tuple_of_tuples_1 = flat_tuple::make_tuple(flat_tuple::make_tuple(univariate_1),
+                                                    flat_tuple::make_tuple(univariate_2, univariate_3));
+    auto tuple_of_tuples_2 = flat_tuple::make_tuple(flat_tuple::make_tuple(univariate_4),
+                                                    flat_tuple::make_tuple(univariate_5, univariate_6));
 
     RelationUtils<Flavor>::add_nested_tuples(tuple_of_tuples_1, tuple_of_tuples_2);
 

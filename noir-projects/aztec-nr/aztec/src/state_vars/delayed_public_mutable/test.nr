@@ -16,8 +16,8 @@ global storage_slot: Field = 47;
 global TEST_INITIAL_DELAY: u64 = 60 * 60 * 24;
 
 unconstrained fn in_public(
-    context: &mut PublicContext,
-) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, &mut PublicContext> {
+    context: PublicContext,
+) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, PublicContext> {
     DelayedPublicMutable::new(context, storage_slot)
 }
 
@@ -35,7 +35,7 @@ unconstrained fn in_utility(
 
 #[test]
 unconstrained fn get_current_value_in_public_initial() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -45,7 +45,7 @@ unconstrained fn get_current_value_in_public_initial() {
 
 #[test]
 unconstrained fn get_scheduled_value_in_public() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -62,7 +62,7 @@ unconstrained fn get_scheduled_value_in_public() {
 
 #[test]
 unconstrained fn get_current_value_in_public_before_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (original_value, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -90,7 +90,7 @@ unconstrained fn get_current_value_in_public_before_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_value_in_public_at_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -109,7 +109,7 @@ unconstrained fn get_current_value_in_public_at_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_value_in_public_after_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -129,7 +129,7 @@ unconstrained fn get_current_value_in_public_after_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_delay_in_public_initial() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
     env.public_context(|context| {
         let state_var = in_public(context);
         assert_eq(state_var.get_current_delay(), TEST_INITIAL_DELAY);
@@ -138,7 +138,7 @@ unconstrained fn get_current_delay_in_public_initial() {
 
 #[test]
 unconstrained fn get_scheduled_delay_in_public() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -154,7 +154,7 @@ unconstrained fn get_scheduled_delay_in_public() {
 
 #[test]
 unconstrained fn get_current_delay_in_public_before_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (original_delay, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -182,7 +182,7 @@ unconstrained fn get_current_delay_in_public_before_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_delay_in_public_at_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -202,7 +202,7 @@ unconstrained fn get_current_delay_in_public_at_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_delay_in_public_after_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -222,7 +222,7 @@ unconstrained fn get_current_delay_in_public_after_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_value_in_private_initial() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -230,14 +230,14 @@ unconstrained fn get_current_value_in_private_initial() {
         assert_eq(state_var.get_current_value(), zeroed());
         assert_eq(
             context.include_by_timestamp,
-            context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
         );
     });
 }
 
 #[test]
 unconstrained fn get_current_value_in_private_before_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -257,7 +257,7 @@ unconstrained fn get_current_value_in_private_before_change() {
 
 #[test]
 unconstrained fn get_current_value_in_private_immediately_before_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -271,12 +271,15 @@ unconstrained fn get_current_value_in_private_immediately_before_change() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(context.get_block_header().global_variables.timestamp, timestamp_of_change - 1);
+        assert_eq(
+            context.get_anchor_block_header().global_variables.timestamp,
+            timestamp_of_change - 1,
+        );
 
         let state_var = in_private(context);
 
-        // Note that this transaction would never be valid since the max timestamp is the same as the historical timestamp
-        // used to built the proof, i.e. in the past.
+        // Note that this transaction would never be valid since the include_by_timestamp is the same as the anchor
+        // block's timestamp, i.e. in the past.
         assert_eq(state_var.get_current_value(), MockStruct::empty());
         assert_eq(context.include_by_timestamp, timestamp_of_change - 1);
     });
@@ -284,7 +287,7 @@ unconstrained fn get_current_value_in_private_immediately_before_change() {
 
 #[test]
 unconstrained fn get_current_value_in_private_at_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -298,21 +301,24 @@ unconstrained fn get_current_value_in_private_at_change() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(context.get_block_header().global_variables.timestamp, timestamp_of_change);
+        assert_eq(
+            context.get_anchor_block_header().global_variables.timestamp,
+            timestamp_of_change,
+        );
 
         let state_var = in_private(context);
 
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
             context.include_by_timestamp,
-            context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
         );
     });
 }
 
 #[test]
 unconstrained fn get_current_value_in_private_after_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -326,21 +332,24 @@ unconstrained fn get_current_value_in_private_after_change() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(context.get_block_header().global_variables.timestamp, timestamp_of_change + 10);
+        assert_eq(
+            context.get_anchor_block_header().global_variables.timestamp,
+            timestamp_of_change + 10,
+        );
 
         let state_var = in_private(context);
 
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
             context.include_by_timestamp,
-            context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
         );
     });
 }
 
 #[test]
 unconstrained fn get_current_value_in_private_with_non_initial_delay() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let ((_, value_timestamp_of_change), (_, delay_timestamp_of_change)) = env
         .public_context(|context| {
@@ -357,7 +366,10 @@ unconstrained fn get_current_value_in_private_with_non_initial_delay() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(context.get_block_header().global_variables.timestamp, historical_timestamp);
+        assert_eq(
+            context.get_anchor_block_header().global_variables.timestamp,
+            historical_timestamp,
+        );
 
         let state_var = in_private(context);
 
@@ -368,7 +380,7 @@ unconstrained fn get_current_value_in_private_with_non_initial_delay() {
 
 #[test]
 unconstrained fn get_current_value_in_utility_initial() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
     env.utility_context(|context| {
         let state_var = in_utility(context);
         assert_eq(state_var.get_current_value(), zeroed());
@@ -377,7 +389,7 @@ unconstrained fn get_current_value_in_utility_initial() {
 
 #[test]
 unconstrained fn get_current_value_in_utility_before_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -390,9 +402,6 @@ unconstrained fn get_current_value_in_utility_before_scheduled_change() {
     env.mine_block_at(timestamp_of_change - 1);
 
     env.utility_context(|context| {
-        // Make sure we're at a block with the expected timestamp
-        assert_eq(context.timestamp(), timestamp_of_change - 1);
-
         let state_var = in_utility(context);
         assert_eq(state_var.get_current_value(), zeroed());
     });
@@ -400,7 +409,7 @@ unconstrained fn get_current_value_in_utility_before_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_value_in_utility_at_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -410,12 +419,9 @@ unconstrained fn get_current_value_in_utility_at_scheduled_change() {
         state_var.get_scheduled_value()
     });
 
-    env.set_next_block_timestamp(timestamp_of_change);
+    env.mine_block_at(timestamp_of_change);
 
     env.utility_context(|context| {
-        // Make sure we're at a block with the expected timestamp
-        assert_eq(context.timestamp(), timestamp_of_change);
-
         let state_var = in_utility(context);
         assert_eq(state_var.get_current_value(), new_value);
     });
@@ -423,7 +429,7 @@ unconstrained fn get_current_value_in_utility_at_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_value_in_utility_after_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -433,12 +439,9 @@ unconstrained fn get_current_value_in_utility_after_scheduled_change() {
         state_var.get_scheduled_value()
     });
 
-    env.set_next_block_timestamp(timestamp_of_change + 10);
+    env.mine_block_at(timestamp_of_change + 10);
 
     env.utility_context(|context| {
-        // Make sure we're at a block with the expected timestamp
-        assert_eq(context.timestamp(), timestamp_of_change + 10);
-
         let state_var = in_utility(context);
         assert_eq(state_var.get_current_value(), new_value);
     });

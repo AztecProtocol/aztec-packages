@@ -1,4 +1,3 @@
-// docs:start:config.nr
 use dep::aztec::protocol_types::{address::AztecAddress, traits::Packable};
 use std::meta::derive;
 
@@ -10,4 +9,3 @@ pub struct Config {
     pub operator: AztecAddress, // Crowdfunding campaign operator
     pub deadline: u64, // End of the crowdfunding campaign after which no more donations are accepted
 }
-// docs:end:config.nr

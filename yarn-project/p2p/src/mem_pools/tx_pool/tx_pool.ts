@@ -44,6 +44,13 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
   hasTxs(txHashes: TxHash[]): Promise<boolean[]>;
 
   /**
+   * Checks if a transaction exists in the pool
+   * @param txHash - The hash of the transaction to check for
+   * @returns True if the transaction exists, false otherwise
+   */
+  hasTx(txHash: TxHash): Promise<boolean>;
+
+  /**
    * Checks if an archived transaction exists in the pool and returns it.
    * @param txHash - The hash of the transaction, used as an ID.
    * @returns The transaction, if found, 'undefined' otherwise.
@@ -68,7 +75,7 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
    * Deletes transactions from the pool. Tx hashes that are not present are ignored.
    * @param txHashes - An array of tx hashes to be removed from the tx pool.
    */
-  deleteTxs(txHashes: TxHash[]): Promise<void>;
+  deleteTxs(txHashes: TxHash[], opts?: { permanently?: boolean }): Promise<void>;
 
   /**
    * Gets all transactions currently in the tx pool.
@@ -98,11 +105,11 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
   getMinedTxHashes(): Promise<[tx: TxHash, blockNumber: number][]>;
 
   /**
-   * Returns whether the given tx hash is flagged as pending or mined.
+   * Returns whether the given tx hash is flagged as pending, mined, or deleted.
    * @param txHash - Hash of the tx to query.
-   * @returns Pending or mined depending on its status, or undefined if not found.
+   * @returns Pending, mined, or deleted depending on its status, or undefined if not found.
    */
-  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
+  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined>;
 
   /**
    * Configure the maximum size of the tx pool
@@ -118,4 +125,11 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
    * @param txHashes - Hashes of the transactions to mark as non-evictible.
    */
   markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
+
+  /**
+   * Permanently deletes deleted mined transactions from blocks up to and including the specified block number.
+   * @param blockNumber - Block number threshold. Deleted mined txs from this block or earlier will be permanently deleted.
+   * @returns The number of transactions permanently deleted.
+   */
+  cleanupDeletedMinedTxs(blockNumber: number): Promise<number>;
 }

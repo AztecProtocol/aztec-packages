@@ -4,7 +4,10 @@
   "type": "module",
   "exports": {
     "./actions": "./dest/actions/index.js",
-    "./config": "./dest/config/index.js"
+    "./config": "./dest/config/index.js",
+    "./factories": "./dest/factories/index.js",
+    "./metrics": "./dest/metrics/index.js",
+    "./stores": "./dest/stores/index.js"
   },
   "inherits": [
     "../package.common.json"
@@ -75,6 +78,7 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/blob-lib": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",

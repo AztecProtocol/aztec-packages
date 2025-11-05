@@ -6,7 +6,7 @@ import {
   SignatureDomainSeparator,
   getHashedSignaturePayloadEthSignedMessage,
 } from '@aztec/stdlib/p2p';
-import { makeHeader } from '@aztec/stdlib/testing';
+import { makeL2BlockHeader } from '@aztec/stdlib/testing';
 
 import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
@@ -32,11 +32,14 @@ export const mockAttestation = (
   archive: Fr = Fr.random(),
 ): BlockAttestation => {
   // Use arbitrary numbers for all other than slot
-  const header = makeHeader(1, 2, slot);
-  const payload = new ConsensusPayload(header.toPropose(), archive, header.state);
+  const header = makeL2BlockHeader(1, 2, slot);
+  const payload = new ConsensusPayload(header.toCheckpointHeader(), archive, header.state);
 
-  const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
-  const signature = signer.sign(hash);
+  const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const attestationSignature = signer.sign(attestationHash);
 
-  return new BlockAttestation(header.globalVariables.blockNumber, payload, signature);
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+  const proposerSignature = signer.sign(proposalHash);
+
+  return new BlockAttestation(payload, attestationSignature, proposerSignature);
 };

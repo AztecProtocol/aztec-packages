@@ -1,38 +1,31 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  type EthAddress,
-  FeeJuicePaymentMethodWithClaim,
-  Fr,
-  type PXE,
-  TxStatus,
-  type WaitOpts,
-  createAztecNodeClient,
-  createPXEClient,
-  fileURLToPath,
-  retryUntil,
-} from '@aztec/aztec.js';
-import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { EthAddress } from '@aztec/aztec.js/addresses';
+import type { WaitOpts } from '@aztec/aztec.js/contracts';
+import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { PXESchema } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { TestWallet, registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
 
-import getPort from 'get-port';
 import { exec } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'url';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
-import { getLogger, setupPXEService } from '../fixtures/utils.js';
+import { getLogger, setupPXEAndGetWallet } from '../fixtures/utils.js';
 
 const {
   AZTEC_NODE_URL,
-  PXE_URL,
   FAUCET_URL,
   AZTEC_CLI = `node ${resolve(fileURLToPath(import.meta.url), '../../../../aztec/dest/bin/index.js')}`,
   ETHEREUM_HOSTS,
@@ -54,8 +47,8 @@ export const getLocalhost = () =>
     .catch(() => 'localhost');
 
 describe('End-to-end tests for devnet', () => {
-  let pxe: PXE;
-  let pxeUrl: string; // needed for the CLI
+  let node: AztecNode;
+  let wallet: TestWallet;
   let logger: Logger;
   let l1ChainId: number;
   let feeJuiceL1: EthAddress;
@@ -76,61 +69,33 @@ describe('End-to-end tests for devnet', () => {
       throw new Error('FAUCET_URL must be set');
     }
 
+    if (!AZTEC_NODE_URL) {
+      throw new Error('AZTEC_NODE_URL must be set');
+    }
+
     logger.info(`Using AZTEC_CLI: ${AZTEC_CLI}`);
 
-    if (AZTEC_NODE_URL) {
-      logger.info(`Using AZTEC_NODE_URL: ${AZTEC_NODE_URL}`);
-      const node = createAztecNodeClient(AZTEC_NODE_URL);
-      const bbConfig = await getBBConfig(logger);
-      const acvmConfig = await getACVMConfig(logger);
-      const svc = await setupPXEService(node, {
-        ...bbConfig,
-        ...acvmConfig,
-        proverEnabled: ['1', 'true'].includes(PXE_PROVER_ENABLED!),
-      });
-      pxe = svc.pxe;
+    logger.info(`Using AZTEC_NODE_URL: ${AZTEC_NODE_URL}`);
+    node = createAztecNodeClient(AZTEC_NODE_URL);
+    const bbConfig = await getBBConfig(logger);
+    const acvmConfig = await getACVMConfig(logger);
+    const svc = await setupPXEAndGetWallet(node, {
+      ...bbConfig,
+      ...acvmConfig,
+      proverEnabled: ['1', 'true'].includes(PXE_PROVER_ENABLED!),
+    });
+    wallet = svc.wallet;
 
-      const nodeInfo = await pxe.getNodeInfo();
-      const pxeInfo = await pxe.getPXEInfo();
-
-      expect(nodeInfo.protocolContractAddresses.classRegistry).toEqual(pxeInfo.protocolContractAddresses.classRegistry);
-      expect(nodeInfo.protocolContractAddresses.instanceRegistry).toEqual(
-        pxeInfo.protocolContractAddresses.instanceRegistry,
-      );
-      expect(nodeInfo.protocolContractAddresses.feeJuice).toEqual(pxeInfo.protocolContractAddresses.feeJuice);
-      expect(nodeInfo.protocolContractAddresses.multiCallEntrypoint).toEqual(
-        pxeInfo.protocolContractAddresses.multiCallEntrypoint,
-      );
-
-      const port = await getPort();
-      const localhost = await getLocalhost();
-      pxeUrl = `http://${localhost}:${port}`;
-      // start a server for the CLI to talk to
-      const jsonRpcServer = createNamespacedSafeJsonRpcServer({ pxe: [pxe, PXESchema] });
-      const server = await startHttpRpcServer(jsonRpcServer, { port });
-
-      teardown = async () => {
-        const { promise, resolve, reject } = promiseWithResolvers<void>();
-        server.close(e => (e ? reject(e) : resolve()));
-        await promise;
-
-        await svc.teardown();
-        await bbConfig?.cleanup();
-        await acvmConfig?.cleanup();
-      };
-    } else if (PXE_URL) {
-      logger.info(`Using PXE_URL: ${PXE_URL}`);
-      pxe = createPXEClient(PXE_URL);
-      pxeUrl = PXE_URL;
-      teardown = () => {};
-    } else {
-      throw new Error('AZTEC_NODE_URL or PXE_URL must be set');
-    }
+    teardown = async () => {
+      await svc.teardown();
+      await bbConfig?.cleanup();
+      await acvmConfig?.cleanup();
+    };
 
     ({
       l1ChainId,
       l1ContractAddresses: { feeJuiceAddress: feeJuiceL1 },
-    } = await pxe.getNodeInfo());
+    } = await node.getNodeInfo());
     logger.info(`PXE instance started`);
   });
 
@@ -141,7 +106,8 @@ describe('End-to-end tests for devnet', () => {
   it('deploys an account while paying with FeeJuice', async () => {
     const privateKey = Fr.random();
     const l1Account = await cli<{ privateKey: string; address: string }>('create-l1-account');
-    const l2Account = await getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
+    const l2AccountManager = await wallet.createSchnorrAccount(privateKey, Fr.ZERO, deriveSigningKey(privateKey));
+    const l2AccountAddress = l2AccountManager.address;
 
     await expect(getL1Balance(l1Account.address)).resolves.toEqual(0n);
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toEqual(0n);
@@ -157,24 +123,26 @@ describe('End-to-end tests for devnet', () => {
       claimAmount: string;
       claimSecret: { value: string };
       messageLeafIndex: string;
-    }>('bridge-fee-juice', [amount, l2Account.getAddress()], {
+    }>('bridge-fee-juice', [amount, l2AccountManager.address], {
       'l1-rpc-urls': ETHEREUM_HOSTS!,
       'l1-chain-id': l1ChainId.toString(),
       'l1-private-key': l1Account.privateKey,
-      'rpc-url': pxeUrl,
       mint: true,
     });
 
     if (['1', 'true', 'yes'].includes(USE_EMPTY_BLOCKS)) {
-      await advanceChainWithEmptyBlocks(pxe);
+      await advanceChainWithEmptyBlocks(wallet);
     } else {
       await waitForL1MessageToArrive();
     }
 
-    const txReceipt = await l2Account
-      .deploy({
+    const l2AccountDeployMethod = await l2AccountManager.getDeployMethod();
+
+    const txReceipt = await l2AccountDeployMethod
+      .send({
+        from: AztecAddress.ZERO,
         fee: {
-          paymentMethod: new FeeJuicePaymentMethodWithClaim(await l2Account.getWallet(), {
+          paymentMethod: new FeeJuicePaymentMethodWithClaim(l2AccountAddress, {
             claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
             claimSecret: Fr.fromHexString(claimSecret.value),
             messageLeafIndex: BigInt(messageLeafIndex),
@@ -189,7 +157,7 @@ describe('End-to-end tests for devnet', () => {
     //   payment: `method=fee_juice,claimSecret=${claimSecret.value},claimAmount=${claimAmount}`,
     //   wait: false,
     // });
-    // expect(address).toEqual(l2Account.getAddress().toString());
+    // expect(address).toEqual(l2Account.address.toString());
     // const txReceipt = await retryUntil(
     //   async () => {
     //     const receipt = await pxe.getTxReceipt(txHash);
@@ -204,11 +172,8 @@ describe('End-to-end tests for devnet', () => {
     // );
 
     expect(txReceipt.status).toBe(TxStatus.SUCCESS);
-    const feeJuice = await FeeJuiceContract.at(
-      (await pxe.getNodeInfo()).protocolContractAddresses.feeJuice,
-      await l2Account.getWallet(),
-    );
-    const balance = await feeJuice.methods.balance_of_public(l2Account.getAddress()).simulate();
+    const feeJuice = await FeeJuiceContract.at((await node.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
+    const balance = await feeJuice.methods.balance_of_public(l2AccountAddress).simulate({ from: l2AccountAddress });
     expect(balance).toEqual(amount - txReceipt.transactionFee!);
   });
 
@@ -282,23 +247,20 @@ describe('End-to-end tests for devnet', () => {
   }
 
   async function waitForL1MessageToArrive() {
-    const targetBlockNumber = (await pxe.getBlockNumber()) + MIN_BLOCKS_FOR_BRIDGING;
-    await retryUntil(async () => (await pxe.getBlockNumber()) >= targetBlockNumber, 'wait_for_l1_message', 0, 10);
+    const targetBlockNumber = (await node.getBlockNumber()) + MIN_BLOCKS_FOR_BRIDGING;
+    await retryUntil(async () => (await node.getBlockNumber()) >= targetBlockNumber, 'wait_for_l1_message', 0, 10);
   }
 
-  async function advanceChainWithEmptyBlocks(pxe: PXE) {
-    const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
-    if (!deployWallet) {
-      throw new Error('A funded wallet is required to create dummy txs.');
-    }
+  async function advanceChainWithEmptyBlocks(wallet: TestWallet) {
+    const [fundedAccountAddress] = await registerInitialSandboxAccountsInWallet(wallet);
 
-    const test = await TestContract.deploy(deployWallet)
-      .send({ universalDeploy: true, skipClassPublication: true })
+    const test = await TestContract.deploy(wallet)
+      .send({ from: fundedAccountAddress, universalDeploy: true, skipClassPublication: true })
       .deployed();
 
     // start at 1 because deploying the contract has already mined a block
     for (let i = 1; i < MIN_BLOCKS_FOR_BRIDGING; i++) {
-      await test.methods.get_this_address().send().wait(waitOpts);
+      await test.methods.get_this_address().send({ from: fundedAccountAddress }).wait(waitOpts);
     }
   }
 });

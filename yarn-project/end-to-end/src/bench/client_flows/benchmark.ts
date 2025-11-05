@@ -1,10 +1,10 @@
-import type {
+import {
   ContractFunctionInteraction,
   DeployMethod,
-  DeployOptions,
-  Logger,
-  ProfileMethodOptions,
-} from '@aztec/aztec.js';
+  type DeployOptions,
+  type ProfileInteractionOptions,
+} from '@aztec/aztec.js/contracts';
+import type { Logger } from '@aztec/aztec.js/log';
 import { createLogger } from '@aztec/foundation/log';
 import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
 import type { ProvingStats, ProvingTimings, SimulationStats, SimulationTimings } from '@aztec/stdlib/tx';
@@ -301,7 +301,7 @@ export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): Git
 export async function captureProfile(
   label: string,
   interaction: ContractFunctionInteraction | DeployMethod,
-  opts?: Omit<ProfileMethodOptions & DeployOptions, 'profileMode'>,
+  opts: Omit<ProfileInteractionOptions & DeployOptions, 'profileMode'>,
   expectedSteps?: number,
 ) {
   // Make sure the proxy logger starts from a clean slate
@@ -315,12 +315,12 @@ export async function captureProfile(
 
   const ivcFolder = process.env.CAPTURE_IVC_FOLDER;
   if (ivcFolder) {
-    logger.info(`Capturing client ivc execution profile for ${label}`);
+    logger.info(`Capturing chonk execution profile for ${label}`);
 
     const resultsDirectory = join(ivcFolder, label);
     logger.info(`Writing private execution steps to ${resultsDirectory}`);
     await mkdir(resultsDirectory, { recursive: true });
-    // Write the client IVC files read by the prover.
+    // Write the chonk files read by the prover.
     const ivcInputsPath = join(resultsDirectory, 'ivc-inputs.msgpack');
     await writeFile(ivcInputsPath, serializePrivateExecutionSteps(result.executionSteps));
     await writeFile(join(resultsDirectory, 'logs.json'), JSON.stringify(logs, null, 2));

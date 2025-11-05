@@ -3,12 +3,14 @@
 pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {BlockLog, CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
+import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {FeeHeader, L1FeeData, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
@@ -17,7 +19,7 @@ import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
@@ -47,7 +49,7 @@ struct BlockHeaderValidationFlags {
 
 struct GenesisState {
   bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
+  bytes32 protocolContractsHash;
   bytes32 genesisArchiveRoot;
 }
 
@@ -55,27 +57,34 @@ struct RollupConfigInput {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
+  uint256 lagInEpochs;
   uint256 aztecProofSubmissionEpochs;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 slashingLifetimeInRounds;
   uint256 slashingExecutionDelayInRounds;
+  uint256[3] slashAmounts;
+  uint256 slashingOffsetInRounds;
+  SlasherFlavor slasherFlavor;
   address slashingVetoer;
+  uint256 slashingDisableDuration;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
+  uint32 version;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
   RewardBoostConfig rewardBoostConfig;
   StakingQueueConfig stakingQueueConfig;
+  uint256 localEjectionThreshold;
+  Timestamp earliestRewardsClaimableTimestamp;
 }
 
 struct RollupConfig {
   bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
+  bytes32 protocolContractsHash;
   uint32 version;
   IERC20 feeAsset;
   IFeeJuicePortal feeAssetPortal;
-  IRewardDistributor rewardDistributor;
   IVerifier epochProofVerifier;
   IInbox inbox;
   IOutbox outbox;
@@ -84,7 +93,8 @@ struct RollupConfig {
 struct RollupStore {
   CompressedChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => bytes32 archive) archives;
-  mapping(uint256 blockNumber => CompressedTempBlockLog temp) tempBlockLogs;
+  // The following represents a circular buffer. Key is `blockNumber % size`.
+  mapping(uint256 circularIndex => CompressedTempBlockLog temp) tempBlockLogs;
   RollupConfig config;
 }
 
@@ -96,8 +106,6 @@ interface IRollupCore {
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event RewardsClaimableUpdated(bool isRewardsClaimable);
-
-  function preheatHeaders() external;
 
   function setRewardsClaimable(bool _isRewardsClaimable) external;
   function claimSequencerRewards(address _recipient) external returns (uint256);
@@ -112,6 +120,7 @@ interface IRollupCore {
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
     address[] memory _signers,
+    Signature memory _attestationsAndSignersSignature,
     bytes calldata _blobInput
   ) external;
 
@@ -142,6 +151,7 @@ interface IRollup is IRollupCore, IHaveVersion {
     ProposedHeader calldata _header,
     CommitteeAttestations memory _attestations,
     address[] memory _signers,
+    Signature memory _attestationsAndSignersSignature,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
@@ -217,4 +227,6 @@ interface IRollup is IRollupCore, IHaveVersion {
 
   function getRewardConfig() external view returns (RewardConfig memory);
   function getBlockReward() external view returns (uint256);
+  function getEarliestRewardsClaimableTimestamp() external view returns (Timestamp);
+  function isRewardsClaimable() external view returns (bool);
 }

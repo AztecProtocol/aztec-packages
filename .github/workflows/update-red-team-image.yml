@@ -1,0 +1,177 @@
+name: Update Red Team Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_image:
+        description: 'Full docker image tag (e.g., aztecprotocol/aztec:2.1.0-rc.1)'
+        required: true
+        type: string
+
+env:
+  TEAM_MAP: |
+    alexghr: 1
+    koenmtb1: 2
+    spalladino: 3
+    PhilWindle: 4
+    just-mitch: 5
+    Thunkar: 6
+    spypsy: 7
+    mralj: 8
+
+concurrency:
+  group: update-red-team-${{ github.actor }}
+  cancel-in-progress: false
+
+jobs:
+  update-red-team-image:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    steps:
+      - name: Checkout v2 branch for helm chart
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: red-team-go
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Determine team number
+        id: team
+        run: |
+          USERNAME="${{ github.actor }}"
+
+          # Parse team map (YAML format)
+          TEAM_NUM=$(echo "$TEAM_MAP" | grep "^${USERNAME}:" | cut -d':' -f2 | tr -d ' ' || echo "")
+
+          if [[ -z "$TEAM_NUM" ]]; then
+            echo "Error: User '$USERNAME' is not mapped to any team"
+            echo "Please contact administrator to add your username to the team map"
+            exit 1
+          fi
+
+          if [[ ! "$TEAM_NUM" =~ ^[0-9]+$ ]]; then
+            echo "Error: Invalid team number '$TEAM_NUM' for user '$USERNAME'"
+            exit 1
+          fi
+
+          echo "team_num=$TEAM_NUM" >> $GITHUB_OUTPUT
+          echo "namespace=red-team-${TEAM_NUM}" >> $GITHUB_OUTPUT
+
+          echo "User: $USERNAME"
+          echo "Team: $TEAM_NUM"
+          echo "Namespace: red-team-${TEAM_NUM}"
+
+      - name: Validate docker image
+        id: image
+        run: |
+          IMAGE="${{ inputs.docker_image }}"
+
+          # Validate image format (should contain : separator)
+          if [[ ! "$IMAGE" =~ : ]]; then
+            echo "Error: Invalid image format. Expected format: repository:tag"
+            exit 1
+          fi
+
+          # Split image into repository and tag
+          IMAGE_REPO=$(echo "$IMAGE" | cut -d: -f1)
+          IMAGE_TAG=$(echo "$IMAGE" | cut -d: -f2-)
+
+          echo "repository=$IMAGE_REPO" >> $GITHUB_OUTPUT
+          echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+          echo "Image repository: $IMAGE_REPO"
+          echo "Image tag: $IMAGE_TAG"
+
+      - name: Store the GCP key in a file
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          set +x
+          umask 077
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
+
+      - name: Setup GCP authentication
+        run: |
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+
+      - name: Setup gcloud and install GKE auth plugin
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'gke-gcloud-auth-plugin'
+
+      - name: Configure kubectl for GKE
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          gcloud container clusters get-credentials aztec-gke-public \
+            --region us-west1-a \
+            --project "$GCP_PROJECT_ID"
+
+          # Verify connectivity
+          kubectl cluster-info
+          echo "Current context: $(kubectl config current-context)"
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.13.0'
+
+      - name: Verify namespace and release exist
+        env:
+          NAMESPACE: ${{ steps.team.outputs.namespace }}
+        run: |
+          # Check if namespace exists
+          if ! kubectl get namespace "$NAMESPACE" &> /dev/null; then
+            echo "Error: Namespace '$NAMESPACE' does not exist"
+            echo "Has this team been deployed yet?"
+            exit 1
+          fi
+
+          # Check if helm release exists
+          if ! helm list -n "$NAMESPACE" 2>/dev/null | grep -q "validator"; then
+            echo "Error: Helm release 'validator' not found in namespace '$NAMESPACE'"
+            echo "Has this team been deployed yet?"
+            exit 1
+          fi
+
+          echo "✓ Namespace and helm release verified"
+
+      - name: Update image with helm upgrade
+        env:
+          NAMESPACE: ${{ steps.team.outputs.namespace }}
+          IMAGE_REPO: ${{ steps.image.outputs.repository }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          echo "Updating team ${{ steps.team.outputs.team_num }} to image: ${IMAGE_REPO}:${IMAGE_TAG}"
+          echo ""
+
+          cd spartan
+
+          helm upgrade validator ./aztec-validator \
+            --namespace "$NAMESPACE" \
+            --reuse-values \
+            --set "global.aztecImage.repository=${IMAGE_REPO}" \
+            --set "global.aztecImage.tag=${IMAGE_TAG}" \
+            --wait \
+            --timeout 10m
+
+          echo ""
+          echo "✓ Helm upgrade completed"
+
+      - name: Post logs on failure
+        if: failure()
+        env:
+          NAMESPACE: ${{ steps.team.outputs.namespace }}
+        run: |
+          echo "Deployment failed. Fetching diagnostic information..."
+          echo ""
+          echo "Pod status:"
+          kubectl get pods -n "$NAMESPACE" || true
+          echo ""
+          echo "Recent events:"
+          kubectl get events -n "$NAMESPACE" --sort-by='.lastTimestamp' | tail -20 || true
+          echo ""
+          echo "Pod logs:"
+          kubectl logs -n "$NAMESPACE" -l app=node --tail=50 || true

@@ -10,13 +10,14 @@ const log = createConsoleLogger('mock-circuits');
 const circuits = [
   'app_creator',
   'app_reader',
+  'mock_hiding',
   'mock_private_kernel_init',
   'mock_private_kernel_inner',
   'mock_private_kernel_reset',
   'mock_private_kernel_tail',
-  'mock_rollup_base_public',
-  'mock_rollup_base_private',
-  'mock_rollup_merge',
+  'mock_rollup_tx_base_public',
+  'mock_rollup_tx_base_private',
+  'mock_rollup_tx_merge',
   'mock_rollup_root',
 ];
 

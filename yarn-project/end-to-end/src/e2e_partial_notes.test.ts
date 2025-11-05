@@ -1,4 +1,6 @@
-import type { AccountWallet, Logger } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -15,8 +17,10 @@ describe('partial notes', () => {
 
   let logger: Logger;
 
-  let adminWallet: AccountWallet;
-  let liquidityProvider: AccountWallet;
+  let wallet: Wallet;
+
+  let adminAddress: AztecAddress;
+  let liquidityProviderAddress: AztecAddress;
 
   let token0: TokenContract;
 
@@ -25,19 +29,20 @@ describe('partial notes', () => {
   beforeAll(async () => {
     ({
       teardown,
-      wallets: [adminWallet, liquidityProvider],
+      wallet,
+      accounts: [adminAddress, liquidityProviderAddress],
       logger,
     } = await setup(2));
 
-    token0 = await deployToken(adminWallet, 0n, logger);
+    token0 = await deployToken(wallet, adminAddress, 0n, logger);
   });
 
   afterAll(() => teardown());
 
   it('mint to private', async () => {
-    await mintTokensToPrivate(token0, adminWallet, liquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
-    expect(await token0.methods.balance_of_private(liquidityProvider.getAddress()).simulate()).toEqual(
-      INITIAL_TOKEN_BALANCE,
-    );
+    await mintTokensToPrivate(token0, adminAddress, liquidityProviderAddress, INITIAL_TOKEN_BALANCE);
+    expect(
+      await token0.methods.balance_of_private(liquidityProviderAddress).simulate({ from: liquidityProviderAddress }),
+    ).toEqual(INITIAL_TOKEN_BALANCE);
   });
 });

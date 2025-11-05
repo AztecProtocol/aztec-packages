@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -48,14 +49,14 @@ class ECCVMFlavor {
     using MSM = bb::eccvm::MSM<CycleGroup>;
     using Transcript = NativeTranscript;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
     static constexpr bool USE_PADDING = false;
-    // Fixed size of the ECCVM circuits used in ClientIVC
+    // Fixed size of the ECCVM circuits used in Chonk
     // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
     // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
@@ -109,8 +110,8 @@ class ECCVMFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
-    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
-    static constexpr size_t num_frs_fq = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
+    static constexpr size_t num_frs_fq = FrCodec::calc_num_fields<FF>();
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
@@ -149,16 +150,10 @@ class ECCVMFlavor {
         /* 29 Shplonk Q commitment */ (num_frs_comm) +
         /* 30 IPA proof */ IPA_PROOF_LENGTH;
 
-    // Instantiate the BarycentricData needed to extend each Relation Univariate
-
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-
     // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
     // SmallSubgroupIPA witness polynomials.
     static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_EVALUATIONS + 1;
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually
@@ -471,6 +466,9 @@ class ECCVMFlavor {
             }
         }
 
+#ifdef FUZZING
+        ProverPolynomials(const CircuitBuilder& builder, bool disable_fixed_dyadic_trace_size = false)
+#else
         /**
          * @brief Compute the ECCVM flavor polynomial data required to generate an ECCVM Proof
          *
@@ -515,7 +513,7 @@ class ECCVMFlavor {
          *          transcript_msm_count_at_transition_inverse: used to validate transcript_msm_count_zero_at_transition
          *          precompute_pc: point counter for Straus precomputation columns
          *          precompute_select: if 1, evaluate Straus precomputation algorithm at current row
-         *          precompute_point_transition: 1 if current row operating on a different point to previous row
+         *          precompute_point_transition: 1 if next row operating on a different point than current row.
          *          precompute_round: round counter for Straus precomputation algorithm
          *          precompute_scalar_sum: accumulating sum of Straus scalar slices
          *          precompute_s1hi/lo: 2-bit hi/lo components of a Straus 4-bit scalar slice
@@ -552,6 +550,10 @@ class ECCVMFlavor {
          *          msm_lambda2: temp variable used for ecc point addition algorithm if msm_add2 = 1
          *          msm_lambda3: temp variable used for ecc point addition algorithm if msm_add3 = 1
          *          msm_lambda4: temp variable used for ecc point addition algorithm if msm_add4 = 1
+         *          msm_slice1: wNAF digit/slice for first add
+         *          msm_slice2: wNAF digit/slice for second add
+         *          msm_slice3: wNAF digit/slice for third add
+         *          msm_slice4: wNAF digit/slice for fourth add
          *          msm_collision_x1: used to ensure incomplete ecc addition exceptions not triggered if msm_add1 = 1
          *          msm_collision_x2: used to ensure incomplete ecc addition exceptions not triggered if msm_add2 = 1
          *          msm_collision_x3: used to ensure incomplete ecc addition exceptions not triggered if msm_add3 = 1
@@ -563,6 +565,7 @@ class ECCVMFlavor {
          * @return ProverPolynomials
          */
         ProverPolynomials(const CircuitBuilder& builder)
+#endif
         {
             // compute rows for the three different sections of the ECCVM execution trace
             const auto transcript_rows =
@@ -577,15 +580,24 @@ class ECCVMFlavor {
 
             const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) +
                                     NUM_DISABLED_ROWS_IN_SUMCHECK;
-            info("num rows in eccvm ", num_rows);
+            vinfo("Num rows in the ECCVM: ", num_rows);
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
-            if (ECCVM_FIXED_SIZE < dyadic_num_rows) {
-                throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound! Fixed size: " +
-                               std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
-            }
+            BB_ASSERT_LTE(dyadic_num_rows,
+                          ECCVM_FIXED_SIZE,
+                          "The ECCVM circuit size has exceeded the fixed upper bound! Fixed size: " +
+                              std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
 
+#ifdef FUZZING
+            // We don't want to spend all the time generating the full trace if we are just fuzzing eccvm.
+            if (disable_fixed_dyadic_trace_size) {
+                dyadic_num_rows = num_rows;
+            } else {
+                dyadic_num_rows = ECCVM_FIXED_SIZE;
+            }
+#else
             dyadic_num_rows = ECCVM_FIXED_SIZE;
+#endif
             size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
             for (auto& poly : get_to_be_shifted()) {
@@ -783,10 +795,6 @@ class ECCVMFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        // Serialized Verification Key length in fields
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
-
         bool operator==(const VerificationKey&) const = default;
 
         // IPA verification key requires one more point.
@@ -822,44 +830,20 @@ class ECCVMFlavor {
         }
 
         /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<fr> to_field_elements() const override
-        {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
-                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<fr> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-            return elements;
-        }
-        /**
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
          * @param transcript
          * @returns The hash of the verification key
          */
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
-        // from MSGPACK and the verification key.
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-        MSGPACK_FIELDS(
-            log_circuit_size, num_public_inputs, pub_inputs_offset, lagrange_first, lagrange_second, lagrange_last);
+        // from the verification key.
     };
 
     /**
@@ -1022,10 +1006,10 @@ class ECCVMFlavor {
             size_t old_proof_length = NativeTranscript::proof_data.size();
             NativeTranscript::proof_data.clear();
 
-            NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
+            NativeTranscript::serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
             for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
-                NativeTranscript::template serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
-                NativeTranscript::template serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
+                NativeTranscript::serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
+                NativeTranscript::serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
             }
 
             serialize_to_buffer(ipa_G_0_eval, proof_data);
@@ -1036,33 +1020,37 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
+     * @brief   When evaluating the sumcheck protocol - can we skip evaluation of _all_ relations for a given row? This
+     *          is purely a prover-side optimization.
      *
-     * @details When used in ClientIVC, the ECCVM has a large fixed size, which is often not fully utilized.
-     *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
-     *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate_with_row_skipping
+     * @details When used in Chonk, the ECCVM has a large fixed size, which is often not fully utilized.
+     *          If a row is completely empty, the values of `z_perm` and `z_perm_shift` will match,
+     *          we can use this as a proxy to determine if we can skip `Sumcheck::compute_univariate_with_row_skipping`.
+     *          In fact, here are several other conditions that need to be checked to see if we can skip the computation
+     *          of all relations in the row.
      **/
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
     static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                 [[maybe_unused]] const EdgeType edge_idx)
     {
-        // skip conditions. TODO: add detailed commentary during audit.
+        // SKIP CONDITIONS:
         // The most important skip condition is that `z_perm == z_perm_shift`. This implies that none of the wire values
         // for the present input are involved in non-trivial copy constraints. Edge cases where nonzero rows do not
         // contribute to permutation:
         //
         // 1: If `lagrange_last != 0`, the permutation polynomial identity is updated even if
-        // z_perm == z_perm_shift
+        //    z_perm == z_perm_shift. Therefore, we must force it to be zero.
         //
         // 2: The final MSM row won't add to the permutation but still has polynomial identitiy
         //    contributions. This is because the permutation argument uses the SHIFTED msm columns when performing
-        //    lookups i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
-        //    z_perm_shift[last_edge_idx - 1]
+        //    lookups i.e. `msm_accumulator_x[last_edge_idx]` will change `z_perm[last_edge_idx - 1]` and
+        //    `z_perm_shift[last_edge_idx - 1]`
         //
-        // 3. The value of `transcript_mul` can be non-zero at the end of a long MSM of points-at-infinity, which will
-        //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes.
+        // 3. The value of `transcript_mul` is non-zero at the end of an MSM of points-at-infinity, which will
+        //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes. We therefore force
+        //    transcript_mul == 0 as a skip-row condition.
         //
-        // 4. For similar reasons, we must add that `transcript_op==0`.
+        // 4: We also force that `transcript_op==0`.
         return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
                (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
                (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1]) == 0 &&
@@ -1071,7 +1059,4 @@ class ECCVMFlavor {
                (polynomials.transcript_op[edge_idx] == 0 && polynomials.transcript_op[edge_idx + 1] == 0);
     }
 };
-
-// NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
-
 } // namespace bb

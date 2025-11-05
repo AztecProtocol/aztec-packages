@@ -3,18 +3,18 @@
 // would alter the metrics we're capturing in the benchmarks, and we want to keep the
 // subject being tested as unmodified as possible so we can detect metric changes that
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Benchmarking {
-    use dep::aztec::{
+    use aztec::{
+        macros::{functions::external, storage::storage},
+        messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol_types::address::AztecAddress,
         state_vars::{Map, PrivateSet, PublicMutable},
     };
-    use dep::value_note::{utils::increment, value_note::ValueNote};
-
-    use dep::aztec::macros::{functions::{private, public}, storage::storage};
+    use value_note::value_note::ValueNote;
 
     #[storage]
     struct Storage<Context> {
@@ -23,43 +23,42 @@ pub contract Benchmarking {
     }
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
-    #[private]
+    #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
-        // docs:start:increment_valuenote
-        increment(storage.notes.at(owner), value, owner);
-        // docs:end:increment_valuenote
+        let note = ValueNote::new(value, owner);
+        self.storage.notes.at(owner).insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.
     // We explicitly pass in the note index so we can ensure we consume different notes when sending
     // multiple txs that will land on the same block.
     // See https://discourse.aztec.network/t/utxo-concurrency-issues-for-private-state/635
     // by @rahul-kothari for a full explanation on why this is needed.
-    #[private]
+    #[external("private")]
     fn recreate_note(owner: AztecAddress, index: u32) {
-        let owner_notes = storage.notes.at(owner);
+        let owner_notes = self.storage.notes.at(owner);
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.pop_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes.get(0);
-        increment(owner_notes, note.value(), owner);
+        owner_notes.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.
-    #[public]
+    #[external("public")]
     fn increment_balance(owner: AztecAddress, value: Field) {
-        let current = storage.balances.at(owner).read();
-        storage.balances.at(owner).write(current + value);
-        Benchmarking::at(context.this_address()).broadcast(owner).call(&mut context);
+        let current = self.storage.balances.at(owner).read();
+        self.storage.balances.at(owner).write(current + value);
+        self.call_self.broadcast(owner);
     }
 
     // Emits a public log.
-    #[public]
+    #[external("public")]
     fn broadcast(owner: AztecAddress) {
-        context.emit_public_log(storage.balances.at(owner).read());
+        self.context.emit_public_log(self.storage.balances.at(owner).read());
     }
 
     // Does a bunch of heavy compute
-    #[public]
-    fn sha256_hash_2048(data: [u8; 2048]) -> [u8; 32] {
+    #[external("public")]
+    fn sha256_hash_1024(data: [u8; 1024]) -> [u8; 32] {
         sha256::sha256_var(data, data.len() as u64)
     }
 }

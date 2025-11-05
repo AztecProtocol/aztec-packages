@@ -1,8 +1,12 @@
-import { AccountWallet, type AztecNode, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
@@ -18,8 +22,12 @@ const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
 describe('Transfer benchmark', () => {
   const t = new ClientFlowsBenchmark('transfers');
+  // The wallet used by the admin to interact
+  let adminWallet: Wallet;
+  // The wallet used by the user to interact
+  let userWallet: TestWallet;
   // The admin that aids in the setup of the test
-  let adminWallet: AccountWallet;
+  let adminAddress: AztecAddress;
   // FPC that accepts bananas
   let bananaFPC: FPCContract;
   // BananaCoin Token contract, just used to pay fees in this scenario
@@ -40,7 +48,16 @@ describe('Transfer benchmark', () => {
     await t.applyDeployCandyBarTokenSnapshot();
     await t.applyDeploySponsoredFPCSnapshot();
 
-    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, sponsoredFPC, aztecNode: node } = await t.setup());
+    ({
+      adminWallet,
+      userWallet,
+      adminAddress,
+      bananaFPC,
+      bananaCoin,
+      candyBarCoin,
+      sponsoredFPC,
+      aztecNode: node,
+    } = await t.setup());
   });
 
   afterAll(async () => {
@@ -54,21 +71,21 @@ describe('Transfer benchmark', () => {
   function transferBenchmark(accountType: AccountType) {
     return describe(`Transfer benchmark for ${accountType}`, () => {
       // Our benchmarking user
-      let benchysWallet: AccountWallet;
+      let benchysAddress: AztecAddress;
 
       beforeAll(async () => {
-        benchysWallet = await t.createAndFundBenchmarkingWallet(accountType);
+        benchysAddress = await t.createAndFundBenchmarkingAccountOnUserWallet(accountType);
         // Fund benchy with bananas, so they can pay for the transfers using the private FPC
-        await t.mintPrivateBananas(FEE_FUNDING_FOR_TESTER_ACCOUNT, benchysWallet.getAddress());
+        await t.mintPrivateBananas(1000n * 10n ** 18n, benchysAddress);
         // Register admin as sender in benchy's wallet, since we need it to discover the minted bananas
-        await benchysWallet.registerSender(adminWallet.getAddress());
+        await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
-        await benchysWallet.registerContract(bananaFPC);
-        await benchysWallet.registerContract(bananaCoin);
+        await userWallet.registerContract(bananaFPC);
+        await userWallet.registerContract(bananaCoin);
         // Register the CandyBarCoin on the user's Wallet so we can simulate and prove
-        await benchysWallet.registerContract(candyBarCoin);
+        await userWallet.registerContract(candyBarCoin);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
-        await benchysWallet.registerContract(sponsoredFPC);
+        await userWallet.registerContract(sponsoredFPC);
       });
 
       function recursionTest(
@@ -86,7 +103,8 @@ describe('Transfer benchmark', () => {
             // Mint some CandyBarCoins for the user, separated in different notes
             totalAmount = await mintNotes(
               adminWallet,
-              benchysWallet.getAddress(),
+              adminAddress,
+              benchysAddress,
               candyBarCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
             );
@@ -97,16 +115,16 @@ describe('Transfer benchmark', () => {
             // We can do this because adminPXE has the private key for the user
             // Since the admin's PXE never generates proofs, this upkeep is better done by them
             const interaction = candyBarCoin.methods.transfer_in_private(
-              benchysWallet.getAddress(),
-              adminWallet.getAddress(),
+              benchysAddress,
+              adminAddress,
               expectedChange,
               Fr.random(),
             );
-            const witness = await benchysWallet.createAuthWit({
-              caller: adminWallet.getAddress(),
+            const witness = await userWallet.createAuthWit(benchysAddress, {
+              caller: adminAddress,
               action: interaction,
             });
-            await interaction.send({ authWitnesses: [witness] }).wait({ timeout: 120 });
+            await interaction.send({ from: adminAddress, authWitnesses: [witness] }).wait({ timeout: 120 });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
@@ -114,13 +132,14 @@ describe('Transfer benchmark', () => {
 
           it(`${accountType} contract transfers ${amountToSend} tokens using ${recursions} recursions, pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
-            const options: SimulateMethodOptions = {
-              fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
+            const options: SimulateInteractionOptions = {
+              from: benchysAddress,
+              fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
             };
 
-            const asset = await TokenContract.at(candyBarCoin.address, benchysWallet);
+            const asset = await TokenContract.at(candyBarCoin.address, userWallet);
 
-            const transferInteraction = asset.methods.transfer(adminWallet.getAddress(), amountToSend);
+            const transferInteraction = asset.methods.transfer(adminAddress, amountToSend);
 
             await captureProfile(
               `${accountType}+transfer_${recursions}_recursions+${benchmarkingPaymentMethod}`,
@@ -132,7 +151,8 @@ describe('Transfer benchmark', () => {
                 2 + // CandyBarCoin transfer + kernel inner
                 recursions * 2 + // (CandyBarCoin _recurse_subtract_balance + kernel inner) * recursions
                 1 + // Kernel reset
-                1, // Kernel tail
+                1 + // Kernel tail
+                1, // Kernel hiding
             );
 
             expectedChange = totalAmount - BigInt(amountToSend);
@@ -148,22 +168,28 @@ describe('Transfer benchmark', () => {
 
               /*
                * We should have created the following nullifiers:
-               * - One per created note
-               * - One for the transaction
-               * - One for the fee note and one for the partial note validity commitment if we're using private fpc
+               * - One per minted note
+               * - One for the private event commitment (note transfer for the recipient)
+               *  - Private FPC: One for the fee note, another one for the partial note validity commitment and an
+               *   extra for the authwit invalidation
+               *  - Any other payment method: kernel-injected non revertible nullifier due to abscence of nullifiers
+               *   during the setup phase of the tx
                */
               expect(txEffects!.data.nullifiers.length).toBe(
-                notesToCreate + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0),
+                notesToCreate + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 3 : 1),
               );
-              /** We should have created 4 new notes,
-               *  - One for the recipient
-               *  - One for the sender (with the change)
-               *  - One for the fee if we're using private fpc
-               *  - One for the fee refund if we're using private fpc
+              /**
+               * We should have created 4 new notes,
+               * - One for the recipient
+               * - One for the sender (with the change)
+               * - One for the fee if we're using a private fpc
+               * - One for the fee refund if we're using a private fpc
                */
               expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
 
-              const senderBalance = await asset.methods.balance_of_private(benchysWallet.getAddress()).simulate();
+              const senderBalance = await asset.methods
+                .balance_of_private(benchysAddress)
+                .simulate({ from: benchysAddress });
               expect(senderBalance).toEqual(expectedChange);
             }
           });

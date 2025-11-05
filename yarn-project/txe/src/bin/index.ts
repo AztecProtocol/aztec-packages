@@ -1,5 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
-import { createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js/log';
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 
 import { createTXERpcServer } from '../index.js';
@@ -20,7 +20,7 @@ async function main() {
     process.exit(0);
   });
 
-  const logger = createLogger('txe:service');
+  const logger = createLogger('txe:rpc');
   logger.info(`Setting up TXE...`);
 
   const txeServer = createTXERpcServer(logger);

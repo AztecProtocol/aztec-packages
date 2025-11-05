@@ -23,7 +23,7 @@ describe('buildNullifierReadRequestHints', () => {
     new ReadRequest(new Fr(value), counter).scope(contractAddress);
 
   const makeNullifier = (value: number, counter = 1) =>
-    new Nullifier(new Fr(value), counter, Fr.ZERO).scope(contractAddress);
+    new Nullifier(new Fr(value), Fr.ZERO, counter).scope(contractAddress);
 
   const settledNullifierInnerValue = 99999;
   const oracle = {

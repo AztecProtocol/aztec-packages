@@ -35,10 +35,8 @@ impl BalanceSet<UtilityContext> {
 
     pub unconstrained fn balance_of_with_offset(self: Self, offset: u32) -> u128 {
         let mut balance = 0 as u128;
-        // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));
-        // docs:end:view_notes
         for i in 0..options.limit {
             if i < notes.len() {
                 balance = balance + notes.get_unchecked(i).get_value();
@@ -54,16 +52,16 @@ impl BalanceSet<UtilityContext> {
 
 impl BalanceSet<&mut PrivateContext> {
     pub fn add(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<UintNote> {
-        if addend == 0 as u128 {
-            OuterNoteEmission::new(Option::none())
+        let content_option = if addend == 0 as u128 {
+            Option::none()
         } else {
             // We fetch the nullifier public key hash from the registry / from our PXE
             let mut addend_note = UintNote::new(addend, owner);
 
-            // docs:start:insert
-            OuterNoteEmission::new(Option::some(self.set.insert(addend_note)))
-            // docs:end:insert
-        }
+            Option::some(self.set.insert(addend_note).content)
+        };
+
+        OuterNoteEmission::new(content_option, self.set.context)
     }
 
     pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<UintNote> {

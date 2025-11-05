@@ -7,15 +7,16 @@
 #pragma once
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
-#include "barretenberg/stdlib/merge_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
 struct GoblinRecursiveVerifierOutput {
     using Builder = UltraCircuitBuilder;
     using Curve = grumpkin<Builder>;
-    using PairingAccumulator = PairingPoints<Builder>;
+    using BN254Curve = bn254<Builder>;
+    using PairingAccumulator = PairingPoints<BN254Curve>;
     PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
     stdlib::Proof<Builder> ipa_proof;
@@ -25,8 +26,8 @@ class GoblinRecursiveVerifier {
   public:
     // Goblin Recursive Verifier circuit is using Ultra arithmetisation
     using Builder = UltraCircuitBuilder;
-    using MergeVerifier = goblin::MergeRecursiveVerifier_<Builder>;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using MergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier<Builder>;
+    using Transcript = UltraStdlibTranscript;
 
     using TranslatorFlavor = TranslatorRecursiveFlavor;
     using TranslatorVerifier = TranslatorRecursiveVerifier;
@@ -48,6 +49,8 @@ class GoblinRecursiveVerifier {
         StdlibEccvmProof eccvm_proof; // contains pre-IPA and IPA proofs
         StdlibHonkProof translator_proof;
 
+        StdlibProof() = default;
+
         StdlibProof(Builder& builder, const GoblinProof& goblin_proof)
             : merge_proof(builder, goblin_proof.merge_proof)
             , eccvm_proof(builder,
@@ -61,12 +64,16 @@ class GoblinRecursiveVerifier {
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : builder(builder)
         , verification_keys(verification_keys)
-        , transcript(transcript){};
+        , transcript(transcript) {};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const GoblinProof&, const MergeCommitments& merge_commitments);
+        const GoblinProof&,
+        const MergeCommitments& merge_commitments,
+        const MergeSettings merge_settings = MergeSettings::PREPEND);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const StdlibProof&, const MergeCommitments& merge_commitments);
+        const StdlibProof&,
+        const MergeCommitments& merge_commitments,
+        const MergeSettings merge_settings = MergeSettings::PREPEND);
 
   private:
     Builder* builder;

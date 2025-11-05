@@ -6,15 +6,13 @@ pub contract Child {
     use dep::aztec::protocol_types::address::AztecAddress;
 
     use dep::aztec::{
-        macros::{functions::{internal, private, public}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
+        macros::{functions::external, storage::storage},
+        messages::message_delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
         state_vars::{Map, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
-    // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
-    // docs:end:import_valuenote
 
     #[storage]
     struct Storage<Context> {
@@ -23,100 +21,80 @@ pub contract Child {
     }
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
-    #[private]
+    #[external("private")]
     fn value(input: Field) -> Field {
-        input + context.chain_id() + context.version()
-    }
-    // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
-    // Can only be called from this contract.
-    #[private]
-    #[internal]
-    fn value_internal(input: Field) -> Field {
-        input + context.chain_id() + context.version()
+        input + self.context.chain_id() + self.context.version()
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp
-    #[public]
+    #[external("public")]
     fn pub_get_value(base_value: Field) -> Field {
         let return_value = base_value
-            + context.chain_id()
-            + context.version()
-            + context.block_number() as Field
-            + context.timestamp() as Field;
+            + self.context.chain_id()
+            + self.context.version()
+            + self.context.block_number() as Field
+            + self.context.timestamp() as Field;
 
         return_value
     }
 
     // Sets `current_value` to `new_value`
-    #[public]
+    #[external("public")]
     fn pub_set_value(new_value: Field) -> Field {
-        storage.current_value.write(new_value);
-        context.emit_public_log(new_value);
+        self.storage.current_value.write(new_value);
+        self.context.emit_public_log(new_value);
 
         new_value
     }
 
-    #[private]
+    #[external("private")]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        // docs:start:valuenote_new
         let note = ValueNote::new(new_value, owner);
-        // docs:end:valuenote_new
 
-        storage.a_map_with_private_values.at(owner).insert(note).emit(encode_and_encrypt_note(
-            &mut context,
+        self.storage.a_map_with_private_values.at(owner).insert(note).emit(
             owner,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         new_value
     }
 
-    #[private]
+    #[external("private")]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);
-        let retrieved_notes = storage.a_map_with_private_values.at(owner).get_notes(options);
+        let retrieved_notes = self.storage.a_map_with_private_values.at(owner).get_notes(options);
         retrieved_notes.get(0).note.value()
     }
 
     // Increments `current_value` by `new_value`
-    #[public]
+    #[external("public")]
     fn pub_inc_value(new_value: Field) -> Field {
-        let old_value = storage.current_value.read();
-        storage.current_value.write(old_value + new_value);
-        context.emit_public_log(new_value);
+        let old_value = self.storage.current_value.read();
+        self.storage.current_value.write(old_value + new_value);
+        self.context.emit_public_log(new_value);
 
         new_value
     }
 
-    // Increments `current_value` by `new_value`. Can only be called from this contract.
-    #[public]
-    #[internal]
-    fn pub_inc_value_internal(new_value: Field) -> Field {
-        let old_value = storage.current_value.read();
-        storage.current_value.write(old_value + new_value);
-        context.emit_public_log(new_value);
-
-        new_value
-    }
-
-    #[public]
+    #[external("public")]
     fn set_value_twice_with_nested_first() {
-        let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
-        storage.current_value.write(20);
-        context.emit_public_log(20);
+        let _result = self.call_self.pub_set_value(10);
+        self.storage.current_value.write(20);
+        self.context.emit_public_log(20);
     }
 
-    #[public]
+    #[external("public")]
     fn set_value_twice_with_nested_last() {
-        storage.current_value.write(20);
-        context.emit_public_log(20);
-        let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
+        self.storage.current_value.write(20);
+        self.context.emit_public_log(20);
+        let _result = self.call_self.pub_set_value(10);
     }
 
-    #[public]
+    #[external("public")]
     fn set_value_with_two_nested_calls() {
-        Child::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
-        Child::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);
-        storage.current_value.write(20);
-        context.emit_public_log(20);
+        self.call_self.set_value_twice_with_nested_first();
+        self.call_self.set_value_twice_with_nested_last();
+        self.storage.current_value.write(20);
+        self.context.emit_public_log(20);
     }
 }

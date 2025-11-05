@@ -24,22 +24,13 @@ void UpdateCheckTraceBuilder::process(
         uint64_t timestamp_of_change = static_cast<uint64_t>(static_cast<uint32_t>(update_metadata & 0xffffffff));
 
         bool timestamp_is_lt_timestamp_of_change = event.current_timestamp < timestamp_of_change;
-
-        FF update_hash_inv = event.update_hash == 0 ? 0 : event.update_hash.invert();
-
-        FF timestamp_of_change_subtraction = timestamp_is_lt_timestamp_of_change
-                                                 ? (timestamp_of_change - 1 - event.current_timestamp)
-                                                 : (event.current_timestamp - timestamp_of_change);
-
         bool update_pre_class_id_is_zero = event.update_preimage_pre_class_id == 0;
-        FF update_pre_class_inv = update_pre_class_id_is_zero ? 0 : event.update_preimage_pre_class_id.invert();
-
         bool update_post_class_id_is_zero = event.update_preimage_post_class_id == 0;
-        FF update_post_class_inv = update_post_class_id_is_zero ? 0 : event.update_preimage_post_class_id.invert();
 
         trace.set(
             row,
-            { { { C::update_check_sel, 1 },
+            { {
+                { C::update_check_sel, 1 },
                 { C::update_check_address, event.address },
                 { C::update_check_current_class_id, event.current_class_id },
                 { C::update_check_original_class_id, event.original_class_id },
@@ -47,7 +38,7 @@ void UpdateCheckTraceBuilder::process(
                 { C::update_check_timestamp, event.current_timestamp },
                 { C::update_check_timestamp_pi_offset, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX },
                 { C::update_check_update_hash, event.update_hash },
-                { C::update_check_update_hash_inv, update_hash_inv },
+                { C::update_check_update_hash_inv, event.update_hash }, // Will be inverted in batch later
                 { C::update_check_hash_not_zero, event.update_hash != 0 },
                 { C::update_check_update_preimage_metadata, event.update_preimage_metadata },
                 { C::update_check_update_preimage_pre_class_id, event.update_preimage_pre_class_id },
@@ -64,13 +55,22 @@ void UpdateCheckTraceBuilder::process(
                   UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE - TIMESTAMP_OF_CHANGE_BIT_SIZE },
                 { C::update_check_timestamp_of_change_bit_size, TIMESTAMP_OF_CHANGE_BIT_SIZE },
                 { C::update_check_timestamp_is_lt_timestamp_of_change, timestamp_is_lt_timestamp_of_change },
-                { C::update_check_timestamp_of_change_subtraction, timestamp_of_change_subtraction },
                 { C::update_check_update_pre_class_id_is_zero, update_pre_class_id_is_zero },
-                { C::update_check_update_pre_class_inv, update_pre_class_inv },
+                { C::update_check_update_pre_class_inv,
+                  event.update_preimage_pre_class_id }, // Will be inverted in batch later
                 { C::update_check_update_post_class_id_is_zero, update_post_class_id_is_zero },
-                { C::update_check_update_post_class_inv, update_post_class_inv } } });
+                { C::update_check_update_post_class_inv,
+                  event.update_preimage_post_class_id }, // Will be inverted in batch later
+            } });
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ {
+        C::update_check_update_hash_inv,
+        C::update_check_update_pre_class_inv,
+        C::update_check_update_post_class_inv,
+    } });
 }
 
 const InteractionDefinition UpdateCheckTraceBuilder::interactions =
@@ -78,9 +78,10 @@ const InteractionDefinition UpdateCheckTraceBuilder::interactions =
         .add<lookup_update_check_timestamp_from_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_hash_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_update_check_delayed_public_mutable_slot_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_update_check_update_hash_public_data_read_settings, InteractionType::LookupSequential>()
+        .add<lookup_update_check_update_hash_public_data_read_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_hi_metadata_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_lo_metadata_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_update_check_timestamp_of_change_cmp_range_settings, InteractionType::LookupGeneric>();
+        .add<lookup_update_check_timestamp_is_lt_timestamp_of_change_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel);
 
 } // namespace bb::avm2::tracegen

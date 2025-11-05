@@ -20,6 +20,7 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_context.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_notehash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_nullifier.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
@@ -30,10 +31,10 @@
 #include "barretenberg/vm2/generated/relations/lookups_l1_to_l2_message_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_notehash_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_nullifier_exists.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
+#include "barretenberg/vm2/generated/relations/perms_data_copy.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -83,19 +84,12 @@ constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS
     C::execution_sel_relative_overflow_3_, C::execution_sel_relative_overflow_4_, C::execution_sel_relative_overflow_5_,
     C::execution_sel_relative_overflow_6_,
 };
-constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS = {
-    C::execution_sel_op_is_relative_effective_0_, C::execution_sel_op_is_relative_effective_1_,
-    C::execution_sel_op_is_relative_effective_2_, C::execution_sel_op_is_relative_effective_3_,
-    C::execution_sel_op_is_relative_effective_4_, C::execution_sel_op_is_relative_effective_5_,
-    C::execution_sel_op_is_relative_effective_6_,
+constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS = {
+    C::execution_sel_op_do_overflow_check_0_, C::execution_sel_op_do_overflow_check_1_,
+    C::execution_sel_op_do_overflow_check_2_, C::execution_sel_op_do_overflow_check_3_,
+    C::execution_sel_op_do_overflow_check_4_, C::execution_sel_op_do_overflow_check_5_,
+    C::execution_sel_op_do_overflow_check_6_,
 };
-constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS = {
-    C::execution_overflow_range_check_result_0_, C::execution_overflow_range_check_result_1_,
-    C::execution_overflow_range_check_result_2_, C::execution_overflow_range_check_result_3_,
-    C::execution_overflow_range_check_result_4_, C::execution_overflow_range_check_result_5_,
-    C::execution_overflow_range_check_result_6_,
-};
-
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
 static_assert(AVM_MAX_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
 constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_RELATIVE_WIRE_COLUMNS = {
@@ -113,36 +107,32 @@ constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_INDIRECT_WIRE_C
 };
 
 constexpr std::array<Column, AVM_MAX_REGISTERS> REGISTER_COLUMNS = {
-    C::execution_register_0_, C::execution_register_1_, C::execution_register_2_, C::execution_register_3_,
-    C::execution_register_4_, C::execution_register_5_, C::execution_register_6_,
+    C::execution_register_0_, C::execution_register_1_, C::execution_register_2_,
+    C::execution_register_3_, C::execution_register_4_, C::execution_register_5_,
 };
 constexpr std::array<Column, AVM_MAX_REGISTERS> REGISTER_MEM_TAG_COLUMNS = {
-    C::execution_mem_tag_reg_0_, C::execution_mem_tag_reg_1_, C::execution_mem_tag_reg_2_, C::execution_mem_tag_reg_3_,
-    C::execution_mem_tag_reg_4_, C::execution_mem_tag_reg_5_, C::execution_mem_tag_reg_6_,
+    C::execution_mem_tag_reg_0_, C::execution_mem_tag_reg_1_, C::execution_mem_tag_reg_2_,
+    C::execution_mem_tag_reg_3_, C::execution_mem_tag_reg_4_, C::execution_mem_tag_reg_5_,
 };
 constexpr std::array<Column, AVM_MAX_REGISTERS> REGISTER_IS_WRITE_COLUMNS = {
-    C::execution_rw_reg_0_, C::execution_rw_reg_1_, C::execution_rw_reg_2_, C::execution_rw_reg_3_,
-    C::execution_rw_reg_4_, C::execution_rw_reg_5_, C::execution_rw_reg_6_,
+    C::execution_rw_reg_0_, C::execution_rw_reg_1_, C::execution_rw_reg_2_,
+    C::execution_rw_reg_3_, C::execution_rw_reg_4_, C::execution_rw_reg_5_,
 };
 constexpr std::array<Column, AVM_MAX_REGISTERS> REGISTER_MEM_OP_COLUMNS = {
     C::execution_sel_mem_op_reg_0_, C::execution_sel_mem_op_reg_1_, C::execution_sel_mem_op_reg_2_,
     C::execution_sel_mem_op_reg_3_, C::execution_sel_mem_op_reg_4_, C::execution_sel_mem_op_reg_5_,
-    C::execution_sel_mem_op_reg_6_,
 };
 constexpr std::array<Column, AVM_MAX_REGISTERS> REGISTER_EXPECTED_TAG_COLUMNS = {
     C::execution_expected_tag_reg_0_, C::execution_expected_tag_reg_1_, C::execution_expected_tag_reg_2_,
     C::execution_expected_tag_reg_3_, C::execution_expected_tag_reg_4_, C::execution_expected_tag_reg_5_,
-    C::execution_expected_tag_reg_6_,
 };
 constexpr std::array<Column, AVM_MAX_REGISTERS> REGISTER_TAG_CHECK_COLUMNS = {
     C::execution_sel_tag_check_reg_0_, C::execution_sel_tag_check_reg_1_, C::execution_sel_tag_check_reg_2_,
     C::execution_sel_tag_check_reg_3_, C::execution_sel_tag_check_reg_4_, C::execution_sel_tag_check_reg_5_,
-    C::execution_sel_tag_check_reg_6_,
 };
 constexpr std::array<Column, AVM_MAX_REGISTERS> REGISTER_OP_REG_EFFECTIVE_COLUMNS = {
     C::execution_sel_op_reg_effective_0_, C::execution_sel_op_reg_effective_1_, C::execution_sel_op_reg_effective_2_,
     C::execution_sel_op_reg_effective_3_, C::execution_sel_op_reg_effective_4_, C::execution_sel_op_reg_effective_5_,
-    C::execution_sel_op_reg_effective_6_,
 };
 
 /**
@@ -307,7 +297,6 @@ void ExecutionTraceBuilder::process(
     FailingContexts failures = preprocess_for_discard(ex_events);
 
     uint32_t last_seen_parent_id = 0;
-    FF cached_parent_id_inv = 0;
 
     // Some variables updated per loop iteration to track
     // whether or not the upcoming row should "discard" [side effects].
@@ -324,14 +313,13 @@ void ExecutionTraceBuilder::process(
             is_phase_discarded(ex_event.after_context_event.phase, failures)) {
             discard = 1;
             dying_context_id = dying_context_for_phase(ex_event.after_context_event.phase, failures);
-            dying_context_id_inv = FF(dying_context_id).invert();
+            dying_context_id_inv = dying_context_id; // Will be inverted in batch later.
         }
 
         // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
         bool has_parent = ex_event.after_context_event.parent_id != 0;
         if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
             last_seen_parent_id = ex_event.after_context_event.parent_id;
-            cached_parent_id_inv = has_parent ? FF(ex_event.after_context_event.parent_id).invert() : 0;
         }
 
         /**************************************************************************************************
@@ -349,14 +337,16 @@ void ExecutionTraceBuilder::process(
                 { C::execution_context_id, ex_event.after_context_event.id },
                 { C::execution_parent_id, ex_event.after_context_event.parent_id },
                 { C::execution_pc, ex_event.before_context_event.pc },
-                { C::execution_is_static, ex_event.after_context_event.is_static },
                 { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
                 { C::execution_contract_address, ex_event.after_context_event.contract_addr },
+                { C::execution_transaction_fee, ex_event.after_context_event.transaction_fee },
+                { C::execution_is_static, ex_event.after_context_event.is_static },
                 { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
-                { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
+                { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size },
                 { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_addr },
                 { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size },
                 { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
+                { C::execution_last_child_id, ex_event.after_context_event.last_child_id },
                 { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
                 { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
                 { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
@@ -412,20 +402,23 @@ void ExecutionTraceBuilder::process(
                 { C::execution_num_note_hashes_emitted, ex_event.after_context_event.tree_states.noteHashTree.counter },
                 // Context - tree states - L1 to L2 message tree
                 { C::execution_l1_l2_tree_root, ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.root },
+                // Context - tree states - Retrieved bytecodes tree
+                { C::execution_prev_retrieved_bytecodes_tree_root,
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.root },
+                { C::execution_prev_retrieved_bytecodes_tree_size,
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
+                { C::execution_retrieved_bytecodes_tree_root,
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.root },
+                { C::execution_retrieved_bytecodes_tree_size,
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
                 // Context - side effects
-                { C::execution_prev_num_unencrypted_logs,
-                  ex_event.before_context_event.side_effect_states.numUnencryptedLogs },
-                { C::execution_num_unencrypted_logs,
-                  ex_event.after_context_event.side_effect_states.numUnencryptedLogs },
-                { C::execution_prev_num_l2_to_l1_messages,
-                  ex_event.before_context_event.side_effect_states.numL2ToL1Messages },
-                { C::execution_num_l2_to_l1_messages,
-                  ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
-                // Other.
-                { C::execution_bytecode_id, ex_event.bytecode_id },
+                { C::execution_prev_num_unencrypted_log_fields, ex_event.before_context_event.numUnencryptedLogFields },
+                { C::execution_num_unencrypted_log_fields, ex_event.after_context_event.numUnencryptedLogFields },
+                { C::execution_prev_num_l2_to_l1_messages, ex_event.before_context_event.numL2ToL1Messages },
+                { C::execution_num_l2_to_l1_messages, ex_event.after_context_event.numL2ToL1Messages },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
-                { C::execution_is_parent_id_inv, cached_parent_id_inv },
+                { C::execution_is_parent_id_inv, has_parent ? last_seen_parent_id : 0 },
             } });
 
         // Internal stack
@@ -440,24 +433,25 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 1: Bytecode retrieval.
          **************************************************************************************************/
 
-        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_NOT_FOUND;
+        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_RETRIEVAL;
         trace.set(row,
                   { {
                       { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
                       { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
-                      { C::execution_bytecode_id, ex_event.bytecode_id },
+                      { C::execution_bytecode_id, ex_event.after_context_event.bytecode_id },
                   } });
 
         /**************************************************************************************************
-         *  Temporality group 2: Instruction fetching.
+         *  Temporality group 2: Instruction fetching. Mapping from wire to execution and addressing.
          **************************************************************************************************/
 
         // This will only have a value if instruction fetching succeeded.
         std::optional<ExecutionOpCode> exec_opcode;
-        bool process_instruction_fetching = !bytecode_retrieval_failed;
-        bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
-        trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
-        if (process_instruction_fetching && !instruction_fetching_failed) {
+        bool error_in_instruction_fetching = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
+        bool instruction_fetching_success = !bytecode_retrieval_failed && !error_in_instruction_fetching;
+        trace.set(C::execution_sel_instruction_fetching_failure, row, error_in_instruction_fetching ? 1 : 0);
+
+        if (instruction_fetching_success) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
             // If we fetched an instruction successfully, we can set the next PC.
@@ -466,23 +460,13 @@ void ExecutionTraceBuilder::process(
                           { C::execution_next_pc,
                             ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
                       } });
-        }
 
-        /**************************************************************************************************
-         *  Temporality group 2: Mapping from wire to execution and addressing.
-         **************************************************************************************************/
-
-        // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
-        bool should_read_exec_spec = !instruction_fetching_failed;
-        if (should_read_exec_spec) {
+            // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
             process_execution_spec(ex_event, trace, row);
-        }
 
-        bool should_resolve_address = should_read_exec_spec;
-        // pol SEL_SHOULD_RESOLVE_ADDRESS = sel_bytecode_retrieval_success * sel_instruction_fetching_success;
-        if (should_resolve_address) {
             process_addressing(ex_event.addressing_event, ex_event.wire_instruction, trace, row);
         }
+
         bool addressing_failed = ex_event.error == ExecutionError::ADDRESSING;
 
         /**************************************************************************************************
@@ -491,8 +475,8 @@ void ExecutionTraceBuilder::process(
 
         // Note that if addressing did not fail, register reading will not fail.
         std::array<TaggedValue, AVM_MAX_REGISTERS> registers;
-        std::fill(registers.begin(), registers.end(), TaggedValue::from<FF>(0));
-        bool should_process_registers = should_resolve_address && !addressing_failed;
+        std::ranges::fill(registers.begin(), registers.end(), TaggedValue::from<FF>(0));
+        bool should_process_registers = instruction_fetching_success && !addressing_failed;
         bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
         if (should_process_registers) {
             process_registers(*exec_opcode, ex_event.inputs, ex_event.output, registers, trace, row);
@@ -512,7 +496,7 @@ void ExecutionTraceBuilder::process(
             if (*exec_opcode == ExecutionOpCode::TORADIXBE) {
                 uint32_t radix = ex_event.inputs[1].as<uint32_t>();     // Safe since already tag checked
                 uint32_t num_limbs = ex_event.inputs[2].as<uint32_t>(); // Safe since already tag checked
-                uint32_t num_p_limbs = radix > 256 ? 32 : static_cast<uint32_t>(get_p_limbs_per_radix()[radix].size());
+                uint32_t num_p_limbs = radix > 256 ? 32 : static_cast<uint32_t>(get_p_limbs_per_radix_size(radix));
                 trace.set(row,
                           { {
                               // To Radix BE Dynamic Gas
@@ -523,8 +507,6 @@ void ExecutionTraceBuilder::process(
                               { C::execution_sel_use_num_limbs, num_limbs > num_p_limbs ? 1 : 0 },
                               // Don't set dyn gas factor here since already set in process_gas
                           } });
-            } else if (exec_opcode == ExecutionOpCode::EMITUNENCRYPTEDLOG) {
-                trace.set(C::execution_dynamic_da_gas_factor, row, registers[1].as<uint32_t>());
             }
         }
 
@@ -533,22 +515,43 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // TODO(ilyas): This can possibly be gated with some boolean but I'm not sure what is going on.
+        // TODO: this needs a refactor and is most likely wrong.
 
         // Overly verbose but maximising readibility here
         // FIXME(ilyas): We currently cannot move this into the if statement because they are used outside of this
         // temporality group (e.g. in recomputing discard)
-        bool is_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
-        bool is_static_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
-        bool is_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
-        bool is_revert = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
-        bool is_err = ex_event.error != ExecutionError::NONE;
-        bool is_failure = is_revert || is_err;
-        bool sel_enter_call = (is_call || is_static_call) && !is_err;
-        bool sel_exit_call = is_return || is_revert || is_err;
-
         bool should_execute_opcode = should_check_gas && !oog;
+        bool should_execute_call =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
+        bool should_execute_static_call =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
+        bool should_execute_return =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
+        bool should_execute_revert =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
+
+        bool is_err = ex_event.error != ExecutionError::NONE;
+        bool is_failure = should_execute_revert || is_err;
+        bool sel_enter_call = should_execute_call || should_execute_static_call;
+        // TODO: would is_err here catch any error at the opcode execution step which we dont want to consider?
+        bool sel_exit_call = should_execute_return || should_execute_revert || is_err;
+
+        if (sel_exit_call) {
+            // We rollback if we revert or error and we have a parent context.
+            trace.set(row,
+                      { {
+                          // Exit reason - opcode or error
+                          { C::execution_sel_execute_return, should_execute_return ? 1 : 0 },
+                          { C::execution_sel_execute_revert, should_execute_revert ? 1 : 0 },
+                          { C::execution_sel_exit_call, 1 },
+                          { C::execution_nested_return, should_execute_return && has_parent ? 1 : 0 },
+                          // Enqueued or nested exit dependent on if we are a child context
+                          { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
+                          { C::execution_nested_exit_call, has_parent ? 1 : 0 },
+                      } });
+        }
+
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
-        prev_row_was_enter_call = sel_enter_call;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
             const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(*exec_opcode);
@@ -570,40 +573,26 @@ void ExecutionTraceBuilder::process(
 
                 uint32_t allocated_l2_gas = registers[0].as<uint32_t>();
                 bool is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2Gas;
-                uint32_t allocated_left_l2_cmp_diff = is_l2_gas_allocated_lt_left
-                                                          ? gas_left.l2Gas - allocated_l2_gas - 1
-                                                          : allocated_l2_gas - gas_left.l2Gas;
 
                 uint32_t allocated_da_gas = registers[1].as<uint32_t>();
                 bool is_da_gas_allocated_lt_left = allocated_da_gas < gas_left.daGas;
-                uint32_t allocated_left_da_cmp_diff = is_da_gas_allocated_lt_left
-                                                          ? gas_left.daGas - allocated_da_gas - 1
-                                                          : allocated_da_gas - gas_left.daGas;
 
                 trace.set(row,
                           { {
                               { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
-                              { C::execution_sel_execute_call, is_call ? 1 : 0 },
-                              { C::execution_sel_execute_static_call, is_static_call ? 1 : 0 },
-                              { C::execution_constant_32, 32 },
+                              { C::execution_sel_execute_call, should_execute_call ? 1 : 0 },
+                              { C::execution_sel_execute_static_call, should_execute_static_call ? 1 : 0 },
+                              { C::execution_l2_gas_left, gas_left.l2Gas },
+                              { C::execution_da_gas_left, gas_left.daGas },
                               { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
-                              { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
-                              { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
                           } });
-            } else if (sel_exit_call) {
-                // We rollback if we revert or error and we have a parent context.
-                trace.set(row,
-                          { {
-                              // Exit reason - opcode or error
-                              { C::execution_sel_execute_return, is_return ? 1 : 0 },
-                              { C::execution_sel_execute_revert, is_revert ? 1 : 0 },
-                              { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                              // Enqueued or nested exit dependent on if we are a child context
-                              { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
-                              { C::execution_nested_exit_call, has_parent ? 1 : 0 },
-                          } });
-            } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
+            }
+            // Separate if-statement for opcodes.
+            // This cannot be an else-if chained to the above,
+            // because `sel_exit_call` can happen on any opcode
+            // and we still need to tracegen the opcode-specific logic.
+            if (exec_opcode == ExecutionOpCode::GETENVVAR) {
                 assert(ex_event.addressing_event.resolution_info.size() == 2 &&
                        "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
                 // rop[1] is the envvar enum
@@ -612,9 +601,7 @@ void ExecutionTraceBuilder::process(
             } else if (exec_opcode == ExecutionOpCode::INTERNALRETURN) {
                 trace.set(C::execution_internal_call_return_id_inv,
                           row,
-                          ex_event.before_context_event.internal_call_return_id != 0
-                              ? FF(ex_event.before_context_event.internal_call_return_id).invert()
-                              : 0);
+                          ex_event.before_context_event.internal_call_return_id); // Will be inverted in batch later.
             } else if (exec_opcode == ExecutionOpCode::SSTORE) {
                 uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
                                                  ex_event.before_context_event.tree_states.publicDataTree.counter;
@@ -623,7 +610,7 @@ void ExecutionTraceBuilder::process(
                           { {
                               { C::execution_max_data_writes_reached, remaining_data_writes == 0 },
                               { C::execution_remaining_data_writes_inv,
-                                remaining_data_writes == 0 ? 0 : FF(remaining_data_writes).invert() },
+                                remaining_data_writes }, // Will be inverted in batch later.
                               { C::execution_sel_write_public_data, !opcode_execution_failed },
                           } });
             } else if (exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
@@ -644,7 +631,7 @@ void ExecutionTraceBuilder::process(
                           { {
                               { C::execution_sel_reached_max_note_hashes, remaining_note_hashes == 0 },
                               { C::execution_remaining_note_hashes_inv,
-                                remaining_note_hashes == 0 ? 0 : FF(remaining_note_hashes).invert() },
+                                remaining_note_hashes }, // Will be inverted in batch later.
                               { C::execution_sel_write_note_hash, !opcode_execution_failed },
                           } });
             } else if (exec_opcode == ExecutionOpCode::L1TOL2MSGEXISTS) {
@@ -667,23 +654,23 @@ void ExecutionTraceBuilder::process(
                           { {
                               { C::execution_sel_reached_max_nullifiers, remaining_nullifiers == 0 },
                               { C::execution_remaining_nullifiers_inv,
-                                remaining_nullifiers == 0 ? 0 : FF(remaining_nullifiers).invert() },
+                                remaining_nullifiers }, // Will be inverted in batch later.
                               { C::execution_sel_write_nullifier,
                                 remaining_nullifiers != 0 && !ex_event.before_context_event.is_static },
                           } });
             } else if (exec_opcode == ExecutionOpCode::SENDL2TOL1MSG) {
                 uint32_t remaining_l2_to_l1_msgs =
-                    MAX_L2_TO_L1_MSGS_PER_TX - ex_event.before_context_event.side_effect_states.numL2ToL1Messages;
+                    MAX_L2_TO_L1_MSGS_PER_TX - ex_event.before_context_event.numL2ToL1Messages;
 
                 trace.set(row,
                           { { { C::execution_sel_l2_to_l1_msg_limit_error, remaining_l2_to_l1_msgs == 0 },
                               { C::execution_remaining_l2_to_l1_msgs_inv,
-                                remaining_l2_to_l1_msgs == 0 ? 0 : FF(remaining_l2_to_l1_msgs).invert() },
+                                remaining_l2_to_l1_msgs }, // Will be inverted in batch later.
                               { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && !discard },
                               {
                                   C::execution_public_inputs_index,
                                   AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
-                                      ex_event.before_context_event.side_effect_states.numL2ToL1Messages,
+                                      ex_event.before_context_event.numL2ToL1Messages,
                               } } });
             }
         }
@@ -708,9 +695,7 @@ void ExecutionTraceBuilder::process(
         if (!is_dying_context) {
             // Compute inversion when context_id != dying_context_id
             FF diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
-            if (!diff.is_zero()) {
-                dying_context_diff_inv = diff.invert();
-            }
+            dying_context_diff_inv = diff; // Will be inverted in batch later.
         }
 
         // Needed for bc retrieval
@@ -723,7 +708,7 @@ void ExecutionTraceBuilder::process(
 
         // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error
         // than just an opcode error (i.e., it is on if there are any errors in any temporality group).
-        bool rollback_context = (is_revert || is_err) && has_parent;
+        bool rollback_context = (should_execute_revert || is_err) && has_parent;
 
         trace.set(
             row,
@@ -763,7 +748,7 @@ void ExecutionTraceBuilder::process(
             // context is dying. NOTE: if a [STATIC]CALL instruction _itself_ errors, we don't set the
             // discard flag because we aren't actually entering a new context!
             dying_context_id = ex_event.next_context_id;
-            dying_context_id_inv = FF(dying_context_id).invert();
+            dying_context_id_inv = dying_context_id; // Will be inverted in batch later.
             discard = 1;
         }
         // Otherwise, we aren't entering or exiting a dying context,
@@ -783,6 +768,9 @@ void ExecutionTraceBuilder::process(
     if (!ex_events.empty()) {
         trace.set(C::execution_last, row - 1, 1);
     }
+
+    // Batch invert the columns.
+    invert_columns(trace);
 }
 
 void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction& instruction,
@@ -866,12 +854,12 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
                   { C::execution_sel_out_of_gas, oog ? 1 : 0 },
                   // Base gas.
                   { C::execution_addressing_gas, gas_event.addressing_gas },
-                  { C::execution_limit_used_l2_cmp_diff, gas_event.limit_used_l2_comparison_witness },
-                  { C::execution_limit_used_da_cmp_diff, gas_event.limit_used_da_comparison_witness },
-                  { C::execution_constant_64, 64 },
                   // Dynamic gas.
                   { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
                   { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
+                  // Derived cumulative gas used.
+                  { C::execution_total_gas_l2, gas_event.total_gas_used_l2 },
+                  { C::execution_total_gas_da, gas_event.total_gas_used_da },
               } });
 
     const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
@@ -907,37 +895,39 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     std::array<uint8_t, AVM_MAX_OPERANDS> resolved_operand_tag{};
     uint8_t num_relative_operands = 0;
 
+    bool base_address_invalid = false;
+    bool do_base_check = false;
+
     // Gather operand information.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
         const auto& resolution_info = resolution_info_vec.at(i);
         bool op_is_address = i < ex_spec.num_addresses;
         relative_oob[i] = resolution_info.error.has_value() &&
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
+        base_address_invalid =
+            base_address_invalid ||
+            (resolution_info.error.has_value() && *resolution_info.error == AddressingEventError::BASE_ADDRESS_INVALID);
         is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
         is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
-        should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i];
+        should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i] && !base_address_invalid;
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
         resolved_operand[i] = resolution_info.resolved_operand;
         if (is_relative_effective[i]) {
+            do_base_check = true;
             num_relative_operands++;
         }
     }
 
     // Set the operand columns.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
-        FF relative_oob_check_diff = 0;
-        if (is_relative_effective[i]) {
-            relative_oob_check_diff =
-                !relative_oob[i] ? FF(1ULL << 32) - after_relative[i] - 1 : after_relative[i] - FF(1ULL << 32);
-        }
         trace.set(row,
                   { {
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
-                      { OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS[i], is_relative_effective[i] ? 1 : 0 },
-                      { OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS[i], relative_oob_check_diff },
+                      { OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS[i],
+                        is_relative_effective[i] && !base_address_invalid ? 1 : 0 },
                       { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
                       { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
                   } });
@@ -955,14 +945,10 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   } });
     }
 
-    // Base address check.
-    bool do_base_check = num_relative_operands != 0;
-    bool base_address_invalid = do_base_check && addr_event.base_address.get_tag() != MemoryTag::U32;
-    FF base_address_tag_diff_inv =
-        base_address_invalid
-            ? (FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U32)))
-                  .invert()
-            : 0;
+    // Inverse when base address is invalid.
+    FF base_address_tag_diff_inv = base_address_invalid ? FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) -
+                                                              FF(static_cast<uint8_t>(MemoryTag::U32))
+                                                        : 0; // Will be inverted in batch later.
 
     // Tag check after indirection.
     bool some_final_check_failed =
@@ -978,7 +964,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                 FF(is_indirect_effective[i]) * power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
         }
-        batched_tags_diff_inv = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+        batched_tags_diff_inv = batched_tags_diff; // Will be inverted in batch later.
     }
 
     // Collect addressing errors. See PIL file for reference.
@@ -1003,8 +989,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                                   }) +
                   // Some invalid address after indirection.
                   (some_final_check_failed ? 1 : 0))
-                  .invert()
-            : 0;
+            : 0; // Will be inverted in batch later.
 
     trace.set(row,
               { {
@@ -1013,12 +998,37 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   { C::execution_base_address_val, addr_event.base_address.as_ff() },
                   { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
                   { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
+                  { C::execution_sel_some_final_check_failed, some_final_check_failed ? 1 : 0 },
                   { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
-                  { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
+                  { C::execution_num_relative_operands_inv,
+                    do_base_check ? num_relative_operands : 0 }, // Will be inverted in batch later.
                   { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
-                  { C::execution_constant_32, 32 },
-                  { C::execution_two_to_32, 1ULL << 32 },
+                  { C::execution_highest_address, AVM_HIGHEST_MEM_ADDRESS },
               } });
+}
+
+void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
+{
+    trace.invert_columns({ {
+        // Registers.
+        C::execution_batched_tags_diff_inv_reg,
+        // Context.
+        C::execution_is_parent_id_inv,
+        C::execution_internal_call_return_id_inv,
+        // Trees.
+        C::execution_remaining_data_writes_inv,
+        C::execution_remaining_note_hashes_inv,
+        C::execution_remaining_nullifiers_inv,
+        // L1ToL2MsgExists.
+        C::execution_remaining_l2_to_l1_msgs_inv,
+        // Discard.
+        C::execution_dying_context_id_inv,
+        C::execution_dying_context_diff_inv,
+        // Addressing.
+        C::execution_addressing_error_collection_inv,
+        C::execution_base_address_tag_diff_inv,
+        C::execution_num_relative_operands_inv,
+    } });
 }
 
 void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
@@ -1080,7 +1090,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
             }
             power_of_2 *= 8; // 2^3
         }
-        batched_tags_diff_inv_reg = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+        batched_tags_diff_inv_reg = batched_tags_diff; // Will be inverted in batch later.
     }
 
     trace.set(row,
@@ -1133,55 +1143,44 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
 
 const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
-        // Execution
+        // Execution specification (precomputed)
         .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
         // Bytecode retrieval
         .add<lookup_execution_bytecode_retrieval_result_settings, InteractionType::LookupGeneric>()
         // Instruction fetching
         .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
         // Addressing
-        .add<lookup_addressing_base_address_from_memory_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_6_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_6_settings, InteractionType::LookupGeneric>()
-        // Registers
-        .add<lookup_registers_mem_op_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_0_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_1_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_2_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_3_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_4_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_5_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_6_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Internal Call Stack
         .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
         // Gas
         .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_gas_limit_used_l2_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_gas_limit_used_da_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_gas_is_out_of_gas_l2_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_gas_is_out_of_gas_da_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupGeneric>()
         // Gas - ToRadix BE
-        .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupGeneric>()
-        .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        // Dynamic Gas - SStore
+        .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
+        // Context Stack
+        .add<lookup_context_ctx_stack_call_settings, InteractionType::LookupGeneric>()
+        .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
+        .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
-        .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()
-        // Dispatch to gadget sub-traces
-        .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
+        .add<lookup_external_call_call_is_l2_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
+        .add<lookup_external_call_call_is_da_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
@@ -1190,25 +1189,34 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
         // Sstore opcode
         .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
-        .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>()
         // NoteHashExists
         .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
         // NullifierExists opcode
         .add<lookup_nullifier_exists_nullifier_exists_check_settings, InteractionType::LookupSequential>()
         // EmitNullifier
         .add<lookup_emit_nullifier_write_nullifier_settings, InteractionType::LookupSequential>()
-        // GetContractInstance opcode
-        .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>()
         // EmitNoteHash
         .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>()
         // L1ToL2MsgExists
-        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
         .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>()
-        // Alu dispatching
-        .add<lookup_alu_register_tag_value_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_exec_dispatching_cast_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_exec_dispatching_set_settings, InteractionType::LookupGeneric>()
+        // Dispatching to other sub-traces
+        .add<lookup_execution_dispatch_to_alu_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_dispatch_to_bitwise_settings, InteractionType::LookupGeneric>()
+        .add<perm_execution_dispatch_to_cd_copy_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_rd_copy_settings, InteractionType::Permutation>()
+        .add<lookup_execution_dispatch_to_cast_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_dispatch_to_set_settings, InteractionType::LookupGeneric>()
+        .add<perm_execution_dispatch_to_get_contract_instance_settings, InteractionType::Permutation>()
+        .add<lookup_execution_dispatch_to_emit_unencrypted_log_settings, InteractionType::LookupGeneric>()
+        .add<perm_execution_dispatch_to_poseidon2_perm_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_sha256_compression_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_keccakf1600_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_ecc_add_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_to_radix_settings, InteractionType::Permutation>()
         // SendL2ToL1Msg
         .add<lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings, InteractionType::LookupIntoIndexedByClk>();
 

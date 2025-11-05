@@ -7,14 +7,18 @@ namespace bb::avm2::simulation {
 struct TxContextEvent {
     // Gas
     Gas gas_used;
-    Gas gas_limit;
 
     // Tree State
     TreeStates tree_states;
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
+    AppendOnlyTreeSnapshot retrieved_bytecodes_tree_snapshot;
 
     // Side Effect States
-    SideEffectStates side_effect_states;
+    uint32_t numUnencryptedLogFields;
+    uint32_t numL2ToL1Messages;
+
+    // Execution context
+    uint32_t next_context_id;
 };
 
 } // namespace bb::avm2::simulation

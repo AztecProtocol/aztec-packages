@@ -1,3 +1,4 @@
+import type { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import type { MembershipWitness } from '@aztec/foundation/trees';
@@ -22,7 +23,6 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 
-import type { DataProvider } from '../data_provider.js';
 import { PrivateFunctionsTree } from './private_functions_tree.js';
 
 /**
@@ -32,7 +32,7 @@ import { PrivateFunctionsTree } from './private_functions_tree.js';
  * to efficiently serve the requested data. It interacts with the ContractDatabase and AztecNode to fetch
  * the required information and facilitate cryptographic proof generation.
  */
-export class ContractDataProvider implements DataProvider {
+export class ContractDataProvider {
   /** Map from contract class id to private function tree. */
   // TODO: Update it to be LRU cache so that it doesn't keep all the data all the time.
   #privateFunctionTrees: Map<string, PrivateFunctionsTree> = new Map();
@@ -248,7 +248,7 @@ export class ContractDataProvider implements DataProvider {
   public async getFunctionMembershipWitness(
     contractClassId: Fr,
     selector: FunctionSelector,
-  ): Promise<MembershipWitness<5> | undefined> {
+  ): Promise<MembershipWitness<typeof FUNCTION_TREE_HEIGHT> | undefined> {
     const tree = await this.#getPrivateFunctionTreeForClassId(contractClassId);
     return tree?.getFunctionMembershipWitness(selector);
   }
@@ -262,12 +262,6 @@ export class ContractDataProvider implements DataProvider {
     const artifact = await this.#getContractArtifactByAddress(contractAddress);
     const fnArtifact = artifact && (await this.#findFunctionAbiBySelector(artifact, selector));
     return `${artifact?.name ?? contractAddress}:${fnArtifact?.name ?? selector}`;
-  }
-
-  public async getSize() {
-    return (await toArray(this.#contractInstances.valuesAsync()))
-      .concat(await toArray(this.#contractArtifacts.valuesAsync()))
-      .reduce((sum, value) => sum + value.length, 0);
   }
 
   async #findFunctionArtifactBySelector(

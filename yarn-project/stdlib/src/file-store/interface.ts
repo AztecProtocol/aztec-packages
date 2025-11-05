@@ -12,8 +12,14 @@ export type FileStoreSaveOptions = { public?: boolean; metadata?: Record<string,
 
 /** Simple file store. */
 export interface FileStore extends ReadOnlyFileStore {
-  /** Saves contents to the given path. Returns an URI that can be used later to `read` the file. */
+  /**
+   * Saves contents to the given path. Returns an URI that can be used later to `read` the file.
+   * Default: `compress` is false unless explicitly set.
+   */
   save(path: string, data: Buffer, opts?: FileStoreSaveOptions): Promise<string>;
-  /** Uploads contents from a local file. Returns an URI that can be used later to `read` the file. */
+  /**
+   * Uploads contents from a local file. Returns an URI that can be used later to `read` the file.
+   * Default: `compress` is true unless explicitly set to false.
+   */
   upload(destPath: string, srcPath: string, opts?: FileStoreSaveOptions): Promise<string>;
 }

@@ -8,7 +8,6 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_mem.hpp"
-#include "barretenberg/vm2/generated/relations/perms_poseidon2_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -513,22 +512,10 @@ void Poseidon2TraceBuilder::process_permutation_with_memory(
 const InteractionDefinition Poseidon2TraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_poseidon2_hash_poseidon2_perm_settings, InteractionType::LookupSequential>()
-        // These should be permutations (Read to Mem)
-        .add<lookup_poseidon2_mem_pos_read_mem_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_read_mem_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_read_mem_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_read_mem_3_settings, InteractionType::LookupGeneric>()
-        // These should be permutations (Write to Mem)
-        .add<lookup_poseidon2_mem_pos_write_mem_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_write_mem_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_write_mem_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_write_mem_3_settings, InteractionType::LookupGeneric>()
         // Poseidon2 Memory to Permutation Subtrace
         .add<lookup_poseidon2_mem_input_output_poseidon2_perm_settings, InteractionType::LookupSequential>()
         // Lookups to Greater Than Subtrace
-        .add<lookup_poseidon2_mem_check_src_addr_in_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
-        // Dispatch from Execution Trace
-        .add<perm_poseidon2_mem_dispatch_exec_pos2_settings, InteractionType::Permutation>();
+        .add<lookup_poseidon2_mem_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_poseidon2_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel);
 
 } // namespace bb::avm2::tracegen

@@ -22,13 +22,14 @@ void ClassIdDerivationTraceBuilder::process(
         trace.set(row,
                   { {
                       { C::class_id_derivation_sel, 1 },
-                      { C::class_id_derivation_class_id, event.class_id },
+                      { C::class_id_derivation_class_id, event.klass.id },
                       { C::class_id_derivation_artifact_hash, event.klass.artifact_hash },
-                      { C::class_id_derivation_private_function_root, event.klass.private_function_root },
+                      { C::class_id_derivation_private_functions_root, event.klass.private_functions_root },
                       { C::class_id_derivation_public_bytecode_commitment, event.klass.public_bytecode_commitment },
 
                       // This is temp because aliasing is not allowed in lookups
-                      { C::class_id_derivation_temp_constant_for_lookup, GENERATOR_INDEX__CONTRACT_LEAF },
+                      { C::class_id_derivation_gen_index_contract_leaf, GENERATOR_INDEX__CONTRACT_LEAF },
+                      { C::class_id_derivation_const_two, 2 },
                   } });
         row++;
     }

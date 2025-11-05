@@ -19,7 +19,7 @@ function process_batch {
 
   # Iterate over the results and output lines whose hashes don't exist in redis.
   for i in "${!results[@]}"; do
-    if [ -z "${results[$i]}" ]; then
+    if [ -z "${results[$i]}" ] || [[ "${lines[$i]}" == *disabled-cache* ]]; then
       echo "${lines[$i]}"
     else
       echo -e "${blue}SKIPPED${reset} (${yellow}$(ci_term_link ${results[$i]})${reset}): ${lines[$i]}" >&3

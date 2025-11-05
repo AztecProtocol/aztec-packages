@@ -8,14 +8,17 @@ unconstrained fn transfer_private_on_behalf_of_other() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
     // Add authwit
-    // docs:start:private_authwit
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call_interface =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    add_private_authwit_from_call_interface(owner, recipient, transfer_private_from_call_interface);
+    add_private_authwit_from_call_interface(
+        env,
+        owner,
+        recipient,
+        transfer_private_from_call_interface,
+    );
     // Transfer tokens
     env.call_private(recipient, transfer_private_from_call_interface);
-    // docs:end:private_authwit
     // Check balances
     utils::check_private_balance(
         env,
@@ -26,7 +29,6 @@ unconstrained fn transfer_private_on_behalf_of_other() {
     utils::check_private_balance(env, token_contract_address, recipient, transfer_amount);
 }
 
-// docs:start:fail_with_message
 #[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
@@ -36,11 +38,15 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call_interface =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    add_private_authwit_from_call_interface(owner, recipient, transfer_private_from_call_interface);
+    add_private_authwit_from_call_interface(
+        env,
+        owner,
+        recipient,
+        transfer_private_from_call_interface,
+    );
     // Transfer tokens
     env.call_private(owner, transfer_private_from_call_interface);
 }
-// docs:end:fail_with_message
 
 #[test(should_fail_with = "Balance too low")]
 unconstrained fn transfer_private_failure_on_behalf_of_more_than_balance() {
@@ -51,7 +57,12 @@ unconstrained fn transfer_private_failure_on_behalf_of_more_than_balance() {
     let transfer_amount = mint_amount + (1 as u128);
     let transfer_private_from_call_interface =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    add_private_authwit_from_call_interface(owner, recipient, transfer_private_from_call_interface);
+    add_private_authwit_from_call_interface(
+        env,
+        owner,
+        recipient,
+        transfer_private_from_call_interface,
+    );
     // Transfer tokens
     env.call_private(recipient, transfer_private_from_call_interface);
 }
@@ -78,7 +89,12 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_wrong_caller() {
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call_interface =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    add_private_authwit_from_call_interface(owner, owner, transfer_private_from_call_interface);
+    add_private_authwit_from_call_interface(
+        env,
+        owner,
+        owner,
+        transfer_private_from_call_interface,
+    );
     // Transfer tokens
     env.call_private(recipient, transfer_private_from_call_interface);
 }

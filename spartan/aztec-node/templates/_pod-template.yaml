@@ -35,30 +35,21 @@ spec:
   {{- if .Values.initContainers }}
     {{- tpl (toYaml .Values.initContainers | nindent 4) $ }}
   {{- end }}
-  {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
+  {{- if .Values.service.p2p.nodePortEnabled }}
     - name: init-nodeport
-      image: bitnami/kubectl
+      image: registry.suse.com/suse/kubectl:1.33
       securityContext:
         runAsNonRoot: false
         runAsUser: 0
       command:
-        - sh
+        - /bin/bash
         - -c
         - |
           export POD_INDEX=$(echo ${POD_NAME} | awk -F'-' '{print $NF}');
-
-          # If running host network, we don't need to get the node port from the service
-          {{- if not .Values.hostNetwork }}
           export EXTERNAL_PORT=$(kubectl get services -l "pod-index in (${POD_INDEX}), type in (p2p)" -o jsonpath='{.items[0].spec.ports[0].nodePort}');
-          echo "export EXTERNAL_PORT=$EXTERNAL_PORT" >  /shared/init-nodeport;
-          echo "export P2P_PORT=$EXTERNAL_PORT"      >> /shared/init-nodeport;
-          {{- end }}
 
-          # Get the external IP of the node
-          export EXTERNAL_IP=$(kubectl get nodes "${NODE_NAME}" -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}');
+          echo "export P2P_BROADCAST_PORT=$EXTERNAL_PORT"      >> /shared/init-nodeport;
 
-          echo "export EXTERNAL_IP=$EXTERNAL_IP" >> /shared/init-nodeport;
-          echo "export P2P_IP=$EXTERNAL_IP"      >> /shared/init-nodeport;
           cat /shared/init-nodeport;
       env:
         - name: POD_NAME
@@ -82,7 +73,10 @@ spec:
         - -c
         - |
           {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
-          source /shared/init-nodeport;
+          if [ -f /shared/init-nodeport ]; then
+            source /shared/init-nodeport;
+          fi
+          export P2P_QUERY_FOR_IP=true
           {{- else }}
           export P2P_IP=$(hostname -i)
           {{- end }}
@@ -93,7 +87,6 @@ spec:
           {{- if .Values.node.preStartScript }}
           {{ .Values.node.preStartScript | nindent 10 }}
           {{- end }}
-
           "${start_cmd[@]}"
       startupProbe:
         httpGet:
@@ -101,14 +94,6 @@ spec:
           port: {{ .Values.service.rpc.port }}
         periodSeconds: {{ .Values.node.startupProbe.periodSeconds }}
         failureThreshold: {{ .Values.node.startupProbe.failureThreshold }}
-      livenessProbe:
-        httpGet:
-          path: /status
-          port: {{ .Values.service.rpc.port }}
-        initialDelaySeconds: 30
-        periodSeconds: 5
-        timeoutSeconds: 30
-        failureThreshold: 3
       volumeMounts:
         - name: shared
           mountPath: /shared
@@ -152,16 +137,23 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        {{- if .Values.global.customAztecNetwork.enabled }}
+        {{- if .Values.global.customAztecNetwork.l1ChainId }}
         - name: L1_CHAIN_ID
           value: "{{ .Values.global.customAztecNetwork.l1ChainId }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.registryContractAddress }}
         - name: REGISTRY_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.registryContractAddress }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.slashFactoryContractAddress }}
         - name: SLASH_FACTORY_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.slashFactoryContractAddress }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}
         - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}"
-        {{- else if .Values.global.aztecNetwork }}
+        {{- end }}
+        {{- if .Values.global.aztecNetwork }}
         - name: NETWORK
           value: "{{ .Values.global.aztecNetwork }}"
         {{- end }}
@@ -179,6 +171,70 @@ spec:
           value: "{{ .Values.service.p2p.enabled }}"
         - name: P2P_PORT
           value: "{{ .Values.service.p2p.port }}"
+        - name: PROVER_REAL_PROOFS
+          value: "{{ .Values.node.proverRealProofs }}"
+        - name: SENTINEL_ENABLED
+          value: "{{ .Values.node.sentinel.enabled }}"
+        {{- if .Values.node.slash.minPenaltyPercentage }}
+        - name: SLASH_MIN_PENALTY_PERCENTAGE
+          value: {{ .Values.node.slash.minPenaltyPercentage | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.maxPenaltyPercentage }}
+        - name: SLASH_MAX_PENALTY_PERCENTAGE
+          value: {{ .Values.node.slash.maxPenaltyPercentage | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.validatorsAlways }}
+        - name: SLASH_VALIDATORS_ALWAYS
+          value: {{ join "," .Values.node.slash.validatorsAlways | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.validatorsNever }}
+        - name: SLASH_VALIDATORS_NEVER
+          value: {{ join "," .Values.node.slash.validatorsNever | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.prunePenalty }}
+        - name: SLASH_PRUNE_PENALTY
+          value: {{ .Values.node.slash.prunePenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.dataWithholdingPenalty }}
+        - name: SLASH_DATA_WITHHOLDING_PENALTY
+          value: {{ .Values.node.slash.dataWithholdingPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.inactivityPenalty }}
+        - name: SLASH_INACTIVITY_PENALTY
+          value: {{ .Values.node.slash.inactivityPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.inactivityTargetPercentage }}
+        - name: SLASH_INACTIVITY_TARGET_PERCENTAGE
+          value: {{ .Values.node.slash.inactivityTargetPercentage | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.invalidBlockPenalty }}
+        - name: SLASH_INVALID_BLOCK_PENALTY
+          value: {{ .Values.node.slash.invalidBlockPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.proposeInvalidAttestationsPenalty }}
+        - name: SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+          value: {{ .Values.node.slash.proposeInvalidAttestationsPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.attestDescendantOfInvalidPenalty }}
+        - name: SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+          value: {{ .Values.node.slash.attestDescendantOfInvalidPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.unknownPenalty }}
+        - name: SLASH_UNKNOWN_PENALTY
+          value: {{ .Values.node.slash.unknownPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.gracePeriodL2Slots }}
+        - name: SLASH_GRACE_PERIOD_L2_SLOTS
+          value: {{ .Values.node.slash.gracePeriodL2Slots | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.offenseExpirationRounds }}
+        - name: SLASH_OFFENSE_EXPIRATION_ROUNDS
+          value: {{ .Values.node.slash.offenseExpirationRounds | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.maxPayloadSize }}
+        - name: SLASH_MAX_PAYLOAD_SIZE
+          value: {{ .Values.node.slash.maxPayloadSize | quote }}
+        {{- end }}
         {{- if gt (len .Values.global.l1ExecutionUrls) 0 }}
         - name: ETHEREUM_HOSTS
           value: {{ join "," .Values.global.l1ExecutionUrls | quote }}
@@ -199,6 +255,10 @@ spec:
           value: {{ .Values.node.storage.worldStateMapSize | quote }}
         - name: USE_GCLOUD_LOGGING
           value: {{ .Values.global.useGcloudLogging | quote }}
+        - name: SPONSORED_FPC
+          value: {{ .Values.global.sponsoredFPC | quote }}
+        - name: TEST_ACCOUNTS
+          value: {{ .Values.global.testAccounts | quote }}
         {{- if .Values.global.otelCollectorEndpoint }}
         - name: OTEL_EXCLUDE_METRICS
           value: {{ .Values.node.otelExcludeMetrics | quote }}

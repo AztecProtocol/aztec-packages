@@ -1,21 +1,16 @@
-import { type BatchedBlob, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
+import type { BatchedBlob } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
-import {
-  type L1TxUtils,
-  type RollupContract,
-  RollupContract as RollupContractClass,
-  type ViemCommitteeAttestation,
-} from '@aztec/ethereum';
+import type { L1TxUtils, RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
-import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
+import { CommitteeAttestation, CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { FeeRecipient, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import type { L1PublishProofStats } from '@aztec/stdlib/stats';
@@ -39,8 +34,6 @@ export type L1SubmitEpochProofArgs = {
 };
 
 export class ProverNodePublisher {
-  private interruptibleSleep = new InterruptibleSleep();
-  private sleepTimeMs: number;
   private interrupted = false;
   private metrics: ProverNodePublisherMetrics;
 
@@ -58,8 +51,6 @@ export class ProverNodePublisher {
       telemetry?: TelemetryClient;
     },
   ) {
-    this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
-
     const telemetry = deps.telemetry ?? getTelemetryClient();
 
     this.metrics = new ProverNodePublisherMetrics(telemetry, 'ProverNode');
@@ -80,16 +71,17 @@ export class ProverNodePublisher {
    */
   public interrupt() {
     this.interrupted = true;
-    this.interruptibleSleep.interrupt();
+    this.l1TxUtils.interrupt();
   }
 
   /** Restarts the publisher after calling `interrupt`. */
   public restart() {
     this.interrupted = false;
+    this.l1TxUtils.restart();
   }
 
   public getSenderAddress() {
-    return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
+    return this.l1TxUtils.getSenderAddress();
   }
 
   public async submitEpochProof(args: {
@@ -103,6 +95,7 @@ export class ProverNodePublisher {
   }): Promise<boolean> {
     const { epochNumber, fromBlock, toBlock } = args;
     const ctx = { epochNumber, fromBlock, toBlock };
+
     if (!this.interrupted) {
       const timer = new Timer();
       // Validate epoch proof range and hashes are correct before submitting
@@ -114,13 +107,16 @@ export class ProverNodePublisher {
       }
 
       try {
-        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+        this.metrics.recordSenderBalance(
+          await this.l1TxUtils.getSenderBalance(),
+          this.l1TxUtils.getSenderAddress().toString(),
+        );
       } catch (err) {
         this.log.warn(`Failed to record the ETH balance of the prover node: ${err}`);
       }
 
       // Tx was mined successfully
-      if (txReceipt.status) {
+      if (txReceipt.status === 'success') {
         const tx = await this.l1TxUtils.getTransactionStats(txReceipt.transactionHash);
         const stats: L1PublishProofStats = {
           gasPrice: txReceipt.effectiveGasPrice,
@@ -140,7 +136,6 @@ export class ProverNodePublisher {
 
       this.metrics.recordFailedTx();
       this.log.error(`Rollup.submitEpochProof tx status failed ${txReceipt.transactionHash}`, undefined, ctx);
-      await this.sleepOrInterrupted();
     }
 
     this.log.verbose('L2 block data syncing interrupted', ctx);
@@ -185,9 +180,10 @@ export class ProverNodePublisher {
     }
 
     // Check the batched blob inputs from the root rollup against the batched blob computed in ts
-    if (!publicInputs.blobPublicInputs.equals(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))) {
+    const finalBlobAccumulator = batchedBlobInputs.toFinalBlobAccumulator();
+    if (!publicInputs.blobPublicInputs.equals(finalBlobAccumulator)) {
       throw new Error(
-        `Batched blob mismatch: ${inspect(publicInputs.blobPublicInputs)} !== ${inspect(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))}`,
+        `Batched blob mismatch: ${inspect(publicInputs.blobPublicInputs)} !== ${inspect(finalBlobAccumulator)}`,
       );
     }
 
@@ -215,18 +211,18 @@ export class ProverNodePublisher {
   }): Promise<TransactionReceipt | undefined> {
     const txArgs = [this.getSubmitEpochProofArgs(args)] as const;
 
-    this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
+    this.log.info(`Submitting epoch proof to L1 rollup contract`, {
+      proofSize: args.proof.withoutPublicInputs().length,
+      fromBlock: args.fromBlock,
+      toBlock: args.toBlock,
+    });
     const data = encodeFunctionData({
       abi: RollupAbi,
       functionName: 'submitEpochRootProof',
       args: txArgs,
     });
     try {
-      const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({
-        to: this.rollupContract.address,
-        data,
-      });
-
+      const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({ to: this.rollupContract.address, data });
       return receipt;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
@@ -260,7 +256,7 @@ export class ProverNodePublisher {
       {
         previousArchive: args.publicInputs.previousArchiveRoot.toString(),
         endArchive: args.publicInputs.endArchiveRoot.toString(),
-        proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),
+        proverId: EthAddress.fromField(args.publicInputs.constants.proverId).toString(),
       } /*_args*/,
       makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
         i % 2 === 0
@@ -287,13 +283,11 @@ export class ProverNodePublisher {
       end: argsArray[1],
       args: argsArray[2],
       fees: argsArray[3],
-      attestations: RollupContractClass.packAttestations(args.attestations),
+      attestations: new CommitteeAttestationsAndSigners(
+        args.attestations.map(a => CommitteeAttestation.fromViem(a)),
+      ).getPackedAttestations(),
       blobInputs: argsArray[4],
       proof: proofHex,
     };
-  }
-
-  protected async sleepOrInterrupted() {
-    await this.interruptibleSleep.sleep(this.sleepTimeMs);
   }
 }

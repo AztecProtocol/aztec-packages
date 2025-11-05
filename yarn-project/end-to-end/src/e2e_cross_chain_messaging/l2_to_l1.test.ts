@@ -1,4 +1,7 @@
-import { BatchCall, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { RollupContract } from '@aztec/ethereum';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -23,7 +26,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let msgSender: EthAddress;
-  let user1Wallet: Wallet;
+  let wallet: Wallet;
+  let user1Address: AztecAddress;
   let outbox: any;
 
   let version: number = 1;
@@ -32,7 +36,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
-    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, user1Wallet } = t);
+    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, wallet, user1Address } = t);
 
     msgSender = EthAddress.fromString(t.deployL1ContractsValues.l1Client.account.address);
 
@@ -49,7 +53,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       ).getVersion(),
     );
 
-    contract = await TestContract.deploy(user1Wallet).send().deployed();
+    contract = await TestContract.deploy(wallet).send({ from: user1Address }).deployed();
   }, 300_000);
 
   afterAll(async () => {
@@ -58,62 +62,19 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
   // Note: We register one portal address when deploying contract but that address is no-longer the only address
   // allowed to receive messages from the given contract. In the following test we'll test that it's really the case.
-  it.each([[true], [false]])(
-    `can send an L2 -> L1 message to a non-registered portal address from public or private`,
-    async (isPrivate: boolean) => {
-      const content = Fr.random();
-      const recipient = crossChainTestHarness.ethAccount;
-
-      // We create the L2 -> L1 message using the test contract
-      const l2TxReceipt = isPrivate
-        ? await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content, recipient).send().wait()
-        : await contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(content, recipient).send().wait();
-
-      // Since the outbox is only consumable when the block is proven, we need to set the block to be proven.
-      await t.assumeProven();
-
-      const blockNumber = l2TxReceipt.blockNumber!;
-      const message = makeL2ToL1Message(recipient, content);
-      await expectConsumeMessageToSucceed(blockNumber, message);
-    },
-    60_000,
-  );
-
-  // When the block contains a tx with no messages, it triggers a different code path in
-  // computeL2ToL1MembershipWitness. In this test we ensure the code path is correct.
-  it('2 txs in the same block, one with no messages, one with a message', async () => {
-    const content = Fr.random();
-    const recipient = msgSender;
-    const message = makeL2ToL1Message(recipient, content);
-
-    // Configure the node to include the 2 txs in the same block.
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
-
-    // Send the 2 txs.
-    const [noMessageReceipt, withMessageReceipt] = await Promise.all([
-      contract.methods.emit_nullifier(Fr.random()).send().wait(),
-      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content, recipient).send().wait(),
-    ]);
-
-    // Check that the 2 txs are in the same block.
-    const blockNumber = withMessageReceipt.blockNumber!;
-    expect(noMessageReceipt.blockNumber).toEqual(blockNumber);
-
-    // Since the outbox is only consumable when the block is proven, we need to set the block to be proven.
-    await t.assumeProven();
-
-    // Consume the message.
-    await expectConsumeMessageToSucceed(blockNumber, message);
-  }, 60_000);
-
-  it('1 tx with 2 messages (balanced)', async () => {
-    const { recipients, contents, messages } = generateMessages(2);
+  it('1 tx with 2 messages, one from public, one from private, to a non-registered portal address', async () => {
+    const recipient = crossChainTestHarness.ethAccount;
+    const contents = [Fr.random(), Fr.random()];
+    const messages = contents.map(content => makeL2ToL1Message(recipient, content));
 
     // Configure the node be able to rollup only 1 tx.
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
 
-    const call = createBatchCall(user1Wallet, recipients, contents);
-    const txReceipt = await call.send().wait();
+    const call = new BatchCall(wallet, [
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(contents[0], recipient),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(contents[1], recipient),
+    ]);
+    const txReceipt = await call.send({ from: user1Address }).wait();
 
     // Check that the block contains the 2 messages.
     const blockNumber = txReceipt.blockNumber!;
@@ -124,9 +85,46 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven.
     await t.assumeProven();
 
+    // Consume messages[0].
+    await expectConsumeMessageToSucceed(blockNumber, messages[0]);
     // Consume messages[1].
     await expectConsumeMessageToSucceed(blockNumber, messages[1]);
   });
+
+  // When the block contains a tx with no messages, the zero txOutHash is skipped and won't be included in the top tree.
+  // In this test, we test that the correct tree class is used, and the final out hash equals the only message leaf.
+  it('2 txs in the same block, one with no messages, one with a message', async () => {
+    const content = Fr.random();
+    const recipient = msgSender;
+    const message = makeL2ToL1Message(recipient, content);
+
+    // Configure the node to include the 2 txs in the same block.
+    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
+
+    // Send the 2 txs.
+    const [noMessageReceipt, withMessageReceipt] = await Promise.all([
+      contract.methods.emit_nullifier(Fr.random()).send({ from: user1Address }).wait(),
+      contract.methods
+        .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
+        .send({ from: user1Address })
+        .wait(),
+    ]);
+
+    // Check that the 2 txs are in the same block.
+    const blockNumber = withMessageReceipt.blockNumber!;
+    expect(noMessageReceipt.blockNumber).toEqual(blockNumber);
+
+    // Since the outbox is only consumable when the block is proven, we need to set the block to be proven.
+    await t.assumeProven();
+
+    const msgLeaf = computeMessageLeaf(message);
+    const witness = (await computeL2ToL1MembershipWitness(aztecNode, blockNumber, msgLeaf))!;
+    expect(witness.siblingPath.pathSize).toBe(0);
+    expect(witness.root).toEqual(msgLeaf);
+
+    // Consume the message.
+    await expectConsumeMessageToSucceed(blockNumber, message, witness);
+  }, 60_000);
 
   it('1 tx with 3 messages (wonky)', async () => {
     const { recipients, contents, messages } = generateMessages(3);
@@ -135,8 +133,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     // Configure the node be able to rollup only 1 tx.
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
 
-    const call = createBatchCall(user1Wallet, recipients, contents);
-    const txReceipt = await call.send().wait();
+    const call = createBatchCall(wallet, recipients, contents);
+    const txReceipt = await call.send({ from: user1Address }).wait();
 
     // Check that the block contains all the messages.
     const blockNumber = txReceipt.blockNumber!;
@@ -171,10 +169,13 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const tx0 = generateMessages(3);
     const tx1 = generateMessages(4);
 
-    const call0 = createBatchCall(user1Wallet, tx0.recipients, tx0.contents);
-    const call1 = createBatchCall(user1Wallet, tx1.recipients, tx1.contents);
+    const call0 = createBatchCall(wallet, tx0.recipients, tx0.contents);
+    const call1 = createBatchCall(wallet, tx1.recipients, tx1.contents);
 
-    const [l2TxReceipt0, l2TxReceipt1] = await Promise.all([call0.send().wait(), call1.send().wait()]);
+    const [l2TxReceipt0, l2TxReceipt1] = await Promise.all([
+      call0.send({ from: user1Address }).wait(),
+      call1.send({ from: user1Address }).wait(),
+    ]);
 
     // Check that the 2 txs are in the same block.
     const blockNumber = l2TxReceipt0.blockNumber!;
@@ -233,14 +234,14 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const tx1 = generateMessages(1);
     const tx2 = generateMessages(2);
 
-    const call0 = createBatchCall(user1Wallet, tx0.recipients, tx0.contents);
-    const call1 = createBatchCall(user1Wallet, tx1.recipients, tx1.contents);
-    const call2 = createBatchCall(user1Wallet, tx2.recipients, tx2.contents);
+    const call0 = createBatchCall(wallet, tx0.recipients, tx0.contents);
+    const call1 = createBatchCall(wallet, tx1.recipients, tx1.contents);
+    const call2 = createBatchCall(wallet, tx2.recipients, tx2.contents);
 
     const [l2TxReceipt0, l2TxReceipt1, l2TxReceipt2] = await Promise.all([
-      call0.send().wait(),
-      call1.send().wait(),
-      call2.send().wait(),
+      call0.send({ from: user1Address }).wait(),
+      call1.send({ from: user1Address }).wait(),
+      call2.send({ from: user1Address }).wait(),
     ]);
 
     // Check that all txs are in the same block.
@@ -263,7 +264,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       // Consume messages[0], which is in the subtree of height 2.
       const msg = tx0.messages[0];
       const leaf = computeMessageLeaf(msg);
-      const witness = (await computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf))!;
+      const witness = computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf);
       expect(witness.siblingPath.pathSize).toBe(2 + getHeightFromRootToTx(tx0));
       await expectConsumeMessageToSucceed(blockNumber, msg, witness);
     }
@@ -271,7 +272,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       // Consume messages[2], which is in the subtree of height 1.
       const msg = tx0.messages[2];
       const leaf = computeMessageLeaf(msg);
-      const witness = (await computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf))!;
+      const witness = computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf);
       expect(witness.siblingPath.pathSize).toBe(1 + getHeightFromRootToTx(tx0));
       await expectConsumeMessageToSucceed(blockNumber, msg, witness);
     }
@@ -281,7 +282,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       // Consume messages[0], which is the tx subtree root.
       const msg = tx1.messages[0];
       const leaf = computeMessageLeaf(msg);
-      const witness = (await computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf))!;
+      const witness = computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf);
       expect(witness.siblingPath.pathSize).toBe(getHeightFromRootToTx(tx1));
       await expectConsumeMessageToSucceed(blockNumber, msg, witness);
     }
@@ -291,7 +292,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       // Consume messages[1], which is in the subtree of height 1.
       const msg = tx2.messages[1];
       const leaf = computeMessageLeaf(msg);
-      const witness = (await computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf))!;
+      const witness = computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, leaf);
       expect(witness.siblingPath.pathSize).toBe(1 + getHeightFromRootToTx(tx2));
       await expectConsumeMessageToSucceed(blockNumber, msg, witness);
     }

@@ -11,6 +11,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 /**
  * @title Inbox
@@ -113,9 +114,7 @@ contract Inbox is IInbox {
 
     bytes16 updatedRollingHash = bytes16(keccak256(abi.encodePacked(rollingHash, leaf)));
     state = InboxState({
-      rollingHash: bytes16(updatedRollingHash),
-      totalMessagesInserted: totalMessagesInserted + 1,
-      inProgress: inProgress
+      rollingHash: updatedRollingHash, totalMessagesInserted: totalMessagesInserted + 1, inProgress: inProgress
     });
 
     emit MessageSent(inProgress, index, leaf, updatedRollingHash);
@@ -151,6 +150,21 @@ contract Inbox is IInbox {
     }
 
     return root;
+  }
+
+  /**
+   * @notice Catch up the inbox to the pending block number
+   *
+   * @dev Only callable by the rollup contract
+   *      Will only be called WHEN a change is made from 0 to non-zero mana limits
+   *
+   * @param _pendingBlockNumber - The pending block number to catch up to
+   */
+  function catchUp(uint256 _pendingBlockNumber) external override(IInbox) {
+    require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
+    // The next expected will be 1 ahead of the next block, e.g., + 2 from current.
+    state.inProgress = SafeCast.toUint64(_pendingBlockNumber + 2);
+    emit InboxSynchronized(state.inProgress);
   }
 
   function getFeeAssetPortal() external view override(IInbox) returns (address) {

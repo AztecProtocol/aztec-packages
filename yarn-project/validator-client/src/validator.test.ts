@@ -1,3 +1,4 @@
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
@@ -5,7 +6,10 @@ import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import type { Hex } from '@aztec/foundation/string';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
+import { unfreeze } from '@aztec/foundation/types';
+import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import {
   AuthRequest,
   AuthResponse,
@@ -16,16 +20,17 @@ import {
   createSecp256k1PeerId,
 } from '@aztec/p2p';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
-import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
+import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { Gas } from '@aztec/stdlib/gas';
 import type { BuildBlockResult, IFullNodeBlockBuilder, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
+import { makeBlockAttestation, makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { ContentCommitment, type Tx, TxHash } from '@aztec/stdlib/tx';
-import { AttestationTimeoutError, InvalidValidatorPrivateKeyError } from '@aztec/stdlib/validators';
+import { BlockHeader, ContentCommitment, type Tx, TxHash } from '@aztec/stdlib/tx';
+import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -36,7 +41,7 @@ import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
   let config: ValidatorClientConfig &
-    Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>;
+    Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'> & { disableTransactions: boolean };
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource>;
@@ -46,6 +51,7 @@ describe('ValidatorClient', () => {
   let validatorAccounts: PrivateKeyAccount[];
   let dateProvider: TestDateProvider;
   let txProvider: MockProxy<TxProvider>;
+  let keyStoreManager: KeystoreManager;
 
   beforeEach(() => {
     p2pClient = mock<P2P>();
@@ -68,12 +74,30 @@ describe('ValidatorClient', () => {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
+      disabledValidators: [],
       validatorReexecute: false,
       validatorReexecuteDeadlineMs: 6000,
-      slashInvalidBlockEnabled: true,
-      slashInvalidBlockPenalty: 1n,
-      slashInvalidBlockMaxPenalty: 100n,
+      slashBroadcastedInvalidBlockPenalty: 1n,
+      disableTransactions: false,
     };
+
+    const keyStore: KeyStore = {
+      schemaVersion: 1,
+      slasher: undefined,
+      prover: undefined,
+      remoteSigner: undefined,
+      validators: [
+        {
+          attester: validatorPrivateKeys.map(key => key as Hex<32>),
+          feeRecipient: AztecAddress.ZERO,
+          coinbase: undefined,
+          remoteSigner: undefined,
+          publisher: [],
+        },
+      ],
+    };
+    keyStoreManager = new KeystoreManager(keyStore);
+
     validatorClient = ValidatorClient.new(
       config,
       blockBuilder,
@@ -82,37 +106,20 @@ describe('ValidatorClient', () => {
       blockSource,
       l1ToL2MessageSource,
       txProvider,
+      keyStoreManager,
       dateProvider,
     );
   });
 
-  describe('constructor', () => {
-    it('should throw error if an invalid private key is provided', () => {
-      config.validatorPrivateKeys = new SecretValue(['0x1234567890123456789']);
-      expect(() =>
-        ValidatorClient.new(
-          config,
-          blockBuilder,
-          epochCache,
-          p2pClient,
-          blockSource,
-          l1ToL2MessageSource,
-          txProvider,
-          dateProvider,
-        ),
-      ).toThrow(InvalidValidatorPrivateKeyError);
-    });
-  });
-
   describe('createBlockProposal', () => {
     it('should create a valid block proposal without txs', async () => {
-      const header = makeHeader();
+      const header = makeL2BlockHeader();
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
 
       const blockProposal = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
-        header.toPropose(),
+        header.toCheckpointHeader(),
         archive,
         header.state,
         txs,
@@ -184,24 +191,56 @@ describe('ValidatorClient', () => {
       expect(addAttestationsSpy).toHaveBeenCalled();
       expect(addAttestationsSpy.mock.calls[0][0]).toHaveLength(2);
     });
+
+    it('should filter out attestations with mismatched payload', async () => {
+      const signer = Secp256k1Signer.random();
+      const attestor1 = Secp256k1Signer.random();
+      const attestor2 = Secp256k1Signer.random();
+
+      const archive = Fr.random();
+      const txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
+
+      const proposal = makeBlockProposal({ signer, archive, txHashes });
+
+      // Create attestations - one with matching payload, one with mismatched
+      const validAttestation = makeBlockAttestation({ signer: attestor1, archive, txHashes });
+      const invalidAttestation = makeBlockAttestation({ signer: attestor2, archive: Fr.random(), txHashes });
+
+      p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) =>
+        slot === proposal.payload.header.slotNumber.toBigInt() && proposalId === proposal.archive.toString()
+          ? Promise.resolve([validAttestation, invalidAttestation])
+          : Promise.resolve([]),
+      );
+
+      // Perform the query - should timeout but we're testing the filtering behavior
+      await expect(
+        validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 1000)),
+      ).rejects.toThrow(AttestationTimeoutError);
+
+      // Verify that getAttestationsForSlot was called (meaning the loop ran)
+      expect(p2pClient.getAttestationsForSlot).toHaveBeenCalled();
+    });
   });
 
   describe('attestToProposal', () => {
     let proposal: BlockProposal;
+    let blockNumber: number;
     let sender: PeerId;
     let blockBuildResult: BuildBlockResult;
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
 
     const enableReexecution = () => {
-      (validatorClient as any).config.validatorReexecute = true;
+      validatorClient.updateConfig({ validatorReexecute: true });
       blockBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
     };
 
     beforeEach(async () => {
       const emptyInHash = await computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
-      proposal = makeBlockProposal({ header: makeHeader(1, 100, 100, { contentCommitment }) });
+      const blockHeader = makeL2BlockHeader(1, 100, 100, { contentCommitment });
+      blockNumber = blockHeader.getBlockNumber();
+      proposal = makeBlockProposal({ header: blockHeader });
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
       const slotTime = genesisTime + proposal.slotNumber.toBigInt() * BigInt(blockBuilder.getConfig().slotDuration);
@@ -228,9 +267,13 @@ describe('ValidatorClient', () => {
       });
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
 
-      blockSource.getBlock.mockResolvedValue({
-        archive: new AppendOnlyTreeSnapshot(proposal.payload.header.lastArchiveRoot, proposal.blockNumber),
-      } as L2Block);
+      // Return parent block when requested
+      blockSource.getBlockHeaderByArchive.mockResolvedValue({
+        getBlockNumber: () => blockNumber - 1,
+        getSlot: () => blockHeader.getSlot() - 1n,
+      } as BlockHeader);
+
+      blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
 
       blockBuildResult = {
@@ -242,9 +285,9 @@ describe('ValidatorClient', () => {
         numMsgs: 0,
         usedTxs: [],
         block: {
-          header: makeHeader(),
+          header: blockHeader.clone(),
           body: { txEffects: times(proposal.txHashes.length, () => ({})) },
-          archive: new AppendOnlyTreeSnapshot(proposal.archive, proposal.blockNumber),
+          archive: new AppendOnlyTreeSnapshot(proposal.archive, blockNumber),
         } as L2Block,
       };
     });
@@ -258,11 +301,11 @@ describe('ValidatorClient', () => {
 
     it('should wait for previous block to sync', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
-      blockSource.getBlock.mockResolvedValueOnce(undefined);
-      blockSource.getBlock.mockResolvedValueOnce(undefined);
-      blockSource.getBlock.mockResolvedValueOnce(undefined);
+      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
       const attestations = await validatorClient.attestToProposal(proposal, sender);
-      expect(blockSource.getBlock).toHaveBeenCalledTimes(4);
+      expect(blockSource.getBlockHeaderByArchive).toHaveBeenCalledTimes(4);
       expect(attestations).toBeDefined();
       expect(attestations?.length).toBe(1);
     });
@@ -273,7 +316,7 @@ describe('ValidatorClient', () => {
       expect(attestations?.length).toBeGreaterThan(0);
     });
 
-    it('should not attest to proposal if roots do not match, and should emit WANT_TO_SLASH_EVENT', async () => {
+    it('should not attest to proposal if roots do not match and should emit WANT_TO_SLASH_EVENT', async () => {
       // Block builder returns a block with a different root
       const emitSpy = jest.spyOn(validatorClient, 'emit');
       enableReexecution();
@@ -285,35 +328,37 @@ describe('ValidatorClient', () => {
 
       // We should emit WANT_TO_SLASH_EVENT
       const proposer = proposal.getSender();
+      expect(proposer).toBeDefined();
       expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
         {
-          validator: proposer,
-          amount: config.slashInvalidBlockPenalty,
-          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          validator: proposer!,
+          amount: config.slashBroadcastedInvalidBlockPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: expect.any(BigInt),
         },
       ]);
+    });
 
-      // We "remember" that we want to slash this person, up to the max penalty...
-      await expect(
-        validatorClient.shouldSlash({
-          validator: EthAddress.fromString(proposer.toString()), // create a copy of the EthAddress
-          amount: config.slashInvalidBlockMaxPenalty,
-          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-        }),
-      ).resolves.toBe(true);
+    it('should not attest to proposal if a random field in the proposal does not match', async () => {
+      // Block builder returns a block with a different nullifier tree root
+      enableReexecution();
+      unfreeze(blockBuildResult.block.header.state.partial).nullifierTree.root = Fr.random();
 
-      // ...but no more than that
-      await expect(
-        validatorClient.shouldSlash({
-          validator: EthAddress.fromString(proposer.toString()),
-          amount: config.slashInvalidBlockMaxPenalty + 1n,
-          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-        }),
-      ).resolves.toBe(false);
+      // We should not attest to the proposal
+      const attestations = await validatorClient.attestToProposal(proposal, sender);
+      expect(attestations).toBeUndefined();
+    });
+
+    it('should not attest to proposal if the proposed block number is taken', async () => {
+      enableReexecution();
+      blockSource.getBlockHeader.mockResolvedValue({} as BlockHeader);
+      const attestations = await validatorClient.attestToProposal(proposal, sender);
+      expect(attestations).toBeUndefined();
+      expect(blockSource.getBlockHeader).toHaveBeenCalledWith(blockNumber);
     });
 
     it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {
-      validatorClient.configureSlashing({ slashInvalidBlockEnabled: false });
+      validatorClient.updateConfig({ slashBroadcastedInvalidBlockPenalty: 0n });
 
       const emitSpy = jest.spyOn(validatorClient, 'emit');
       enableReexecution();
@@ -330,6 +375,7 @@ describe('ValidatorClient', () => {
 
       expect(txProvider.getTxsForBlockProposal).toHaveBeenCalledWith(
         proposal,
+        blockNumber,
         expect.objectContaining({ pinnedPeer: sender }),
       );
     });
@@ -342,6 +388,7 @@ describe('ValidatorClient', () => {
 
       expect(txProvider.getTxsForBlockProposal).toHaveBeenCalledWith(
         proposal,
+        blockNumber,
         expect.objectContaining({ pinnedPeer: sender }),
       );
     });
@@ -500,6 +547,17 @@ describe('ValidatorClient', () => {
       const config = getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
       expect(config.validatorPrivateKeys!.getValue()).toHaveLength(1);
       expect(config.validatorPrivateKeys!.getValue()[0]).toBe(process.env.VALIDATOR_PRIVATE_KEY);
+    });
+
+    it('should update configuration', () => {
+      validatorClient.updateConfig({ attestationPollingIntervalMs: 2000 });
+      expect(validatorClient.getConfig().attestationPollingIntervalMs).toBe(2000);
+    });
+
+    it('should skip disabled validator addresses', () => {
+      const addresses = validatorClient.getValidatorAddresses();
+      validatorClient.updateConfig({ disabledValidators: [validatorClient.getValidatorAddresses()[0]] });
+      expect(validatorClient.getValidatorAddresses()).toEqual(addresses.slice(1));
     });
   });
 });

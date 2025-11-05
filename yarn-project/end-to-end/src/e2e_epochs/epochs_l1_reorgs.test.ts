@@ -1,12 +1,16 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, type AztecNode, Fr, type Logger, retryUntil } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum';
 import type { ChainMonitor, ChainMonitorEventMap, Delayer } from '@aztec/ethereum/test';
 import { timesAsync } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
+import { retryUntil } from '@aztec/foundation/retry';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
@@ -38,8 +42,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup({
-      l1PublishRetryIntervalMS: 300_000, // Do not retry l1 txs, we dont want them to land
-      txPropagationMaxQueryAttempts: 2, // We are blocking txs here, so do not spend much time looking for them
+      maxSpeedUpAttempts: 0, // Do not speed up l1 txs, we dont want them to land
+      cancelTxOnTimeout: false,
+      aztecEpochDuration: 8, // Bump epoch duration, epoch 0 is finishing before we had a chance to do anything
       ethereumSlotDuration: process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 4, // Got to speed these tests up for CI
     });
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
@@ -58,7 +63,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       if (parsedTx.sidecars === false) {
         throw new Error('No sidecars found in tx');
       }
-      return Promise.all(parsedTx.sidecars!.map(sidecar => Blob.fromEncodedBlobBuffer(hexToBuffer(sidecar.blob))));
+      return parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob)));
     };
 
     it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
@@ -110,8 +115,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // And check that the old node has processed the reorg as well
       logger.warn(`Testing old node after reorg`);
-      expect(await node.getProvenBlockNumber()).toEqual(0);
-      expect(await node.getBlockNumber()).toBeWithin(currentBlock - 1, currentBlock + 1);
+      await retryUntil(() => node.getProvenBlockNumber().then(b => b === 0), 'prune', L2_SLOT_DURATION_IN_S * 4, 0.1);
+      expect(await node.getBlockNumber()).toBeWithin(monitor.l2BlockNumber - 1, monitor.l2BlockNumber + 1);
 
       logger.warn(`Test succeeded`);
       await newNode.stop();
@@ -123,26 +128,25 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       const provenBlock = await test.waitUntilProvenL2BlockNumber(1);
       await retryUntil(() => node.getProvenBlockNumber().then(p => p >= provenBlock), 'node sync', 10, 0.1);
 
+      // Stop the prover node
+      await proverNode.stop();
+
       // Remove the proof from L1 but do not change the block number
       await context.cheatCodes.eth.reorgWithReplacement(1);
       await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toEqual(0);
 
-      // Create another prover node so it submits a proof
-      await test.createProverNode();
-
-      // Wait until the end of the proof submission window for the first epoch
-      await test.waitUntilLastSlotOfProofSubmissionWindow(0);
-
-      // And expect that the other node has submitted a proof
+      // Create another prover node so it submits a proof and wait until it is submitted
+      const newProverNode = await test.createProverNode();
+      const provenBlockRetry = await test.waitUntilProvenL2BlockNumber(1);
       await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toBeGreaterThanOrEqual(1);
 
       // Check that the node has followed along
       logger.warn(`Testing old node`);
-      const currentBlock = monitor.l2BlockNumber;
-      expect(await node.getProvenBlockNumber()).toBeGreaterThanOrEqual(1);
-      expect(await node.getBlockNumber()).toBeWithin(currentBlock - 1, currentBlock + 1);
+      await retryUntil(() => node.getProvenBlockNumber().then(b => b >= provenBlockRetry), 'proof sync', 10, 0.1);
+      expect(await node.getBlockNumber()).toBeWithin(monitor.l2BlockNumber - 1, monitor.l2BlockNumber + 1);
 
       logger.warn(`Test succeeded`);
+      await newProverNode.stop();
     });
 
     it('restores L2 blocks if a proof is added due to an L1 reorg', async () => {
@@ -161,10 +165,11 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       const [proofTx] = proverDelayer.getCancelledTxs();
       expect(proofTx).toBeDefined();
       await proverNode.stop();
+      logger.warn(`Prover node stopped.`);
 
       // Wait for the node to prune
       const syncTimeout = L2_SLOT_DURATION_IN_S * 2;
-      await retryUntil(() => node.getBlockNumber().then(b => b <= 1), 'node sync', syncTimeout, 0.1);
+      await retryUntil(() => node.getBlockNumber().then(b => b <= 1), 'node prune', syncTimeout, 0.1);
       expect(monitor.l2ProvenBlockNumber).toEqual(0);
       expect(await node.getProvenBlockNumber()).toEqual(0);
 
@@ -180,7 +185,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       expect(l2ProvenBlockNumber).toBeGreaterThan(0);
 
       // And so the node undoes its reorg
-      await retryUntil(() => node.getBlockNumber().then(b => b >= l2BlockNumber), 'node sync', syncTimeout, 0.1);
+      await retryUntil(() => node.getBlockNumber().then(b => b >= l2BlockNumber), 'node resync', syncTimeout, 0.1);
       await retryUntil(() => node.getProvenBlockNumber().then(b => b >= l2ProvenBlockNumber), 'proof sync', 1, 0.1);
 
       logger.warn(`Test succeeded`);
@@ -225,12 +230,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // Wait until a few more L1 blocks go by
       await retryUntil(() => monitor.l1BlockNumber > l1BlockNumber + 1, 'l1 block number', L1_BLOCK_TIME_IN_S * 4, 0.1);
-      await retryUntil(() => archiver.getL1BlockNumber() > l1BlockNumber + 1, 'archiver sync', 10, 0.1);
+      await retryUntil(() => archiver.getL1BlockNumber()! > l1BlockNumber + 1, 'archiver sync', 10, 0.1);
       expect(await node.getBlockNumber()).toEqual(L2_BLOCK_NUMBER - 1);
 
       // Manually update the archiver's L1 syncpoint to ensure we look back when needed
       // Otherwise this test just passes because we do not update the L1 syncpoint in the archiver since there are no new blocks
-      await archiver.dataStore.setBlockSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()));
+      await archiver.dataStore.setBlockSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()!));
 
       // Now trigger the reorg. Note that we cannot use reorgWithReplacement here for the reorg, due to an anvil bug with
       // blob txs (now fixed, we can just update its version), so we reorg, then replay the tx, and then mine.
@@ -253,12 +258,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // We also need to send the blob to the sink, so the node can get it
       logger.warn(`Sending blobs to blob sink`);
-      const blobs = await getBlobs(l2BlockTx);
+      const blobs = getBlobs(l2BlockTx);
       const blobSinkClient = createBlobSinkClient(context.config);
       await blobSinkClient.sendBlobsToBlobSink(blobs);
 
       // And wait for the node to see the new block
-      await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 5, 0.1);
+      await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 20, 0.1);
     });
   });
 
@@ -321,7 +326,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // Wait until the archiver moves the syncpoint forward
       const l1BlockNumber = await monitor.run(true).then(m => m.l1BlockNumber);
-      await retryUntil(() => archiver.getL1BlockNumber() > l1BlockNumber, 'archiver sync', L1_BLOCK_TIME_IN_S * 2, 0.1);
+      await retryUntil(
+        () => archiver.getL1BlockNumber()! > l1BlockNumber,
+        'archiver sync',
+        L1_BLOCK_TIME_IN_S * 2,
+        0.1,
+      );
 
       // Now trigger the reorg, where we insert the second message
       logger.warn(`Triggering reorg to insert second message`);

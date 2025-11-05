@@ -58,7 +58,7 @@ void NoteHashTreeCheckTraceBuilder::process(
 
         FF prev_leaf_value = event.existing_leaf_value;
         bool exists = prev_leaf_value == unique_note_hash;
-        FF prev_leaf_value_unique_note_hash_diff_inv = exists ? 0 : (prev_leaf_value - unique_note_hash).invert();
+        FF prev_leaf_value_unique_note_hash_diff = prev_leaf_value - unique_note_hash;
 
         trace.set(row,
                   { { { C::note_hash_tree_check_sel, 1 },
@@ -84,7 +84,7 @@ void NoteHashTreeCheckTraceBuilder::process(
                       { C::note_hash_tree_check_unique_note_hash_separator, GENERATOR_INDEX__UNIQUE_NOTE_HASH },
                       { C::note_hash_tree_check_prev_leaf_value, prev_leaf_value },
                       { C::note_hash_tree_check_prev_leaf_value_unique_note_hash_diff_inv,
-                        prev_leaf_value_unique_note_hash_diff_inv },
+                        prev_leaf_value_unique_note_hash_diff }, // Will be inverted in batch later
                       { C::note_hash_tree_check_next_leaf_value, write ? unique_note_hash : 0 },
                       { C::note_hash_tree_check_note_hash_tree_height, NOTE_HASH_TREE_HEIGHT },
                       { C::note_hash_tree_check_should_write_to_public_inputs, write && (!discard) },
@@ -92,6 +92,9 @@ void NoteHashTreeCheckTraceBuilder::process(
                         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_counter } } });
         row++;
     });
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::note_hash_tree_check_prev_leaf_value_unique_note_hash_diff_inv } });
 }
 
 const InteractionDefinition NoteHashTreeCheckTraceBuilder::interactions =

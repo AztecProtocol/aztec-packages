@@ -64,6 +64,8 @@ interface NoirFunctionEntry {
 export interface NoirCompiledContract {
   /** The name of the contract. */
   name: string;
+  /** Is the contract's public bytecode transpiled? */
+  transpiled?: boolean;
   /** The functions of the contract. */
   functions: NoirFunctionEntry[];
   /** The events of the contract */
@@ -87,6 +89,15 @@ export interface NoirCompiledCircuit {
   abi: NoirFunctionAbi;
   /** The bytecode of the circuit in base64. */
   bytecode: string;
+  /** The verification key of the circuit. */
+  verificationKey: {
+    /** hex-encoded binary */
+    bytes: string;
+    /** list of hex-encoded fields */
+    fields: string[];
+    /** The hex-encoded hash. */
+    hash: string;
+  };
   /** The debug information, compressed and base64 encoded. */
   debug_symbols: string;
   /** The map of file ID to the source code and path of the file. */

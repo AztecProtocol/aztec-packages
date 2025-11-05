@@ -13,10 +13,12 @@ namespace bb {
 
 class UltraRollupFlavor : public bb::UltraFlavor {
   public:
-    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
-    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        UltraFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + IPA_PROOF_LENGTH;
+    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
+    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
+    {
+        return UltraFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IPA_PROOF_LENGTH;
+    }
     static constexpr size_t BACKEND_PUB_INPUTS_SIZE = RollupIO::PUBLIC_INPUTS_SIZE;
 
     using UltraFlavor::UltraFlavor;
@@ -31,8 +33,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        static constexpr size_t VERIFICATION_KEY_LENGTH = UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH;
-
         virtual ~VerificationKey() = default;
 
         bool operator==(const VerificationKey&) const = default;
@@ -52,42 +52,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                 commitment = commitment_key.commit(polynomial);
             }
         }
-
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-
-        // For serialising and deserialising data
-        MSGPACK_FIELDS(log_circuit_size,
-                       num_public_inputs,
-                       pub_inputs_offset,
-                       q_m,
-                       q_c,
-                       q_l,
-                       q_r,
-                       q_o,
-                       q_4,
-                       q_lookup,
-                       q_arith,
-                       q_delta_range,
-                       q_elliptic,
-                       q_memory,
-                       q_nnf,
-                       q_poseidon2_external,
-                       q_poseidon2_internal,
-                       sigma_1,
-                       sigma_2,
-                       sigma_3,
-                       sigma_4,
-                       id_1,
-                       id_2,
-                       id_3,
-                       id_4,
-                       table_1,
-                       table_2,
-                       table_3,
-                       table_4,
-                       lagrange_first,
-                       lagrange_last);
     };
 
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;

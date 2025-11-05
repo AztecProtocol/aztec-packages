@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { sleep } from '@aztec/aztec.js';
-import { L1TxUtils, RollupContract, deployL1Contract } from '@aztec/ethereum';
+import { L1TxUtils, RollupContract, createL1TxUtilsFromViemWallet, deployL1Contract } from '@aztec/ethereum';
+import { sleep } from '@aztec/foundation/sleep';
 import {
   GovernanceAbi,
   GovernanceProposerAbi,
@@ -12,7 +12,7 @@ import { jest } from '@jest/globals';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getAddress, getContract } from 'viem';
+import { encodeFunctionData, getAddress, getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
@@ -39,7 +39,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_gerousia',
+      testName: 'e2e_p2p_upgrade_governance_proposer',
       numberOfNodes: 0,
       numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
@@ -48,7 +48,6 @@ describe('e2e_p2p_governance_proposer', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
-        governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
         activationThreshold: 10n ** 22n,
         ejectionThreshold: 5n ** 22n,
@@ -58,7 +57,7 @@ describe('e2e_p2p_governance_proposer', () => {
     await t.applyBaseSnapshots();
     await t.setup();
 
-    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterEach(async () => {
@@ -69,7 +68,7 @@ describe('e2e_p2p_governance_proposer', () => {
     }
   });
 
-  it('Should cast votes to upgrade governanceProposer', async () => {
+  it('should cast votes to upgrade governanceProposer', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
@@ -181,11 +180,16 @@ describe('e2e_p2p_governance_proposer', () => {
     await waitL1Block();
 
     t.logger.info(`Submitting winner of round ${govData.round}`);
-    const txHash = await governanceProposer.write.submitRoundWinner([govData.round], {
-      account: emperor,
-      gas: 1_000_000n,
+
+    await l1TxUtils.sendAndMonitorTransaction({
+      to: governanceProposer.address,
+      data: encodeFunctionData({
+        abi: GovernanceProposerAbi,
+        functionName: 'submitRoundWinner',
+        args: [govData.round],
+      }),
     });
-    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash });
+
     t.logger.info(`Submitted winner of round ${govData.round}`);
 
     const proposal = await governance.read.getProposal([0n]);
@@ -203,7 +207,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
     const proposalState = await governance.read.getProposal([0n]);
     t.logger.info(`Proposal state`, proposalState);
-    400000000000000000000;
+
     const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
     t.logger.info(`Warping to ${timeToExecutable}`);
     await t.ctx.cheatCodes.eth.warp(Number(timeToExecutable));

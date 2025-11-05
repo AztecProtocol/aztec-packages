@@ -60,6 +60,8 @@ abstract class BaseField {
       this.asBigInt = BigInt(value);
       if (this.asBigInt >= this.modulus()) {
         throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
+      } else if (this.asBigInt < 0n) {
+        throw new Error(`Value 0x${this.asBigInt.toString(16)} is negative.`);
       }
     } else if (value instanceof BaseField) {
       this.asBuffer = value.asBuffer;
@@ -319,15 +321,14 @@ export class Fr extends BaseField {
    * @returns A square root of the field element (null if it does not exist).
    */
   async sqrt(): Promise<Fr | null> {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const wasm = api.getWasm();
-    const [buf] = wasm.callWasmExport('bn254_fr_sqrt', [this.toBuffer()], [Fr.SIZE_IN_BYTES + 1]);
-    const isSqrt = buf[0] === 1;
-    if (!isSqrt) {
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.bn254FrSqrt({ input: this.toBuffer() });
+    if (!response.isSquareRoot) {
       // Field element is not a quadratic residue mod p so it has no square root.
       return null;
     }
-    return new Fr(Buffer.from(buf.slice(1)));
+    return Fr.fromBuffer(Buffer.from(response.value));
   }
 
   toJSON() {
@@ -431,6 +432,21 @@ export class Fq extends BaseField {
 
   add(rhs: Fq) {
     return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
+  }
+
+  /**
+   * Computes a square root of the field element.
+   * @returns A square root of the field element (null if it does not exist).
+   */
+  async sqrt(): Promise<Fq | null> {
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.bn254FqSqrt({ input: this.toBuffer() });
+    if (!response.isSquareRoot) {
+      // Field element is not a quadratic residue mod p so it has no square root.
+      return null;
+    }
+    return Fq.fromBuffer(Buffer.from(response.value));
   }
 
   toJSON() {

@@ -3,7 +3,7 @@
 apiVersion: chaos-mesh.org/v1alpha1
 kind: PodChaos
 metadata:
-  name: {{ .Values.global.targetNamespace }}-validator-kill
+  name: {{ .Release.Name }}-{{ .Values.global.targetNamespace }}-validator-kill
   namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
     {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
@@ -17,5 +17,5 @@ spec:
     namespaces:
       - {{ .Values.global.targetNamespace }}
     labelSelectors:
-      app: validator
+      app.kubernetes.io/component: validator
 {{- end }}

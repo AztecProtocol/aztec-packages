@@ -42,7 +42,7 @@ TEST(boomerang_rom_ram_table, graph_description_rom_table)
     field_ct result = field_ct(witness_ct(&builder, (uint64_t)0));
 
     for (size_t i = 0; i < 10; ++i) {
-        safety_variables.insert(result.witness_index);
+        safety_variables.insert(result.get_witness_index());
         field_ct index(witness_ct(&builder, (uint64_t)i));
         index.fix_witness();
         result += table[index];
@@ -52,7 +52,7 @@ TEST(boomerang_rom_ram_table, graph_description_rom_table)
     StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     for (const auto& elem : variables_in_one_gate) {
         EXPECT_EQ(variables_in_one_gate.contains(elem), true);
     }
@@ -84,7 +84,7 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
     std::unordered_set<uint32_t> safety_variables;
 
     for (size_t i = 0; i < 10; ++i) {
-        safety_variables.insert(result.witness_index);
+        safety_variables.insert(result.get_witness_index());
         field_ct index(witness_ct(&builder, (uint64_t)i));
         index.fix_witness();
         result += table.read(index);
@@ -94,7 +94,7 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
     StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     for (const auto& elem : variables_in_one_gate) {
         EXPECT_EQ(safety_variables.contains(elem), true);
     }
@@ -126,7 +126,7 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
     }
     std::unordered_set<uint32_t> safety_variables;
     field_ct result(0);
-    safety_variables.insert(result.witness_index);
+    safety_variables.insert(result.get_witness_index());
 
     const auto update = [&]() {
         for (size_t i = 0; i < table_size / 2; ++i) {
@@ -151,9 +151,9 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
             index1.fix_witness();
             index2.fix_witness();
             result += table.read(index1);
-            safety_variables.insert(result.witness_index);
+            safety_variables.insert(result.get_witness_index());
             result += table.read(index2);
-            safety_variables.insert(result.witness_index);
+            safety_variables.insert(result.get_witness_index());
         }
     };
 
@@ -167,7 +167,7 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
     StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     for (const auto& elem : variables_in_one_gate) {
         EXPECT_EQ(safety_variables.contains(elem), true);
     }

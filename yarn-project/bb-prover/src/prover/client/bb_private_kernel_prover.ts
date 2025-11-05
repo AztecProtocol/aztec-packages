@@ -1,5 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 import {
+  convertHidingKernelPublicInputsToWitnessMapWithAbi,
+  convertHidingKernelToRollupInputsToWitnessMapWithAbi,
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
   convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
   convertPrivateKernelInnerInputsToWitnessMapWithAbi,
@@ -14,11 +16,17 @@ import {
   getPrivateKernelResetArtifactName,
   updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
-import type { ArtifactProvider, ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import {
+  type ArtifactProvider,
+  type ClientProtocolArtifact,
+  mapProtocolArtifactNameToCircuitName,
+} from '@aztec/noir-protocol-circuits-types/types';
 import type { Abi, WitnessMap } from '@aztec/noir-types';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
+  HidingKernelToPublicPrivateInputs,
+  HidingKernelToRollupPrivateInputs,
   PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
@@ -29,10 +37,8 @@ import type {
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
-import type { ClientIvcProof } from '@aztec/stdlib/proofs';
+import type { ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
 import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
-
-import { mapProtocolArtifactNameToCircuitName } from '../../stats.js';
 
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {
   constructor(
@@ -150,6 +156,28 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
+  public async generateHidingToRollupOutput(
+    inputs: HidingKernelToRollupPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'HidingKernelToRollup',
+      convertHidingKernelToRollupInputsToWitnessMapWithAbi,
+      convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateHidingToPublicOutput(
+    inputs: HidingKernelToPublicPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'HidingKernelToPublic',
+      convertHidingKernelPublicInputsToWitnessMapWithAbi,
+      convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
+    );
+  }
+
   public async simulateCircuitOutput<
     I extends { toBuffer: () => Buffer },
     O extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
@@ -235,7 +263,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     return kernelProofOutput;
   }
 
-  public createClientIvcProof(_executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProof> {
+  public createChonkProof(_executionSteps: PrivateExecutionStep[]): Promise<ChonkProofWithPublicInputs> {
     throw new Error('Not implemented');
   }
 

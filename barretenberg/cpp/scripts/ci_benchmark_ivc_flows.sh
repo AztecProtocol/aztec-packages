@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Performs the client ivc private transaction proving benchmarks for our 'realistic apps'.
+# Performs the chonk private transaction proving benchmarks for our 'realistic apps'.
 # This is called by yarn-project/end-to-end/bootstrap.sh bench, which creates these inputs from end-to-end tests.
 source $(git rev-parse --show-toplevel)/ci3/source
+source $(git rev-parse --show-toplevel)/ci3/source_redis
+source $(git rev-parse --show-toplevel)/ci3/source_cache
 
 if [[ $# -ne 2 ]]; then
-  echo "Usage: $0 <bench_input_folder> <benchmark_output>"
+  echo "Usage: $0 <runtime> <benchmark_folder>"
   exit 1
 fi
 cd ..
-export input_folder="$1"
-benchmark_output="$2"
 
 echo_header "bb ivc flow bench"
 
@@ -25,10 +25,10 @@ function verify_ivc_flow {
   # TODO(AD): Checking which one would be good, but there isn't too much that can go wrong here.
   set +e
   echo_stderr "Private verify."
-  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/private-civc-vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme chonk -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_rollup.ivc.vk 1>&2
   local private_result=$?
   echo_stderr "Private verify: $private_result."
-  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme chonk -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_public.ivc.vk 1>&2
   local public_result=$?
   echo_stderr "Public verify: $public_result."
   if [[ $private_result -eq $public_result ]]; then
@@ -36,7 +36,7 @@ function verify_ivc_flow {
     exit 1
   fi
   if [[ $private_result -ne 0 ]] && [[ $public_result -ne 0 ]]; then
-    echo_stderr "Verification failed for $flow. Did not verify with precalculated verification key - we may need to revisit how it is generated in yarn-project/bb-prover."
+    echo_stderr "Verification failed for $flow. Did not verify with precalculated verification key - we may need to revisit how it is generated in noir-projects/noir-protocol-circuits."
     exit 1
   fi
 }
@@ -44,29 +44,25 @@ function verify_ivc_flow {
 function run_bb_cli_bench {
   local runtime="$1"
   local output="$2"
-  local args="$3"
-  export MAIN_ARGS="$args"
+  shift 2
 
   if [[ "$runtime" == "native" ]]; then
-    memusage "./$native_build_dir/bin/bb_cli_bench" \
-      --benchmark_out=$output/op-counts.json \
-      --benchmark_out_format=json || {
-      echo "bb_cli_bench native failed with args: $args"
+    # Add --bench_out_hierarchical flag for native builds to capture hierarchical op counts and timings
+    memusage "./$native_build_dir/bin/bb" "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" || {
+      echo "bb native failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json"
       exit 1
     }
   else # wasm
     export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
-    # TODO support wasm op count time preset
-    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
-      --benchmark_out=$output/op-counts.json \
-      --benchmark_out_format=json || {
-      echo "bb_cli_bench wasm failed with args: $args"
+    # Add --bench_out_hierarchical flag for wasm builds to capture hierarchical op counts and timings
+    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" || {
+      echo "bb wasm failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json"
       exit 1
     }
   fi
 }
 
-function client_ivc_flow {
+function chonk_flow {
   set -eu
   local runtime="$1"
   local flow_folder="$2"
@@ -79,11 +75,7 @@ function client_ivc_flow {
   mkdir -p "$output"
   export MEMUSAGE_OUT="$output/peak-memory-mb.txt"
 
-  run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc -v"
-
-  if [[ "${NATIVE_PRESET:-}" == op-count-time && "$runtime" != wasm ]]; then
-    python3 scripts/analyze_client_ivc_bench.py --prefix . --json $output/op-counts.json --benchmark ""
-  fi
+  run_bb_cli_bench "$runtime" "$output" prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme chonk -v --print_bench
 
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))
@@ -112,4 +104,38 @@ EOF
 
 export -f verify_ivc_flow run_bb_cli_bench
 
-client_ivc_flow $1 $2
+chonk_flow $1 $2
+
+# Upload benchmark breakdown (op counts and timings) to disk if running in CI
+if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
+  echo_header "Uploading Barretenberg benchmark breakdowns"
+
+  runtime="$1"
+  flow_name="$(basename $2)"
+  benchmark_breakdown_file="bench-out/app-proving/$flow_name/$runtime/benchmark_breakdown.json"
+
+  if [[ -f "$benchmark_breakdown_file" ]]; then
+    current_sha=$(git rev-parse HEAD)
+
+    # Create cache key: bench-bb-breakdown-<runtime>-<flow_name>-<sha>
+    # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<runtime>-<flow_name>-<sha>
+    cache_key="bench-bb-breakdown-${runtime}-${flow_name}-${current_sha}"
+
+    # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder)
+    {
+      # Write to Redis for ci.aztec-labs.com access
+      cat "$benchmark_breakdown_file" | gzip | redis_cli -x SETEX "$cache_key" 2592000 &>/dev/null
+
+      # Write to disk in explicit subfolder (only if disk logging enabled)
+      if [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
+        # Strip the prefix from key when writing to disk subfolder
+        disk_key="${cache_key#bench-bb-breakdown-}"
+        cat "$benchmark_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$disk_key"
+      fi
+    } &
+
+    echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/$cache_key"
+  else
+    echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
+  fi
+fi

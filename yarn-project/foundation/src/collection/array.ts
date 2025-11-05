@@ -90,6 +90,17 @@ export async function timesAsync<T>(n: number, fn: (i: number) => Promise<T>): P
 }
 
 /**
+ * Filters an array with an async predicate. Fires all predicate promises in parallel.
+ * @param arr - The array to filter.
+ * @param fn - The async function to determine if an item should be included.
+ * @returns A promise that resolves to the filtered array.
+ */
+export async function filterAsync<T>(arr: T[], fn: (item: T) => Promise<boolean>): Promise<T[]> {
+  const results = await Promise.all(arr.map(fn));
+  return arr.filter((_, i) => results[i]);
+}
+
+/**
  * Executes the given async function n times in parallel and returns the results in an array.
  * @param n - How many times to repeat.
  * @param fn - Mapper from index to value.
@@ -157,7 +168,7 @@ export function areArraysEqual<T>(a: T[], b: T[], eq: (a: T, b: T) => boolean = 
  * @param arr - The array.
  * @param fn - The function to get the value to compare.
  */
-export function maxBy<T>(arr: T[], fn: (x: T) => number): T | undefined {
+export function maxBy<T>(arr: T[], fn: (x: T) => number | bigint): T | undefined {
   return arr.reduce((max, x) => (fn(x) > fn(max) ? x : max), arr[0]);
 }
 
@@ -167,13 +178,25 @@ export function sum(arr: number[]): number {
 }
 
 /** Computes the median of a numeric array. Returns undefined if array is empty. */
-export function median(arr: number[]) {
+export function median(arr: number[]): number | undefined;
+/** Computes the median of a bigint array. Returns undefined if array is empty. */
+export function median(arr: bigint[]): bigint | undefined;
+export function median(arr: number[] | bigint[]): number | bigint | undefined {
   if (arr.length === 0) {
     return undefined;
   }
-  const sorted = [...arr].sort((a, b) => a - b);
+
+  // Handle number array
+  if (typeof arr[0] === 'number') {
+    const sorted = [...(arr as number[])].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+
+  // Handle bigint array
+  const sorted = [...(arr as bigint[])].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2n;
 }
 
 /** Computes the mean of a numeric array. Returns undefined if the array is empty. */
@@ -225,4 +248,18 @@ export function chunk<T>(items: T[], chunkSize: number): T[][] {
     chunks.push(items.slice(i, i + chunkSize));
   }
   return chunks;
+}
+
+/** Partitions the given iterable into two arrays based on the predicate. */
+export function partition<T>(items: T[], predicate: (item: T) => boolean): [T[], T[]] {
+  const pass: T[] = [];
+  const fail: T[] = [];
+  for (const item of items) {
+    if (predicate(item)) {
+      pass.push(item);
+    } else {
+      fail.push(item);
+    }
+  }
+  return [pass, fail];
 }

@@ -1,5 +1,6 @@
 use crate::{
-    abis::{call_context::CallContext, side_effect::{Ordered, RangeOrdered}},
+    abis::call_context::CallContext,
+    side_effect::Ordered,
     traits::{Deserialize, Empty, Serialize},
 };
 
@@ -15,15 +16,6 @@ pub struct PrivateCallRequest {
 impl Ordered for PrivateCallRequest {
     fn counter(self) -> u32 {
         self.start_side_effect_counter
-    }
-}
-
-impl RangeOrdered for PrivateCallRequest {
-    fn counter_start(self) -> u32 {
-        self.start_side_effect_counter
-    }
-    fn counter_end(self) -> u32 {
-        self.end_side_effect_counter
     }
 }
 

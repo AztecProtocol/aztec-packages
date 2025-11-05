@@ -2,7 +2,7 @@ import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { BlockInfo, L2Block } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -25,12 +25,12 @@ export type MissingTxInfo = { blockNumber: number; deadline: Date; readyForReqRe
 
 export type FastCollectionRequestInput =
   | { type: 'block'; block: L2Block }
-  | { type: 'proposal'; blockProposal: BlockProposal };
+  | { type: 'proposal'; blockProposal: BlockProposal; blockNumber: number };
 
 export type FastCollectionRequest = FastCollectionRequestInput & {
   missingTxHashes: Set<string>;
   deadline: Date;
-  blockInfo: BlockInfo;
+  blockInfo: L2BlockInfo;
   promise: PromiseWithResolvers<void>;
   foundTxs: Map<string, Tx>;
 };
@@ -152,10 +152,11 @@ export class TxCollection {
   /** Collects the set of txs for the given block proposal as fast as possible */
   public collectFastForProposal(
     blockProposal: BlockProposal,
+    blockNumber: number,
     txHashes: TxHash[] | string[],
     opts: { deadline: Date; pinnedPeer?: PeerId },
   ) {
-    return this.collectFastFor({ type: 'proposal', blockProposal }, txHashes, opts);
+    return this.collectFastFor({ type: 'proposal', blockProposal, blockNumber }, txHashes, opts);
   }
 
   /** Collects the set of txs for the given mined block as fast as possible */

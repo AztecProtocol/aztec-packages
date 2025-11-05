@@ -35,7 +35,7 @@ using crypto::merkle_tree::index_t;
 
 template <typename LeafValueType> struct BatchInsertionResult {
     std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
-    std::vector<std::pair<LeafValueType, size_t>> sorted_leaves;
+    std::vector<std::pair<LeafValueType, index_t>> sorted_leaves;
     crypto::merkle_tree::fr_sibling_path subtree_path;
 
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
@@ -275,7 +275,7 @@ class WorldState {
     uint64_t create_fork(const std::optional<block_number_t>& blockNumber);
     void delete_fork(const uint64_t& forkId);
 
-    WorldStateStatusSummary set_finalised_blocks(const block_number_t& toBlockNumber);
+    WorldStateStatusSummary set_finalized_blocks(const block_number_t& toBlockNumber);
     WorldStateStatusFull unwind_blocks(const block_number_t& toBlockNumber);
     WorldStateStatusFull remove_historical_blocks(const block_number_t& toBlockNumber);
 
@@ -316,7 +316,7 @@ class WorldState {
 
     bool unwind_block(const block_number_t& blockNumber, WorldStateStatusFull& status);
     bool remove_historical_block(const block_number_t& blockNumber, WorldStateStatusFull& status);
-    bool set_finalised_block(const block_number_t& blockNumber);
+    bool set_finalized_block(const block_number_t& blockNumber);
 
     void get_all_tree_info(const WorldStateRevision& revision, std::array<TreeMeta, NUM_TREES>& responses) const;
 
@@ -482,6 +482,8 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(tree_id));
         auto callback = [&signal, &leaf, &success, &error_msg](const TypedResponse<GetLeafResponse>& response) {
             if (!response.success || !response.inner.leaf.has_value()) {
+                // TODO(#17755): Permeate errors to TS? (native_world_state_instance.ts -> call() translates this to
+                // null)
                 success = false;
                 error_msg = response.message;
             } else {

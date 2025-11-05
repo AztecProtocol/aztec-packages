@@ -8,6 +8,7 @@
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 class ECCVMRecursiveVerifier {
@@ -22,7 +23,7 @@ class ECCVMRecursiveVerifier {
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Builder = Flavor::CircuitBuilder;
     using PCS = Flavor::PCS;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using StdlibPreIpaProof = bb::stdlib::Proof<Builder>;
     using StdlibIpaProof = bb::stdlib::Proof<Builder>;
@@ -32,6 +33,8 @@ class ECCVMRecursiveVerifier {
     struct StdlibProof {
         StdlibPreIpaProof pre_ipa_proof;
         StdlibIpaProof ipa_proof;
+
+        StdlibProof() = default;
 
         StdlibProof(Builder& builder, const ECCVMProof& eccvm_proof)
             : pre_ipa_proof(builder, eccvm_proof.pre_ipa_proof)

@@ -1,4 +1,3 @@
-import { EthAddress, type PXE } from '@aztec/aztec.js';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -6,20 +5,21 @@ import {
   getAllFunctionAbis,
   loadContractArtifact,
 } from '@aztec/aztec.js/abi';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import {
   type DeployL1ContractsReturnType,
   type L1ContractsConfig,
   type Operator,
   RollupContract,
 } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
-import { gtr, ltr, satisfies, valid } from 'semver';
 
 import { encodeArgs } from './encoding.js';
 
@@ -56,7 +56,9 @@ export async function deployAztecContracts(
   feeJuicePortalInitialBalance: bigint,
   acceleratedTestDeployments: boolean,
   config: L1ContractsConfig,
+  existingToken: EthAddress | undefined,
   realVerifier: boolean,
+  createVerificationJson: string | false,
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
@@ -69,24 +71,28 @@ export async function deployAztecContracts(
 
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
-  return await deployL1Contracts(
+  const result = await deployL1Contracts(
     chain.rpcUrls,
     account,
     chain.chainInfo,
     debugLogger,
     {
       vkTreeRoot: getVKTreeRoot(),
-      protocolContractTreeRoot,
+      protocolContractsHash,
       genesisArchiveRoot,
       salt,
       initialValidators,
       acceleratedTestDeployments,
       feeJuicePortalInitialBalance,
       realVerifier,
+      existingTokenAddress: existingToken,
       ...config,
     },
     config,
+    createVerificationJson,
   );
+
+  return result;
 }
 
 export async function deployNewRollupContracts(
@@ -102,6 +108,7 @@ export async function deployNewRollupContracts(
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
   realVerifier: boolean,
+  createVerificationJson: string | false,
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
   const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
@@ -124,7 +131,7 @@ export async function deployNewRollupContracts(
         attester: amin,
         withdrawer: amin,
         // No secrets here. The actual keys are not currently used.
-        bn254SecretKey: Fr.fromHexString(aminAddressString).toBigInt(),
+        bn254SecretKey: new SecretValue(Fr.fromHexString(aminAddressString).toBigInt()),
       },
     ];
     logger.info('Initializing new rollup with old attesters', { initialValidators });
@@ -135,7 +142,7 @@ export async function deployNewRollupContracts(
     {
       salt,
       vkTreeRoot: getVKTreeRoot(),
-      protocolContractTreeRoot,
+      protocolContractsHash,
       genesisArchiveRoot,
       initialValidators,
       feeJuicePortalInitialBalance,
@@ -145,6 +152,7 @@ export async function deployNewRollupContracts(
     registryAddress,
     logger,
     config,
+    createVerificationJson,
   );
 
   return { rollup, slashFactoryAddress };
@@ -252,39 +260,4 @@ export function prettyPrintNargoToml(config: NoirPackageConfig): string {
   });
 
   return partialToml + '\n[dependencies]\n' + dependenciesToml.join('\n') + '\n';
-}
-
-/** Mismatch between server and client versions. */
-class VersionMismatchError extends Error {}
-
-/**
- * Checks that Private eXecution Environment (PXE) version matches the expected one by this CLI. Throws if not.
- * @param pxe - PXE client.
- * @param expectedVersionRange - Expected version by CLI.
- */
-export async function checkServerVersion(pxe: PXE, expectedVersionRange: string) {
-  const serverName = 'Aztec Node';
-  const { nodeVersion } = await pxe.getNodeInfo();
-  if (!nodeVersion) {
-    throw new VersionMismatchError(`Couldn't determine ${serverName} version. You may run into issues.`);
-  }
-  if (!nodeVersion || !valid(nodeVersion)) {
-    throw new VersionMismatchError(
-      `Missing or invalid version identifier for ${serverName} (${nodeVersion ?? 'empty'}).`,
-    );
-  } else if (!satisfies(nodeVersion, expectedVersionRange)) {
-    if (gtr(nodeVersion, expectedVersionRange)) {
-      throw new VersionMismatchError(
-        `${serverName} is running version ${nodeVersion} which is newer than the expected by this CLI (${expectedVersionRange}). Consider upgrading your CLI to a newer version.`,
-      );
-    } else if (ltr(nodeVersion, expectedVersionRange)) {
-      throw new VersionMismatchError(
-        `${serverName} is running version ${nodeVersion} which is older than the expected by this CLI (${expectedVersionRange}). Consider upgrading your ${serverName} to a newer version.`,
-      );
-    } else {
-      throw new VersionMismatchError(
-        `${serverName} is running version ${nodeVersion} which does not match the expected by this CLI (${expectedVersionRange}).`,
-      );
-    }
-  }
 }

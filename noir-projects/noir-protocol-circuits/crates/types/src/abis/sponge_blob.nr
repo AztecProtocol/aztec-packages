@@ -1,59 +1,68 @@
 use crate::{
-    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH, TWO_POW_64},
-    hash::poseidon2_absorb_chunks_existing_sponge,
+    constants::{SPONGE_BLOB_LENGTH, TWO_POW_64},
     poseidon2::Poseidon2Sponge,
     traits::{Deserialize, Empty, Serialize},
 };
 
-// A Poseidon2 sponge used to accumulate data that will be added to blob(s)
-// (More accurately called BlobSponge, but that's not as fun)
-
-// Each base rollup circuit has a start and end SpongeBlob instance, like a PartialStateReference.
-// Tx data is accumulated by calling absorb() on each field, and incrementing the number of fields.
-// To save gates, we do not check after every absorb whether we have filled a blob (we do this in block root).
-
-// Each merge rollup circuit checks that the left rollup input's end SpongeBlob == the right rollup input's start SpongeBlob.
-
-// Finally, the block_root is given the list of all fields to be included in the blob.
-// We hash these ^ and check that the hash matches the one given by the block_root's right input's end SpongeBlob.squeeze().
-// The hash is used as part of the blob challenge, as we've proven it encompasses all elts of the blob(s).
-
-// Init is given by input len * 2^64 (see noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr -> hash_internal)
-global IV: Field = (FIELDS_PER_BLOB * BLOBS_PER_BLOCK) as Field * TWO_POW_64;
-
+/// A Poseidon2 sponge used to accumulate data that will be added to blob(s).
+/// (More accurately called BlobSponge, but that's not as fun).
+///
+/// The journey of a SpongeBlob:
+///
+/// Tx base: each tx absorbs its effects into the given "start" SpongeBlob and outputs it as the "end" SpongeBlob.
+/// Tx merge or block root checks that the start SpongeBlob of a tx matches the end SpongeBlob of the previous tx.
+///
+/// Block root: the end SpongeBlob of the last tx absorbs a special block end marker indicating the number of txs in
+/// the block. The block header commits to the value squeezed from this SpongeBlob. This updated SpongeBlob is then
+/// output as the end SpongeBlob of the block root. In block merge or checkpoint root, the start SpongeBlob is checked
+/// against the end SpongeBlob of the previous block.
+///
+/// Checkpoint root: receives all fields as private inputs and checks that hashing them matches the final hash squeezed
+/// from the end SpongeBlob of the last block, after confirming that and the number of fields absorbed matches the value
+/// the SpongeBlob was initialized with. It also checks that the start SpongeBlob of the first tx in the block does not
+/// have any fields absorbed.
+///
+/// The final hash is used as part of the blob challenge, proving that all fields of the blob(s) are included.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct SpongeBlob {
     pub sponge: Poseidon2Sponge,
-    pub fields: u32,
-    pub expected_fields: u32, // The hinted number of tx effects this will absorb
+    // The number of fields absorbed so far.
+    pub num_absorbed_fields: u32,
+    // The hinted number of fields this sponge will absorb.
+    pub num_expected_fields: u32,
 }
 
 impl SpongeBlob {
-    pub fn new_full_blobs() -> Self {
-        Self { sponge: Poseidon2Sponge::new(IV), fields: 0, expected_fields: 0 }
-    }
-
-    pub fn new(expected_fields_hint: u32) -> Self {
+    pub fn new(num_expected_fields: u32) -> Self {
+        // New sponge is initialized with `num_expected_fields` * 2^64.
+        // (see noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr -> hash_internal)
         Self {
-            sponge: Poseidon2Sponge::new((expected_fields_hint as Field) * TWO_POW_64),
-            fields: 0,
-            expected_fields: expected_fields_hint,
+            sponge: Poseidon2Sponge::new((num_expected_fields as Field) * TWO_POW_64),
+            num_absorbed_fields: 0,
+            num_expected_fields,
         }
     }
 
-    // Add fields to the sponge
-    pub fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
-        // We skip the 0 check below, as most use cases (e.g. base rollup) constrain that the input array
-        // is constructed from i=0->in_len from an empty array, so no need to check.
-        self.sponge = poseidon2_absorb_chunks_existing_sponge(self.sponge, input, in_len, true);
-        self.fields += in_len;
+    /// Initialize the sponge with the number of expected fields in the checkpoint and absorb it as the first field.
+    /// With the number of fields as the prefix, it allows the components outside the circuits to gather the right
+    /// amount of blobs and restore the correct amount of fields to reconstruct the protocol data.
+    pub fn init_for_checkpoint(num_expected_fields: u32) -> Self {
+        let mut sponge = Self::new(num_expected_fields);
+        sponge.absorb([num_expected_fields as Field], 1);
+        sponge
     }
 
-    // Finalise the sponge and output poseidon2 hash of all fields absorbed
+    /// Absorb the first `in_len` fields of the `input` to the sponge. Fields beyond `in_len` are ignored.
+    pub fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
+        self.sponge =
+            crate::hash::poseidon2_absorb_in_chunks_existing_sponge(self.sponge, input, in_len);
+        self.num_absorbed_fields += in_len;
+    }
+
+    /// Finalize the sponge and output poseidon2 hash of all fields absorbed.
     pub fn squeeze(&mut self) -> Field {
         // If the blob sponge is not 'full', we append 1 to match Poseidon2::hash_internal()
-        // NB: There is currently no use case in which we don't 'fill' a blob sponge, but adding for completeness
-        if self.fields != self.expected_fields {
+        if self.num_absorbed_fields != self.num_expected_fields {
             self.sponge.absorb(1);
         }
         self.sponge.squeeze()
@@ -62,13 +71,17 @@ impl SpongeBlob {
 
 impl Empty for SpongeBlob {
     fn empty() -> Self {
-        Self { sponge: Poseidon2Sponge::new(0), fields: 0, expected_fields: 0 }
+        Self { sponge: Poseidon2Sponge::new(0), num_absorbed_fields: 0, num_expected_fields: 0 }
     }
 }
 
 #[test]
 fn test_sponge_blob_serialization() {
-    let item = SpongeBlob { sponge: Poseidon2Sponge::new(123), fields: 456, expected_fields: 789 };
+    let item = SpongeBlob {
+        sponge: Poseidon2Sponge::new(123),
+        num_absorbed_fields: 456,
+        num_expected_fields: 789,
+    };
 
     // We use the SPONGE_BLOB_LENGTH constant to ensure that there is a match
     // between the derived trait implementation and the constant
@@ -85,7 +98,7 @@ unconstrained fn absorb() {
     spongeblob.absorb(input_3, input_3.len());
     // Assert that we have correctly absorbed the first 3 inputs
     assert(spongeblob.sponge.cache.eq(input_3));
-    assert(spongeblob.fields == input_3.len());
+    assert(spongeblob.num_absorbed_fields == input_3.len());
     // Absorb the next 4 in a new call...
     let input_4 = [4, 5, 6, 7];
     spongeblob.absorb(input_4, input_4.len());
@@ -101,4 +114,14 @@ unconstrained fn absorb_incorrect_in_len() {
     let input_3 = [1, 2, 3];
     // The below should fail, as we try to absorb 10 inputs but only provide 3
     spongeblob.absorb(input_3, 10);
+}
+
+#[test]
+fn should_not_absorb_more_than_len() {
+    let mut spongeblob = SpongeBlob::new(3);
+    spongeblob.absorb([1, 2, 3], 1);
+    spongeblob.absorb([4, 5, 6], 1);
+    spongeblob.absorb([7, 8, 9], 1);
+
+    assert(spongeblob.squeeze() == Poseidon2Sponge::hash([1, 4, 7], 3));
 }

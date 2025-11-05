@@ -15,9 +15,11 @@ class RecursiveCircuit {
     using InnerProver = bb::UltraProver_<InnerFlavor>;
     using InnerVerifier = bb::UltraVerifier_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-    using InnerDeciderProvingKey = bb::DeciderProvingKey_<InnerFlavor>;
+    using InnerProverInstance = bb::ProverInstance_<InnerFlavor>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
+    using InnerIO = bb::stdlib::recursion::honk::DefaultIO<InnerBuilder>;
+    using NativeIO = DefaultIO;
 
     using RecursiveFlavor = bb::UltraRecursiveFlavor_<bb::UltraCircuitBuilder>;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
@@ -25,9 +27,11 @@ class RecursiveCircuit {
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
+    using OuterIO = bb::stdlib::recursion::honk::DefaultIO<OuterBuilder>;
 
     using field_ct = bb::stdlib::field_t<OuterBuilder>;
     using public_witness_ct = bb::stdlib::public_witness_t<OuterBuilder>;
+    using StdlibProof = bb::stdlib::Proof<OuterBuilder>;
 
     /**
      * @brief Create a inner circuit object. In this case an extremely simple circuit that just adds two numbers.
@@ -45,7 +49,7 @@ class RecursiveCircuit {
 
         c.assert_equal(a + b);
 
-        bb::stdlib::recursion::PairingPoints<InnerBuilder>::add_default_to_public_inputs(builder);
+        InnerIO::add_default(builder);
 
         return builder;
     }
@@ -66,10 +70,10 @@ class RecursiveCircuit {
         // Create the outer recursive verifier circuit
         OuterBuilder outer_circuit;
 
-        auto inner_proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+        auto inner_prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
         auto inner_verification_key =
-            std::make_shared<typename InnerFlavor::VerificationKey>(inner_proving_key->get_precomputed());
-        InnerProver inner_prover(inner_proving_key, inner_verification_key);
+            std::make_shared<typename InnerFlavor::VerificationKey>(inner_prover_instance->get_precomputed());
+        InnerProver inner_prover(inner_prover_instance, inner_verification_key);
         auto inner_proof = inner_prover.construct_proof();
 
         auto stdlib_vk_and_hash =
@@ -81,13 +85,17 @@ class RecursiveCircuit {
 
         InnerVerifier native_verifier(inner_verification_key);
         native_verifier.transcript->enable_manifest();
-        auto native_result = native_verifier.verify_proof(inner_proof);
+        auto native_result = native_verifier.template verify_proof<NativeIO>(inner_proof);
         if (!native_result) {
             throw std::runtime_error("Inner proof verification failed");
         }
 
-        VerifierOutput output = verifier.verify_proof(inner_proof);
-        output.points_accumulator.set_public();
+        StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
+        VerifierOutput output = verifier.template verify_proof<OuterIO>(stdlib_inner_proof);
+
+        stdlib::recursion::honk::DefaultIO<OuterBuilder> public_inputs;
+        public_inputs.pairing_inputs = output.points_accumulator;
+        public_inputs.set_public();
 
         return outer_circuit;
     }

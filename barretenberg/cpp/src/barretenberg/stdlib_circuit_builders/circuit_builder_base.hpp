@@ -12,8 +12,10 @@
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "pairing_points_tagging.hpp"
 #include <utility>
 
+#include <algorithm>
 #include <unordered_map>
 
 namespace bb {
@@ -22,51 +24,88 @@ static constexpr uint32_t DUMMY_TAG = 0;
 template <typename FF_> class CircuitBuilderBase {
   public:
     using FF = FF_;
-    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::Fq>, curve::BN254, curve::Grumpkin>;
+    using EmbeddedCurve = curve::Grumpkin;
 
   private:
     // A container for all of the witness values used by the circuit
     std::vector<FF> variables;
 
-    std::vector<uint32_t> public_inputs_;
+    std::vector<uint32_t> _public_inputs;
 
-    bool public_inputs_finalized_ = false; // Addition of new public inputs disallowed after this is set to true.
+    bool _public_inputs_finalized = false; // Addition of new public inputs disallowed after this is set to true.
 
-  public:
-    size_t num_gates = 0;
     // true if we have dummy witnesses (in the write_vk case)
-    bool has_dummy_witnesses = false;
-
-    std::unordered_map<uint32_t, std::string> variable_names;
+    bool _has_dummy_witnesses = false;
 
     // index of next variable in equivalence class (=REAL_VARIABLE if you're last)
     std::vector<uint32_t> next_var_index;
     // index of  previous variable in equivalence class (=FIRST if you're in a cycle alone)
     std::vector<uint32_t> prev_var_index;
-    // The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib object) to an
-    // index into the variables array. This extra layer of indirection is used to support copy constraints by allowing,
-    // for example, two witnesses with differing witness indices to have the same "real variable index" and thus the
-    // same witness value. If the witness is not involved in any copy constraints, then real_variable_index[index] ==
-    // index, i.e. it is the identity map.
-    std::vector<uint32_t> real_variable_index;
-    std::vector<uint32_t> real_variable_tags;
-    uint32_t current_tag = DUMMY_TAG;
-    // The permutation on variable tags. See
-    // https://github.com/AztecProtocol/plonk-with-lookups-private/blob/new-stuff/GenPermuations.pdf
-    // DOCTODO(#231): replace with the relevant wiki link.
-    std::map<uint32_t, uint32_t> tau;
-
-    // We know from the CLI arguments during proving whether a circuit should use a prover which produces
-    // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
-    // description and should be able to verify a proof with just the verification key and the proof.
-    // This field exists to later set the same field in the verification key, and make sure
-    // that we are using the correct prover/verifier.
-    bool is_recursive_circuit = false;
 
     bool _failed = false;
     std::string _err;
+
     static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
     static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
+
+    // Index at which we store a witness constrained to be equal to 0
+    uint32_t _zero_idx = 0;
+
+    size_t _num_gates = 0;
+
+    /**
+     * @brief Update all variables from index in equivalence class to have real variable new_real_index
+     * @param index The index of a variable in the class we're updating
+     * @param new_real_index The index of the real variable to update to
+     */
+    void update_real_variable_indices(uint32_t index, uint32_t new_real_index);
+
+  protected:
+    std::unordered_map<uint32_t, std::string> variable_names;
+
+    void set_zero_idx(uint32_t value) { _zero_idx = value; }
+
+    /**
+     * @brief Get the index of the first variable in class
+     * @param index The index of the variable you want to look up
+     * @return The index of the first variable in the same class as the submitted index
+     */
+    uint32_t get_first_variable_in_class(uint32_t index) const;
+
+    /**
+     * @brief Check whether each variable index points to a witness value in the variables array
+     * @details Any variable whose index does not point to witness value is deemed invalid. This implicitly checks
+     * whether a variable index is equal to IS_CONSTANT; assuming that we will never have uint32::MAX number of
+     * variables
+     * @param variable_indices The indices to validate
+     */
+    void assert_valid_variables(const std::vector<uint32_t>& variable_indices);
+
+    /**
+     * @brief The permutation on variable tags
+     * @details See https://github.com/AztecProtocol/plonk-with-lookups-private/blob/new-stuff/GenPermuations.pdf
+     * DOCTODO(#231): replace with the relevant wiki link
+     */
+    std::unordered_map<uint32_t, uint32_t> _tau;
+
+  public:
+    /**
+     * @brief PairingPoints tagging tool, used to ensure that all pairing points created in this circuit are aggregated
+     * together. This is not related to circuit logic.
+     */
+    mutable PairingPointsTagging pairing_points_tagging;
+
+    /**
+     * @brief Map from witness index to real variable index
+     * @details The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib
+     * object) to an index into the variables array. This extra layer of indirection is used to support copy
+     * constraints by allowing, for example, two witnesses with differing witness indices to have the same "real
+     * variable index" and thus the same witness value. If the witness is not involved in any copy constraints, then
+     * real_variable_index[index] == index, i.e. it is the identity map
+     */
+    std::vector<uint32_t> real_variable_index;
+    std::vector<uint32_t> real_variable_tags;
+    uint32_t current_tag = DUMMY_TAG;
 
     CircuitBuilderBase(size_t size_hint = 0, bool has_dummy_witnesses = false);
 
@@ -76,15 +115,24 @@ template <typename FF_> class CircuitBuilderBase {
     CircuitBuilderBase& operator=(CircuitBuilderBase&& other) noexcept = default;
     virtual ~CircuitBuilderBase() = default;
 
+    bool has_dummy_witnesses() const { return _has_dummy_witnesses; }
+
     bool operator==(const CircuitBuilderBase& other) const = default;
 
     virtual size_t get_num_finalized_gates() const;
-    virtual size_t get_estimated_num_finalized_gates() const;
-    virtual void print_num_estimated_finalized_gates() const;
     virtual size_t get_num_variables() const;
-    // TODO(#216)(Adrian): Feels wrong to let the zero_idx be changed.
-    uint32_t zero_idx = 0;
-    uint32_t one_idx = 1;
+
+    // Get the current number of gates in the circuit
+    size_t num_gates() const { return _num_gates; }
+
+    // Increment the gate count by the specified amount
+    void increment_num_gates(size_t count = 1) { _num_gates += count; }
+
+    // Get the permutation on variable tags
+    const std::unordered_map<uint32_t, uint32_t>& tau() const { return _tau; }
+
+    // Non-owning getter for the index at which a fixed witness 0 is stored
+    uint32_t zero_idx() const { return _zero_idx; }
 
     virtual void create_add_gate(const add_triple_<FF>& in) = 0;
     virtual void create_mul_gate(const mul_triple_<FF>& in) = 0;
@@ -95,162 +143,103 @@ template <typename FF_> class CircuitBuilderBase {
     const std::vector<FF>& get_variables() const { return variables; }
 
     /**
-     * Get the index of the first variable in class.
-     *
-     * @param index The index of the variable you want to look up.
-     *
-     * @return The index of the first variable in the same class as the submitted index.
-     * */
-    uint32_t get_first_variable_in_class(uint32_t index) const;
-    /**
-     * Update all variables from index in equivalence class to have real variable new_real_index.
-     *
-     * @param index The index of a variable in the class we're updating.
-     * @param new_real_index The index of the real variable to update to.
-     * */
-    void update_real_variable_indices(uint32_t index, uint32_t new_real_index);
-
-    /**
-     * @brief Get the value of the variable v_{index}.
-     *
-     * @param index The index of the variable.
-     * @return The value of the variable.
-     * */
+     * @brief Get the value of the variable v_{index}
+     * @param index The index of the variable
+     * @return The value of the variable
+     */
     inline FF get_variable(const uint32_t index) const
     {
-        BB_ASSERT_GT(variables.size(), real_variable_index[index]);
+        BB_ASSERT_DEBUG(variables.size() > real_variable_index[index]);
         return variables[real_variable_index[index]];
     }
 
     /**
-     * @brief Set the value of the variable pointed to by a witness index.
+     * @brief Set the value of the variable pointed to by a witness index
      * @details The witness value pointed to by a witness index is determined by the mapping of the input witness index
      * to the corresponding "real variable index" which may agree with the input index or it may point to a different
-     * location within the variables array due to copy contraints that have been imposed, e.g. by assert_equal.
+     * location within the variables array due to copy contraints that have been imposed, e.g. by assert_equal
      * @note This has the same effect on the resulting circuit as assert_equal(add_variable(value), index) but has the
-     * benefit of not adding an additional variable to the circuit unnecessarily.
-     *
-     * @param index
-     * @param value
+     * benefit of not adding an additional variable to the circuit unnecessarily
+     * @param index The witness index
+     * @param value The value to set
      */
     inline void set_variable(const uint32_t index, const FF& value)
     {
-        BB_ASSERT_GT(variables.size(), real_variable_index[index]);
+        BB_ASSERT_DEBUG(variables.size() > real_variable_index[index]);
+        BB_ASSERT(has_dummy_witnesses());
         variables[real_variable_index[index]] = value;
     }
 
-    /**
-     * Get a reference to the variable v_{index}.
-     *
-     * We need this function for check_circuit functions.
-     *
-     * @param index The index of the variable.
-     * @return The value of the variable.
-     * */
-    inline const FF& get_variable_reference(const uint32_t index) const
-    {
-        BB_ASSERT_GT(variables.size(), index);
-        return variables[real_variable_index[index]];
-    }
-
-    uint32_t get_public_input_index(const uint32_t witness_index) const;
-
-    FF get_public_input(const uint32_t index) const;
-
-    const std::vector<uint32_t>& public_inputs() const { return public_inputs_; };
+    const std::vector<uint32_t>& public_inputs() const { return _public_inputs; };
 
     /**
-     * @brief Set the public_inputs_finalized_ to true to prevent any new public inputs from being added.
+     * @brief Set the _public_inputs_finalized to true to prevent any new public inputs from being added
      * @details This is used, for example, for special internal public inputs (like pairing inputs) which we want to
-     * ensure are placed at the end of the public inputs vector.
+     * ensure are placed at the end of the public inputs vector
      */
-    void finalize_public_inputs() { public_inputs_finalized_ = true; }
+    void finalize_public_inputs() { _public_inputs_finalized = true; }
 
     /**
-     * @brief Directly initialize the public inputs vector.
+     * @brief Directly initialize the public inputs vector
      * @details Used e.g. in the case of a circuit generated from ACIR where some public input indices are known at the
-     * time of circuit construction.
-     *
+     * time of circuit construction
+     * @param public_inputs The public inputs vector to initialize with
      */
-    void initialize_public_inputs(const std::vector<uint32_t>& public_inputs) { this->public_inputs_ = public_inputs; }
+    void initialize_public_inputs(const std::vector<uint32_t>& public_inputs) { this->_public_inputs = public_inputs; }
 
     /**
-     * Add a variable to variables
-     *
+     * @brief Add a variable to variables
      * @param in The value of the variable
      * @return The index of the new variable in the variables vector
      */
     virtual uint32_t add_variable(const FF& in);
 
+    // Disallow add_variable for non-FF types to prevent implicit conversions (specifically, using indices rather
+    // than values)
+    template <typename OT> uint32_t add_variable(const OT& in) = delete;
+
     /**
-     * Assign a name to a variable(equivalence class). Should be one name per equivalence class.
-     *
-     * @param index Index of the variable you want to name.
-     * @param name  Name of the variable.
-     *
+     * @brief Assign a name to a variable (equivalence class)
+     * @details Should be one name per equivalence class
+     * @param index Index of the variable you want to name
+     * @param name Name of the variable
      */
     virtual void set_variable_name(uint32_t index, const std::string& name);
 
     /**
-     * After assert_equal() merge two class names if present.
-     * Preserves the first name in class.
-     *
-     * @param index Index of the variable you have previously named and used in assert_equal.
-     *
-     */
-    virtual void update_variable_names(uint32_t index);
-
-    /**
-     * After finishing the circuit can be called for automatic merging
-     * all existing collisions.
-     *
-     */
-    virtual void finalize_variable_names();
-
-    /**
-     * Export the existing circuit as msgpack compatible buffer.
-     *
+     * @brief Export the existing circuit as msgpack compatible buffer
      * @return msgpack compatible buffer
      */
     virtual msgpack::sbuffer export_circuit();
 
     /**
-     * Add a public variable to variables
-     *
-     * The only difference between this and add_variable is that here it is
-     * also added to the public_inputs vector
-     *
+     * @brief Add a public variable to variables
+     * @details The only difference between this and add_variable is that here it is also added to the public_inputs
+     * vector
      * @param in The value of the variable
      * @return The index of the new variable in the variables vector
      */
     virtual uint32_t add_public_variable(const FF& in);
 
+    // Disallow add_public_variable for non-FF types to prevent implicit conversions (specifically, using indices rather
+    // than values)
+    template <typename OT> uint32_t add_public_variable(const OT& in) = delete;
+
     /**
-     * @brief Make a witness variable public.
-     *
-     * @param witness_index The index of the witness.
-     * @return uint32_t The index of the witness in the public inputs vector.
+     * @brief Make a witness variable public
+     * @param witness_index The index of the witness
+     * @return The index of the witness in the public inputs vector
      */
     virtual uint32_t set_public_input(uint32_t witness_index);
     virtual void assert_equal(uint32_t a_idx, uint32_t b_idx, std::string const& msg = "assert_equal");
 
     size_t get_circuit_subgroup_size(size_t num_gates) const;
 
-    size_t num_public_inputs() const { return public_inputs_.size(); }
-
-    // Check whether each variable index points to a witness in the composer
-    //
-    // Any variable whose index does not point to witness value is deemed invalid.
-    //
-    // This implicitly checks whether a variable index
-    // is equal to IS_CONSTANT; assuming that we will never have
-    // uint32::MAX number of variables
-    void assert_valid_variables(const std::vector<uint32_t>& variable_indices);
+    size_t num_public_inputs() const { return _public_inputs.size(); }
 
     bool failed() const;
     const std::string& err() const;
 
-    void set_err(std::string msg);
     void failure(std::string msg);
 };
 
@@ -563,7 +552,7 @@ template <typename FF> struct CircuitSchemaInternal {
  *
  *
  *
- * The (subgroup.size() * program_width) elements of sigma_mappings are of the form:
+ * The (subgroup.size() * num_wires) elements of sigma_mappings are of the form:
  * {
  *     row_index: j, // iterates over all rows in the subgroup
  *     column_index: i, // l,r,o,4

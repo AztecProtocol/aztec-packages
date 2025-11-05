@@ -24,7 +24,7 @@ struct G2Point {
 /**
  * Library for registering public keys and computing BLS signatures over the BN254 curve.
  * The BN254 curve has been chosen over the BLS12-381 curve for gas efficiency, and
- * because the Aztec rollup's security is already reliant on BN254Lib
+ * because the Aztec rollup's security is already reliant on BN254.
  */
 library BN254Lib {
   /**
@@ -34,7 +34,6 @@ library BN254Lib {
    * Using structs would be more readable, but it would be more expensive to use them, particularly
    * when aggregating the public keys, since we need to convert to uint256[2] and uint256[4] anyway.
    */
-
   // See bn254_registration.test.ts and BLSKey.t.sol for tests which validate these constants.
   uint256 public constant BASE_FIELD_ORDER =
     21_888_242_871_839_275_222_246_405_745_257_275_088_696_311_157_297_823_662_689_037_894_645_226_208_583;
@@ -44,22 +43,13 @@ library BN254Lib {
 
   bytes32 public constant STAKING_DOMAIN_SEPARATOR = bytes32("AZTEC_BLS_POP_BN254_V1");
 
-  // sqrt(-3)
-  uint256 private constant Z0 = 0x0000000000000000b3c4d79d41a91759a9e4c7e359b6b89eaec68e62effffffd;
-  // (sqrt(-3) - 1)  / 2
-  uint256 private constant Z1 = 0x000000000000000059e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe;
-  uint256 private constant T24 = 0x1000000000000000000000000000000000000000000000000;
-  uint256 private constant MASK24 = 0xffffffffffffffffffffffffffffffffffffffffffffffff;
-
-  error NotOnCurve(uint256 x, uint256 y);
-  error NotOnCurveG2(uint256 x0, uint256 x1, uint256 y0, uint256 y1);
   error AddPointFail();
   error MulPointFail();
   error GammaZero();
-  error InverseFail();
   error SqrtFail();
   error PairingFail();
   error NoPointFound();
+  error InfinityNotAllowed();
 
   /**
    * @notice Prove possession of a secret for a point in G1 and G2.
@@ -87,9 +77,10 @@ library BN254Lib {
     view
     returns (bool)
   {
-    require(isOnCurveG1(pk1), NotOnCurve(pk1.x, pk1.y));
-    require(isOnCurveG2(pk2), NotOnCurveG2(pk2.x0, pk2.x1, pk2.y0, pk2.y1));
-    require(isOnCurveG1(signature), NotOnCurve(signature.x, signature.y));
+    // Ensure that provided points are not infinity
+    require(!isZero(pk1), InfinityNotAllowed());
+    require(!isZero(pk2), InfinityNotAllowed());
+    require(!isZero(signature), InfinityNotAllowed());
 
     // Compute the point "digest" of the pk1 that sigma is a signature over
     G1Point memory pk1DigestPoint = g1ToDigestPoint(pk1);
@@ -116,7 +107,7 @@ library BN254Lib {
     return hashToPoint(STAKING_DOMAIN_SEPARATOR, pk1Bytes);
   }
 
-  /// @dev Add two points on BN254 G1 (affine coords).
+  /// @dev Add two points on BN254 G1 (affine coords).
   ///      Reverts if the inputs are not on‐curve.
   function g1Add(G1Point memory p1, G1Point memory p2) internal view returns (G1Point memory output) {
     uint256[4] memory input;
@@ -128,16 +119,15 @@ library BN254Lib {
     bool success;
     assembly {
       // call(gas, to, value, in, insize, out, outsize)
-      // STATICCALL is 40 gas vs 700 gas for CALL
-      success :=
-        staticcall(
-          sub(gas(), 2000),
-          0x06, // precompile address
-          input,
-          0x80, // input size = 4 × 32 bytes
-          output,
-          0x40 // output size = 2 × 32 bytes
-        )
+      // STATICCALL is 40 gas vs 700 gas for CALL
+      success := staticcall(
+        sub(gas(), 2000),
+        0x06, // precompile address
+        input,
+        0x80, // input size = 4 × 32 bytes
+        output,
+        0x40 // output size = 2 × 32 bytes
+      )
     }
 
     if (!success) revert AddPointFail();
@@ -145,7 +135,7 @@ library BN254Lib {
   }
 
   /// @dev Multiply a point by a scalar (little‑endian 256‑bit integer).
-  ///      Reverts if the point is not on‐curve or the scalar ≥ p.
+  ///      Reverts if the point is not on‐curve or the scalar ≥ p.
   function g1Mul(G1Point memory p, uint256 s) internal view returns (G1Point memory output) {
     uint256[3] memory input;
     input[0] = p.x;
@@ -154,15 +144,14 @@ library BN254Lib {
 
     bool success;
     assembly {
-      success :=
-        staticcall(
-          sub(gas(), 2000),
-          0x07, // precompile address
-          input,
-          0x60, // input size = 3 × 32 bytes
-          output,
-          0x40 // output size = 2 × 32 bytes
-        )
+      success := staticcall(
+        sub(gas(), 2000),
+        0x07, // precompile address
+        input,
+        0x60, // input size = 3 × 32 bytes
+        output,
+        0x40 // output size = 2 × 32 bytes
+      )
     }
     if (!success) revert MulPointFail();
     return output;
@@ -192,35 +181,53 @@ library BN254Lib {
     uint256[1] memory result;
     bool didCallSucceed;
     assembly {
-      didCallSucceed :=
-        staticcall(
-          sub(gas(), 2000),
-          8,
-          input,
-          0x180, // input size = 12 * 32 bytes
-          result,
-          0x20 // output size = 32 bytes
-        )
+      didCallSucceed := staticcall(
+        sub(gas(), 2000),
+        8,
+        input,
+        0x180, // input size = 12 * 32 bytes
+        result,
+        0x20 // output size = 32 bytes
+      )
     }
     require(didCallSucceed, PairingFail());
     return result[0] == 1;
   }
 
+  // The hash to point is based on the "mapToPoint" function in https://www.iacr.org/archive/asiacrypt2001/22480516.pdf
   function hashToPoint(bytes32 domain, bytes memory message) internal view returns (G1Point memory output) {
-    bytes32 hashed = keccak256(abi.encode(domain, message));
-    uint256 x = uint256(hashed) % BASE_FIELD_ORDER;
-    uint256 y;
     bool found = false;
+    uint256 attempts = 0;
     while (true) {
-      y = mulmod(x, x, BASE_FIELD_ORDER);
+      uint256 x = uint256(keccak256(abi.encode(domain, message, attempts)));
+      attempts++;
+
+      if (x >= BASE_FIELD_ORDER) {
+        continue;
+      }
+
+      uint256 y = mulmod(x, x, BASE_FIELD_ORDER);
       y = mulmod(y, x, BASE_FIELD_ORDER);
       y = addmod(y, 3, BASE_FIELD_ORDER);
       (y, found) = sqrt(y);
       if (found) {
-        output = G1Point({x: x, y: y});
+        uint256 y0 = y;
+        uint256 y1 = BASE_FIELD_ORDER - y;
+
+        // Ensure that y1 > y0, flip em if necessary
+        if (y0 > y1) {
+          (y0, y1) = (y1, y0);
+        }
+
+        uint256 b = uint256(keccak256(abi.encode(domain, message, type(uint256).max)));
+        if (b & 1 == 0) {
+          output = G1Point({x: x, y: y0});
+        } else {
+          output = G1Point({x: x, y: y1});
+        }
+
         break;
       }
-      x = addmod(x, 1, BASE_FIELD_ORDER);
     }
     require(found, NoPointFound());
     return output;
@@ -236,106 +243,13 @@ library BN254Lib {
       mstore(add(freeMem, 0x60), xx)
       // (N + 1) / 4 = 0xc19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52
       mstore(add(freeMem, 0x80), 0xc19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52)
-      // N = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-      mstore(add(freeMem, 0xA0), 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+      // N = BASE_FIELD_ORDER
+      mstore(add(freeMem, 0xA0), BASE_FIELD_ORDER)
       callSuccess := staticcall(sub(gas(), 2000), 5, freeMem, 0xC0, freeMem, 0x20)
       x := mload(freeMem)
       hasRoot := eq(xx, mulmod(x, x, BASE_FIELD_ORDER))
     }
     require(callSuccess, SqrtFail());
-  }
-
-  function inverse(uint256 a) internal view returns (uint256 result) {
-    bool success;
-    assembly {
-      let freeMem := mload(0x40)
-      mstore(freeMem, 0x20)
-      mstore(add(freeMem, 0x20), 0x20)
-      mstore(add(freeMem, 0x40), 0x20)
-      mstore(add(freeMem, 0x60), a)
-      mstore(add(freeMem, 0x80), sub(BASE_FIELD_ORDER, 2))
-      mstore(add(freeMem, 0xa0), BASE_FIELD_ORDER)
-      success := staticcall(gas(), 0x05, freeMem, 0xc0, freeMem, 0x20)
-      result := mload(freeMem)
-    }
-    if (!success) revert InverseFail();
-  }
-
-  function isOnCurveG1(G1Point memory point) internal pure returns (bool _isOnCurve) {
-    assembly {
-      let t0 := mload(point)
-      let t1 := mload(add(point, 32))
-      let t2 := mulmod(t0, t0, BASE_FIELD_ORDER)
-      t2 := mulmod(t2, t0, BASE_FIELD_ORDER)
-      t2 := addmod(t2, 3, BASE_FIELD_ORDER)
-      t1 := mulmod(t1, t1, BASE_FIELD_ORDER)
-      _isOnCurve := eq(t1, t2)
-    }
-  }
-
-  function isOnCurveG2(G2Point memory point) internal pure returns (bool _isOnCurve) {
-    assembly {
-      // Load x-coordinate from memory where x = x0 + x1*u
-      let x0 := mload(point) // First component of x in Fp2
-      let x1 := mload(add(point, 32)) // Second component of x in Fp2
-
-      // Compute x0^2 (mod p)
-      let x0_squared := mulmod(x0, x0, BASE_FIELD_ORDER)
-
-      // Compute x1^2 (mod p)
-      let x1_squared := mulmod(x1, x1, BASE_FIELD_ORDER)
-
-      // Compute 3*x0^2 (mod p) - needed for x^3 calculation
-      // Note: we compute 3*a as a + a + a to avoid multiplication by constant
-      let three_x0_squared := add(add(x0_squared, x0_squared), x0_squared)
-
-      // Compute 3*x1^2 (mod p) - needed for x^3 calculation
-      let three_x1_squared := addmod(add(x1_squared, x1_squared), x1_squared, BASE_FIELD_ORDER)
-
-      // Compute x^3 where x = x0 + x1*u
-      // x^3 = (x0 + x1*u)^3 = x0^3 + 3*x0^2*x1*u + 3*x0*x1^2*u^2 + x1^3*u^3
-      // Since u^2 = -1, we have u^3 = -u, so:
-      // x^3 = x0^3 + 3*x0^2*x1*u - 3*x0*x1^2 - x1^3*u
-      // x^3 = (x0^3 - 3*x0*x1^2) + (3*x0^2*x1 - x1^3)*u
-
-      // Real component of x^3: x0^3 - 3*x0*x1^2 = x0*(x0^2 - 3*x1^2)
-      let x_cubed_real := mulmod(add(x0_squared, sub(BASE_FIELD_ORDER, three_x1_squared)), x0, BASE_FIELD_ORDER)
-
-      // Imaginary component of x^3: 3*x0^2*x1 - x1^3 = x1*(3*x0^2 - x1^2)
-      let x_cubed_imag := mulmod(add(three_x0_squared, sub(BASE_FIELD_ORDER, x1_squared)), x1, BASE_FIELD_ORDER)
-
-      // Add the curve parameter b = b0 + b1*u to get x^3 + b
-      // For BN254 G2: b0 = 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5
-      //               b1 = 0x009713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2
-      let rhs_real :=
-        addmod(x_cubed_real, 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5, BASE_FIELD_ORDER)
-      let rhs_imag :=
-        addmod(x_cubed_imag, 0x009713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2, BASE_FIELD_ORDER)
-
-      // Load y-coordinate from memory where y = y0 + y1*u
-      let y0 := mload(add(point, 64)) // First component of y in Fp2
-      let y1 := mload(add(point, 96)) // Second component of y in Fp2
-
-      // Compute y^2 where y = y0 + y1*u
-      // y^2 = (y0 + y1*u)^2 = y0^2 + 2*y0*y1*u + y1^2*u^2
-      // Since u^2 = -1:
-      // y^2 = (y0^2 - y1^2) + 2*y0*y1*u
-
-      // Real component of y^2: y0^2 - y1^2 = (y0 + y1)*(y0 - y1)
-      let y_squared_real :=
-        mulmod(
-          addmod(y0, y1, BASE_FIELD_ORDER), // (y0 + y1)
-          addmod(y0, sub(BASE_FIELD_ORDER, y1), BASE_FIELD_ORDER), // (y0 - y1)
-          BASE_FIELD_ORDER
-        )
-
-      // Imaginary component of y^2: 2*y0*y1
-      let y_squared_imag := mulmod(shl(1, y0), y1, BASE_FIELD_ORDER) // shl(1, y0) = 2*y0
-
-      // Check if the curve equation holds: y^2 = x^3 + b
-      // This requires both components to be equal
-      _isOnCurve := and(eq(rhs_real, y_squared_real), eq(rhs_imag, y_squared_imag))
-    }
   }
 
   /// @notice γ = keccak(PK1, PK2, σ_init) mod Fr
@@ -359,12 +273,20 @@ library BN254Lib {
     return G1Point({x: 0, y: 0});
   }
 
+  function isZero(G1Point memory p) internal pure returns (bool) {
+    return p.x == 0 && p.y == 0;
+  }
+
   function g1Generator() internal pure returns (G1Point memory) {
     return G1Point({x: 1, y: 2});
   }
 
   function g2Zero() internal pure returns (G2Point memory) {
     return G2Point({x0: 0, x1: 0, y0: 0, y1: 0});
+  }
+
+  function isZero(G2Point memory p) internal pure returns (bool) {
+    return p.x0 == 0 && p.x1 == 0 && p.y0 == 0 && p.y1 == 0;
   }
 
   function g2NegatedGenerator() internal pure returns (G2Point memory) {

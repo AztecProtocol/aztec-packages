@@ -39,18 +39,18 @@ export async function createWorldState(
     | 'messageTreeMapSizeKb'
     | 'publicDataTreeMapSizeKb'
   > &
-    Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB' | 'l1Contracts'>,
+    Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb' | 'l1Contracts'>,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
   instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
 ) {
   const dataDirectory = config.worldStateDataDirectory ?? config.dataDirectory;
-  const dataStoreMapSizeKB = config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKB;
+  const dataStoreMapSizeKb = config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKb;
   const wsTreeMapSizes: WorldStateTreeMapSizes = {
-    archiveTreeMapSizeKb: config.archiveTreeMapSizeKb ?? dataStoreMapSizeKB,
-    nullifierTreeMapSizeKb: config.nullifierTreeMapSizeKb ?? dataStoreMapSizeKB,
-    noteHashTreeMapSizeKb: config.noteHashTreeMapSizeKb ?? dataStoreMapSizeKB,
-    messageTreeMapSizeKb: config.messageTreeMapSizeKb ?? dataStoreMapSizeKB,
-    publicDataTreeMapSizeKb: config.publicDataTreeMapSizeKb ?? dataStoreMapSizeKB,
+    archiveTreeMapSizeKb: config.archiveTreeMapSizeKb ?? dataStoreMapSizeKb,
+    nullifierTreeMapSizeKb: config.nullifierTreeMapSizeKb ?? dataStoreMapSizeKb,
+    noteHashTreeMapSizeKb: config.noteHashTreeMapSizeKb ?? dataStoreMapSizeKb,
+    messageTreeMapSizeKb: config.messageTreeMapSizeKb ?? dataStoreMapSizeKb,
+    publicDataTreeMapSizeKb: config.publicDataTreeMapSizeKb ?? dataStoreMapSizeKb,
   };
 
   if (!config.l1Contracts?.rollupAddress) {

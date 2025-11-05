@@ -328,7 +328,7 @@ void TranslatorCircuitBuilder::assert_well_formed_ultra_op(const UltraOp& ultra_
 {
     // Opcode should be {0,3,4,8}
     size_t op_code = ultra_op.op_code.value();
-    ASSERT(op_code == 0 || op_code == 3 || op_code == 4 || op_code == 8);
+    BB_ASSERT(op_code == 0 || op_code == 3 || op_code == 4 || op_code == 8);
 
     // Check and insert x_lo and y_hi into wire 1
     BB_ASSERT_LTE(uint256_t(ultra_op.x_lo), MAX_LOW_WIDE_LIMB_SIZE);
@@ -403,10 +403,15 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
 void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra_op)
 {
     auto& op_wire = std::get<WireIds::OP>(wires);
-    op_wire.push_back(add_variable(ultra_op.op_code.value()));
-    // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index
-    op_wire.push_back(zero_idx);
-
+    if (ultra_op.op_code.is_random_op) {
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.random_value_1)));
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.random_value_2)));
+    } else {
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.value())));
+        // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index for a
+        // genuine op
+        op_wire.push_back(zero_idx());
+    }
     insert_pair_into_wire(WireIds::X_LOW_Y_HI, ultra_op.x_lo, ultra_op.y_hi);
 
     insert_pair_into_wire(WireIds::X_HIGH_Z_1, ultra_op.x_hi, ultra_op.z_1);
@@ -506,13 +511,13 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     lay_limbs_in_row(acc_step.quotient_microlimbs[2], QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_0);
     lay_limbs_in_row(top_quotient_microlimbs, QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_0);
 
-    num_gates += 2;
+    increment_num_gates(2);
 
     // Check that all the wires are filled equally
-    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates); });
+    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates()); });
 }
 
-void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)
+void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue)
 {
     using Fq = bb::fq;
     const auto& ultra_ops = ecc_op_queue->get_ultra_ops();
@@ -522,25 +527,52 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         return;
     }
 
-    // Process the first UltraOp - a no-op - and populate with zeros the beginning of all other wires to ensure all wire
-    // polynomials in translator start with 0 (required for shifted polynomials in the proving system). Technically,
-    // we'd need only first index to be a zero but, given each "real" UltraOp populates two indices in a polynomial we
-    // add two zeros for consistency.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
-    // data in the merge protocol (added for zero knowledge)/
-    populate_wires_from_ultra_op(ultra_ops[0]);
+    // Handle the initial UltraOp (a no-op) by filling the start of all other wire polynomials with zeros. This ensures
+    // all translator wire polynomials begin with 0, which is necessary for shifted polynomials in the proving system.
+    // Although only the first index needs to be zero, we add two zeros to maintain consistency since each actual
+    // UltraOp populates two polynomial indices.
     for (auto& wire : wires) {
-        if (wire.empty()) {
-            wire.push_back(zero_idx);
-            wire.push_back(zero_idx);
-        }
+        wire.push_back(zero_idx());
+        wire.push_back(zero_idx());
     }
-    num_gates += 2;
+    increment_num_gates(2);
 
-    // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
-    // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
-        const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
+    auto process_random_op = [&](const UltraOp& ultra_op) {
+        BB_ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
+        populate_wires_from_ultra_op(ultra_op);
+        // Populate the other wires with zeros
+        for (size_t i = WireIds::Y_LOW_Z_2 + 1; i < wires.size(); i++) {
+            wires[i].push_back(zero_idx());
+            wires[i].push_back(zero_idx());
+        }
+        increment_num_gates(2);
+    };
+
+    // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
+    // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
+    // polynomials do not reveal information about data in the op queue
+    // The position and number of these random ops are explained in Chonk::hide_op_queue_content_tail_kernel
+    // and Chonk::hide_op_queue_content_hiding_kernel
+    for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
+        process_random_op(ultra_ops[i]);
+    }
+    const size_t ops_end = avm_mode ? ultra_ops.size() : ultra_ops.size() - NUM_RANDOM_OPS_END;
+    // Range of UltraOps for which we should construct accumulation gates
+    std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
+                             ultra_ops.begin() + static_cast<std::ptrdiff_t>(ops_end));
+
+    // Pre-compute accumulator values for each step since the circuit processes values in reverse order
+    // and requires knowledge of the previous accumulator to construct each gate. Both accumulator computation
+    // and gate creation skip the initial no-ops and also the random operations at the beginning and end of the oqueue ,
+    // as these should not influence the final accumulation result (located at index RESULT_ROW). The accumulation
+    // result is sent as part of the Chonk proof, and so we add a genuine operation with randomly generated values
+    // during Chonk execution to ensure no information about the rest of the ops is leaked. Acccumulator pre-computation
+    // is achieved by processing the queue in reverse order.
+    for (const auto& ultra_op : std::ranges::reverse_view(ultra_ops_span)) {
+        if (ultra_op.op_code.value() == 0) {
+            //  Skip no-ops as they should not affect the computation of the accumulator
+            continue;
+        }
         current_accumulator *= evaluation_input_x;
         const auto [x_256, y_256] = ultra_op.get_base_point_standard_form();
         current_accumulator +=
@@ -552,13 +584,37 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         accumulator_trace.push_back(current_accumulator);
     }
 
-    // We don't care about the last value since we'll recompute it during witness generation anyway
+    // Accumulator final value, recomputed during witness generation and expected at RESULT_ROW
+    Fq final_accumulator_state = accumulator_trace.back();
     accumulator_trace.pop_back();
 
-    // Generate witness values from all the UltraOps
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
-        const auto& ultra_op = ultra_ops[i];
-        Fq previous_accumulator = 0;
+    std::array<Fr, NUM_BINARY_LIMBS> previous_accumulator_binary_limbs = split_fq_into_limbs(final_accumulator_state);
+    // Generate witness values and accumulation gates from all the actual UltraOps, starting from beginning
+    for (const auto& ultra_op : ultra_ops_span) {
+        if (ultra_op.op_code.value() == 0) {
+            // For no-op operations, the translator trace remains empty except for accumulator binary limbs,
+            // which are copied from the previous row where a real operation occurred (i.e., where the op wire
+            // at an even index contains a non-zero value). During proving, we verify that the wires at that
+            // previous row are well-formed and that the accumulator value is correctly propagated throughout
+            // the entire no-op range for both even and odd indices.
+            for (size_t j = 0; j < ACCUMULATORS_BINARY_LIMBS_0; j++) {
+                wires[j].push_back(zero_idx());
+                wires[j].push_back(zero_idx());
+            }
+            size_t idx = 0;
+            for (size_t j = ACCUMULATORS_BINARY_LIMBS_0; j < ACCUMULATORS_BINARY_LIMBS_3 + 1; j++) {
+                wires[j].push_back(add_variable(previous_accumulator_binary_limbs[idx]));
+                wires[j].push_back(add_variable(previous_accumulator_binary_limbs[idx]));
+                idx++;
+            }
+            for (size_t j = ACCUMULATORS_BINARY_LIMBS_3 + 1; j < TOTAL_COUNT; j++) {
+                wires[j].push_back(zero_idx());
+                wires[j].push_back(zero_idx());
+            }
+            increment_num_gates(2);
+            continue;
+        }
+        Fq previous_accumulator{ 0 };
         // Pop the last value from accumulator trace and use it as previous accumulator
         if (!accumulator_trace.empty()) {
             previous_accumulator = accumulator_trace.back();
@@ -568,8 +624,15 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         AccumulationInput one_accumulation_step =
             generate_witness_values(ultra_op, previous_accumulator, batching_challenge_v, evaluation_input_x);
 
+        // Save the state of accumulator in case the next operation encountered is a no-op
+        previous_accumulator_binary_limbs = one_accumulation_step.previous_accumulator;
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
+    }
+    // Also process the last two random ops present at the end of the op queue to hide the ecc ops of the last circuit
+    // whose ops are added to the op queue
+    for (size_t i = ops_end; i < ultra_ops.size(); ++i) {
+        process_random_op(ultra_ops[i]);
     }
 }
 } // namespace bb

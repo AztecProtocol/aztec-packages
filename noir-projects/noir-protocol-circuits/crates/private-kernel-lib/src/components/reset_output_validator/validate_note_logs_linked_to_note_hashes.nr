@@ -1,17 +1,14 @@
 use dep::types::{
-    abis::{
-        note_hash::ScopedNoteHash,
-        private_log::PrivateLogData,
-        side_effect::{Ordered, scoped::Scoped},
-    },
-    utils::arrays::{ClaimedLengthArray, find_index_hint},
+    abis::{note_hash::NoteHash, private_log::PrivateLogData},
+    side_effect::{Counted, Ordered, Scoped},
+    utils::arrays::{ClaimedLengthArray, find_first_index},
 };
 
 /// Validates that a given note log is correctly linked to a note hash at the provided index hint.
-/// This function assumes the index hint has been found using `find_index_hint`.
+/// This function assumes the index hint has been found using `find_first_index`.
 fn validate_note_log_linked_to_note_hash_with_hint<let NUM_NOTE_HASHES: u32>(
-    log: Scoped<PrivateLogData>,
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    log: Scoped<Counted<PrivateLogData>>,
+    note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NUM_NOTE_HASHES>,
     note_hash_index_hint: u32,
 ) {
     // Ensure the note hash index is within the claimed length of the note hashes array.
@@ -25,7 +22,7 @@ fn validate_note_log_linked_to_note_hash_with_hint<let NUM_NOTE_HASHES: u32>(
     let note_hash = note_hashes.array[note_hash_index_hint];
     // Ensure the note log's `note_hash_counter` matches the counter of the note hash at the hinted index.
     assert_eq(
-        log.inner.note_hash_counter,
+        log.innermost().note_hash_counter,
         note_hash.counter(),
         "Can not find a note hash linked to note log",
     );
@@ -46,19 +43,25 @@ fn validate_note_log_linked_to_note_hash_with_hint<let NUM_NOTE_HASHES: u32>(
 ///
 /// Note: It also checks logs beyond the claimed length of the logs array.
 pub fn validate_note_logs_linked_to_note_hashes<let NUM_LOGS: u32, let NUM_NOTE_HASHES: u32>(
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, NUM_LOGS>,
+    note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NUM_NOTE_HASHES>,
 ) {
     for i in 0..NUM_LOGS {
         let log = logs.array[i];
-        if log.inner.note_hash_counter != 0 {
+        if log.innermost().note_hash_counter != 0 {
             // Safety: the index is constrained by the checks below.
             let note_hash_index_hint = unsafe {
-                find_index_hint(
+                let index = find_first_index(
                     note_hashes.array,
-                    |n: ScopedNoteHash| n.counter() == log.inner.note_hash_counter,
-                )
-                    .unwrap_unchecked()
+                    |n| n.counter() == log.innermost().note_hash_counter,
+                );
+                if index == note_hashes.array.len() {
+                    // If the note hash is not found, return 0 as the index hint so the error message can be more
+                    // explicit.
+                    0
+                } else {
+                    index
+                }
             };
 
             validate_note_log_linked_to_note_hash_with_hint(log, note_hashes, note_hash_index_hint);
@@ -71,32 +74,28 @@ mod tests {
         validate_note_log_linked_to_note_hash_with_hint, validate_note_logs_linked_to_note_hashes,
     };
     use dep::types::{
-        abis::{
-            note_hash::{NoteHash, ScopedNoteHash},
-            private_log::PrivateLogData,
-            side_effect::scoped::Scoped,
-        },
+        abis::{note_hash::NoteHash, private_log::PrivateLogData},
         address::AztecAddress,
-        tests::utils::{make_fixture, pad_end_with_empty},
+        side_effect::{Counted, Scoped},
+        tests::utils::{make_fixture, pad_end},
         traits::FromField,
         utils::arrays::ClaimedLengthArray,
     };
 
     global contract_address: AztecAddress = AztecAddress::from_field(987654);
 
-    fn mock_log(seed: Field, note_hash_counter: u32) -> Scoped<PrivateLogData> {
+    fn mock_log(seed: Field, note_hash_counter: u32) -> Scoped<Counted<PrivateLogData>> {
         let log = make_fixture(seed);
-        PrivateLogData { log, note_hash_counter, counter: 1 }.scope(contract_address)
+        PrivateLogData { log, note_hash_counter }.count(1).scope(contract_address)
     }
 
-    fn mock_note_hash(seed: Field, counter: u32) -> ScopedNoteHash {
-        let note_hash = make_fixture(seed);
-        NoteHash { value: note_hash, counter }.scope(contract_address)
+    fn mock_note_hash(value: Field, counter: u32) -> Scoped<Counted<NoteHash>> {
+        Counted::new(value, counter).scope(contract_address)
     }
 
     struct TestBuilder {
-        logs: ClaimedLengthArray<Scoped<PrivateLogData>, 6>,
-        note_hashes: ClaimedLengthArray<ScopedNoteHash, 5>,
+        logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, 6>,
+        note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, 5>,
         note_hash_index_hint: u32,
     }
 
@@ -116,9 +115,9 @@ mod tests {
             ];
 
             Self {
-                logs: ClaimedLengthArray { array: pad_end_with_empty(logs), length: logs.len() },
+                logs: ClaimedLengthArray { array: pad_end(logs), length: logs.len() },
                 note_hashes: ClaimedLengthArray {
-                    array: pad_end_with_empty(note_hashes),
+                    array: pad_end(note_hashes),
                     length: note_hashes.len(),
                 },
                 note_hash_index_hint: 0,
@@ -159,7 +158,7 @@ mod tests {
         let mut builder = TestBuilder::new();
 
         // Link the log at index 0 to an non-existent note hash.
-        builder.logs.array[0].inner.note_hash_counter = 9999;
+        builder.logs.array[0].inner.inner.note_hash_counter = 9999;
 
         builder.validate();
     }
@@ -169,7 +168,7 @@ mod tests {
         let mut builder = TestBuilder::new();
 
         // Link the log at index 0 to an non-existent note hash.
-        builder.logs.array[0].inner.note_hash_counter = 9999;
+        builder.logs.array[0].inner.inner.note_hash_counter = 9999;
 
         // Add a fake note hash for the log outside of the claimed length.
         let claimed_length = builder.note_hashes.length;
@@ -227,7 +226,7 @@ mod tests {
         // Add a new note hash for the log outside of the claimed length.
         let claimed_length = builder.note_hashes.length;
         builder.note_hashes.array[claimed_length + 1] =
-            mock_note_hash(99, log.inner.note_hash_counter);
+            mock_note_hash(99, log.inner.inner.note_hash_counter);
 
         // Change the index to be greater than the claimed length.
         builder.note_hash_index_hint = claimed_length + 1;

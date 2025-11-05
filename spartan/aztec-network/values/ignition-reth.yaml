@@ -7,12 +7,6 @@ aztec:
 bot:
   enabled: false
 
-pxe:
-  enabled: false
-
-faucet:
-  enabled: false
-
 validator:
   replicas: 3
   sequencer:
@@ -60,6 +54,3 @@ ethereum:
       requests:
         cpu: "0.5"
 
-jobs:
-  deployL1Verifier:
-    enable: true

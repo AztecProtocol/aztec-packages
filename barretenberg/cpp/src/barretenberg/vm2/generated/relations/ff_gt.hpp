@@ -3,7 +3,7 @@
 
 #include <string_view>
 
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -28,263 +28,12 @@ template <typename FF_> class ff_gtImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/ff_gt");
-
-        const auto ff_gt_SEL_START = in.get(C::ff_gt_sel_gt) + in.get(C::ff_gt_sel_dec);
-        const auto ff_gt_POW_128 = FF(uint256_t{ 0UL, 0UL, 1UL, 0UL });
-        const auto ff_gt_P_LO = FF(uint256_t{ 4891460686036598785UL, 2896914383306846353UL, 0UL, 0UL });
-        const auto ff_gt_P_HI = FF(uint256_t{ 13281191951274694749UL, 3486998266802970665UL, 0UL, 0UL });
-        const auto ff_gt_A_SUB_B_LO =
-            ((in.get(C::ff_gt_a_lo) - in.get(C::ff_gt_b_lo)) - FF(1)) + in.get(C::ff_gt_borrow) * ff_gt_POW_128;
-        const auto ff_gt_A_SUB_B_HI = ((in.get(C::ff_gt_a_hi) - in.get(C::ff_gt_b_hi)) - in.get(C::ff_gt_borrow));
-        const auto ff_gt_B_SUB_A_LO =
-            (in.get(C::ff_gt_b_lo) - in.get(C::ff_gt_a_lo)) + in.get(C::ff_gt_borrow) * ff_gt_POW_128;
-        const auto ff_gt_B_SUB_A_HI = ((in.get(C::ff_gt_b_hi) - in.get(C::ff_gt_a_hi)) - in.get(C::ff_gt_borrow));
-        const auto ff_gt_IS_GT = in.get(C::ff_gt_sel_gt) * in.get(C::ff_gt_result);
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_sel) * (FF(1) - in.get(C::ff_gt_sel));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_result) * (FF(1) - in.get(C::ff_gt_result));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_sel_gt) * (FF(1) - in.get(C::ff_gt_sel_gt));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_sel_dec) * (FF(1) - in.get(C::ff_gt_sel_dec));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_sel) * (FF(128) - in.get(C::ff_gt_constant_128));
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-        { // A_DECOMPOSITION
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = ff_gt_SEL_START *
-                       (in.get(C::ff_gt_a) - (in.get(C::ff_gt_a_lo) + ff_gt_POW_128 * in.get(C::ff_gt_a_hi)));
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_p_a_borrow) * (FF(1) - in.get(C::ff_gt_p_a_borrow));
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
-        { // P_SUB_A_LO
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = ff_gt_SEL_START *
-                       (in.get(C::ff_gt_p_sub_a_lo) -
-                        (((ff_gt_P_LO - in.get(C::ff_gt_a_lo)) - FF(1)) + in.get(C::ff_gt_p_a_borrow) * ff_gt_POW_128));
-            tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
-        }
-        { // P_SUB_A_HI
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = ff_gt_SEL_START * (in.get(C::ff_gt_p_sub_a_hi) -
-                                          ((ff_gt_P_HI - in.get(C::ff_gt_a_hi)) - in.get(C::ff_gt_p_a_borrow)));
-            tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
-        }
-        { // B_DECOMPOSITION
-            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_sel_gt) *
-                       (in.get(C::ff_gt_b) - (in.get(C::ff_gt_b_lo) + ff_gt_POW_128 * in.get(C::ff_gt_b_hi)));
-            tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_p_b_borrow) * (FF(1) - in.get(C::ff_gt_p_b_borrow));
-            tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
-        }
-        { // P_SUB_B_LO
-            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_sel_gt) *
-                       (in.get(C::ff_gt_p_sub_b_lo) -
-                        (((ff_gt_P_LO - in.get(C::ff_gt_b_lo)) - FF(1)) + in.get(C::ff_gt_p_b_borrow) * ff_gt_POW_128));
-            tmp *= scaling_factor;
-            std::get<11>(evals) += typename Accumulator::View(tmp);
-        }
-        { // P_SUB_B_HI
-            using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_sel_gt) * (in.get(C::ff_gt_p_sub_b_hi) -
-                                                  ((ff_gt_P_HI - in.get(C::ff_gt_b_hi)) - in.get(C::ff_gt_p_b_borrow)));
-            tmp *= scaling_factor;
-            std::get<12>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RES_LO
-            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::ff_gt_sel_gt) *
-                (in.get(C::ff_gt_res_lo) - (ff_gt_A_SUB_B_LO * ff_gt_IS_GT + ff_gt_B_SUB_A_LO * (FF(1) - ff_gt_IS_GT)));
-            tmp *= scaling_factor;
-            std::get<13>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RES_HI
-            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::ff_gt_sel_gt) *
-                (in.get(C::ff_gt_res_hi) - (ff_gt_A_SUB_B_HI * ff_gt_IS_GT + ff_gt_B_SUB_A_HI * (FF(1) - ff_gt_IS_GT)));
-            tmp *= scaling_factor;
-            std::get<14>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RNG_CTR_GT_INIT
-            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_sel_gt) * (in.get(C::ff_gt_cmp_rng_ctr) - FF(4));
-            tmp *= scaling_factor;
-            std::get<15>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RNG_CTR_DEC_INIT
-            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_sel_dec) * (in.get(C::ff_gt_cmp_rng_ctr) - FF(1));
-            tmp *= scaling_factor;
-            std::get<16>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RNG_CTR_DECREMENT
-            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_cmp_rng_ctr) *
-                       ((in.get(C::ff_gt_cmp_rng_ctr) - FF(1)) - in.get(C::ff_gt_cmp_rng_ctr_shift));
-            tmp *= scaling_factor;
-            std::get<17>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ff_gt_sel_shift_rng) * (FF(1) - in.get(C::ff_gt_sel_shift_rng));
-            tmp *= scaling_factor;
-            std::get<18>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RNG_CTR_NON_ZERO
-            using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ff_gt_cmp_rng_ctr) *
-                            ((FF(1) - in.get(C::ff_gt_sel_shift_rng)) * (FF(1) - in.get(C::ff_gt_cmp_rng_ctr_inv)) +
-                             in.get(C::ff_gt_cmp_rng_ctr_inv)) -
-                        in.get(C::ff_gt_sel_shift_rng));
-            tmp *= scaling_factor;
-            std::get<19>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SHIFT_0
-            using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ff_gt_a_lo_shift) - in.get(C::ff_gt_p_sub_a_lo)) * in.get(C::ff_gt_sel_shift_rng);
-            tmp *= scaling_factor;
-            std::get<20>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ff_gt_a_hi_shift) - in.get(C::ff_gt_p_sub_a_hi)) * in.get(C::ff_gt_sel_shift_rng);
-            tmp *= scaling_factor;
-            std::get<21>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SHIFT_1
-            using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ff_gt_p_sub_a_lo_shift) - in.get(C::ff_gt_b_lo)) * in.get(C::ff_gt_sel_shift_rng);
-            tmp *= scaling_factor;
-            std::get<22>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ff_gt_p_sub_a_hi_shift) - in.get(C::ff_gt_b_hi)) * in.get(C::ff_gt_sel_shift_rng);
-            tmp *= scaling_factor;
-            std::get<23>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SHIFT_2
-            using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ff_gt_b_lo_shift) - in.get(C::ff_gt_p_sub_b_lo)) * in.get(C::ff_gt_sel_shift_rng);
-            tmp *= scaling_factor;
-            std::get<24>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ff_gt_b_hi_shift) - in.get(C::ff_gt_p_sub_b_hi)) * in.get(C::ff_gt_sel_shift_rng);
-            tmp *= scaling_factor;
-            std::get<25>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SHIFT_3
-            using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ff_gt_p_sub_b_lo_shift) - in.get(C::ff_gt_res_lo)) * in.get(C::ff_gt_sel_shift_rng);
-            tmp *= scaling_factor;
-            std::get<26>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ff_gt_p_sub_b_hi_shift) - in.get(C::ff_gt_res_hi)) * in.get(C::ff_gt_sel_shift_rng);
-            tmp *= scaling_factor;
-            std::get<27>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SEL_CONSISTENCY
-            using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
-            auto tmp =
-                ((in.get(C::ff_gt_sel_shift_rng) + in.get(C::ff_gt_sel_gt_shift) + in.get(C::ff_gt_sel_dec_shift)) -
-                 in.get(C::ff_gt_sel_shift));
-            tmp *= scaling_factor;
-            std::get<28>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "ff_gt";
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 5:
-            return "A_DECOMPOSITION";
-        case 7:
-            return "P_SUB_A_LO";
-        case 8:
-            return "P_SUB_A_HI";
-        case 9:
-            return "B_DECOMPOSITION";
-        case 11:
-            return "P_SUB_B_LO";
-        case 12:
-            return "P_SUB_B_HI";
-        case 13:
-            return "RES_LO";
-        case 14:
-            return "RES_HI";
-        case 15:
-            return "RNG_CTR_GT_INIT";
-        case 16:
-            return "RNG_CTR_DEC_INIT";
-        case 17:
-            return "RNG_CTR_DECREMENT";
-        case 19:
-            return "RNG_CTR_NON_ZERO";
-        case 20:
-            return "SHIFT_0";
-        case 22:
-            return "SHIFT_1";
-        case 24:
-            return "SHIFT_2";
-        case 26:
-            return "SHIFT_3";
-        case 28:
-            return "SEL_CONSISTENCY";
-        }
-        return std::to_string(index);
-    }
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_A_DECOMPOSITION = 5;
@@ -304,6 +53,47 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
     static constexpr size_t SR_SHIFT_2 = 24;
     static constexpr size_t SR_SHIFT_3 = 26;
     static constexpr size_t SR_SEL_CONSISTENCY = 28;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_A_DECOMPOSITION:
+            return "A_DECOMPOSITION";
+        case SR_P_SUB_A_LO:
+            return "P_SUB_A_LO";
+        case SR_P_SUB_A_HI:
+            return "P_SUB_A_HI";
+        case SR_B_DECOMPOSITION:
+            return "B_DECOMPOSITION";
+        case SR_P_SUB_B_LO:
+            return "P_SUB_B_LO";
+        case SR_P_SUB_B_HI:
+            return "P_SUB_B_HI";
+        case SR_RES_LO:
+            return "RES_LO";
+        case SR_RES_HI:
+            return "RES_HI";
+        case SR_RNG_CTR_GT_INIT:
+            return "RNG_CTR_GT_INIT";
+        case SR_RNG_CTR_DEC_INIT:
+            return "RNG_CTR_DEC_INIT";
+        case SR_RNG_CTR_DECREMENT:
+            return "RNG_CTR_DECREMENT";
+        case SR_RNG_CTR_NON_ZERO:
+            return "RNG_CTR_NON_ZERO";
+        case SR_SHIFT_0:
+            return "SHIFT_0";
+        case SR_SHIFT_1:
+            return "SHIFT_1";
+        case SR_SHIFT_2:
+            return "SHIFT_2";
+        case SR_SHIFT_3:
+            return "SHIFT_3";
+        case SR_SEL_CONSISTENCY:
+            return "SEL_CONSISTENCY";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

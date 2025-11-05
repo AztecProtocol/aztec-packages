@@ -32,6 +32,7 @@ export type L1ContractAddresses = {
   stakingAssetHandlerAddress?: EthAddress | undefined;
   zkPassportVerifierAddress?: EthAddress | undefined;
   gseAddress?: EthAddress | undefined;
+  dateGatedRelayerAddress?: EthAddress | undefined;
 };
 
 export const L1ContractAddressesSchema = z.object({
@@ -51,66 +52,17 @@ export const L1ContractAddressesSchema = z.object({
   stakingAssetHandlerAddress: schemas.EthAddress.optional(),
   zkPassportVerifierAddress: schemas.EthAddress.optional(),
   gseAddress: schemas.EthAddress.optional(),
+  dateGatedRelayerAddress: schemas.EthAddress.optional(),
 }) satisfies ZodFor<L1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
 
 export const l1ContractAddressesMapping: ConfigMappingsType<
-  Omit<L1ContractAddresses, 'gseAddress' | 'zkPassportVerifierAddress'>
+  Omit<L1ContractAddresses, 'gseAddress' | 'zkPassportVerifierAddress' | 'dateGatedRelayerAddress'>
 > = {
-  rollupAddress: {
-    env: 'ROLLUP_CONTRACT_ADDRESS',
-    description: 'The deployed L1 rollup contract address.',
-    parseEnv,
-  },
   registryAddress: {
     env: 'REGISTRY_CONTRACT_ADDRESS',
     description: 'The deployed L1 registry contract address.',
-    parseEnv,
-  },
-  inboxAddress: {
-    env: 'INBOX_CONTRACT_ADDRESS',
-    description: 'The deployed L1 inbox contract address.',
-    parseEnv,
-  },
-  outboxAddress: {
-    env: 'OUTBOX_CONTRACT_ADDRESS',
-    description: 'The deployed L1 outbox contract address.',
-    parseEnv,
-  },
-  feeJuiceAddress: {
-    env: 'FEE_JUICE_CONTRACT_ADDRESS',
-    description: 'The deployed L1 Fee Juice contract address.',
-    parseEnv,
-  },
-  stakingAssetAddress: {
-    env: 'STAKING_ASSET_CONTRACT_ADDRESS',
-    description: 'The deployed L1 staking asset contract address.',
-    parseEnv,
-  },
-  feeJuicePortalAddress: {
-    env: 'FEE_JUICE_PORTAL_CONTRACT_ADDRESS',
-    description: 'The deployed L1 Fee Juice portal contract address.',
-    parseEnv,
-  },
-  coinIssuerAddress: {
-    env: 'COIN_ISSUER_CONTRACT_ADDRESS',
-    description: 'The deployed L1 coinIssuer contract address',
-    parseEnv,
-  },
-  rewardDistributorAddress: {
-    env: 'REWARD_DISTRIBUTOR_CONTRACT_ADDRESS',
-    description: 'The deployed L1 rewardDistributor contract address',
-    parseEnv,
-  },
-  governanceProposerAddress: {
-    env: 'GOVERNANCE_PROPOSER_CONTRACT_ADDRESS',
-    description: 'The deployed L1 governanceProposer contract address',
-    parseEnv,
-  },
-  governanceAddress: {
-    env: 'GOVERNANCE_CONTRACT_ADDRESS',
-    description: 'The deployed L1 governance contract address',
     parseEnv,
   },
   slashFactoryAddress: {
@@ -123,8 +75,47 @@ export const l1ContractAddressesMapping: ConfigMappingsType<
     description: 'The deployed L1 feeAssetHandler contract address',
     parseEnv,
   },
+  rollupAddress: {
+    description: 'The deployed L1 rollup contract address.',
+    parseEnv,
+  },
+  inboxAddress: {
+    description: 'The deployed L1 inbox contract address.',
+    parseEnv,
+  },
+  outboxAddress: {
+    description: 'The deployed L1 outbox contract address.',
+    parseEnv,
+  },
+  feeJuiceAddress: {
+    description: 'The deployed L1 Fee Juice contract address.',
+    parseEnv,
+  },
+  stakingAssetAddress: {
+    description: 'The deployed L1 staking asset contract address.',
+    parseEnv,
+  },
+  feeJuicePortalAddress: {
+    description: 'The deployed L1 Fee Juice portal contract address.',
+    parseEnv,
+  },
+  coinIssuerAddress: {
+    description: 'The deployed L1 coinIssuer contract address',
+    parseEnv,
+  },
+  rewardDistributorAddress: {
+    description: 'The deployed L1 rewardDistributor contract address',
+    parseEnv,
+  },
+  governanceProposerAddress: {
+    description: 'The deployed L1 governanceProposer contract address',
+    parseEnv,
+  },
+  governanceAddress: {
+    description: 'The deployed L1 governance contract address',
+    parseEnv,
+  },
   stakingAssetHandlerAddress: {
-    env: 'STAKING_ASSET_HANDLER_CONTRACT_ADDRESS',
     description: 'The deployed L1 stakingAssetHandler contract address',
     parseEnv,
   },

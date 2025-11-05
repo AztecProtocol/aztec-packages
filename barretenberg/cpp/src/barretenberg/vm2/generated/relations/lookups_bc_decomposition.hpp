@@ -33,26 +33,4 @@ template <typename FF_>
 using lookup_bc_decomposition_bytes_are_bytes_relation =
     lookup_relation_base<FF_, lookup_bc_decomposition_bytes_are_bytes_settings>;
 
-/////////////////// lookup_bc_decomposition_abs_diff_is_u16 ///////////////////
-
-struct lookup_bc_decomposition_abs_diff_is_u16_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_BC_DECOMPOSITION_ABS_DIFF_IS_U16";
-    static constexpr std::string_view RELATION_NAME = "bc_decomposition";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::bc_decomposition_sel;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::lookup_bc_decomposition_abs_diff_is_u16_counts;
-    static constexpr Column INVERSES = Column::lookup_bc_decomposition_abs_diff_is_u16_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::bc_decomposition_abs_diff
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
-};
-
-using lookup_bc_decomposition_abs_diff_is_u16_settings =
-    lookup_settings<lookup_bc_decomposition_abs_diff_is_u16_settings_>;
-template <typename FF_>
-using lookup_bc_decomposition_abs_diff_is_u16_relation =
-    lookup_relation_base<FF_, lookup_bc_decomposition_abs_diff_is_u16_settings>;
-
 } // namespace bb::avm2

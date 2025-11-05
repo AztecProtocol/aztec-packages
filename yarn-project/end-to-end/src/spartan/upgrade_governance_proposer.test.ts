@@ -1,13 +1,15 @@
-import { EthAddress, type NodeInfo, type PXE, createCompatibleClient, sleep } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { type AztecNode, type NodeInfo, createAztecNodeClient } from '@aztec/aztec.js/node';
 import {
   GovernanceProposerContract,
-  L1TxUtils,
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
   deployL1Contract,
 } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
 
@@ -16,20 +18,22 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { parseEther, stringify } from 'viem/utils';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
-import { isK8sConfig, setupEnvironment, startPortForward, updateSequencersConfig } from './utils.js';
+import {
+  setupEnvironment,
+  startPortForwardForEthereum,
+  startPortForwardForRPC,
+  updateSequencersConfig,
+} from './utils.js';
 
 // random private key
 const deployerPrivateKey = '0x23206a40226aad90d5673b8adbbcfe94a617e7a6f9e59fc68615fe1bd4bc72f1';
 
 const config = setupEnvironment(process.env);
-if (!isK8sConfig(config)) {
-  throw new Error('This test must be run in a k8s environment');
-}
 
 const debugLogger = createLogger('e2e:spartan-test:upgrade_governance_proposer');
 
 describe('spartan_upgrade_governance_proposer', () => {
-  let pxe: PXE;
+  let aztecNode: AztecNode;
   let nodeInfo: NodeInfo;
   let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
@@ -39,31 +43,25 @@ describe('spartan_upgrade_governance_proposer', () => {
   });
 
   beforeAll(async () => {
-    const { process: pxeProcess, port: pxePort } = await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
-      namespace: config.NAMESPACE,
-      containerPort: config.CONTAINER_PXE_PORT,
-    });
-    forwardProcesses.push(pxeProcess);
-    const PXE_URL = `http://127.0.0.1:${pxePort}`;
+    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
+    const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
+    forwardProcesses.push(aztecRpcProcess);
+    forwardProcesses.push(ethereumProcess);
 
-    const { process: ethProcess, port: ethPort } = await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
-      namespace: config.NAMESPACE,
-      containerPort: config.CONTAINER_ETHEREUM_PORT,
-    });
-    forwardProcesses.push(ethProcess);
-    ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
+    const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    const ethereumUrl = `http://127.0.0.1:${ethereumPort}`;
 
-    pxe = await createCompatibleClient(PXE_URL, debugLogger);
-    nodeInfo = await pxe.getNodeInfo();
+    aztecNode = createAztecNodeClient(nodeUrl);
+    nodeInfo = await aztecNode.getNodeInfo();
+
+    ETHEREUM_HOSTS = [ethereumUrl];
   });
 
   // We need a separate account to deploy the new governance proposer
   // because the underlying validators are currently producing blob transactions
   // and you can't submit blob and non-blob transactions from the same account
   const setupDeployerAccount = async () => {
-    const chain = createEthereumChain(ETHEREUM_HOSTS, 1337);
+    const chain = createEthereumChain(ETHEREUM_HOSTS, nodeInfo.l1ChainId);
     const validatorWalletClient = createExtendedL1Client(ETHEREUM_HOSTS, MNEMONIC, chain.chainInfo);
     // const privateKey = generatePrivateKey();
     const privateKey = deployerPrivateKey;
@@ -109,12 +107,15 @@ describe('spartan_upgrade_governance_proposer', () => {
 
       const l1Client = await setupDeployerAccount();
 
+      const rollup = new RollupContract(l1Client, nodeInfo.l1ContractAddresses.rollupAddress.toString());
+      const gseAddress = await rollup.getGSE();
+
       const { address: newGovernanceProposerAddress } = await deployL1Contract(
         l1Client,
         NewGovernanceProposerPayloadAbi,
         NewGovernanceProposerPayloadBytecode,
-        [nodeInfo.l1ContractAddresses.registryAddress.toString()],
-        '0x2a', // salt
+        [nodeInfo.l1ContractAddresses.registryAddress.toString(), gseAddress!.toString()],
+        { salt: '0x2a' },
       );
       expect(newGovernanceProposerAddress).toBeDefined();
       expect(newGovernanceProposerAddress.equals(EthAddress.ZERO)).toBeFalsy();
@@ -123,7 +124,6 @@ describe('spartan_upgrade_governance_proposer', () => {
         governanceProposerPayload: newGovernanceProposerAddress,
       });
 
-      const rollup = new RollupContract(l1Client, nodeInfo.l1ContractAddresses.rollupAddress.toString());
       const governanceProposer = new GovernanceProposerContract(
         l1Client,
         nodeInfo.l1ContractAddresses.governanceProposerAddress.toString(),
@@ -164,7 +164,7 @@ describe('spartan_upgrade_governance_proposer', () => {
 
       debugLogger.info(`Executing proposal ${info.round}`);
 
-      const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+      const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
       const { receipt } = await governanceProposer.submitRoundWinner(executableRound, l1TxUtils);
       expect(receipt).toBeDefined();
       expect(receipt.status).toEqual('success');

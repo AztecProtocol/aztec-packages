@@ -26,7 +26,7 @@ struct Poseidon2PermutationEvent {
 };
 
 struct Poseidon2PermutationMemoryEvent {
-    uint32_t space_id = 0;
+    uint16_t space_id = 0;
     uint32_t execution_clk = 0;
     MemoryAddress src_address = 0;
     MemoryAddress dst_address = 0;

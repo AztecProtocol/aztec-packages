@@ -9,9 +9,7 @@ import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-// docs:start:content_hash_sol_import
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
-// docs:end:content_hash_sol_import
 
 contract TokenPortal {
   using SafeERC20 for IERC20;
@@ -35,7 +33,6 @@ contract TokenPortal {
    * @param _underlying - The underlying token address
    * @param _l2Bridge - The L2 bridge address
    */
-  // docs:start:init
   function initialize(address _registry, address _underlying, bytes32 _l2Bridge) external {
     registry = IRegistry(_registry);
     underlying = IERC20(_underlying);
@@ -46,7 +43,6 @@ contract TokenPortal {
     inbox = rollup.getInbox();
     rollupVersion = rollup.getVersion();
   }
-  // docs:end:init
 
   // docs:start:deposit_public
   /**
@@ -57,7 +53,9 @@ contract TokenPortal {
    * Field element)
    * @return The key of the entry in the Inbox and its leaf index
    */
-  function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash) external returns (bytes32, uint256) 
+  function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
+    external
+    returns (bytes32, uint256)
   // docs:end:deposit_public
   {
     // Preamble
@@ -146,7 +144,7 @@ contract TokenPortal {
 
     outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 
-    underlying.transfer(_recipient, _amount);
+    underlying.safeTransfer(_recipient, _amount);
   }
   // docs:end:token_portal_withdraw
 }

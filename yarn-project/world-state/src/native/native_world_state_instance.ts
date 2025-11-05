@@ -36,6 +36,8 @@ export interface NativeWorldStateInstance {
     messageType: T,
     body: WorldStateRequest[T] & WorldStateRequestCategories,
   ): Promise<WorldStateResponse[T]>;
+  // TODO(dbanks12): this returns any type, but we should strongly type it
+  getHandle(): any;
 }
 
 /**
@@ -105,6 +107,32 @@ export class NativeWorldState implements NativeWorldStateInstance {
       this.instrumentation,
       this.log,
     );
+  }
+
+  /**
+   * Gets the native WorldState handle from the underlying native instance.
+   * We call the getHandle() method on the native WorldState to get a NAPI External
+   * that wraps the underlying C++ WorldState pointer.
+   * @returns The NAPI External handle to the native WorldState instance,since
+   * the NAPI external type is opaque, we return any (we could also use an opaque symbol type)
+   */
+  public getHandle(): any {
+    const worldStateWrapper = (this.instance as any).dest;
+
+    if (!worldStateWrapper) {
+      throw new Error('No WorldStateWrapper found');
+    }
+
+    if (typeof worldStateWrapper.getHandle !== 'function') {
+      throw new Error('WorldStateWrapper does not have getHandle method');
+    }
+
+    // Call getHandle() to get the NAPI External
+    try {
+      return worldStateWrapper.getHandle();
+    } catch (error) {
+      this.log.error('Failed to get native WorldState handle', error);
+    }
   }
 
   /**

@@ -1,0 +1,120 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["dom", "esnext", "es2017.object"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true
+  },
+  "references": [
+    {
+      "path": "../../../../yarn-project/accounts"
+    },
+    {
+      "path": "../../../../yarn-project/archiver"
+    },
+    {
+      "path": "../../../../yarn-project/aztec"
+    },
+    {
+      "path": "../../../../yarn-project/aztec-node"
+    },
+    {
+      "path": "../../../../yarn-project/aztec.js"
+    },
+    {
+      "path": "../../../../yarn-project/bb-prover"
+    },
+    {
+      "path": "../../../../yarn-project/blob-lib"
+    },
+    {
+      "path": "../../../../yarn-project/blob-sink"
+    },
+    {
+      "path": "../../../../yarn-project/bot"
+    },
+    {
+      "path": "../../../../yarn-project/cli"
+    },
+    {
+      "path": "../../../../yarn-project/constants"
+    },
+    {
+      "path": "../../../../yarn-project/entrypoints"
+    },
+    {
+      "path": "../../../../yarn-project/epoch-cache"
+    },
+    {
+      "path": "../../../../yarn-project/ethereum"
+    },
+    {
+      "path": "../../../../yarn-project/foundation"
+    },
+    {
+      "path": "../../../../yarn-project/kv-store"
+    },
+    {
+      "path": "../../../../yarn-project/l1-artifacts"
+    },
+    {
+      "path": "../../../../yarn-project/merkle-tree"
+    },
+    {
+      "path": "../../../../yarn-project/node-keystore"
+    },
+    {
+      "path": "../../../../yarn-project/noir-contracts.js"
+    },
+    {
+      "path": "../../../../yarn-project/noir-protocol-circuits-types"
+    },
+    {
+      "path": "../../../../yarn-project/noir-test-contracts.js"
+    },
+    {
+      "path": "../../../../yarn-project/p2p"
+    },
+    {
+      "path": "../../../../yarn-project/protocol-contracts"
+    },
+    {
+      "path": "../../../../yarn-project/prover-client"
+    },
+    {
+      "path": "../../../../yarn-project/prover-node"
+    },
+    {
+      "path": "../../../../yarn-project/pxe"
+    },
+    {
+      "path": "../../../../yarn-project/sequencer-client"
+    },
+    {
+      "path": "../../../../yarn-project/simulator"
+    },
+    {
+      "path": "../../../../yarn-project/slasher"
+    },
+    {
+      "path": "../../../../yarn-project/stdlib"
+    },
+    {
+      "path": "../../../../yarn-project/telemetry-client"
+    },
+    {
+      "path": "../../../../yarn-project/test-wallet"
+    },
+    {
+      "path": "../../../../yarn-project/validator-client"
+    },
+    {
+      "path": "../../../../yarn-project/world-state"
+    }
+  ],
+  "include": ["index.ts", "artifacts/**/*.ts"]
+}

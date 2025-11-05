@@ -8,4 +8,3 @@ export {
   type L2Claim,
   generateClaimSecret,
 } from '../ethereum/portal_manager.js';
-export { getL1ContractAddresses } from '../ethereum/l1_contracts.js';

@@ -1,24 +1,29 @@
-import type { DeployAccountOptions, PXE } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
-import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
-import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
+import { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
+import { type AccountType, CLIWallet } from '../utils/wallet.js';
 
 export async function createAccount(
-  client: PXE,
+  wallet: CLIWallet,
+  aztecNode: AztecNode,
   accountType: AccountType,
   secretKey: Fr | undefined,
   publicKey: string | undefined,
   alias: string | undefined,
+  deployer: AztecAddress | undefined,
   registerOnly: boolean,
-  publicDeploy: boolean,
   skipInitialization: boolean,
+  publicDeploy: boolean,
+  registerClass: boolean,
   wait: boolean,
-  feeOpts: IFeeOpts,
+  feeOpts: CLIFeeArgs,
   json: boolean,
   verbose: boolean,
   debugLogger: Logger,
@@ -26,10 +31,8 @@ export async function createAccount(
 ) {
   secretKey ??= Fr.random();
 
-  const account = await createOrRetrieveAccount(
-    client,
+  const account = await wallet.createOrRetrieveAccount(
     undefined /* address, we don't have it yet */,
-    undefined /* db, as we want to create from scratch */,
     secretKey,
     accountType,
     Fr.ZERO,
@@ -48,7 +51,6 @@ export async function createAccount(
     out.partialAddress = partialAddress;
     out.salt = salt;
     out.initHash = account.getInstance().initializationHash;
-    out.deployer = account.getInstance().deployer;
   } else {
     log(`\nNew account:\n`);
     log(`Address:         ${address.toString()}`);
@@ -59,58 +61,56 @@ export async function createAccount(
     log(`Partial address: ${partialAddress.toString()}`);
     log(`Salt:            ${salt.toString()}`);
     log(`Init hash:       ${account.getInstance().initializationHash.toString()}`);
-    log(`Deployer:        ${account.getInstance().deployer.toString()}`);
   }
 
   let tx;
   let txReceipt;
-  if (registerOnly) {
-    await account.register();
-  } else {
-    const wallet = await account.getWallet();
-    const deployOpts: DeployAccountOptions = {
-      skipClassPublication: !publicDeploy,
-      skipInstancePublication: !publicDeploy,
-      skipInitialization: skipInitialization,
-      ...(await feeOpts.toDeployAccountOpts(wallet)),
-    };
-    /*
-     * This is usually handled by accountManager.create(), but we're accessing the lower
-     * level method to get gas and timings. That means we have to replicate some of the logic here.
-     * In case we're initializing and/or publishing our own account, we need to hijack the payment method for the fee,
-     * wrapping it in the one that will make use of the freshly deployed account's
-     * entrypoint. For reference, see aztec.js/src/account_manager.ts:sendAccountContractSetupTx()
-     * Also, salt and universalDeploy have to be explicitly provided
-     */
-    deployOpts.fee =
-      !deployOpts?.deployWallet && deployOpts?.fee
-        ? { ...deployOpts.fee, paymentMethod: await account.getSelfPaymentMethod(deployOpts.fee.paymentMethod) }
-        : deployOpts?.fee;
+  if (!registerOnly) {
+    const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(aztecNode, wallet, address);
 
-    const deployMethod = await account.getDeployMethod(deployOpts.deployWallet);
+    const delegatedDeployment = deployer && !account.address.equals(deployer);
+    const from = delegatedDeployment ? deployer : AztecAddress.ZERO;
+
+    const deployAccountOpts: DeployAccountOptions = {
+      skipClassPublication: !registerClass,
+      skipInstancePublication: !publicDeploy,
+      skipInitialization,
+      from,
+      fee: { paymentMethod, gasSettings },
+    };
+
+    const deployMethod = await account.getDeployMethod();
+    const { estimatedGas, stats } = await deployMethod.simulate({
+      ...deployAccountOpts,
+      fee: { ...deployAccountOpts.fee, estimateGas: true },
+    });
 
     if (feeOpts.estimateOnly) {
-      const gas = await deployMethod.estimateGas({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
       if (json) {
         out.fee = {
           gasLimits: {
-            da: gas.gasLimits.daGas,
-            l2: gas.gasLimits.l2Gas,
+            da: estimatedGas.gasLimits.daGas,
+            l2: estimatedGas.gasLimits.l2Gas,
           },
           teardownGasLimits: {
-            da: gas.teardownGasLimits.daGas,
-            l2: gas.teardownGasLimits,
+            da: estimatedGas.teardownGasLimits.daGas,
+            l2: estimatedGas.teardownGasLimits,
           },
         };
-      } else {
-        printGasEstimates(feeOpts, gas, log);
       }
     } else {
-      const provenTx = await deployMethod.prove({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
+      tx = deployMethod.send({
+        ...deployAccountOpts,
+        fee: deployAccountOpts.fee
+          ? {
+              ...deployAccountOpts.fee,
+              gasSettings: estimatedGas,
+            }
+          : undefined,
+      });
       if (verbose) {
-        printProfileResult(provenTx.stats!, log);
+        printProfileResult(stats, log);
       }
-      tx = provenTx.send();
 
       const txHash = await tx.getTxHash();
       debugLogger.debug(`Account contract tx sent with hash ${txHash.toString()}`);

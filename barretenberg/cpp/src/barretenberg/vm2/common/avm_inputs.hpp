@@ -6,6 +6,7 @@
 #include <ostream>
 #include <vector>
 
+#include "barretenberg/common/streams.hpp" // Derives operator<< from MSGPACK_FIELDS.
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -28,14 +29,16 @@ struct PublicInputs {
     ///////////////////////////////////
     // Inputs
     GlobalVariables globalVariables;
+    ProtocolContracts protocolContracts;
     TreeSnapshots startTreeSnapshots;
     Gas startGasUsed;
     GasSettings gasSettings;
     GasFees effectiveGasFees;
     AztecAddress feePayer;
+    FF proverId;
     PublicCallRequestArrayLengths publicCallRequestArrayLengths;
-    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
-    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests;
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests{};
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests{};
     PublicCallRequest publicTeardownCallRequest;
     PrivateToAvmAccumulatedDataArrayLengths previousNonRevertibleAccumulatedDataArrayLengths;
     PrivateToAvmAccumulatedDataArrayLengths previousRevertibleAccumulatedDataArrayLengths;
@@ -86,11 +89,13 @@ struct PublicInputs {
     bool operator==(const PublicInputs& other) const = default;
 
     MSGPACK_FIELDS(globalVariables,
+                   protocolContracts,
                    startTreeSnapshots,
                    startGasUsed,
                    gasSettings,
                    effectiveGasFees,
                    feePayer,
+                   proverId,
                    publicCallRequestArrayLengths,
                    publicSetupCallRequests,
                    publicAppLogicCallRequests,
@@ -125,6 +130,7 @@ struct PublicKeysHint {
 };
 
 struct ContractInstanceHint {
+    uint32_t hintKey;
     AztecAddress address;
     FF salt;
     AztecAddress deployer;
@@ -135,11 +141,18 @@ struct ContractInstanceHint {
 
     bool operator==(const ContractInstanceHint& other) const = default;
 
-    MSGPACK_FIELDS(
-        address, salt, deployer, currentContractClassId, originalContractClassId, initializationHash, publicKeys);
+    MSGPACK_FIELDS(hintKey,
+                   address,
+                   salt,
+                   deployer,
+                   currentContractClassId,
+                   originalContractClassId,
+                   initializationHash,
+                   publicKeys);
 };
 
 struct ContractClassHint {
+    uint32_t hintKey;
     FF classId;
     FF artifactHash;
     FF privateFunctionsRoot;
@@ -147,16 +160,27 @@ struct ContractClassHint {
 
     bool operator==(const ContractClassHint& other) const = default;
 
-    MSGPACK_FIELDS(classId, artifactHash, privateFunctionsRoot, packedBytecode);
+    MSGPACK_FIELDS(hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode);
 };
 
 struct BytecodeCommitmentHint {
+    uint32_t hintKey;
     FF classId;
     FF commitment;
 
     bool operator==(const BytecodeCommitmentHint& other) const = default;
 
-    MSGPACK_FIELDS(classId, commitment);
+    MSGPACK_FIELDS(hintKey, classId, commitment);
+};
+
+struct DebugFunctionNameHint {
+    AztecAddress address;
+    FunctionSelector selector;
+    std::string name;
+
+    bool operator==(const DebugFunctionNameHint& other) const = default;
+
+    MSGPACK_FIELDS(address, selector, name);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -274,6 +298,10 @@ struct RevertCheckpointHint {
     MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter);
 };
 
+using ContractDBCreateCheckpointHint = CheckpointActionNoStateChangeHint;
+using ContractDBCommitCheckpointHint = CheckpointActionNoStateChangeHint;
+using ContractDBRevertCheckpointHint = CheckpointActionNoStateChangeHint;
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -304,6 +332,8 @@ struct Tx {
     std::string hash;
     GasSettings gasSettings;
     GasFees effectiveGasFees;
+    ContractDeploymentData nonRevertibleContractDeploymentData;
+    ContractDeploymentData revertibleContractDeploymentData;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
     std::vector<PublicCallRequestWithCalldata> setupEnqueuedCalls;
@@ -316,6 +346,8 @@ struct Tx {
     MSGPACK_FIELDS(hash,
                    gasSettings,
                    effectiveGasFees,
+                   nonRevertibleContractDeploymentData,
+                   revertibleContractDeploymentData,
                    nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,
@@ -328,10 +360,13 @@ struct Tx {
 struct ExecutionHints {
     GlobalVariables globalVariables;
     Tx tx;
+    // Protocol Contracts
+    ProtocolContracts protocolContracts;
     // Contracts.
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
     std::vector<BytecodeCommitmentHint> bytecodeCommitments;
+    std::vector<DebugFunctionNameHint> debugFunctionNames;
     // Merkle DB.
     TreeSnapshots startingTreeRoots;
     std::vector<GetSiblingPathHint> getSiblingPathHints;
@@ -347,14 +382,19 @@ struct ExecutionHints {
     std::vector<CreateCheckpointHint> createCheckpointHints;
     std::vector<CommitCheckpointHint> commitCheckpointHints;
     std::vector<RevertCheckpointHint> revertCheckpointHints;
+    std::vector<ContractDBCreateCheckpointHint> contractDBCreateCheckpointHints;
+    std::vector<ContractDBCommitCheckpointHint> contractDBCommitCheckpointHints;
+    std::vector<ContractDBRevertCheckpointHint> contractDBRevertCheckpointHints;
 
     bool operator==(const ExecutionHints& other) const = default;
 
     MSGPACK_FIELDS(globalVariables,
                    tx,
+                   protocolContracts,
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,
+                   debugFunctionNames,
                    startingTreeRoots,
                    getSiblingPathHints,
                    getPreviousValueIndexHints,
@@ -366,7 +406,10 @@ struct ExecutionHints {
                    appendLeavesHints,
                    createCheckpointHints,
                    commitCheckpointHints,
-                   revertCheckpointHints);
+                   revertCheckpointHints,
+                   contractDBCreateCheckpointHints,
+                   contractDBCommitCheckpointHints,
+                   contractDBRevertCheckpointHints);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -380,6 +423,46 @@ struct AvmProvingInputs {
     bool operator==(const AvmProvingInputs& other) const = default;
 
     MSGPACK_FIELDS(publicInputs, hints);
+};
+
+struct AvmFastSimulationInputs {
+    world_state::WorldStateRevision wsRevision;
+    Tx tx;
+    GlobalVariables globalVariables;
+    ProtocolContracts protocolContracts;
+
+    static AvmFastSimulationInputs from(const std::vector<uint8_t>& data);
+    bool operator==(const AvmFastSimulationInputs& other) const = default;
+
+    MSGPACK_FIELDS(wsRevision, tx, globalVariables, protocolContracts);
+};
+
+////////////////////////////////////////////////////////////////////////////
+// Tx Simulation Result
+////////////////////////////////////////////////////////////////////////////
+struct TxSimulationResult {
+    /**
+     * TODO(fcarreiro): This is what we want it to be.
+     *
+     * avmProvingRequest: AvmProvingRequest;
+     * gasUsed: GasUsed;
+     * revertCode: RevertCode;
+     * revertReason?: SimulationError;
+     * processedPhases: ProcessedPhase[];
+     * logs: DebugLog[];
+     */
+    // Proving request data.
+    PublicInputs public_inputs;
+    std::optional<ExecutionHints> execution_hints;
+    // The rest.
+    Gas gas_used;
+    std::vector<DebugLog> debug_logs;
+    // TODO(fcarreiro): To enable the fuzzer. The format might change.
+    std::optional<std::vector<FF>> app_logic_output;
+    bool reverted;
+
+    bool operator==(const TxSimulationResult& other) const = default;
+    MSGPACK_FIELDS(public_inputs, execution_hints, gas_used, debug_logs);
 };
 
 } // namespace bb::avm2

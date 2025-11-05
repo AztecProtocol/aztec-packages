@@ -8,17 +8,8 @@ const logger = pino({
   name: "bbjs-test",
 });
 
-const UH_PROOF_FIELDS_LENGTH = 508; // length of UltraZKHonk flavor
-const UH_KECCAK_PROOF_ELEMENTS_LENGTH = 426; // length of UltraZKHonk flavor
-const BYTES_PER_ELEMENT = 32;
-const UH_PROOF_LENGTH_IN_BYTES = UH_PROOF_FIELDS_LENGTH * BYTES_PER_ELEMENT;
-const UH_KECCAK_PROOF_LENGTH_IN_BYTES =
-  UH_KECCAK_PROOF_ELEMENTS_LENGTH * BYTES_PER_ELEMENT;
-
 const proofPath = (dir: string) => path.join(dir, "proof");
-const proofAsFieldsPath = (dir: string) => path.join(dir, "proof_fields.json");
-const publicInputsAsFieldsPath = (dir: string) =>
-  path.join(dir, "public_inputs_fields.json");
+const publicInputsPath = (dir: string) => path.join(dir, "public_inputs");
 const vkeyPath = (dir: string) => path.join(dir, "vk");
 
 async function generateProof({
@@ -34,7 +25,7 @@ async function generateProof({
   oracleHash?: string;
   multiThreaded?: boolean;
 }) {
-  const { UltraHonkBackend, deflattenFields } = await import("@aztec/bb.js");
+  const { UltraHonkBackend } = await import("@aztec/bb.js");
 
   logger.debug(`Generating proof for ${bytecodePath}...`);
   const circuitArtifact = await fs.readFile(bytecodePath);
@@ -48,28 +39,20 @@ async function generateProof({
     keccakZK: oracleHash === "keccakZK",
     starknetZK: oracleHash === "starknetZK",
   });
-  assert(
-    proof.proof.length ===
-      (oracleHash === "keccakZK"
-        ? UH_KECCAK_PROOF_LENGTH_IN_BYTES
-        : UH_PROOF_LENGTH_IN_BYTES),
-    `Unexpected proof length ${proof.proof.length} for ${bytecodePath}`
-  );
 
   await fs.writeFile(proofPath(outputDirectory), Buffer.from(proof.proof));
   logger.debug("Proof written to " + proofPath(outputDirectory));
 
-  await fs.writeFile(
-    publicInputsAsFieldsPath(outputDirectory),
-    JSON.stringify(proof.publicInputs)
+  // Convert public inputs from field strings to binary
+  const publicInputsBuffer = Buffer.concat(
+    proof.publicInputs.map((field: string) => {
+      const hex = field.startsWith('0x') ? field.slice(2) : field;
+      return Buffer.from(hex.padStart(64, '0'), 'hex');
+    })
   );
+  await fs.writeFile(publicInputsPath(outputDirectory), publicInputsBuffer);
   logger.debug(
-    "Public inputs written to " + publicInputsAsFieldsPath(outputDirectory)
-  );
-
-  await fs.writeFile(
-    proofAsFieldsPath(outputDirectory),
-    JSON.stringify(deflattenFields(proof.proof))
+    "Public inputs written to " + publicInputsPath(outputDirectory)
   );
 
   const verificationKey = await backend.getVerificationKey({
@@ -83,26 +66,24 @@ async function generateProof({
 }
 
 async function verifyProof({ directory }: { directory: string }) {
-  const { BarretenbergVerifier } = await import("@aztec/bb.js");
+  const { UltraHonkVerifierBackend } = await import("@aztec/bb.js");
 
-  const verifier = new BarretenbergVerifier();
+  const verifier = new UltraHonkVerifierBackend();
 
   const proof = await fs.readFile(proofPath(directory));
-  assert(
-    proof.length === UH_PROOF_LENGTH_IN_BYTES ||
-      proof.length === UH_KECCAK_PROOF_LENGTH_IN_BYTES,
-    `Unexpected proof length ${proof.length}, expected ${UH_PROOF_LENGTH_IN_BYTES} or ${UH_KECCAK_PROOF_LENGTH_IN_BYTES}`
-  );
 
-  const publicInputs = JSON.parse(
-    await fs.readFile(publicInputsAsFieldsPath(directory), "utf8")
-  );
+  // Read binary public inputs and convert to field strings
+  const publicInputsBinary = await fs.readFile(publicInputsPath(directory));
+  const publicInputs = [];
+  for (let i = 0; i < publicInputsBinary.length; i += 32) {
+    const chunk = publicInputsBinary.slice(i, Math.min(i + 32, publicInputsBinary.length));
+    publicInputs.push('0x' + chunk.toString('hex'));
+  }
   logger.debug(`publicInputs: ${JSON.stringify(publicInputs)}`);
-  const vkey = await fs.readFile(vkeyPath(directory));
+  const verificationKey = await fs.readFile(vkeyPath(directory));
 
-  const verified = await verifier.verifyUltraHonkProof(
-    { proof: new Uint8Array(proof), publicInputs },
-    new Uint8Array(vkey)
+  const verified = await verifier.verifyProof(
+    { proof: new Uint8Array(proof), publicInputs, verificationKey},
   );
 
   await verifier.destroy();

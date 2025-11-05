@@ -10,6 +10,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
@@ -24,7 +25,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     : transcript(transcript)
     , ipa_transcript(ipa_transcript)
 {
-    PROFILE_THIS_NAME("ECCVMProver(CircuitBuilder&)");
+    BB_BENCH_NAME("ECCVMProver(CircuitBuilder&)");
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/939): Remove redundancy between
     // ProvingKey/ProverPolynomials and update the model to reflect what's done in all other proving systems.
@@ -56,31 +57,16 @@ void ECCVMProver::execute_preamble_round()
  */
 void ECCVMProver::execute_wire_commitments_round()
 {
-    // To commit to the masked wires when `real_size` < `circuit_size`, we use
-    // `commit_structured` that ignores 0 coefficients between the real size and the last NUM_DISABLED_ROWS_IN_SUMCHECK
-    // wire entries.
+    BB_BENCH_NAME("ECCVMProver::execute_wire_commitments_round");
+
     const size_t circuit_size = key->circuit_size;
     unmasked_witness_size = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
-    CommitmentKey::CommitType commit_type =
-        (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
-
-    // Commit to wires whose length is bounded by the real size of the ECCVM
-    for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
-                                              commitment_labels.get_wires_without_accumulators())) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
-        // ECCVM/Translator/MegaZK
-        const size_t start = circuit_size == wire.size() ? 0 : 1;
-        std::vector<std::pair<size_t, size_t>> active_ranges{ { start, key->real_size + start },
-                                                              { unmasked_witness_size, circuit_size } };
-        commit_to_witness_polynomial(wire, label, commit_type, active_ranges);
+    auto batch = key->commitment_key.start_batch();
+    for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
+        batch.add_to_batch(wire, label, /* mask for zk? */ true);
     }
-
-    // The accumulators are populated until the 2^{CONST_ECCVM_LOG_N}, therefore we commit to a full-sized polynomial
-    for (const auto& [wire, label] :
-         zip_view(key->polynomials.get_accumulators(), commitment_labels.get_accumulators())) {
-        commit_to_witness_polynomial(wire, label);
-    }
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
@@ -89,10 +75,10 @@ void ECCVMProver::execute_wire_commitments_round()
  */
 void ECCVMProver::execute_log_derivative_commitments_round()
 {
+    BB_BENCH_NAME("ECCVMProver::execute_log_derivative_commitments_round");
 
     // Compute and add beta to relation parameters
-    const std::array<std::string, 2> grand_product_challenge_labels{ "beta", "gamma" };
-    auto [beta, gamma] = transcript->template get_challenges<FF>(grand_product_challenge_labels);
+    auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
     // TODO(#583)(@zac-williamson): fix Transcript to be able to generate more than 2 challenges per round! oof.
     auto beta_sqr = beta * beta;
@@ -117,6 +103,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
  */
 void ECCVMProver::execute_grand_product_computation_round()
 {
+    BB_BENCH_NAME("ECCVMProver::execute_grand_product_computation_round");
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
     commit_to_witness_polynomial(key->polynomials.z_perm, commitment_labels.z_perm);
@@ -128,7 +115,7 @@ void ECCVMProver::execute_grand_product_computation_round()
  */
 void ECCVMProver::execute_relation_check_rounds()
 {
-
+    BB_BENCH_NAME("ECCVMProver::execute_relation_check_rounds");
     using Sumcheck = SumcheckProver<Flavor>;
 
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
@@ -161,6 +148,7 @@ void ECCVMProver::execute_relation_check_rounds()
  */
 void ECCVMProver::execute_pcs_rounds()
 {
+    BB_BENCH_NAME("ECCVMProver::execute_pcs_rounds");
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiProver_<Curve>;
     using Shplonk = ShplonkProver_<Curve>;
@@ -208,7 +196,7 @@ ECCVMProof ECCVMProver::export_proof()
 
 ECCVMProof ECCVMProver::construct_proof()
 {
-    PROFILE_THIS_NAME("ECCVMProver::construct_proof");
+    BB_BENCH_NAME("ECCVMProver::construct_proof");
 
     execute_preamble_round();
     execute_wire_commitments_round();
@@ -291,7 +279,7 @@ void ECCVMProver::compute_translation_opening_claims()
     for (auto [eval, poly, label] :
          zip_view(translation_evaluations.get_all(), translation_polynomials, translation_evaluations.labels)) {
         eval = poly.evaluate(evaluation_challenge_x);
-        transcript->template send_to_verifier(label, eval);
+        transcript->send_to_verifier(label, eval);
     }
 
     // Get another challenge to batch the evaluations of the transcript polynomials
@@ -340,14 +328,11 @@ void ECCVMProver::compute_translation_opening_claims()
  * @param polynomial
  * @param label
  */
-void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial,
-                                               const std::string& label,
-                                               CommitmentKey::CommitType commit_type,
-                                               const std::vector<std::pair<size_t, size_t>>& active_ranges)
+void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
 {
     // We add NUM_DISABLED_ROWS_IN_SUMCHECK-1 random values to the coefficients of each wire polynomial to not leak
     // information via the commitment and evaluations. -1 is caused by shifts.
     polynomial.mask();
-    transcript->send_to_verifier(label, key->commitment_key.commit_with_type(polynomial, commit_type, active_ranges));
+    transcript->send_to_verifier(label, key->commitment_key.commit(polynomial));
 }
 } // namespace bb

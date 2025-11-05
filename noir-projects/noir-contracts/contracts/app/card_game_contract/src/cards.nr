@@ -1,16 +1,11 @@
-use dep::aztec::{
-    context::PrivateContext,
-    note::{
-        note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
-        retrieved_note::RetrievedNote,
-    },
-};
-
-use dep::aztec::{
-    context::UtilityContext,
+use aztec::{
+    context::{PrivateContext, UtilityContext},
     keys::getters::get_public_keys,
-    messages::logs::note::encode_and_encrypt_note,
-    note::constants::MAX_NOTES_PER_PAGE,
+    messages::message_delivery::MessageDelivery,
+    note::{
+        constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteGetterOptions,
+        note_viewer_options::NoteViewerOptions, retrieved_note::RetrievedNote,
+    },
     protocol_types::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
@@ -18,8 +13,8 @@ use dep::aztec::{
     },
     state_vars::{PrivateSet, storage::HasStorageSlot},
 };
-use dep::value_note::value_note::ValueNote;
 use std::meta::derive;
+use value_note::value_note::ValueNote;
 
 #[derive(Packable, Serialize)]
 pub struct Card {
@@ -43,14 +38,12 @@ impl ToField for Card {
     }
 }
 
-// docs:start:pure_noir_testing
 #[test]
 fn test_to_from_field() {
     let field = 1234567890;
     let card = Card::from_field(field);
     assert(card.to_field() == field);
 }
-// docs:end:pure_noir_testing
 
 pub struct CardNote {
     card: Card,
@@ -121,7 +114,7 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = &[];
         for card in cards {
             let card_note = CardNote::from_card(card, owner);
-            self.set.insert(card_note.note).emit(encode_and_encrypt_note(self.set.context, owner));
+            self.set.insert(card_note.note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
             inserted_cards = inserted_cards.push_back(card_note);
         }
 

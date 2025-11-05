@@ -5,7 +5,7 @@
 // =====================
 
 #include "barretenberg/ultra_honk/witness_computation.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
@@ -15,7 +15,7 @@
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
-#include "barretenberg/honk/proving_key_inspector.hpp"
+#include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
@@ -72,7 +72,7 @@ void WitnessComputation<Flavor>::compute_logderivative_inverses(Flavor::ProverPo
                                                                 const size_t circuit_size,
                                                                 RelationParameters<FF>& relation_parameters)
 {
-    PROFILE_THIS_NAME("compute_logderivative_inverses");
+    BB_BENCH_NAME("compute_logderivative_inverses");
 
     // Compute inverses for conventional lookups
     LogDerivLookupRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size);
@@ -102,13 +102,12 @@ template <IsUltraOrMegaHonk Flavor>
 void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::ProverPolynomials& polynomials,
                                                                   std::vector<FF>& public_inputs,
                                                                   const size_t pub_inputs_offset,
-                                                                  const size_t log_circuit_size,
                                                                   ActiveRegionData& active_region_data,
                                                                   RelationParameters<FF>& relation_parameters,
                                                                   size_t size_override)
 {
     relation_parameters.public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs, relation_parameters.beta, relation_parameters.gamma, log_circuit_size, pub_inputs_offset);
+        public_inputs, relation_parameters.beta, relation_parameters.gamma, pub_inputs_offset);
 
     // Compute permutation grand product polynomial
     compute_grand_product<Flavor, UltraPermutationRelation<FF>>(
@@ -119,36 +118,36 @@ void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::Prover
  * @brief TEST only method for completing computation of the prover polynomials using random challenges
  *
  * @tparam Flavor
- * @param decider_pk
+ * @param prover_inst
  */
 template <IsUltraOrMegaHonk Flavor>
-void WitnessComputation<Flavor>::complete_proving_key_for_test(
-    const std::shared_ptr<DeciderProvingKey_<Flavor>>& decider_pk)
+void WitnessComputation<Flavor>::complete_prover_instance_for_test(
+    const std::shared_ptr<ProverInstance_<Flavor>>& prover_inst)
 {
     // Generate random eta, beta and gamma
-    decider_pk->relation_parameters.eta = FF::random_element();
-    decider_pk->relation_parameters.eta = FF::random_element();
-    decider_pk->relation_parameters.eta_two = FF::random_element();
-    decider_pk->relation_parameters.eta_three = FF::random_element();
-    decider_pk->relation_parameters.beta = FF::random_element();
-    decider_pk->relation_parameters.gamma = FF::random_element();
+    prover_inst->relation_parameters.eta = FF::random_element();
+    prover_inst->relation_parameters.eta = FF::random_element();
+    prover_inst->relation_parameters.eta_two = FF::random_element();
+    prover_inst->relation_parameters.eta_three = FF::random_element();
+    prover_inst->relation_parameters.beta = FF::random_element();
+    prover_inst->relation_parameters.gamma = FF::random_element();
 
-    add_ram_rom_memory_records_to_wire_4(decider_pk->polynomials,
-                                         decider_pk->memory_read_records,
-                                         decider_pk->memory_write_records,
-                                         decider_pk->relation_parameters.eta,
-                                         decider_pk->relation_parameters.eta_two,
-                                         decider_pk->relation_parameters.eta_three);
+    add_ram_rom_memory_records_to_wire_4(prover_inst->polynomials,
+                                         prover_inst->memory_read_records,
+                                         prover_inst->memory_write_records,
+                                         prover_inst->relation_parameters.eta,
+                                         prover_inst->relation_parameters.eta_two,
+                                         prover_inst->relation_parameters.eta_three);
 
-    compute_logderivative_inverses(decider_pk->polynomials, decider_pk->dyadic_size(), decider_pk->relation_parameters);
+    compute_logderivative_inverses(
+        prover_inst->polynomials, prover_inst->dyadic_size(), prover_inst->relation_parameters);
 
-    compute_grand_product_polynomial(decider_pk->polynomials,
-                                     decider_pk->public_inputs,
-                                     decider_pk->pub_inputs_offset(),
-                                     decider_pk->log_dyadic_size(),
-                                     decider_pk->active_region_data,
-                                     decider_pk->relation_parameters,
-                                     decider_pk->get_final_active_wire_idx() + 1);
+    compute_grand_product_polynomial(prover_inst->polynomials,
+                                     prover_inst->public_inputs,
+                                     prover_inst->pub_inputs_offset(),
+                                     prover_inst->active_region_data,
+                                     prover_inst->relation_parameters,
+                                     prover_inst->get_final_active_wire_idx() + 1);
 }
 
 template class WitnessComputation<UltraFlavor>;

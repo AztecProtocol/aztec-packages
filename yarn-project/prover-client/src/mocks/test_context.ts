@@ -1,33 +1,44 @@
 import type { BBProverConfig } from '@aztec/bb-prover';
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { TestCircuitProver } from '@aztec/bb-prover';
+import { SpongeBlob } from '@aztec/blob-lib';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import type { FieldsOf } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import { PublicTxSimulationTester, SimpleContractDataSource } from '@aztec/simulator/public/fixtures';
-import { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { SimpleContractDataSource } from '@aztec/simulator/public/fixtures';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block } from '@aztec/stdlib/block';
+import { EthAddress } from '@aztec/stdlib/block';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
+import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
-import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, type ProcessedTx, TreeSnapshots, type Tx } from '@aztec/stdlib/tx';
 import type { MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { promises as fs } from 'fs';
 
-// TODO(#12613) This means of sharing test code is not ideal.
-// eslint-disable-next-line import/no-relative-packages
-import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { buildBlockWithCleanDB } from '../block-factory/light.js';
+import { getTreeSnapshot } from '../orchestrator/block-building-helpers.js';
+import type { BlockProvingState } from '../orchestrator/block-proving-state.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { TestBroker } from '../test/mock_prover.js';
-import { getEnvironmentConfig, getSimulator, makeGlobals, updateExpectedTreesFromTxs } from './fixtures.js';
+import {
+  getEnvironmentConfig,
+  getSimulator,
+  makeCheckpointConstants,
+  makeGlobals,
+  updateExpectedTreesFromTxs,
+} from './fixtures.js';
 
 export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
@@ -35,7 +46,7 @@ export class TestContext {
 
   constructor(
     public worldState: MerkleTreeAdminDatabase,
-    public publicProcessor: PublicProcessor,
+    public firstCheckpointNumber: Fr,
     public globalVariables: GlobalVariables,
     public prover: ServerCircuitProver,
     public broker: TestBroker,
@@ -45,7 +56,6 @@ export class TestContext {
     public feePayer: AztecAddress,
     initialFeePayerBalance: Fr,
     public directoriesToCleanup: string[],
-    public tester: PublicTxSimulationTester,
     public logger: Logger,
   ) {
     this.feePayerBalance = initialFeePayerBalance;
@@ -55,15 +65,27 @@ export class TestContext {
     return this.orchestrator;
   }
 
+  public getCheckpointConstants(checkpointIndex = 0): CheckpointConstantData {
+    return makeCheckpointConstants(this.firstCheckpointNumber.toNumber() + checkpointIndex);
+  }
+
   static async new(
     logger: Logger,
-    proverCount = 4,
-    createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = async (bbConfig: BBProverConfig) =>
-      new TestCircuitProver(await getSimulator(bbConfig, logger)),
-    blockNumber = 1,
+    {
+      proverCount = 4,
+      createProver = async (bbConfig: BBProverConfig) => new TestCircuitProver(await getSimulator(bbConfig, logger)),
+      slotNumber = 1,
+      blockNumber = 1,
+    }: {
+      proverCount?: number;
+      createProver?: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver>;
+      slotNumber?: number;
+      blockNumber?: number;
+    } = {},
   ) {
     const directoriesToCleanup: string[] = [];
-    const globalVariables = makeGlobals(blockNumber);
+    const firstCheckpointNumber = new Fr(slotNumber);
+    const globalVariables = makeGlobals(blockNumber, slotNumber);
 
     const feePayer = AztecAddress.fromNumber(42222);
     const initialFeePayerBalance = new Fr(10n ** 20n);
@@ -76,13 +98,6 @@ export class TestContext {
       /*cleanupTmpDir=*/ true,
       prefilledPublicData,
     );
-    const merkleTrees = await ws.fork();
-
-    const contractDataSource = new SimpleContractDataSource();
-    const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
-
-    const processorFactory = new PublicProcessorFactory(contractDataSource, new TestDateProvider());
-    const processor = processorFactory.create(merkleTrees, globalVariables, /*skipFeeEnforcement=*/ false);
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
@@ -107,14 +122,14 @@ export class TestContext {
 
     const broker = new TestBroker(proverCount, localProver);
     const facade = new BrokerCircuitProverFacade(broker);
-    const orchestrator = new TestProvingOrchestrator(ws, facade, Fr.ZERO);
+    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO);
 
     await broker.start();
     facade.start();
 
     return new this(
       ws,
-      processor,
+      firstCheckpointNumber,
       globalVariables,
       localProver,
       broker,
@@ -124,7 +139,6 @@ export class TestContext {
       feePayer,
       initialFeePayerBalance,
       directoriesToCleanup,
-      tester,
       logger,
     );
   }
@@ -135,12 +149,8 @@ export class TestContext {
 
   public getBlockHeader(blockNumber: 0): BlockHeader;
   public getBlockHeader(blockNumber: number): BlockHeader | undefined;
-  public getBlockHeader(blockNumber = 0) {
+  public getBlockHeader(blockNumber = 0): BlockHeader | undefined {
     return blockNumber === 0 ? this.worldState.getCommitted().getInitialHeader() : this.headers.get(blockNumber);
-  }
-
-  public setBlockHeader(header: BlockHeader, blockNumber: number) {
-    this.headers.set(blockNumber, header);
   }
 
   public getPreviousBlockHeader(currentBlockNumber = this.blockNumber): BlockHeader {
@@ -159,19 +169,15 @@ export class TestContext {
     }
   }
 
-  public async makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): Promise<ProcessedTx>;
-  public async makeProcessedTx(seed?: number): Promise<ProcessedTx>;
-  public async makeProcessedTx(
-    seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number,
-  ): Promise<ProcessedTx> {
-    const opts = typeof seedOrOpts === 'number' ? { seed: seedOrOpts } : seedOrOpts;
-    const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber;
-    const header = this.getBlockHeader(blockNum - 1);
+  async makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): Promise<ProcessedTx> {
+    const globalVariables = opts?.globalVariables ?? this.globalVariables;
+    const blockNumber = globalVariables.blockNumber;
+    const header = opts?.header ?? this.getBlockHeader(blockNumber - 1);
     const tx = await makeBloatedProcessedTx({
       header,
       vkTreeRoot: getVKTreeRoot(),
-      protocolContractTreeRoot,
-      globalVariables: this.globalVariables,
+      protocolContracts: ProtocolContractsList,
+      globalVariables,
       feePayer: this.feePayer,
       ...opts,
     });
@@ -186,44 +192,174 @@ export class TestContext {
   /** Creates a block with the given number of txs and adds it to world-state */
   public async makePendingBlock(
     numTxs: number,
-    numMsgs: number = 0,
-    blockNumOrGlobals: GlobalVariables | number = this.globalVariables,
-    makeProcessedTxOpts: (index: number) => Partial<Parameters<typeof makeBloatedProcessedTx>[0]> = () => ({}),
+    {
+      checkpointIndex = 0,
+      numL1ToL2Messages = 0,
+      blockNumber = this.blockNumber,
+      makeProcessedTxOpts = () => ({}),
+    }: {
+      checkpointIndex?: number;
+      numL1ToL2Messages?: number;
+      blockNumber?: number;
+      makeProcessedTxOpts?: (index: number) => Partial<Parameters<typeof makeBloatedProcessedTx>[0]>;
+    } = {},
   ) {
-    const globalVariables = typeof blockNumOrGlobals === 'number' ? makeGlobals(blockNumOrGlobals) : blockNumOrGlobals;
+    const slotNumber = this.firstCheckpointNumber.toNumber() + checkpointIndex;
+    const globalVariables = makeGlobals(blockNumber, slotNumber);
     const blockNum = globalVariables.blockNumber;
     const db = await this.worldState.fork();
-    const msgs = times(numMsgs, i => new Fr(blockNum * 100 + i));
+    const l1ToL2Messages = times(numL1ToL2Messages, i => new Fr(blockNum * 100 + i));
+    const merkleTrees = await this.worldState.fork();
+    await merkleTrees.appendLeaves(
+      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+    );
+    const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, merkleTrees);
     const txs = await timesParallel(numTxs, i =>
-      this.makeProcessedTx({ seed: i + blockNum * 1000, globalVariables, ...makeProcessedTxOpts(i) }),
+      this.makeProcessedTx({
+        seed: i + blockNum * 1000,
+        globalVariables,
+        newL1ToL2Snapshot,
+        ...makeProcessedTxOpts(i),
+      }),
     );
     await this.setTreeRoots(txs);
 
-    const block = await buildBlockWithCleanDB(txs, globalVariables, msgs, db);
-    this.headers.set(blockNum, block.header);
-    await this.worldState.handleL2BlockAndMessages(block, msgs);
-    return { block, txs, msgs };
+    const block = await buildBlockWithCleanDB(txs, globalVariables, l1ToL2Messages, db);
+    this.headers.set(blockNum, block.getBlockHeader());
+    await this.worldState.handleL2BlockAndMessages(block, l1ToL2Messages);
+    return { block, txs, l1ToL2Messages };
   }
 
-  public async processPublicFunctions(txs: Tx[], maxTransactions: number) {
-    return await this.publicProcessor.process(txs, { maxTransactions });
+  public async makePendingBlocksInCheckpoint(
+    numBlocks: number,
+    {
+      checkpointIndex = 0,
+      numTxsPerBlock = 1,
+      numL1ToL2Messages = 0,
+      firstBlockNumber = this.blockNumber + checkpointIndex * numBlocks,
+      makeGlobalVariablesOpts = () => ({}),
+      makeProcessedTxOpts = () => ({}),
+    }: {
+      checkpointIndex?: number;
+      numTxsPerBlock?: number | number[];
+      numL1ToL2Messages?: number;
+      firstBlockNumber?: number;
+      makeGlobalVariablesOpts?: (
+        blockNumber: number,
+        checkpointIndex: number,
+      ) => Partial<FieldsOf<GlobalVariables> & FieldsOf<CheckpointConstantData>>;
+      makeProcessedTxOpts?: (
+        blockGlobalVariables: GlobalVariables,
+        txIndex: number,
+      ) => Partial<Parameters<typeof makeBloatedProcessedTx>[0]>;
+    } = {},
+  ) {
+    const slotNumber = this.firstCheckpointNumber.toNumber() + checkpointIndex;
+    const l1ToL2Messages = times(numL1ToL2Messages, i => new Fr(slotNumber * 100 + i));
+    const merkleTrees = await this.worldState.fork();
+    await merkleTrees.appendLeaves(
+      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+    );
+    const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, merkleTrees);
+
+    const blockGlobalVariables = times(numBlocks, i =>
+      makeGlobals(firstBlockNumber + i, slotNumber, makeGlobalVariablesOpts(firstBlockNumber + i, checkpointIndex)),
+    );
+    let totalTxs = 0;
+    const blockTxs = await timesParallel(numBlocks, blockIndex => {
+      const txIndexOffset = totalTxs;
+      const numTxs = typeof numTxsPerBlock === 'number' ? numTxsPerBlock : numTxsPerBlock[blockIndex];
+      totalTxs += numTxs;
+      return timesParallel(numTxs, txIndex =>
+        this.makeProcessedTx({
+          seed: (txIndexOffset + txIndex + 1) * 321 + (checkpointIndex + 1) * 123456,
+          globalVariables: blockGlobalVariables[blockIndex],
+          header: this.getBlockHeader(firstBlockNumber - 1),
+          newL1ToL2Snapshot,
+          ...makeProcessedTxOpts(blockGlobalVariables[blockIndex], txIndexOffset + txIndex),
+        }),
+      );
+    });
+
+    const blobFields = getCheckpointBlobFields(blockTxs.map(txs => txs.map(tx => tx.txEffect)));
+    const spongeBlobState = await SpongeBlob.init(blobFields.length);
+
+    const blocks: { header: BlockHeader; txs: ProcessedTx[] }[] = [];
+    for (let i = 0; i < numBlocks; i++) {
+      const isFirstBlock = i === 0;
+      const blockNumber = firstBlockNumber + i;
+      const globalVariables = blockGlobalVariables[i];
+      const txs = blockTxs[i];
+
+      await this.setTreeRoots(txs);
+
+      const fork = await this.worldState.fork();
+      const blockMsgs = isFirstBlock ? l1ToL2Messages : [];
+      const block = await buildBlockWithCleanDB(txs, globalVariables, blockMsgs, fork, spongeBlobState, isFirstBlock);
+
+      const header = block.getBlockHeader();
+      this.headers.set(blockNumber, header);
+
+      await this.worldState.handleL2BlockAndMessages(block, blockMsgs, isFirstBlock);
+
+      const blockBlobFields = block.body.toBlobFields();
+      await spongeBlobState.absorb(blockBlobFields);
+
+      blocks.push({ header, txs });
+    }
+
+    return { blocks, l1ToL2Messages, blobFields };
   }
 
-  public async setTreeRoots(txs: ProcessedTx[]) {
+  public async processPublicFunctions(
+    txs: Tx[],
+    {
+      maxTransactions = txs.length,
+      numL1ToL2Messages = 0,
+      contractDataSource,
+    }: {
+      maxTransactions?: number;
+      numL1ToL2Messages?: number;
+      contractDataSource?: SimpleContractDataSource;
+    } = {},
+  ) {
+    const l1ToL2Messages = times(numL1ToL2Messages, i => new Fr(this.blockNumber * 100 + i));
+    const merkleTrees = await this.worldState.fork();
+    await merkleTrees.appendLeaves(
+      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+    );
+
+    const processorFactory = new PublicProcessorFactory(
+      contractDataSource ?? new SimpleContractDataSource(),
+      new TestDateProvider(),
+    );
+    const publicProcessor = processorFactory.create(merkleTrees, this.globalVariables, {
+      skipFeeEnforcement: false,
+      clientInitiatedSimulation: false,
+    });
+
+    return await publicProcessor.process(txs, { maxTransactions });
+  }
+
+  private async setTreeRoots(txs: ProcessedTx[]) {
     const db = await this.worldState.fork();
     for (const tx of txs) {
       const startStateReference = await db.getStateReference();
       await updateExpectedTreesFromTxs(db, [tx]);
       const endStateReference = await db.getStateReference();
       if (tx.avmProvingRequest) {
+        const l1ToL2MessageTree = tx.avmProvingRequest.inputs.publicInputs.startTreeSnapshots.l1ToL2MessageTree;
         tx.avmProvingRequest.inputs.publicInputs.startTreeSnapshots = new TreeSnapshots(
-          startStateReference.l1ToL2MessageTree,
+          l1ToL2MessageTree,
           startStateReference.partial.noteHashTree,
           startStateReference.partial.nullifierTree,
           startStateReference.partial.publicDataTree,
         );
         tx.avmProvingRequest.inputs.publicInputs.endTreeSnapshots = new TreeSnapshots(
-          endStateReference.l1ToL2MessageTree,
+          l1ToL2MessageTree,
           endStateReference.partial.noteHashTree,
           endStateReference.partial.nullifierTree,
           endStateReference.partial.publicDataTree,
@@ -238,12 +374,9 @@ class TestProvingOrchestrator extends ProvingOrchestrator {
 
   // Disable this check by default, since it requires seeding world state with the block being built
   // This is only enabled in some tests with multiple blocks that populate the pending chain via makePendingBlock
-  protected override verifyBuiltBlockAgainstSyncedState(
-    l2Block: L2Block,
-    newArchive: AppendOnlyTreeSnapshot,
-  ): Promise<void> {
+  protected override verifyBuiltBlockAgainstSyncedState(provingState: BlockProvingState): Promise<void> {
     if (this.isVerifyBuiltBlockAgainstSyncedStateEnabled) {
-      return super.verifyBuiltBlockAgainstSyncedState(l2Block, newArchive);
+      return super.verifyBuiltBlockAgainstSyncedState(provingState);
     }
     return Promise.resolve();
   }

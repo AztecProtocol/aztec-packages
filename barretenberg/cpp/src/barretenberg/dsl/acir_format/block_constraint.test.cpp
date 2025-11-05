@@ -27,14 +27,15 @@ class MegaHonk : public ::testing::Test {
     // Construct and verify an MegaHonk proof for the provided circuit
     static bool prove_and_verify(Builder& circuit)
     {
-        auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(circuit);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-        Prover prover{ proving_key, verification_key };
+        auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(circuit);
+        auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        Prover prover{ prover_instance, verification_key };
         auto proof = prover.construct_proof();
 
         Verifier verifier{ verification_key };
 
-        return std::get<0>(verifier.verify_proof(proof));
+        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        return result;
     }
 
   protected:
@@ -140,29 +141,6 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 7,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -184,32 +162,10 @@ TEST_F(MegaHonk, Databus)
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 1,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+
     mock_opcode_indices(program.constraints);
 
     // Construct a bberg circuit from the acir representation
@@ -288,29 +244,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 2,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
-        .quad_constraints = {},
-        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -320,4 +254,37 @@ TEST_F(MegaHonk, DatabusReturn)
     auto circuit = create_circuit<Builder>(program);
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
+}
+
+// Test that all block constraint types handle empty initialization gracefully
+TEST_F(MegaHonk, EmptyBlockConstraints)
+{
+    // Test each block constraint type
+    std::vector<BlockType> types_to_test = {
+        BlockType::ROM, BlockType::RAM, BlockType::CallData, BlockType::ReturnData
+    };
+
+    // Create empty block constraint
+    for (auto block_type : types_to_test) {
+        BlockConstraint block{
+            .init = {},  // Empty initialization data
+            .trace = {}, // Empty trace
+            .type = block_type,
+        };
+
+        AcirProgram program;
+        program.constraints = {
+            .varnum = 0, // No variables needed for empty block constraints
+            .num_acir_opcodes = 1,
+            .public_inputs = {},
+            .block_constraints = { block },
+            .original_opcode_indices = create_empty_original_opcode_indices(),
+        };
+
+        mock_opcode_indices(program.constraints);
+
+        // Circuit construction should succeed without errors
+        auto circuit = create_circuit<Builder>(program);
+        EXPECT_TRUE(CircuitChecker::check(circuit));
+    }
 }

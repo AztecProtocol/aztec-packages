@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 #include <cassert>
 #include <gmock/gmock.h>
@@ -18,6 +18,15 @@ class MockContractDB : public ContractDBInterface {
                 (const AztecAddress& address),
                 (const, override));
     MOCK_METHOD(std::optional<ContractClass>, get_contract_class, (const ContractClassId& class_id), (const, override));
+    MOCK_METHOD(std::optional<FF>, get_bytecode_commitment, (const ContractClassId& class_id), (const, override));
+    MOCK_METHOD(std::optional<std::string>,
+                get_debug_function_name,
+                (const AztecAddress& address, const FunctionSelector& selector),
+                (const, override));
+    MOCK_METHOD(void, add_contracts, (const ContractDeploymentData& contract_deployment_data), (override));
+    MOCK_METHOD(void, create_checkpoint, (), (override));
+    MOCK_METHOD(void, commit_checkpoint, (), (override));
+    MOCK_METHOD(void, revert_checkpoint, (), (override));
 };
 
 class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
@@ -26,7 +35,7 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
     MockLowLevelMerkleDB();
     ~MockLowLevelMerkleDB() override;
 
-    MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
+    MOCK_METHOD(TreeSnapshots, get_tree_roots, (), (const, override));
     MOCK_METHOD(SiblingPath, get_sibling_path, (MerkleTreeId tree_id, index_t leaf_index), (const, override));
     MOCK_METHOD(GetLowIndexedLeafResponse,
                 get_low_indexed_leaf,
@@ -75,8 +84,8 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
     MOCK_METHOD(bool, was_storage_written, (const AztecAddress& contract_address, const FF& slot), (const, override));
     MOCK_METHOD(bool, nullifier_exists, (const AztecAddress& contract_address, const FF& nullifier), (const, override));
     MOCK_METHOD(bool, siloed_nullifier_exists, (const FF& nullifier), (const, override));
-    MOCK_METHOD(bool, nullifier_write, (const AztecAddress& contract_address, const FF& nullifier), (override));
-    MOCK_METHOD(bool, siloed_nullifier_write, (const FF& nullifier), (override));
+    MOCK_METHOD(void, nullifier_write, (const AztecAddress& contract_address, const FF& nullifier), (override));
+    MOCK_METHOD(void, siloed_nullifier_write, (const FF& nullifier), (override));
     MOCK_METHOD(bool, note_hash_exists, (uint64_t leaf_index, const FF& unique_note_hash), (const, override));
     MOCK_METHOD(void, note_hash_write, (const AztecAddress& contract_address, const FF& note_hash), (override));
     MOCK_METHOD(void, siloed_note_hash_write, (const FF& note_hash), (override));
@@ -87,6 +96,8 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
     MOCK_METHOD(void, commit_checkpoint, (), (override));
     MOCK_METHOD(void, revert_checkpoint, (), (override));
     MOCK_METHOD(uint32_t, get_checkpoint_id, (), (const, override));
+
+    MOCK_METHOD(void, pad_trees, (), (override));
 
     MOCK_METHOD(LowLevelMerkleDBInterface&, as_unconstrained, (), (const, override));
 };

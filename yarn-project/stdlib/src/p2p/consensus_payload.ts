@@ -8,7 +8,8 @@ import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
 import type { L2Block } from '../block/l2_block.js';
-import { ProposedBlockHeader, StateReference } from '../tx/index.js';
+import { CheckpointHeader } from '../rollup/checkpoint_header.js';
+import { StateReference } from '../tx/state_reference.js';
 import type { Signable, SignatureDomainSeparator } from './signature_utils.js';
 
 export class ConsensusPayload implements Signable {
@@ -16,7 +17,7 @@ export class ConsensusPayload implements Signable {
 
   constructor(
     /** The proposed block header the attestation is made over */
-    public readonly header: ProposedBlockHeader,
+    public readonly header: CheckpointHeader,
     /** The archive root after the block is added */
     public readonly archive: Fr,
     /** The state reference after the block is added */
@@ -26,7 +27,7 @@ export class ConsensusPayload implements Signable {
   static get schema() {
     return z
       .object({
-        header: ProposedBlockHeader.schema,
+        header: CheckpointHeader.schema,
         archive: schemas.Fr,
         stateReference: StateReference.schema,
       })
@@ -60,18 +61,25 @@ export class ConsensusPayload implements Signable {
   }
 
   toBuffer(): Buffer {
-    const buffer = serializeToBuffer([this.header, this.archive, this.stateReference]);
-    this.size = buffer.length;
-    return buffer;
+    return serializeToBuffer([this.header, this.archive, this.stateReference]);
+  }
+
+  public equals(other: ConsensusPayload): boolean {
+    return (
+      this.header.equals(other.header) &&
+      this.archive.equals(other.archive) &&
+      this.stateReference.equals(other.stateReference)
+    );
   }
 
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {
     const reader = BufferReader.asReader(buf);
-    return new ConsensusPayload(
-      reader.readObject(ProposedBlockHeader),
+    const payload = new ConsensusPayload(
+      reader.readObject(CheckpointHeader),
       reader.readObject(Fr),
       reader.readObject(StateReference),
     );
+    return payload;
   }
 
   static fromFields(fields: FieldsOf<ConsensusPayload>): ConsensusPayload {
@@ -79,11 +87,15 @@ export class ConsensusPayload implements Signable {
   }
 
   static fromBlock(block: L2Block): ConsensusPayload {
-    return new ConsensusPayload(block.header.toPropose(), block.archive.root, block.header.state);
+    return new ConsensusPayload(block.header.toCheckpointHeader(), block.archive.root, block.header.state);
   }
 
   static empty(): ConsensusPayload {
-    return new ConsensusPayload(ProposedBlockHeader.empty(), Fr.ZERO, StateReference.empty());
+    return new ConsensusPayload(CheckpointHeader.empty(), Fr.ZERO, StateReference.empty());
+  }
+
+  static random(): ConsensusPayload {
+    return new ConsensusPayload(CheckpointHeader.random(), Fr.random(), StateReference.random());
   }
 
   /**
@@ -97,6 +109,14 @@ export class ConsensusPayload implements Signable {
     }
     this.size = this.toBuffer().length;
     return this.size;
+  }
+
+  toInspect() {
+    return {
+      header: this.header.toInspect(),
+      archive: this.archive.toString(),
+      stateReference: this.stateReference.toInspect(),
+    };
   }
 
   toString() {

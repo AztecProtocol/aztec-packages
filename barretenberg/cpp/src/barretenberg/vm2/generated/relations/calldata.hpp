@@ -3,7 +3,7 @@
 
 #include <string_view>
 
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,7 +14,7 @@ template <typename FF_> class calldataImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 6 };
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -27,57 +27,30 @@ template <typename FF_> class calldataImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/calldata");
-
-        const auto calldata_FIRST_OR_LAST_CALLDATA = in.get(C::precomputed_first_row) + in.get(C::calldata_latch);
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::calldata_sel) * (FF(1) - calldata_FIRST_OR_LAST_CALLDATA) *
-                       ((in.get(C::calldata_index_shift) - in.get(C::calldata_index)) - FF(1));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // TRACE_CONTINUITY
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::calldata_sel)) *
-                       in.get(C::calldata_sel_shift);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        { // CONTEXT_ID_CONTINUITY
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * in.get(C::calldata_sel) *
-                       (FF(1) - in.get(C::calldata_latch)) * (FF(1) - in.get(C::calldata_context_id)) *
-                       in.get(C::calldata_context_id_shift);
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class calldata : public Relation<calldataImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "calldata";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_SEL_TOGGLED_AT_LATCH = 1;
+    static constexpr size_t SR_TRACE_CONTINUITY = 3;
+    static constexpr size_t SR_CONTEXT_ID_CONTINUITY = 4;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 1:
+        case SR_SEL_TOGGLED_AT_LATCH:
+            return "SEL_TOGGLED_AT_LATCH";
+        case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
-        case 2:
+        case SR_CONTEXT_ID_CONTINUITY:
             return "CONTEXT_ID_CONTINUITY";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_CONTEXT_ID_CONTINUITY = 2;
 };
 
 } // namespace bb::avm2

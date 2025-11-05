@@ -44,6 +44,9 @@ class MegaFlavor {
     using TraceBlocks = MegaExecutionTraceBlocks;
     using Transcript = NativeTranscript;
 
+    // An upper bound on the size of the Mega-circuits. `CONST_PG_LOG_N` bounds the log circuit sizes in the Chonk
+    // context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
+    static constexpr size_t VIRTUAL_LOG_N = std::max(CONST_PG_LOG_N, MEGA_AVM_LOG_N);
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = true;
     // Indicates that this flavor runs with non-ZK Sumcheck.
@@ -63,15 +66,17 @@ class MegaFlavor {
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     // The number of shifted witness entities including derived witness entities
-    static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
+    // The number of unshifted witness entities
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
+        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
-    using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
+    using Relations_ = std::tuple<bb::ArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
@@ -85,47 +90,38 @@ class MegaFlavor {
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
-    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
-    // Proof length formula
+    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
+    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
+
+    // Proof length formula methods
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm);
-    static constexpr size_t DECIDER_PROOF_LENGTH =
-        /* 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
-        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_frs_fr) +
-        /* 4. CONST_PROOF_SIZE_LOG_N - 1 Gemini Fold commitments */ ((CONST_PROOF_SIZE_LOG_N - 1) * num_frs_comm) +
-        /* 5. CONST_PROOF_SIZE_LOG_N Gemini a evaluations */ (CONST_PROOF_SIZE_LOG_N * num_frs_fr) +
-        /* 6. Shplonk Q commitment */ (num_frs_comm) +
-        /* 7. KZG W commitment */ (num_frs_comm);
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH;
 
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
-    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
-    // combiner) too much.
+    static constexpr size_t DECIDER_PROOF_LENGTH(size_t virtual_log_n = VIRTUAL_LOG_N)
+    {
+        return /* 2. virtual_log_n sumcheck univariates */
+            (virtual_log_n * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
+            /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_frs_fr) +
+            /* 4. virtual_log_n - 1 Gemini Fold commitments */ ((virtual_log_n - 1) * num_frs_comm) +
+            /* 5. virtual_log_n Gemini a evaluations */ (virtual_log_n * num_frs_fr) +
+            /* 6. Shplonk Q commitment */ (num_frs_comm) +
+            /* 7. KZG W commitment */ (num_frs_comm);
+    }
+
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
+    {
+        return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
+    }
+
+    // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
-
-    template <size_t NUM_KEYS>
-    using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
-        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_KEYS>());
-
-    template <size_t NUM_KEYS>
-    using ProtogalaxyTupleOfTuplesOfUnivariates =
-        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations,
-                                                                   NUM_KEYS,
-                                                                   /*optimised=*/true>());
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
+    using SubrelationSeparator = FF;
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
@@ -170,8 +166,6 @@ class MegaFlavor {
                               lagrange_ecc_op,      // column 29 // indicator poly for ecc op gates
                               databus_id            // column 30 // id polynomial, i.e. id_i = i
         )
-
-        static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
         auto get_gate_selectors()
@@ -357,7 +351,7 @@ class MegaFlavor {
         // fully-formed constructor
         ProverPolynomials(size_t circuit_size)
         {
-            PROFILE_THIS_NAME("ProverPolynomials(size_t)");
+            BB_BENCH_NAME("ProverPolynomials(size_t)");
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ circuit_size - 1,
@@ -381,7 +375,6 @@ class MegaFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
-            PROFILE_THIS_NAME("MegaFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
@@ -432,11 +425,6 @@ class MegaFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        // Serialized Verification Key length in fields
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. Metadata (log_circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
-            /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
-
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : NativeVerificationKey_(circuit_size, num_public_inputs)
@@ -460,44 +448,8 @@ class MegaFlavor {
                 commitment = commitment_key.commit(polynomial);
             }
         }
-
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-        MSGPACK_FIELDS(log_circuit_size,
-                       num_public_inputs,
-                       pub_inputs_offset,
-                       q_m,
-                       q_c,
-                       q_l,
-                       q_r,
-                       q_o,
-                       q_4,
-                       q_busread,
-                       q_lookup,
-                       q_arith,
-                       q_delta_range,
-                       q_elliptic,
-                       q_memory,
-                       q_nnf,
-                       q_poseidon2_external,
-                       q_poseidon2_internal,
-                       sigma_1,
-                       sigma_2,
-                       sigma_3,
-                       sigma_4,
-                       id_1,
-                       id_2,
-                       id_3,
-                       id_4,
-                       table_1,
-                       table_2,
-                       table_3,
-                       table_4,
-                       lagrange_first,
-                       lagrange_last,
-                       lagrange_ecc_op,
-                       databus_id);
     };
+
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
@@ -523,18 +475,10 @@ class MegaFlavor {
     };
 
     /**
-     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
+     * @brief A container for univariates used in sumcheck.
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
-
-    /**
-     * @brief A container for univariates used during Protogalaxy folding and sumcheck with some of the computation
-     * optmistically ignored.
-     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
-     */
-    template <size_t LENGTH, size_t SKIP_COUNT>
-    using ProverUnivariatesWithOptimisticSkipping = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -634,6 +578,13 @@ class MegaFlavor {
                      zip_view(this->get_witness(), witness_commitments.value().get_all())) {
                     witness = witness_in;
                 }
+
+                // Set shifted commitments
+                this->w_l_shift = witness_commitments->w_l;
+                this->w_r_shift = witness_commitments->w_r;
+                this->w_o_shift = witness_commitments->w_o;
+                this->w_4_shift = witness_commitments->w_4;
+                this->z_perm_shift = witness_commitments->z_perm;
             }
         }
     };

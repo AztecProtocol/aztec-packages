@@ -1,13 +1,10 @@
-import {
-  type AccountWallet,
-  type AztecAddress,
-  type AztecNode,
-  type Logger,
-  MerkleTreeId,
-  type Wallet,
-  retryUntil,
-} from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { MerkleTreeId } from '@aztec/aztec.js/trees';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes } from '@aztec/aztec/testing';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
@@ -23,10 +20,7 @@ describe('e2e_pruned_blocks', () => {
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
   let cheatCodes: CheatCodes;
 
-  let wallets: AccountWallet[];
-
-  let adminWallet: Wallet;
-  let senderWallet: Wallet;
+  let wallet: Wallet;
 
   let admin: AztecAddress;
   let sender: AztecAddress;
@@ -43,7 +37,15 @@ describe('e2e_pruned_blocks', () => {
   const ARCHIVER_POLLING_INTERVAL_MS = 300;
 
   beforeAll(async () => {
-    ({ aztecNode, aztecNodeAdmin, cheatCodes, logger, teardown, wallets } = await setup(3, {
+    ({
+      aztecNode,
+      aztecNodeAdmin,
+      cheatCodes,
+      logger,
+      teardown,
+      wallet,
+      accounts: [admin, sender, recipient],
+    } = await setup(3, {
       aztecEpochDuration: EPOCH_LENGTH,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       worldStateBlockCheckIntervalMS: WORLD_STATE_CHECK_INTERVAL_MS,
@@ -51,10 +53,7 @@ describe('e2e_pruned_blocks', () => {
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
     }));
 
-    [adminWallet, senderWallet] = wallets;
-    [admin, sender, recipient] = wallets.map(a => a.getAddress());
-
-    token = await TokenContract.deploy(adminWallet, admin, 'TEST', '$TST', 18).send().deployed();
+    token = await TokenContract.deploy(wallet, admin, 'TEST', '$TST', 18).send({ from: admin }).deployed();
     logger.info(`L2 token contract deployed at ${token.address}`);
   });
 
@@ -63,7 +62,7 @@ describe('e2e_pruned_blocks', () => {
   async function waitBlocks(blocks: number): Promise<void> {
     logger.warn(`Awaiting ${blocks} blocks to be mined`);
     for (let i = 0; i < blocks; i++) {
-      await token.methods.private_get_name().send().wait();
+      await token.methods.private_get_name().send({ from: admin }).wait();
       logger.warn(`Mined ${i + 1}/${blocks} blocks`);
     }
   }
@@ -77,10 +76,9 @@ describe('e2e_pruned_blocks', () => {
     // mint transaction that the node will drop the block corresponding to the first mint, resulting in errors if PXE
     // tried to access any historical information related to it (which it shouldn't).
 
-    const firstMintReceipt = await token
-      .withWallet(adminWallet)
-      .methods.mint_to_private(sender, MINT_AMOUNT / 2n)
-      .send()
+    const firstMintReceipt = await token.methods
+      .mint_to_private(sender, MINT_AMOUNT / 2n)
+      .send({ from: admin })
       .wait();
     const firstMintTxEffect = await aztecNode.getTxEffect(firstMintReceipt.txHash);
 
@@ -122,15 +120,14 @@ describe('e2e_pruned_blocks', () => {
     // We've completed the setup we were interested in, and can now simply mint the second half of the amount, transfer
     // the full amount to the recipient (which will require the sender to discover and prove both the old and new notes)
     // and check that everything worked as expected.
-    await token
-      .withWallet(adminWallet)
-      .methods.mint_to_private(sender, MINT_AMOUNT / 2n)
-      .send()
+    await token.methods
+      .mint_to_private(sender, MINT_AMOUNT / 2n)
+      .send({ from: admin })
       .wait();
 
-    await token.withWallet(senderWallet).methods.transfer(recipient, MINT_AMOUNT).send().wait();
+    await token.methods.transfer(recipient, MINT_AMOUNT).send({ from: sender }).wait();
 
-    expect(await token.methods.balance_of_private(recipient).simulate()).toEqual(MINT_AMOUNT);
-    expect(await token.methods.balance_of_private(sender).simulate()).toEqual(0n);
+    expect(await token.methods.balance_of_private(recipient).simulate({ from: recipient })).toEqual(MINT_AMOUNT);
+    expect(await token.methods.balance_of_private(sender).simulate({ from: sender })).toEqual(0n);
   });
 });

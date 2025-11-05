@@ -19,7 +19,6 @@ const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const versions = require("./versions.json");
 
-/** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Privacy-first zkRollup | Aztec Documentation",
   tagline:
@@ -28,8 +27,7 @@ const config = {
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
-  favicon: "img/Aztec_icon_minified.svg",
+  favicon: "img/Aztec_Symbol_Dark.png",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -45,6 +43,9 @@ const config = {
   },
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
+    },
   },
   themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
   presets: [
@@ -63,8 +64,30 @@ const config = {
           },
           routeBasePath: "/",
           include: ["**/*.{md,mdx}"],
-          exclude: !process.env.PROTOCOL_SPECS ? ["protocol-specs/**"] : [],
-
+          // Don't show latest since nightlies are published
+          // Hide current version in Netlify production, show in dev and PR previews
+          // Netlify sets CONTEXT
+          includeCurrentVersion: process.env.CONTEXT !== "production",
+          // Testnet should be the default version
+          lastVersion: versions[2],
+          versions: {
+            [versions[0]]: {
+              ...(versions[0].includes("nightly") && { path: "nightly" }),
+            },
+            [versions[1]]: {
+              label: "Devnet (v3.0.0-devnet.4)",
+              path: "devnet",
+            },
+            "v2.0.4": {
+              label: "Testnet (v2.0.4)",
+            },
+            ...(process.env.CONTEXT !== "production" && {
+              current: {
+                label: "dev",
+                path: "dev",
+              },
+            }),
+          },
           remarkPlugins: [math],
           rehypePlugins: [
             [
@@ -76,19 +99,6 @@ const config = {
               },
             ],
           ],
-          includeCurrentVersion: false,
-          versions: (() => {
-            const versionObject = {};
-            if (process.env.ENV === "dev") {
-              return versionObject;
-            }
-            versions.map((version) => {
-              versionObject[version] = {
-                banner: "none",
-              };
-            });
-            return versionObject;
-          })(),
         },
         blog: false,
         theme: {
@@ -108,6 +118,20 @@ const config = {
   ],
   plugins: [
     [
+      "docusaurus-plugin-llms",
+      {
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        docsDir: `versioned_docs/version-${versions[0]}/`,
+        title: "Aztec Protocol Documentation",
+        excludeImports: true,
+        version: versions[0],
+        pathTransformation: {
+          ignorePaths: ["docs"],
+        },
+      },
+    ],
+    [
       "@docusaurus/plugin-ideal-image",
       {
         quality: 70,
@@ -117,64 +141,10 @@ const config = {
         disableInDev: false,
       },
     ],
-    [
-      "docusaurus-plugin-typedoc",
-      {
-        id: "aztecjs/pxe",
-        entryPoints: ["../yarn-project/stdlib/src/interfaces/pxe.ts"],
-        tsconfig: "../yarn-project/stdlib/tsconfig.json",
-        entryPointStrategy: "expand",
-        out: "developers/reference/aztecjs/pxe",
-        readme: "none",
-        sidebar: {
-          categoryLabel: "Private Execution Environment (PXE)",
-        },
-        disableSources: true,
-      },
-    ],
-    [
-      "docusaurus-plugin-typedoc",
-      {
-        id: "aztecjs/aztec-js",
-        entryPoints: [
-          "../yarn-project/aztec.js/src/contract/index.ts",
-          "../yarn-project/aztec.js/src/account/index.ts",
-        ],
-        tsconfig: "../yarn-project/aztec.js/tsconfig.json",
-        entryPointStrategy: "resolve",
-        out: "developers/reference/aztecjs/aztec-js",
-        readme: "none",
-        sidebar: {
-          categoryLabel: "Aztec.js",
-        },
-        disableSources: true,
-      },
-    ],
-    [
-      "docusaurus-plugin-typedoc",
-      {
-        id: "aztecjs/accounts",
-        entryPoints: [
-          "../yarn-project/accounts/src/defaults/index.ts",
-          "../yarn-project/accounts/src/ecdsa/index.ts",
-          "../yarn-project/accounts/src/schnorr/index.ts",
-          "../yarn-project/accounts/src/single_key/index.ts",
-          "../yarn-project/accounts/src/testing/index.ts",
-        ],
-        tsconfig: "../yarn-project/accounts/tsconfig.json",
-        entryPointStrategy: "resolve",
-        out: "developers/reference/aztecjs/accounts",
-        readme: "none",
-        sidebar: {
-          categoryLabel: "Accounts",
-        },
-        disableSources: true,
-      },
-    ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
   customFields: {
-    MATOMO_ENV: process.env.ENV,
+    ENV: process.env.ENV,
   },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -207,9 +177,9 @@ const config = {
       navbar: {
         logo: {
           alt: "Aztec Logo",
-          srcDark: "img/new_logo-01.svg",
+          srcDark: "img/Aztec Wordmark_Light.svg",
           href: "/",
-          src: "img/Aztec_logo_dark-01.svg",
+          src: "img/Aztec Wordmark_Dark.svg",
         },
         items: [
           {
@@ -218,15 +188,8 @@ const config = {
             dropdownActiveClassDisabled: true,
           },
           {
-            type: "doc",
-            docId: "aztec/index",
-            position: "left",
-            label: "Learn",
-          },
-
-          {
             type: "docSidebar",
-            sidebarId: "buildSidebar",
+            sidebarId: "sidebar",
             position: "left",
             label: "Build",
           },
@@ -237,7 +200,7 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/getting_started",
+            to: "/developers/getting_started_on_sandbox",
             label: "Install Sandbox",
             position: "right",
           },
@@ -290,19 +253,18 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
-                to: "/migration_notes",
+                to: "/developers/docs/reference/glossary",
+                label: "Glossary",
+                className: "no-external-icon",
+              },
+              {
+                to: "/developers/migration_notes",
                 label: "Migration Notes",
                 className: "no-external-icon",
               },
               {
                 to: "/aztec_connect_sunset",
                 label: "Aztec Connect Sunset",
-                className: "no-external-icon",
-              },
-              {
-                type: "docSidebar",
-                sidebarId: "roadmapSidebar",
-                label: "Roadmap",
                 className: "no-external-icon",
               },
               {
@@ -344,7 +306,7 @@ const config = {
                 to: "/",
               },
               {
-                label: "Developer Getting Started Guide",
+                label: "Developer Getting Started",
                 to: "/developers/getting_started",
               },
               {
@@ -361,8 +323,8 @@ const config = {
                 href: "https://forum.aztec.network",
               },
               {
-                label: "Discord",
-                href: "https://discord.com/invite/aztec",
+                label: "Noir Discord",
+                href: "https://discord.com/invite/JtqzkdeQ6G",
               },
               {
                 label: "X (Twitter)",
@@ -431,19 +393,5 @@ const config = {
       },
     }),
 };
-
-if (process.env.PROTOCOL_SPECS) {
-  //@ts-ignore
-  const index = config.themeConfig.navbar.items.findIndex(
-    (e) => e.type == "dropdown"
-  );
-
-  //@ts-ignore
-  config.themeConfig.navbar.items.splice(index, 0, {
-    type: "docSidebar",
-    sidebarId: "protocolSpecSidebar",
-    label: "Protocol Specification",
-  });
-}
 
 module.exports = config;

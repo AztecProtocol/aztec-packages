@@ -12,6 +12,7 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
@@ -33,6 +34,7 @@ export const DEFAULT_ATTESTATION_PROPAGATION_TIME = 2;
  * Configuration settings for the SequencerClient.
  */
 export type SequencerClientConfig = PublisherConfig &
+  KeyStoreConfig &
   ValidatorClientConfig &
   TxSenderConfig &
   SequencerConfig &
@@ -143,12 +145,21 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Do not invalidate the previous block if invalid when we are the proposer (for testing only)',
     ...booleanConfigHelper(false),
   },
+  broadcastInvalidBlockProposal: {
+    description: 'Broadcast invalid block proposals with corrupted state (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  injectFakeAttestation: {
+    description: 'Inject a fake attestation (for testing only)',
+    ...booleanConfigHelper(false),
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
   ...validatorClientConfigMappings,
   ...sequencerConfigMappings,
+  ...keyStoreConfigMappings,
   ...l1ReaderConfigMappings,
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),

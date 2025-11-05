@@ -47,9 +47,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     using Builder = typename Curve::Builder;
     using witness_ct = stdlib::witness_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        info("num gates = ", builder.get_num_finalized_gates_inefficient());
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
@@ -65,22 +66,105 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_EQ(a.get_origin_tag(), next_submitted_value_origin_tag);
 
         // Tags from members are merged
-        bool_ct pif = bool_ct(witness_ct(&builder, 0));
+        // Create field elements with specific tags before constructing the biggroup element
+        affine_element input_c(element::random_element());
+        auto x = element_ct::BaseField::from_witness(&builder, input_c.x);
+        auto y = element_ct::BaseField::from_witness(&builder, input_c.y);
+        auto pif = bool_ct(witness_ct(&builder, false));
+
+        // Set tags on the individual field elements
+        x.set_origin_tag(submitted_value_origin_tag);
+        y.set_origin_tag(challenge_origin_tag);
         pif.set_origin_tag(next_challenge_tag);
-        a.x.set_origin_tag(submitted_value_origin_tag);
-        a.y.set_origin_tag(challenge_origin_tag);
-        a.set_point_at_infinity(pif);
-        EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
+
+        // Construct biggroup element from pre-tagged field elements
+        element_ct c(x, y, pif);
+
+        // The tag of the biggroup element should be the union of all 3 member tags
+        EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
 
 #ifndef NDEBUG
+        // Test that instant_death_tag on x coordinate propagates correctly
         affine_element input_b(element::random_element());
-        // Working with instant death tagged element causes an exception
-        element_ct b = element_ct::from_witness(&builder, input_b);
-        b.set_origin_tag(instant_death_tag);
+        auto x_death = element_ct::BaseField::from_witness(&builder, input_b.x);
+        auto y_normal = element_ct::BaseField::from_witness(&builder, input_b.y);
+        auto pif_normal = bool_ct(witness_ct(&builder, false));
 
+        x_death.set_origin_tag(instant_death_tag);
+
+        element_ct b(x_death, y_normal, pif_normal);
+        // Working with instant death tagged element causes an exception
         EXPECT_THROW(b + b, std::runtime_error);
 #endif
     }
+
+    static void test_assert_coordinates_in_field()
+    {
+        // Only test for non-goblin builders (goblin elements don't have assert_coordinates_in_field
+        // because coordinate checks are done in the ECCVM circuit)
+        if constexpr (!HasGoblinBuilder<TestType>) {
+            // Test 1: Valid coordinates should pass
+            {
+                Builder builder;
+
+                // Test multiple random points to ensure assert_coordinates_in_field works correctly
+                for (size_t i = 0; i < 3; ++i) {
+                    affine_element valid_point(element::random_element());
+                    element_ct point = element_ct::from_witness(&builder, valid_point);
+
+                    // This should not fail - coordinates are in field
+                    point.assert_coordinates_in_field();
+                }
+
+                // Verify the circuit is correct
+                EXPECT_CIRCUIT_CORRECTNESS(builder);
+            }
+
+            // Test 2: Invalid x coordinate should cause circuit to fail
+            {
+                Builder builder;
+                affine_element valid_point(element::random_element());
+
+                // Create a bigfield element with x coordinate that will be out of range
+                // We do this by creating a valid witness but then manipulating the limb values
+                // to make them represent a value >= the modulus
+                auto x_coord = element_ct::BaseField::from_witness(&builder, valid_point.x);
+                auto y_coord = element_ct::BaseField::from_witness(&builder, valid_point.y);
+
+                // Manipulate the limbs to create an invalid value
+                // Set the highest limb to a very large value that would make the total >= modulus
+                x_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, fr(uint256_t(1) << 68));
+                x_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
+
+                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+                point.assert_coordinates_in_field();
+
+                // Circuit should fail because x coordinate is out of field
+                EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+            }
+
+            // Test 3: Invalid y coordinate should cause circuit to fail
+            {
+                Builder builder;
+                affine_element valid_point(element::random_element());
+
+                auto x_coord = element_ct::BaseField::from_witness(&builder, valid_point.x);
+                auto y_coord = element_ct::BaseField::from_witness(&builder, valid_point.y);
+
+                // Manipulate the limbs to create an invalid value
+                // Set the highest limb to a very large value that would make the total >= modulus
+                y_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, fr(uint256_t(1) << 68));
+                y_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
+
+                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+                point.assert_coordinates_in_field();
+
+                // Circuit should fail because y coordinate is out of field
+                EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+            }
+        }
+    }
+
     static void test_add()
     {
         Builder builder;
@@ -96,9 +180,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             a.set_origin_tag(submitted_value_origin_tag);
             b.set_origin_tag(challenge_origin_tag);
 
-            uint64_t before = builder.get_estimated_num_finalized_gates();
+            uint64_t before = builder.get_num_finalized_gates_inefficient();
             element_ct c = a + b;
-            uint64_t after = builder.get_estimated_num_finalized_gates();
+            uint64_t after = builder.get_num_finalized_gates_inefficient();
 
             // Check that the resulting tag is the union of inputs' tgs
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
@@ -109,8 +193,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             affine_element c_expected(element(input_a) + element(input_b));
 
-            uint256_t c_x_u256 = c.x.get_value().lo;
-            uint256_t c_y_u256 = c.y.get_value().lo;
+            uint256_t c_x_u256 = c.x().get_value().lo;
+            uint256_t c_y_u256 = c.y().get_value().lo;
 
             fq c_x_result(c_x_u256);
             fq c_y_result(c_y_u256);
@@ -207,11 +291,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(standard_a.is_point_at_infinity().get_value(), true);
             EXPECT_EQ(standard_b.is_point_at_infinity().get_value(), true);
 
-            fq standard_a_x = standard_a.x.get_value().lo;
-            fq standard_a_y = standard_a.y.get_value().lo;
+            fq standard_a_x = standard_a.x().get_value().lo;
+            fq standard_a_y = standard_a.y().get_value().lo;
 
-            fq standard_b_x = standard_b.x.get_value().lo;
-            fq standard_b_y = standard_b.y.get_value().lo;
+            fq standard_b_x = standard_b.x().get_value().lo;
+            fq standard_b_y = standard_b.y().get_value().lo;
 
             EXPECT_EQ(standard_a_x, 0);
             EXPECT_EQ(standard_a_y, 0);
@@ -243,8 +327,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             affine_element c_expected(element(input_a) - element(input_b));
 
-            uint256_t c_x_u256 = c.x.get_value().lo;
-            uint256_t c_y_u256 = c.y.get_value().lo;
+            uint256_t c_x_u256 = c.x().get_value().lo;
+            uint256_t c_y_u256 = c.y().get_value().lo;
 
             fq c_x_result(c_x_u256);
             fq c_y_result(c_y_u256);
@@ -330,8 +414,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             affine_element c_expected(element(input_a).dbl());
 
-            uint256_t c_x_u256 = c.x.get_value().lo;
-            uint256_t c_y_u256 = c.y.get_value().lo;
+            uint256_t c_x_u256 = c.x().get_value().lo;
+            uint256_t c_y_u256 = c.y().get_value().lo;
 
             fq c_x_result(c_x_u256);
             fq c_y_result(c_y_u256);
@@ -343,39 +427,212 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_montgomery_ladder()
+    static void test_conditional_negate()
     {
         Builder builder;
-        size_t num_repetitions = 1;
+        size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element input_a(element::random_element());
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            a.set_origin_tag(submitted_value_origin_tag);
+
+            // decide randomly whether to negate or not
+            bool negate = (engine.get_random_uint32() % 2) == 1;
+            bool_ct negate_ct = bool_ct(witness_ct(&builder, negate ? 1 : 0));
+            negate_ct.set_origin_tag(challenge_origin_tag);
+
+            element_ct c = a.conditional_negate(negate_ct);
+
+            // Check the resulting tag is preserved
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+            affine_element c_expected = negate ? affine_element(-element(input_a)) : input_a;
+            EXPECT_EQ(c.get_value(), c_expected);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_conditional_select()
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            bool select_a = (engine.get_random_uint32() % 2) == 1;
+            bool_ct select_a_ct = bool_ct(witness_ct(&builder, select_a ? 1 : 0));
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            // Set different tags in a and b and the predicate
+            a.set_origin_tag(submitted_value_origin_tag);
+            b.set_origin_tag(challenge_origin_tag);
+            select_a_ct.set_origin_tag(next_challenge_tag);
+
+            element_ct c = a.conditional_select(b, select_a_ct);
+
+            // Check that the resulting tag is the union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
+
+            affine_element c_expected = select_a ? input_b : input_a;
+            EXPECT_EQ(c.get_value(), c_expected);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_incomplete_assert_equal_success()
+    {
+        // Case 1: Should pass because the points are identical
+        {
+            Builder builder;
+            size_t num_repetitions = 10;
+            for (size_t i = 0; i < num_repetitions; ++i) {
+                affine_element input_a(element::random_element());
+                element_ct a = element_ct::from_witness(&builder, input_a);
+                element_ct b = element_ct::from_witness(&builder, input_a);
+
+                // Set different tags in a and b
+                a.set_origin_tag(submitted_value_origin_tag);
+                b.set_origin_tag(challenge_origin_tag);
+
+                a.incomplete_assert_equal(b, "elements don't match");
+            }
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+        // Case 2: Should pass because the points are identical and at infinity
+        {
+            Builder builder;
+            size_t num_repetitions = 10;
+            for (size_t i = 0; i < num_repetitions; ++i) {
+                affine_element input_a(element::random_element());
+                element_ct a = element_ct::from_witness(&builder, input_a);
+                element_ct b = element_ct::from_witness(&builder, input_a);
+
+                // Set different tags in a and b
+                a.set_origin_tag(submitted_value_origin_tag);
+                b.set_origin_tag(challenge_origin_tag);
+
+                a.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+                b.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+
+                a.incomplete_assert_equal(b, "elements don't match");
+            }
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+        // Case 3: Self-assertion (point equals itself)
+        {
+            Builder builder;
+            affine_element input(element::random_element());
+            element_ct a = element_ct::from_witness(&builder, input);
+
+            a.incomplete_assert_equal(a, "self assertion test");
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+    }
+
+    static void test_incomplete_assert_equal_failure()
+    {
+        // Case 1: Should fail because the points are different
+        {
+            Builder builder;
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            // Ensure inputs are different
+            while (input_a == input_b) {
+                input_b = element::random_element();
+            }
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            // Set different tags in a and b
+            a.set_origin_tag(submitted_value_origin_tag);
+            b.set_origin_tag(challenge_origin_tag);
+
+            a.incomplete_assert_equal(b, "elements don't match");
+
+            // Circuit should fail (Circuit checker doesn't fail because it doesn't actually check copy constraints,
+            // it only checks gate constraints)
+            EXPECT_EQ(builder.failed(), true);
+            EXPECT_EQ(builder.err(), "elements don't match (x coordinate)");
+        }
+        // Case 2: Should fail because the points have same x but different y
+        {
+            Builder builder;
+            affine_element input_a(element::random_element());
+
+            // Create a point with the same x coordinate but different y
+            // For an elliptic curve y^2 = x^3 + ax + b, if (x, y) is on the curve, then (x, -y) is also on the curve
+            affine_element input_b = input_a;
+            input_b.y = -input_a.y; // Negate y to get a different point with same x
+
+            // Construct the circuit elements with same x but different y
+            auto x_coord = element_ct::BaseField::from_witness(&builder, input_a.x);
+            auto y_coord_a = element_ct::BaseField::from_witness(&builder, input_a.y);
+            auto y_coord_b = element_ct::BaseField::from_witness(&builder, input_b.y);
+
+            element_ct a(x_coord, y_coord_a, bool_ct(witness_ct(&builder, false)));
+            element_ct b(x_coord, y_coord_b, bool_ct(witness_ct(&builder, false)));
+
+            // Set different tags in a and b
+            a.set_origin_tag(submitted_value_origin_tag);
+            b.set_origin_tag(challenge_origin_tag);
+
+            a.incomplete_assert_equal(b, "elements don't match");
+
+            // Circuit should fail with y coordinate error
+            EXPECT_EQ(builder.failed(), true);
+            EXPECT_EQ(builder.err(), "elements don't match (y coordinate)");
+        }
+        // Case 3: Infinity flag mismatch (one point at infinity, one not)
+        {
+            Builder builder;
             affine_element input_a(element::random_element());
             affine_element input_b(element::random_element());
 
             element_ct a = element_ct::from_witness(&builder, input_a);
             element_ct b = element_ct::from_witness(&builder, input_b);
 
-            // Set tags
-            a.set_origin_tag(submitted_value_origin_tag);
-            b.set_origin_tag(challenge_origin_tag);
+            // Set only one point at infinity
+            a.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));  // at infinity
+            b.set_point_at_infinity(bool_ct(witness_ct(&builder, false))); // not at infinity
 
-            element_ct c = a.montgomery_ladder(b);
+            a.incomplete_assert_equal(b, "infinity flag mismatch test");
 
-            // Check that the resulting tag is a union of tags
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-
-            affine_element c_expected(element(input_a).dbl() + element(input_b));
-
-            uint256_t c_x_u256 = c.x.get_value().lo;
-            uint256_t c_y_u256 = c.y.get_value().lo;
-
-            fq c_x_result(c_x_u256);
-            fq c_y_result(c_y_u256);
-
-            EXPECT_EQ(c_x_result, c_expected.x);
-            EXPECT_EQ(c_y_result, c_expected.y);
+            EXPECT_EQ(builder.failed(), true);
+            EXPECT_EQ(builder.err(), "infinity flag mismatch test (infinity flag)");
         }
+    }
 
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    static void test_incomplete_assert_equal_edge_cases()
+    {
+        Builder builder;
+        // Check that two points at infinity with different x,y coords fail the equality check
+        affine_element input_a(element::random_element());
+        affine_element input_b(element::random_element());
+
+        // Ensure inputs are different
+        while (input_a == input_b) {
+            input_b = element::random_element();
+        }
+        element_ct a = element_ct::from_witness(&builder, input_a);
+        element_ct b = element_ct::from_witness(&builder, input_b);
+
+        const bool_ct is_infinity = bool_ct(witness_ct(&builder, 1));
+        a.set_point_at_infinity(is_infinity);
+        b.set_point_at_infinity(is_infinity);
+
+        // Set different tags in a and b
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
+        a.incomplete_assert_equal(b, "points at infinity with different x,y should not be equal");
+
+        // Circuit should fail
+        EXPECT_EQ(builder.failed(), true);
+        EXPECT_EQ(builder.err(), "points at infinity with different x,y should not be equal (x coordinate)");
     }
 
     static void test_mul()
@@ -395,15 +652,15 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x.set_origin_tag(challenge_origin_tag);
             P.set_origin_tag(submitted_value_origin_tag);
 
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = P * x;
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, c_expected.x);
             EXPECT_EQ(c_y_result, c_expected.y);
@@ -418,7 +675,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         const size_t max_num_bits = 128;
 
-        // We only test even bit lengths, because `bn254_endo_batch_mul` used in 'scalar_mul' can't handle odd lengths.
+        // TODO: add support for odd lengths.
         for (size_t i = 2; i < max_num_bits; i += 2) {
             affine_element input(element::random_element());
             // Get a random 256 integer
@@ -439,16 +696,16 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x.set_origin_tag(challenge_origin_tag);
             P.set_origin_tag(submitted_value_origin_tag);
 
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             // Multiply using specified scalar length
             element_ct c = P.scalar_mul(x, i);
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, c_expected.x);
 
@@ -463,7 +720,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         const size_t max_num_bits = 254;
 
-        // We only test even bit lengths, because `bn254_endo_batch_mul` used in 'scalar_mul' can't handle odd lengths.
+        // TODO: add support for odd lengths.
         for (size_t i = 128; i < max_num_bits; i += 2) {
             affine_element input(element::random_element());
             // Get a random 256-bit integer
@@ -479,16 +736,16 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x.set_origin_tag(challenge_origin_tag);
             P.set_origin_tag(submitted_value_origin_tag);
 
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             // Multiply using specified scalar length
             element_ct c = P.scalar_mul(x, i);
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, c_expected.x);
 
@@ -501,7 +758,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_short_scalar_mul_infinity()
     {
         // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against a
-        // short scalar and also check that the number of gates in this case is equal to the number of gates spent on a
+        // short scalar and also check that the number of gates in this case is more than the number of gates spent on a
         // finite point.
 
         // Populate test points.
@@ -532,10 +789,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x.set_origin_tag(challenge_origin_tag);
             P.set_origin_tag(submitted_value_origin_tag);
 
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = P.scalar_mul(x, max_num_bits);
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-            num_gates = builder.get_estimated_num_finalized_gates();
+            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
+            num_gates = builder.get_num_finalized_gates_inefficient();
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
@@ -544,8 +801,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // The second point is finite, hence we flip the flag
             expect_infinity = false;
         }
-        // Check that the numbers of gates are equal in both cases.
-        EXPECT_EQ(gates[0], gates[1]);
+        // Check that the numbers of gates are greater when multiplying by point at infinity,
+        // because we transform (s * ∞) into (0 * G), and NAF representation of 0 ≡ NAF(r) which is 254 bits long.
+        EXPECT_GT(gates[0], gates[1]);
     }
 
     static void test_twin_mul()
@@ -581,13 +839,152 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element input_c = (element(input_a) * scalar_a);
             element input_d = (element(input_b) * scalar_b);
             affine_element expected(input_c + input_d);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
         }
         EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_twin_mul_with_infinity()
+    {
+        Builder builder;
+        size_t num_repetitions = 1;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            input_b.self_set_infinity();
+
+            // Get two 128-bit scalars
+            const size_t max_num_bits = 128;
+            uint256_t scalar_raw_a = engine.get_random_uint256();
+            scalar_raw_a = scalar_raw_a >> (256 - max_num_bits);
+            fr scalar_a = fr(scalar_raw_a);
+
+            uint256_t scalar_raw_b = engine.get_random_uint256();
+            scalar_raw_b = scalar_raw_b >> (256 - max_num_bits);
+            fr scalar_b = fr(scalar_raw_b);
+
+            element_ct P_a = element_ct::from_witness(&builder, input_a); // A
+            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);  // s_1 (128 bits)
+            element_ct P_b = element_ct::from_witness(&builder, input_b); // ∞
+            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);  // s_2 (128 bits)
+
+            // Set tags
+            P_a.set_origin_tag(submitted_value_origin_tag);
+            x_a.set_origin_tag(challenge_origin_tag);
+            P_b.set_origin_tag(next_submitted_value_origin_tag);
+            x_b.set_origin_tag(next_challenge_tag);
+
+            element_ct c = element_ct::batch_mul({ P_a, P_b }, { x_a, x_b }, 128);
+
+            // Check that the resulting tag is a union of all tags
+            EXPECT_EQ(c.get_origin_tag(), first_to_fourth_merged_tag);
+            element input_c = (element(input_a) * scalar_a);
+            element input_d = (element(input_b) * scalar_b);
+            affine_element expected(input_c + input_d);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
+
+            EXPECT_EQ(c_x_result, expected.x);
+            EXPECT_EQ(c_y_result, expected.y);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_batch_mul_linearly_dependent_generators()
+    {
+        Builder builder;
+        affine_element input_P(element::random_element());
+
+        affine_element input_P_a = affine_element(element(input_P) + element(input_P));     // 2P
+        affine_element input_P_b = affine_element(element(input_P_a) + element(input_P));   // 3P
+        affine_element input_P_c = affine_element(element(input_P_a) + element(input_P_b)); // 5P
+
+        // Choose scalars such that their NAF representations are:
+        //    skew msd          lsd
+        // a: 0    [+1, +1, -1, +1] = -0 + 2^3 + 2^2 - 2^1 + 2^0 = 11
+        // b: 1    [+1, +1, +1, +1] = -1 + 2^3 + 2^2 + 2^1 + 2^0 = 14
+        // c: 1    [+1, -1, +1, +1] = -1 + 2^3 - 2^2 + 2^1 + 2^0 = 6
+        fr scalar_a(11);
+        fr scalar_b(14);
+        fr scalar_c(6);
+
+        OriginTag tag_union{};
+
+        element_ct P_a = element_ct::from_witness(&builder, input_P_a);
+        // Set all element tags to submitted tags from sequential rounds
+        P_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/true));
+        tag_union = OriginTag(tag_union, P_a.get_origin_tag());
+
+        scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
+        // Set all scalar tags to challenge tags from sequential rounds
+        x_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/false));
+        tag_union = OriginTag(tag_union, x_a.get_origin_tag());
+
+        element_ct P_b = element_ct::from_witness(&builder, input_P_b);
+        P_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/true));
+        tag_union = OriginTag(tag_union, P_b.get_origin_tag());
+
+        scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);
+        x_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/false));
+        tag_union = OriginTag(tag_union, x_b.get_origin_tag());
+
+        element_ct P_c = element_ct::from_witness(&builder, input_P_c);
+        P_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/true));
+        tag_union = OriginTag(tag_union, P_c.get_origin_tag());
+
+        scalar_ct x_c = scalar_ct::from_witness(&builder, scalar_c);
+        x_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/false));
+        tag_union = OriginTag(tag_union, x_c.get_origin_tag());
+
+        {
+            // If with_edgecases = true, should handle linearly dependent points correctly
+            // Define masking scalar (128 bits)
+            const auto get_128_bit_scalar = []() {
+                uint256_t scalar_u256(0, 0, 0, 0);
+                scalar_u256.data[0] = engine.get_random_uint64();
+                scalar_u256.data[1] = engine.get_random_uint64();
+                fr scalar(scalar_u256);
+                return scalar;
+            };
+            fr masking_scalar = get_128_bit_scalar();
+            scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
+            element_ct c = element_ct::batch_mul({ P_a, P_b, P_c },
+                                                 { x_a, x_b, x_c },
+                                                 /*max_num_bits*/ 128,
+                                                 /*with_edgecases*/ true,
+                                                 /*masking_scalar*/ masking_scalar_ct);
+
+            // Check that the result tag is a union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), tag_union);
+            element input_e = (element(input_P_a) * scalar_a);
+            element input_f = (element(input_P_b) * scalar_b);
+            element input_g = (element(input_P_c) * scalar_c);
+
+            affine_element expected(input_e + input_f + input_g);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
+
+            EXPECT_EQ(c_x_result, expected.x);
+            EXPECT_EQ(c_y_result, expected.y);
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+        {
+            // If with_edgecases = false, the lookup table cannot be created as we encounter
+            // a point at infinity during the table construction.
+            element_ct c = element_ct::batch_mul(
+                { P_a, P_b, P_c }, { x_a, x_b, x_c }, /*max_num_bits*/ 4, /*with_edgecases*/ false);
+
+            // Check that the result tag is a union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), tag_union);
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+            EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
+        }
     }
 
     static void test_triple_mul()
@@ -643,8 +1040,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element input_g = (element(input_c) * scalar_c);
 
             affine_element expected(input_e + input_f + input_g);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
@@ -709,7 +1106,19 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x_d.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/3, /*is_submitted=*/false));
             tag_union = OriginTag(tag_union, x_d.get_origin_tag());
 
-            element_ct c = element_ct::batch_mul({ P_a, P_b, P_c, P_d }, { x_a, x_b, x_c, x_d });
+            // Define masking scalar (128 bits)
+            const auto get_128_bit_scalar = []() {
+                uint256_t scalar_u256(0, 0, 0, 0);
+                scalar_u256.data[0] = engine.get_random_uint64();
+                scalar_u256.data[1] = engine.get_random_uint64();
+                fr scalar(scalar_u256);
+                return scalar;
+            };
+            fr masking_scalar = get_128_bit_scalar();
+            scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
+
+            element_ct c =
+                element_ct::batch_mul({ P_a, P_b, P_c, P_d }, { x_a, x_b, x_c, x_d }, 0, true, masking_scalar_ct);
 
             // Check that the tag of the batched product is the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), tag_union);
@@ -719,8 +1128,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element input_h = (element(input_d) * scalar_d);
 
             affine_element expected(input_e + input_f + input_g + input_h);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
@@ -751,8 +1160,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // Check that the resulting tag is a union
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
             affine_element expected(g1::one * scalar_a);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
@@ -802,8 +1211,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
 
         expected_point = expected_point.normalize();
-        fq result_x(result_point.x.get_value().lo);
-        fq result_y(result_point.y.get_value().lo);
+        fq result_x(result_point.x().get_value().lo);
+        fq result_y(result_point.y().get_value().lo);
 
         EXPECT_EQ(result_x, expected_point.x);
         EXPECT_EQ(result_y, expected_point.y);
@@ -852,8 +1261,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         expected_point = expected_point.normalize();
 
-        fq result2_x(result_point2.x.get_value().lo);
-        fq result2_y(result_point2.y.get_value().lo);
+        fq result2_x(result_point2.x().get_value().lo);
+        fq result2_y(result_point2.y().get_value().lo);
 
         EXPECT_EQ(result2_x, expected_point.x);
         EXPECT_EQ(result2_y, expected_point.y);
@@ -906,8 +1315,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             }
             expected_point = expected_point.normalize();
 
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
+            fq result_x(result_point.x().get_value().lo);
+            fq result_y(result_point.y().get_value().lo);
 
             EXPECT_EQ(result_x, expected_point.x);
             EXPECT_EQ(result_y, expected_point.y);
@@ -964,8 +1373,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element expected_point = points[1];
             expected_point = expected_point.normalize();
 
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
+            fq result_x(result_point.x().get_value().lo);
+            fq result_y(result_point.y().get_value().lo);
 
             EXPECT_EQ(result_x, expected_point.x);
             EXPECT_EQ(result_y, expected_point.y);
@@ -1012,8 +1421,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element expected_point = points[1];
             expected_point = expected_point.normalize();
 
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
+            fq result_x(result_point.x().get_value().lo);
+            fq result_y(result_point.y().get_value().lo);
 
             EXPECT_EQ(result_x, expected_point.x);
             EXPECT_EQ(result_y, expected_point.y);
@@ -1085,8 +1494,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     {
         Builder builder = Builder();
         size_t max_num_bits = 254;
-        // Our design of NAF and the way it is used assumes the even length of scalars.
-        for (size_t length = 2; length < max_num_bits; length += 2) {
+        for (size_t length = 2; length < max_num_bits; length += 1) {
 
             fr scalar_val;
 
@@ -1108,207 +1516,50 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 // Check that the tag is propagated to bits
                 EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
             }
-            // scalar = -naf[254] + \sum_{i=0}^{253}(1-2*naf[i]) 2^{253-i}
+            // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
             fr reconstructed_val(0);
             for (size_t i = 0; i < length; i++) {
-                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].witness_bool)) * fr(uint256_t(1) << (length - 1 - i));
+                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
             };
-            reconstructed_val -= fr(naf[length].witness_bool);
+            reconstructed_val -= fr(naf[length].get_value());
             EXPECT_EQ(scalar_val, reconstructed_val);
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_compute_wnaf()
+    static void test_compute_naf_zero()
     {
         Builder builder = Builder();
+        size_t length = 254;
 
-        fr scalar_val = fr::random_element();
+        // Our algorithm for input 0 outputs the NAF representation of r (the field modulus)
+        fr scalar_val(0);
+
         scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
-        // Assign origin tag to scalar
+
+        // Set tag for scalar
         scalar.set_origin_tag(submitted_value_origin_tag);
+        auto naf = element_ct::compute_naf(scalar, length);
 
-        const auto result = element_ct::compute_wnaf(scalar);
-        // Check that wnaf entries propagate tag
-        for (const auto& wnaf_entry : result) {
-            EXPECT_EQ(wnaf_entry.get_origin_tag(), submitted_value_origin_tag);
+        for (const auto& bit : naf) {
+            // Check that the tag is propagated to bits
+            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
         }
+
+        // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
+        fr reconstructed_val(0);
+        uint256_t reconstructed_u256(0);
+        for (size_t i = 0; i < length; i++) {
+            reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
+            reconstructed_u256 +=
+                (uint256_t(1) - uint256_t(2) * uint256_t(naf[i].get_value())) * (uint256_t(1) << (length - 1 - i));
+        };
+        reconstructed_val -= fr(naf[length].get_value());
+        EXPECT_EQ(scalar_val, reconstructed_val);
+        EXPECT_EQ(reconstructed_u256, uint256_t(fr::modulus));
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_wnaf_batch_mul()
-    {
-        Builder builder;
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input(element::random_element());
-            fr scalar(fr::random_element());
-            if ((uint256_t(scalar).get_bit(0) & 1) == 1) {
-                scalar -= fr(1); // make sure to add skew
-            }
-            element_ct P = element_ct::from_witness(&builder, input);
-            scalar_ct x = scalar_ct::from_witness(&builder, scalar);
-
-            // Set 2 different origin tags
-            P.set_origin_tag(submitted_value_origin_tag);
-            x.set_origin_tag(challenge_origin_tag);
-
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-            element_ct c = element_ct::wnaf_batch_mul({ P }, { x });
-
-            // Check that the final tag is a union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-            affine_element c_expected(element(input) * scalar);
-
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
-
-            EXPECT_EQ(c_x_result, c_expected.x);
-            EXPECT_EQ(c_y_result, c_expected.y);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_wnaf_batch_mul_edge_cases()
-    {
-        {
-            // batch P + P = 2P
-            std::vector<affine_element> points;
-            points.push_back(affine_element::one());
-            points.push_back(affine_element::one());
-            std::vector<fr> scalars;
-            scalars.push_back(1);
-            scalars.push_back(1);
-
-            Builder builder;
-            ASSERT_EQ(points.size(), scalars.size());
-            const size_t num_points = points.size();
-
-            std::vector<element_ct> circuit_points;
-            std::vector<scalar_ct> circuit_scalars;
-            OriginTag union_tag{};
-            for (size_t i = 0; i < num_points; ++i) {
-                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
-                circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
-                // Set tags for points to the submitted value tag for round i and for scalars to challenge tag for the
-                // same round
-                circuit_points[i].set_origin_tag(
-                    OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
-                circuit_scalars[i].set_origin_tag(
-                    OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
-                union_tag =
-                    OriginTag(union_tag, circuit_points[i].get_origin_tag(), circuit_scalars[i].get_origin_tag());
-            }
-
-            element_ct result_point = element_ct::wnaf_batch_mul(circuit_points, circuit_scalars);
-
-            // Check that the results' tag is a union of inputs' tags
-            EXPECT_EQ(result_point.get_origin_tag(), union_tag);
-
-            element expected_point = points[0] + points[1];
-            expected_point = expected_point.normalize();
-
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
-
-            EXPECT_EQ(result_x, expected_point.x);
-            EXPECT_EQ(result_y, expected_point.y);
-
-            EXPECT_CIRCUIT_CORRECTNESS(builder);
-        }
-        {
-            // batch oo + P = P
-            std::vector<affine_element> points;
-            points.push_back(affine_element::infinity());
-            points.push_back(affine_element(element::random_element()));
-            std::vector<fr> scalars;
-            scalars.push_back(1);
-            scalars.push_back(1);
-
-            Builder builder;
-            ASSERT_EQ(points.size(), scalars.size());
-            const size_t num_points = points.size();
-
-            std::vector<element_ct> circuit_points;
-            std::vector<scalar_ct> circuit_scalars;
-            OriginTag union_tag{};
-            for (size_t i = 0; i < num_points; ++i) {
-                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
-                circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
-                // Set tags for points to the submitted value tag for round i and for scalars to challenge tag for the
-                // same round
-                circuit_points[i].set_origin_tag(
-                    OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
-                circuit_scalars[i].set_origin_tag(
-                    OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
-                union_tag =
-                    OriginTag(union_tag, circuit_points[i].get_origin_tag(), circuit_scalars[i].get_origin_tag());
-            }
-            element_ct result_point = element_ct::wnaf_batch_mul(circuit_points, circuit_scalars);
-
-            // Check resulting tag is a union of inputs' tags
-            EXPECT_EQ(result_point.get_origin_tag(), union_tag);
-
-            element expected_point = points[1];
-            expected_point = expected_point.normalize();
-
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
-
-            EXPECT_EQ(result_x, expected_point.x);
-            EXPECT_EQ(result_y, expected_point.y);
-
-            EXPECT_CIRCUIT_CORRECTNESS(builder);
-        }
-        {
-            // batch 0 * P1 + P2 = P2
-            std::vector<affine_element> points;
-            points.push_back(affine_element(element::random_element()));
-            points.push_back(affine_element(element::random_element()));
-            std::vector<fr> scalars;
-            scalars.push_back(0);
-            scalars.push_back(1);
-
-            Builder builder;
-            ASSERT_EQ(points.size(), scalars.size());
-            const size_t num_points = points.size();
-
-            std::vector<element_ct> circuit_points;
-            std::vector<scalar_ct> circuit_scalars;
-            OriginTag union_tag{};
-            for (size_t i = 0; i < num_points; ++i) {
-                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
-                circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
-                // Set tags for points to the submitted value tag for round i and for scalars to challenge tag for the
-                // same round
-                circuit_points[i].set_origin_tag(
-                    OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
-                circuit_scalars[i].set_origin_tag(
-                    OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
-                union_tag =
-                    OriginTag(union_tag, circuit_points[i].get_origin_tag(), circuit_scalars[i].get_origin_tag());
-            }
-
-            element_ct result_point = element_ct::wnaf_batch_mul(circuit_points, circuit_scalars);
-
-            // Check that the resulting tag is a union of inputs' tags
-            EXPECT_EQ(result_point.get_origin_tag(), union_tag);
-
-            element expected_point = points[1];
-            expected_point = expected_point.normalize();
-
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
-
-            EXPECT_EQ(result_x, expected_point.x);
-            EXPECT_EQ(result_y, expected_point.y);
-
-            EXPECT_CIRCUIT_CORRECTNESS(builder);
-        }
     }
 
     static void test_batch_mul_short_scalars()
@@ -1349,51 +1600,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
 
         expected_point = expected_point.normalize();
-        fq result_x(result_point.x.get_value().lo);
-        fq result_y(result_point.y.get_value().lo);
+        fq result_x(result_point.x().get_value().lo);
+        fq result_y(result_point.y().get_value().lo);
 
         EXPECT_EQ(result_x, expected_point.x);
         EXPECT_EQ(result_y, expected_point.y);
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_wnaf_batch_mul_128_bit()
-    {
-        Builder builder = Builder();
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input(element::random_element());
-            uint256_t scalar_u256(0, 0, 0, 0);
-            scalar_u256.data[0] = engine.get_random_uint64();
-            scalar_u256.data[1] = engine.get_random_uint64();
-            fr scalar(scalar_u256);
-            if ((uint256_t(scalar).get_bit(0) & 1) == 1) {
-                scalar -= fr(1); // make sure to add skew
-            }
-            element_ct P = element_ct::from_witness(&builder, input);
-            scalar_ct x = scalar_ct::from_witness(&builder, scalar);
-
-            // Set different tags to element and scalar
-            P.set_origin_tag(submitted_value_origin_tag);
-            x.set_origin_tag(challenge_origin_tag);
-
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-            // Note: need >136 bits to complete this when working over bigfield
-            element_ct c = element_ct::template wnaf_batch_mul<128>({ P }, { x });
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-
-            // Check the result's tag is a union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-
-            affine_element c_expected(element(input) * scalar);
-
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
-
-            EXPECT_EQ(c_x_result, c_expected.x);
-            EXPECT_EQ(c_y_result, c_expected.y);
-        }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
@@ -1458,9 +1669,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 union_tag = OriginTag(union_tag, element_tags[j], scalar_tags[j]);
             }
 
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = element_ct::batch_mul({ P1, P2, P3, P4 }, { x1, x2, x3, x4 }, 128);
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
 
             // Check that the resulting tag is a union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), union_tag);
@@ -1470,89 +1681,12 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             out += (input4 * scalar4);
             affine_element c_expected(out);
 
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, c_expected.x);
             EXPECT_EQ(c_y_result, c_expected.y);
         }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_bn254_endo_batch_mul()
-    {
-        const size_t num_big_points = 2;
-        const size_t num_small_points = 1;
-        Builder builder;
-        std::vector<affine_element> big_points;
-        std::vector<fr> big_scalars;
-        std::vector<affine_element> small_points;
-        std::vector<fr> small_scalars;
-
-        for (size_t i = 0; i < num_big_points; ++i) {
-            big_points.push_back(affine_element(element::random_element()));
-            big_scalars.push_back(fr::random_element());
-        }
-        for (size_t i = 0; i < num_small_points; ++i) {
-            small_points.push_back(affine_element(element::random_element()));
-            uint256_t scalar_raw = fr::random_element();
-            scalar_raw.data[2] = 0ULL;
-            scalar_raw.data[3] = 0ULL;
-            small_scalars.push_back(fr(scalar_raw));
-        }
-
-        std::vector<element_ct> big_circuit_points;
-        std::vector<scalar_ct> big_circuit_scalars;
-        std::vector<element_ct> small_circuit_points;
-        std::vector<scalar_ct> small_circuit_scalars;
-        OriginTag union_tag{};
-        for (size_t i = 0; i < num_big_points; ++i) {
-            big_circuit_points.push_back(element_ct::from_witness(&builder, big_points[i]));
-            big_circuit_scalars.push_back(scalar_ct::from_witness(&builder, big_scalars[i]));
-            // Set tags for points to the submitted value tag for round i and for scalars to challenge tag for the same
-            // round
-            big_circuit_points[i].set_origin_tag(
-                OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
-            big_circuit_scalars[i].set_origin_tag(
-                OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
-            union_tag =
-                OriginTag(union_tag, big_circuit_points[i].get_origin_tag(), big_circuit_scalars[i].get_origin_tag());
-        }
-        for (size_t i = 0; i < num_small_points; ++i) {
-            small_circuit_points.push_back(element_ct::from_witness(&builder, small_points[i]));
-            small_circuit_scalars.push_back(scalar_ct::from_witness(&builder, small_scalars[i]));
-            // Set tags for points to the submitted value tag for round i and for scalars to challenge tag for the same
-            // round
-            small_circuit_points[i].set_origin_tag(
-                OriginTag(/*parent_index=*/0, /*child_index=*/i + num_big_points, /*is_submitted=*/true));
-            small_circuit_scalars[i].set_origin_tag(
-                OriginTag(/*parent_index=*/0, /*child_index=*/i + num_big_points, /*is_submitted=*/false));
-            union_tag = OriginTag(
-                union_tag, small_circuit_points[i].get_origin_tag(), small_circuit_scalars[i].get_origin_tag());
-        }
-
-        element_ct result_point = element_ct::bn254_endo_batch_mul(
-            big_circuit_points, big_circuit_scalars, small_circuit_points, small_circuit_scalars, 128);
-
-        // Check that the resulting tag is a union of input tags
-        EXPECT_EQ(result_point.get_origin_tag(), union_tag);
-
-        element expected_point = g1::one;
-        expected_point.self_set_infinity();
-        for (size_t i = 0; i < num_big_points; ++i) {
-            expected_point += (element(big_points[i]) * big_scalars[i]);
-        }
-        for (size_t i = 0; i < num_small_points; ++i) {
-            expected_point += (element(small_points[i]) * small_scalars[i]);
-        }
-
-        expected_point = expected_point.normalize();
-        fq result_x(result_point.x.get_value().lo);
-        fq result_y(result_point.y.get_value().lo);
-
-        EXPECT_EQ(result_x, expected_point.x);
-        EXPECT_EQ(result_y, expected_point.y);
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
@@ -1570,32 +1704,12 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             return t1.to_montgomery_form();
         };
         for (size_t i = 0; i < num_repetitions; ++i) {
-            std::vector<element_ct> small_points(25);
-            std::vector<element_ct> big_points(5);
             std::vector<element_ct> double_points(11);
-            std::vector<scalar_ct> small_scalars(25);
-            std::vector<scalar_ct> big_scalars(5);
             std::vector<scalar_ct> double_scalars(11);
 
-            std::vector<affine_element> small_points_w(25);
-            std::vector<affine_element> big_points_w(5);
             std::vector<affine_element> double_points_w(11);
-            std::vector<fr> small_scalars_w(25);
-            std::vector<fr> big_scalars_w(5);
             std::vector<fr> double_scalars_w(11);
 
-            for (size_t i = 0; i < 25; ++i) {
-                small_points_w[i] = affine_element(element::random_element());
-                small_scalars_w[i] = get_small_scalar();
-                small_points[i] = element_ct::from_witness(&builder, small_points_w[i]);
-                small_scalars[i] = scalar_ct::from_witness(&builder, small_scalars_w[i]);
-            }
-            for (size_t i = 0; i < 5; ++i) {
-                big_points_w[i] = affine_element(element::random_element());
-                big_scalars_w[i] = fr::random_element();
-                big_points[i] = element_ct::from_witness(&builder, big_points_w[i]);
-                big_scalars[i] = scalar_ct::from_witness(&builder, big_scalars_w[i]);
-            }
             for (size_t i = 0; i < 11; ++i) {
                 double_points_w[i] = affine_element(element::random_element());
                 double_scalars_w[i] = get_small_scalar();
@@ -1603,34 +1717,17 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 double_scalars[i] = scalar_ct::from_witness(&builder, double_scalars_w[i]);
             }
 
-            fr omega = get_small_scalar();
-
             const auto double_opening_result = element_ct::batch_mul(double_points, double_scalars, 128);
-            small_points.push_back(double_opening_result);
-            small_scalars.push_back(scalar_ct::from_witness(&builder, omega));
-
-            auto opening_result =
-                element_ct::bn254_endo_batch_mul(big_points, big_scalars, small_points, small_scalars, 128);
-
-            opening_result = opening_result + double_opening_result;
-            opening_result = opening_result.normalize();
 
             element expected = g1::one;
             expected.self_set_infinity();
             for (size_t i = 0; i < 11; ++i) {
                 expected += (double_points_w[i] * double_scalars_w[i]);
             }
-            expected *= (omega + 1);
-            for (size_t i = 0; i < 25; ++i) {
-                expected += (small_points_w[i] * small_scalars_w[i]);
-            }
-            for (size_t i = 0; i < 5; ++i) {
-                expected += (big_points_w[i] * big_scalars_w[i]);
-            }
             expected = expected.normalize();
 
-            fq result_x(opening_result.x.get_value().lo);
-            fq result_y(opening_result.y.get_value().lo);
+            fq result_x(double_opening_result.x().get_value().lo);
+            fq result_y(double_opening_result.y().get_value().lo);
 
             EXPECT_EQ(result_x, expected.x);
             EXPECT_EQ(result_y, expected.y);
@@ -1650,6 +1747,12 @@ TYPED_TEST(stdlib_biggroup, basic_tag_logic)
 {
     TestFixture::test_basic_tag_logic();
 }
+
+TYPED_TEST(stdlib_biggroup, assert_coordinates_in_field)
+{
+    TestFixture::test_assert_coordinates_in_field();
+}
+
 TYPED_TEST(stdlib_biggroup, add)
 {
 
@@ -1676,13 +1779,25 @@ TYPED_TEST(stdlib_biggroup, dbl)
 {
     TestFixture::test_dbl();
 }
-TYPED_TEST(stdlib_biggroup, montgomery_ladder)
+TYPED_TEST(stdlib_biggroup, conditional_negate)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_montgomery_ladder();
-    };
+    TestFixture::test_conditional_negate();
+}
+TYPED_TEST(stdlib_biggroup, conditional_select)
+{
+    TestFixture::test_conditional_select();
+}
+TYPED_TEST(stdlib_biggroup, incomplete_assert_equal)
+{
+    TestFixture::test_incomplete_assert_equal_success();
+}
+TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_fails)
+{
+    TestFixture::test_incomplete_assert_equal_failure();
+}
+TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_edge_cases)
+{
+    TestFixture::test_incomplete_assert_equal_edge_cases();
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 {
@@ -1723,6 +1838,25 @@ HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
         TestFixture::test_twin_mul();
     };
 }
+
+HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul_with_infinity)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_twin_mul_with_infinity();
+    };
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_linearly_dependent_generators)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_batch_mul_linearly_dependent_generators();
+    };
+}
+
 HEAVY_TYPED_TEST(stdlib_biggroup, triple_mul)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
@@ -1797,34 +1931,13 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
     }
 }
 
-/* These tests only work for Ultra Circuit Constructor */
-HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul)
+TYPED_TEST(stdlib_biggroup, compute_naf_zero)
 {
-    if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
+    // ULTRATODO: make this work for secp curves
+    if constexpr ((TypeParam::Curve::type == CurveType::BN254) && !HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_compute_naf_zero();
     } else {
-        TestFixture::test_compute_wnaf();
-    };
-}
-
-/* These tests only work for Ultra Circuit Constructor */
-HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_edge_cases)
-{
-    if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
-    } else {
-        TestFixture::test_compute_wnaf();
-    };
-}
-
-/* the following test was only developed as a test of Ultra Circuit Constructor. It fails for Standard in the
-   case where Fr is a bigfield. */
-HEAVY_TYPED_TEST(stdlib_biggroup, compute_wnaf)
-{
-    if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
-    } else {
-        TestFixture::test_compute_wnaf();
     }
 }
 
@@ -1842,18 +1955,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_short_scalars)
         };
     }
 }
-HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_128_bit)
-{
-    if constexpr (TypeParam::use_bigfield) {
-        GTEST_SKIP();
-    } else {
-        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP();
-        } else {
-            TestFixture::test_wnaf_batch_mul_128_bit();
-        };
-    }
-}
+
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_4)
 {
     if constexpr (TypeParam::use_bigfield) {
@@ -1864,18 +1966,6 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_4)
 }
 
 /* The following tests are specific to BN254 and don't work when Fr is a bigfield */
-HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul)
-{
-    if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP();
-        } else {
-            TestFixture::test_bn254_endo_batch_mul();
-        };
-    } else {
-        GTEST_SKIP();
-    }
-}
 HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
 {
     if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {

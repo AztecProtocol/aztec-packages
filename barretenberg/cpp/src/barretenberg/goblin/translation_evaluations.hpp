@@ -19,7 +19,7 @@ namespace bb {
  */
 template <typename BF> struct TranslationEvaluations_ {
     BF op, Px, Py, z1, z2;
-    static size_t size() { return field_conversion::calc_num_bn254_frs<BF>() * NUM_TRANSLATION_EVALUATIONS; }
+    static size_t size() { return (FrCodec::calc_num_fields<BF>()) * NUM_TRANSLATION_EVALUATIONS; }
 
     RefArray<BF, NUM_TRANSLATION_EVALUATIONS> get_all() { return { op, Px, Py, z1, z2 }; }
 

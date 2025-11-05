@@ -27,6 +27,7 @@ class ExecutionTraceBuilder final {
                             const simulation::Instruction& instruction,
                             TraceContainer& trace,
                             uint32_t row);
+    void invert_columns(TraceContainer& trace);
     // Sets global register information and reads.
     void process_registers(ExecutionOpCode exec_opcode,
                            const std::vector<TaggedValue>& inputs,

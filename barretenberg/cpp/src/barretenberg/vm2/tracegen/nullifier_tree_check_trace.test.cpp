@@ -14,10 +14,10 @@
 #include "barretenberg/vm2/generated/relations/nullifier_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
-#include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/nullifier_tree_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
-#include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -36,6 +36,7 @@ using ::testing::NiceMock;
 
 using testing::TestMemoryTree;
 
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::ExecutionIdManager;
 using simulation::FieldGreaterThan;
@@ -51,8 +52,6 @@ using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::Poseidon2PermutationMemoryEvent;
-using simulation::RangeCheck;
-using simulation::RangeCheckEvent;
 using simulation::unconstrained_root_from_path;
 
 using constraining::check_interaction;
@@ -65,7 +64,7 @@ using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
 class NullifierTreeCheckTracegenTest : public ::testing::Test {
   protected:
     NullifierTreeCheckTracegenTest()
-        : execution_id_manager(0){};
+        : execution_id_manager(0) {};
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
@@ -108,7 +107,7 @@ TEST_P(NullifierReadInteractionsTests, PositiveWithInteractions)
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;
@@ -165,7 +164,7 @@ TEST_F(NullifierTreeCheckTracegenTest, WriteWithInteractions)
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;

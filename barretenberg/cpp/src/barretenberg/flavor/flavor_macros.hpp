@@ -20,14 +20,11 @@
 #include <array>
 #include <iostream>
 #include <sstream>
+#include <tuple>
 #include <type_traits>
 
 namespace bb::detail {
 
-template <typename... Args> constexpr std::size_t _va_count(Args&&... /*unused*/)
-{
-    return sizeof...(Args);
-}
 template <typename T, typename... BaseClass> constexpr std::size_t _sum_base_class_size(const T& arg)
 {
     return (static_cast<const BaseClass&>(arg).size() + ...);
@@ -50,7 +47,6 @@ template <typename... BaseClass> auto _static_concatenate_base_class_get_labels(
 // Needed to force expansion of __VA_ARGS__ before converting to string.
 #define VARARGS_TO_STRING(...) #__VA_ARGS__
 
-// We use std::remove_reference to support a flavor that has references as members. This is an AVM use case.
 #define DEFINE_REF_VIEW(...)                                                                                           \
     [[nodiscard]] auto get_all()                                                                                       \
     {                                                                                                                  \
@@ -70,7 +66,7 @@ template <typename... BaseClass> auto _static_concatenate_base_class_get_labels(
  */
 #define DEFINE_FLAVOR_MEMBERS(DataType, ...)                                                                           \
     __VA_OPT__(DataType __VA_ARGS__;)                                                                                  \
-    static constexpr size_t _members_size = std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value;            \
+    static constexpr size_t _members_size = std::tuple_size_v<decltype(std::make_tuple(__VA_ARGS__))>;                 \
     DEFINE_REF_VIEW(__VA_ARGS__)                                                                                       \
     static const std::vector<std::string>& get_labels()                                                                \
     {                                                                                                                  \

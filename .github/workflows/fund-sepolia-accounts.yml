@@ -81,7 +81,6 @@ jobs:
           else
             echo "new_mnemonic=true" >> "$GITHUB_OUTPUT"
           fi
-
       - name: Fund accounts
         id: fund-accounts
         run: |
@@ -92,19 +91,16 @@ jobs:
             export MNEMONIC="${{ steps.get-mnemonic.outputs.mnemonic }}"
             echo "Using mnemonic from GCP"
           fi
-
           REPO=$(git rev-parse --show-toplevel)
           MNEMONIC_FILE=$(mktemp)
           export FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
           export ETHEREUM_HOST="https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
-
           echo "Funding accounts..."
           $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ inputs.values_file }} ${{ inputs.funding_amount }} "$MNEMONIC_FILE"
           mnemonic=$(cat "$MNEMONIC_FILE")
           rm "$MNEMONIC_FILE"
           echo "::add-mask::$mnemonic"
           echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
-
       - name: Save mnemonic to GCP
         if: ${{ steps.get-mnemonic.outputs.new_mnemonic == 'true' }}
         run: |

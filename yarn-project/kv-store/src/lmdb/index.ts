@@ -16,11 +16,11 @@ export function createStore(name: string, config: DataStoreConfig, log: Logger =
 
   log.info(
     dataDirectory
-      ? `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKB} KB`
-      : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKB} KB`,
+      ? `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKb} KB`
+      : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKb} KB`,
   );
 
-  const store = AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKB, false);
+  const store = AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKb, false);
   if (config.l1Contracts?.rollupAddress) {
     return initStoreForRollup(store, config.l1Contracts.rollupAddress, log);
   }

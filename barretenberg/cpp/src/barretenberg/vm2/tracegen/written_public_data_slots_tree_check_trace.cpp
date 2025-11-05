@@ -21,13 +21,13 @@ void WrittenPublicDataSlotsTreeCheckTraceBuilder::process(
         FF address = event.contract_address;
 
         bool exists = event.low_leaf_preimage.leaf.slot == leaf_slot;
-        FF slot_low_leaf_slot_diff_inv = exists ? 0 : (leaf_slot - event.low_leaf_preimage.leaf.slot).invert();
+        FF slot_low_leaf_slot_diff = leaf_slot - event.low_leaf_preimage.leaf.slot;
 
         bool next_slot_is_nonzero = false;
-        FF next_slot_inv = 0;
+        FF next_slot = 0;
         if (!exists) {
             next_slot_is_nonzero = event.low_leaf_preimage.nextKey != 0;
-            next_slot_inv = next_slot_is_nonzero ? event.low_leaf_preimage.nextKey.invert() : 0;
+            next_slot = event.low_leaf_preimage.nextKey;
         }
 
         uint64_t updated_low_leaf_next_index = 0;
@@ -72,13 +72,18 @@ void WrittenPublicDataSlotsTreeCheckTraceBuilder::process(
                 { C::written_public_data_slots_tree_check_updated_low_leaf_hash, updated_low_leaf_hash },
                 { C::written_public_data_slots_tree_check_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
                 { C::written_public_data_slots_tree_check_leaf_not_exists, !exists },
-                { C::written_public_data_slots_tree_check_slot_low_leaf_slot_diff_inv, slot_low_leaf_slot_diff_inv },
+                { C::written_public_data_slots_tree_check_slot_low_leaf_slot_diff_inv,
+                  slot_low_leaf_slot_diff }, // Will be inverted in batch later
                 { C::written_public_data_slots_tree_check_next_slot_is_nonzero, next_slot_is_nonzero },
-                { C::written_public_data_slots_tree_check_next_slot_inv, next_slot_inv },
+                { C::written_public_data_slots_tree_check_next_slot_inv, next_slot }, // Will be inverted in batch later
                 { C::written_public_data_slots_tree_check_new_leaf_hash, new_leaf_hash },
             } });
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::written_public_data_slots_tree_check_slot_low_leaf_slot_diff_inv,
+                             C::written_public_data_slots_tree_check_next_slot_inv } });
 }
 
 const InteractionDefinition WrittenPublicDataSlotsTreeCheckTraceBuilder::interactions =

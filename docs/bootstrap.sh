@@ -3,6 +3,12 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+export BB=${BB:-../barretenberg/cpp/build/bin/bb}
+export NARGO=${NARGO:-../noir/noir-repo/target/release/nargo}
+export TRANSPILER=${TRANSPILER:-../avm-transpiler/target/release/avm-transpiler}
+export BB_HASH=${BB_HASH:-$(../barretenberg/cpp/bootstrap.sh hash)}
+export NOIR_HASH=${NOIR_HASH:-$(../noir/bootstrap.sh hash)}
+
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
 hash=$(
@@ -32,14 +38,6 @@ function build_docs {
   cache_upload docs-$hash.tar.gz build
 }
 
-function release_docs {
-  echo "deploying docs to prod"
-  yarn install
-  yarn build
-
-  yarn netlify deploy --site aztec-docs-dev --prod 2>&1
-}
-
 function test_cmds {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
     # Not running docs tests for arm64 in CI.
@@ -52,7 +50,17 @@ function test_cmds {
 
 function test {
   echo_header "docs test"
-  test_cmds | parallelise
+  test_cmds | parallelize
+}
+
+function check_references {
+  echo_header "Check doc references"
+  ./scripts/check_doc_references.sh docs
+}
+
+function build_examples {
+  echo_header "Building examples"
+  (cd examples && ./bootstrap.sh "$@")
 }
 
 case "$cmd" in
@@ -60,17 +68,22 @@ case "$cmd" in
     git clean -fdx
     ;;
   "ci")
+    build_examples
     build_docs
     test
+    check_references
     ;;
   ""|"full"|"fast")
+    build_examples
     build_docs
+    check_references
     ;;
   "hash")
     echo "$hash"
     ;;
-  "release-docs")
-    release_docs
+  "compile")
+    shift
+    build_examples compile "$@"
     ;;
   test|test_cmds)
     $cmd

@@ -2,12 +2,13 @@ import React from "react";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import { translate } from "@docusaurus/Translate";
-import IconHome from "@theme/Icon/Home";
+import ThemedImage from "@theme/ThemedImage";
 import styles from "./styles.module.css";
-import AztecLogo from "@site/static/img/icon.svg";
 
 export default function HomeBreadcrumbItem() {
   const homeHref = useBaseUrl("/");
+  const lightLogoSrc = useBaseUrl("img/Aztec Symbol_Light.png");
+  const darkLogoSrc = useBaseUrl("img/Aztec_Symbol_Dark.png");
   return (
     <li className="breadcrumbs__item" itemProp="itemListElement">
       <Link
@@ -17,9 +18,13 @@ export default function HomeBreadcrumbItem() {
           description: "The ARIA label for the home page in the breadcrumbs",
         })}
         className="breadcrumbs__link"
-        href={homeHref}
+        to={homeHref}
       >
-        <AztecLogo className={styles.breadcrumbHomeIcon} />
+        <ThemedImage
+          className={styles.breadcrumbHomeIcon}
+          alt="Home"
+          sources={{ light: darkLogoSrc, dark: lightLogoSrc }}
+        />
       </Link>
     </li>
   );

@@ -66,7 +66,7 @@ class Theta {
 
     // template <size_t i> static std::pair<uint64_t, uint64_t> update_counts(std::array<size_t, TABLE_BITS>& counts)
     // {
-    //     ASSERT(i <= TABLE_BITS);
+    //     BB_ASSERT(i <= TABLE_BITS);
     //     if constexpr (i >= TABLE_BITS) {
     //         // TODO use concepts or template metaprogramming to put this condition in method declaration
     //         return std::make_pair(0, 0);

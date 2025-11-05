@@ -1,10 +1,12 @@
+import type { L1ContractAddresses } from '@aztec/ethereum';
 import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
 import { L2Block } from '../block/l2_block.js';
-import { type L2BlockSource, L2TipsSchema, ValidateBlockResultSchema } from '../block/l2_block_source.js';
+import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { PublishedL2Block } from '../block/published_l2_block.js';
+import { ValidateBlockResultSchema } from '../block/validate_block_result.js';
 import {
   ContractClassPublicSchema,
   type ContractDataSource,
@@ -22,6 +24,41 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { GetContractClassLogsResponseSchema, GetPublicLogsResponseSchema } from './get_logs_response.js';
 import type { L2LogsSource } from './l2_logs_source.js';
+
+/**
+ * The archiver configuration.
+ */
+export type ArchiverSpecificConfig = {
+  /** The polling interval in ms for retrieving new L2 blocks and encrypted logs. */
+  archiverPollingIntervalMS?: number;
+
+  /** The number of L2 blocks the archiver will attempt to download at a time. */
+  archiverBatchSize?: number;
+
+  /** The polling interval viem uses in ms */
+  viemPollingIntervalMS?: number;
+
+  /** The deployed L1 contract addresses */
+  l1Contracts: L1ContractAddresses;
+
+  /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
+  maxLogs?: number;
+
+  /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb. */
+  archiverStoreMapSizeKb?: number;
+
+  /** Whether to skip validating block attestations (use only for testing). */
+  skipValidateBlockAttestations?: boolean;
+};
+
+export const ArchiverSpecificConfigSchema = z.object({
+  archiverPollingIntervalMS: schemas.Integer.optional(),
+  archiverBatchSize: schemas.Integer.optional(),
+  viemPollingIntervalMS: schemas.Integer.optional(),
+  maxLogs: schemas.Integer.optional(),
+  archiverStoreMapSizeKb: schemas.Integer.optional(),
+  skipValidateBlockAttestations: z.boolean().optional(),
+});
 
 export type ArchiverApi = Omit<
   L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource,
@@ -46,10 +83,14 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
     .returns(z.array(PublishedL2Block.schema)),
+  getPublishedBlockByHash: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
+  getPublishedBlockByArchive: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
+  getBlockHeaderByHash: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+  getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
-  getL2SlotNumber: z.function().args().returns(schemas.BigInt),
-  getL2EpochNumber: z.function().args().returns(schemas.BigInt),
+  getL2SlotNumber: z.function().args().returns(schemas.BigInt.optional()),
+  getL2EpochNumber: z.function().args().returns(schemas.BigInt.optional()),
   getBlocksForEpoch: z.function().args(schemas.BigInt).returns(z.array(L2Block.schema)),
   getBlockHeadersForEpoch: z.function().args(schemas.BigInt).returns(z.array(BlockHeader.schema)),
   isEpochComplete: z.function().args(schemas.BigInt).returns(z.boolean()),
@@ -73,7 +114,11 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
-  getL1Timestamp: z.function().args().returns(schemas.BigInt),
+  getGenesisValues: z
+    .function()
+    .args()
+    .returns(z.object({ genesisArchiveRoot: schemas.Fr })),
+  getL1Timestamp: z.function().args().returns(schemas.BigInt.optional()),
   syncImmediate: z.function().args().returns(z.void()),
   isPendingChainInvalid: z.function().args().returns(z.boolean()),
   getPendingChainValidationStatus: z.function().args().returns(ValidateBlockResultSchema),

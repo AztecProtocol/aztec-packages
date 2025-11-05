@@ -1,52 +1,35 @@
-import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { NativeWorldStateService } from '@aztec/world-state/native';
 
+import { bulkTest } from '../../fixtures/bulk_test.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
-describe('Public TX simulator apps tests: AvmTestContract', () => {
-  const deployer = AztecAddress.fromNumber(42);
+describe.each([
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public TX simulator apps tests: AvmTestContract ($simulatorName)', ({ useCppSimulator }) => {
+  const logger = createLogger('avm-test-contract-tests');
 
-  let avmTestContract: ContractInstanceWithAddress;
+  let worldStateService: NativeWorldStateService;
   let simTester: PublicTxSimulationTester;
 
   beforeEach(async () => {
-    simTester = await PublicTxSimulationTester.create();
-
-    avmTestContract = await simTester.registerAndDeployContract(
-      /*constructorArgs=*/ [],
-      deployer,
-      /*contractArtifact=*/ AvmTestContractArtifact,
+    worldStateService = await NativeWorldStateService.tmp();
+    simTester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined,
+      /*metrics=*/ undefined,
+      useCppSimulator,
     );
   });
 
-  it('bulk testing', async () => {
-    // Get a deployed contract instance to pass to the contract
-    // for it to use as "expected" values when testing contract instance retrieval.
-    const expectContractInstance = avmTestContract;
-    const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-    const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-    const args = [
-      argsField,
-      argsU8,
-      /*getInstanceForAddress=*/ expectContractInstance.address,
-      /*expectedDeployer=*/ expectContractInstance.deployer,
-      /*expectedClassId=*/ expectContractInstance.currentContractClassId,
-      /*expectedInitializationHash=*/ expectContractInstance.initializationHash,
-    ];
+  afterEach(async () => {
+    await worldStateService.close();
+  });
 
-    const bulkResult = await simTester.simulateTx(
-      /*sender=*/ deployer,
-      /*setupCalls=*/ [],
-      /*appCalls=*/ [
-        {
-          address: avmTestContract.address,
-          fnName: 'bulk_testing',
-          args,
-        },
-      ],
-    );
-    expect(bulkResult.revertCode.isOK()).toBe(true);
+  it('bulk testing', async () => {
+    const result = await bulkTest(simTester, logger, AvmTestContractArtifact);
+    expect(result.revertCode.isOK()).toBe(true);
   });
 });

@@ -21,7 +21,7 @@ export default function useMatomo() {
   const [showBanner, setShowBanner] = useState(false);
   const location = useLocation();
 
-  const env = siteConfig.customFields.MATOMO_ENV;
+  const env = siteConfig.customFields.ENV;
   const urlBase = "https://noirlang.matomo.cloud/";
   const trackerUrl = `${urlBase}matomo.php`;
   const srcUrl = `${urlBase}matomo.js`;
@@ -71,42 +71,24 @@ export default function useMatomo() {
     localStorage.setItem("matomoConsent", false);
     setShowBanner(false);
   };
+  
+  // Add global debug function for console access
+  useEffect(() => {
+    if (env !== "prod" && typeof window !== 'undefined') {
+      window.forceNPS = () => {
+        const event = new CustomEvent('forceShowNPS');
+        window.dispatchEvent(event);
+        console.log('🔧 Forcing NPS widget to show');
+      };
 
-  const debug = () => {
-    pushInstruction(function () {
-      console.log(this.getRememberedConsent());
-      console.log(localStorage.getItem("matomoConsent"));
-    });
-  };
+      // Clean up on unmount
+      return () => {
+        delete window.forceNPS;
+      };
+    }
+  }, [env]);
 
-  const reset = () => {
-    pushInstruction("forgetConsentGiven");
-    localStorage.clear("matomoConsent");
-  };
-
-  if (!showBanner && env === "dev") {
-    return (
-      <div id="optout-form">
-        <div className="homepage_footer">
-          <p>Debugging analytics</p>
-          <div className="homepage_cta_footer_container">
-            <button
-              className="cta-button button button--secondary button--sm"
-              onClick={debug}
-            >
-              Debug
-            </button>
-            <button
-              className="cta-button button button--secondary button--sm"
-              onClick={reset}
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  } else if (!showBanner) {
+  if (!showBanner) {
     return null;
   }
 
@@ -136,14 +118,6 @@ export default function useMatomo() {
           >
             I refuse cookies
           </button>
-          {env === "dev" && (
-            <button
-              className="cta-button button button--secondary button--sm"
-              onClick={debug}
-            >
-              Debug
-            </button>
-          )}
         </div>
       </div>
     </div>

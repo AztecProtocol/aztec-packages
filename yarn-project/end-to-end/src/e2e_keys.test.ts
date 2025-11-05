@@ -1,5 +1,9 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
-import { type AztecAddress, type AztecNode, Fr, type L2Block, type Wallet } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { L2Block } from '@aztec/aztec.js/block';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { GeneratorIndex, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -28,12 +32,19 @@ describe('Keys', () => {
 
   let secret: Fr;
   let wallet: Wallet;
+  let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
     let initialFundedAccounts: InitialAccountData[];
-    ({ aztecNode, teardown, wallet, initialFundedAccounts } = await setup(1));
+    ({
+      aztecNode,
+      teardown,
+      wallet,
+      accounts: [defaultAccountAddress],
+      initialFundedAccounts,
+    } = await setup(1));
 
-    testContract = await TestContract.deploy(wallet).send().deployed();
+    testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
 
     secret = initialFundedAccounts[0].secret;
   });
@@ -61,14 +72,16 @@ describe('Keys', () => {
       const nskApp = await computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
 
       const noteValue = 5;
-      const noteOwner = wallet.getAddress();
       const noteStorageSlot = 12;
 
-      await testContract.methods.call_create_note(noteValue, noteOwner, noteStorageSlot, false).send().wait();
+      await testContract.methods
+        .call_create_note(noteValue, defaultAccountAddress, noteStorageSlot, false)
+        .send({ from: defaultAccountAddress })
+        .wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 
-      await testContract.methods.call_destroy_note(noteStorageSlot).send().wait();
+      await testContract.methods.call_destroy_note(noteStorageSlot).send({ from: defaultAccountAddress }).wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
     });
@@ -110,7 +123,9 @@ describe('Keys', () => {
       const expectedOvskApp = await computeAppSecretKey(ovskM, testContract.address, 'ov');
 
       // Get the ovsk_app via the test contract
-      const ovskAppBigInt = await testContract.methods.get_ovsk_app(ovpkMHash).simulate();
+      const ovskAppBigInt = await testContract.methods
+        .get_ovsk_app(ovpkMHash)
+        .simulate({ from: defaultAccountAddress });
       const ovskApp = new Fr(ovskAppBigInt);
 
       // Check that the ovsk_app is as expected

@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/dsl/acir_format/ecdsa_secp256k1.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
@@ -26,10 +25,19 @@ template <typename FF> struct WitnessOrConstant {
             .is_constant = false,
         };
     }
+
+    static WitnessOrConstant from_constant(FF value)
+    {
+        return WitnessOrConstant{
+            .index = bb::stdlib::IS_CONSTANT,
+            .value = value,
+            .is_constant = true,
+        };
+    }
 };
 
-template <typename Builder, typename FF>
-bb::stdlib::field_t<Builder> to_field_ct(const WitnessOrConstant<FF>& input, Builder& builder)
+template <typename Builder>
+bb::stdlib::field_t<Builder> to_field_ct(const WitnessOrConstant<typename Builder::FF>& input, Builder& builder)
 {
     using field_ct = bb::stdlib::field_t<Builder>;
     if (input.is_constant) {
@@ -38,11 +46,20 @@ bb::stdlib::field_t<Builder> to_field_ct(const WitnessOrConstant<FF>& input, Bui
     return field_ct::from_witness_index(&builder, input.index);
 }
 
-template <typename Builder, typename FF>
-bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& input_x,
-                                                   const WitnessOrConstant<FF>& input_y,
-                                                   const WitnessOrConstant<FF>& input_infinite,
+template <typename Builder>
+bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typename Builder::FF>& input_x,
+                                                   const WitnessOrConstant<typename Builder::FF>& input_y,
+                                                   const WitnessOrConstant<typename Builder::FF>& input_infinite,
                                                    bool has_valid_witness_assignments,
+                                                   const bb::stdlib::bool_t<Builder>& predicate,
                                                    Builder& builder);
+
+template <typename Builder>
+typename bb::stdlib::cycle_group<Builder>::cycle_scalar to_grumpkin_scalar(
+    const WitnessOrConstant<typename Builder::FF>& scalar_lo,
+    const WitnessOrConstant<typename Builder::FF>& scalar_hi,
+    bool has_valid_witness_assignments,
+    const bb::stdlib::bool_t<Builder>& predicate,
+    Builder& builder);
 
 } // namespace acir_format

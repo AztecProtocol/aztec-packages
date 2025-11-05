@@ -283,6 +283,9 @@ function getStorageLayout(input: NoirCompiledContract) {
  */
 function generateContractArtifact(contract: NoirCompiledContract): ContractArtifact {
   try {
+    if (!contract.transpiled) {
+      throw new Error("Contract's public bytecode has not been transpiled");
+    }
     return ContractArtifactSchema.parse({
       name: contract.name,
       functions: contract.functions.filter(f => retainBytecode(f)).map(f => generateFunctionArtifact(f, contract)),

@@ -5,14 +5,13 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
-import type { UInt64 } from '@aztec/stdlib/types';
 
+import type { NoteData } from './oracle/interfaces.js';
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
-import type { NoteData } from './oracle/typed_oracle.js';
 
 /**
  * Error thrown when a contract is not found in the database.
@@ -146,11 +145,12 @@ export interface ExecutionDataProvider {
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
-   * Retrieve the latest block header synchronized by the PXE.
-   * @dev This structure is fed into the circuits simulator and is used to prove against certain historical roots.
-   * @returns The BlockHeader object.
+   * Retrieve the latest block header synchronized by the execution data provider. This block header is referred
+   * to as the anchor block header in Aztec terminology and it defines the state that is used during private function
+   * execution.
+   * @returns The anchor block header.
    */
-  getBlockHeader(): Promise<BlockHeader>;
+  getAnchorBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Fetches the index and sibling path of a leaf at a given block from a given tree.
@@ -209,54 +209,42 @@ export interface ExecutionDataProvider {
   getBlock(blockNumber: number): Promise<L2Block | undefined>;
 
   /**
-   * Fetches the latest block number synchronized by the node.
-   * @returns The block number.
+   * Assert that the oracle version is compatible with the expected version.
+   * @param version - The expected version.
    */
-  getBlockNumber(): Promise<number>;
+  assertCompatibleOracleVersion(version: number): void;
 
   /**
-   * Fetches the timestamp of the latest block synchronized by the node.
-   * @returns The timestamp.
-   */
-  getTimestamp(): Promise<UInt64>;
-
-  /**
-   * Fetches the current chain id.
-   * @returns The chain id.
-   */
-  getChainId(): Promise<number>;
-
-  /**
-   * Fetches the current chain id.
-   * @returns The chain id.
-   */
-  getVersion(): Promise<number>;
-
-  /**
-   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
-   * Includes the next index to be used used for tagging with this secret.
+   * Calculates the directional app tagging secret for a given contract, sender and recipient.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
-   * @returns A tagging secret that can be used to tag notes.
+   * @returns The directional app tagging secret
    */
-  getIndexedTaggingSecretAsSender(
+  calculateDirectionalAppTaggingSecret(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
-  ): Promise<IndexedTaggingSecret>;
+  ): Promise<DirectionalAppTaggingSecret>;
 
   /**
-   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
-   * @param contractAddress - The contract address to silo the secret for
-   * @param sender - The address sending the note
-   * @param recipient - The address receiving the note
+   * Updates the local index of the shared tagging secret of a (sender, recipient, contract) tuple if a log with
+   * a larger index is found from the node.
+   * @param secret - The secret that's unique for (sender, recipient, contract) tuple while the direction
+   * of sender -> recipient matters.
+   * @param contractAddress - The address of the contract that the logs are tagged for. Needs to be provided to store
+   * because the function performs second round of siloing which is necessary because kernels do it as well (they silo
+   * first field of the private log which corresponds to the tag).
    */
-  incrementAppTaggingSecretIndexAsSender(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<void>;
+  syncTaggedLogsAsSender(secret: DirectionalAppTaggingSecret, contractAddress: AztecAddress): Promise<void>;
+
+  /**
+   * Returns the last used index when sending a log with a given secret.
+   * @param secret - The directional app tagging secret.
+   * @returns The last used index for the given directional app tagging secret, or undefined if we never sent a log
+   * from this sender to a recipient in a given contract (implicitly included in the secret).
+   */
+  getLastUsedIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number | undefined>;
 
   /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found
@@ -295,9 +283,9 @@ export interface ExecutionDataProvider {
   ): Promise<void>;
 
   /**
-   * Removes all of a contract's notes that have been nullified from the note database.
+   * Looks for nullifiers of active contract notes and marks them as nullified in the db if a nullifier is found.
    */
-  removeNullifiedNotes(contractAddress: AztecAddress): Promise<void>;
+  syncNoteNullifiers(contractAddress: AztecAddress): Promise<void>;
 
   /**
    * Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `loadCapsule`.

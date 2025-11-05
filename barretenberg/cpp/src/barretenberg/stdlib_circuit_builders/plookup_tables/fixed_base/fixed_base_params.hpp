@@ -8,63 +8,45 @@
 
 #include <array>
 #include <barretenberg/common/assert.hpp>
+#include <barretenberg/ecc/curves/bn254/fr.hpp>
+#include <barretenberg/numeric/general/general.hpp>
 #include <cstddef>
 #include <cstdint>
 
 namespace bb::plookup {
 /**
  * @brief Parameters definitions for our fixed-base-scalar-multiplication lookup tables
- *
+ * @details  We split each 254-bit scalar mul into two scalar muls of size BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR. This
+ * enables us to efficiently decompose our input scalar multiplier into two chunks of a known size (i.e. we get free
+ * BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR range checks as part of the lookup table subroutine). This in turn allows us
+ * to perform a primality test more efficiently, i.e. check that input scalar < prime modulus when evaluated over the
+ * integers. (The primality check requires us to split the input into high / low bit chunks so getting this for free as
+ * part of the lookup algorithm is nice!).
  */
 struct FixedBaseParams {
     static constexpr size_t BITS_PER_TABLE = 9;
     static constexpr size_t BITS_ON_CURVE = 254;
 
-    // We split 1 254-bit scalar mul into two scalar muls of size BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR.
-    // This enables us to efficiently decompose our input scalar multiplier into two chunks of a known size.
-    // (i.e. we get free BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR range checks as part of the lookup table subroutine)
-    // This in turn allows us to perform a primality test more efficiently.
-    // i.e. check that input scalar < prime modulus when evaluated over the integers
-    // (the primality check requires us to split the input into high / low bit chunks so getting this for free as part
-    // of the lookup algorithm is nice!)
     static constexpr size_t BITS_PER_LO_SCALAR = 128;
     static constexpr size_t BITS_PER_HI_SCALAR = BITS_ON_CURVE - BITS_PER_LO_SCALAR;
-    // max table size because the last lookup table might be smaller (BITS_PER_TABLE does not neatly divide
+    // Max table size (Note: the last lookup table might be smaller if BITS_PER_TABLE does not neatly divide
     // BITS_PER_LO_SCALAR)
     static constexpr size_t MAX_TABLE_SIZE = (1UL) << BITS_PER_TABLE;
-    // how many BITS_PER_TABLE lookup tables do we need to traverse BITS_PER_LO_SCALAR-amount of bits?
-    // (we implicitly assume BITS_PER_LO_SCALAR > BITS_PER_HI_SCALAR)
+    // We create four Multitables, two for each supported base point (one for the LO_SCALAR, one for the HI_SCALAR)
+    static constexpr size_t NUM_FIXED_BASE_MULTI_TABLES = 4;
+    static constexpr size_t NUM_TABLES_PER_LO_MULTITABLE = numeric::ceil_div(BITS_PER_LO_SCALAR, BITS_PER_TABLE);
+    static constexpr size_t NUM_TABLES_PER_HI_MULTITABLE = numeric::ceil_div(BITS_PER_HI_SCALAR, BITS_PER_TABLE);
     static constexpr size_t MAX_NUM_TABLES_IN_MULTITABLE =
-        (BITS_PER_LO_SCALAR / BITS_PER_TABLE) + (BITS_PER_LO_SCALAR % BITS_PER_TABLE == 0 ? 0 : 1);
-    static constexpr size_t NUM_POINTS = 2;
-    // how many multitables are we creating? It's 4 because we want enough lookup tables to cover two field elements,
-    // two field elements = 2 scalar muls = 4 scalar mul hi/lo slices = 4 multitables
-    static constexpr size_t NUM_FIXED_BASE_MULTI_TABLES = NUM_POINTS * 2;
-    static constexpr size_t NUM_TABLES_PER_LO_MULTITABLE =
-        (BITS_PER_LO_SCALAR / BITS_PER_TABLE) + ((BITS_PER_LO_SCALAR % BITS_PER_TABLE == 0) ? 0 : 1);
-    static constexpr size_t NUM_TABLES_PER_HI_MULTITABLE =
-        (BITS_PER_HI_SCALAR / BITS_PER_TABLE) + ((BITS_PER_HI_SCALAR % BITS_PER_TABLE == 0) ? 0 : 1);
-    // how many lookups are required to perform a scalar mul of a field element with a base point?
-    static constexpr size_t NUM_BASIC_TABLES_PER_BASE_POINT =
-        (NUM_TABLES_PER_LO_MULTITABLE + NUM_TABLES_PER_HI_MULTITABLE);
-    // how many basic lookup tables are we creating in total to support fixed-base-scalar-muls over two precomputed base
-    // points.
-    static constexpr size_t NUM_FIXED_BASE_BASIC_TABLES = NUM_BASIC_TABLES_PER_BASE_POINT * NUM_POINTS;
+        std::max(NUM_TABLES_PER_LO_MULTITABLE, NUM_TABLES_PER_HI_MULTITABLE);
+
+    // Step sizes for BasicTable columns in fixed-base scalar multiplication
+    // Column 1 contains the index, so step size varies with table size
+    // Columns 2 and 3 (x, y coordinates) do not utilize the typical accumulator pattern --> step size is 0
+    static inline const bb::fr COLUMN_2_STEP_SIZE = bb::fr(0);
+    static inline const bb::fr COLUMN_3_STEP_SIZE = bb::fr(0);
 
     /**
-     * @brief For a scalar multiplication table that covers input scalars up to `(1 << num_bits) - 1`,
-     *        how many individual lookup tables of max size BITS_PER_TABLE do we need?
-     *        (e.g. if BITS_PER_TABLE = 9, for `num_bits = 126` it's 14. For `num_bits = 128` it's 15)
-     * @tparam num_bits
-     * @return constexpr size_t
-     */
-    template <size_t num_bits> inline static constexpr size_t get_num_tables_per_multi_table() noexcept
-    {
-        return (num_bits / BITS_PER_TABLE) + ((num_bits % BITS_PER_TABLE == 0) ? 0 : 1);
-    }
-
-    /**
-     * @brief For a given multitable index, how many scalar mul bits are we traversing with our multitable?
+     * @brief Returns the number of scalar mul bits we are traversing in multitable with the given index.
      *
      * @param multitable_index Ranges from 0 to NUM_FIXED_BASE_MULTI_TABLES - 1
      * @return constexpr size_t
@@ -72,10 +54,8 @@ struct FixedBaseParams {
     template <size_t multitable_index> static constexpr size_t get_num_bits_of_multi_table()
     {
         static_assert(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
-        constexpr std::array<size_t, 4> MULTI_TABLE_BIT_LENGTHS{
-            BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR, BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR
-        };
-        return MULTI_TABLE_BIT_LENGTHS[multitable_index];
+        // Even indices (0, 2) are LO_SCALAR tables, odd indices (1, 3) are HI_SCALAR tables
+        return (multitable_index % 2 == 0) ? BITS_PER_LO_SCALAR : BITS_PER_HI_SCALAR;
     }
 };
 } // namespace bb::plookup

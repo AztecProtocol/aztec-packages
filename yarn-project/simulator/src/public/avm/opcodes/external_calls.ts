@@ -46,7 +46,6 @@ abstract class ExternalCall extends Instruction {
 
     const calldataSize = memory.get(argsSizeOffset).toNumber();
     const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
-    memory.checkTagsRange(TypeTag.FIELD, argsOffset, calldataSize);
 
     const callAddress = memory.getAs<Field>(addrOffset);
     // If we are already in a static call, we propagate the environment.
@@ -146,6 +145,10 @@ export class SuccessCopy extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.dstOffset];
     const [dstOffset] = addressing.resolve(operands, memory);

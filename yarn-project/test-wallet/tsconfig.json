@@ -1,0 +1,32 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../accounts"
+    },
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../entrypoints"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../pxe"
+    },
+    {
+      "path": "../stdlib"
+    }
+  ],
+  "include": ["src", "src/**/*.json"]
+}

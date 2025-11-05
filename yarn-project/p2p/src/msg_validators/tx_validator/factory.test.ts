@@ -30,10 +30,13 @@ describe('GasTxValidator', () => {
       Fr.ZERO,
       contractSource,
       proofVerifier,
+      true,
     );
     expect(Object.keys(validators[0])).toEqual([
+      'txsPermittedValidator',
       'dataValidator',
       'metadataValidator',
+      'timestampValidator',
       'doubleSpendValidator',
       'gasValidator',
       'phasesValidator',

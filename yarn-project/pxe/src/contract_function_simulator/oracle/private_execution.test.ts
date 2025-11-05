@@ -2,6 +2,7 @@ import {
   GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
+  NULL_MSG_SENDER_CONTRACT_ADDRESS,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -14,7 +15,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ChildContractArtifact } from '@aztec/noir-test-contracts.js/Child';
-import { ImportTestContractArtifact } from '@aztec/noir-test-contracts.js/ImportTest';
 import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
@@ -22,7 +22,6 @@ import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { WASMSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
-  type FunctionArtifact,
   FunctionSelector,
   encodeArguments,
   getFunctionArtifact,
@@ -41,13 +40,12 @@ import {
   computeNoteHashNonce,
   computeSecretHash,
   computeUniqueNoteHash,
-  computeVarArgsHash,
   deriveStorageSlotInMap,
   siloNoteHash,
 } from '@aztec/stdlib/hash';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
-import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note } from '@aztec/stdlib/note';
 import { makeHeader } from '@aztec/stdlib/testing';
@@ -108,7 +106,7 @@ describe('Private Execution test suite', () => {
   let executionDataProvider: MockProxy<ExecutionDataProvider>;
   let acirSimulator: ContractFunctionSimulator;
 
-  let header = BlockHeader.empty();
+  let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
 
   let defaultContractAddress: AztecAddress;
@@ -157,7 +155,8 @@ describe('Private Execution test suite', () => {
     artifact,
     functionName,
     args = [],
-    msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+    /** Notice that we're defaulting to the "null" msg_sender, which many public functions will fail to unwrap, and will revert. */
+    msgSender = AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS),
     contractAddress = undefined,
     txContext = {},
   }: {
@@ -208,29 +207,29 @@ describe('Private Execution test suite', () => {
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
 
     if (name === 'noteHash' || name === 'l1ToL2Messages' || name === 'publicData') {
-      header = new BlockHeader(
-        header.lastArchive,
-        header.contentCommitment,
+      anchorBlockHeader = new BlockHeader(
+        anchorBlockHeader.lastArchive,
         new StateReference(
-          name === 'l1ToL2Messages' ? newSnap : header.state.l1ToL2MessageTree,
+          name === 'l1ToL2Messages' ? newSnap : anchorBlockHeader.state.l1ToL2MessageTree,
           new PartialStateReference(
-            name === 'noteHash' ? newSnap : header.state.partial.noteHashTree,
-            header.state.partial.nullifierTree,
-            name === 'publicData' ? newSnap : header.state.partial.publicDataTree,
+            name === 'noteHash' ? newSnap : anchorBlockHeader.state.partial.noteHashTree,
+            anchorBlockHeader.state.partial.nullifierTree,
+            name === 'publicData' ? newSnap : anchorBlockHeader.state.partial.publicDataTree,
           ),
         ),
-        header.globalVariables,
-        header.totalFees,
-        header.totalManaUsed,
+        anchorBlockHeader.spongeBlobHash,
+        anchorBlockHeader.globalVariables,
+        anchorBlockHeader.totalFees,
+        anchorBlockHeader.totalManaUsed,
       );
     } else {
-      header = new BlockHeader(
-        header.lastArchive,
-        header.contentCommitment,
-        new StateReference(newSnap, header.state.partial),
-        header.globalVariables,
-        header.totalFees,
-        header.totalManaUsed,
+      anchorBlockHeader = new BlockHeader(
+        anchorBlockHeader.lastArchive,
+        new StateReference(newSnap, anchorBlockHeader.state.partial),
+        anchorBlockHeader.spongeBlobHash,
+        anchorBlockHeader.globalVariables,
+        anchorBlockHeader.totalFees,
+        anchorBlockHeader.totalManaUsed,
       );
     }
 
@@ -290,7 +289,7 @@ describe('Private Execution test suite', () => {
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
     // able to get ivpk_m during execution
     await insertLeaves([], 'publicData');
-    executionDataProvider.getBlockHeader.mockResolvedValue(header);
+    executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
     executionDataProvider.getCompleteAddress.mockImplementation((address: AztecAddress) => {
       if (address.equals(owner)) {
@@ -302,12 +301,9 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
-    executionDataProvider.getIndexedTaggingSecretAsSender.mockImplementation(
-      (_contractAddress: AztecAddress, _sender: AztecAddress, _recipient: AztecAddress) => {
-        const secret = Fr.random();
-        return Promise.resolve(new IndexedTaggingSecret(secret, 0));
-      },
-    );
+    executionDataProvider.getLastUsedIndexAsSender.mockImplementation((_secret: DirectionalAppTaggingSecret) => {
+      return Promise.resolve(undefined);
+    });
     executionDataProvider.getFunctionArtifact.mockImplementation(async (address, selector) => {
       const contract = contracts[address.toString()];
       if (!contract) {
@@ -333,6 +329,13 @@ describe('Private Execution test suite', () => {
     });
 
     executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
+    // Provide tagging-related mocks expected by private log emission
+    executionDataProvider.calculateDirectionalAppTaggingSecret.mockImplementation((_contract, _sender, _recipient) => {
+      return Promise.resolve(DirectionalAppTaggingSecret.fromString('0x1'));
+    });
+    executionDataProvider.syncTaggedLogsAsSender.mockImplementation((_directionalAppTaggingSecret, _contractAddress) =>
+      Promise.resolve(),
+    );
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     executionDataProvider.getPublicStorageAt.mockImplementation(
@@ -399,6 +402,7 @@ describe('Private Execution test suite', () => {
       const initArgs = [owner, owner, 140];
       const instance = await getContractInstanceFromInstantiationParams(StatefulTestContractArtifact, {
         constructorArgs: initArgs,
+        salt: Fr.random(),
       });
       executionDataProvider.getContractInstance.mockResolvedValue(instance);
       const executionResult = await runSimulator({
@@ -406,6 +410,7 @@ describe('Private Execution test suite', () => {
         artifact: StatefulTestContractArtifact,
         functionName: 'constructor',
         contractAddress: instance.address,
+        msgSender: AztecAddress.fromNumber(1234),
       });
       const result = executionResult.entrypoint.nestedExecutionResults[0];
 
@@ -441,8 +446,6 @@ describe('Private Execution test suite', () => {
     });
 
     it('should run the destroy_and_create function', async () => {
-      const amountToTransfer = 100n;
-
       const storageSlot = await deriveStorageSlotInMap(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
       const recipientStorageSlot = await deriveStorageSlotInMap(
         StatefulTestContractArtifact.storageLayout['notes'].slot,
@@ -465,7 +468,7 @@ describe('Private Execution test suite', () => {
 
       await insertLeaves(consumedNotes);
 
-      const args = [recipient, amountToTransfer];
+      const args = [recipient];
       const { entrypoint: result } = await runSimulator({
         args,
         artifact: StatefulTestContractArtifact,
@@ -479,25 +482,22 @@ describe('Private Execution test suite', () => {
       const nullifiers = result.publicInputs.nullifiers;
       expect(nullifiers.claimedLength).toBe(consumedNotes.length);
 
-      expect(result.newNotes).toHaveLength(2);
-      const [changeNote, recipientNote] = result.newNotes;
+      expect(result.newNotes).toHaveLength(1);
+      const [recipientNote] = result.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
+      expect(recipientNote.note.items[0]).toEqual(new Fr(92n));
 
       const noteHashes = result.publicInputs.noteHashes;
-      expect(noteHashes.claimedLength).toBe(2);
-
-      expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
-      expect(changeNote.note.items[0]).toEqual(new Fr(40n));
+      expect(noteHashes.claimedLength).toBe(1);
 
       const privateLogs = result.publicInputs.privateLogs;
-      expect(privateLogs.claimedLength).toBe(2);
+      expect(privateLogs.claimedLength).toBe(1);
 
       const readRequests = result.publicInputs.noteHashReadRequests;
       expect(readRequests.claimedLength).toBe(consumedNotes.length);
     });
 
     it('should be able to destroy_and_create with dummy notes', async () => {
-      const amountToTransfer = 100n;
       const balance = 160n;
 
       const storageSlot = await deriveStorageSlotInMap(new Fr(1n), owner);
@@ -515,7 +515,7 @@ describe('Private Execution test suite', () => {
 
       await insertLeaves(consumedNotes);
 
-      const args = [recipient, amountToTransfer];
+      const args = [recipient];
       const { entrypoint: result } = await runSimulator({
         args,
         artifact: StatefulTestContractArtifact,
@@ -527,13 +527,12 @@ describe('Private Execution test suite', () => {
       const nullifiers = result.publicInputs.nullifiers;
       expect(nullifiers.claimedLength).toBe(consumedNotes.length);
 
-      expect(result.newNotes).toHaveLength(2);
-      const [changeNote, recipientNote] = result.newNotes;
-      expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
-      expect(changeNote.note.items[0]).toEqual(new Fr(balance - amountToTransfer));
+      // We've inserted just one note for recipient with hardcoded value 92
+      expect(result.newNotes).toHaveLength(1);
+      expect(result.newNotes[0].note.items[0]).toEqual(new Fr(92n));
 
       const privateLogs = result.publicInputs.privateLogs;
-      expect(privateLogs.claimedLength).toBe(2);
+      expect(privateLogs.claimedLength).toBe(1);
     });
   });
 
@@ -577,58 +576,6 @@ describe('Private Execution test suite', () => {
       expect(result.publicInputs.privateCallRequests.array[0].callContext).toEqual(
         result.nestedExecutionResults[0].publicInputs.callContext,
       );
-    });
-  });
-
-  describe('nested calls through autogenerated interface', () => {
-    let args: any[];
-    let argsHash: Fr;
-    let testCodeGenArtifact: FunctionArtifact;
-
-    beforeAll(async () => {
-      // These args should match the ones hardcoded in importer contract
-      // eslint-disable-next-line camelcase
-      const dummyNote = { amount: 1, secret_hash: 2 };
-      // eslint-disable-next-line camelcase
-      const deepStruct = { a_field: 1, a_bool: true, a_note: dummyNote, many_notes: [dummyNote, dummyNote, dummyNote] };
-      args = [1, true, 1, [1, 2], dummyNote, deepStruct];
-      testCodeGenArtifact = getFunctionArtifactByName(TestContractArtifact, 'test_code_gen');
-      const serializedArgs = encodeArguments(testCodeGenArtifact, args);
-      argsHash = await computeVarArgsHash(serializedArgs);
-    });
-
-    it('test function should be directly callable', async () => {
-      logger.info(`Calling testCodeGen function`);
-      const { entrypoint: result } = await runSimulator({
-        args,
-        artifact: TestContractArtifact,
-        functionName: 'test_code_gen',
-      });
-
-      expect(result.returnValues).toEqual([argsHash]);
-    });
-
-    it('test function should be callable through autogenerated interface', async () => {
-      const testAddress = await AztecAddress.random();
-      const testCodeGenSelector = await FunctionSelector.fromNameAndParameters(
-        testCodeGenArtifact.name,
-        testCodeGenArtifact.parameters,
-      );
-
-      await mockContractInstance(TestContractArtifact, testAddress);
-
-      logger.info(`Calling importer main function`);
-      const args = [testAddress];
-      const { entrypoint: result } = await runSimulator({
-        args,
-        artifact: ImportTestContractArtifact,
-        functionName: 'main_contract',
-      });
-
-      expect(result.returnValues).toEqual([argsHash]);
-      expect(executionDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([testAddress, testCodeGenSelector]);
-      expect(result.nestedExecutionResults).toHaveLength(1);
-      expect(result.nestedExecutionResults[0].returnValues).toEqual([argsHash]);
     });
   });
 
@@ -681,7 +628,7 @@ describe('Private Execution test suite', () => {
           return Promise.resolve(new MessageLoadOracleInputs(0n, await tree.getSiblingPath(0n, true)));
         });
         if (updateHeader) {
-          executionDataProvider.getBlockHeader.mockResolvedValue(header);
+          executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
         }
       };
 
@@ -731,7 +678,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -752,7 +699,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -772,7 +719,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -792,7 +739,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -813,7 +760,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -834,7 +781,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -1198,14 +1145,14 @@ describe('Private Execution test suite', () => {
 
   describe('Historical header in private context', () => {
     beforeEach(() => {
-      header = makeHeader();
+      anchorBlockHeader = makeHeader();
 
-      executionDataProvider.getBlockHeader.mockClear();
-      executionDataProvider.getBlockHeader.mockResolvedValue(header);
+      executionDataProvider.getAnchorBlockHeader.mockClear();
+      executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
     });
 
     it('Header is correctly set', async () => {
-      const args = [await header.hash()];
+      const args = [await anchorBlockHeader.hash()];
 
       await runSimulator({
         artifact: TestContractArtifact,

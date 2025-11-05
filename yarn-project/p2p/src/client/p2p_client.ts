@@ -26,8 +26,8 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
+import type { ENR } from '@nethermindeth/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
@@ -123,7 +123,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       const constants = this.txCollection.getConstants();
       const nextSlotTimestampSeconds = Number(getTimestampForSlot(block.slotNumber.toBigInt() + 1n, constants));
       const deadline = new Date(nextSlotTimestampSeconds * 1000);
-      await this.txProvider.getTxsForBlockProposal(block, { pinnedPeer: sender, deadline });
+      const parentBlock = await this.l2BlockSource.getBlockHeaderByArchive(block.payload.header.lastArchiveRoot);
+      if (!parentBlock) {
+        this.log.debug(`Cannot collect txs for proposal as parent block not found`);
+        return;
+      }
+      const blockNumber = parentBlock.getBlockNumber() + 1;
+      await this.txProvider.getTxsForBlockProposal(block, blockNumber, { pinnedPeer: sender, deadline });
       return undefined;
     });
 
@@ -365,7 +371,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
-    [Attributes.BLOCK_NUMBER]: proposal.blockNumber,
     [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
     [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
@@ -385,6 +390,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public addAttestations(attestations: BlockAttestation[]): Promise<void> {
     return this.attestationPool?.addAttestations(attestations) ?? Promise.resolve();
+  }
+
+  public deleteAttestation(attestation: BlockAttestation): Promise<void> {
+    return this.attestationPool?.deleteAttestations([attestation]) ?? Promise.resolve();
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -599,7 +608,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
-  public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
+  public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined> {
     return this.txPool.getTxStatus(txHash);
   }
 
@@ -683,20 +692,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private async markTxsAsMinedFromBlocks(blocks: L2Block[]): Promise<void> {
     for (const block of blocks) {
       const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
-      await this.txPool.markAsMined(txHashes, block.header);
-    }
-  }
-
-  /**
-   * Deletes txs from these blocks.
-   * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
-   * @returns Empty promise.
-   */
-  private async deleteTxsFromBlocks(blocks: L2Block[]): Promise<void> {
-    this.log.debug(`Deleting txs from blocks ${blocks[0].number} to ${blocks[blocks.length - 1].number}`);
-    for (const block of blocks) {
-      const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
-      await this.txPool.deleteTxs(txHashes);
+      await this.txPool.markAsMined(txHashes, block.getBlockHeader());
     }
   }
 
@@ -765,19 +761,23 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Empty promise.
    */
   private async handleFinalizedL2Blocks(blocks: L2Block[]): Promise<void> {
-    this.log.trace(`Handling finalized blocks ${blocks.length} up to ${blocks.at(-1)?.number}`);
     if (!blocks.length) {
       return Promise.resolve();
     }
+    this.log.debug(`Handling finalized blocks ${blocks.length} up to ${blocks.at(-1)?.number}`);
 
     const lastBlockNum = blocks[blocks.length - 1].number;
     const lastBlockSlot = blocks[blocks.length - 1].header.getSlot();
 
-    await this.deleteTxsFromBlocks(blocks);
+    const txHashes = blocks.flatMap(block => block.body.txEffects.map(txEffect => txEffect.txHash));
+    this.log.debug(`Deleting ${txHashes.length} txs from pool from finalized blocks up to ${lastBlockNum}`);
+    await this.txPool.deleteTxs(txHashes, { permanently: true });
+    await this.txPool.cleanupDeletedMinedTxs(lastBlockNum);
+
     await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlot);
 
     await this.synchedFinalizedBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to finalized block ${lastBlockNum}`);
+    this.log.debug(`Synched to finalized block ${lastBlockNum} at slot ${lastBlockSlot}`);
 
     await this.startServiceIfSynched();
   }
@@ -793,35 +793,41 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     // Find transactions that reference pruned blocks in their historical header
     for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
-      if (tx.data.constants.historicalHeader.globalVariables.blockNumber > latestBlock) {
+      if (tx.data.constants.anchorBlockHeader.globalVariables.blockNumber > latestBlock) {
         const txHash = tx.getTxHash();
         txsToDelete.set(txHash.toString(), txHash);
       }
     }
 
-    this.log.info(
-      `Detected chain prune. Removing invalid txs count=${
-        txsToDelete.size
-      } newLatestBlock=${latestBlock} previousLatestBlock=${await this.getSyncedLatestBlockNum()}`,
-    );
+    this.log.info(`Detected chain prune. Removing ${txsToDelete.size} txs built against pruned blocks.`, {
+      newLatestBlock: latestBlock,
+      previousLatestBlock: await this.getSyncedLatestBlockNum(),
+      txsToDelete: Array.from(txsToDelete.keys()),
+    });
 
     // delete invalid txs (both pending and mined)
     await this.txPool.deleteTxs(Array.from(txsToDelete.values()));
 
     // everything left in the mined set was built against a block on the proven chain so its still valid
-    // move back to pending the txs that were reorged out of the chain
+    // move back to pending the txs that were reorged out of the chain, unless txPoolDeleteTxsAfterReorg is set,
+    // in which case we clean them up to avoid potential reorg loops
     // NOTE: we can't move _all_ txs back to pending because the tx pool could keep hold of mined txs for longer
     // (see this.keepProvenTxsFor)
-
-    const txsToMoveToPending: TxHash[] = [];
+    const minedTxsFromReorg: TxHash[] = [];
     for (const [txHash, blockNumber] of minedTxs) {
-      if (blockNumber > latestBlock) {
-        txsToMoveToPending.push(txHash);
+      // We keep the txsToDelete out of this list as they have already been deleted above
+      if (blockNumber > latestBlock && !txsToDelete.has(txHash.toString())) {
+        minedTxsFromReorg.push(txHash);
       }
     }
 
-    this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
-    await this.txPool.markMinedAsPending(txsToMoveToPending);
+    if (this.config.txPoolDeleteTxsAfterReorg) {
+      this.log.info(`Deleting ${minedTxsFromReorg.length} mined txs from reorg`);
+      await this.txPool.deleteTxs(minedTxsFromReorg);
+    } else {
+      this.log.info(`Moving ${minedTxsFromReorg.length} mined txs from reorg back to pending`);
+      await this.txPool.markMinedAsPending(minedTxsFromReorg);
+    }
 
     await this.synchedLatestBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added

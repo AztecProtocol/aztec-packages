@@ -36,7 +36,7 @@ struct CompressedRoundAccounting {
  *
  * There are two primary implementations of this contract:
  * - The GovernanceProposer
- * - The SlashingProposer
+ * - The EmpireSlashingProposer
  *
  * The GovernanceProposer is used to signal support for payloads before they are submitted to the main Governance
  * contract,
@@ -44,9 +44,10 @@ struct CompressedRoundAccounting {
  * 1. Signal gathering (GovernanceProposer contract) - validators indicate support
  * 2. Formal governance (Governance contract) - actual voting and execution
  *
- * The SlashingProposer is used to signal support for payloads before they are submitted to a Rollup instance's Slasher,
+ * The EmpireSlashingProposer is used to signal support for payloads before they are submitted to a Rollup instance's
+ * Slasher,
  * resulting in a one-stage slashing process:
- * 1. Signal gathering (SlashingProposer contract) - validators indicate support
+ * 1. Signal gathering (EmpireSlashingProposer contract) - validators indicate support
  *
  * @dev KEY CONCEPTS:
  * **Payload**: A contract with a list of actions (contract calls) to perform.
@@ -79,12 +80,14 @@ struct CompressedRoundAccounting {
  * - QUORUM_SIZE: Minimum signals needed for submission
  * - ROUND_SIZE: Slots per round
  * - Constraint: QUORUM_SIZE > ROUND_SIZE/2 and QUORUM_SIZE ≤ ROUND_SIZE
+ * Note that it it possible to have QUORUM_SIZE = 1 for ROUND_SIZE = 1, which effectively give all the
+ * power to the first signal.
  *
  * @dev SIGNALING METHODS:
  * 1. Direct signal: Current signaler calls `signal()`
  * 2. Delegated signal: Anyone submits with signaler's signature via `signalWithSig()`
  *    - Uses EIP-712 for signature verification
- *    - Includes nonce and round number to prevent replay attacks
+ *    - Includes slot and instance to prevent replay attacks
  *
  * @dev ABSTRACT FUNCTIONS:
  * Implementing contracts must provide:
@@ -107,7 +110,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
   using CompressedTimeMath for CompressedSlot;
 
   // EIP-712 type hash for the Signal struct
-  bytes32 public constant SIGNAL_TYPEHASH = keccak256("Signal(address payload,uint256 nonce,uint256 round)");
+  bytes32 public constant SIGNAL_TYPEHASH = keccak256("Signal(address payload,uint256 slot,address instance)");
 
   // The number of signals needed for a payload to be considered submittable.
   uint256 public immutable QUORUM_SIZE;
@@ -120,8 +123,6 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
   // Mapping of instance to round number to round accounting.
   mapping(address instance => mapping(uint256 roundNumber => CompressedRoundAccounting)) internal rounds;
-  // Mapping of instance signaler to nonce. Used to prevent replay attacks.
-  mapping(address signaler => uint256 nonce) public nonces;
 
   constructor(uint256 _quorumSize, uint256 _roundSize, uint256 _lifetimeInRounds, uint256 _executionDelayInRounds)
     EIP712("EmpireBase", "1")
@@ -131,19 +132,17 @@ abstract contract EmpireBase is EIP712, IEmpire {
     LIFETIME_IN_ROUNDS = _lifetimeInRounds;
     EXECUTION_DELAY_IN_ROUNDS = _executionDelayInRounds;
 
-    require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.GovernanceProposer__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
-    require(
-      QUORUM_SIZE <= ROUND_SIZE, Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE)
-    );
+    require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.EmpireBase__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
+    require(QUORUM_SIZE <= ROUND_SIZE, Errors.EmpireBase__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
 
     require(
       LIFETIME_IN_ROUNDS > EXECUTION_DELAY_IN_ROUNDS,
-      Errors.GovernanceProposer__InvalidLifetimeAndExecutionDelay(LIFETIME_IN_ROUNDS, EXECUTION_DELAY_IN_ROUNDS)
+      Errors.EmpireBase__InvalidLifetimeAndExecutionDelay(LIFETIME_IN_ROUNDS, EXECUTION_DELAY_IN_ROUNDS)
     );
   }
 
   /**
-   * @notice	Signal support for a payload
+   * @notice Signal support for a payload
    *
    * @dev this only works if msg.sender is the current signaler
    *
@@ -156,7 +155,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
   }
 
   /**
-   * @notice	Signal support for a payload with a signature from the current signaler
+   * @notice Signal support for a payload with a signature from the current signaler
    *
    * @param _payload - The payload to signal support for
    * @param _sig - A signature from the signaler
@@ -179,7 +178,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
   function submitRoundWinner(uint256 _roundNumber) external override(IEmpire) returns (bool) {
     // Need to ensure that the round is not active.
     address instance = getInstance();
-    require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
+    require(instance.code.length > 0, Errors.EmpireBase__InstanceHaveNoCode(instance));
 
     IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
@@ -188,25 +187,22 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
     require(
       currentRound > _roundNumber + EXECUTION_DELAY_IN_ROUNDS,
-      Errors.GovernanceProposer__RoundTooNew(_roundNumber, currentRound)
+      Errors.EmpireBase__RoundTooNew(_roundNumber, currentRound)
     );
 
     require(
-      currentRound <= _roundNumber + LIFETIME_IN_ROUNDS,
-      Errors.GovernanceProposer__RoundTooOld(_roundNumber, currentRound)
+      currentRound <= _roundNumber + LIFETIME_IN_ROUNDS, Errors.EmpireBase__RoundTooOld(_roundNumber, currentRound)
     );
 
     CompressedRoundAccounting storage round = rounds[instance][_roundNumber];
-    require(!round.executed, Errors.GovernanceProposer__PayloadAlreadySubmitted(_roundNumber));
+    require(!round.executed, Errors.EmpireBase__PayloadAlreadySubmitted(_roundNumber));
 
     // If the payload with the most signals is address(0) there are nothing to execute and it is a no-op.
     // This will be the case if no signals have been cast during a round, or if people have simple signalled
     // for nothing to happen (the same as not signalling).
-    require(
-      round.payloadWithMostSignals != IPayload(address(0)), Errors.GovernanceProposer__PayloadCannotBeAddressZero()
-    );
+    require(round.payloadWithMostSignals != IPayload(address(0)), Errors.EmpireBase__PayloadCannotBeAddressZero());
     uint256 signalsCast = round.signalCount[round.payloadWithMostSignals];
-    require(signalsCast >= QUORUM_SIZE, Errors.GovernanceProposer__InsufficientSignals(signalsCast, QUORUM_SIZE));
+    require(signalsCast >= QUORUM_SIZE, Errors.EmpireBase__InsufficientSignals(signalsCast, QUORUM_SIZE));
 
     round.executed = true;
 
@@ -214,7 +210,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
     require(
       _handleRoundWinner(round.payloadWithMostSignals),
-      Errors.GovernanceProposer__FailedToSubmitRoundWinner(round.payloadWithMostSignals)
+      Errors.EmpireBase__FailedToSubmitRoundWinner(round.payloadWithMostSignals)
     );
     return true;
   }
@@ -268,8 +264,8 @@ abstract contract EmpireBase is EIP712, IEmpire {
     return Slot.unwrap(_slot) / ROUND_SIZE;
   }
 
-  function getSignalSignatureDigest(IPayload _payload, address _signaler, uint256 _round) public view returns (bytes32) {
-    return _hashTypedDataV4(keccak256(abi.encode(SIGNAL_TYPEHASH, _payload, nonces[_signaler], _round)));
+  function getSignalSignatureDigest(IPayload _payload, Slot _slot) public view returns (bytes32) {
+    return _hashTypedDataV4(keccak256(abi.encode(SIGNAL_TYPEHASH, _payload, _slot, getInstance())));
   }
 
   // Virtual functions
@@ -278,7 +274,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
   function _internalSignal(IPayload _payload, Signature memory _sig) internal returns (bool) {
     address instance = getInstance();
-    require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
+    require(instance.code.length > 0, Errors.EmpireBase__InstanceHaveNoCode(instance));
 
     IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
@@ -288,26 +284,22 @@ abstract contract EmpireBase is EIP712, IEmpire {
     CompressedRoundAccounting storage round = rounds[instance][roundNumber];
 
     // Ensure that time have progressed since the last slot. If not, the current proposer might send multiple signals
-    require(
-      currentSlot > round.lastSignalSlot.decompress(), Errors.GovernanceProposer__SignalAlreadyCastForSlot(currentSlot)
-    );
+    require(currentSlot > round.lastSignalSlot.decompress(), Errors.EmpireBase__SignalAlreadyCastForSlot(currentSlot));
+    round.lastSignalSlot = currentSlot.compress();
 
     address signaler = selection.getCurrentProposer();
 
     if (_sig.isEmpty()) {
-      require(msg.sender == signaler, Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler));
+      require(msg.sender == signaler, Errors.EmpireBase__OnlyProposerCanSignal(msg.sender, signaler));
     } else {
-      bytes32 digest = getSignalSignatureDigest(_payload, signaler, roundNumber);
-      nonces[signaler]++;
+      bytes32 digest = getSignalSignatureDigest(_payload, currentSlot);
 
       // _sig.verify will throw if invalid, it is more my sanity that I am doing this for.
-      require(_sig.verify(signaler, digest), Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler));
+      require(_sig.verify(signaler, digest), Errors.EmpireBase__OnlyProposerCanSignal(msg.sender, signaler));
     }
 
     round.signalCount[_payload] += 1;
-    round.lastSignalSlot = currentSlot.compress();
 
-    // @todo We can optimise here for gas by storing some of it packed with the payloadWithMostSignals.
     if (
       round.payloadWithMostSignals != _payload
         && round.signalCount[_payload] > round.signalCount[round.payloadWithMostSignals]

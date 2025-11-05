@@ -29,14 +29,6 @@ proverNode:
     limits:
       memory: "1Gi"
       cpu: "500m"
-pxe:
-  resources:
-    requests:
-      memory: "1Gi"
-    limits:
-      memory: "1Gi"
-      cpu: "500m"
-
 bot:
   gke:
     spotEnabled: true
@@ -62,23 +54,6 @@ proverBroker:
     limits:
       memory: "512Mi"
       cpu: "500m"
-
-blobSink:
-  resources:
-    requests:
-      memory: "512Mi"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-
-faucet:
-  resources:
-    requests:
-      memory: "512Mi"
-      cpu: "200m"
-    limits:
-      memory: "512Mi"
-      cpu: "200m"
 
 ethereum:
   execution:

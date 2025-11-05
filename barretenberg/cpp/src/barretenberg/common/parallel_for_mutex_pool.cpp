@@ -1,3 +1,5 @@
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #ifndef NO_MULTITHREADING
 #include "log.hpp"
@@ -26,6 +28,7 @@ class ThreadPool {
 
     void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func)
     {
+        parent.store(bb::detail::GlobalBenchStatsContainer::parent);
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);
             task_ = func;
@@ -38,12 +41,14 @@ class ThreadPool {
         do_iterations();
 
         {
+            // BB_BENCH_NAME("spinning main thread");
             std::unique_lock<std::mutex> lock(tasks_mutex);
             complete_condition_.wait(lock, [this] { return complete_ == num_iterations_; });
         }
     }
 
   private:
+    std::atomic<bb::detail::TimeStatsEntry*> parent = nullptr;
     std::vector<std::thread> workers;
     std::mutex tasks_mutex;
     std::function<void(size_t)> task_;
@@ -67,6 +72,7 @@ class ThreadPool {
                 }
                 iteration = iteration_++;
             }
+            // BB_BENCH_NAME("do_iterations()");
             task_(iteration);
             {
                 std::unique_lock<std::mutex> lock(tasks_mutex);
@@ -111,6 +117,9 @@ void ThreadPool::worker_loop(size_t /*unused*/)
                 break;
             }
         }
+        // Make sure nested stats accounting works under multithreading
+        // Note: parent is a thread-local variable.
+        bb::detail::GlobalBenchStatsContainer::parent = parent.load();
         do_iterations();
     }
     // info("worker exit ", worker_num);
@@ -131,7 +140,11 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
     // Check if we are already in a nested parallel_for_mutex_pool call
     bool expected = false;
     if (!nested.compare_exchange_strong(expected, true)) {
-        throw_or_abort("Error: Nested parallel_for_mutex_pool calls are not allowed.");
+        // Run single-threaded if nested
+        for (size_t i = 0; i < num_iterations; ++i) {
+            func(i);
+        }
+        return;
     }
     // info("starting job with iterations: ", num_iterations);
     pool.start_tasks(num_iterations, func);

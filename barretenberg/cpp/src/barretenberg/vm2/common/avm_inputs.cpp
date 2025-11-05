@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2 {
 namespace {
@@ -74,20 +75,15 @@ void set_l2_to_l1_msg_array_in_cols(const std::array<ScopedL2ToL1Message, SIZE>&
     }
 }
 
-template <size_t SIZE>
-void set_public_logs_in_cols(const std::array<PublicLog, SIZE>& logs,
+void set_public_logs_in_cols(const PublicLogs& public_logs,
                              std::vector<std::vector<FF>>& cols,
                              size_t array_start_row_idx)
 {
-    for (size_t i = 0; i < logs.size(); ++i) {
-        size_t first_row_for_log = array_start_row_idx + (i * PUBLIC_LOG_SIZE_IN_FIELDS);
-        for (size_t j = 0; j < PUBLIC_LOG_SIZE_IN_FIELDS; ++j) {
-            // always set contract address in col 0 so that some entry in the row is always non-zero
-            cols[0][first_row_for_log + j] = logs[i].contractAddress;
-            cols[1][first_row_for_log + j] = logs[i].emittedLength;
-            // and set the actual log data entry
-            cols[2][first_row_for_log + j] = logs[i].fields[j];
-        }
+    // Header
+    cols[0][array_start_row_idx] = public_logs.length;
+    // Payload
+    for (size_t i = 0; i < public_logs.length; ++i) {
+        cols[0][array_start_row_idx + i + FLAT_PUBLIC_LOGS_HEADER_LENGTH] = public_logs.payload[i];
     }
 }
 
@@ -101,6 +97,13 @@ void set_public_data_writes_in_cols(const std::array<PublicDataWrite, SIZE>& wri
         cols[0][row] = writes[i].leafSlot;
         cols[1][row] = writes[i].value;
     }
+}
+
+void set_protocol_contracts_in_cols(const ProtocolContracts& protocol_contracts,
+                                    std::vector<std::vector<FF>>& cols,
+                                    size_t protocol_contracts_start_row_idx)
+{
+    set_field_array_in_cols(protocol_contracts.derivedAddresses, cols, protocol_contracts_start_row_idx);
 }
 
 } // anonymous namespace
@@ -119,6 +122,13 @@ PublicInputs PublicInputs::from(const std::vector<uint8_t>& data)
 AvmProvingInputs AvmProvingInputs::from(const std::vector<uint8_t>& data)
 {
     AvmProvingInputs inputs;
+    msgpack::unpack(reinterpret_cast<const char*>(data.data()), data.size()).get().convert(inputs);
+    return inputs;
+}
+
+AvmFastSimulationInputs AvmFastSimulationInputs::from(const std::vector<uint8_t>& data)
+{
+    AvmFastSimulationInputs inputs;
     msgpack::unpack(reinterpret_cast<const char*>(data.data()), data.size()).get().convert(inputs);
     return inputs;
 }
@@ -143,6 +153,9 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_COINBASE_ROW_IDX] = globalVariables.coinbase;
     cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_FEE_RECIPIENT_ROW_IDX] = globalVariables.feeRecipient;
     set_gas_fees_in_cols(globalVariables.gasFees, cols, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX);
+
+    // Protocol contracts
+    set_protocol_contracts_in_cols(protocolContracts, cols, AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX);
 
     // Start tree snapshots
     set_snapshot_in_cols(startTreeSnapshots.l1ToL2MessageTree,
@@ -170,6 +183,9 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
 
     // Fee payer
     cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = feePayer;
+
+    // Prover id
+    cols[0][AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX] = proverId;
 
     // Public Call Request Array Lengths
     cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =
@@ -245,8 +261,6 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
         accumulatedDataArrayLengths.nullifiers;
     cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
         accumulatedDataArrayLengths.l2ToL1Msgs;
-    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX] =
-        accumulatedDataArrayLengths.publicLogs;
     cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX] =
         accumulatedDataArrayLengths.publicDataWrites;
 

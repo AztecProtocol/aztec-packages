@@ -1,11 +1,22 @@
 MintTest
-├── given caller is not owner
+├── when caller is not owner
 │   └── it reverts
-└── given caller is owner
-    ├── given amount larger than maxMint
+└── when caller is owner
+    ├── when amount exceeds max mint
     │   └── it reverts
-    └── given amount less than or equal maxMint
-        ├── it updates timeOfLastMint
-        ├── it mints amount
-        ├── it emits a {Transfer} event
-        └── it will return 0 for mintAvailable in same block
+    ├── when minting to zero address
+    │   └── it reverts
+    ├── when minting zero amount
+    │   └── it succeeds with no state changes
+    ├── when minting non zero amount
+    │   ├── it mints correct amount
+    │   ├── it emits a Transfer event
+    │   └── it preserves unused allowance
+    ├── when multiple mints within same year
+    │   └── it draws from same annual budget
+    ├── when crossing year boundaries
+    │   ├── it demonstrates compounding
+    │   ├── it shows unused budget is LOST when crossing years
+    │   └── it verifies state tracking
+    └── when skipping years
+        └── it shows that skipping years loses their budgets

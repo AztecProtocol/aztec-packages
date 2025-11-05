@@ -23,10 +23,24 @@ target_sources(
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-function(barretenberg_module MODULE_NAME)
-    file(GLOB_RECURSE SOURCE_FILES *.cpp)
-    file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
-    list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\.(fuzzer|test|bench).cpp$")
+# barretenberg_module variant that allows specifying custom source and header files
+function(barretenberg_module_with_sources MODULE_NAME)
+    # Parse named arguments for SOURCE_FILES and HEADER_FILES
+    # All remaining arguments are treated as dependencies
+    set(options "")
+    set(oneValueArgs "")
+    set(multiValueArgs SOURCE_FILES HEADER_FILES TEST_SOURCE_FILES BENCH_SOURCE_FILES FUZZERS_SOURCE_FILES DEPENDENCIES)
+    cmake_parse_arguments(PARSE_ARGV 1 ARG "${options}" "${oneValueArgs}" "${multiValueArgs}")
+
+    # Use provided SOURCE_FILES and HEADER_FILES
+    set(SOURCE_FILES ${ARG_SOURCE_FILES})
+    set(HEADER_FILES ${ARG_HEADER_FILES})
+    set(TEST_SOURCE_FILES ${ARG_TEST_SOURCE_FILES})
+    set(BENCH_SOURCE_FILES ${ARG_BENCH_SOURCE_FILES})
+    set(FUZZERS_SOURCE_FILES ${ARG_FUZZERS_SOURCE_FILES})
+
+    # Dependencies are either in ARG_DEPENDENCIES or ARG_UNPARSED_ARGUMENTS
+    set(MODULE_DEPENDENCIES ${ARG_DEPENDENCIES} ${ARG_UNPARSED_ARGUMENTS})
 
     target_sources(
         barretenberg_headers
@@ -39,6 +53,7 @@ function(barretenberg_module MODULE_NAME)
         add_library(
             ${MODULE_NAME}_objects
             OBJECT
+            EXCLUDE_FROM_ALL
             ${SOURCE_FILES}
         )
         list(APPEND lib_targets ${MODULE_NAME}_objects)
@@ -52,12 +67,12 @@ function(barretenberg_module MODULE_NAME)
         target_link_libraries(
             ${MODULE_NAME}
             PUBLIC
-            ${ARGN}
+            ${MODULE_DEPENDENCIES}
             ${TRACY_LIBS}
             ${TBB_IMPORTED_TARGETS}
         )
 
-        if(CHECK_CIRCUIT_STACKTRACES)
+        if(ENABLE_STACKTRACES)
             target_link_libraries(
                 ${MODULE_NAME}_objects
                 PUBLIC
@@ -67,6 +82,14 @@ function(barretenberg_module MODULE_NAME)
                 ${MODULE_NAME}
                 PRIVATE
                 -ldw -lelf
+            )
+        endif()
+
+        if(FUZZING)
+            target_compile_options(
+                ${MODULE_NAME}_objects
+                PRIVATE
+                -fsanitize=fuzzer-no-link
             )
         endif()
 
@@ -84,7 +107,7 @@ function(barretenberg_module MODULE_NAME)
         set(MODULE_LINK_NAME ${MODULE_NAME})
     endif()
 
-    file(GLOB_RECURSE TEST_SOURCE_FILES *.test.cpp)
+    # Test files - only build if TEST_SOURCE_FILES was provided
     if(TEST_SOURCE_FILES AND NOT FUZZING)
         add_library(
             ${MODULE_NAME}_test_objects
@@ -108,7 +131,7 @@ function(barretenberg_module MODULE_NAME)
         )
         list(APPEND exe_targets ${MODULE_NAME}_tests)
 
-        if(CHECK_CIRCUIT_STACKTRACES)
+        if(ENABLE_STACKTRACES)
             target_link_libraries(
                 ${MODULE_NAME}_test_objects
                 PUBLIC
@@ -149,7 +172,7 @@ function(barretenberg_module MODULE_NAME)
             ${MODULE_NAME}_tests
             PRIVATE
             ${MODULE_LINK_NAME}
-            ${ARGN}
+            ${MODULE_DEPENDENCIES}
             GTest::gtest
             GTest::gtest_main
             GTest::gmock_main
@@ -172,7 +195,7 @@ function(barretenberg_module MODULE_NAME)
         endif()
     endif()
 
-    file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)
+    # Fuzzer files - only build if FUZZERS_SOURCE_FILES was provided
     if(FUZZING AND FUZZERS_SOURCE_FILES)
         foreach(FUZZER_SOURCE_FILE ${FUZZERS_SOURCE_FILES})
             get_filename_component(FUZZER_NAME_STEM ${FUZZER_SOURCE_FILE} NAME_WE)
@@ -198,11 +221,25 @@ function(barretenberg_module MODULE_NAME)
                 ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
                 PRIVATE
                 ${MODULE_LINK_NAME}
+                ${MODULE_DEPENDENCIES}
             )
+
+            if(ENABLE_STACKTRACES)
+                target_link_libraries(
+                    ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
+                    PUBLIC
+                    Backward::Interface
+                )
+                target_link_options(
+                    ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
+                    PRIVATE
+                    -ldw -lelf
+                )
+            endif()
         endforeach()
     endif()
 
-    file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
+    # Benchmark files - only build if BENCH_SOURCE_FILES was provided
     if(BENCH_SOURCE_FILES AND NOT FUZZING)
         foreach(BENCHMARK_SOURCE ${BENCH_SOURCE_FILES})
             get_filename_component(BENCHMARK_NAME ${BENCHMARK_SOURCE} NAME_WE) # extract name without extension
@@ -231,12 +268,12 @@ function(barretenberg_module MODULE_NAME)
                 ${BENCHMARK_NAME}_bench
                 PRIVATE
                 ${MODULE_LINK_NAME}
-                ${ARGN}
+                ${MODULE_DEPENDENCIES}
                 benchmark::benchmark
                 ${TRACY_LIBS}
                 ${TBB_IMPORTED_TARGETS}
             )
-            if(CHECK_CIRCUIT_STACKTRACES)
+            if(ENABLE_STACKTRACES)
                 target_link_libraries(
                     ${BENCHMARK_NAME}_bench_objects
                     PUBLIC
@@ -268,4 +305,28 @@ function(barretenberg_module MODULE_NAME)
 
     set(${MODULE_NAME}_lib_targets ${lib_targets} PARENT_SCOPE)
     set(${MODULE_NAME}_exe_targets ${exe_targets} PARENT_SCOPE)
+endfunction()
+
+function(barretenberg_module MODULE_NAME)
+    # Auto-discover all source files
+    file(GLOB_RECURSE SOURCE_FILES *.cpp)
+    file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
+    file(GLOB_RECURSE TEST_SOURCE_FILES *.test.cpp)
+    file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
+    file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)
+    list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\\.(fuzzer|test|bench)\\.cpp$")
+
+    barretenberg_module_with_sources(
+        ${MODULE_NAME}
+        SOURCE_FILES ${SOURCE_FILES}
+        HEADER_FILES ${HEADER_FILES}
+        TEST_SOURCE_FILES ${TEST_SOURCE_FILES}
+        BENCH_SOURCE_FILES ${BENCH_SOURCE_FILES}
+        FUZZERS_SOURCE_FILES ${FUZZERS_SOURCE_FILES}
+        DEPENDENCIES ${ARGN}
+    )
+
+    # Propagate targets to parent scope
+    set(${MODULE_NAME}_lib_targets ${${MODULE_NAME}_lib_targets} PARENT_SCOPE)
+    set(${MODULE_NAME}_exe_targets ${${MODULE_NAME}_exe_targets} PARENT_SCOPE)
 endfunction()

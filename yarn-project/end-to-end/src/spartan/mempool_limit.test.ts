@@ -1,152 +1,133 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { AztecAddress, Fr, SponsoredFeePaymentMethod, Tx, TxStatus, type Wallet } from '@aztec/aztec.js';
-import type { UserFeeOptions } from '@aztec/entrypoints/interfaces';
+// import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+// import { AztecAddress } from '@aztec/aztec.js/addresses';
+// import type { InteractionFeeOptions } from '@aztec/entrypoints/interfaces';
+// import { asyncPool } from '@aztec/foundation/async-pool';
+// import { times } from '@aztec/foundation/collection';
+// import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
+// import { createLogger } from '@aztec/foundation/log';
+// import { TokenContract } from '@aztec/noir-contracts.js/Token';
+// import { createPXE } from '@aztec/pxe/server';
+// import {
+//   type AztecNode,
+//   type AztecNodeAdmin,
+//   createAztecNodeAdminClient,
+//   createAztecNodeClient,
+// } from '@aztec/stdlib/interfaces/client';
+// import { deriveSigningKey } from '@aztec/stdlib/keys';
+// import { makeTracedFetch } from '@aztec/telemetry-client';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { Tx, TxStatus } from '@aztec/aztec.js/tx';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { times } from '@aztec/foundation/collection';
-import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import { createLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { createPXEService } from '@aztec/pxe/server';
-import {
-  type AztecNode,
-  type AztecNodeAdmin,
-  createAztecNodeAdminClient,
-  createAztecNodeClient,
-} from '@aztec/stdlib/interfaces/client';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { makeTracedFetch } from '@aztec/telemetry-client';
+import { retryUntil } from '@aztec/foundation/retry';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
+import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
-import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
+import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import {
+  type TestAccounts,
+  createWalletAndAztecNodeClient,
+  deploySponsoredTestAccounts,
+} from './setup_test_wallets.js';
+import { getSequencersConfig, setupEnvironment, startPortForwardForRPC, updateSequencersConfig } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
 const debugLogger = createLogger('e2e:spartan-test:mempool_limiter');
 
-const pxeOptions = {
-  dataDirectory: undefined,
-  dataStoreMapSizeKB: 1024 ** 2, // max size is 1GB
-};
-
-const TX_FLOOD_SIZE = 100;
+const TX_FLOOD_SIZE = 30;
 const TX_MEMPOOL_LIMIT = 25;
 const CONCURRENCY = 25;
 
 describe('mempool limiter test', () => {
-  // we need a node to change its mempoolTxSize for this test
-  let nodeAdmin: AztecNodeAdmin;
-  // the regular API for the same node
-  let node: AztecNode;
-
-  let accountSecretKey: Fr;
-  let accountSalt: Fr;
-  let tokenContractAddress: AztecAddress;
+  jest.setTimeout(10 * 60 * 2000); // 20 minutes
+  let node: ReturnType<typeof createAztecNodeClient>;
   let sampleTx: Tx;
-
-  let fee: UserFeeOptions;
+  let testAccounts: TestAccounts;
+  let cleanup: undefined | (() => Promise<void>);
+  let rpcUrl: string;
+  let originalMinTxsPerBlock: number | undefined;
 
   const forwardProcesses: ChildProcess[] = [];
 
   beforeAll(async () => {
-    let NODE_URL: string;
-    let NODE_ADMIN_URL: string;
-
-    if (isK8sConfig(config)) {
-      const nodeAdminFwd = await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-full-node-admin`,
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_NODE_ADMIN_PORT,
-      });
-
-      const nodeFwd = await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-full-node`,
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_NODE_PORT,
-      });
-
-      forwardProcesses.push(nodeAdminFwd.process, nodeFwd.process);
-      NODE_ADMIN_URL = `http://127.0.0.1:${nodeAdminFwd.port}`;
-      NODE_URL = `http://127.0.0.1:${nodeFwd.port}`;
-    } else {
-      NODE_ADMIN_URL = config.NODE_ADMIN_URL;
-      NODE_URL = config.NODE_URL;
-    }
-
-    const fetch = makeTracedFetch(
-      times(10, () => 1),
-      false,
-      makeUndiciFetch(new Agent({ connections: CONCURRENCY })),
-    );
-    nodeAdmin = createAztecNodeAdminClient(NODE_ADMIN_URL, {}, fetch);
-    node = createAztecNodeClient(NODE_URL, {}, fetch);
+    const { process, port } = await startPortForwardForRPC(config.NAMESPACE);
+    forwardProcesses.push(process);
+    rpcUrl = `http://127.0.0.1:${port}`;
+    node = createAztecNodeClient(rpcUrl);
+    const initialBlock = await node.getBlockNumber().catch(() => 0n);
+    debugLogger.info(`Connected to RPC at ${rpcUrl}; initial L2 block: ${initialBlock}`);
+    await retryUntil(async () => await node.isReady(), 'node ready', 60, 1);
   });
 
   beforeAll(async () => {
     debugLogger.debug(`Preparing account and token contract`);
+    // set a large pool size so that deploy txs fit and allow blocks with few txs
+    const configs = await getSequencersConfig(config);
+    originalMinTxsPerBlock = configs[0]?.minTxsPerBlock;
+    await updateSequencersConfig(config, { maxTxPoolSize: 1e9, minTxsPerBlock: 0 });
+    await retryUntil(
+      async () => {
+        const applied = await getSequencersConfig(config);
+        return applied.every(c => c.minTxsPerBlock === 0 && c.maxTxPoolSize === 1e9);
+      },
+      'admin config propagate',
+      60,
+      1,
+    );
 
-    // set a large pool size so that deploy txs fit
-    await nodeAdmin.setConfig({ maxTxPoolSize: 1e9 });
-
-    const pxe = await createPXEService(node, pxeOptions);
-
-    await registerSponsoredFPC(pxe);
-    fee = {
-      paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()),
-    };
-
-    accountSecretKey = Fr.fromHexString('0xcafe');
-    accountSalt = Fr.ONE;
-    const account = await getSchnorrAccount(pxe, accountSecretKey, deriveSigningKey(accountSecretKey), accountSalt);
-    const meta = await pxe.getContractMetadata(account.getAddress());
-    let wallet: Wallet;
-    if (meta.isContractInitialized) {
-      wallet = await account.register();
-    } else {
-      const res = await account.deploy({ fee }).wait();
-      wallet = res.wallet;
+    const {
+      wallet,
+      aztecNode,
+      cleanup: _cleanup,
+    } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger);
+    cleanup = _cleanup;
+    // Ensure blocks are advancing before we start waiting on tx inclusion
+    const startBlock = await node.getBlockNumber();
+    try {
+      await retryUntil(async () => (await node.getBlockNumber()) > startBlock, 'block advance', 120, 1);
+    } catch {
+      debugLogger.warn(`No block advance observed yet; continuing`);
     }
-
-    debugLogger.info(`Deployed account: ${account.getAddress()}`);
-
-    const tokenDeploy = TokenContract.deploy(wallet, wallet.getAddress(), 'TEST', 'T', 18);
-    const token = await tokenDeploy.register({ contractAddressSalt: Fr.ONE });
-    tokenContractAddress = token.address;
-
-    const tokenMeta = await pxe.getContractMetadata(token.address);
-    if (!tokenMeta.isContractInitialized) {
-      await tokenDeploy.send({ contractAddressSalt: Fr.ONE, fee }).wait();
-      debugLogger.info(`Deployed token contract: ${tokenContractAddress}`);
-
-      await token.methods
-        .mint_to_public(wallet.getAddress(), 10n ** 18n)
-        .send({ fee })
-        .wait();
-      debugLogger.info(`Minted tokens`);
-    } else {
-      debugLogger.info(`Token contract already deployed at: ${token.address}`);
-    }
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, 1n, debugLogger);
 
     debugLogger.debug(`Calculating mempool limits`);
 
-    const proventx = await token.methods
-      .transfer_in_public(wallet.getAddress(), await AztecAddress.random(), 1, 0)
-      .prove({ fee });
-    sampleTx = proventx;
+    const sender = testAccounts.accounts[0];
+
+    const baseTx = await proveInteraction(
+      wallet,
+      testAccounts.tokenContract.methods.transfer_in_public(sender, await AztecAddress.random(), 1n, 0),
+      {
+        from: sender,
+        fee: {
+          paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()),
+        },
+      },
+    );
+    sampleTx = Tx.clone(baseTx);
     const sampleTxSize = sampleTx.getSize();
     const maxTxPoolSize = TX_MEMPOOL_LIMIT * sampleTxSize;
 
-    await nodeAdmin.setConfig({ maxTxPoolSize });
+    await updateSequencersConfig(config, { maxTxPoolSize });
 
     debugLogger.info(`Sample tx size: ${sampleTxSize} bytes`);
     debugLogger.info(`Mempool limited to: ${maxTxPoolSize} bytes`);
-
-    await pxe.stop();
-  }, 240_000);
+  });
 
   afterAll(async () => {
-    await nodeAdmin.setConfig({ maxTxPoolSize: 1e9 });
+    if (originalMinTxsPerBlock !== undefined) {
+      await updateSequencersConfig(config, { maxTxPoolSize: 1e9, minTxsPerBlock: originalMinTxsPerBlock });
+    } else {
+      await updateSequencersConfig(config, { maxTxPoolSize: 1e9 });
+    }
+    await cleanup?.();
     forwardProcesses.forEach(p => p.kill());
   });
 

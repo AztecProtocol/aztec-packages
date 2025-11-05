@@ -3,8 +3,8 @@ import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
-import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
+import type { ENR } from '@nethermindeth/enr';
 
 import type { P2PConfig } from '../config.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
@@ -125,11 +125,11 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
-   * Returns whether the given tx hash is flagged as pending or mined.
+   * Returns whether the given tx hash is flagged as pending, mined, or deleted.
    * @param txHash - Hash of the tx to query.
-   * @returns Pending or mined depending on its status, or undefined if not found.
+   * @returns Pending, mined, or deleted depending on its status, or undefined if not found.
    */
-  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
+  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined>;
 
   /** Returns an iterator over pending txs on the mempool. */
   iteratePendingTxs(): AsyncIterableIterator<Tx>;

@@ -1,4 +1,3 @@
-// docs:start:mint_to_public_content_hash_nr
 use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, hash::sha256_to_field, traits::ToField};
 
 // Computes a content hash of a deposit/mint_to_public message.
@@ -25,9 +24,7 @@ pub fn get_mint_to_public_content_hash(owner: AztecAddress, amount: u128) -> Fie
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }
-// docs:end:mint_to_public_content_hash_nr
 
-// docs:start:get_mint_to_private_content_hash
 // Computes a content hash of a deposit/mint_to_private message.
 // Refer TokenPortal.sol for reference on L1.
 pub fn get_mint_to_private_content_hash(amount: u128) -> Field {
@@ -49,9 +46,7 @@ pub fn get_mint_to_private_content_hash(amount: u128) -> Field {
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }
-// docs:end:get_mint_to_private_content_hash
 
-// docs:start:get_withdraw_content_hash
 // Computes a content hash of a withdraw message.
 pub fn get_withdraw_content_hash(
     recipient: EthAddress,
@@ -84,4 +79,3 @@ pub fn get_withdraw_content_hash(
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }
-// docs:end:get_withdraw_content_hash

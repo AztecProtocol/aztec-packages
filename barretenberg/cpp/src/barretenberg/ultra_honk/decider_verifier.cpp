@@ -10,12 +10,12 @@
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/decider_verification_key.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
 
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator,
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
                                            const std::shared_ptr<Transcript>& transcript)
     : accumulator(accumulator)
     , transcript(transcript)
@@ -48,13 +48,16 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
 
     const size_t log_circuit_size = static_cast<size_t>(accumulator->vk->log_circuit_size);
 
-    std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N);
+    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : log_circuit_size;
 
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-        padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+    std::vector<FF> padding_indicator_array(virtual_log_n, 1);
+    if constexpr (Flavor::HasZK) {
+        for (size_t idx = 0; idx < virtual_log_n; idx++) {
+            padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+        }
     }
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alphas, CONST_PROOF_SIZE_LOG_N, accumulator->target_sum);
+    SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alpha, virtual_log_n, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {

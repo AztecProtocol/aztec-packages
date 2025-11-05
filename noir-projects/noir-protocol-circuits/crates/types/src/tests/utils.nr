@@ -1,4 +1,4 @@
-use crate::{traits::{Deserialize, Empty}, utils::arrays::validate_array};
+use crate::traits::{Deserialize, Empty};
 
 pub fn assert_array_eq<T, let N: u32, let M: u32>(array: [T; N], expected: [T; M])
 where
@@ -11,6 +11,23 @@ where
     }
 }
 
+fn validate_array<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty,
+{
+    let mut seen_empty = false;
+    let mut length = 0;
+    for i in 0..N {
+        if array[i].is_empty() {
+            seen_empty = true;
+        } else {
+            assert_eq(seen_empty, false, "invalid array");
+            length += 1;
+        }
+    }
+    length
+}
+
 // Swap two items in a BoundedVec.
 // Useful when we want to shuffle side effects, which by default are ordered by counters when we add mock data to FixtureBuilder.
 pub fn swap_items<T, let N: u32>(vec: &mut BoundedVec<T, N>, from_index: u32, to_index: u32) {
@@ -19,19 +36,19 @@ pub fn swap_items<T, let N: u32>(vec: &mut BoundedVec<T, N>, from_index: u32, to
     vec.set(to_index, tmp);
 }
 
-pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N], emptyItem: T) -> [T; M] {
-    let mut output = [emptyItem; M];
+pub fn pad_end_with<T, let N: u32, let M: u32>(items: [T; N], padded_item: T) -> [T; M] {
+    let mut output = [padded_item; M];
     for i in 0..N {
         output[i] = items[i];
     }
     output
 }
 
-pub fn pad_end_with_empty<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
+pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
 where
     T: Empty,
 {
-    pad_end(items, T::empty())
+    pad_end_with(items, T::empty())
 }
 
 pub fn make_fixture<T>(seed: Field) -> T

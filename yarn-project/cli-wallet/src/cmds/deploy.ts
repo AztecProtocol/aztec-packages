@@ -1,15 +1,22 @@
-import { type AccountWalletWithSecretKey, ContractDeployer, type DeployOptions, Fr } from '@aztec/aztec.js';
-import { encodeArgs, getContractArtifact } from '@aztec/cli/utils';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { DeployOptions } from '@aztec/aztec.js/contracts';
+import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { encodeArgs, getContractArtifact, prettyPrintJSON } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
-import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
+import { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
+import type { CLIWallet } from '../utils/wallet.js';
 
 export async function deploy(
-  wallet: AccountWalletWithSecretKey,
+  wallet: CLIWallet,
+  node: AztecNode,
+  deployer: AztecAddress,
   artifactPath: string,
   json: boolean,
   publicKeys: PublicKeys | undefined,
@@ -19,15 +26,14 @@ export async function deploy(
   skipInstancePublication: boolean,
   skipClassPublication: boolean,
   skipInitialization: boolean | undefined,
-  universalDeploy: boolean | undefined,
   wait: boolean,
-  feeOpts: IFeeOpts,
+  feeOpts: CLIFeeArgs,
   verbose: boolean,
   timeout: number = DEFAULT_TX_TIMEOUT_S,
   debugLogger: Logger,
   log: LogFn,
-  logJson: (output: any) => void,
 ) {
+  const out: Record<string, any> = {};
   salt ??= Fr.random();
   const contractArtifact = await getContractArtifact(artifactPath, log);
   const hasInitializer = getAllFunctionAbis(contractArtifact).some(fn => fn.isInitializer);
@@ -35,7 +41,12 @@ export async function deploy(
 
   // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
-  const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys ?? PublicKeys.default(), initializer);
+  const contractDeployer = new ContractDeployer(
+    contractArtifact,
+    wallet,
+    publicKeys ?? PublicKeys.default(),
+    initializer,
+  );
 
   let args = [];
   if (rawArgs.length > 0) {
@@ -47,70 +58,73 @@ export async function deploy(
     debugLogger.debug(`Encoded arguments: ${args.join(', ')}`);
   }
 
-  const deploy = deployer.deploy(...args);
+  const deploy = contractDeployer.deploy(...args);
+  const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, deployer);
   const deployOpts: DeployOptions = {
-    ...(await feeOpts.toDeployAccountOpts(wallet)),
+    fee: { gasSettings, paymentMethod },
+    from: deployer ?? AztecAddress.ZERO,
     contractAddressSalt: salt,
-    universalDeploy,
+    universalDeploy: !deployer,
     skipClassPublication,
     skipInitialization,
     skipInstancePublication,
   };
 
+  const { estimatedGas, stats } = await deploy.simulate({
+    ...deployOpts,
+    fee: { ...deployOpts.fee, estimateGas: true },
+  });
+
   if (feeOpts.estimateOnly) {
-    const gas = await deploy.estimateGas(deployOpts);
-    printGasEstimates(feeOpts, gas, log);
-    return;
-  }
-
-  const provenTx = await deploy.prove(deployOpts);
-  if (verbose) {
-    printProfileResult(provenTx.stats!, log);
-  }
-
-  const tx = provenTx.send();
-
-  const txHash = await tx.getTxHash();
-  debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
-  if (wait) {
-    const deployed = await tx.wait({ timeout });
-    const { address, partialAddress, instance } = deployed.contract;
     if (json) {
-      logJson({
-        address: address.toString(),
-        partialAddress: (await partialAddress).toString(),
-        initializationHash: instance.initializationHash.toString(),
-        salt: salt.toString(),
-        transactionFee: deployed.transactionFee?.toString(),
-      });
-    } else {
-      log(`Contract deployed at ${address.toString()}`);
-      log(`Contract partial address ${(await partialAddress).toString()}`);
-      log(`Contract init hash ${instance.initializationHash.toString()}`);
-      log(`Deployment tx hash: ${txHash.toString()}`);
-      log(`Deployment salt: ${salt.toString()}`);
-      log(`Deployment fee: ${deployed.transactionFee}`);
+      out.fee = {
+        gasLimits: {
+          da: estimatedGas.gasLimits.daGas,
+          l2: estimatedGas.gasLimits.l2Gas,
+        },
+        teardownGasLimits: {
+          da: estimatedGas.teardownGasLimits.daGas,
+          l2: estimatedGas.teardownGasLimits,
+        },
+      };
     }
   } else {
+    const tx = deploy.send(deployOpts);
+    if (verbose) {
+      printProfileResult(stats, log);
+    }
+
+    const txHash = await tx.getTxHash();
+    debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
+    out.hash = txHash;
     const { address, partialAddress } = deploy;
     const instance = await deploy.getInstance();
-    if (json) {
-      logJson({
-        address: address?.toString() ?? 'N/A',
-        partialAddress: (await partialAddress)?.toString() ?? 'N/A',
-        txHash: txHash.toString(),
-        initializationHash: instance.initializationHash.toString(),
-        salt: salt.toString(),
-        deployer: instance.deployer.toString(),
-      });
-    } else {
+    if (!json) {
       log(`Contract deployed at ${address?.toString()}`);
       log(`Contract partial address ${(await partialAddress)?.toString()}`);
       log(`Contract init hash ${instance.initializationHash.toString()}`);
       log(`Deployment tx hash: ${txHash.toString()}`);
       log(`Deployment salt: ${salt.toString()}`);
       log(`Deployer: ${instance.deployer.toString()}`);
+    } else {
+      out.contract = {
+        address: address?.toString(),
+        partialAddress: (await partialAddress)?.toString(),
+        initializationHash: instance.initializationHash.toString(),
+        salt: salt.toString(),
+      };
     }
+    if (wait) {
+      const deployed = await tx.wait({ timeout });
+      if (!json) {
+        log(`Transaction fee: ${deployed.transactionFee?.toString()}`);
+      } else {
+        out.contract.transactionFee = deployed.transactionFee?.toString();
+      }
+    }
+  }
+  if (json) {
+    log(prettyPrintJSON(out));
   }
   return deploy.address;
 }

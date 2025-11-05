@@ -2,6 +2,24 @@ import { test, expect } from '@playwright/test';
 
 test('test', async ({ page }) => {
   test.slow();
+  page.on('console', msg => {
+    const text = msg.text();
+    if (msg.type() === 'error') {
+      console.error(text);
+      // Fail immediately on JavaScript errors to avoid timeout
+      if (
+        text.includes('Uncaught') ||
+        text.includes('TypeError') ||
+        text.includes('ReferenceError') ||
+        text.includes('SyntaxError') ||
+        text.includes('RangeError')
+      ) {
+        throw new Error(`JavaScript error detected: ${text}`);
+      }
+    } else {
+      console.log(text);
+    }
+  });
   await page.goto('/');
 
   // Deploy contract

@@ -31,8 +31,6 @@ template <typename Fr> Fr evaluate(std::span<const Fr> coeffs, const Fr& z)
     return evaluate(coeffs, z, coeffs.size());
 };
 template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, const size_t large_n);
-template <typename Fr>
-void copy_polynomial(const Fr* src, Fr* dest, size_t num_src_coefficients, size_t num_target_coefficients);
 
 //  2. Compute a lookup table of the roots of unity, and suffer through cache misses from nonlinear access patterns
 template <typename Fr>
@@ -70,13 +68,6 @@ void coset_fft(Fr* coeffs,
 
 template <typename Fr>
     requires SupportsFFT<Fr>
-void coset_fft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& constant);
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void coset_fft_with_generator_shift(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& constant);
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
 void ifft(Fr* coeffs, const EvaluationDomain<Fr>& domain);
 template <typename Fr>
     requires SupportsFFT<Fr>
@@ -84,10 +75,6 @@ void ifft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain);
 template <typename Fr>
     requires SupportsFFT<Fr>
 void ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain);
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void ifft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& value);
 
 template <typename Fr>
     requires SupportsFFT<Fr>
@@ -99,10 +86,6 @@ void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain);
 // void populate_with_vanishing_polynomial(Fr* coeffs, const size_t num_non_zero_entries, const EvaluationDomain<Fr>&
 // src_domain, const EvaluationDomain<Fr>& target_domain);
 
-template <typename Fr>
-    requires SupportsFFT<Fr>
-Fr compute_kate_opening_coefficients(const Fr* src, Fr* dest, const Fr& z, const size_t n);
-
 fr compute_barycentric_evaluation(const fr* coeffs,
                                   unsigned long num_coeffs,
                                   const fr& z,
@@ -113,10 +96,6 @@ template <typename Fr> Fr compute_sum(const Fr* src, const size_t n);
 
 // This function computes the polynomial (x - a)(x - b)(x - c)... given n distinct roots (a, b, c, ...).
 template <typename Fr> void compute_linear_polynomial_product(const Fr* roots, Fr* dest, const size_t n);
-
-// This function interpolates from points {(z_1, f(z_1)), (z_2, f(z_2)), ...}.
-// `src` contains {f(z_1), f(z_2), ...}
-template <typename Fr> void compute_interpolation(const Fr* src, Fr* dest, const Fr* evaluation_points, const size_t n);
 
 // This function interpolates from points {(z_1, f(z_1)), (z_2, f(z_2)), ...}
 // using a single scalar inversion and Lagrange polynomial interpolation.

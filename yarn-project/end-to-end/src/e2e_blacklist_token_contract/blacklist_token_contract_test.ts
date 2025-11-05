@@ -1,21 +1,15 @@
-import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import {
-  type AccountWallet,
-  AztecAddress,
-  type AztecNode,
-  type CompleteAddress,
-  Fr,
-  type Logger,
-  type PXE,
-  type TxHash,
-  computeSecretHash,
-  createLogger,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { computeSecretHash } from '@aztec/aztec.js/crypto';
+import { Fr } from '@aztec/aztec.js/fields';
+import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { TxHash } from '@aztec/aztec.js/tx';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
@@ -63,9 +57,7 @@ export class BlacklistTokenContractTest {
 
   private snapshotManager: ISnapshotManager;
   logger: Logger;
-  wallets: AccountWallet[] = [];
-  pxe!: PXE;
-  accounts: CompleteAddress[] = [];
+  wallet!: TestWallet;
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
   badAccount!: InvalidAccountContract;
@@ -73,9 +65,9 @@ export class BlacklistTokenContractTest {
   sequencer!: SequencerClient;
   aztecNode!: AztecNode;
 
-  admin!: AccountWallet;
-  other!: AccountWallet;
-  blacklisted!: AccountWallet;
+  adminAddress!: AztecAddress;
+  otherAddress!: AztecAddress;
+  blacklistedAddress!: AztecAddress;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_blacklist_token_contract:${testName}`);
@@ -102,16 +94,15 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      async ({ deployedAccounts }, { pxe, cheatCodes, aztecNode, sequencer }) => {
-        this.pxe = pxe;
+      ({ deployedAccounts }, { cheatCodes, aztecNode, sequencer, wallet }) => {
         this.cheatCodes = cheatCodes;
         this.aztecNode = aztecNode;
         this.sequencer = sequencer;
-        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
-        this.admin = this.wallets[0];
-        this.other = this.wallets[1];
-        this.blacklisted = this.wallets[2];
-        this.accounts = this.wallets.map(w => w.getCompleteAddress());
+        this.wallet = wallet;
+        this.adminAddress = deployedAccounts[0].address;
+        this.otherAddress = deployedAccounts[1].address;
+        this.blacklistedAddress = deployedAccounts[2].address;
+        return Promise.resolve();
       },
     );
 
@@ -121,14 +112,16 @@ export class BlacklistTokenContractTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 3));
+        await publicDeployAccounts(this.wallet, [this.adminAddress, this.otherAddress, this.blacklistedAddress]);
 
         this.logger.verbose(`Deploying TokenContract...`);
-        this.asset = await TokenBlacklistContract.deploy(this.admin, this.admin.getAddress()).send().deployed();
+        this.asset = await TokenBlacklistContract.deploy(this.wallet, this.adminAddress)
+          .send({ from: this.adminAddress })
+          .deployed();
         this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress }).deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         await this.crossTimestampOfChange();
@@ -137,20 +130,21 @@ export class BlacklistTokenContractTest {
       },
       async ({ tokenContractAddress, badAccountAddress }) => {
         // Restore the token contract state.
-        this.asset = await TokenBlacklistContract.at(tokenContractAddress, this.wallets[0]);
+        this.asset = await TokenBlacklistContract.at(tokenContractAddress, this.wallet);
         this.logger.verbose(`Token contract address: ${this.asset.address}`);
 
         this.tokenSim = new TokenSimulator(
           this.asset as unknown as TokenContract,
-          this.wallets[0],
+          this.wallet,
+          this.adminAddress,
           this.logger,
-          this.accounts.map(a => a.address),
+          [this.adminAddress, this.otherAddress, this.blacklistedAddress],
         );
 
-        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallets[0]);
+        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallet);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
-        expect(await this.asset.methods.get_roles(this.admin.getAddress()).simulate()).toEqual(
+        expect(await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).toEqual(
           new Role().withAdmin().toNoirStruct(),
         );
       },
@@ -178,7 +172,7 @@ export class BlacklistTokenContractTest {
     secretHash: Fr,
     txHash: TxHash,
   ) {
-    const txEffects = await this.pxe.getTxEffect(txHash);
+    const txEffects = await this.aztecNode.getTxEffect(txHash);
     await contract.methods
       .deliver_transparent_note(
         contract.address,
@@ -189,69 +183,69 @@ export class BlacklistTokenContractTest {
         txEffects!.data.nullifiers[0],
         recipient,
       )
-      .simulate();
+      .simulate({ from: recipient });
   }
 
   async applyMintSnapshot() {
     await this.snapshotManager.snapshot(
       'mint',
       async () => {
-        const { asset, accounts, wallets } = this;
+        const { asset } = this;
         const amount = 10000n;
 
         const adminMinterRole = new Role().withAdmin().withMinter();
-        await this.asset
-          .withWallet(this.admin)
-          .methods.update_roles(this.admin.getAddress(), adminMinterRole.toNoirStruct())
-          .send()
+        await this.asset.methods
+          .update_roles(this.adminAddress, adminMinterRole.toNoirStruct())
+          .send({ from: this.adminAddress })
           .wait();
 
         const blacklistRole = new Role().withBlacklisted();
-        await this.asset
-          .withWallet(this.admin)
-          .methods.update_roles(this.blacklisted.getAddress(), blacklistRole.toNoirStruct())
-          .send()
+        await this.asset.methods
+          .update_roles(this.blacklistedAddress, blacklistRole.toNoirStruct())
+          .send({ from: this.adminAddress })
           .wait();
 
         await this.crossTimestampOfChange();
 
-        expect(await this.asset.methods.get_roles(this.admin.getAddress()).simulate()).toEqual(
+        expect(await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).toEqual(
           adminMinterRole.toNoirStruct(),
         );
 
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(accounts[0].address, amount).send().wait();
+        await asset.methods.mint_public(this.adminAddress, amount).send({ from: this.adminAddress }).wait();
 
         this.logger.verbose(`Minting ${amount} privately...`);
         const secret = Fr.random();
         const secretHash = await computeSecretHash(secret);
-        const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
+        const receipt = await asset.methods.mint_private(amount, secretHash).send({ from: this.adminAddress }).wait();
 
-        await this.addPendingShieldNoteToPXE(asset, wallets[0].getAddress(), amount, secretHash, receipt.txHash);
-        const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
+        await this.addPendingShieldNoteToPXE(asset, this.adminAddress, amount, secretHash, receipt.txHash);
+        const txClaim = asset.methods
+          .redeem_shield(this.adminAddress, amount, secret)
+          .send({ from: this.adminAddress });
         await txClaim.wait();
         this.logger.verbose(`Minting complete.`);
 
         return { amount };
       },
       async ({ amount }) => {
-        const {
-          asset,
-          accounts: [{ address }],
-          tokenSim,
-        } = this;
-        tokenSim.mintPublic(address, amount);
+        const { asset, tokenSim } = this;
+        tokenSim.mintPublic(this.adminAddress, amount);
 
-        const publicBalance = await asset.methods.balance_of_public(address).simulate();
+        const publicBalance = await asset.methods
+          .balance_of_public(this.adminAddress)
+          .simulate({ from: this.adminAddress });
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
-        expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
+        expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(this.adminAddress));
 
-        tokenSim.mintPrivate(address, amount);
-        const privateBalance = await asset.methods.balance_of_private(address).simulate();
+        tokenSim.mintPrivate(this.adminAddress, amount);
+        const privateBalance = await asset.methods
+          .balance_of_private(this.adminAddress)
+          .simulate({ from: this.adminAddress });
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
-        expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
+        expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(this.adminAddress));
 
-        const totalSupply = await asset.methods.total_supply().simulate();
+        const totalSupply = await asset.methods.total_supply().simulate({ from: this.adminAddress });
         this.logger.verbose(`Total supply: ${totalSupply}`);
         expect(totalSupply).toEqual(tokenSim.totalSupply);
 

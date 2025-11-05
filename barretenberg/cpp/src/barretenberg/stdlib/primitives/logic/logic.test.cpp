@@ -122,7 +122,7 @@ TYPED_TEST(LogicTest, DifferentWitnessSameResult)
 
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
-    if (HasPlookup<Builder>) {
+    if (IsUltraOrMegaBuilder<Builder>) {
         uint256_t a = 3758096391;
         uint256_t b = 2147483649;
         field_ct x = witness_ct(&builder, uint256_t(a));

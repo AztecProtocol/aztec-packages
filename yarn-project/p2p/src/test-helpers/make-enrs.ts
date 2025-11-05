@@ -1,7 +1,7 @@
 import type { ChainConfig } from '@aztec/stdlib/config';
 
-import { SignableENR } from '@chainsafe/enr';
 import { multiaddr } from '@multiformats/multiaddr';
+import { SignableENR } from '@nethermindeth/enr';
 
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 import { setAztecEnrKey } from '../versioning.js';

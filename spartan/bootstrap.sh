@@ -7,8 +7,20 @@ hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootst
 
 dump_fail "flock scripts/logs/install_deps.lock retry scripts/install_deps.sh >&2"
 
+source ./scripts/source_env_basic.sh
+source ./scripts/source_network_env.sh
+source ./scripts/gcp_auth.sh
+
 function build {
-  denoise "helm lint ./aztec-network/"
+  denoise "helm lint ./aztec-bot/"
+  denoise "helm lint ./aztec-chaos-scenarios/"
+  denoise "helm lint ./aztec-keystore/"
+  denoise "helm lint ./aztec-node/"
+  denoise "helm lint ./aztec-prover-stack/"
+  denoise "helm lint ./aztec-snapshots/"
+  denoise "helm lint ./aztec-validator/"
+  denoise "helm lint ./eth-devnet/"
+  denoise ./spartan/scripts/check_env_vars.sh
 }
 
 function network_shaping {
@@ -53,64 +65,131 @@ function gke {
 }
 
 function test_cmds {
-  if [ "$(arch)" == "arm64" ]; then
-    # Currently maddiaa/eth2-testnet-genesis is not published for arm64. Skip KIND tests.
-    return
-  fi
-  # Note: commands that start with 'timeout ...' override the default timeout.
-  # TODO figure out why these take long sometimes.
-  # echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
+  # the existing test flow is deprecated.
+  # we are moving things to use the same deployment flow as the scenario/staging networks.
+  :
+}
 
-  if [ "$CI_NIGHTLY" -eq 1 ]; then
-    NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
-    echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer reth"
-    echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer geth"
+function network_test_cmds {
+  # a github runner has a maximum of 6 hours.
+  # currently, we allocate just shy of one hour for each test, so we can have at most 6 tests.
+  # If we have more tests, we can reduce the epoch/slot duration in the tests,
+  # or parallelize somehow. It's just something to be aware of if you are adding new tests here.
+  local prefix="disabled-cache:CPUS=10:MEM=16g:TIMEOUT=120m"
+  local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
+  echo $prefix $run_test_script simple src/spartan/smoke.test.ts
+  echo $prefix $run_test_script simple src/spartan/transfer.test.ts
+  echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
+}
 
-    # Nethermind test can be enabled once https://github.com/NethermindEth/nethermind/pull/8897 is released
-    # echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer nethermind"
-
-    #echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-1tps"
-    #echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-4epochs"
-
-    # These tests get their own namespaces otherwise they'd interfere with the other tests
-    #echo "$hash:TIMEOUT=30m MONITOR_DEPLOYMENT=false NAME_POSTFIX='-$NIGHTLY_NS' ./spartan/bootstrap.sh test-gke-upgrade-rollup-version"
-    #echo "$hash:TIMEOUT=30m MONITOR_DEPLOYMENT=false NAME_POSTFIX='-$NIGHTLY_NS' ./spartan/bootstrap.sh test-gke-cli-upgrade"
-
-    # TODO(#12791) re-enable
-    # echo "$hash:TIMEOUT=50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
-    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-prod-deployment"
-  fi
+function single_test {
+  local test_file="$1"
+  $root/yarn-project/end-to-end/scripts/run_test.sh simple $test_file
 }
 
 function start_env {
   if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
-    export MONITOR_DEPLOYMENT=false
-    export WAIT_FOR_DEPLOYMENT=false
-    export CLUSTER_NAME=aztec-gke-private
-    export ZONE=us-west1-a
-    export GCP_PROJECT_ID=${GCP_PROJECT_ID:-"testnet-440309"}
-    echo "Installing test network in namespace $NIGHTLY_NS"
-    ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS" "$GCP_PROJECT_ID"
+    echo "Skipping start_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
   fi
 }
 
 function stop_env {
   if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
-    echo "Uninstalling test network in namespace $NIGHTLY_NS"
-    ./scripts/cleanup_k8s.sh "$NIGHTLY_NS" "$NIGHTLY_NS"
+    echo "Skipping stop_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
   fi
 }
 
+
 function test {
-  echo_header "spartan test"
-  test_cmds | filter_test_cmds | parallelise
+  echo_header "spartan test (deprecated)"
+  # the existing test flow is deprecated.
+  # we are moving things to use the same deployment flow as the scenario/staging networks.
+  :
+}
+
+function network_tests {
+  local env_file="$1"
+  echo_header "spartan scenario test"
+
+  # no parallelize here as we want to run the tests sequentially
+  export SCENARIO_TESTS=1
+  source_network_env $env_file
+
+  gcp_auth
+  network_test_cmds | filter_test_cmds | parallelize 1
+}
+
+function ensure_eth_balances {
+  amount="$1"
+  # if ETHEREUM_HOST is not set, use the first RPC URL
+  if [ -z "${ETHEREUM_HOST:-}" ]; then
+    # if using kind, prefer localhost RPC. Requires user to port-forward 8545.
+    if [[ "${CLUSTER:-kind}" == "kind" ]]; then
+      export ETHEREUM_HOST="http://localhost:8545"
+    else
+      export ETHEREUM_HOST=$(echo "${ETHEREUM_RPC_URLS}" | jq -r '.[0]')
+    fi
+  fi
+  ./scripts/ensure_eth_balances.sh "$ETHEREUM_HOST" "$FUNDING_PRIVATE_KEY" "$LABS_INFRA_MNEMONIC" "$LABS_INFRA_INDICES" "$amount"
 }
 
 case "$cmd" in
   "")
     # do nothing but the install_deps.sh above
+    ;;
+  "ensure_eth_balances")
+    shift
+    env_file="$1"
+    amount="$2"
+
+    # First pass: source environment for basic variables like CLUSTER (skip GCP secret processing)
+    source_env_basic "$env_file"
+
+    # Perform GCP auth (needs CLUSTER and other basic vars)
+    gcp_auth
+
+    # Second pass: source environment with GCP secret processing
+    source_network_env "$env_file"
+
+    ensure_eth_balances "$amount"
+    ;;
+  "ensure_funded_environment")
+    shift
+    env_file="$1"
+    low_watermark="${2:-0.5}"
+    high_watermark="${3:-1.0}"
+
+    ./scripts/ensure_funded_environment.sh "$env_file" "$FUNDING_PRIVATE_KEY" "$low_watermark" "$high_watermark"
+    ;;
+  "network_deploy")
+    shift
+    env_file="$1"
+
+    #Sets up basic env vars like RUN_TESTS
+    source_env_basic "$env_file"
+
+    # Run the network deploy script
+    ./scripts/network_deploy.sh "$env_file"
+
+    if [[ "${RUN_TESTS:-}" == "true" ]]; then
+      echo "Running tests"
+      network_tests "$env_file"
+    fi
+    ;;
+  "single_test")
+    shift
+    env_file="$1"
+    test_file="$2"
+    source_network_env $env_file
+
+    gcp_auth
+    single_test $test_file
+    ;;
+
+  "network_tests")
+    shift
+    env_file="$1"
+    network_tests $env_file
     ;;
   "kind")
     if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps | grep -q "kind-control-plane"; then
@@ -151,7 +230,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|gke|build|start_env|stop_env)
+  test|test_cmds|gke|build|start_env|stop_env|gcp_auth)
     $cmd
     ;;
   "test-kind-smoke")

@@ -33,7 +33,6 @@ contract OutboxTest is Test {
 
   function setUp() public {
     ROLLUP_CONTRACT = address(new FakeRollup());
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
 
     outbox = new Outbox(ROLLUP_CONTRACT, AZTEC_VERSION);
     zeroedTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
@@ -43,8 +42,7 @@ contract OutboxTest is Test {
   function _fakeMessage(address _recipient, uint256 _content) internal view returns (DataStructures.L2ToL1Msg memory) {
     return DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor({
-        actor: 0x2000000000000000000000000000000000000000000000000000000000000000,
-        version: AZTEC_VERSION
+        actor: 0x2000000000000000000000000000000000000000000000000000000000000000, version: AZTEC_VERSION
       }),
       recipient: DataStructures.L1Actor({actor: _recipient, chainId: block.chainid}),
       content: bytes32(_content)
@@ -60,11 +58,27 @@ contract OutboxTest is Test {
     outbox.insert(1, root);
   }
 
-  function testRevertIfInsertingDuplicate() public {
+  function testRevertIfInsertingBlockAlreadyProven() public {
     bytes32 root = zeroedTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__BlockAlreadyProven.selector, 0));
+    outbox.insert(0, root);
+  }
+
+  function testRevertIfPathTooLong() public {
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
+    bytes32[] memory path = new bytes32[](256);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__PathTooLong.selector));
+    outbox.consume(fakeMessage, 1, 0, path);
+  }
+
+  function testRevertIfLeafIndexOutOfBounds(uint256 _leafIndex) public {
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
+    bytes32[] memory path = new bytes32[](4);
+    uint256 leafIndex = bound(_leafIndex, 1 << path.length, type(uint256).max);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__LeafIndexOutOfBounds.selector, leafIndex, path.length));
+    outbox.consume(fakeMessage, 1, leafIndex, path);
   }
 
   // This function tests the insertion of random arrays of L2 to L1 messages
@@ -89,11 +103,14 @@ contract OutboxTest is Test {
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root);
 
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+
     bytes32 actualRoot = outbox.getRootData(1);
     assertEq(root, actualRoot);
   }
 
   function testRevertIfConsumingMessageBelongingToOther() public {
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
 
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
@@ -104,6 +121,7 @@ contract OutboxTest is Test {
   }
 
   function testRevertIfConsumingMessageWithInvalidChainId() public {
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
 
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
@@ -115,6 +133,8 @@ contract OutboxTest is Test {
   }
 
   function testRevertIfVersionMismatch() public {
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+
     DataStructures.L2ToL1Msg memory message = _fakeMessage(address(this), 123);
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
 
@@ -126,6 +146,7 @@ contract OutboxTest is Test {
   }
 
   function testRevertIfNothingInsertedAtBlockNumber() public {
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
     uint256 blockNumber = 1;
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
 
@@ -146,6 +167,8 @@ contract OutboxTest is Test {
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root);
 
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+
     uint256 leafIndex = 0;
     uint256 leafId = 2 ** DEFAULT_TREE_HEIGHT + leafIndex;
     (bytes32[] memory path,) = tree.computeSiblingPath(leafIndex);
@@ -165,6 +188,8 @@ contract OutboxTest is Test {
 
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root);
+
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
 
     NaiveMerkle smallerTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT - 1);
     smallerTree.insertLeaf(leaf);
@@ -191,6 +216,8 @@ contract OutboxTest is Test {
 
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root);
+
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
 
@@ -228,6 +255,8 @@ contract OutboxTest is Test {
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root);
 
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+
     uint256 leafIndex = 0;
     uint256 leafId = 2 ** DEFAULT_TREE_HEIGHT + leafIndex;
     (bytes32[] memory path,) = tree.computeSiblingPath(leafIndex);
@@ -251,7 +280,6 @@ contract OutboxTest is Test {
     uint8 _size
   ) public {
     uint256 blockNumber = bound(_blockNumber, 1, 256);
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(blockNumber);
     uint256 numberOfMessages = bound(_size, 1, _recipients.length);
     DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](numberOfMessages);
 
@@ -272,6 +300,8 @@ contract OutboxTest is Test {
     emit IOutbox.RootAdded(blockNumber, root);
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(blockNumber, root);
+
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(blockNumber);
 
     for (uint256 i = 0; i < numberOfMessages; i++) {
       (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(i);
@@ -297,6 +327,8 @@ contract OutboxTest is Test {
     outbox.insert(2, root);
     vm.stopPrank();
 
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+
     {
       bytes32 actualRoot = outbox.getRootData(1);
       assertEq(root, actualRoot);
@@ -317,6 +349,8 @@ contract OutboxTest is Test {
 
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, leaf);
+
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
 
     uint256 leafIndex = 0;
     uint256 leafId = 1;
@@ -369,6 +403,8 @@ contract OutboxTest is Test {
 
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(blockNumber, root);
+
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(blockNumber);
 
     // Consume the message of tx0.
     {
@@ -495,6 +531,8 @@ contract OutboxTest is Test {
 
       vm.prank(ROLLUP_CONTRACT);
       outbox.insert(blockNumber, root);
+
+      FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(blockNumber);
     }
 
     // Consume messages[0] in tx0.

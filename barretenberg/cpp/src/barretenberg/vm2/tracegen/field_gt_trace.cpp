@@ -18,6 +18,10 @@ void FieldGreaterThanTraceBuilder::process(
 {
     using C = Column;
 
+    // We precompute the inverses up to 4.
+    std::array<FF, 5> precomputed_inverses = { 0, 1, 2, 3, 4 };
+    FF::batch_invert(precomputed_inverses);
+
     uint32_t row = 1;
     for (const auto& event : events) {
         // Copy the things that will need range checks since we'll mutate them in the shifts
@@ -33,7 +37,7 @@ void FieldGreaterThanTraceBuilder::process(
         int8_t cmp_rng_ctr = event.operation == simulation::FieldGreaterOperation::GREATER_THAN ? 4 : 1;
 
         auto write_row = [&]() {
-            FF cmp_rng_ctr_inv = cmp_rng_ctr > 0 ? FF(cmp_rng_ctr).invert() : FF::zero();
+            FF cmp_rng_ctr_inv = precomputed_inverses.at(static_cast<size_t>(cmp_rng_ctr));
             trace.set(row,
                       { { { C::ff_gt_sel, 1 },
                           { C::ff_gt_a, event.a },

@@ -1,33 +1,21 @@
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
-import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
-import type { RequestMethodOptions, SendMethodOptions, SimulateMethodOptions } from './interaction_options.js';
+import {
+  type RequestInteractionOptions,
+  type SimulateInteractionOptions,
+  toSimulateOptions,
+} from './interaction_options.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
 export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
-    protected calls: BaseContractInteraction[],
+    protected interactions: (BaseContractInteraction | ExecutionPayload)[],
   ) {
     super(wallet);
-  }
-
-  /**
-   * Create a transaction execution request that represents this batch, encoded and authenticated by the
-   * user's wallet, ready to be simulated.
-   * @param options - An optional object containing additional configuration for the transaction.
-   * @returns A Promise that resolves to a transaction instance.
-   */
-  public async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
-    const requestWithoutFee = await this.request(options);
-
-    const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
-
-    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   /**
@@ -35,15 +23,15 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the request generation.
    * @returns An execution payload wrapped in promise.
    */
-  public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
-    const requests = await this.getRequests();
-    const combinedPayload = mergeExecutionPayloads(requests);
-    return new ExecutionPayload(
-      combinedPayload.calls,
-      combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
-      combinedPayload.capsules.concat(options.capsules ?? []),
-      combinedPayload.extraHashedArgs,
-    );
+  public async request(options: RequestInteractionOptions = {}): Promise<ExecutionPayload> {
+    const requests = await this.getExecutionPayloads();
+    const feeExecutionPayload = options.fee?.paymentMethod
+      ? await options.fee.paymentMethod.getExecutionPayload()
+      : undefined;
+    const finalExecutionPayload = feeExecutionPayload
+      ? mergeExecutionPayloads([feeExecutionPayload, ...requests])
+      : mergeExecutionPayloads([...requests]);
+    return finalExecutionPayload;
   }
 
   /**
@@ -55,8 +43,8 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
-    const { indexedExecutionPayloads, utility } = (await this.getRequests()).reduce<{
+  public async simulate(options: SimulateInteractionOptions): Promise<any> {
+    const { indexedExecutionPayloads, utility } = (await this.getExecutionPayloads()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
       /** Keep track of the number of public calls to retrieve the return values */
@@ -84,53 +72,56 @@ export class BatchCall extends BaseContractInteraction {
 
     const payloads = indexedExecutionPayloads.map(([request]) => request);
     const combinedPayload = mergeExecutionPayloads(payloads);
-    const requestWithoutFee = new ExecutionPayload(
+    const executionPayload = new ExecutionPayload(
       combinedPayload.calls,
       combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
       combinedPayload.capsules.concat(options.capsules ?? []),
       combinedPayload.extraHashedArgs,
     );
-    const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, {});
-    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, {
-      txNonce,
-      cancellable,
-    });
 
-    const utilityCalls = utility.map(
-      async ([call, index]) =>
-        [
-          await this.wallet.simulateUtility(call.name, call.args, call.to, options?.authWitnesses, options?.from),
-          index,
-        ] as const,
-    );
+    const utilityBatchPromise =
+      utility.length > 0
+        ? this.wallet.batch(
+            utility.map(([call]) => ({
+              name: 'simulateUtility' as const,
+              args: [call.name, call.args, call.to, options?.authWitnesses] as const,
+            })),
+          )
+        : Promise.resolve([]);
 
-    const [utilityResults, simulatedTx] = await Promise.all([
-      Promise.all(utilityCalls),
-      this.wallet.simulateTx(txRequest, true, options?.skipTxValidation, false, { msgSender: options?.from }),
+    const [utilityBatchResults, simulatedTx] = await Promise.all([
+      utilityBatchPromise,
+      indexedExecutionPayloads.length > 0
+        ? this.wallet.simulateTx(executionPayload, await toSimulateOptions(options))
+        : Promise.resolve(),
     ]);
 
     const results: any[] = [];
 
-    utilityResults.forEach(([{ result }, index]) => {
-      results[index] = result;
+    utilityBatchResults.forEach((wrappedResult, utilityIndex) => {
+      const [, originalIndex] = utility[utilityIndex];
+      results[originalIndex] = wrappedResult.result.result;
     });
-    indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
-      const call = request.calls[0];
-      // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
-      // since we're interested in the first set of values AFTER the account entrypoint
-      // For public functions we retrieve the first values directly from the public output.
-      const rawReturnValues =
-        call.type == FunctionType.PRIVATE
-          ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
-          : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
 
-      results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
-    });
+    if (simulatedTx) {
+      indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
+        const call = request.calls[0];
+        // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
+        // since we're interested in the first set of values AFTER the account entrypoint
+        // For public functions we retrieve the first values directly from the public output.
+        const rawReturnValues =
+          call.type == FunctionType.PRIVATE
+            ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
+            : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
+
+        results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+      });
+    }
+
     return results;
   }
 
-  private async getRequests() {
-    return await Promise.all(this.calls.map(c => c.request()));
+  protected async getExecutionPayloads(): Promise<ExecutionPayload[]> {
+    return await Promise.all(this.interactions.map(i => (i instanceof ExecutionPayload ? i : i.request())));
   }
 }

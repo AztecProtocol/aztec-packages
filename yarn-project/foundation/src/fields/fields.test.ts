@@ -1,4 +1,4 @@
-import { Fr, GrumpkinScalar } from './fields.js';
+import { Fq, Fr, GrumpkinScalar } from './fields.js';
 
 describe('GrumpkinScalar Serialization', () => {
   // Test case for GrumpkinScalar.fromHighLow
@@ -221,7 +221,7 @@ describe('Bn254 arithmetic', () => {
     });
   });
 
-  describe('Square root', () => {
+  describe('Square root (Fr)', () => {
     it.each([
       [new Fr(0), 0n],
       [new Fr(4), 2n],
@@ -242,6 +242,33 @@ describe('Bn254 arithmetic', () => {
 
       const actual = await squared.sqrt();
       expect(actual!.mul(actual!)).toEqual(squared);
+    });
+  });
+
+  describe('Square root (Fq)', () => {
+    it.each([
+      [new Fq(0), 0n],
+      [new Fq(4), 2n],
+      [new Fq(9), 3n],
+      [new Fq(16), 4n],
+    ])('Should return the correct square root for %p', async (input, expected) => {
+      const actual = (await input.sqrt())!.toBigInt();
+
+      // The square root can be either the expected value or the modulus - expected value
+      const isValid = actual == expected || actual == Fq.MODULUS - expected;
+
+      expect(isValid).toBeTruthy();
+    });
+
+    it('Should return the correct square root for a perfect square', async () => {
+      // Test sqrt(100) = 10
+      const input = new Fq(100);
+      const actual = await input.sqrt();
+
+      expect(actual).not.toBeNull();
+      // Square the result to verify
+      const squared = (actual!.toBigInt() * actual!.toBigInt()) % Fq.MODULUS;
+      expect(squared).toBe(100n);
     });
   });
 

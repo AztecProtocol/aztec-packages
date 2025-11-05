@@ -2,6 +2,7 @@ import { getPublicClient } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import type { Anvil } from '@viem/anvil';
@@ -25,7 +26,7 @@ describe('Rollup', () => {
   let cheatCodes: EthCheatCodes;
 
   let vkTreeRoot: Fr;
-  let protocolContractTreeRoot: Fr;
+  let protocolContractsHash: Fr;
   let rollupAddress: `0x${string}`;
   let rollup: RollupContract;
 
@@ -34,18 +35,18 @@ describe('Rollup', () => {
     // this is the 6th address that gets funded by the junk mnemonic
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
-    protocolContractTreeRoot = Fr.random();
+    protocolContractsHash = Fr.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
-    cheatCodes = new EthCheatCodes([rpcUrl]);
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
 
     const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot,
-      protocolContractTreeRoot,
+      protocolContractsHash,
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
     });
@@ -105,6 +106,13 @@ describe('Rollup', () => {
       // Verify the actual storage hasn't changed
       const actualPendingBlockNumber = await rollup.getBlockNumber();
       expect(actualPendingBlockNumber).toBe(testPendingBlockNumber);
+    });
+  });
+
+  describe('getSlashingProposer', () => {
+    it('returns a slashing proposer', async () => {
+      const slashingProposer = await rollup.getSlashingProposer();
+      expect(slashingProposer).toBeDefined();
     });
   });
 });

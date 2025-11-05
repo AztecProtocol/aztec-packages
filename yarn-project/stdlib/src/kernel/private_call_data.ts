@@ -1,9 +1,4 @@
-import {
-  FUNCTION_TREE_HEIGHT,
-  PROTOCOL_CONTRACT_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-  UPDATES_VALUE_SIZE,
-} from '@aztec/constants';
+import { FUNCTION_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, UPDATES_VALUE_SIZE } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
@@ -11,7 +6,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { DelayedPublicMutableValues } from '../delayed_public_mutable/delayed_public_mutable_values.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { ProtocolContractLeafPreimage, PublicDataTreeLeafPreimage } from '../trees/index.js';
+import { PublicDataTreeLeafPreimage } from '../trees/index.js';
 import { VerificationKeyAsFields } from '../vks/verification_key.js';
 import { PrivateCircuitPublicInputs } from './private_circuit_public_inputs.js';
 
@@ -94,16 +89,6 @@ export class PrivateVerificationKeyHints {
      * The membership witness for the function leaf corresponding to the function being invoked.
      */
     public functionLeafMembershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
-    /**
-     * The membership witness for the protocolContractLeaf.
-     */
-    public protocolContractMembershipWitness: MembershipWitness<typeof PROTOCOL_CONTRACT_TREE_HEIGHT>,
-    /**
-     * The leaf of the protocol contract tree, of either:
-     *  The protocol contract being called.
-     *  The low leaf showing that the address of the contract being called is not in the tree.
-     */
-    public protocolContractLeaf: ProtocolContractLeafPreimage,
 
     public updatedClassIdHints: UpdatedClassIdHints,
   ) {}
@@ -120,8 +105,6 @@ export class PrivateVerificationKeyHints {
       fields.publicKeys,
       fields.saltedInitializationHash,
       fields.functionLeafMembershipWitness,
-      fields.protocolContractMembershipWitness,
-      fields.protocolContractLeaf,
       fields.updatedClassIdHints,
     ] as const;
   }
@@ -151,8 +134,6 @@ export class PrivateVerificationKeyHints {
       reader.readObject(PublicKeys),
       reader.readObject(Fr),
       reader.readObject(MembershipWitness.deserializer(FUNCTION_TREE_HEIGHT)),
-      reader.readObject(MembershipWitness.deserializer(PROTOCOL_CONTRACT_TREE_HEIGHT)),
-      reader.readObject(ProtocolContractLeafPreimage),
       reader.readObject(UpdatedClassIdHints),
     );
   }

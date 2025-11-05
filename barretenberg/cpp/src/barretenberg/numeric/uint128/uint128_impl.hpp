@@ -190,7 +190,7 @@ constexpr uint128_t uint128_t::pow(const uint128_t& exponent) const
 
 constexpr bool uint128_t::get_bit(const uint64_t bit_index) const
 {
-    ASSERT_IN_CONSTEXPR(bit_index < 128);
+    BB_ASSERT(bit_index < 128);
     if (bit_index > 127) {
         return false;
     }

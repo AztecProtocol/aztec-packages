@@ -13,59 +13,6 @@ class TranslatorRelationCorrectnessTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
-{
-    using Flavor = TranslatorFlavor;
-    using FF = typename Flavor::FF;
-    using ProverPolynomials = typename Flavor::ProverPolynomials;
-    auto& engine = numeric::get_debug_randomness();
-
-    TranslatorProvingKey key;
-    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
-    ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
-
-    // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
-    prover_polynomials.lagrange_first.at(0) = 0;
-    prover_polynomials.lagrange_real_last.at(key.dyadic_circuit_size - 1) = 1;
-
-    // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
-    auto sorted_steps = TranslatorProvingKey::get_sorted_steps();
-    std::vector<uint64_t> vector_for_sorting(sorted_steps.begin(), sorted_steps.end());
-
-    // Add random values to fill the leftover space
-    for (size_t i = sorted_steps.size(); i < prover_polynomials.ordered_range_constraints_0.size(); i++) {
-        vector_for_sorting.emplace_back(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
-    }
-
-    // Get ordered polynomials
-    auto polynomial_pointers = std::vector{ &prover_polynomials.ordered_range_constraints_0,
-                                            &prover_polynomials.ordered_range_constraints_1,
-                                            &prover_polynomials.ordered_range_constraints_2,
-                                            &prover_polynomials.ordered_range_constraints_3,
-                                            &prover_polynomials.ordered_range_constraints_4 };
-
-    // Sort the vector
-    std::sort(vector_for_sorting.begin(), vector_for_sorting.end());
-
-    // Copy values, transforming them into Finite Field elements
-    std::transform(vector_for_sorting.cbegin(),
-                   vector_for_sorting.cend(),
-                   prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
-                   [](uint64_t in) { return FF(in); });
-
-    // Copy the same polynomial into the 4 other ordered polynomials (they are not the same in an actual proof, but
-    // we only need to check the correctness of the relation and it acts independently on each polynomial)
-    parallel_for(4, [&](size_t i) {
-        std::copy(prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
-                  prover_polynomials.ordered_range_constraints_0.coeffs().end(),
-                  polynomial_pointers[i + 1]->coeffs().begin());
-    });
-
-    // Check that DeltaRangeConstraint relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(
-        prover_polynomials, RelationParameters<FF>(), "TranslatorDeltaRangeConstraintRelation");
-}
-
 /**
  * @brief Test the correctness of TranslatorFlavor's  extra relations (TranslatorOpcodeConstraintRelation
  * and TranslatorAccumulatorTransferRelation)
@@ -87,27 +34,29 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
-    constexpr size_t mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
+    constexpr size_t mini_circuit_size_without_masking = TranslatorProvingKey::dyadic_mini_circuit_size_without_masking;
     // Fill in lagrange even polynomial
-    for (size_t i = 2; i < mini_circuit_size - 1; i += 2) {
+    for (size_t i = prover_polynomials.lagrange_even_in_minicircuit.start_index();
+         i < prover_polynomials.lagrange_even_in_minicircuit.end_index();
+         i += 2) {
         prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
-    constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 4;
-    constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 0, 3, 4, 8 };
+    constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 3;
+    constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 3, 4, 8 };
 
     // Assign random opcode values
-    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
+    for (size_t i = Flavor::RESULT_ROW; i < mini_circuit_size_without_masking; i += 2) {
         prover_polynomials.op.at(i) =
             possible_opcode_values[static_cast<size_t>(engine.get_random_uint8() % NUMBER_OF_POSSIBLE_OPCODES)];
     }
 
     // Initialize used lagrange polynomials
-    prover_polynomials.lagrange_result_row.at(2) = 1;
-    prover_polynomials.lagrange_last_in_minicircuit.at(mini_circuit_size - 1) = 1;
+    prover_polynomials.lagrange_result_row.at(Flavor::RESULT_ROW) = 1;
+    prover_polynomials.lagrange_last_in_minicircuit.at(mini_circuit_size_without_masking - 1) = 1;
 
     // Put random values in accumulator binary limbs (values should be preserved across even->next odd shift)
-    for (size_t i = 3; i < mini_circuit_size - 1; i += 2) {
+    for (size_t i = Flavor::RESULT_ROW + 1; i < mini_circuit_size_without_masking - 1; i += 2) {
         prover_polynomials.accumulators_binary_limbs_0.at(i) = FF ::random_element();
         prover_polynomials.accumulators_binary_limbs_1.at(i) = FF ::random_element();
         prover_polynomials.accumulators_binary_limbs_2.at(i) = FF ::random_element();
@@ -119,10 +68,10 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     }
 
     // The values of accumulator binary limbs at index 1 should equal the accumulated result from relation parameters
-    prover_polynomials.accumulators_binary_limbs_0.at(2) = params.accumulated_result[0];
-    prover_polynomials.accumulators_binary_limbs_1.at(2) = params.accumulated_result[1];
-    prover_polynomials.accumulators_binary_limbs_2.at(2) = params.accumulated_result[2];
-    prover_polynomials.accumulators_binary_limbs_3.at(2) = params.accumulated_result[3];
+    prover_polynomials.accumulators_binary_limbs_0.at(Flavor::RESULT_ROW) = params.accumulated_result[0];
+    prover_polynomials.accumulators_binary_limbs_1.at(Flavor::RESULT_ROW) = params.accumulated_result[1];
+    prover_polynomials.accumulators_binary_limbs_2.at(Flavor::RESULT_ROW) = params.accumulated_result[2];
+    prover_polynomials.accumulators_binary_limbs_3.at(Flavor::RESULT_ROW) = params.accumulated_result[3];
 
     // Check that Opcode Constraint relation is satisfied across each row of the prover polynomials
     RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
@@ -156,8 +105,11 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
 
+    auto lagrange_odd_in_minicircuit = prover_polynomials.lagrange_odd_in_minicircuit;
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
-    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
+    for (size_t i = prover_polynomials.lagrange_odd_in_minicircuit.start_index();
+         i < lagrange_odd_in_minicircuit.end_index();
+         i += 2) {
         prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
     }
 
@@ -486,24 +438,31 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
 TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 {
     using Flavor = TranslatorFlavor;
+    using Builder = Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using GroupElement = typename Flavor::GroupElement;
 
     constexpr size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
-    constexpr auto mini_circuit_size = TranslatorFlavor::MINI_CIRCUIT_SIZE;
+    constexpr size_t mini_circuit_size = TranslatorFlavor::MINI_CIRCUIT_SIZE;
+    constexpr size_t mini_circuit_size_without_masking =
+        TranslatorFlavor::MINI_CIRCUIT_SIZE - TranslatorFlavor::NUM_MASKED_ROWS_END;
 
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    op_queue->no_op_ultra_only();
+    op_queue->random_op_ultra_only();
+    op_queue->random_op_ultra_only();
+    op_queue->random_op_ultra_only();
 
     // Generate random EccOpQueue actions
 
-    for (size_t i = 0; i < ((mini_circuit_size >> 1) - 2); i++) {
+    for (size_t i = 0; i < (mini_circuit_size >> 1) / 2; i++) {
         switch (engine.get_random_uint8() & 3) {
         case 0:
-            op_queue->empty_row_for_testing();
+            op_queue->no_op_ultra_only();
             break;
         case 1:
             op_queue->eq_and_reset();
@@ -517,6 +476,26 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
         }
     }
     op_queue->merge();
+    for (size_t i = 0; i < 100; i++) {
+        switch (engine.get_random_uint8() & 3) {
+        case 0:
+            op_queue->no_op_ultra_only();
+            break;
+        case 1:
+            op_queue->eq_and_reset();
+            break;
+        case 2:
+            op_queue->add_accumulate(GroupElement::random_element(&engine));
+            break;
+        case 3:
+            op_queue->mul_accumulate(GroupElement::random_element(&engine), FF::random_element(&engine));
+            break;
+        }
+    }
+    op_queue->random_op_ultra_only();
+    op_queue->random_op_ultra_only();
+    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
 
@@ -546,7 +525,9 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials();
 
     // Copy values of wires used in the non-native field relation from the circuit builder
-    for (size_t i = 1; i < circuit_builder.get_estimated_num_finalized_gates(); i++) {
+    for (size_t i = Builder::NUM_NO_OPS_START + Builder::NUM_RANDOM_OPS_START;
+         i < circuit_builder.num_gates() - Builder::NUM_RANDOM_OPS_END;
+         i++) {
         prover_polynomials.op.at(i) = circuit_builder.get_variable(circuit_builder.wires[circuit_builder.OP][i]);
         prover_polynomials.p_x_low_limbs.at(i) =
             circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_X_LOW_LIMBS][i]);
@@ -577,7 +558,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     }
 
     // Fill in lagrange odd polynomial
-    for (size_t i = 2; i < mini_circuit_size; i += 2) {
+    for (size_t i = Flavor::RESULT_ROW; i < mini_circuit_size_without_masking; i += 2) {
         prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
@@ -656,7 +637,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
     const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
-    const size_t dyadic_circuit_size_without_masking = key.dyadic_circuit_size - full_masking_offset;
+    const size_t dyadic_circuit_size_without_masking = TranslatorProvingKey::dyadic_circuit_size_without_masking;
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;

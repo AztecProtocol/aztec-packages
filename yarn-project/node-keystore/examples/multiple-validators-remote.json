@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "remoteSigner": "https://localhost:8080",
+  "slasher": "0x1234567890123456789012345678901234567890",
+  "validators": [
+    {
+      "attester": "0x1234567890123456789012345678901234567890",
+      "publisher": [
+        "0x1234567890123456789012345678901234567890123456789012345678901234",
+        "0x1234567890123456789012345678901234567890",
+        {
+          "remoteSignerUrl": "https://localhost:8081",
+          "address": "0x1234567890123456789012345678901234567890"
+        }
+      ],
+      "feeRecipient": "0x1234567890123456789012345678901234567890123456789012345678901234"
+    },
+    {
+      "attester": "0x1234567890123456789012345678901234567890",
+      "feeRecipient": "0x1234567890123456789012345678901234567890123456789012345678901234"
+    },
+    {
+      "attester": "0x1234567890123456789012345678901234567890",
+      "feeRecipient": "0x1234567890123456789012345678901234567890123456789012345678901234",
+      "publisher": {
+        "mnemonic": "test test test test test test test test test test test junk",
+        "addressCount": 4
+      }
+    },
+    {
+      "attester": {
+        "address": "0x1111111111111111111111111111111111111111",
+        "remoteSignerUrl": "https://localhost:8082"
+      },
+      "feeRecipient": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+    },
+    {
+      "attester": {
+        "eth": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bls": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "feeRecipient": "0x9999999999999999999999999999999999999999999999999999999999999999"
+    }
+  ]
+}

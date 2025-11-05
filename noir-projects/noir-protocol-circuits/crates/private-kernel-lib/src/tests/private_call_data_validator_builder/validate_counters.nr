@@ -52,7 +52,7 @@ fn validate_counters_note_hash_counter_same_as_call_counter_start_fails() {
     builder.private_call.append_note_hashes(1);
     // Tweak the counter of the first note hash to EQUAL the start counter of the call.
     let mut note_hash = builder.private_call.note_hashes.get(0);
-    note_hash.note_hash.counter = builder.private_call.counter_start;
+    note_hash.inner.counter = builder.private_call.counter_start;
     builder.private_call.note_hashes.set(0, note_hash);
 
     builder.validate();
@@ -65,7 +65,7 @@ fn validate_counters_note_hash_counter_smaller_than_call_fails() {
     builder.private_call.append_note_hashes(1);
     // Tweak the counter of the first note hash to be LESS than the start counter of the call.
     let mut note_hash = builder.private_call.note_hashes.get(0);
-    note_hash.note_hash.counter = builder.private_call.counter_start - 1;
+    note_hash.inner.counter = builder.private_call.counter_start - 1;
     builder.private_call.note_hashes.set(0, note_hash);
 
     builder.validate();
@@ -79,10 +79,10 @@ fn validate_counters_note_hash_identical_counters_fails() {
     let counter_start = builder.private_call.counter_start;
     // Tweak the counter of the second note hash to EQUAL the counter of the first note hash.
     let mut note_hash_0 = builder.private_call.note_hashes.get(0);
-    note_hash_0.note_hash.counter = counter_start + 1;
+    note_hash_0.inner.counter = counter_start + 1;
     builder.private_call.note_hashes.set(0, note_hash_0);
     let mut note_hash_1 = builder.private_call.note_hashes.get(1);
-    note_hash_1.note_hash.counter = counter_start + 1;
+    note_hash_1.inner.counter = counter_start + 1;
     builder.private_call.note_hashes.set(1, note_hash_1);
 
     builder.validate();
@@ -96,10 +96,10 @@ fn validate_counters_note_hash_unordered_counters_fails() {
     let counter_start = builder.private_call.counter_start;
     // Tweak the counter of the second note hash to be LESS than the counter of the first note hash.
     let mut note_hash_0 = builder.private_call.note_hashes.get(0);
-    note_hash_0.note_hash.counter = counter_start + 2;
+    note_hash_0.inner.counter = counter_start + 2;
     builder.private_call.note_hashes.set(0, note_hash_0);
     let mut note_hash_1 = builder.private_call.note_hashes.get(1);
-    note_hash_1.note_hash.counter = counter_start + 1;
+    note_hash_1.inner.counter = counter_start + 1;
     builder.private_call.note_hashes.set(1, note_hash_1);
 
     builder.validate();
@@ -112,7 +112,7 @@ fn validate_counters_note_hash_counter_larger_than_call_fails() {
     builder.private_call.append_note_hashes(2);
     // Tweak the counter of the second note hash to be GREATER than the end counter of the call.
     let mut note_hash = builder.private_call.note_hashes.get(1);
-    note_hash.note_hash.counter = builder.private_call.counter + 1;
+    note_hash.inner.counter = builder.private_call.counter + 1;
     builder.private_call.note_hashes.set(1, note_hash);
 
     builder.validate();
@@ -125,7 +125,7 @@ fn validate_counters_note_hash_counter_same_as_call_counter_end_fails() {
     builder.private_call.append_note_hashes(2);
     // Tweak the counter of the second note hash to EQUAL the end counter of the call.
     let mut note_hash = builder.private_call.note_hashes.get(1);
-    note_hash.note_hash.counter = builder.private_call.counter;
+    note_hash.inner.counter = builder.private_call.counter;
     builder.private_call.note_hashes.set(1, note_hash);
 
     builder.validate();

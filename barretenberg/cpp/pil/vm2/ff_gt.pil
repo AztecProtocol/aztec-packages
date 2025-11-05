@@ -46,7 +46,7 @@ namespace ff_gt;
     pol commit a;
     pol commit b;
     pol commit result;
-    (result * (1 - result)) = 0;
+    result * (1 - result) = 0;
 
     // Should be looked up based on this selector
     // This will be off when doing the shifts for the remaning range constraints.

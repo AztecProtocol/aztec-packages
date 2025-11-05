@@ -10,6 +10,7 @@ global:
   l1ConsensusHostApiKeyHeaders: []
 
 node:
+  nodeType: "prover-node"
   mnemonic: "test test test test test test test test test test test junk"
   mnemonicStartIndex: 1000
   privateKey:
@@ -25,10 +26,16 @@ node:
     env:
       OTEL_SERVICE_NAME: "prover-node"
       PROVER_AGENT_COUNT: 0
+      # Set this to your web3signer URL (e.g. http://web3signer.namespace.svc.cluster.local:9000/)
+      WEB3_SIGNER_URL: ""
+      # Derivation for publisher addresses when using web3signer
+      PUBLISHERS_PER_PROVER: "1"
+      PUBLISHER_KEY_INDEX_START: "8000"
+    web3signerUrl: ""
 
     preStartScript: |
-      source /scripts/get-private-key.sh
       export TX_COLLECTION_NODE_RPC_URLS=$(bash /scripts/resolve-node-hosts.sh $NODE_HOSTS)
+      source /scripts/setup-prover-keystore.sh
 
     startCmd:
       - --prover-node
@@ -51,6 +58,7 @@ node:
       enabled: false
 
 broker:
+  nodeType: "prover-broker"
   replicaCount: 1
   persistence:
     enabled: false
@@ -75,6 +83,7 @@ broker:
     create: false
 
 agent:
+  nodeType: "prover-agent"
   replicaCount: 1
 
   persistence:

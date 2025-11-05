@@ -20,7 +20,7 @@ namespace bb::avm2::simulation {
 // Possible mutually exclusive execution errors.
 enum class ExecutionError {
     NONE,
-    BYTECODE_NOT_FOUND,
+    BYTECODE_RETRIEVAL,
     INSTRUCTION_FETCHING,
     ADDRESSING,
     REGISTER_READ,
@@ -44,7 +44,6 @@ class TagCheckError : public std::exception {
 
 struct ExecutionEvent {
     ExecutionError error = ExecutionError::NONE;
-    BytecodeId bytecode_id;
     Instruction wire_instruction;
 
     // Inputs and Outputs for a gadget/subtrace used when allocating registers in the execution trace.

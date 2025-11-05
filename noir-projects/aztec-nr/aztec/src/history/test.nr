@@ -22,7 +22,7 @@ pub(crate) unconstrained fn create_note() -> (TestEnvironment, RetrievedNote<Moc
             .contract_address(contract_address)
             .note_metadata(NoteMetadata::from_raw_data(
                 false,
-                0x256c00025f88d92eb518176c67c9d619b876e7261ef3ef5879fac1cf3b5acab2,
+                0x2426ed0754c755bbeaa3bc552819eab6339cdf25f64f5a5207c86dbb0f1add2d,
             ))
             .build_retrieved_note();
 

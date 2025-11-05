@@ -78,6 +78,10 @@ export class StateReference {
     return new StateReference(AppendOnlyTreeSnapshot.empty(), PartialStateReference.empty());
   }
 
+  static random(): StateReference {
+    return new StateReference(AppendOnlyTreeSnapshot.random(), PartialStateReference.random());
+  }
+
   toViem(): ViemStateReference {
     return {
       l1ToL2MessageTree: this.l1ToL2MessageTree.toViem(),
@@ -133,6 +137,6 @@ export class StateReference {
   }
 
   public equals(other: this): boolean {
-    return this.l1ToL2MessageTree.root.equals(other.l1ToL2MessageTree.root) && this.partial.equals(other.partial);
+    return this.l1ToL2MessageTree.equals(other.l1ToL2MessageTree) && this.partial.equals(other.partial);
   }
 }

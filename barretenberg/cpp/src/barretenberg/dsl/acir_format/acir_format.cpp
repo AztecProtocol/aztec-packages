@@ -6,17 +6,22 @@
 
 #include "acir_format.hpp"
 
+#include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
+#include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
-#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/honk/proving_key_inspector.hpp"
+#include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -31,27 +36,56 @@ namespace acir_format {
 
 using namespace bb;
 
-template class DSLBigInts<UltraCircuitBuilder>;
-template class DSLBigInts<MegaCircuitBuilder>;
+template <typename Builder>
+void perform_full_IPA_verification(Builder& builder,
+                                   const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
+                                   const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs);
 
 template <typename Builder>
-void handle_IPA_accumulation(Builder& builder,
-                             const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
-                             const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs,
-                             bool is_root_rollup);
+std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumulation(
+    Builder& builder,
+    const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
+    const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs);
 
 template <typename Builder> struct HonkRecursionConstraintsOutput {
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>;
     PairingPoints points_accumulator;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
     std::vector<stdlib::Proof<Builder>> nested_ipa_proofs;
     bool is_root_rollup = false;
+
+    template <class T>
+    void update(T& other, bool update_ipa_data)
+        requires(std::is_same_v<T, HonkRecursionConstraintOutput<Builder>> ||
+                 std::is_same_v<T, HonkRecursionConstraintsOutput<Builder>>)
+    {
+        // Update points accumulator
+        if (this->points_accumulator.has_data) {
+            this->points_accumulator.aggregate(other.points_accumulator);
+        } else {
+            this->points_accumulator = other.points_accumulator;
+        }
+
+        if (update_ipa_data) {
+            if constexpr (std::is_same_v<T, HonkRecursionConstraintOutput<Builder>>) {
+                // Update ipa proofs and claims
+                this->nested_ipa_proofs.push_back(other.ipa_proof);
+                this->nested_ipa_claims.push_back(other.ipa_claim);
+            } else {
+                // Update ipa proofs and claims (if other has no proofs/claims, we are not appending anything)
+                this->nested_ipa_proofs.insert(
+                    this->nested_ipa_proofs.end(), other.nested_ipa_proofs.begin(), other.nested_ipa_proofs.end());
+                this->nested_ipa_claims.insert(
+                    this->nested_ipa_claims.end(), other.nested_ipa_claims.begin(), other.nested_ipa_claims.end());
+            }
+        }
+    }
 };
 
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
 {
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>;
     bool has_valid_witness_assignments = !program.witness.empty();
     bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
     AcirFormat& constraint_system = program.constraints;
@@ -152,7 +186,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add ECDSA k1 constraints
     for (size_t i = 0; i < constraint_system.ecdsa_k1_constraints.size(); ++i) {
         const auto& constraint = constraint_system.ecdsa_k1_constraints.at(i);
-        create_ecdsa_k1_verify_constraints(builder, constraint, has_valid_witness_assignments);
+        create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.ecdsa_k1_constraints.at(i));
     }
@@ -160,7 +194,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add ECDSA r1 constraints
     for (size_t i = 0; i < constraint_system.ecdsa_r1_constraints.size(); ++i) {
         const auto& constraint = constraint_system.ecdsa_r1_constraints.at(i);
-        create_ecdsa_r1_verify_constraints(builder, constraint, has_valid_witness_assignments);
+        create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.ecdsa_r1_constraints.at(i));
     }
@@ -225,30 +259,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
     }
 
-    // Add big_int constraints
-    DSLBigInts<Builder> dsl_bigints;
-    dsl_bigints.set_builder(&builder);
-    for (size_t i = 0; i < constraint_system.bigint_from_le_bytes_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.bigint_from_le_bytes_constraints.at(i);
-        create_bigint_from_le_bytes_constraint(builder, constraint, dsl_bigints);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.bigint_from_le_bytes_constraints.at(i));
-    }
-
-    for (size_t i = 0; i < constraint_system.bigint_operations.size(); ++i) {
-        const auto& constraint = constraint_system.bigint_operations[i];
-        create_bigint_operations_constraint<Builder>(constraint, dsl_bigints, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.bigint_operations[i]);
-    }
-
-    for (size_t i = 0; i < constraint_system.bigint_to_le_bytes_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.bigint_to_le_bytes_constraints.at(i);
-        create_bigint_to_le_bytes_constraint(builder, constraint, dsl_bigints);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.bigint_to_le_bytes_constraints.at(i));
-    }
-
     // assert equals
     for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
         const auto& constraint = constraint_system.assert_equalities.at(i);
@@ -258,79 +268,153 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     // RecursionConstraints
+    bool has_honk_recursion_constraints = !constraint_system.honk_recursion_constraints.empty();
+    bool has_avm_recursion_constraints = !constraint_system.avm_recursion_constraints.empty();
+    bool has_hn_recursion_constraints = !constraint_system.hn_recursion_constraints.empty();
+    bool has_chonk_recursion_constraints = !constraint_system.chonk_recursion_constraints.empty();
+
     if constexpr (IsMegaBuilder<Builder>) {
-        if (!constraint_system.honk_recursion_constraints.empty()) {
-            HonkRecursionConstraintsOutput<Builder> output = process_honk_recursion_constraints(
-                builder, constraint_system, has_valid_witness_assignments, gate_counter);
-            output.points_accumulator.set_public();
-        }
-        if (!constraint_system.avm_recursion_constraints.empty()) {
+        // We shouldn't have both honk recursion constraints and pg recursion constraints.
+        BB_ASSERT_EQ(!has_honk_recursion_constraints || !has_hn_recursion_constraints,
+                     true,
+                     "Invalid circuit: both honk and ivc recursion constraints present.");
+
+        // AVM constraints are not handled when using MegaBuilder
+        if (has_avm_recursion_constraints) {
             info("WARNING: this circuit contains unhandled avm_recursion_constraints!");
         }
-        if (!constraint_system.ivc_recursion_constraints.empty()) {
-            process_ivc_recursion_constraints(
-                builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
-        }
 
-        // We shouldn't have both honk recursion constraints and ivc recursion constraints.
-        ASSERT(constraint_system.honk_recursion_constraints.empty() ||
-                   constraint_system.ivc_recursion_constraints.empty(),
-               "Invalid circuit: both honk and ivc recursion constraints present.");
-        // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
-        if (constraint_system.honk_recursion_constraints.empty() &&
-            constraint_system.ivc_recursion_constraints.empty()) {
+        if (has_honk_recursion_constraints) {
+            HonkRecursionConstraintsOutput<Builder> output = process_honk_recursion_constraints(
+                builder, constraint_system, has_valid_witness_assignments, gate_counter);
+
+            // Propagate pairing points
+            stdlib::recursion::honk::DefaultIO<Builder> inputs;
+            inputs.pairing_inputs = output.points_accumulator;
+            inputs.set_public();
+        } else if (has_hn_recursion_constraints) {
+            process_pg_recursion_constraints(
+                builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
+        } else {
+            // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
             stdlib::recursion::honk::AppIO::add_default(builder);
         }
     } else {
-        HonkRecursionConstraintsOutput<Builder> honk_output =
-            process_honk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
+        bool has_pairing_points =
+            has_honk_recursion_constraints || has_chonk_recursion_constraints || has_avm_recursion_constraints;
 
-#ifndef DISABLE_AZTEC_VM
-        HonkRecursionConstraintsOutput<Builder> avm_output =
-            process_avm_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
-
-        // This is a little annoying, but we should probably be explicit about these things so that its obvious how the
-        // pairing points are being aggregated.
-        if (honk_output.points_accumulator.has_data) {
-            if (avm_output.points_accumulator.has_data) {
-                honk_output.points_accumulator.aggregate(avm_output.points_accumulator);
-            }
-        } else {
-            if (avm_output.points_accumulator.has_data) {
-                honk_output.points_accumulator = avm_output.points_accumulator;
-            }
-        }
-        // Append the (potentially 0) ipa claims and proofs to honk_output
-        honk_output.nested_ipa_claims.insert(honk_output.nested_ipa_claims.end(),
-                                             avm_output.nested_ipa_claims.begin(),
-                                             avm_output.nested_ipa_claims.end());
-        honk_output.nested_ipa_proofs.insert(honk_output.nested_ipa_proofs.end(),
-                                             avm_output.nested_ipa_proofs.begin(),
-                                             avm_output.nested_ipa_proofs.end());
-#endif
-        // If the circuit has either honk or avm recursion constraints, add the aggregation object. Otherwise, add a
-        // default one if the circuit is recursive and honk_recursion is true.
-        if (!constraint_system.honk_recursion_constraints.empty() ||
-            !constraint_system.avm_recursion_constraints.empty()) {
-            ASSERT(metadata.honk_recursion != 0);
-            honk_output.points_accumulator.set_public();
-        } else if (metadata.honk_recursion != 0) {
-            // Make sure the verification key records the public input indices of the
-            // final recursion output.
-            PairingPoints::add_default_to_public_inputs(builder);
+        // We only handle:
+        // - Chonk recursion constraints (Private Base Rollup)
+        // - HONK + AVM recursion constraints (Public Base Rollup)
+        // - HONK recursion constraints
+        // - AVM recursion constraints
+        // However, as mock protocol circuits use Chonk + AVM (mock Public Base Rollup), instead of throwing an assert
+        // we return a vinfo for the case of Chonk + AVM
+        BB_ASSERT_EQ(has_hn_recursion_constraints,
+                     false,
+                     "Invalid circuit: pg recursion constraints are present with UltraBuilder.");
+        BB_ASSERT_EQ(!(has_chonk_recursion_constraints && has_honk_recursion_constraints),
+                     true,
+                     "Invalid circuit: both honk and chonk recursion constraints are present.");
+        if (has_chonk_recursion_constraints && has_avm_recursion_constraints) {
+            vinfo(
+                "WARNING: both chonk and avm recursion constraints are present. While we support this combination, we "
+                "expect to see it only in a mock "
+                "circuit.");
         }
 
-        // Accumulate the IPA claims and set it to be public inputs
-        // Either we're proving with RollupHonk (honk_recursion=2) or its the root rollup.
-        if (metadata.honk_recursion == 2 || honk_output.is_root_rollup) {
-            handle_IPA_accumulation(
-                builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs, honk_output.is_root_rollup);
+        // Container for data to be propagated
+        HonkRecursionConstraintsOutput<Builder> honk_output;
+
+        if (has_honk_recursion_constraints) {
+            honk_output = process_honk_recursion_constraints(
+                builder, constraint_system, has_valid_witness_assignments, gate_counter);
+        }
+
+        if (has_chonk_recursion_constraints) {
+            honk_output = process_chonk_recursion_constraints(
+                builder, constraint_system, has_valid_witness_assignments, gate_counter);
+        }
+
+        if (has_avm_recursion_constraints) {
+            HonkRecursionConstraintsOutput<Builder> avm_output = process_avm_recursion_constraints(
+                builder, constraint_system, has_valid_witness_assignments, gate_counter);
+
+            // Update honk_output: append (potentially 0) ipa claims and proofs.
+            // If honk output has points accumulator, aggregate it with the one coming from the avm. Otherwise, override
+            // it with the avm's one.
+            honk_output.update(avm_output, /*update_ipa_data=*/!avm_output.nested_ipa_claims.empty());
+        }
+
+        if (metadata.has_ipa_claim) {
+            using IO = stdlib::recursion::honk::RollupIO;
+            // Proving with UltraRollupFlavor, we need to handle IPA
+            auto [ipa_claim, ipa_proof] =
+                handle_IPA_accumulation(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
+
+            // Set proof
+            builder.ipa_proof = ipa_proof;
+
+            // Propagate public inputs
+            IO inputs;
+            inputs.pairing_inputs =
+                has_pairing_points ? honk_output.points_accumulator : PairingPoints::construct_default();
+            inputs.ipa_claim = ipa_claim;
+            inputs.set_public();
         } else {
-            // We shouldn't accidentally have IPA proofs otherwise.
-            BB_ASSERT_EQ(
-                honk_output.nested_ipa_proofs.size(), static_cast<size_t>(0), "IPA proofs present when not expected.");
+            using IO = stdlib::recursion::honk::DefaultIO<Builder>;
+
+            if (honk_output.is_root_rollup) {
+                // The root rollup performs full IPA verification
+                perform_full_IPA_verification(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
+            } else {
+                // We shouldn't accidentally have IPA proofs.
+                BB_ASSERT_EQ(honk_output.nested_ipa_proofs.size(),
+                             static_cast<size_t>(0),
+                             "IPA proofs present when not expected.");
+            }
+
+            // Propagate public inputs
+            if (has_pairing_points) {
+                IO inputs;
+                inputs.pairing_inputs = honk_output.points_accumulator;
+                inputs.set_public();
+            } else {
+                IO::add_default(builder);
+            }
         }
     }
+}
+
+/**
+ * @brief Perform full recursive IPA verification
+ *
+ * @tparam Builder
+ * @param builder
+ * @param nested_ipa_claims
+ * @param nested_ipa_proofs
+ */
+template <typename Builder>
+void perform_full_IPA_verification(Builder& builder,
+                                   const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
+                                   const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs)
+{
+    using StdlibTranscript = UltraStdlibTranscript;
+
+    BB_ASSERT_EQ(
+        nested_ipa_claims.size(), nested_ipa_proofs.size(), "Mismatched number of nested IPA claims and proofs.");
+    BB_ASSERT_EQ(nested_ipa_claims.size(), 2U, "Root rollup must have two nested IPA claims.");
+
+    auto [ipa_claim, ipa_proof] = handle_IPA_accumulation(builder, nested_ipa_claims, nested_ipa_proofs);
+
+    // IPA verification
+    VerifierCommitmentKey<stdlib::grumpkin<Builder>> verifier_commitment_key(
+        &builder, 1 << CONST_ECCVM_LOG_N, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
+
+    auto accumulated_ipa_transcript = std::make_shared<StdlibTranscript>();
+    accumulated_ipa_transcript->load_proof(stdlib::Proof<Builder>(builder, ipa_proof));
+    IPA<stdlib::grumpkin<Builder>>::full_verify_recursive(
+        verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
 }
 
 /**
@@ -340,25 +424,23 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
  * @param builder
  * @param nested_ipa_claims
  * @param nested_ipa_proofs
- * @param is_root_rollup
  */
 template <typename Builder>
-void handle_IPA_accumulation(Builder& builder,
-                             const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
-                             const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs,
-                             bool is_root_rollup)
+std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumulation(
+    Builder& builder,
+    const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
+    const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs)
 {
     BB_ASSERT_EQ(
         nested_ipa_claims.size(), nested_ipa_proofs.size(), "Mismatched number of nested IPA claims and proofs.");
+
     OpeningClaim<stdlib::grumpkin<Builder>> final_ipa_claim;
     HonkProof final_ipa_proof;
-    if (is_root_rollup) {
-        BB_ASSERT_EQ(nested_ipa_claims.size(), 2U, "Root rollup must have two nested IPA claims.");
-    }
+
     if (nested_ipa_claims.size() == 2) {
         // If we have two claims, accumulate.
         CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
-        using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+        using StdlibTranscript = UltraStdlibTranscript;
 
         auto ipa_transcript_1 = std::make_shared<StdlibTranscript>();
         ipa_transcript_1->load_proof(nested_ipa_proofs[0]);
@@ -366,31 +448,21 @@ void handle_IPA_accumulation(Builder& builder,
         ipa_transcript_2->load_proof(nested_ipa_proofs[1]);
         auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<Builder>>::accumulate(
             commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
-        // If this is the root rollup, do full IPA verification
-        if (is_root_rollup) {
-            VerifierCommitmentKey<stdlib::grumpkin<Builder>> verifier_commitment_key(
-                &builder, 1 << CONST_ECCVM_LOG_N, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
-            // do full IPA verification
-            auto accumulated_ipa_transcript = std::make_shared<StdlibTranscript>();
-            accumulated_ipa_transcript->load_proof(stdlib::Proof<Builder>(builder, ipa_proof));
-            IPA<stdlib::grumpkin<Builder>>::full_verify_recursive(
-                verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
-        } else {
-            final_ipa_claim = ipa_claim;
-            final_ipa_proof = ipa_proof;
-        }
+
+        final_ipa_claim = ipa_claim;
+        final_ipa_proof = ipa_proof;
     } else if (nested_ipa_claims.size() == 1) {
         // If we have one claim, just forward it along.
         final_ipa_claim = nested_ipa_claims[0];
         // This conversion looks suspicious but there's no need to make this an output of the circuit since
         // its a proof that will be checked anyway.
         final_ipa_proof = nested_ipa_proofs[0].get_value();
-    } else if (nested_ipa_claims.size() == 0) {
+    } else if (nested_ipa_claims.empty()) {
         // If we don't have any claims, we may need to inject a fake one if we're proving with
         // UltraRollupHonk, indicated by the manual setting of the honk_recursion metadata to 2.
         info("Proving with UltraRollupHonk but no IPA claims exist.");
         auto [stdlib_opening_claim, ipa_proof] =
-            IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
+            IPA<stdlib::grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
 
         final_ipa_claim = stdlib_opening_claim;
         final_ipa_proof = ipa_proof;
@@ -398,15 +470,11 @@ void handle_IPA_accumulation(Builder& builder,
         // We don't support and shouldn't expect to support circuits with 3+ IPA recursive verifiers.
         throw_or_abort("Too many nested IPA claims to accumulate");
     }
-    // If we aren't in the root rollup, we should have an output IPA proof.
-    if (!is_root_rollup) {
-        BB_ASSERT_EQ(final_ipa_proof.size(), IPA_PROOF_LENGTH);
-        // Propagate the IPA claim via the public inputs of the outer circuit
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right
-        // location/entity to handle this IPA data propagation.
-        final_ipa_claim.set_public();
-        builder.ipa_proof = final_ipa_proof;
-    }
+
+    BB_ASSERT_EQ(final_ipa_proof.size(), IPA_PROOF_LENGTH);
+
+    // Return the IPA claim and proof
+    return { final_ipa_claim, final_ipa_proof };
 }
 
 template <typename Builder>
@@ -420,126 +488,143 @@ process_honk_recursion_constraints(Builder& builder,
     // Add recursion constraints
     size_t idx = 0;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
+        HonkRecursionConstraintOutput<Builder> honk_recursion_constraint;
+
         if (constraint.proof_type == HONK_ZK) {
-            auto [pairing_points, _ipa_claim, _ipa_proof, _ecc_op_tables] =
-                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(
-                    builder, constraint, has_valid_witness_assignments);
-
-            if (output.points_accumulator.has_data) {
-                output.points_accumulator.aggregate(pairing_points);
-            } else {
-                output.points_accumulator = pairing_points;
-            }
-
+            honk_recursion_constraint = create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(
+                builder, constraint, has_valid_witness_assignments);
         } else if (constraint.proof_type == HONK) {
-            auto [pairing_points, _ipa_claim, _ipa_proof, _ecc_op_tables] =
-                create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
-                    builder, constraint, has_valid_witness_assignments);
-            if (output.points_accumulator.has_data) {
-                output.points_accumulator.aggregate(pairing_points);
-            } else {
-                output.points_accumulator = pairing_points;
-            }
+            honk_recursion_constraint = create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
+                builder, constraint, has_valid_witness_assignments);
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
             if constexpr (!IsUltraBuilder<Builder>) {
                 throw_or_abort("Rollup Honk proof type not supported on MegaBuilder");
             } else {
-                if (constraint.proof_type == ROOT_ROLLUP_HONK) {
-                    output.is_root_rollup = true;
-                }
-                auto [pairing_points, ipa_claim, ipa_proof, _ecc_op_tables] =
-                    create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
-                        builder, constraint, has_valid_witness_assignments);
-                if (output.points_accumulator.has_data) {
-                    output.points_accumulator.aggregate(pairing_points);
-                } else {
-                    output.points_accumulator = pairing_points;
-                }
-                output.nested_ipa_claims.push_back(ipa_claim);
-                output.nested_ipa_proofs.push_back(ipa_proof);
+                honk_recursion_constraint = create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
+                    builder, constraint, has_valid_witness_assignments);
             }
         } else {
             throw_or_abort("Invalid Honk proof type");
         }
 
+        // Update output
+        output.update(honk_recursion_constraint,
+                      /*update_ipa_data=*/constraint.proof_type == ROLLUP_HONK ||
+                          constraint.proof_type == ROOT_ROLLUP_HONK);
+        output.is_root_rollup = constraint.proof_type == ROOT_ROLLUP_HONK;
+
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
-    ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
-           "Root rollup must accumulate two IPA proofs.");
+    BB_ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
+              "Root rollup must accumulate two IPA proofs.");
     return output;
 }
 
-void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
-                                       AcirFormat& constraints,
-                                       std::shared_ptr<ClientIVC> ivc,
-                                       bool has_valid_witness_assignments,
-                                       GateCounter<MegaCircuitBuilder>& gate_counter)
+void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
+                                      AcirFormat& constraints,
+                                      std::shared_ptr<IVCBase> ivc_base,
+                                      bool has_valid_witness_assignments,
+                                      GateCounter<MegaCircuitBuilder>& gate_counter)
 {
-    using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
-    using StdlibVKAndHash = ClientIVC::RecursiveVKAndHash;
-    using StdlibFF = ClientIVC::RecursiveFlavor::FF;
+    using StdlibVerificationKey = Chonk::RecursiveVerificationKey;
+    using StdlibVKAndHash = Chonk::RecursiveVKAndHash;
+    using StdlibFF = Chonk::RecursiveFlavor::FF;
+
+    // Lambda template to handle both Chonk and Chonk with the same code
+    auto process_with_ivc = [&]<typename IVCType>(const std::shared_ptr<IVCType>& ivc) {
+        // We expect the length of the internal verification queue to match the number of ivc recursion constraints
+        BB_ASSERT_EQ(constraints.hn_recursion_constraints.size(),
+                     ivc->verification_queue.size(),
+                     "WARNING: Mismatch in number of recursive verifications during kernel creation!");
+
+        // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
+        // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
+        if (!has_valid_witness_assignments) {
+            // Create stdlib representations of each {proof, vkey} pair to be recursively verified
+            for (auto [constraint, queue_entry] :
+                 zip_view(constraints.hn_recursion_constraints, ivc->verification_queue)) {
+                populate_dummy_vk_in_constraint(builder, queue_entry.honk_vk, constraint.key);
+                builder.set_variable(constraint.key_hash, queue_entry.honk_vk->hash());
+            }
+        }
+
+        // Construct a stdlib verification key for each constraint based on the verification key witness indices
+        // therein
+        std::vector<std::shared_ptr<StdlibVKAndHash>> stdlib_vk_and_hashs;
+        stdlib_vk_and_hashs.reserve(constraints.hn_recursion_constraints.size());
+        for (const auto& constraint : constraints.hn_recursion_constraints) {
+            stdlib_vk_and_hashs.push_back(std::make_shared<StdlibVKAndHash>(
+                std::make_shared<StdlibVerificationKey>(
+                    StdlibVerificationKey::from_witness_indices(builder, constraint.key)),
+                StdlibFF::from_witness_index(&builder, constraint.key_hash)));
+        }
+        // Create stdlib representations of each {proof, vkey} pair to be recursively verified
+        ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
+
+        // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
+        // internal verification queue. This ensures that the witnesses utilized in constraints generated based on
+        // acir are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive
+        // verifications).
+        for (auto [constraint, queue_entry] :
+             zip_view(constraints.hn_recursion_constraints, ivc->stdlib_verification_queue)) {
+
+            // Get the witness indices for the public inputs contained within the proof in the verification queue
+            std::vector<uint32_t> public_input_indices =
+                ProofSurgeon<uint256_t>::get_public_inputs_witness_indices_from_proof(queue_entry.proof,
+                                                                                      constraint.public_inputs.size());
+
+            // Assert equality between the internal public input witness indices and those in the acir constraint
+            for (auto [witness_idx, constraint_witness_idx] :
+                 zip_view(public_input_indices, constraint.public_inputs)) {
+                builder.assert_equal(witness_idx, constraint_witness_idx);
+            }
+        }
+
+        // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
+        ivc->complete_kernel_circuit_logic(builder);
+
+        // Note: we can't easily track the gate contribution from each individual pg_recursion_constraint since they
+        // are handled simultaneously in the above function call; instead we track the total contribution
+        gate_counter.track_diff(constraints.gates_per_opcode,
+                                constraints.original_opcode_indices.hn_recursion_constraints.at(0));
+    };
 
     // If an ivc instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.
-    if (ivc == nullptr) {
-        ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
+    if (ivc_base == nullptr) {
+
+        auto mock_ivc = create_mock_chonk_from_constraints(constraints.hn_recursion_constraints);
+        process_with_ivc(mock_ivc);
+    } else {
+        auto sumcheck_ivc = std::static_pointer_cast<Chonk>(ivc_base);
+        process_with_ivc(sumcheck_ivc);
     }
-
-    // We expect the length of the internal verification queue to match the number of ivc recursion constraints
-    BB_ASSERT_EQ(constraints.ivc_recursion_constraints.size(),
-                 ivc->verification_queue.size(),
-                 "WARNING: Mismatch in number of recursive verifications during kernel creation!");
-
-    // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
-    // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
-    if (!has_valid_witness_assignments) {
-        // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-        for (auto [constraint, queue_entry] :
-             zip_view(constraints.ivc_recursion_constraints, ivc->verification_queue)) {
-            populate_dummy_vk_in_constraint(builder, queue_entry.honk_vk, constraint.key);
-            builder.set_variable(constraint.key_hash, queue_entry.honk_vk->hash());
-        }
-    }
-
-    // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
-    std::vector<std::shared_ptr<StdlibVKAndHash>> stdlib_vk_and_hashs;
-    stdlib_vk_and_hashs.reserve(constraints.ivc_recursion_constraints.size());
-    for (const auto& constraint : constraints.ivc_recursion_constraints) {
-        stdlib_vk_and_hashs.push_back(
-            std::make_shared<StdlibVKAndHash>(std::make_shared<StdlibVerificationKey>(
-                                                  StdlibVerificationKey::from_witness_indices(builder, constraint.key)),
-                                              StdlibFF::from_witness_index(&builder, constraint.key_hash)));
-    }
-    // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-    ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
-
-    // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
-    // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir
-    // are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
-    for (auto [constraint, queue_entry] :
-         zip_view(constraints.ivc_recursion_constraints, ivc->stdlib_verification_queue)) {
-
-        // Get the witness indices for the public inputs contained within the proof in the verification queue
-        std::vector<uint32_t> public_input_indices = ProofSurgeon::get_public_inputs_witness_indices_from_proof(
-            queue_entry.proof, constraint.public_inputs.size());
-
-        // Assert equality between the internal public input witness indices and those in the acir constraint
-        for (auto [witness_idx, constraint_witness_idx] : zip_view(public_input_indices, constraint.public_inputs)) {
-            builder.assert_equal(witness_idx, constraint_witness_idx);
-        }
-    }
-
-    // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
-    ivc->complete_kernel_circuit_logic(builder);
-
-    // Note: we can't easily track the gate contribution from each individual ivc_recursion_constraint since they
-    // are handled simultaneously in the above function call; instead we track the total contribution
-    gate_counter.track_diff(constraints.gates_per_opcode,
-                            constraints.original_opcode_indices.ivc_recursion_constraints.at(0));
 }
 
-#ifndef DISABLE_AZTEC_VM
+[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
+process_chonk_recursion_constraints(Builder& builder,
+                                    AcirFormat& constraint_system,
+                                    bool has_valid_witness_assignments,
+                                    GateCounter<Builder>& gate_counter)
+{
+    HonkRecursionConstraintsOutput<Builder> output;
+    // Add recursion constraints
+    size_t idx = 0;
+    for (auto& constraint : constraint_system.chonk_recursion_constraints) {
+        HonkRecursionConstraintOutput<Builder> honk_output =
+            create_chonk_recursion_constraints(builder, constraint, has_valid_witness_assignments);
+
+        // Update the output
+        output.update(honk_output, /*update_ipa_data=*/true);
+
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.chonk_recursion_constraints.at(idx++));
+    }
+
+    return output;
+}
+
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
 process_avm_recursion_constraints(Builder& builder,
                                   AcirFormat& constraint_system,
@@ -550,24 +635,17 @@ process_avm_recursion_constraints(Builder& builder,
     // Add recursion constraints
     size_t idx = 0;
     for (auto& constraint : constraint_system.avm_recursion_constraints) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1303): Utilize the version of this method that
-        // employs the Goblinized AVM recursive verifier.
         HonkRecursionConstraintOutput<Builder> avm2_recursion_output =
             create_avm2_recursion_constraints_goblin(builder, constraint, has_valid_witness_assignments);
-        if (output.points_accumulator.has_data) {
-            output.points_accumulator.aggregate(avm2_recursion_output.points_accumulator);
-        } else {
-            output.points_accumulator = avm2_recursion_output.points_accumulator;
-        }
-        output.nested_ipa_claims.push_back(avm2_recursion_output.ipa_claim);
-        output.nested_ipa_proofs.push_back(avm2_recursion_output.ipa_proof);
+
+        // Update the output
+        output.update(avm2_recursion_output, /*update_ipa_data=*/true);
 
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.avm_recursion_constraints.at(idx++));
     }
     return output;
 }
-#endif // DISABLE_AZTEC_VM
 
 /**
  * @brief Specialization for creating an Ultra circuit from an acir program
@@ -577,11 +655,11 @@ process_avm_recursion_constraints(Builder& builder,
  */
 template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
-    PROFILE_THIS();
+    BB_BENCH();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
-    Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.varnum, metadata.recursive };
+    Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.varnum };
 
     build_constraints(builder, program, metadata);
 
@@ -598,11 +676,11 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
  */
 template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
-    PROFILE_THIS();
+    BB_BENCH();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
-    auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
+    auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->get_goblin().op_queue;
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum };

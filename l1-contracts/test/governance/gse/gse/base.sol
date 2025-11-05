@@ -23,6 +23,8 @@ contract WithGSE is TestBase {
   }
 
   function cheat_deposit(address _instance, address _attester, address _withdrawer, bool _onBonus) public {
+    vm.assume(_attester != address(0));
+
     uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
     vm.prank(stakingAsset.owner());

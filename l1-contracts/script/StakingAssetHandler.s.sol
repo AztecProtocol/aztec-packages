@@ -30,10 +30,10 @@ contract StakingAssetHandlerScript is Test {
   bytes32 public constant DEPOSIT_MERKLE_ROOT = bytes32(0);
 
   ZKPassportVerifier internal constant zkPassportVerifier =
-    ZKPassportVerifier(0x62e33cC35e29130e135341586e8Cf9C2BAbFB3eE);
+    ZKPassportVerifier(0x0b05F45ff2F431a136eE8e708458286eC02b0d00);
 
-  TestERC20 public constant stakingAsset = TestERC20(0x0C04089ED32638ae3cDf649F54F90544aC3Fc199);
-  IRegistry public constant registry = IRegistry(0xEc4156431d0F3DF66d4E24ba3D30dCb4c85FA309);
+  TestERC20 public constant stakingAsset = TestERC20(0x6732CEDafCBF85Afa9B5C83f0385967840BBCe47);
+  IRegistry public constant registry = IRegistry(0xc2F24280F5c7F4897370dFDEb30f79Ded14f1c81);
 
   function setUp() public {}
 
@@ -43,22 +43,23 @@ contract StakingAssetHandlerScript is Test {
     address[] memory isUnhinged = new address[](1);
     isUnhinged[0] = amin;
 
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
-      .StakingAssetHandlerArgs({
-      owner: ME,
-      stakingAsset: address(stakingAsset),
-      registry: registry,
-      withdrawer: amin,
-      mintInterval: 60 * 60 * 24,
-      depositsPerMint: 10,
-      depositMerkleRoot: DEPOSIT_MERKLE_ROOT,
-      zkPassportVerifier: zkPassportVerifier,
-      unhinged: isUnhinged,
-      domain: DOMAIN,
-      scope: SCOPE,
-      skipBindCheck: false, // DO NOT: skip bind check
-      skipMerkleCheck: true // DO: skip merkle check
-    });
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs =
+      StakingAssetHandler.StakingAssetHandlerArgs({
+        owner: ME,
+        stakingAsset: address(stakingAsset),
+        registry: registry,
+        withdrawer: amin,
+        mintInterval: 60 * 60 * 24,
+        depositsPerMint: 1000,
+        depositMerkleRoot: DEPOSIT_MERKLE_ROOT,
+        zkPassportVerifier: zkPassportVerifier,
+        unhinged: isUnhinged,
+        domain: DOMAIN,
+        scope: SCOPE,
+        skipBindCheck: false, // DO NOT: skip bind check
+        skipMerkleCheck: true, // DO: skip merkle check
+        validatorsToFlush: 48
+      });
 
     vm.startBroadcast(ME);
     StakingAssetHandler stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);

@@ -56,11 +56,9 @@ contract MoveTest is StakingBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = n;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset).setRegistry(
-      registry
-    ).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false).setStakingQueueConfig(
-      stakingQueueConfig
-    ).deploy();
+    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset)
+      .setRegistry(registry).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false)
+      .setStakingQueueConfig(stakingQueueConfig).deploy();
 
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));
@@ -93,7 +91,7 @@ contract MoveTest is StakingBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.ValidatorSelection__InsufficientCommitteeSize.selector, 0, newRollup.getTargetCommitteeSize()
+        Errors.ValidatorSelection__InsufficientValidatorSetSize.selector, 0, newRollup.getTargetCommitteeSize()
       )
     );
     newRollup.getEpochCommittee(epoch);
@@ -113,7 +111,7 @@ contract MoveTest is StakingBase {
     assertEq(oldRollup.getEpochCommittee(epoch).length, oldRollup.getTargetCommitteeSize());
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.ValidatorSelection__InsufficientCommitteeSize.selector, 0, newRollup.getTargetCommitteeSize()
+        Errors.ValidatorSelection__InsufficientValidatorSetSize.selector, 0, newRollup.getTargetCommitteeSize()
       )
     );
     newRollup.getEpochCommittee(epoch);
@@ -164,8 +162,8 @@ contract MoveTest is StakingBase {
     vm.warp(Timestamp.unwrap(attesterView.exit.exitableAt));
 
     vm.expectEmit(true, true, true, true, address(newRollup));
-    emit IStakingCore.WithdrawFinalised(attesterToExit, RECIPIENT, ACTIVATION_THRESHOLD);
-    newRollup.finaliseWithdraw(attesterToExit);
+    emit IStakingCore.WithdrawFinalized(attesterToExit, RECIPIENT, ACTIVATION_THRESHOLD);
+    newRollup.finalizeWithdraw(attesterToExit);
 
     attesterView = newRollup.getAttesterView(attesterToExit);
     assertEq(attesterView.exit.recipientOrWithdrawer, address(0));

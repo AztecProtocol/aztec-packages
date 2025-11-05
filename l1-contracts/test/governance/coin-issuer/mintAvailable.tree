@@ -1,8 +1,12 @@
 MintAvailableTest
 ├── given rate is 0
-│       └── it returns 0
+│   └── it returns 0
 └── given rate is not 0
     ├── given same time as deployment
-    │   └── it returns 0
-    └── given after deployment
-        └── it returns >0
+    │   └── it returns full year 0 budget
+    ├── given after deployment
+    │   └── it returns that year's budget
+    ├── given exactly one year elapsed
+    │   └── it returns exactly rate * supply for year 1
+    └── given multiple years elapsed
+        └── it always caps at 1 year maximum

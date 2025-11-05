@@ -29,6 +29,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
     // Add authwit such that the AMM can transfer the deposit amount of the liquidity provider to the public balance of
     // itself.
     add_private_authwit_from_call_interface(
+        env,
         liquidity_provider,
         amm_contract,
         transfer_call_interface,

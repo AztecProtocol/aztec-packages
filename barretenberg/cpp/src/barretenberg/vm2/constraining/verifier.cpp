@@ -30,8 +30,7 @@ using FF = AvmFlavor::FF;
 // Evaluate the given public input column over the multivariate challenge points
 inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
-    const size_t circuit_size = 1 << key->log_circuit_size;
-    Polynomial<FF> polynomial(points, circuit_size);
+    Polynomial<FF> polynomial(points, (1 << key->log_circuit_size));
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -56,22 +55,37 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     transcript->load_proof(proof);
 
-    VerifierCommitments commitments{ key };
+    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the line below.
+    FF vk_hash = key->hash();
+    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    vinfo("AVM vk hash in verifier: ", vk_hash);
 
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-    if (circuit_size != (1 << key->log_circuit_size)) {
-        vinfo("Circuit size mismatch: expected", (1 << key->log_circuit_size), " got ", circuit_size);
+    // Check public inputs size.
+    if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
+        vinfo("Public inputs size mismatch");
         return false;
     }
-
+    // Public inputs from proof
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+            vinfo("Public input size mismatch");
+            return false;
+        }
+        // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
+        // for (size_t j = 0; j < public_inputs[i].size(); j++) {
+        //     transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+        //                                    public_inputs[i][j]);
+        // }
+    }
+    VerifierCommitments commitments{ key };
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
     relation_parameters.beta = beta;
-    relation_parameters.gamma = gamm;
+    relation_parameters.gamma = gamma;
 
     // Get commitments to inverses
     for (auto [label, commitment] : zip_view(commitments.get_derived_labels(), commitments.get_derived())) {
@@ -79,23 +93,16 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Execute Sumcheck Verifier
-    const size_t log_circuit_size = numeric::get_msb(circuit_size);
-
-    std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N);
-
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-        padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
-    }
+    std::vector<FF> padding_indicator_array(key->log_circuit_size, 1);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, key->log_circuit_size);
 
-    auto gate_challenges = std::vector<FF>(log_circuit_size);
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    // Get the gate challenges for sumcheck computation
+    std::vector<FF> gate_challenges =
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_circuit_size);
 
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
@@ -105,23 +112,15 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         return false;
     }
 
-    // Public columns evaluation checks
-    std::vector<FF> mle_challenge(output.challenge.begin(),
-                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
-
-    if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
-        vinfo("Public inputs size mismatch");
-        return false;
-    }
-
+    using C = ColumnAndShifts;
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
-        output.claimed_evaluations.public_inputs_cols_0_,
-        output.claimed_evaluations.public_inputs_cols_1_,
-        output.claimed_evaluations.public_inputs_cols_2_,
-        output.claimed_evaluations.public_inputs_cols_3_,
+        output.claimed_evaluations.get(C::public_inputs_cols_0_),
+        output.claimed_evaluations.get(C::public_inputs_cols_1_),
+        output.claimed_evaluations.get(C::public_inputs_cols_2_),
+        output.claimed_evaluations.get(C::public_inputs_cols_3_),
     };
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
         if (public_input_evaluation != claimed_evaluations[i]) {
             vinfo("public_input_evaluation failed, public inputs col ", i);
             return false;
@@ -129,8 +128,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
+        .unshifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_unshifted()),
+                                 .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_unshifted()) },
+        .shifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_to_be_shifted()),
+                               .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_shifted()) }
     };
     const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
         padding_indicator_array, claim_batcher, output.challenge, Commitment::one(), transcript);

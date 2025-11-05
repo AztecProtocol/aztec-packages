@@ -9,29 +9,25 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract SimulatedAccount {
     use dep::aztec::{
-        authwit::{
-            account::AccountActions,
-            auth::IS_VALID_SELECTOR,
-            entrypoint::{app::AppPayload, fee::FeePayload},
-        },
+        authwit::{account::AccountActions, auth::IS_VALID_SELECTOR, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::functions::{private, utility, view},
+        macros::functions::{external, view},
         oracle::notes::set_sender_for_tags,
     };
 
-    // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
-    #[private]
-    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
+    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts (specifically `getEntrypointAbi()`)
+    #[external("private")]
+    fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
         // it is safe to set from a constrained context.
-        unsafe { set_sender_for_tags(context.this_address()) };
+        unsafe { set_sender_for_tags(self.address) };
 
-        let actions = AccountActions::init(&mut context, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payload, cancellable);
+        let actions = AccountActions::init(self.context, is_valid_impl);
+        actions.entrypoint(app_payload, fee_payment_method, cancellable);
     }
 
-    #[private]
+    #[external("private")]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         IS_VALID_SELECTOR
@@ -45,6 +41,6 @@ pub contract SimulatedAccount {
     /// Since this contract normally emulates an account that uses a note to store the public key,
     /// we completely bypass message discovery here to avoid losing time on useless processing
     /// and also enabling the emulation of different accounts with differently sized public key notes.
-    #[utility]
+    #[external("utility")]
     unconstrained fn sync_private_state() {}
 }

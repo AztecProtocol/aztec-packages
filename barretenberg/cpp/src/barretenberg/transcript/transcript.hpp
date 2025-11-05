@@ -5,142 +5,28 @@
 // =====================
 
 #pragma once
-// #define LOG_CHALLENGES
-// #define LOG_INTERACTIONS
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include <concepts>
-
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "origin_tag.hpp"
+#include "transcript_manifest.hpp"
 #include <atomic>
+#include <concepts>
 
 namespace bb {
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1226): univariates should also be logged
-template <typename T, typename... U>
-concept Loggable =
-    (std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> || std::same_as<T, bb::g1::affine_element> ||
-     std::same_as<T, grumpkin::g1::affine_element> || std::same_as<T, uint32_t>);
-
-// class TranscriptManifest;
-class TranscriptManifest {
-    struct RoundData {
-        std::vector<std::string> challenge_label;
-        std::vector<std::pair<std::string, size_t>> entries;
-
-        void print()
-        {
-            for (auto& label : challenge_label) {
-                info("\tchallenge: ", label);
-            }
-            for (auto& entry : entries) {
-                info("\telement (", entry.second, "): ", entry.first);
-            }
-        }
-
-        bool operator==(const RoundData& other) const = default;
-    };
-
-    std::map<size_t, RoundData> manifest;
-
-  public:
-    void print()
-    {
-        for (auto& round : manifest) {
-            info("Round: ", round.first);
-            round.second.print();
-        }
-    }
-
-    template <typename... Strings> void add_challenge(size_t round, Strings&... labels)
-    {
-        manifest[round].challenge_label = { labels... };
-    }
-    template <typename String, size_t NumChallenges>
-    void add_challenge(size_t round, std::array<String, NumChallenges> labels)
-    {
-        auto call_add_challenge = [&] {
-            auto call_fn_with_expanded_parameters =
-                [&]<size_t... Indices>([[maybe_unused]] std::index_sequence<Indices...>) {
-                    return add_challenge(round, std::get<Indices>(labels)...);
-                };
-            return call_fn_with_expanded_parameters(std::make_index_sequence<NumChallenges>());
-        };
-        call_add_challenge();
-    }
-
-    void add_entry(size_t round, const std::string& element_label, size_t element_size)
-    {
-        manifest[round].entries.emplace_back(element_label, element_size);
-    }
-
-    [[nodiscard]] size_t size() const { return manifest.size(); }
-
-    RoundData operator[](const size_t& round) { return manifest[round]; };
-
-    bool operator==(const TranscriptManifest& other) const = default;
-};
-
-struct NativeTranscriptParams {
-    using DataType = bb::fr;
-    using Proof = HonkProof;
-
-    static DataType hash(const std::vector<DataType>& data);
-    template <typename T> static inline T convert_challenge(const DataType& challenge)
-    {
-        return bb::field_conversion::convert_challenge<T>(challenge);
-    }
-    /**
-     * @brief Split a challenge field element into two half-width challenges
-     * @details `lo` is 128 bits and `hi` is 126 bits.
-     * This should provide significantly more than our security parameter bound: 100 bits
-     *
-     * @param challenge
-     * @return std::array<Fr, 2>
-     */
-    static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
-    {
-        // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
-        static constexpr size_t LO_BITS = DataType::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-        static constexpr size_t HI_BITS = DataType::modulus.get_msb() + 1 - LO_BITS;
-
-        auto converted = static_cast<uint256_t>(challenge);
-        uint256_t lo = converted.slice(0, LO_BITS);
-        uint256_t hi = converted.slice(LO_BITS, LO_BITS + HI_BITS);
-        return std::array<DataType, 2>{ DataType(lo), DataType(hi) };
-    }
-    template <typename T> static constexpr size_t calc_num_data_types()
-    {
-        return bb::field_conversion::calc_num_bn254_frs<T>();
-    }
-    template <typename T> static inline T deserialize(std::span<const DataType> frs)
-    {
-        return bb::field_conversion::convert_from_bn254_frs<T>(frs);
-    }
-    template <typename T> static inline std::vector<DataType> serialize(const T& element)
-    {
-        return bb::field_conversion::convert_to_bn254_frs(element);
-    }
-};
-
-// A template for detecting whether a type is native or in-circuit
+// A concept for detecting whether a type is native or in-circuit
 template <typename T>
-concept InCircuit = !(std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> || std::same_as<T, uint256_t>);
-
-template <typename T, typename = void> struct is_iterable : std::false_type {};
-
-// this gets used only when we can call std::begin() and std::end() on that type
-template <typename T>
-struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T&>())), decltype(std::end(std::declval<T&>()))>>
-    : std::true_type {};
-
-template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
+concept InCircuit = !IsAnyOf<T, bb::fr, grumpkin::fr, uint256_t>;
 
 // A static counter for the number of transcripts created
 // This is used to generate unique labels for the transcript origin tags
@@ -151,13 +37,16 @@ inline std::atomic<size_t> unique_transcript_index{ 0 };
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
  */
-template <typename TranscriptParams> class BaseTranscript {
+template <typename Codec_, typename HashFunction> class BaseTranscript {
   public:
-    using DataType = TranscriptParams::DataType;
-    using Proof = typename TranscriptParams::Proof;
+    using Codec = Codec_;
+    using DataType = typename Codec::DataType;
+    using Proof = std::vector<DataType>;
 
     // Detects whether the transcript is in-circuit or not
     static constexpr bool in_circuit = InCircuit<DataType>;
+
+    static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
 
     // The unique index of the transcript
     size_t transcript_index = 0;
@@ -176,8 +65,6 @@ template <typename TranscriptParams> class BaseTranscript {
             transcript_index = unique_transcript_index.fetch_add(1);
         }
     }
-
-    static constexpr size_t HASH_OUTPUT_SIZE = 32;
 
     std::ptrdiff_t proof_start = 0;
     size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover
@@ -203,43 +90,37 @@ template <typename TranscriptParams> class BaseTranscript {
      * and the current round data, if they exist. It clears the current_round_data if nonempty after
      * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
-     * @return std::array<Fr, HASH_OUTPUT_SIZE>
+     * @return std::array<DataType, 2>
      */
-    [[nodiscard]] std::array<DataType, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
+    [[nodiscard]] std::array<DataType, CHALLENGE_BUFFER_SIZE> get_next_duplex_challenge_buffer()
     {
-        // challenges need at least 110 bits in them to match the presumed security parameter of the BN254 curve.
-        BB_ASSERT_LTE(num_challenges, 2U);
-        // Prevent challenge generation if this is the first challenge we're generating,
-        // AND nothing was sent by the prover.
-        if (is_first_challenge) {
-            ASSERT(!current_round_data.empty());
-        }
+
+        std::vector<DataType> full_buffer;
+
+        const size_t size_bump = (is_first_challenge) ? 0 : 1;
+
+        full_buffer.resize(current_round_data.size() + size_bump);
 
         // concatenate the previous challenge (if this is not the first challenge) with the current round data.
-        // TODO(Adrian): Do we want to use a domain separator as the initial challenge buffer?
-        // We could be cheeky and use the hash of the manifest as domain separator, which would prevent us from
-        // having to domain separate all the data. (See https://safe-hash.dev)
-        std::vector<DataType> full_buffer;
         if (!is_first_challenge) {
             // if not the first challenge, we can use the previous_challenge
-            full_buffer.emplace_back(previous_challenge);
+            full_buffer[0] = previous_challenge;
         } else {
+            // Prevent challenge generation if this is the first challenge we're generating,
+            // AND nothing was sent by the prover.
+            BB_ASSERT(!current_round_data.empty());
             // Update is_first_challenge for the future
             is_first_challenge = false;
         }
-        if (!current_round_data.empty()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/832): investigate why
-            // full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end()); fails to
-            // compile with gcc
-            std::copy(current_round_data.begin(), current_round_data.end(), std::back_inserter(full_buffer));
-            current_round_data.clear(); // clear the round data buffer since it has been used
-        }
 
-        // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a
-        // random oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we
-        // previously did with Pedersen and Blake3s.
-        DataType new_challenge = TranscriptParams::hash(full_buffer);
-        std::array<DataType, 2> new_challenges = TranscriptParams::split_challenge(new_challenge);
+        std::copy(current_round_data.begin(),
+                  current_round_data.end(),
+                  full_buffer.begin() + static_cast<std::ptrdiff_t>(size_bump));
+        current_round_data.clear();
+
+        // Hash the full buffer
+        DataType new_challenge = HashFunction::hash(full_buffer);
+        std::array<DataType, CHALLENGE_BUFFER_SIZE> new_challenges = Codec::split_challenge(new_challenge);
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenges;
@@ -274,7 +155,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> void serialize_to_buffer(const T& element, Proof& proof_data)
     {
-        auto element_frs = TranscriptParams::template serialize(element);
+        auto element_frs = Codec::serialize_to_fields(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
     }
     /**
@@ -288,13 +169,13 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
-        constexpr size_t element_fr_size = TranscriptParams::template calc_num_data_types<T>();
+        constexpr size_t element_fr_size = Codec::template calc_num_fields<T>();
         BB_ASSERT_LTE(offset + element_fr_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
         offset += element_fr_size;
 
-        auto element = TranscriptParams::template deserialize<T>(element_frs);
+        auto element = Codec::template deserialize_from_fields<T>(element_frs);
 
         return element;
     }
@@ -321,39 +202,34 @@ template <typename TranscriptParams> class BaseTranscript {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
     }
 
-    /**
-     * @brief Return the size of proof_data
-     *
-     * @return size_t
-     */
-    size_t size_proof_data() { return proof_data.size(); }
+    // Return the size of proof_data
+    size_t get_proof_size() { return proof_data.size(); }
 
-    /**
-     * @brief Enables the manifest
-     *
-     */
+    // Enables the manifest
     void enable_manifest() { use_manifest = true; }
 
     /**
-     * @brief Static hash method that forwards to TranscriptParams hash.
+     * @brief Static hash method that forwards to Codec hash.
      * @details This method allows hash to be called on the Transcript class directly,
      * which is needed for verification key hashing.
      *
      * @param data Vector of field elements to hash
      * @return Fr Hash result
      */
-    static DataType hash(const std::vector<DataType>& data) { return TranscriptParams::hash(data); }
+    static DataType hash(const std::vector<DataType>& data) { return HashFunction::hash(data); }
 
-    /**
-     * @brief Serialize a size_t to a vector of field elements
-     *
-     * @param element
-     * @return std::vector<DataType>
-     */
-    template <typename T> static inline std::vector<DataType> serialize(const T& element)
+    // Serialize an element of type T to a vector of fields
+    template <typename T> static std::vector<DataType> serialize(const T& element)
     {
-        return TranscriptParams::template serialize(element);
+        return Codec::serialize_to_fields(element);
     }
+
+    template <typename T> static T deserialize(std::span<const DataType> frs)
+    {
+        return Codec::template deserialize_from_fields<T>(frs);
+    }
+
+    template <typename T> static size_t calc_num_data_types() { return Codec::template calc_num_fields<T>(); }
 
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then
@@ -363,7 +239,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * [128, 126, 128, 126, ...].
      *
      * @param labels human-readable names for the challenges for the manifest
-     * @return std::array<Fr, num_challenges> challenges for this round.
+     * @return std::vector<ChallengeType> challenges for this round.
      */
     template <typename ChallengeType> std::vector<ChallengeType> get_challenges(std::span<const std::string> labels)
     {
@@ -376,6 +252,11 @@ template <typename TranscriptParams> class BaseTranscript {
             }
         }
 
+        // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
+        // get an origin tag violation inside the hasher. We are doing this to ensure that the free witness tagged
+        // elements that are sent to the transcript and are assigned tags externally, don't trigger the origin tag
+        // security mechanism while we are hashing them
+        bb::unset_free_witness_tags<in_circuit, DataType>(current_round_data);
         // Compute the new challenge buffer from which we derive the challenges.
 
         // Create challenges from Frs.
@@ -384,27 +265,24 @@ template <typename TranscriptParams> class BaseTranscript {
 
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges / 2; i += 1) {
-            auto challenge_buffer = get_next_duplex_challenge_buffer(2);
-            challenges[2 * i] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
-            challenges[2 * i + 1] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[1]);
+            std::array<DataType, CHALLENGE_BUFFER_SIZE> challenge_buffer = get_next_duplex_challenge_buffer();
+            challenges[2 * i] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
+            challenges[(2 * i) + 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[1]);
         }
         if ((num_challenges & 1) == 1) {
-            auto challenge_buffer = get_next_duplex_challenge_buffer(1);
-            challenges[num_challenges - 1] =
-                TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
+            std::array<DataType, CHALLENGE_BUFFER_SIZE> challenge_buffer = get_next_duplex_challenge_buffer();
+            challenges[num_challenges - 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
         }
 
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // We are in challenge generation mode
-            if (reception_phase) {
-                reception_phase = false;
-            }
-            // Assign origin tags to the challenges
-            for (size_t i = 0; i < num_challenges; i++) {
-                challenges[i].set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/false));
-            }
+        // We are in challenge generation mode
+        if (reception_phase) {
+            reception_phase = false;
         }
+
+        // Assign origin tags to the challenges
+        bb::assign_origin_tag<in_circuit>(challenges, OriginTag(transcript_index, round_index, /*is_submitted=*/false));
+
         // Prepare for next round.
         ++round_number;
 
@@ -412,13 +290,10 @@ template <typename TranscriptParams> class BaseTranscript {
     }
 
     /**
-     * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then create
-     * the number of requested challenges.
-     * @details Challenges are generated by iteratively hashing over the previous challenge, using
-     * get_next_challenge_buffer().
+     * @brief Wrapper around get_challenges to handle array of challenges
      *
      * @param array of labels human-readable names for the challenges for the manifest
-     * @return std::array<Fr, num_challenges> challenges for this round.
+     * @return std::array<ChallengeType, N> challenges for this round.
      */
     template <typename ChallengeType, size_t N>
     std::array<ChallengeType, N> get_challenges(const std::array<std::string, N>& labels)
@@ -428,6 +303,27 @@ template <typename TranscriptParams> class BaseTranscript {
         std::array<ChallengeType, N> out{};
         std::move(vec.begin(), vec.end(), out.begin());
         return out;
+    }
+
+    /**
+     * @brief Given δ, compute the vector [δ, δ^2,..., δ^2^num_powers].
+     */
+    template <typename ChallengeType>
+    std::vector<ChallengeType> compute_round_challenge_pows(const size_t num_powers,
+                                                            const ChallengeType& round_challenge)
+    {
+        std::vector<ChallengeType> pows(num_powers);
+        pows[0] = round_challenge;
+        for (size_t i = 1; i < num_powers; i++) {
+            pows[i] = pows[i - 1].sqr();
+        }
+        return pows;
+    }
+
+    template <typename ChallengeType, typename String>
+    std::vector<ChallengeType> get_powers_of_challenge(const String& label, size_t num_challenges)
+    {
+        return compute_round_challenge_pows(num_challenges, get_challenge<ChallengeType>(label));
     }
 
     /**
@@ -442,44 +338,31 @@ template <typename TranscriptParams> class BaseTranscript {
     {
         DEBUG_LOG(label, element);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (const auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-            }
+        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+        // then we need to increment the round index
+        if (!reception_phase) {
+            reception_phase = true;
+            round_index++;
         }
-        auto element_frs = TranscriptParams::serialize(element);
+        // If the element is iterable, then we need to assign origin tags to all the elements
+        bb::assign_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+        auto element_frs = Codec::serialize_to_fields(element);
 
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("independent hash buffer consumed:     ", label, ": ", element);
-        }
-#endif
         independent_hash_buffer.insert(independent_hash_buffer.end(), element_frs.begin(), element_frs.end());
     }
 
     /**
-     * @brief Hashes the independent hash buffer and adds the result to the hash buffer.
+     * @brief Hashes the independent hash buffer and clears it.
      *
-     * @param label Human-readable name for the challenge.
      * @return Fr The hash of the independent hash buffer.
      */
-    DataType hash_independent_buffer(const std::string& label)
+    DataType hash_independent_buffer()
     {
-        DataType buffer_hash = TranscriptParams::hash(independent_hash_buffer);
+        // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
+        // get an origin tag violation inside the hasher
+        bb::unset_free_witness_tags<in_circuit, DataType>(independent_hash_buffer);
+        DataType buffer_hash = HashFunction::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
-        add_to_hash_buffer(label, buffer_hash);
         return buffer_hash;
     }
 
@@ -495,31 +378,17 @@ template <typename TranscriptParams> class BaseTranscript {
     {
         DEBUG_LOG(label, element);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (const auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-            }
+        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+        // then we need to increment the round index
+        if (!reception_phase) {
+            reception_phase = true;
+            round_index++;
         }
-        auto elements = TranscriptParams::serialize(element);
 
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("consumed:     ", label, ": ", element);
-        }
-#endif
-        BaseTranscript::add_element_frs_to_hash_buffer(label, elements);
+        bb::assign_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+        auto elements = Codec::serialize_to_fields(element);
+
+        add_element_frs_to_hash_buffer(label, elements);
     }
 
     /**
@@ -538,35 +407,11 @@ template <typename TranscriptParams> class BaseTranscript {
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
-
-        auto element_frs = TranscriptParams::serialize(element);
+        auto element_frs = Codec::template serialize_to_fields<T>(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
         num_frs_written += element_frs.size();
 
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("sent:     ", label, ": ", element);
-        }
-#endif
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
-        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // The prover is sending data to the verifier. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (const auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-            }
-        }
+        add_element_frs_to_hash_buffer(label, element_frs);
     }
 
     /**
@@ -578,44 +423,49 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        const size_t element_size = TranscriptParams::template calc_num_data_types<T>();
+        const size_t element_size = Codec::template calc_num_fields<T>();
         BB_ASSERT_LTE(num_frs_read + element_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
+        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
+        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+        // then we need to increment the round index
+        if (!reception_phase) {
+            reception_phase = true;
+            round_index++;
+        }
+        // Assign an origin tag to the elements going into the hash buffer
+        bb::assign_origin_tag<in_circuit>(element_frs, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+
         num_frs_read += element_size;
 
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+        add_element_frs_to_hash_buffer(label, element_frs);
 
-        auto element = TranscriptParams::template deserialize<T>(element_frs);
+        auto element = Codec::template deserialize_from_fields<T>(element_frs);
         DEBUG_LOG(label, element);
 
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("received: ", label, ": ", element);
-        }
-#endif
+        // Ensure that the element got assigned an origin tag
+        bb::check_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
 
-        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-            }
-        }
         return element;
     }
 
+    /**
+     * @brief Convert a prover transcript to a verifier transcript
+     *
+     * @param prover_transcript The prover transcript to convert
+     * @return std::shared_ptr<BaseTranscript> The verifier transcript
+     */
+    static std::shared_ptr<BaseTranscript> convert_prover_transcript_to_verifier_transcript(
+        const std::shared_ptr<BaseTranscript>& prover_transcript)
+    {
+        // We expect this function to only be used when the transcript has just been exported.
+        BB_ASSERT_EQ(prover_transcript->num_frs_written, 0UL, "Expected to be empty");
+        auto verifier_transcript = std::make_shared<BaseTranscript>(*prover_transcript);
+        verifier_transcript->num_frs_read = static_cast<size_t>(verifier_transcript->proof_start);
+        verifier_transcript->proof_start = 0;
+        return verifier_transcript;
+    }
     /**
      * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated
      * after initialization. Only intended to be used by Prover.
@@ -649,9 +499,7 @@ template <typename TranscriptParams> class BaseTranscript {
     {
         std::span<const std::string> label_span(&label, 1);
         auto result = get_challenges<ChallengeType>(label_span);
-#if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
-        info("challenge: ", label, ": ", result[0]);
-#endif
+
         DEBUG_LOG(label, result);
         return result[0];
     }
@@ -665,135 +513,30 @@ template <typename TranscriptParams> class BaseTranscript {
         }
         manifest.print();
     }
-
-    /**
-     * @brief Branch a transcript to perform verifier-only computations
-     * @details This function takes the current state of a transcript and creates a new transcript that starts from that
-     * state. In this way, computations that are not part of the prover's transcript (e.g., computations that can be
-     * used to perform calculations more efficiently) will not affect the verifier's transcript.
-     *
-     * If `transcript = (.., previous_challenge)`, then for soundness it is enough that `branched_transcript =
-     * (previous_challenge, ...)` However, there are a few implementation details we need to take into account:
-     *  1. `branched_transcript` will interact with witnesses that come from `transcript`. To prevent the tool that
-     *      detects FS bugs from raising an error, we must ensure that `branched_transcript.transcript_index =
-     *      transcript.transcript_index`.
-     *  2. To aid debugging, we set `branched_transcript.round_index = transcript.round_index`, so that it is clear that
-     *      `branched_transcript` builds on the current state of `transcript`.
-     *  3. To aid debugging, we increase `transcript.round_index` by `BRANCHING_JUMP`, so that there is a gap between
-     *      what happens before and after the transcript is branched.
-     *  4. To ensure soundness:
-     *      a. We add to the hash buffer of `branched_transcript` the value `transcript.previous_challenge`
-     *      b. We enforce ASSERT(current_round_data.empty())
-     *
-     * @note We could remove 4.b and add to the hash buffer of `branched_transcript` both
-     * `transcript.previous_challenge` and `transcript.current_round_data`. However, this would conflict with 3 (as the
-     * round in `transcript` is not finished yet). There seems to be no reason why the branching cannot happen after the
-     * round is concluded, so we choose this implementation.
-     *
-     * The relation between the transcript and the branched transcript is the following:
-     *
-     *   round_index      transcript      branched_transcript
-     *        0               *
-     *        1               |
-     *        |               |
-     *        |               |
-     *        n               * ================= *
-     *        |                                   |
-     *        |                                   |
-     *        |                                   |
-     * n+BRANCHING_JUMP       *                   |
-     *       n+6              |                   |
-     *        |               |                   |
-     *       ...             ...                 ...
-     *
-     *
-     * @return BaseTranscript
-     */
-    BaseTranscript branch_transcript()
-    {
-        ASSERT(current_round_data.empty(), "Branching a transcript with non empty round data");
-
-        BaseTranscript branched_transcript;
-
-        // Need to fetch_sub because the constructor automatically increases unique_transcript_index by 1
-        branched_transcript.transcript_index = unique_transcript_index.fetch_sub(1);
-        branched_transcript.round_index = round_index;
-        branched_transcript.add_to_hash_buffer("init", previous_challenge);
-        round_index += BRANCHING_JUMP;
-
-        return branched_transcript;
-    }
 };
 
-using NativeTranscript = BaseTranscript<NativeTranscriptParams>;
+using NativeTranscript = BaseTranscript<FrCodec, bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>>;
+using KeccakTranscript = BaseTranscript<U256Codec, bb::crypto::Keccak>;
 
-///////////////////////////////////////////
-// Solidity Transcript
-///////////////////////////////////////////
+template <typename Builder>
+using StdlibTranscript = BaseTranscript<stdlib::StdlibCodec<stdlib::field_t<Builder>>, stdlib::poseidon2<Builder>>;
+using UltraStdlibTranscript =
+    BaseTranscript<stdlib::StdlibCodec<stdlib::field_t<UltraCircuitBuilder>>, stdlib::poseidon2<UltraCircuitBuilder>>;
+using MegaStdlibTranscript =
+    BaseTranscript<stdlib::StdlibCodec<stdlib::field_t<MegaCircuitBuilder>>, stdlib::poseidon2<MegaCircuitBuilder>>;
 
-// This is a compatible wrapper around the keccak256 function from ethash
-inline bb::fr keccak_hash_uint256(std::vector<uint256_t> const& data)
-// Losing 2 bits of this is not an issue -> we can just reduce mod p
-{
-    // cast into uint256_t
-    std::vector<uint8_t> buffer = to_buffer(data);
-
-    keccak256 hash_result = ethash_keccak256(&buffer[0], buffer.size());
-    for (auto& word : hash_result.word64s) {
-        if (is_little_endian()) {
-            word = __builtin_bswap64(word);
-        }
-    }
-    std::array<uint8_t, 32> result;
-
-    for (size_t i = 0; i < 4; ++i) {
-        for (size_t j = 0; j < 8; ++j) {
-            uint8_t byte = static_cast<uint8_t>(hash_result.word64s[i] >> (56 - (j * 8)));
-            result[i * 8 + j] = byte;
-        }
-    }
-
-    return from_buffer<bb::fr>(result);
-}
-
-struct KeccakTranscriptParams {
-    using Fr = bb::fr;
-    using DataType = uint256_t;
-    using Proof = std::vector<uint256_t>;
-
-    static inline Fr hash(const std::vector<DataType>& data) { return keccak_hash_uint256(data); }
-
-    template <typename T> static inline T convert_challenge(const DataType& challenge)
-    {
-        return bb::field_conversion::convert_challenge<T>(challenge);
-    }
-
-    template <typename T> static constexpr size_t calc_num_data_types()
-    {
-        return bb::field_conversion::calc_num_uint256_ts<T>();
-    }
-    template <typename T> static inline T deserialize(std::span<const DataType> elements)
-    {
-        return bb::field_conversion::convert_from_uint256_ts<T>(elements);
-    }
-    template <typename T> static inline std::vector<DataType> serialize(const T& element)
-    {
-        return bb::field_conversion::convert_to_uint256(element);
-    }
-    static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
-    {
-        // Challenges sizes are matched with the challenge sizes used in bb::fr
-        // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
-        static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-        static constexpr size_t HI_BITS = bb::fr::modulus.get_msb() + 1 - LO_BITS;
-
-        auto converted = static_cast<uint256_t>(challenge);
-        uint256_t lo = converted.slice(0, LO_BITS);
-        uint256_t hi = converted.slice(LO_BITS, LO_BITS + HI_BITS);
-        return std::array<DataType, 2>{ DataType(lo), DataType(hi) };
-    }
+/**
+ * @brief Helper to get the appropriate Transcript type for a given Curve
+ * @details Maps native curves to NativeTranscript and stdlib curves to StdlibTranscript<Builder>
+ */
+template <typename Curve, bool = Curve::is_stdlib_type> struct TranscriptFor {
+    using type = NativeTranscript;
 };
 
-using KeccakTranscript = BaseTranscript<KeccakTranscriptParams>;
+template <typename Curve> struct TranscriptFor<Curve, true> {
+    using type = StdlibTranscript<typename Curve::Builder>;
+};
+
+template <typename Curve> using TranscriptFor_t = typename TranscriptFor<Curve>::type;
 
 } // namespace bb

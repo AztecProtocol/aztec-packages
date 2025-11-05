@@ -1,7 +1,20 @@
 FROM ubuntu:noble AS base-build
 
 RUN apt-get update && \
-    apt-get install -y build-essential python3 wget unzip git cmake clang ninja-build curl && \
+    apt-get install -y \
+        build-essential \
+        python3 \
+        wget \
+        curl \
+        unzip \
+        git \
+        cmake \
+        clang \
+        ninja-build \
+        libdw-dev \
+        binutils-dev \
+        libelf-dev \
+        libdwarf-dev && \
     apt-get -y autoremove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -27,6 +40,10 @@ WORKDIR /home/fuzzer/aztec-packages/barretenberg/cpp
 # Build all fuzzers
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing
 RUN cmake --build build-fuzzing
+
+# Build all fuzzers
+RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-noasm
+RUN cmake --build build-fuzzing-noasm
 
 # Build all post-crash loggers
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-asan

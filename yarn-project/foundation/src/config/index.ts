@@ -5,6 +5,8 @@ import { SecretValue } from './secret_value.js';
 
 export { SecretValue, getActiveNetworkName };
 export type { EnvVar, NetworkNames };
+export type { NetworkConfig, NetworkConfigMap } from './network_config.js';
+export { NetworkConfigMapSchema, NetworkConfigSchema } from './network_config.js';
 
 export interface ConfigMapping {
   env?: EnvVar;
@@ -160,6 +162,26 @@ export function optionalNumberConfigHelper(): Pick<ConfigMapping, 'parseEnv'> {
   };
 }
 
+/** Generates parseEnv for an enum-like config value. */
+export function enumConfigHelper<T extends string>(
+  values: T[],
+  defaultValue?: NoInfer<T>,
+): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+  return {
+    parseEnv: (val: string) => {
+      const sanitizedVal = (val ?? '').trim().toLowerCase();
+      if (values.includes(sanitizedVal as T)) {
+        return sanitizedVal as T;
+      }
+      if (!val && defaultValue) {
+        return defaultValue;
+      }
+      throw new Error(`Invalid config value '${val}' (must be one of ${values.join(', ')})`);
+    },
+    defaultValue,
+  };
+}
+
 /**
  * Generates parseEnv and default values for a boolean config value.
  * @param defaultVal - The default value to use if the environment variable is not set or is invalid
@@ -239,7 +261,7 @@ export function secretFrConfigHelper(defaultValue?: Fr): Required<
   return {
     parseEnv: parse,
     parseVal: parse,
-    defaultValue: typeof defaultValue ? new SecretValue(defaultValue) : undefined,
+    defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
     isBoolean: true,
   };
 }

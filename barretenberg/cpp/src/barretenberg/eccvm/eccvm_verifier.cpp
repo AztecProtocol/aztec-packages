@@ -42,8 +42,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     }
 
     // Get challenge for sorted list batching and wire four memory records
-    const std::array<std::string, 2> grand_product_challenge_labels{ "beta", "gamma" };
-    auto [beta, gamma] = transcript->template get_challenges<FF>(grand_product_challenge_labels);
+    auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
     auto beta_sqr = beta * beta;
     relation_parameters.gamma = gamma;

@@ -5,6 +5,7 @@ import { schemas } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
+import { AllContractDeploymentData, ContractDeploymentData } from '../contract/index.js';
 import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
@@ -15,9 +16,15 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
-import { GlobalVariables, PublicCallRequestWithCalldata, TreeSnapshots, type Tx } from '../tx/index.js';
+import {
+  GlobalVariables,
+  ProtocolContracts,
+  PublicCallRequestWithCalldata,
+  TreeSnapshots,
+  type Tx,
+} from '../tx/index.js';
+import { WorldStateRevision } from '../world-state/world_state_revision.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
-import { clampGasSettingsForAVM } from './gas.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
 ////////////////////////////////////////////////////////////////////////////
@@ -25,6 +32,7 @@ import { serializeWithMessagePack } from './message_pack.js';
 ////////////////////////////////////////////////////////////////////////////
 export class AvmContractClassHint {
   constructor(
+    public readonly hintKey: number,
     public readonly classId: Fr,
     public readonly artifactHash: Fr,
     public readonly privateFunctionsRoot: Fr,
@@ -34,20 +42,22 @@ export class AvmContractClassHint {
   static get schema() {
     return z
       .object({
+        hintKey: z.number().int().nonnegative(),
         classId: schemas.Fr,
         artifactHash: schemas.Fr,
         privateFunctionsRoot: schemas.Fr,
         packedBytecode: schemas.Buffer,
       })
       .transform(
-        ({ classId, artifactHash, privateFunctionsRoot, packedBytecode }) =>
-          new AvmContractClassHint(classId, artifactHash, privateFunctionsRoot, packedBytecode),
+        ({ hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode }) =>
+          new AvmContractClassHint(hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode),
       );
   }
 }
 
 export class AvmBytecodeCommitmentHint {
   constructor(
+    public readonly hintKey: number,
     public readonly classId: Fr,
     public readonly commitment: Fr,
   ) {}
@@ -55,15 +65,17 @@ export class AvmBytecodeCommitmentHint {
   static get schema() {
     return z
       .object({
+        hintKey: z.number().int().nonnegative(),
         classId: schemas.Fr,
         commitment: schemas.Fr,
       })
-      .transform(({ classId, commitment }) => new AvmBytecodeCommitmentHint(classId, commitment));
+      .transform(({ hintKey, classId, commitment }) => new AvmBytecodeCommitmentHint(hintKey, classId, commitment));
   }
 }
 
 export class AvmContractInstanceHint {
   constructor(
+    public readonly hintKey: number,
     public readonly address: AztecAddress,
     public readonly salt: Fr,
     public readonly deployer: AztecAddress,
@@ -76,6 +88,7 @@ export class AvmContractInstanceHint {
   static get schema() {
     return z
       .object({
+        hintKey: z.number().int().nonnegative(),
         address: AztecAddress.schema,
         salt: schemas.Fr,
         deployer: AztecAddress.schema,
@@ -86,6 +99,7 @@ export class AvmContractInstanceHint {
       })
       .transform(
         ({
+          hintKey,
           address,
           salt,
           deployer,
@@ -95,6 +109,7 @@ export class AvmContractInstanceHint {
           publicKeys,
         }) =>
           new AvmContractInstanceHint(
+            hintKey,
             address,
             salt,
             deployer,
@@ -104,6 +119,24 @@ export class AvmContractInstanceHint {
             publicKeys,
           ),
       );
+  }
+}
+
+export class AvmDebugFunctionNameHint {
+  constructor(
+    public readonly address: AztecAddress,
+    public readonly selector: Fr,
+    public readonly name: string,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        address: AztecAddress.schema,
+        selector: schemas.Fr,
+        name: z.string(),
+      })
+      .transform(({ address, selector, name }) => new AvmDebugFunctionNameHint(address, selector, name));
   }
 }
 
@@ -382,6 +415,10 @@ export class AvmRevertCheckpointHint {
   }
 }
 
+export class AvmContractDBCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDBCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDBRevertCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -390,6 +427,8 @@ export class AvmTxHint {
     public readonly hash: string,
     public readonly gasSettings: GasSettings,
     public readonly effectiveGasFees: GasFees,
+    public readonly nonRevertibleContractDeploymentData: ContractDeploymentData,
+    public readonly revertibleContractDeploymentData: ContractDeploymentData,
     public readonly nonRevertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
@@ -409,15 +448,13 @@ export class AvmTxHint {
     public readonly feePayer: AztecAddress,
   ) {}
 
-  static fromTx(tx: Tx): AvmTxHint {
+  static fromTx(tx: Tx, gasFees: GasFees): AvmTxHint {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
-    const gasSettings = clampGasSettingsForAVM(tx.data.constants.txContext.gasSettings, tx.data.gasUsed);
-    const effectiveGasFees = computeEffectiveGasFees(
-      tx.data.constants.historicalHeader.globalVariables.gasFees,
-      gasSettings,
-    );
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const effectiveGasFees = computeEffectiveGasFees(gasFees, gasSettings);
+    const allContractDeploymentData = AllContractDeploymentData.fromTx(tx);
 
     // For informational purposes. Assumed quick because it should be cached.
     const txHash = tx.getTxHash();
@@ -426,6 +463,8 @@ export class AvmTxHint {
       txHash.hash.toString(),
       gasSettings,
       effectiveGasFees,
+      allContractDeploymentData.getNonRevertibleContractDeploymentData(),
+      allContractDeploymentData.getRevertibleContractDeploymentData(),
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
@@ -449,6 +488,8 @@ export class AvmTxHint {
       '',
       GasSettings.empty(),
       GasFees.empty(),
+      ContractDeploymentData.empty(),
+      ContractDeploymentData.empty(),
       { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
       { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
       [],
@@ -465,6 +506,8 @@ export class AvmTxHint {
         hash: z.string(),
         gasSettings: GasSettings.schema,
         effectiveGasFees: GasFees.schema,
+        nonRevertibleContractDeploymentData: ContractDeploymentData.schema,
+        revertibleContractDeploymentData: ContractDeploymentData.schema,
         nonRevertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
@@ -486,6 +529,8 @@ export class AvmTxHint {
           hash,
           gasSettings,
           effectiveGasFees,
+          nonRevertibleContractDeploymentData,
+          revertibleContractDeploymentData,
           nonRevertibleAccumulatedData,
           revertibleAccumulatedData,
           setupEnqueuedCalls,
@@ -498,6 +543,8 @@ export class AvmTxHint {
             hash,
             gasSettings,
             effectiveGasFees,
+            nonRevertibleContractDeploymentData,
+            revertibleContractDeploymentData,
             nonRevertibleAccumulatedData,
             revertibleAccumulatedData,
             setupEnqueuedCalls,
@@ -514,10 +561,13 @@ export class AvmExecutionHints {
   constructor(
     public readonly globalVariables: GlobalVariables,
     public tx: AvmTxHint,
+    // Protocol contracts.
+    public protocolContracts: ProtocolContracts,
     // Contract hints.
     public readonly contractInstances: AvmContractInstanceHint[] = [],
     public readonly contractClasses: AvmContractClassHint[] = [],
     public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
+    public readonly debugFunctionNames: AvmDebugFunctionNameHint[] = [],
     // Merkle DB hints.
     public startingTreeRoots: TreeSnapshots = TreeSnapshots.empty(),
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
@@ -531,10 +581,13 @@ export class AvmExecutionHints {
     public readonly createCheckpointHints: AvmCreateCheckpointHint[] = [],
     public readonly commitCheckpointHints: AvmCommitCheckpointHint[] = [],
     public readonly revertCheckpointHints: AvmRevertCheckpointHint[] = [],
+    public readonly contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint[] = [],
+    public readonly contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint[] = [],
+    public readonly contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint[] = [],
   ) {}
 
   static empty() {
-    return new AvmExecutionHints(GlobalVariables.empty(), AvmTxHint.empty());
+    return new AvmExecutionHints(GlobalVariables.empty(), AvmTxHint.empty(), ProtocolContracts.empty());
   }
 
   static get schema() {
@@ -542,9 +595,11 @@ export class AvmExecutionHints {
       .object({
         globalVariables: GlobalVariables.schema,
         tx: AvmTxHint.schema,
+        protocolContracts: ProtocolContracts.schema,
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
+        debugFunctionNames: AvmDebugFunctionNameHint.schema.array(),
         startingTreeRoots: TreeSnapshots.schema,
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
@@ -557,14 +612,19 @@ export class AvmExecutionHints {
         createCheckpointHints: AvmCreateCheckpointHint.schema.array(),
         commitCheckpointHints: AvmCommitCheckpointHint.schema.array(),
         revertCheckpointHints: AvmRevertCheckpointHint.schema.array(),
+        contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint.schema.array(),
+        contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint.schema.array(),
+        contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint.schema.array(),
       })
       .transform(
         ({
           globalVariables,
           tx,
+          protocolContracts,
           contractInstances,
           contractClasses,
           bytecodeCommitments,
+          debugFunctionNames,
           startingTreeRoots,
           getSiblingPathHints,
           getPreviousValueIndexHints,
@@ -577,13 +637,18 @@ export class AvmExecutionHints {
           createCheckpointHints,
           commitCheckpointHints,
           revertCheckpointHints,
+          contractDBCreateCheckpointHints,
+          contractDBCommitCheckpointHints,
+          contractDBRevertCheckpointHints,
         }) =>
           new AvmExecutionHints(
             globalVariables,
             tx,
+            protocolContracts,
             contractInstances,
             contractClasses,
             bytecodeCommitments,
+            debugFunctionNames,
             startingTreeRoots,
             getSiblingPathHints,
             getPreviousValueIndexHints,
@@ -596,6 +661,9 @@ export class AvmExecutionHints {
             createCheckpointHints,
             commitCheckpointHints,
             revertCheckpointHints,
+            contractDBCreateCheckpointHints,
+            contractDBCommitCheckpointHints,
+            contractDBRevertCheckpointHints,
           ),
       );
   }
@@ -630,5 +698,41 @@ export class AvmCircuitInputs {
   }
   static fromBuffer(buf: Buffer) {
     return jsonParseWithSchema(buf.toString(), this.schema);
+  }
+}
+
+export class AvmFastSimulationInputs {
+  constructor(
+    public readonly wsRevision: WorldStateRevision,
+    public tx: AvmTxHint,
+    public globalVariables: GlobalVariables,
+    public protocolContracts: ProtocolContracts,
+  ) {}
+
+  static empty() {
+    return new AvmFastSimulationInputs(
+      WorldStateRevision.empty(),
+      AvmTxHint.empty(),
+      GlobalVariables.empty(),
+      ProtocolContracts.empty(),
+    );
+  }
+
+  static get schema() {
+    return z
+      .object({
+        wsRevision: WorldStateRevision.schema,
+        tx: AvmTxHint.schema,
+        globalVariables: GlobalVariables.schema,
+        protocolContracts: ProtocolContracts.schema,
+      })
+      .transform(
+        ({ wsRevision, tx, globalVariables, protocolContracts }) =>
+          new AvmFastSimulationInputs(wsRevision, tx, globalVariables, protocolContracts),
+      );
+  }
+
+  public serializeWithMessagePack(): Buffer {
+    return serializeWithMessagePack(this);
   }
 }

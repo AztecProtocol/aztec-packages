@@ -1,12 +1,34 @@
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
 import { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { NativeWorldStateService } from '@aztec/world-state/native';
 
-import { createAvmMinimalPublicTx, readAvmMinimalPublicTxInputsFromFile } from '../../fixtures/minimal_public_tx.js';
+import { executeAvmMinimalPublicTx, readAvmMinimalPublicTxInputsFromFile } from '../../fixtures/minimal_public_tx.js';
+import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
-describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
+describe.each([
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public TX simulator apps tests: AvmMinimalTestContract ($simulatorName)', ({ useCppSimulator }) => {
+  let worldStateService: NativeWorldStateService;
+  let tester: PublicTxSimulationTester;
+
+  beforeEach(async () => {
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined,
+      /*metrics=*/ undefined,
+      useCppSimulator,
+    );
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
+  });
+
   it('Minimal Tx avm inputs snapshot stored in Json file', async () => {
-    const result = await createAvmMinimalPublicTx();
+    const result = await executeAvmMinimalPublicTx(tester);
     expect(result.revertCode.isOK()).toBe(true);
     const inputs = result.avmProvingRequest.inputs;
     const json = jsonStringify(inputs);
@@ -23,7 +45,7 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
   it('Minimal Tx avm inputs snapshot loaded from json file', async () => {
     // If the test data needs to be updated, run the above ^ test case
     // with AZTEC_GENERATE_TEST_DATA=1, and _then_ rerun this test and it should pass.
-    const result = await createAvmMinimalPublicTx();
+    const result = await executeAvmMinimalPublicTx(tester);
     const inputs = result.avmProvingRequest.inputs;
     const avmInputsFromFile = readAvmMinimalPublicTxInputsFromFile();
     expect(inputs).toStrictEqual(avmInputsFromFile);
@@ -32,7 +54,7 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
   // This test makes sure that any TS changes are propagated to the testdata,
   // which is used by the C++ tests.
   it('Minimal TX avm inputs serialized for cpp tests', async () => {
-    const result = await createAvmMinimalPublicTx();
+    const result = await executeAvmMinimalPublicTx(tester);
     const buffer = result.avmProvingRequest.inputs.serializeWithMessagePack();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update test data

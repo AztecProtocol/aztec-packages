@@ -1,4 +1,6 @@
 barretenberg_module(
     stdlib_merge_verifier
-    stdlib_transcript
+    transcript
+    stdlib_poseidon2
+    stdlib_circuit_builders
 )

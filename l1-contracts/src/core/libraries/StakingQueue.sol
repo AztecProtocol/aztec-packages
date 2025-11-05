@@ -4,6 +4,10 @@ pragma solidity >=0.8.27;
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Errors} from "./Errors.sol";
 
+/**
+ * @notice A struct containing the arguments needed for GSE.deposit(...) function
+ * @dev Used to store validator information in the entry queue before they are processed
+ */
 struct DepositArgs {
   address attester;
   address withdrawer;
@@ -13,6 +17,13 @@ struct DepositArgs {
   bool moveWithLatestRollup;
 }
 
+/**
+ * @notice A queue data structure for managing validator deposits
+ * @dev Implements a FIFO queue using a mapping and two pointers
+ * @param validators Mapping from queue index to validator deposit arguments
+ * @param first Index of the first element in the queue (head)
+ * @param last Index of the next available slot in the queue (tail)
+ */
 struct StakingQueue {
   mapping(uint256 index => DepositArgs validator) validators;
   uint128 first;
@@ -20,10 +31,6 @@ struct StakingQueue {
 }
 
 library StakingQueueLib {
-  // This is a HARD CAP. We will never attempt to flush more than this number of validators,
-  // because it starts to butt up against the block gas limit.
-  uint256 public constant MAX_QUEUE_FLUSH_SIZE = 150;
-
   function init(StakingQueue storage self) internal {
     self.first = 1;
     self.last = 1;
@@ -65,11 +72,7 @@ library StakingQueueLib {
     len = self.last - self.first;
   }
 
-  function getFirst(StakingQueue storage self) internal view returns (uint256) {
-    return self.first;
-  }
-
-  function getLast(StakingQueue storage self) internal view returns (uint256) {
-    return self.last;
+  function at(StakingQueue storage self, uint256 index) internal view returns (DepositArgs memory validator) {
+    validator = self.validators[self.first + index];
   }
 }

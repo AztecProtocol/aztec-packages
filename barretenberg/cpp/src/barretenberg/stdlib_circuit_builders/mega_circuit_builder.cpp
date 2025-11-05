@@ -42,29 +42,31 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
 {
     // Add a single default value to all databus columns. Note: This value must be equal across all columns in order for
     // inter-circuit databus commitment checks to pass in IVC settings.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): Consider default value.
 
     // Create an arbitrary calldata read gate
     add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata
     auto raw_read_idx = static_cast<uint32_t>(get_calldata().size()) - 1; // read data that was just added
-    auto read_idx = this->add_variable(raw_read_idx);
-    read_calldata(read_idx);
+    auto read_idx = this->add_variable(FF(raw_read_idx));
+    update_finalize_witnesses({ read_idx, read_calldata(read_idx) });
 
     // Create an arbitrary secondary_calldata read gate
     add_public_secondary_calldata(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
     raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1;   // read data that was just added
-    read_idx = this->add_variable(raw_read_idx);
-    read_secondary_calldata(read_idx);
+    read_idx = this->add_variable(FF(raw_read_idx));
+    update_finalize_witnesses({ read_idx, read_secondary_calldata(read_idx) });
 
     // Create an arbitrary return data read gate
     add_public_return_data(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in return data
     raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1;   // read data that was just added
-    read_idx = this->add_variable(raw_read_idx);
-    read_return_data(read_idx);
+    read_idx = this->add_variable(FF(raw_read_idx));
+    update_finalize_witnesses({ read_idx, read_return_data(read_idx) });
 
-    // add dummy mul accum op and an equality op
-    this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2);
-    this->queue_ecc_eq();
+    if (op_queue->get_current_subtable_size() == 0) {
+        // Add a mul dummy op in the subtable to avoid column polynomial being zero (it has to be a mul rather than an
+        // add to ensure all 4 column polynomials contain some data)
+        this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2, /*in_finalize=*/true);
+        this->queue_ecc_eq(/*in_finalize=*/true);
+    }
 }
 
 /**
@@ -105,32 +107,37 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_add_accum
  * @tparam FF
  * @param point
  * @param scalar The scalar by which point is multiplied prior to being accumulated
+ * @param in_finalize It's used in boomerang catcher to mark
+ * that all variables from some connected component were created after finalize method was called
  * @return ecc_op_tuple encoding the point and scalar inputs to the mul accum
  */
 template <typename FF>
-ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point, const FF& scalar)
+ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point,
+                                                          const FF& scalar,
+                                                          bool in_finalize)
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->mul_accumulate(point, scalar);
 
     // Add corresponding gates for the operation
-    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op, in_finalize);
     return op_tuple;
 }
 
 /**
  * @brief Add point equality operation to the op queue based on the value of the internal accumulator and add
  * corresponding gates
- *
+ * @param in_finalize It's used in boomerang catcher to mark
+ * that all variables from some connected component were created after finalize method was called
  * @return ecc_op_tuple encoding the point to which equality has been asserted
  */
-template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq()
+template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool in_finalize)
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->eq_and_reset();
 
     // Add corresponding gates for the operation
-    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op, in_finalize);
     op_tuple.return_is_infinity = ultra_op.return_is_infinity;
     return op_tuple;
 }
@@ -154,9 +161,12 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
  * @brief Add goblin ecc op gates for a single operation
  *
  * @param ultra_op Operation data expressed in the ultra format
+ * @param in_finalize It's used in boomerang catcher to mark
+ * that all variables from some connected component were created after finalize method was called
  * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location.
  */
-template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op)
+template <typename FF>
+ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize)
 {
     ecc_op_tuple op_tuple;
     op_tuple.op = get_ecc_op_idx(ultra_op.op_code);
@@ -167,22 +177,54 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     op_tuple.z_1 = this->add_variable(ultra_op.z_1);
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
-    this->blocks.ecc_op.populate_wires(op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
+    // Set the indices for the op values for each of the two rows
+    uint32_t op_val_idx_1 = op_tuple.op;      // genuine op code value
+    uint32_t op_val_idx_2 = this->zero_idx(); // second row value always set to 0
+    // If this is a random operation, the op values are randomized
+    if (ultra_op.op_code.is_random_op) {
+        op_val_idx_1 = this->add_variable(ultra_op.op_code.random_value_1);
+        op_val_idx_2 = this->add_variable(ultra_op.op_code.random_value_2);
+    }
+
+    this->blocks.ecc_op.populate_wires(op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
     for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
 
-    this->blocks.ecc_op.populate_wires(this->zero_idx, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
+    this->blocks.ecc_op.populate_wires(op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
     for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
+    }
+
+    if (in_finalize) {
+        update_used_witnesses(
+            { op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
+        update_finalize_witnesses(
+            { op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
     }
 
     return op_tuple;
 };
 
+/**
+ * @brief Mechanism for populating two rows with randomness.  This "operation" doesn't return a tuple representing the
+ * indices of the ecc op values because it should never be used in subsequent logic.
+ *
+ * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location. The
+ * method does not return a tuple of variable indices as those should not be used in subsequent steps for random ops.
+ */
+template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
+{
+    // Add the operation to the op queue
+    auto ultra_op = op_queue->random_op_ultra_only();
+
+    // Add corresponding gates for the operation
+    (void)populate_ecc_op_wires(ultra_op);
+}
+
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {
-    null_op_idx = this->zero_idx; // constant 0 is is associated with the zero index
+    null_op_idx = this->zero_idx(); // constant 0 is is associated with the zero index
     add_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .add = true }.value()));
     mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .mul = true }.value()));
     equality_op_idx = this->put_constant_variable(FF(EccOpCode{ .eq = true, .reset = true }.value()));
@@ -226,11 +268,11 @@ template <typename FF>
 void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate_<FF>& in, const BusId bus_idx)
 {
     auto& block = this->blocks.busread;
-    block.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
+    block.populate_wires(in.value, in.index, this->zero_idx(), this->zero_idx());
     apply_databus_selectors(bus_idx);
 
     this->check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(const BusId bus_idx)
@@ -256,18 +298,10 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
         break;
     }
     }
-    block.q_busread().emplace_back(1);
+    block.q_4().emplace_back(0);
     block.q_m().emplace_back(0);
     block.q_c().emplace_back(0);
-    block.q_delta_range().emplace_back(0);
-    block.q_arith().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_memory().emplace_back(0);
-    block.q_nnf().emplace_back(0);
-    block.q_poseidon2_external().emplace_back(0);
-    block.q_poseidon2_internal().emplace_back(0);
+    block.set_gate_selector(1);
 }
 
 template class MegaCircuitBuilder_<bb::fr>;

@@ -1,18 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import {
-  SiblingPath,
-  UnbalancedMerkleTreeCalculator,
-  computeUnbalancedMerkleTreeRoot,
-  findLeafLevelAndIndex,
-  getMaxUnbalancedTreeDepth,
-} from '@aztec/foundation/trees';
-
-async function createOutHashTree(messages: Fr[]) {
-  const messageSubtreeHeight = getMaxUnbalancedTreeDepth(messages.length);
-  const calculator = UnbalancedMerkleTreeCalculator.create(messageSubtreeHeight);
-  await calculator.appendLeaves(messages.map(msg => msg.toBuffer()));
-  return calculator;
-}
+import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedMerkleTreeRoot } from '@aztec/foundation/trees';
 
 export interface MessageRetrieval {
   getL2ToL1Messages(l2BlockNumber: number): Promise<Fr[][] | undefined>;
@@ -37,10 +24,12 @@ export async function computeL2ToL1MembershipWitness(
   return computeL2ToL1MembershipWitnessFromMessagesForAllTxs(messagesForAllTxs, message);
 }
 
-export async function computeL2ToL1MembershipWitnessFromMessagesForAllTxs(
+// TODO: Allow to specify the message to consume by its index or by an offset, in case there are multiple messages with
+// the same value.
+export function computeL2ToL1MembershipWitnessFromMessagesForAllTxs(
   messagesForAllTxs: Fr[][],
   message: Fr,
-): Promise<L2ToL1MembershipWitness> {
+): L2ToL1MembershipWitness {
   // Find index of message in subtree and index of tx in a block.
   let messageIndexInTx = -1;
   const txIndex = messagesForAllTxs.findIndex(messages => {
@@ -54,9 +43,9 @@ export async function computeL2ToL1MembershipWitnessFromMessagesForAllTxs(
 
   // Get the txOutHash and the sibling path of the message in the tx subtree.
   const txMessages = messagesForAllTxs[txIndex];
-  const txOutHashTree = await createOutHashTree(txMessages);
+  const txOutHashTree = UnbalancedMerkleTreeCalculator.create(txMessages.map(msg => msg.toBuffer()));
   const txOutHash = txOutHashTree.getRoot();
-  const messagePathInSubtree = await txOutHashTree.getSiblingPath(message);
+  const messagePathInSubtree = txOutHashTree.getSiblingPath(message.toBuffer());
 
   // Calculate txOutHash for all txs.
   const txSubtreeRoots = messagesForAllTxs.map((messages, i) => {
@@ -74,21 +63,26 @@ export async function computeL2ToL1MembershipWitnessFromMessagesForAllTxs(
   });
 
   // Construct the top tree.
-  // The leaves of this tree are the txOutHashes.
-  // The root of this tree is the out_hash calculated in the circuit.
-  const topTree = await createOutHashTree(txSubtreeRoots);
+  // The leaves of this tree are the `txOutHashes`.
+  // The root of this tree should match the `out_hash` calculated in the circuits. Zero hashes are compressed to reduce
+  // cost if the non-zero leaves result in a shorter path.
+  const valueToCompress = Buffer.alloc(32);
+  const topTree = UnbalancedMerkleTreeCalculator.create(
+    txSubtreeRoots.map(root => root.toBuffer()),
+    valueToCompress,
+  );
   const root = Fr.fromBuffer(topTree.getRoot());
 
   // Compute the combined sibling path by appending the tx subtree path to the top tree path.
-  const txPathInTopTree = await topTree.getSiblingPath(txOutHash);
+  const txPathInTopTree = topTree.getSiblingPath(txOutHash);
   const combinedPath = messagePathInSubtree.toBufferArray().concat(txPathInTopTree.toBufferArray());
 
   // Compute the combined index.
   // It is the index of the message in the balanced tree at its current height.
-  const txLeafPosition = findLeafLevelAndIndex(messagesForAllTxs.length, txIndex);
-  const messageLeafPosition = findLeafLevelAndIndex(txMessages.length, messageIndexInTx);
-  const numLeavesInLeftSubtrees = txLeafPosition.indexAtLevel * (1 << messageLeafPosition.level);
-  const combinedIndex = numLeavesInLeftSubtrees + messageLeafPosition.indexAtLevel;
+  const txLeafIndexAtLevel = topTree.getLeafLocation(txIndex).index;
+  const messageLeafPosition = txOutHashTree.getLeafLocation(messageIndexInTx);
+  const numLeavesInLeftSubtrees = txLeafIndexAtLevel * (1 << messageLeafPosition.level);
+  const combinedIndex = numLeavesInLeftSubtrees + messageLeafPosition.index;
 
   return {
     root,

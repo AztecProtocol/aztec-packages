@@ -12,9 +12,9 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { ContractClassLog } from '@aztec/stdlib/logs';
+import type { ContractClassLog, DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -26,18 +26,22 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import { Tag } from '../../tagging/tag.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
+import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
+import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
-import type { NoteData } from './typed_oracle.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**
  * The execution oracle for the private part of a transaction.
  */
-export class PrivateExecutionOracle extends UtilityExecutionOracle {
+export class PrivateExecutionOracle extends UtilityExecutionOracle implements IPrivateExecutionOracle {
+  isPrivate = true as const;
+
   /**
    * New notes created during this execution.
    * It's possible that a note in this list has been nullified (in the same or other executions) and doesn't exist in
@@ -61,29 +65,32 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   private contractClassLogs: CountedContractClassLog[] = [];
   private offchainEffects: { data: Fr[] }[] = [];
   private nestedExecutionResults: PrivateCallExecutionResult[] = [];
-  private senderForTags?: AztecAddress;
 
   constructor(
     private readonly argsHash: Fr,
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
-    protected readonly historicalHeader: BlockHeader,
+    protected readonly anchorBlockHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
     capsules: Capsule[],
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
+    private readonly taggingIndexCache: ExecutionTaggingIndexCache,
     executionDataProvider: ExecutionDataProvider,
-    private simulator: CircuitSimulator,
-    private totalPublicCalldataCount: number,
+    private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
-    senderForTags?: AztecAddress,
+    private senderForTags?: AztecAddress,
+    private simulator?: CircuitSimulator,
   ) {
     super(callContext.contractAddress, authWitnesses, capsules, executionDataProvider, log, scopes);
-    this.senderForTags = senderForTags;
+  }
+
+  public getPrivateContextInputs(): PrivateContextInputs {
+    return new PrivateContextInputs(this.callContext, this.anchorBlockHeader, this.txContext, this.sideEffectCounter);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -102,13 +109,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       throw new Error(`Invalid arguments size: expected ${argumentsSize}, got ${args?.length}`);
     }
 
-    const privateContextInputs = new PrivateContextInputs(
-      this.callContext,
-      this.historicalHeader,
-      this.txContext,
-      this.sideEffectCounter,
-    );
-    const privateContextInputsAsFields = privateContextInputs.toFields();
+    const privateContextInputsAsFields = this.getPrivateContextInputs().toFields();
     if (privateContextInputsAsFields.length !== PRIVATE_CONTEXT_INPUTS_LENGTH) {
       throw new Error('Invalid private context inputs size');
     }
@@ -151,6 +152,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   }
 
   /**
+   * Returns the pre tags that were used in this execution (and that need to be stored in the db).
+   */
+  public getUsedPreTags(): PreTag[] {
+    return this.taggingIndexCache.getUsedPreTags();
+  }
+
+  /**
    * Return the nested execution results during this execution.
    */
   public getNestedExecutionResults() {
@@ -167,7 +175,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * The value persists through nested calls, meaning all calls down the stack will use the same
    * 'senderForTags' value (unless it is replaced).
    */
-  public override privateGetSenderForTags(): Promise<AztecAddress | undefined> {
+  public privateGetSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
   }
 
@@ -182,9 +190,49 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * through nested calls, meaning all calls down the stack will use the same 'senderForTags'
    * value (unless it is replaced by another call to this setter).
    */
-  public override privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
+  public privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
     this.senderForTags = senderForTags;
     return Promise.resolve();
+  }
+
+  /**
+   * Returns the next app tag for a given sender and recipient pair.
+   * @param sender - The address sending the log
+   * @param recipient - The address receiving the log
+   * @returns An app tag to be used in a log.
+   */
+  public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
+    const secret = await this.executionDataProvider.calculateDirectionalAppTaggingSecret(
+      this.contractAddress,
+      sender,
+      recipient,
+    );
+
+    const index = await this.#getIndexToUseForSecret(secret);
+    this.log.debug(
+      `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
+    );
+    this.taggingIndexCache.setLastUsedIndex(secret, index);
+
+    return Tag.compute({ secret, index });
+  }
+
+  async #getIndexToUseForSecret(secret: DirectionalAppTaggingSecret): Promise<number> {
+    // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
+    const lastUsedIndexInTx = this.taggingIndexCache.getLastUsedIndex(secret);
+
+    if (lastUsedIndexInTx !== undefined) {
+      return lastUsedIndexInTx + 1;
+    } else {
+      // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
+      // are up to date. We do this here because this store is not synced as part of the global sync because
+      // that'd be wasteful as most tagging secrets are not used in each tx.
+      await this.executionDataProvider.syncTaggedLogsAsSender(secret, this.contractAddress);
+      const lastUsedIndex = await this.executionDataProvider.getLastUsedIndexAsSender(secret);
+      // If lastUsedIndex is undefined, we've never used this secret, so start from 0
+      // Otherwise, the next index to use is one past the last used index
+      return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
+    }
   }
 
   /**
@@ -192,7 +240,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param values - Values to store.
    * @returns The hash of the values.
    */
-  public override privateStoreInExecutionCache(values: Fr[], hash: Fr) {
+  public privateStoreInExecutionCache(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
@@ -201,12 +249,29 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param hash - Hash of the values.
    * @returns The values.
    */
-  public override privateLoadFromExecutionCache(hash: Fr): Promise<Fr[]> {
+  public privateLoadFromExecutionCache(hash: Fr): Promise<Fr[]> {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
     }
     return Promise.resolve(preimage);
+  }
+
+  override async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
+    // This oracle must be overridden because while utility execution can only meaningfully check if a nullifier exists
+    // in the synched block, during private execution there's also the possibility of it being pending, i.e. created
+    // in the current transaction.
+
+    this.log.debug(`Checking existence of inner nullifier ${innerNullifier}`, {
+      contractAddress: this.contractAddress,
+    });
+
+    const nullifier = (await siloNullifier(this.contractAddress, innerNullifier)).toBigInt();
+
+    return (
+      this.noteCache.getNullifiers(this.contractAddress).has(nullifier) ||
+      (await super.utilityCheckNullifierExists(innerNullifier))
+    );
   }
 
   /**
@@ -307,7 +372,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param noteHash - A hash of the new note.
    * @returns
    */
-  public override privateNotifyCreatedNote(
+  public privateNotifyCreatedNote(
     storageSlot: Fr,
     noteTypeId: NoteSelector,
     noteItems: Fr[],
@@ -342,7 +407,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public override async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+  public async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     const nullifiedNoteHashCounter = await this.noteCache.nullifyNote(
       this.callContext.contractAddress,
       innerNullifier,
@@ -359,7 +424,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public override privateNotifyCreatedNullifier(innerNullifier: Fr) {
+  public privateNotifyCreatedNullifier(innerNullifier: Fr) {
+    this.log.debug(`Notified of new inner nullifier ${innerNullifier}`, { contractAddress: this.contractAddress });
     return this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
   }
 
@@ -370,7 +436,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param log - The contract class log to be emitted.
    * @param counter - The contract class log's counter.
    */
-  public override privateNotifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
+  public privateNotifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toBuffer().toString('hex');
     this.log.verbose(
@@ -399,13 +465,19 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param isStaticCall - Whether the call is a static call.
    * @returns The execution result.
    */
-  override async privateCallPrivateFunction(
+  async privateCallPrivateFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
   ) {
+    if (!this.simulator) {
+      // In practice it is only when creating inline private contexts in a Noir test using TXE that we create an
+      // instance of this class without a simulator.
+      throw new Error('No simulator provided, cannot perform a nested private call');
+    }
+
     const simulatorSetupTimer = new Timer();
     this.log.debug(
       `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
@@ -413,7 +485,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(targetContractAddress, this.executionDataProvider, this.historicalHeader);
+    await verifyCurrentClassId(targetContractAddress, this.executionDataProvider, this.anchorBlockHeader);
 
     const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
       targetContractAddress,
@@ -424,29 +496,30 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
     const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
 
-    const context = new PrivateExecutionOracle(
+    const privateExecutionOracle = new PrivateExecutionOracle(
       argsHash,
       derivedTxContext,
       derivedCallContext,
-      this.historicalHeader,
+      this.anchorBlockHeader,
       this.authWitnesses,
       this.capsules,
       this.executionCache,
       this.noteCache,
+      this.taggingIndexCache,
       this.executionDataProvider,
-      this.simulator,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,
       this.scopes,
       this.senderForTags,
+      this.simulator,
     );
 
     const setupTime = simulatorSetupTimer.ms();
 
     const childExecutionResult = await executePrivateFunction(
       this.simulator,
-      context,
+      privateExecutionOracle,
       targetArtifact,
       targetContractAddress,
       functionSelector,
@@ -490,7 +563,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    */
-  public override privateNotifyEnqueuedPublicFunctionCall(
+  public privateNotifyEnqueuedPublicFunctionCall(
     _targetContractAddress: AztecAddress,
     calldataHash: Fr,
     _sideEffectCounter: number,
@@ -507,7 +580,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    */
-  public override privateNotifySetPublicTeardownFunctionCall(
+  public privateNotifySetPublicTeardownFunctionCall(
     _targetContractAddress: AztecAddress,
     calldataHash: Fr,
     _sideEffectCounter: number,
@@ -517,9 +590,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     return Promise.resolve();
   }
 
-  public override privateNotifySetMinRevertibleSideEffectCounter(
-    minRevertibleSideEffectCounter: number,
-  ): Promise<void> {
+  public privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
@@ -547,17 +618,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     return this.executionDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
-  public override async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
-    await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
-  }
-
-  public override async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
-    await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
-
-    await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
-  }
-
-  public override utilityEmitOffchainEffect(data: Fr[]): Promise<void> {
+  public utilityEmitOffchainEffect(data: Fr[]): Promise<void> {
     this.offchainEffects.push({ data });
     return Promise.resolve();
   }

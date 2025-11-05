@@ -81,7 +81,7 @@ export class TxExecutionRequest {
       this.origin,
       this.firstCallArgsHash,
       this.txContext,
-      // Entrypoints must be private as as defined by the protocol.
+      // Entrypoints must be private as defined by the protocol.
       new FunctionData(this.functionSelector, true /* isPrivate */),
       this.salt,
     );

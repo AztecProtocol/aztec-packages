@@ -1,8 +1,8 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`poseidon sync poseidonHash 1`] = `
-Fr {
-  "value": Uint8Array [
+{
+  "hash": Uint8Array [
     43,
     202,
     235,

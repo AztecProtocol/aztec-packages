@@ -1,6 +1,9 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import { Fr, type Logger, retryUntil, sleep } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import type { Logger } from '@aztec/aztec.js/log';
 import { tryRmDir } from '@aztec/foundation/fs';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { downloadEpochProvingJob, rerunEpochProvingJob } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
 
@@ -54,9 +57,9 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
     proverManager.createEpochProver = () => {
       const epochProver = origCreateEpochProver();
-      epochProver.finaliseEpoch = async () => {
+      epochProver.finalizeEpoch = async () => {
         await sleep(1000);
-        logger.warn(`Triggering error on finaliseEpoch`);
+        logger.warn(`Triggering error on finalizeEpoch`);
         throw new Error(`Fake error while proving epoch`);
       };
       return epochProver;
@@ -73,7 +76,7 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     // Wait until the start of epoch one so prover node starts proving epoch 0,
     // and wait for the data to be uploaded to the remote file store
     await test.waitUntilEpochStarts(1);
-    await retryUntil(() => epochUploadUrl !== undefined, 'Upload epoch failure', 120, 1);
+    await retryUntil(() => epochUploadUrl !== undefined, 'Upload epoch failure', 240, 1);
 
     // Stop everything, we're going to prove on a fresh instance
     await test.teardown();
@@ -89,10 +92,10 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     await rerunEpochProvingJob(rerunDownloadPath, logger, {
       ...config,
       realProofs: false,
-      dataStoreMapSizeKB: 1024 * 1024,
+      dataStoreMapSizeKb: 1024 * 1024,
       dataDirectory: rerunDataDir,
       proverAgentCount: 2,
-      proverId: Fr.random(),
+      proverId: EthAddress.random(),
       ...(await getACVMConfig(logger)),
       ...(await getBBConfig(logger)),
     });

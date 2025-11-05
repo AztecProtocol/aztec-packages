@@ -22,27 +22,40 @@
 /**
  * Represents this as a bbmalloc'ed object, fit for sending to e.g. TypeScript.
  * @param obj The object.
- * @return The buffer pointer/size pair.
+ * @param scratch_buf Optional pre-allocated scratch buffer to use if result fits.
+ * @param scratch_size Size of the scratch buffer.
+ * @return The buffer pointer/size pair. Returns scratch_buf if result fits, otherwise allocates new buffer.
  */
-inline std::pair<uint8_t*, size_t> msgpack_encode_buffer(auto&& obj)
+inline std::pair<uint8_t*, size_t> msgpack_encode_buffer(auto&& obj,
+                                                         uint8_t* scratch_buf = nullptr,
+                                                         size_t scratch_size = 0)
 {
     // Create a buffer to store the encoded data
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, obj);
 
+    // If scratch buffer provided and result fits, use it
+    if (scratch_buf != nullptr && buffer.size() <= scratch_size) {
+        memcpy(scratch_buf, buffer.data(), buffer.size());
+        return { scratch_buf, buffer.size() };
+    }
+
+    // Otherwise allocate new buffer
     uint8_t* output = static_cast<uint8_t*>(aligned_alloc(64, buffer.size()));
     memcpy(output, buffer.data(), buffer.size());
-    // Convert the buffer data to a string and return it
     return { output, buffer.size() };
 }
 
 // This function is intended to bind a function to a MessagePack-formatted input data,
 // perform the function with the unpacked data, then pack the result back into MessagePack format.
+// Note: output_out and output_len_out are IN-OUT parameters:
+//   IN:  Caller provides scratch buffer pointer and size
+//   OUT: Returns actual result buffer (may be scratch or newly allocated) and size
 inline void msgpack_cbind_impl(const auto& func,        // The function to be applied
                                const uint8_t* input_in, // The input data in MessagePack format
                                size_t input_len_in,     // The length of the input data
-                               uint8_t** output_out,    // The output data in MessagePack format
-                               size_t* output_len_out)  // The length of the output data
+                               uint8_t** output_out,    // IN-OUT: scratch buffer ptr / result buffer ptr
+                               size_t* output_len_out)  // IN-OUT: scratch buffer size / result size
 {
     using FuncTraits = decltype(get_func_traits<decltype(func)>());
     // Args: the parameter types of the function as a tuple.
@@ -51,10 +64,17 @@ inline void msgpack_cbind_impl(const auto& func,        // The function to be ap
     // Unpack the input data into the parameter tuple.
     msgpack::unpack(reinterpret_cast<const char*>(input_in), input_len_in).get().convert(params);
 
-    // Apply the function to the parameters, then encode the result into a MessagePack buffer.
-    auto [output, output_len] = msgpack_encode_buffer(FuncTraits::apply(func, params));
+    // Read IN values: caller-provided scratch buffer
+    uint8_t* scratch_buf = *output_out;
+    size_t scratch_size = *output_len_out;
 
-    // Assign the output data and its length to the given output parameters.
+    // Apply the function to the parameters, then encode the result into a MessagePack buffer.
+    // Try to use scratch buffer; allocate if result doesn't fit.
+    auto [output, output_len] = msgpack_encode_buffer(FuncTraits::apply(func, params), scratch_buf, scratch_size);
+
+    // Write OUT values: actual result buffer and size
+    // If result fit in scratch, output == scratch_buf (pointer unchanged)
+    // If result didn't fit, output is newly allocated buffer (pointer changed)
     *output_out = output;
     *output_len_out = output_len;
 }

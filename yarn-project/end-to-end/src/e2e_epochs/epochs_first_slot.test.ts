@@ -1,12 +1,19 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, Fr, type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, timesAsync } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -19,7 +26,7 @@ jest.setTimeout(1000 * 60 * 10);
 const NODE_COUNT = 8;
 const COMMITTEE_SIZE = 3;
 const TX_COUNT = 2;
-const EPOCH = 3n;
+const EPOCH = 4n;
 
 // Spawns NODE_COUNT validator nodes, connected via a mocked gossip sub network, but sets
 // committee size to 3. Warps to immediately before the beginning of an epoch, and checks
@@ -38,7 +45,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
     validators = times(NODE_COUNT, i => {
       const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
       const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: Fr.random().toBigInt() };
+      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
@@ -85,7 +92,9 @@ describe('e2e_epochs/epochs_first_slot', () => {
   it('builds blocks on the first two slots of the epoch', async () => {
     // Create and submit txs for the first two slots of the epoch
     // We set maxTxsPerBlock to 1, so two txs mean two consecutive blocks
-    const txs = await timesAsync(TX_COUNT, i => contract.methods.spam(i, 1n, false).prove());
+    const txs = await timesAsync(TX_COUNT, i =>
+      proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from: context.accounts[0] }),
+    );
     const sentTxs = await Promise.all(txs.map(tx => tx.send()));
     logger.warn(`Sent ${sentTxs.length} transactions`, {
       txs: await Promise.all(sentTxs.map(tx => tx.getTxHash())),
@@ -98,7 +107,6 @@ describe('e2e_epochs/epochs_first_slot', () => {
     const [epochStart] = getTimestampRangeForEpoch(EPOCH, test.constants);
     await test.context.cheatCodes.eth.warp(Number(epochStart) - test.L1_BLOCK_TIME_IN_S, {
       resetBlockInterval: true,
-      updateDateProvider: test.context.dateProvider,
     });
 
     // Start the sequencers
@@ -109,14 +117,21 @@ describe('e2e_epochs/epochs_first_slot', () => {
     const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT * 2 + 1) * 1000;
     await executeTimeout(() => Promise.all(sentTxs.map(tx => tx.wait())), timeout);
     logger.warn(`All txs have been mined`);
-    await sleep(1000);
 
     // Check that the first two slots of the epoch have a block
-    const blocks = await nodes[0].getBlocks(1, 10);
-    const slots = blocks.map(block => block.header.getSlot());
     const [firstSlot] = getSlotRangeForEpoch(EPOCH, test.constants);
-    expect(slots).toContain(firstSlot);
-    expect(slots).toContain(firstSlot + 1n);
+    logger.warn(`Waiting until blocks are synced for slots ${firstSlot} and ${firstSlot + 1n}`);
+    await retryUntil(
+      async () => {
+        const blocks = await nodes[0].getBlocks(INITIAL_L2_BLOCK_NUM, 10);
+        const slots = blocks.map(block => block.header.getSlot());
+        logger.info(`Fetched blocks ${blocks.map(b => b.number).join(', ')} with slots ${slots.join(', ')}`);
+        return slots.includes(firstSlot) && slots.includes(firstSlot + 1n);
+      },
+      'waiting for blocks',
+      20,
+      1,
+    );
 
     // Expect no failures from sequencers during block building.
     // The following error is marked as a flake on the test ignore patterns,

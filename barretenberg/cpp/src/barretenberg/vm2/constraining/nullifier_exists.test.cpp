@@ -7,10 +7,10 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_nullifier_exists.hpp"
 #include "barretenberg/vm2/generated/relations/nullifier_exists.hpp"
-#include "barretenberg/vm2/simulation/concrete_dbs.hpp"
-#include "barretenberg/vm2/simulation/execution.hpp"
-#include "barretenberg/vm2/simulation/field_gt.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
+#include "barretenberg/vm2/simulation/gadgets/execution.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
@@ -27,6 +27,7 @@ using tracegen::ExecutionTraceBuilder;
 using tracegen::NullifierTreeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
@@ -109,7 +110,7 @@ TEST(NullifierExistsConstrainingTest, Interactions)
     NiceMock<MockMerkleCheck> merkle_check;
 
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
     EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;

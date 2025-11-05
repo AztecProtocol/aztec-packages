@@ -1,8 +1,9 @@
 use crate::{
     constants::{
-        AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, MEGA_VK_LENGTH_IN_FIELDS, ULTRA_VK_LENGTH_IN_FIELDS,
+        AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, CHONK_VK_LENGTH_IN_FIELDS, MEGA_VK_LENGTH_IN_FIELDS,
+        ULTRA_VK_LENGTH_IN_FIELDS,
     },
-    traits::{Deserialize, Empty, Serialize},
+    traits::Empty,
 };
 use std::meta::derive;
 
@@ -10,32 +11,6 @@ use std::meta::derive;
 pub struct VerificationKey<let N: u32> {
     pub key: [Field; N],
     pub hash: Field,
-}
-
-impl<let M: u32> Serialize for VerificationKey<M> {
-    let N: u32 = M + 1;
-
-    fn serialize(self) -> [Field; Self::N] {
-        let mut fields = [0; Self::N];
-        for i in 0..M {
-            fields[i] = self.key[i];
-        }
-        fields[M] = self.hash;
-        fields
-    }
-}
-
-impl<let M: u32> Deserialize for VerificationKey<M> {
-    let N: u32 = M + 1;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut key = VerificationKey::empty();
-        for i in 0..M {
-            key.key[i] = fields[i];
-        }
-        key.hash = fields[M];
-        key
-    }
 }
 
 impl<let M: u32> Empty for VerificationKey<M> {
@@ -46,5 +21,7 @@ impl<let M: u32> Empty for VerificationKey<M> {
 
 pub type RollupHonkVerificationKey = VerificationKey<ULTRA_VK_LENGTH_IN_FIELDS>;
 pub type HonkVerificationKey = VerificationKey<ULTRA_VK_LENGTH_IN_FIELDS>;
-pub type ClientIVCVerificationKey = VerificationKey<MEGA_VK_LENGTH_IN_FIELDS>;
+pub type MegaVerificationKey = VerificationKey<MEGA_VK_LENGTH_IN_FIELDS>;
+// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
+pub type ChonkVerificationKey = VerificationKey<CHONK_VK_LENGTH_IN_FIELDS>;
 pub type AvmVerificationKey = VerificationKey<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>;

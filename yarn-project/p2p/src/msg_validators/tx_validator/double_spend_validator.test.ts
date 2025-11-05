@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import { type AnyTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX, TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
@@ -27,8 +28,8 @@ describe('DoubleSpendTxValidator', () => {
       numberOfNonRevertiblePublicCallRequests: 1,
       numberOfRevertiblePublicCallRequests: 0,
     });
-    badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[1] =
-      badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
+    const nullifiers = badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers;
+    nullifiers[1] = new Fr(nullifiers[0].toBigInt());
     await expectInvalid(badTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX);
   });
 
@@ -38,8 +39,8 @@ describe('DoubleSpendTxValidator', () => {
       numberOfRevertiblePublicCallRequests: 1,
       numberOfRevertibleNullifiers: 1,
     });
-    badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[1] =
-      badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[0];
+    const nullifiers = badTx.data.forPublic!.revertibleAccumulatedData.nullifiers;
+    nullifiers[1] = new Fr(nullifiers[0].toBigInt());
     await expectInvalid(badTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX);
   });
 

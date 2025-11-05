@@ -1,5 +1,4 @@
 use crate::components::{
-    previous_kernel_validator::PreviousKernelValidator,
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
@@ -47,9 +46,10 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         // Validate inputs.
 
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-
-        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS, false);
+        if !dep::std::runtime::is_unconstrained() {
+            self.previous_kernel.verify(false /* is_last_kernel */);
+            self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
 
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
 
@@ -60,26 +60,28 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             start_private_call_stack_length
                 - 1];
 
-    private_call_data_validator.verify_proof(false /* is_first_app */);
-    private_call_data_validator.validate_common(
-        self.previous_kernel.public_inputs.constants.protocol_contract_tree_root,
-    );
-    private_call_data_validator.validate_against_call_request(call_request);
-    private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
-
-    // Generate output.
-    // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
-    let output = unsafe { self.generate_output() };
-
-    // Validate output.
-    if dep::types::validate::should_validate_output() {
-        PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
-            self.previous_kernel.public_inputs,
-            self.private_call,
+        private_call_data_validator.verify_proof(false /* is_first_app */);
+        private_call_data_validator.validate_common(
+            self.previous_kernel.public_inputs.constants.protocol_contracts,
         );
+        private_call_data_validator.validate_against_call_request(call_request);
+        private_call_data_validator.validate_against_previous_kernel(
+            self.previous_kernel.public_inputs,
+        );
+
+        // Generate output.
+        // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
+        let output = unsafe { self.generate_output() };
+
+        // Validate output.
+        if dep::types::validate::should_validate_output() {
+            PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
+                self.previous_kernel.public_inputs,
+                self.private_call,
+            );
+        }
+        output
     }
-    output
-}
 }
 
 mod tests {
@@ -114,7 +116,7 @@ mod tests {
             self.private_call.compute_update_tree_and_hints();
             let private_call = self.private_call.to_private_call_data();
             self.previous_kernel.add_private_call_request_for_private_call(private_call);
-            self.previous_kernel.set_historical_header_from_call_data(private_call);
+            self.previous_kernel.set_anchor_block_header_from_call_data(private_call);
             let previous_kernel = self.previous_kernel.to_private_kernel_data();
 
             let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };
@@ -166,7 +168,7 @@ mod tests {
         }
     }
 
-    #[test(should_fail_with = "Invalid vk index")]
+    #[test(should_fail_with = "Vk index not in allowed list")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
         builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);

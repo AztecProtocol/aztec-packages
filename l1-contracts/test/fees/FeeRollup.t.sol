@@ -9,11 +9,11 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib,
+  AttestationLib,
   Signature,
   CommitteeAttestation,
   CommitteeAttestations
-} from "@aztec/shared/libraries/SignatureLib.sol";
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -23,7 +23,10 @@ import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup, BlockLog} from "@aztec/core/Rollup.sol";
 import {
-  IRollup, SubmitEpochRootProofArgs, PublicInputArgs, RollupConfigInput
+  IRollup,
+  SubmitEpochRootProofArgs,
+  PublicInputArgs,
+  RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -54,6 +57,8 @@ import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol
 
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -74,6 +79,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes blobInputs;
     CommitteeAttestation[] attestations;
     address[] signers;
+    Signature attestationsAndSignersSignature;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -98,9 +104,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
-      MANA_TARGET
-    ).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30).setTargetCommitteeSize(0);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
+      .setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -169,7 +175,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       body: body,
       blobInputs: full.block.blobCommitments,
       attestations: attestations,
-      signers: signers
+      signers: signers,
+      attestationsAndSignersSignature: Signature({v: 0, r: 0, s: 0})
     });
   }
 
@@ -191,8 +198,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             stateReference: EMPTY_STATE_REFERENCE,
             oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
           }),
-          SignatureLib.packAttestations(b.attestations),
+          AttestationLibHelper.packAttestations(b.attestations),
           b.signers,
+          b.attestationsAndSignersSignature,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -219,9 +227,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     ManaBaseFeeComponents memory componentsPrune = rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
-      rollup.getPendingBlockNumber()
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+      .checked_write(rollup.getPendingBlockNumber());
 
     ManaBaseFeeComponents memory componentsNoPrune =
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
@@ -282,8 +289,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             stateReference: EMPTY_STATE_REFERENCE,
             oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
           }),
-          SignatureLib.packAttestations(b.attestations),
+          AttestationLibHelper.packAttestations(b.attestations),
           b.signers,
+          b.attestationsAndSignersSignature,
           b.blobInputs
         );
 
@@ -337,7 +345,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
           // We assume that everyone PERFECTLY pays their fees with 0 priority fees and no
           // overpaying on teardown.
-          uint256 baseFee = point.outputs.mana_base_fee_components_in_fee_asset.sequencer_cost
+          uint256 baseFee =
+            point.outputs.mana_base_fee_components_in_fee_asset.sequencer_cost
             + point.outputs.mana_base_fee_components_in_fee_asset.prover_cost
             + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
 
@@ -399,9 +408,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
   function assertEq(FeeHeaderModel memory a, FeeHeader memory b) internal pure {
     FeeHeaderModel memory bModel = FeeHeaderModel({
-      excess_mana: b.excessMana,
-      fee_asset_price_numerator: b.feeAssetPriceNumerator,
-      mana_used: b.manaUsed
+      excess_mana: b.excessMana, fee_asset_price_numerator: b.feeAssetPriceNumerator, mana_used: b.manaUsed
     });
     assertEq(a, bModel);
   }

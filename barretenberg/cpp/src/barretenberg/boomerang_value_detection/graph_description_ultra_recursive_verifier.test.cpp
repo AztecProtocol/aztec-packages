@@ -27,7 +27,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     using InnerProver = UltraProver_<InnerFlavor>;
     using InnerVerifier = UltraVerifier_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-    using InnerDeciderProvingKey = DeciderProvingKey_<InnerFlavor>;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCurve = bn254<InnerBuilder>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
@@ -40,13 +40,14 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
                            std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, UltraRollupFlavor, UltraFlavor>>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
-    using PairingObject = PairingPoints<OuterBuilder>;
+    using PairingObject = PairingPoints<bn254<OuterBuilder>>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
+    using StdlibProof = bb::stdlib::Proof<OuterBuilder>;
 
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
@@ -77,13 +78,10 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
-        PairingPoints<InnerBuilder>::add_default_to_public_inputs(builder);
-
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<grumpkin<InnerBuilder>>::create_fake_ipa_claim_and_proof(builder);
-            stdlib_opening_claim.set_public();
-            builder.ipa_proof = ipa_proof;
+            RollupIO::add_default(builder);
+        } else {
+            DefaultIO<InnerBuilder>::add_default(builder);
         }
         return builder;
     };
@@ -101,9 +99,10 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         auto inner_circuit = create_inner_circuit();
 
         // Generate a proof over the inner circuit
-        auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->get_precomputed());
-        InnerProver inner_prover(proving_key, verification_key);
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto verification_key =
+            std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+        InnerProver inner_prover(prover_instance, verification_key);
         auto inner_proof = inner_prover.construct_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
@@ -111,30 +110,33 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         auto stdlib_vk_and_hash =
             std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
         RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
-        verifier.key->vk_and_hash->vk->num_public_inputs.fix_witness();
-        verifier.key->vk_and_hash->vk->pub_inputs_offset.fix_witness();
+        verifier.verifier_instance->vk_and_hash->vk->num_public_inputs.fix_witness();
+        verifier.verifier_instance->vk_and_hash->vk->pub_inputs_offset.fix_witness();
+        // It's currently un-used
+        verifier.verifier_instance->vk_and_hash->vk->log_circuit_size.fix_witness();
 
-        VerifierOutput output = verifier.verify_proof(inner_proof);
+        StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
+        VerifierOutput output = verifier.template verify_proof<DefaultIO<OuterBuilder>>(stdlib_inner_proof);
         PairingObject pairing_points = output.points_accumulator;
-        pairing_points.P0.x.fix_witness();
-        pairing_points.P0.y.fix_witness();
-        pairing_points.P1.x.fix_witness();
-        pairing_points.P1.y.fix_witness();
+        // BIGGROUP_AUDITTODO: It seems suspicious that we have to fix these witnesses here to make this test pass.
+        // Seems to defeat the purpose of the test.
+        pairing_points.P0.x().fix_witness();
+        pairing_points.P0.y().fix_witness();
+        pairing_points.P1.x().fix_witness();
+        pairing_points.P1.y().fix_witness();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             output.ipa_claim.set_public();
             outer_circuit.ipa_proof = output.ipa_proof.get_value();
         }
-        info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
+        info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
         outer_circuit.finalize_circuit(false);
         auto graph = cdg::StaticAnalyzer(outer_circuit);
-        auto connected_components = graph.find_connected_components();
-        EXPECT_EQ(connected_components.size(), 2);
-        info("Connected components: ", connected_components.size());
-        auto variables_in_one_gate = graph.show_variables_in_one_gate(outer_circuit);
+        auto [cc, variables_in_one_gate] = graph.analyze_circuit(/*filter_cc=*/true);
+        EXPECT_EQ(cc.size(), 1);
         EXPECT_EQ(variables_in_one_gate.size(), 2);
     }
 };

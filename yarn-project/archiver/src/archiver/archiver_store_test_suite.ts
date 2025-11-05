@@ -2,7 +2,6 @@ import {
   INITIAL_L2_BLOCK_NUM,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
@@ -12,7 +11,16 @@ import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation, L2Block, L2BlockHash, wrapInBlock } from '@aztec/stdlib/block';
+import {
+  CommitteeAttestation,
+  EthAddress,
+  L2Block,
+  L2BlockHash,
+  PublishedL2Block,
+  type ValidateBlockResult,
+  randomBlockInfo,
+  wrapInBlock,
+} from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -34,7 +42,6 @@ import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.j
 import { BlockNumberNotSequentialError, InitialBlockNumberNotSequentialError } from './errors.js';
 import { MessageStoreError } from './kv_archiver_store/message_store.js';
 import type { InboxMessage } from './structs/inbox_message.js';
-import type { PublishedL2Block } from './structs/published.js';
 
 /**
  * @param testName - The name of the test suite.
@@ -58,15 +65,16 @@ export function describeArchiverDataStore(
 
     const makeBlockHash = (blockNumber: number) => `0x${blockNumber.toString(16).padStart(64, '0')}`;
 
-    const makePublished = (block: L2Block, l1BlockNumber: number): PublishedL2Block => ({
-      block: block,
-      l1: {
-        blockNumber: BigInt(l1BlockNumber),
-        blockHash: makeBlockHash(l1BlockNumber),
-        timestamp: BigInt(l1BlockNumber * 1000),
-      },
-      attestations: times(3, CommitteeAttestation.random),
-    });
+    const makePublished = (block: L2Block, l1BlockNumber: number): PublishedL2Block =>
+      PublishedL2Block.fromFields({
+        block: block,
+        l1: {
+          blockNumber: BigInt(l1BlockNumber),
+          blockHash: makeBlockHash(l1BlockNumber),
+          timestamp: BigInt(l1BlockNumber * 1000),
+        },
+        attestations: times(3, CommitteeAttestation.random),
+      });
 
     const expectBlocksEqual = (actual: PublishedL2Block[], expected: PublishedL2Block[]) => {
       expect(actual.length).toEqual(expected.length);
@@ -134,6 +142,28 @@ export function describeArchiverDataStore(
         await store.addBlocks(blocks);
         await expect(store.unwindBlocks(5, 1)).rejects.toThrow(/can only unwind blocks from the tip/i);
       });
+
+      it('unwound blocks and headers cannot be retrieved by hash or archive', async () => {
+        await store.addBlocks(blocks);
+        const lastBlock = blocks[blocks.length - 1];
+        const blockHash = await lastBlock.block.hash();
+        const archive = lastBlock.block.archive.root;
+
+        // Verify block and header exist before unwinding
+        expect(await store.getPublishedBlockByHash(blockHash)).toBeDefined();
+        expect(await store.getPublishedBlockByArchive(archive)).toBeDefined();
+        expect(await store.getBlockHeaderByHash(blockHash)).toBeDefined();
+        expect(await store.getBlockHeaderByArchive(archive)).toBeDefined();
+
+        // Unwind the block
+        await store.unwindBlocks(lastBlock.block.number, 1);
+
+        // Verify neither block nor header can be retrieved after unwinding
+        expect(await store.getPublishedBlockByHash(blockHash)).toBeUndefined();
+        expect(await store.getPublishedBlockByArchive(archive)).toBeUndefined();
+        expect(await store.getBlockHeaderByHash(blockHash)).toBeUndefined();
+        expect(await store.getBlockHeaderByArchive(archive)).toBeUndefined();
+      });
     });
 
     describe('getBlocks', () => {
@@ -168,6 +198,86 @@ export function describeArchiverDataStore(
           { force: true },
         );
         await expect(store.getPublishedBlocks(20, 2)).rejects.toThrow(`mismatch`);
+      });
+    });
+
+    describe('getPublishedBlockByHash', () => {
+      beforeEach(async () => {
+        await store.addBlocks(blocks);
+      });
+
+      it('retrieves a block by its hash', async () => {
+        const expectedBlock = blocks[5];
+        const blockHash = await expectedBlock.block.hash();
+        const retrievedBlock = await store.getPublishedBlockByHash(blockHash);
+
+        expect(retrievedBlock).toBeDefined();
+        expectBlocksEqual([retrievedBlock!], [expectedBlock]);
+      });
+
+      it('returns undefined for non-existent block hash', async () => {
+        const nonExistentHash = Fr.random();
+        await expect(store.getPublishedBlockByHash(nonExistentHash)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('getPublishedBlockByArchive', () => {
+      beforeEach(async () => {
+        await store.addBlocks(blocks);
+      });
+
+      it('retrieves a block by its archive root', async () => {
+        const expectedBlock = blocks[3];
+        const archive = expectedBlock.block.archive.root;
+        const retrievedBlock = await store.getPublishedBlockByArchive(archive);
+
+        expect(retrievedBlock).toBeDefined();
+        expectBlocksEqual([retrievedBlock!], [expectedBlock]);
+      });
+
+      it('returns undefined for non-existent archive root', async () => {
+        const nonExistentArchive = Fr.random();
+        await expect(store.getPublishedBlockByArchive(nonExistentArchive)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('getBlockHeaderByHash', () => {
+      beforeEach(async () => {
+        await store.addBlocks(blocks);
+      });
+
+      it('retrieves a block header by its hash', async () => {
+        const expectedBlock = blocks[7];
+        const blockHash = await expectedBlock.block.hash();
+        const retrievedHeader = await store.getBlockHeaderByHash(blockHash);
+
+        expect(retrievedHeader).toBeDefined();
+        expect(retrievedHeader!.equals(expectedBlock.block.getBlockHeader())).toBe(true);
+      });
+
+      it('returns undefined for non-existent block hash', async () => {
+        const nonExistentHash = Fr.random();
+        await expect(store.getBlockHeaderByHash(nonExistentHash)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('getBlockHeaderByArchive', () => {
+      beforeEach(async () => {
+        await store.addBlocks(blocks);
+      });
+
+      it('retrieves a block header by its archive root', async () => {
+        const expectedBlock = blocks[2];
+        const archive = expectedBlock.block.archive.root;
+        const retrievedHeader = await store.getBlockHeaderByArchive(archive);
+
+        expect(retrievedHeader).toBeDefined();
+        expect(retrievedHeader!.equals(expectedBlock.block.getBlockHeader())).toBe(true);
+      });
+
+      it('returns undefined for non-existent archive root', async () => {
+        const nonExistentArchive = Fr.random();
+        await expect(store.getBlockHeaderByArchive(nonExistentArchive)).resolves.toBeUndefined();
       });
     });
 
@@ -728,8 +838,8 @@ export function describeArchiverDataStore(
       const makePublicLog = (tag: Fr) =>
         PublicLog.from({
           contractAddress: AztecAddress.fromNumber(1),
-          fields: makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, i => (!i ? tag : new Fr(tag.toNumber() + i))),
-          emittedLength: PUBLIC_LOG_SIZE_IN_FIELDS,
+          // Arbitrary length
+          fields: new Array(10).fill(null).map((_, i) => (!i ? tag : new Fr(tag.toNumber() + i))),
         });
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
@@ -757,7 +867,7 @@ export function describeArchiverDataStore(
           return txEffect;
         });
 
-        return {
+        return PublishedL2Block.fromFields({
           block: block,
           attestations: times(3, CommitteeAttestation.random),
           l1: {
@@ -765,7 +875,7 @@ export function describeArchiverDataStore(
             blockHash: makeBlockHash(blockNumber),
             timestamp: BigInt(blockNumber),
           },
-        };
+        });
       };
 
       beforeEach(async () => {
@@ -878,11 +988,13 @@ export function describeArchiverDataStore(
       let blocks: PublishedL2Block[];
 
       beforeEach(async () => {
-        blocks = await timesParallel(numBlocks, async (index: number) => ({
-          block: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
-          l1: { blockNumber: BigInt(index), blockHash: makeBlockHash(index), timestamp: BigInt(index) },
-          attestations: times(3, CommitteeAttestation.random),
-        }));
+        blocks = await timesParallel(numBlocks, async (index: number) =>
+          PublishedL2Block.fromFields({
+            block: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
+            l1: { blockNumber: BigInt(index), blockHash: makeBlockHash(index), timestamp: BigInt(index) },
+            attestations: times(3, CommitteeAttestation.random),
+          }),
+        );
 
         await store.addBlocks(blocks);
         await store.addLogs(blocks.map(b => b.block));
@@ -1054,6 +1166,97 @@ export function describeArchiverDataStore(
             }
           }
         }
+      });
+    });
+
+    describe('pendingChainValidationStatus', () => {
+      it('should return undefined when no status is set', async () => {
+        const status = await store.getPendingChainValidationStatus();
+        expect(status).toBeUndefined();
+      });
+
+      it('should store and retrieve a valid validation status', async () => {
+        const validStatus: ValidateBlockResult = { valid: true };
+
+        await store.setPendingChainValidationStatus(validStatus);
+        const retrievedStatus = await store.getPendingChainValidationStatus();
+
+        expect(retrievedStatus).toEqual(validStatus);
+      });
+
+      it('should store and retrieve an invalid validation status with insufficient attestations', async () => {
+        const invalidStatus: ValidateBlockResult = {
+          valid: false,
+          block: randomBlockInfo(1),
+          committee: [EthAddress.random(), EthAddress.random()],
+          epoch: 123n,
+          seed: 456n,
+          attestors: [EthAddress.random()],
+          attestations: [CommitteeAttestation.random()],
+          reason: 'insufficient-attestations',
+        };
+
+        await store.setPendingChainValidationStatus(invalidStatus);
+        const retrievedStatus = await store.getPendingChainValidationStatus();
+
+        expect(retrievedStatus).toEqual(invalidStatus);
+      });
+
+      it('should store and retrieve an invalid validation status with invalid attestation', async () => {
+        const invalidStatus: ValidateBlockResult = {
+          valid: false,
+          block: randomBlockInfo(2),
+          committee: [EthAddress.random()],
+          attestors: [EthAddress.random()],
+          epoch: 789n,
+          seed: 101n,
+          attestations: [CommitteeAttestation.random()],
+          reason: 'invalid-attestation',
+          invalidIndex: 5,
+        };
+
+        await store.setPendingChainValidationStatus(invalidStatus);
+        const retrievedStatus = await store.getPendingChainValidationStatus();
+
+        expect(retrievedStatus).toEqual(invalidStatus);
+      });
+
+      it('should overwrite existing status when setting a new one', async () => {
+        const firstStatus: ValidateBlockResult = { valid: true };
+        const secondStatus: ValidateBlockResult = {
+          valid: false,
+          block: randomBlockInfo(3),
+          committee: [EthAddress.random()],
+          epoch: 999n,
+          seed: 888n,
+          attestors: [EthAddress.random()],
+          attestations: [CommitteeAttestation.random()],
+          reason: 'insufficient-attestations',
+        };
+
+        await store.setPendingChainValidationStatus(firstStatus);
+        await store.setPendingChainValidationStatus(secondStatus);
+        const retrievedStatus = await store.getPendingChainValidationStatus();
+
+        expect(retrievedStatus).toEqual(secondStatus);
+      });
+
+      it('should handle empty committee and attestations arrays', async () => {
+        const statusWithEmptyArrays: ValidateBlockResult = {
+          valid: false,
+          block: randomBlockInfo(4),
+          committee: [],
+          epoch: 0n,
+          seed: 0n,
+          attestors: [],
+          attestations: [],
+          reason: 'insufficient-attestations',
+        };
+
+        await store.setPendingChainValidationStatus(statusWithEmptyArrays);
+        const retrievedStatus = await store.getPendingChainValidationStatus();
+
+        expect(retrievedStatus).toEqual(statusWithEmptyArrays);
       });
     });
   });

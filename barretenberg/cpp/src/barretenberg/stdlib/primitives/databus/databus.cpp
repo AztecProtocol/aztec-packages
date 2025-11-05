@@ -22,7 +22,7 @@ void databus<Builder>::bus_vector::set_values(const std::vector<field_pt>& entri
         }
     }
     // Enforce that builder context is known at this stage. Otherwise first read will fail if the index is a constant.
-    ASSERT(context != nullptr);
+    BB_ASSERT(context != nullptr);
 
     // Initialize the bus vector entries from the input entries which are un-normalized and possibly constants
     for (const auto& entry : entries_in) {
@@ -53,7 +53,7 @@ field_t<Builder> databus<Builder>::bus_vector::operator[](const field_pt& index)
     if (index.is_constant()) {
         index_witness_idx = context->put_constant_variable(index.get_value());
     } else {
-        index_witness_idx = index.normalize().get_witness_index();
+        index_witness_idx = index.get_witness_index();
     }
 
     // Read from the bus vector at the specified index. Creates a single read gate

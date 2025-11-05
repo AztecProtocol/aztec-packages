@@ -24,13 +24,7 @@ contract SignalWithSigTest is GovernanceProposerBase {
 
   function setUp() public override {
     super.setUp();
-  }
-
-  // Skipping this test since the it matches the for now skipped check in `EmpireBase::signal`
-  function skip__test_WhenProposalHoldNoCode() external {
-    // it revert
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadHaveNoCode.selector, proposal));
-    governanceProposer.signalWithSig(proposal, signature);
+    validatorSelection = new Fakerollup();
   }
 
   modifier whenProposalHoldCode() {
@@ -49,12 +43,11 @@ contract SignalWithSigTest is GovernanceProposerBase {
     registry.addRollup(IRollup(f));
     vm.etch(f, "");
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__InstanceHaveNoCode.selector, address(f)));
     governanceProposer.signalWithSig(proposal, signature);
   }
 
   modifier givenCanonicalRollupHoldCode() {
-    validatorSelection = new Fakerollup();
     proposer = vm.addr(privateKey);
     validatorSelection.setProposer(proposer);
 
@@ -63,6 +56,9 @@ contract SignalWithSigTest is GovernanceProposerBase {
 
     // We jump into the future since slot 0, will behave as if already signald in
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
+
+    // Also we need to generate a signature because it is using the address of the instance as part of it.
+    signature = createSignature(privateKey, proposal);
     _;
   }
 
@@ -73,7 +69,7 @@ contract SignalWithSigTest is GovernanceProposerBase {
     assertEq(Slot.unwrap(currentSlot), 1);
     governanceProposer.signalWithSig(proposal, signature);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__SignalAlreadyCastForSlot.selector, currentSlot));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__SignalAlreadyCastForSlot.selector, currentSlot));
     governanceProposer.signalWithSig(proposal, signature);
   }
 
@@ -92,8 +88,7 @@ contract SignalWithSigTest is GovernanceProposerBase {
     // fast forward a round
     vm.warp(block.timestamp + _slotsToFastForward * validatorSelection.getSlotDuration());
 
-    uint256 round = governanceProposer.getCurrentRound();
-    bytes32 digest = getDigest(privateKey, proposal, round);
+    bytes32 digest = getDigest(proposal, validatorSelection.getCurrentSlot());
 
     // signal
     address expectedInvalidSigner = ecrecover(digest, signature.v, signature.r, signature.s);
@@ -183,7 +178,7 @@ contract SignalWithSigTest is GovernanceProposerBase {
     Slot freshSlot = freshInstance.getCurrentSlot();
     uint256 freshRound = governanceProposer.computeRound(freshSlot);
 
-    signature = createSignature(privateKey, proposal);
+    signature = createSignature(privateKey, proposal, freshSlot);
 
     vm.expectEmit(true, true, true, true, address(governanceProposer));
     emit IEmpire.SignalCast(proposal, freshRound, proposer);
@@ -357,27 +352,20 @@ contract SignalWithSigTest is GovernanceProposerBase {
     }
   }
 
-  function getDigest(uint256 _privateKey, IPayload _payload, uint256 _round) internal view returns (bytes32) {
-    address p = vm.addr(_privateKey);
-    uint256 nonce = governanceProposer.nonces(p);
-    bytes32 domainSeparator = keccak256(
-      abi.encode(
-        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-        keccak256(bytes("EmpireBase")),
-        keccak256(bytes("1")),
-        block.chainid,
-        address(governanceProposer)
-      )
-    );
-    bytes32 digest = MessageHashUtils.toTypedDataHash(
-      domainSeparator, keccak256(abi.encode(governanceProposer.SIGNAL_TYPEHASH(), _payload, nonce, _round))
-    );
-    return digest;
+  function getDigest(IPayload _payload, Slot _slot) internal view returns (bytes32) {
+    return governanceProposer.getSignalSignatureDigest(_payload, _slot);
   }
 
   function createSignature(uint256 _privateKey, IPayload _payload) internal view returns (Signature memory) {
-    uint256 round = governanceProposer.getCurrentRound();
-    bytes32 digest = getDigest(_privateKey, _payload, round);
+    return createSignature(_privateKey, _payload, validatorSelection.getCurrentSlot());
+  }
+
+  function createSignature(uint256 _privateKey, IPayload _payload, Slot _slot)
+    internal
+    view
+    returns (Signature memory)
+  {
+    bytes32 digest = getDigest(_payload, _slot);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
 

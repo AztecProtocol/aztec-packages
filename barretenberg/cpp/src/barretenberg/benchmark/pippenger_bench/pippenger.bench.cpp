@@ -6,7 +6,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/common/op_count_google_bench.hpp"
+#include "barretenberg/common/google_bb_bench.hpp"
 
 #include <chrono>
 #include <cstdlib>
@@ -30,7 +30,7 @@ using G1 = Curve::AffineElement;
 using Element = Curve::Element;
 namespace {
 /**
- * @brief Benchmark suite for the aztec client PG-Goblin IVC scheme
+ * @brief Benchmark suite for Pippenger scalar multiplication
  */
 class PippengerBench : public benchmark::Fixture {
   public:
@@ -55,7 +55,7 @@ class PippengerBench : public benchmark::Fixture {
 };
 
 /**
- * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
+ * @brief Benchmark the prover work for Pippenger scalar multiplication
  */
 BENCHMARK_DEFINE_F(PippengerBench, Full)(benchmark::State& state)
 {
@@ -65,7 +65,7 @@ BENCHMARK_DEFINE_F(PippengerBench, Full)(benchmark::State& state)
     PolynomialSpan<Fr> scalars = PolynomialSpan<Fr>(0, span);
 
     for (auto _ : state) {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        GOOGLE_BB_BENCH_REPORTER(state);
         (scalar_multiplication::pippenger_unsafe<Curve>(scalars, points));
     }
 }

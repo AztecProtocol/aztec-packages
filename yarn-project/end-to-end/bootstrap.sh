@@ -6,6 +6,13 @@ cmd=${1:-}
 hash=$(../bootstrap.sh hash)
 bench_fixtures_dir=example-app-ivc-inputs-out
 
+# Helper function to extract test names from a test file
+function extract_test_names {
+  local test_file="$1"
+  grep -oP "(it|test)\s*\(\s*['\"].*?['\"]" "$test_file" | \
+    sed -E "s/(it|test)\s*\(\s*['\"](.+)['\"]/\2/"
+}
+
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash:ISOLATE=1"
@@ -14,13 +21,13 @@ function test_cmds {
   # Can't run full prover tests on ARM because AVM is disabled.
   if ../../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm; then
     if [ "$CI_FULL" -eq 1 ]; then
-      echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
+      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
     else
       echo "$prefix:NAME=e2e_prover_client_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/client"
     fi
   else
     if [ "$CI_FULL" -eq 1 ]; then
-      echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
     else
       echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
     fi
@@ -35,20 +42,42 @@ function test_cmds {
   for test in "${tests[@]}"; do
     local name=${test#*e2e_}
     name=e2e_${name%.test.ts}
-    echo "$prefix:NAME=$name $run_test_script simple $test"
+
+    # Check if this is a .parallel.test.ts file
+    if [[ "$test" == *.parallel.test.ts ]]; then
+      # Extract individual test names and create a command for each
+      while IFS= read -r test_name; do
+        # Create a safe name for the individual test (replace spaces with underscores)
+        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
+        echo "$prefix:NAME=${name}_${safe_test_name} $run_test_script simple $test \"$test_name\""
+      done < <(extract_test_names "$test")
+    else
+      # Regular test file - run the whole file
+      echo "$prefix:NAME=$name $run_test_script simple $test"
+    fi
   done
 
   # compose-based tests (use running sandbox)
   tests=(
     src/composed/!(integration_proof_verification|e2e_persistence).test.ts
     src/guides/*.test.ts
-    src/sample-dapp/index
-    src/sample-dapp/ci/index
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
     echo "$hash:ONLY_TERM_PARENT=1 $run_test_script compose $test"
   done
+
+  tests=(
+    src/composed/web3signer/*.test.ts
+  )
+  for test in "${tests[@]}"; do
+    # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
+    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer $test"
+  done
+
+  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
+  # echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
+  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/e2e_multi_validator/e2e_multi_validator_node_key_store.test.ts"
 
   # TODO(AD): figure out workaround for mainframe subnet exhaustion
   if [ "$CI" -eq 1 ]; then
@@ -63,7 +92,7 @@ function test_cmds {
 
 function test {
   echo_header "e2e tests"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function bench_cmds {
@@ -90,7 +119,7 @@ function build_bench {
   export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER LOG_LEVEL"
   rm -rf $CAPTURE_IVC_FOLDER && mkdir -p $CAPTURE_IVC_FOLDER
   rm -rf bench-out && mkdir -p bench-out
-  if cache_download bb-client-ivc-captures-$hash.tar.gz; then
+  if cache_download bb-chonk-captures-$hash.tar.gz; then
     return
   fi
   parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
@@ -99,13 +128,13 @@ function build_bench {
     client_flows/bridging \
     client_flows/transfers \
     client_flows/amm
-  cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
+  cache_upload bb-chonk-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }
 
 function bench {
   rm -rf bench-out
   mkdir -p bench-out
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
 case "$cmd" in

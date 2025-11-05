@@ -1,23 +1,22 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import {
-  Fr,
-  type Logger,
-  MerkleTreeId,
-  type Wallet,
-  getContractInstanceFromInstantiationParams,
-  getTimestampRangeForEpoch,
-  retryUntil,
-  sleep,
-} from '@aztec/aztec.js';
+import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { MerkleTreeId } from '@aztec/aztec.js/trees';
+import type { Wallet } from '@aztec/aztec.js/wallet';
+import { EpochCache } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
-import { ProverNode, ProverNodePublisher } from '@aztec/prover-node';
+import { ProverNode, type ProverNodeConfig, ProverNodePublisher } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import {
   type SequencerClient,
@@ -26,7 +25,7 @@ import {
   SequencerState,
 } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import type { EthAddress, L2BlockNumber } from '@aztec/stdlib/block';
+import { EthAddress, type L2BlockNumber } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
@@ -69,6 +68,7 @@ export class EpochsTestContext {
   public constants!: L1RollupConstants;
   public logger!: Logger;
   public monitor!: ChainMonitor;
+  public epochCache!: EpochCache;
   public proverDelayer!: Delayer;
   public sequencerDelayer!: Delayer;
 
@@ -92,7 +92,7 @@ export class EpochsTestContext {
       : DEFAULT_L1_BLOCK_TIME;
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
     const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
-    const aztecEpochDuration = opts.aztecEpochDuration ?? 4;
+    const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
     return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs };
   }
@@ -124,12 +124,11 @@ export class EpochsTestContext {
       proverTestDelayMs: opts.proverTestDelayMs ?? 0,
       // We use numeric incremental prover ids for simplicity, but we can switch to
       // using the prover's eth address if the proverId is used for something in the rollup contract
-      proverId: Fr.fromString('1'),
-      // This must be enough so that the tx from the prover is delayed properly,
-      // but not so much to hang the sequencer and timeout the teardown
-      txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
+      // Use numeric EthAddress for deterministic prover id
+      proverId: EthAddress.fromNumber(1),
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+      slasherFlavor: 'none',
       ...opts,
     });
 
@@ -139,6 +138,7 @@ export class EpochsTestContext {
     this.logger = context.logger;
     this.l1Client = context.deployL1ContractsValues.l1Client;
     this.rollup = RollupContract.getFromConfig(context.config);
+    this.epochCache = await EpochCache.create(this.rollup, context.config, { dateProvider: context.dateProvider });
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
     this.monitor = new ChainMonitor(this.rollup, context.dateProvider, this.logger).start();
@@ -182,15 +182,20 @@ export class EpochsTestContext {
     await this.context.teardown();
   }
 
-  public async createProverNode() {
+  public async createProverNode(opts: { dontStart?: boolean } & Partial<ProverNodeConfig> = {}) {
     this.logger.warn('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = this.getNextPrivateKey();
     const suffix = (this.proverNodes.length + 1).toString();
     const proverNode = await withLogNameSuffix(suffix, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
-        { ...this.context.config, proverId: Fr.fromString(suffix) },
-        { dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')) },
+        { ...this.context.config },
+        {
+          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+          proverId: EthAddress.fromNumber(parseInt(suffix, 10)),
+          dontStart: opts.dontStart,
+          ...opts,
+        },
         this.context.aztecNode,
         undefined,
         { dateProvider: this.context.dateProvider },
@@ -250,9 +255,15 @@ export class EpochsTestContext {
       this.logger.info(
         `Setting tx delayer max inclusion time into slot to ${opts.txDelayerMaxInclusionTimeIntoSlot} seconds`,
       );
+      // Here we reach into the sequencer and hook in a tx delayer. The problem is that the sequencer's l1 utils only uses a public client, not a wallet.
+      // The delayer needs a wallet (a client that can sign), so we have to create one here.
+      const l1Client = createExtendedL1Client(
+        resolvedConfig.l1RpcUrls!,
+        resolvedConfig.publisherPrivateKeys![0]!.getValue(),
+      );
       const sequencer = node.getSequencer() as TestSequencerClient;
       const publisher = sequencer.sequencer.publisher;
-      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S);
+      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S, l1Client);
       delayed.delayer!.setMaxInclusionTimeIntoSlot(opts.txDelayerMaxInclusionTimeIntoSlot);
       publisher.l1TxUtils = delayed;
     }
@@ -270,7 +281,12 @@ export class EpochsTestContext {
   public async waitUntilEpochStarts(epoch: number) {
     const [start] = getTimestampRangeForEpoch(BigInt(epoch), this.constants);
     this.logger.info(`Waiting until L1 timestamp ${start} is reached as the start of epoch ${epoch}`);
-    await waitUntilL1Timestamp(this.l1Client, start - BigInt(this.L1_BLOCK_TIME_IN_S));
+    await waitUntilL1Timestamp(
+      this.l1Client,
+      start - BigInt(this.L1_BLOCK_TIME_IN_S),
+      undefined,
+      30 * this.epochDuration,
+    );
     return start;
   }
 
@@ -307,7 +323,7 @@ export class EpochsTestContext {
   }
 
   /** Waits for the aztec node to sync to the target block number. */
-  public async waitForNodeToSync(blockNumber: number, type: 'proven' | 'finalised' | 'historic') {
+  public async waitForNodeToSync(blockNumber: number, type: 'proven' | 'finalized' | 'historic') {
     const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
     let synched = false;
     while (!synched) {
@@ -319,8 +335,8 @@ export class EpochsTestContext {
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {
         synched = tips.proven.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
-      } else if (type === 'finalised') {
-        synched = syncState.finalisedBlockNumber >= blockNumber;
+      } else if (type === 'finalized') {
+        synched = syncState.finalizedBlockNumber >= blockNumber;
       } else {
         synched = syncState.oldestHistoricBlockNumber >= blockNumber;
       }
@@ -336,7 +352,7 @@ export class EpochsTestContext {
       publicKeys: undefined,
       deployer: undefined,
     });
-    await wallet.registerContract({ artifact: SpamContract.artifact, instance });
+    await wallet.registerContract(instance, SpamContract.artifact);
     return SpamContract.at(instance.address, wallet);
   }
 
@@ -411,7 +427,7 @@ export class EpochsTestContext {
         sequencer.getSequencer().on(eventName, (args: Parameters<SequencerEvents[typeof eventName]>[0]) => {
           const evt = makeEvent(i, eventName, args);
           failEvents.push(evt);
-          this.logger.error(`Failed event ${eventName} from sequencer ${sequencerIndex}`, evt);
+          this.logger.error(`Failed event ${eventName} from sequencer ${sequencerIndex}`, undefined, evt);
         });
       });
     });

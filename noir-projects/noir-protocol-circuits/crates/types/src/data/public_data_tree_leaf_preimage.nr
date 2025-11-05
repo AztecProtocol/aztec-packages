@@ -1,28 +1,20 @@
 use crate::{
     data::public_data_tree_leaf::PublicDataTreeLeaf,
-    merkle_tree::leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage},
-    traits::{Empty, Hash},
+    merkle_tree::{IndexedTreeLeafPreimage, LeafPreimage},
+    traits::{Deserialize, Empty, Hash, Serialize},
 };
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PublicDataTreeLeafPreimage {
     pub slot: Field,
     pub value: Field,
     pub next_slot: Field,
-    pub next_index: u32,
+    pub next_index: Field,
 }
 
 impl Empty for PublicDataTreeLeafPreimage {
     fn empty() -> Self {
         Self { slot: 0, value: 0, next_slot: 0, next_index: 0 }
-    }
-}
-
-impl Eq for PublicDataTreeLeafPreimage {
-    fn eq(self, other: Self) -> bool {
-        (self.slot == other.slot)
-            & (self.value == other.value)
-            & (self.next_slot == other.next_slot)
-            & (self.next_index == other.next_index)
     }
 }
 
@@ -60,7 +52,7 @@ impl IndexedTreeLeafPreimage<PublicDataTreeLeaf> for PublicDataTreeLeafPreimage 
         (self.next_slot == 0) & (self.next_index == 0)
     }
 
-    fn update_pointers(self, next_slot: Field, next_index: u32) -> Self {
+    fn update_pointers(self, next_slot: Field, next_index: Field) -> Self {
         Self { slot: self.slot, value: self.value, next_slot, next_index }
     }
 

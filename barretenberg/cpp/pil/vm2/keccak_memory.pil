@@ -88,7 +88,7 @@ sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
-sel + last = 0;
+sel = 0;
 
 pol commit start_read;
 start_read * (1 - start_read) = 0;
@@ -130,9 +130,9 @@ pol commit ctr_end;
 ctr_end * (1 - ctr_end) = 0;
 
 // We define ctr_end == 1 <==> ctr == AVM_KECCAKF1600_STATE_SIZE (25)
-pol commit ctr_min_state_size_inv;
+pol commit state_size_min_ctr_inv;
 #[CTR_END]
-sel * ((ctr - constants.AVM_KECCAKF1600_STATE_SIZE) * (ctr_end * (1 - ctr_min_state_size_inv) + ctr_min_state_size_inv) + ctr_end - 1) = 0;
+sel * ((constants.AVM_KECCAKF1600_STATE_SIZE - ctr) * (ctr_end * (1 - state_size_min_ctr_inv) + state_size_min_ctr_inv) + ctr_end - 1) = 0;
 
 // Last ctr of a multi-rows processing of a slice
 pol commit last;
@@ -237,13 +237,9 @@ val43 = (1 - last) * val42';
 #[VAL44]
 val44 = (1 - last) * val43';
 
-// Memory permutation
-// TODO: Proper memory permutation (not a lookup), and introduce a specific
-// selector for keccak in memory sub-trace.
 #[SLICE_TO_MEM]
-sel {clk, addr, val00, tag, rw, space_id}
-in // TODO: replace with `is` (permutation)
-memory.sel { memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id };
+sel { clk, space_id, addr, val00, tag, rw }
+is memory.sel_keccak { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 
 // Used to constrain the number of rounds in keccakf1600.pil through the slice_write lookup.
 pol commit num_rounds;

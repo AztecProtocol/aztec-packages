@@ -18,7 +18,7 @@ template <typename Curve>
 std::vector<typename BatchedAffineAddition<Curve>::G1> BatchedAffineAddition<Curve>::add_in_place(
     const std::span<G1>& points, const std::vector<size_t>& sequence_counts)
 {
-    PROFILE_THIS_NAME("BatchedAffineAddition::add_in_place");
+    BB_BENCH_NAME("BatchedAffineAddition::add_in_place");
     // Instantiate scratch space for point addition denominators and their calculation
     std::vector<Fq> scratch_space_vector(points.size());
     std::span<Fq> scratch_space(scratch_space_vector);
@@ -163,7 +163,7 @@ std::span<typename BatchedAffineAddition<Curve>::Fq> BatchedAffineAddition<
             const auto& x2 = points[point_idx++].x;
 
             // It is assumed that the input points are random and thus w/h/p do not share an x-coordinate
-            ASSERT(x1 != x2);
+            BB_ASSERT(x1 != x2);
 
             auto diff = x2 - x1;
             differences[pair_idx] = diff;

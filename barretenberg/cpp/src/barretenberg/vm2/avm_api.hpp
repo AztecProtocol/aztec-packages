@@ -1,13 +1,12 @@
 #pragma once
 
-#include <tuple>
-
+#include "barretenberg/vm2/avm_sim_api.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
 
 namespace bb::avm2 {
 
-class AvmAPI {
+class AvmAPI : public AvmSimAPI {
   public:
     using AvmProof = AvmProvingHelper::Proof;
     using AvmVerificationKey = std::vector<uint8_t>;

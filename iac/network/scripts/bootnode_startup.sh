@@ -14,6 +14,8 @@ DATA_STORE_MAP_SIZE_KB="${DATA_STORE_MAP_SIZE_KB}"
 L1_CHAIN_ID="${L1_CHAIN_ID}"
 NETWORK_NAME="${NETWORK_NAME}"
 TAG="${TAG}"
+OTEL_COLLECTOR_URL="${OTEL_COLLECTOR_URL}"
+REGION="${REGION}"
 
 # Update system packages
 echo "Updating system packages..."
@@ -99,12 +101,17 @@ CONTAINER_NAME="aztec-bootnode"
 REPO=aztecprotocol
 IMAGE=aztec
 LOG_LEVEL=verbose
+OTEL_RESOURCE_ATTRIBUTES="region=${REGION},ip=${PUBLIC_IP},network=${NETWORK_NAME}"
 
 cat <<EOF > /home/$SSH_USER/tag.sh
 #!/usr/bin/env bash
 export TAG=$TAG
 EOF
 chmod +x /home/$SSH_USER/tag.sh
+
+if [[ -n "$OTEL_COLLECTOR_URL" ]]; then
+  export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="$OTEL_COLLECTOR_URL/v1/metrics"
+fi
 
 cat << 'EOF' > /home/$SSH_USER/start.sh
 #!/usr/bin/env bash
@@ -130,7 +137,9 @@ docker run \
  --env AZTEC_PORT \
  --env BOOTSTRAP_NODES \
  --env LOG_LEVEL \
- $REPO/$IMAGE:$TAG node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --p2p-bootstrap
+ --env OTEL_EXPORTER_OTLP_METRICS_ENDPOINT \
+ --env OTEL_RESOURCE_ATTRIBUTES \
+ $REPO/$IMAGE:$TAG start --p2p-bootstrap
 EOF
 chmod +x /home/$SSH_USER/start.sh
 
@@ -166,6 +175,8 @@ Environment="REPO=$REPO"
 Environment="IMAGE=$IMAGE"
 Environment="TAG=$TAG"
 Environment="CONTAINER_NAME=$CONTAINER_NAME"
+Environment="OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=$OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+Environment="OTEL_RESOURCE_ATTRIBUTES=$OTEL_RESOURCE_ATTRIBUTES"
 ExecStartPre=-/usr/bin/docker rm -f $CONTAINER_NAME
 ExecStart=/home/$SSH_USER/start.sh
 ExecStop=/usr/bin/docker stop $CONTAINER_NAME

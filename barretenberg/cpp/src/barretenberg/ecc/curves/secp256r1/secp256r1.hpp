@@ -12,6 +12,8 @@
 namespace bb::secp256r1 {
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 struct FqParams {
+    static constexpr const char* schema_name = "secp256r1_fq";
+
     // A little-endian representation of the modulus split into 4 64-bit words
     static constexpr uint64_t modulus_0 = 0xFFFFFFFFFFFFFFFFULL;
     static constexpr uint64_t modulus_1 = 0x00000000FFFFFFFFULL;
@@ -140,6 +142,7 @@ struct FqParams {
 using fq = field<FqParams>;
 
 struct FrParams {
+    static constexpr const char* schema_name = "secp256r1_fr";
 
     // A little-endian representation of the modulus split into 4 64-bit words
     static constexpr uint64_t modulus_0 = 0xF3B9CAC2FC632551ULL;
@@ -285,6 +288,14 @@ struct G1Params {
         fq(0xCBB6406837BF51F5, 0x2BCE33576B315ECE, 0x8EE7EB4A7C0F9E16, 0x4FE342E2FE1A7F9B).to_montgomery_form();
 };
 using g1 = group<fq, fr, G1Params>;
+
+// specialize the name in msgpack schema generation
+// consumed by the typescript schema compiler, helps disambiguate templates
+inline std::string msgpack_schema_name(g1::affine_element const& /*unused*/)
+{
+    return "Secp256r1Point";
+}
+
 } // namespace bb::secp256r1
 
 namespace bb::curve {

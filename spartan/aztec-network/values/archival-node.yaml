@@ -2,8 +2,8 @@ telemetry:
   enabled: true
 
 snapshots:
-  uploadLocation: "gs://aztec-testnet/snapshots/"
-  syncUrl: "https://storage.googleapis.com/aztec-testnet/snapshots/"
+  uploadLocation: ""
+  syncUrl: "https://aztec-labs-snapshots.com/staging-public/"
   frequency: "0 0 * * *" # daily uploads at midnight
 
 network:
@@ -12,7 +12,8 @@ network:
 ethereum:
   chainId: "11155111"
   l1GasPriceMax: 1000
-  l1FixedPriorityFeePerGas: 3
+  l1PriorityFeeBumpPercentage: 30
+  l1PriorityFeeRetryBumpPercentage: 80
 
 aztec:
   realProofs: true
@@ -45,9 +46,6 @@ fullNode:
     periodSeconds: 60
     failureThreshold: 60
 
-blobSink:
-  enabled: false
-
 bootNode:
   enabled: false
   externalHost: "http://localhost:8080"
@@ -63,12 +61,6 @@ proverAgent:
   enabled: false
 
 proverBroker:
-  enabled: false
-
-pxe:
-  enabled: false
-
-faucet:
   enabled: false
 
 bot:

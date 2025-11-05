@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
-NO_CD=1 ../noir-protocol-circuits/bootstrap.sh $@
+NOIR_PROTOCOL_CIRCUITS_WORKING_DIR="$(pwd)" ../noir-protocol-circuits/bootstrap.sh "${1:-}"

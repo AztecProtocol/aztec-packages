@@ -84,10 +84,8 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
 
         if (chunk_size != 32) {
             // If the chunk is smaller than 32 bits, we need to explicitly range constrain it.
-            ctx->create_range_constraint(
-                a_chunk.witness_index, chunk_size, "stdlib logic: bad range on final chunk of left operand");
-            ctx->create_range_constraint(
-                b_chunk.witness_index, chunk_size, "stdlib logic: bad range on final chunk of right operand");
+            a_chunk.create_range_constraint(chunk_size, "stdlib logic: bad range on final chunk of left operand");
+            b_chunk.create_range_constraint(chunk_size, "stdlib logic: bad range on final chunk of right operand");
         }
 
         res += result_chunk * scaling_factor;
@@ -96,8 +94,8 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         right = right >> 32;
     }
 
-    field_pt a_slice_other = a.split_at(num_bits).first;
-    field_pt b_slice_other = b.split_at(num_bits).first;
+    field_pt a_slice_other = a.no_wrap_split_at(num_bits).first;
+    field_pt b_slice_other = b.no_wrap_split_at(num_bits).first;
     a_slice_other.assert_equal(a_accumulator, "stdlib logic: failed to reconstruct left operand");
     b_slice_other.assert_equal(b_accumulator, "stdlib logic: failed to reconstruct right operand");
 

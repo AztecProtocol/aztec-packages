@@ -1,0 +1,2 @@
+barretenberg_module(multilinear_batching sumcheck commitment_schemes relations stdlib_poseidon2)
+

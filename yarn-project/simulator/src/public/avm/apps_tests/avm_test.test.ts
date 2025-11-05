@@ -4,6 +4,7 @@ import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { AvmSimulationTester } from '../fixtures/avm_simulation_tester.js';
 
@@ -12,10 +13,12 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
   const sender = AztecAddress.fromNumber(4200);
   let testContractAddress: AztecAddress;
   let instances: ContractInstanceWithAddress[];
+  let worldStateService: NativeWorldStateService;
   let simTester: AvmSimulationTester;
 
   beforeEach(async () => {
-    simTester = await AvmSimulationTester.create();
+    worldStateService = await NativeWorldStateService.tmp();
+    simTester = await AvmSimulationTester.create(worldStateService);
     // create enough unique contract classes to hit the limit
     instances = [];
     for (let i = 0; i <= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {
@@ -31,7 +34,14 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
     testContractAddress = instances[0].address;
   });
 
+  afterEach(async () => {
+    await worldStateService.close();
+  });
+
   it('bulk testing', async () => {
+    // Needed since we invoke the Fee Juice Contract in the bulk test.registerFeeJuiceContract
+    await simTester.registerFeeJuiceContract();
+
     // Get a deployed contract instance to pass to the contract
     // for it to use as "expected" values when testing contract instance retrieval.
     const expectContractInstance = instances[1];
@@ -44,6 +54,7 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
       /*expectedDeployer=*/ expectContractInstance.deployer,
       /*expectedClassId=*/ expectContractInstance.currentContractClassId,
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash,
+      /*skip_strictly_limited_side_effects=*/ false,
     ];
     const results = await simTester.simulateCall(sender, /*address=*/ testContractAddress, 'bulk_testing', args);
     expect(results.reverted).toBe(false);
@@ -55,7 +66,7 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
       .map(instance => instance.address)
       .slice(0, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
 
-    // include the first contract again again at the end to ensure that we can call it even after the limit is reached
+    // include the first contract again at the end to ensure that we can call it even after the limit is reached
     instanceAddresses.push(instanceAddresses[0]);
 
     // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
@@ -91,13 +102,12 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
     expect(results.reverted).toBe(true);
   });
 
-  // TODO(#16099): Re-enable this test
-  // it('an exceptional halt due to a nested call to non-existent contract is recovered from in caller', async () => {
-  //   await simTester.simulateCall(
-  //     sender,
-  //     /*address=*/ testContractAddress,
-  //     'nested_call_to_nothing_recovers',
-  //     /*args=*/ [],
-  //   );
-  // });
+  it('an exceptional halt due to a nested call to non-existent contract is recovered from in caller', async () => {
+    await simTester.simulateCall(
+      sender,
+      /*address=*/ testContractAddress,
+      'nested_call_to_nothing_recovers',
+      /*args=*/ [],
+    );
+  });
 });

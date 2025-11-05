@@ -10,6 +10,7 @@ import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } fro
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { computeTransactionFee } from '@aztec/stdlib/fees';
 import { Gas } from '@aztec/stdlib/gas';
 import type {
   MerkleTreeWriteOperations,
@@ -26,7 +27,6 @@ import {
   StateReference,
   Tx,
   TxExecutionPhase,
-  type TxValidator,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/stdlib/tx';
@@ -40,8 +40,14 @@ import {
 } from '@aztec/telemetry-client';
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
+import { AssertionError } from 'assert';
+
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
+import {
+  type PublicTxSimulator,
+  type PublicTxSimulatorConfig,
+  TelemetryPublicTxSimulator,
+} from '../public_tx_simulator/index.js';
 import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
@@ -57,7 +63,6 @@ export class PublicProcessorFactory {
 
   /**
    * Creates a new instance of a PublicProcessor.
-   * @param historicalHeader - The header of a block previous to the one in which the tx is included.
    * @param globalVariables - The global variables for the block being processed.
    * @param skipFeeEnforcement - Allows disabling balance checks for fee estimations.
    * @returns A new instance of a PublicProcessor.
@@ -65,20 +70,23 @@ export class PublicProcessorFactory {
   public create(
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
-    skipFeeEnforcement: boolean,
-    clientInitiatedSimulation: boolean = false,
+    config: {
+      skipFeeEnforcement: boolean;
+      clientInitiatedSimulation: boolean;
+      proverId?: Fr;
+      maxDebugLogMemoryReads?: number;
+    },
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(
-      guardedFork,
-      contractsDB,
-      globalVariables,
-      /*doMerkleOperations=*/ true,
-      skipFeeEnforcement,
-      clientInitiatedSimulation,
-    );
+    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, {
+      proverId: config.proverId,
+      doMerkleOperations: true,
+      skipFeeEnforcement: config.skipFeeEnforcement,
+      clientInitiatedSimulation: config.clientInitiatedSimulation,
+      maxDebugLogMemoryReads: config.maxDebugLogMemoryReads,
+    });
 
     return new PublicProcessor(
       globalVariables,
@@ -94,19 +102,9 @@ export class PublicProcessorFactory {
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
-    doMerkleOperations: boolean,
-    skipFeeEnforcement: boolean,
-    clientInitiatedSimulation: boolean,
+    config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulator {
-    return new TelemetryPublicTxSimulator(
-      merkleTree,
-      contractsDB,
-      globalVariables,
-      doMerkleOperations,
-      skipFeeEnforcement,
-      clientInitiatedSimulation,
-      this.telemetryClient,
-    );
+    return new TelemetryPublicTxSimulator(merkleTree, contractsDB, globalVariables, this.telemetryClient, config);
   }
 }
 
@@ -153,7 +151,7 @@ export class PublicProcessor implements Traceable {
     limits: PublicProcessorLimits = {},
     validator: PublicProcessorValidator = {},
   ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> {
-    const { maxTransactions, maxBlockSize, deadline, maxBlockGas } = limits;
+    const { maxTransactions, maxBlockSize, deadline, maxBlockGas, maxBlobFields } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
     const usedTxs: Tx[] = [];
@@ -164,6 +162,7 @@ export class PublicProcessor implements Traceable {
     let returns: NestedProcessReturnValues[] = [];
     let totalPublicGas = new Gas(0, 0);
     let totalBlockGas = new Gas(0, 0);
+    let totalBlobFields = 0;
 
     for await (const origTx of txs) {
       // Only process up to the max tx limit
@@ -233,6 +232,7 @@ export class PublicProcessor implements Traceable {
       // Note: We use the underlying fork here not the guarded one, this ensures that it's not impacted by stopping the guarded version
       const checkpoint = await ForkCheckpoint.new(this.guardedMerkleTree.getUnderlyingFork());
       const startStateReference = await this.guardedMerkleTree.getUnderlyingFork().getStateReference();
+      this.contractsDB.createCheckpoint();
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
@@ -248,6 +248,25 @@ export class PublicProcessor implements Traceable {
           });
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
+          continue;
+        }
+
+        // If the actual blob fields of this tx would exceed the limit, skip it
+        const txBlobFields = processedTx.txEffect.toBlobFields().length;
+        if (maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
+          this.log.debug(
+            `Skipping processed tx ${txHash} with ${txBlobFields} blob fields due to max blob fields limit.`,
+            {
+              txHash,
+              txBlobFields,
+              totalBlobFields,
+              maxBlobFields,
+            },
+          );
+          // Need to revert the checkpoint here and don't go any further
+          await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
           continue;
         }
 
@@ -261,6 +280,7 @@ export class PublicProcessor implements Traceable {
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
         totalSizeInBytes += txSize;
+        totalBlobFields += txBlobFields;
       } catch (err: any) {
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
@@ -281,6 +301,9 @@ export class PublicProcessor implements Traceable {
           // This needs to be done directly on the underlying fork as the guarded fork has been stopped.
           await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
 
+          // Revert any contracts added to the DB for the tx.
+          this.contractsDB.revertCheckpoint();
+
           // Ensure we're at the same state as when we started processing this tx.
           await this.checkWorldStateUnchanged(startStateReference, txHash, err);
 
@@ -291,7 +314,8 @@ export class PublicProcessor implements Traceable {
         // Roll back state to start of TX before proceeding to next TX
         await checkpoint.revert();
         await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        this.contractsDB.revertCheckpoint();
+        const errorMessage = err instanceof Error || err instanceof AssertionError ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
         returns.push(new NestedProcessReturnValues([]));
@@ -301,8 +325,7 @@ export class PublicProcessor implements Traceable {
       } finally {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was previously reverted
         await checkpoint.commit();
-        // The tx-level contracts cache should not live on to the next tx
-        this.contractsDB.clearContractsForTx();
+        this.contractsDB.commitCheckpointOkIfNone();
       }
     }
 
@@ -365,10 +388,7 @@ export class PublicProcessor implements Traceable {
     return [processedTx, returnValues ?? []];
   }
 
-  private async doTreeInsertionsForPrivateOnlyTx(
-    processedTx: ProcessedTx,
-    txValidator?: TxValidator<ProcessedTx>,
-  ): Promise<void> {
+  private async doTreeInsertionsForPrivateOnlyTx(processedTx: ProcessedTx): Promise<void> {
     const treeInsertionStart = process.hrtime.bigint();
 
     // Update the state so that the next tx in the loop has the correct .startState
@@ -387,14 +407,8 @@ export class PublicProcessor implements Traceable {
         padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
         NULLIFIER_SUBTREE_HEIGHT,
       );
-    } catch {
-      if (txValidator) {
-        // Ideally the validator has already caught this above, but just in case:
-        throw new Error(`Transaction ${processedTx.hash} invalid after processing public functions`);
-      } else {
-        // We have no validator and assume this call should blindly process txs with duplicates being caught later
-        this.log.warn(`Detected duplicate nullifier after public processing for: ${processedTx.hash}.`);
-      }
+    } catch (cause) {
+      throw new Error(`Transaction ${processedTx.hash} failed with duplicate nullifiers`, { cause });
     }
 
     const treeInsertionEnd = process.hrtime.bigint();
@@ -478,7 +492,7 @@ export class PublicProcessor implements Traceable {
   }))
   private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx, undefined]> {
     const gasFees = this.globalVariables.gasFees;
-    const transactionFee = tx.data.gasUsed.computeFee(gasFees);
+    const transactionFee = computeTransactionFee(gasFees, tx.data.constants.txContext.gasSettings, tx.data.gasUsed);
 
     const feePaymentPublicDataWrite = await this.performFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
 
@@ -499,10 +513,7 @@ export class PublicProcessor implements Traceable {
     // Fee payment insertion has already been done. Do the rest.
     await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
 
-    // Add any contracts registered/deployed in this private-only tx to the block-level cache
-    // (add to tx-level cache and then commit to block-level cache)
     await this.contractsDB.addNewContracts(tx);
-    this.contractsDB.commitContractsForTx();
 
     return [processedTx, undefined];
   }

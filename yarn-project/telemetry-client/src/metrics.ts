@@ -63,18 +63,16 @@ export const ARCHIVER_TOTAL_TXS = 'aztec.archiver.tx_count';
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
 
+export const NODE_SNAPSHOT_DURATION = 'aztec.node.snapshot_duration';
+export const NODE_SNAPSHOT_ERROR_COUNT = 'aztec.node.snapshot_error_count';
+
 export const SEQUENCER_STATE_TRANSITION_BUFFER_DURATION = 'aztec.sequencer.state_transition_buffer.duration';
 export const SEQUENCER_BLOCK_BUILD_DURATION = 'aztec.sequencer.block.build_duration';
 export const SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND = 'aztec.sequencer.block.build_mana_per_second';
 export const SEQUENCER_BLOCK_COUNT = 'aztec.sequencer.block.count';
-export const SEQUENCER_CURRENT_STATE = 'aztec.sequencer.current.state';
-export const SEQUENCER_CURRENT_BLOCK_NUMBER = 'aztec.sequencer.current.block_number';
-export const SEQUENCER_CURRENT_BLOCK_SIZE = 'aztec.sequencer.current.block_size';
-export const SEQUENCER_BLOCK_BUILD_INSERTION_TIME = 'aztec.sequencer.block_builder_tree_insertion_duration';
 export const SEQUENCER_CURRENT_BLOCK_REWARDS = 'aztec.sequencer.current_block_rewards';
 export const SEQUENCER_SLOT_COUNT = 'aztec.sequencer.slot.total_count';
 export const SEQUENCER_FILLED_SLOT_COUNT = 'aztec.sequencer.slot.filled_count';
-export const SEQUENCER_MISSED_SLOT_COUNT = 'aztec.sequencer.slot.missed_count';
 
 export const SEQUENCER_COLLECTED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestations.collected_count';
 export const SEQUENCER_REQUIRED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestations.required_count';
@@ -100,6 +98,16 @@ export const L1_BLOCK_HEIGHT = 'aztec.l1.block_height';
 export const L1_BALANCE_ETH = 'aztec.l1.balance';
 export const L1_GAS_PRICE_WEI = 'aztec.l1.gas_price';
 export const L1_BLOB_BASE_FEE_WEI = 'aztec.l1.blob_base_fee';
+
+export const L1_TX_MINED_DURATION = 'aztec.l1_tx.mined_duration';
+export const L1_TX_MINED_COUNT = 'aztec.l1_tx.mined_count';
+export const L1_TX_REVERTED_COUNT = 'aztec.l1_tx.reverted_count';
+export const L1_TX_CANCELLED_COUNT = 'aztec.l1_tx.cancelled_count';
+export const L1_TX_NOT_MINED_COUNT = 'aztec.l1_tx.not_mined_count';
+export const L1_TX_ATTEMPTS_UNTIL_MINED = 'aztec.l1_tx.attempts_until_mined';
+export const L1_TX_MAX_PRIORITY_FEE = 'aztec.l1_tx.max_priority_fee';
+export const L1_TX_MAX_FEE = 'aztec.l1_tx.max_fee';
+export const L1_TX_BLOB_FEE = 'aztec.l1_tx.blob_fee';
 
 export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
@@ -184,8 +192,8 @@ export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
 export const WORLD_STATE_DB_MAP_SIZE = 'aztec.world_state.db_map_size';
 export const WORLD_STATE_DB_PHYSICAL_SIZE = 'aztec.world_state.db_physical_size';
 export const WORLD_STATE_TREE_SIZE = 'aztec.world_state.tree_size';
-export const WORLD_STATE_UNFINALISED_HEIGHT = 'aztec.world_state.unfinalised_height';
-export const WORLD_STATE_FINALISED_HEIGHT = 'aztec.world_state.finalised_height';
+export const WORLD_STATE_UNFINALIZED_HEIGHT = 'aztec.world_state.unfinalized_height';
+export const WORLD_STATE_FINALIZED_HEIGHT = 'aztec.world_state.finalized_height';
 export const WORLD_STATE_OLDEST_BLOCK = 'aztec.world_state.oldest_block';
 export const WORLD_STATE_DB_USED_SIZE = 'aztec.world_state.db_used_size';
 export const WORLD_STATE_DB_NUM_ITEMS = 'aztec.world_state.db_num_items';
@@ -199,8 +207,9 @@ export const VALIDATOR_RE_EXECUTION_MANA = 'aztec.validator.re_execution_mana';
 export const VALIDATOR_RE_EXECUTION_TX_COUNT = 'aztec.validator.re_execution_tx_count';
 
 export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';
-export const VALIDATOR_ATTESTATION_COUNT = 'aztec.validator.attestation_count';
-export const VALIDATOR_FAILED_ATTESTATION_COUNT = 'aztec.validator.failed_attestation_count';
+export const VALIDATOR_ATTESTATION_SUCCESS_COUNT = 'aztec.validator.attestation_success_count';
+export const VALIDATOR_ATTESTATION_FAILED_BAD_PROPOSAL_COUNT = 'aztec.validator.attestation_failed_bad_proposal_count';
+export const VALIDATOR_ATTESTATION_FAILED_NODE_ISSUE_COUNT = 'aztec.validator.attestation_failed_node_issue_count';
 
 export const NODEJS_EVENT_LOOP_DELAY_MIN = 'nodejs.eventloop.delay.min';
 export const NODEJS_EVENT_LOOP_DELAY_MEAN = 'nodejs.eventloop.delay.mean';

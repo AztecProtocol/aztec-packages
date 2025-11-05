@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 
 import { z } from 'zod';

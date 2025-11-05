@@ -26,11 +26,12 @@ import type { SharedNodeConfig } from '../config/index.js';
 // Half day worth of L1 blocks
 const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;
 
-type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode' | 'snapshotsUrl'> &
+type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
   Required<DataStoreConfig> &
   EthereumClientConfig & {
+    snapshotsUrls?: string[];
     minL1BlocksToTriggerReplace?: number;
   };
 
@@ -39,14 +40,14 @@ type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode' | 'snapshotsUrl'> &
  * Behaviour depends on syncing mode.
  */
 export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
-  const { syncMode, snapshotsUrl, dataDirectory, l1ChainId, rollupVersion, l1Contracts } = config;
+  const { syncMode, snapshotsUrls, dataDirectory, l1ChainId, rollupVersion, l1Contracts } = config;
   if (syncMode === 'full') {
     log.debug('Snapshot sync is disabled. Running full sync.', { syncMode: syncMode });
     return false;
   }
 
-  if (!snapshotsUrl) {
-    log.verbose('Snapshot sync is disabled. No snapshots URL provided.');
+  if (!snapshotsUrls || snapshotsUrls.length === 0) {
+    log.verbose('Snapshot sync is disabled. No snapshots URLs provided.');
     return false;
   }
 
@@ -55,15 +56,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     return false;
   }
 
-  let fileStore: ReadOnlyFileStore;
-  try {
-    fileStore = await createReadOnlyFileStore(snapshotsUrl, log);
-  } catch (err) {
-    log.error(`Invalid config for downloading snapshots`, err);
-    return false;
-  }
-
-  // Create an archiver store to check the current state
+  // Create an archiver store to check the current state (do this only once)
   log.verbose(`Creating temporary archiver data store`);
   const archiverStore = await createArchiverStore(config);
   let archiverL1BlockNumber: bigint | undefined;
@@ -102,65 +95,111 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     rollupVersion,
     rollupAddress: l1Contracts.rollupAddress,
   };
-  let snapshot: SnapshotMetadata | undefined;
-  try {
-    snapshot = await getLatestSnapshotMetadata(indexMetadata, fileStore);
-  } catch (err) {
-    log.error(`Failed to get latest snapshot metadata. Skipping snapshot sync.`, err, {
-      ...indexMetadata,
-      snapshotsUrl,
+
+  // Fetch latest snapshot from each URL
+  type SnapshotCandidate = { snapshot: SnapshotMetadata; url: string; fileStore: ReadOnlyFileStore };
+  const snapshotCandidates: SnapshotCandidate[] = [];
+
+  for (const snapshotsUrl of snapshotsUrls) {
+    let fileStore: ReadOnlyFileStore;
+    try {
+      fileStore = await createReadOnlyFileStore(snapshotsUrl, log);
+    } catch (err) {
+      log.error(`Invalid config for downloading snapshots from ${snapshotsUrl}`, err);
+      continue;
+    }
+
+    let snapshot: SnapshotMetadata | undefined;
+    try {
+      snapshot = await getLatestSnapshotMetadata(indexMetadata, fileStore);
+    } catch (err) {
+      log.error(`Failed to get latest snapshot metadata from ${snapshotsUrl}. Skipping this URL.`, err, {
+        ...indexMetadata,
+        snapshotsUrl,
+      });
+      continue;
+    }
+
+    if (!snapshot) {
+      log.verbose(`No snapshot found at ${snapshotsUrl}. Skipping this URL.`, { ...indexMetadata, snapshotsUrl });
+      continue;
+    }
+
+    if (snapshot.schemaVersions.archiver !== ARCHIVER_DB_VERSION) {
+      log.warn(
+        `Skipping snapshot from ${snapshotsUrl} as it has schema version ${snapshot.schemaVersions.archiver} but expected ${ARCHIVER_DB_VERSION}.`,
+        snapshot,
+      );
+      continue;
+    }
+
+    if (snapshot.schemaVersions.worldState !== WORLD_STATE_DB_VERSION) {
+      log.warn(
+        `Skipping snapshot from ${snapshotsUrl} as it has world state schema version ${snapshot.schemaVersions.worldState} but we expected ${WORLD_STATE_DB_VERSION}.`,
+        snapshot,
+      );
+      continue;
+    }
+
+    if (archiverL1BlockNumber && snapshot.l1BlockNumber < archiverL1BlockNumber) {
+      log.verbose(
+        `Skipping snapshot from ${snapshotsUrl} since local archiver is at L1 block ${archiverL1BlockNumber} which is further than snapshot at ${snapshot.l1BlockNumber}`,
+        { snapshot, archiverL1BlockNumber, snapshotsUrl },
+      );
+      continue;
+    }
+
+    if (archiverL1BlockNumber && snapshot.l1BlockNumber - Number(archiverL1BlockNumber) < minL1BlocksToTriggerReplace) {
+      log.verbose(
+        `Skipping snapshot from ${snapshotsUrl} as archiver is less than ${
+          snapshot.l1BlockNumber - Number(archiverL1BlockNumber)
+        } L1 blocks behind this snapshot.`,
+        { snapshot, archiverL1BlockNumber, snapshotsUrl },
+      );
+      continue;
+    }
+
+    snapshotCandidates.push({ snapshot, url: snapshotsUrl, fileStore });
+  }
+
+  if (snapshotCandidates.length === 0) {
+    log.verbose(`No valid snapshots found from any URL. Skipping snapshot sync.`, { ...indexMetadata, snapshotsUrls });
+    return false;
+  }
+
+  // Sort candidates by L1 block number (highest first)
+  snapshotCandidates.sort((a, b) => b.snapshot.l1BlockNumber - a.snapshot.l1BlockNumber);
+
+  // Try each candidate in order until one succeeds
+  for (const { snapshot, url } of snapshotCandidates) {
+    const { l1BlockNumber, l2BlockNumber } = snapshot;
+    log.info(`Attempting to sync from snapshot at L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {
+      snapshot,
+      snapshotsUrl: url,
     });
-    return false;
+
+    try {
+      await snapshotSync(snapshot, log, {
+        dataDirectory: config.dataDirectory!,
+        rollupAddress: config.l1Contracts.rollupAddress,
+        snapshotsUrl: url,
+      });
+      log.info(`Snapshot synced to L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {
+        snapshot,
+        snapshotsUrl: url,
+      });
+      return true;
+    } catch (err) {
+      log.error(`Failed to download snapshot from ${url}. Trying next candidate.`, err, {
+        snapshot,
+        snapshotsUrl: url,
+      });
+      continue;
+    }
   }
 
-  if (!snapshot) {
-    log.verbose(`No snapshot found. Skipping snapshot sync.`, { ...indexMetadata, snapshotsUrl });
-    return false;
-  }
-
-  if (snapshot.schemaVersions.archiver !== ARCHIVER_DB_VERSION) {
-    log.warn(
-      `Skipping snapshot sync as last snapshot has schema version ${snapshot.schemaVersions.archiver} but expected ${ARCHIVER_DB_VERSION}.`,
-      snapshot,
-    );
-    return false;
-  }
-
-  if (snapshot.schemaVersions.worldState !== WORLD_STATE_DB_VERSION) {
-    log.warn(
-      `Skipping snapshot sync as last snapshot has world state schema version ${snapshot.schemaVersions.worldState} but we expected ${WORLD_STATE_DB_VERSION}.`,
-      snapshot,
-    );
-    return false;
-  }
-
-  if (archiverL1BlockNumber && snapshot.l1BlockNumber < archiverL1BlockNumber) {
-    log.verbose(
-      `Skipping snapshot sync since local archiver is at L1 block ${archiverL1BlockNumber} which is further than last snapshot at ${snapshot.l1BlockNumber}`,
-      { snapshot, archiverL1BlockNumber },
-    );
-    return false;
-  }
-
-  if (archiverL1BlockNumber && snapshot.l1BlockNumber - Number(archiverL1BlockNumber) < minL1BlocksToTriggerReplace) {
-    log.verbose(
-      `Skipping snapshot sync as archiver is less than ${
-        snapshot.l1BlockNumber - Number(archiverL1BlockNumber)
-      } L1 blocks behind latest snapshot.`,
-      { snapshot, archiverL1BlockNumber },
-    );
-    return false;
-  }
-
-  const { l1BlockNumber, l2BlockNumber } = snapshot;
-  log.info(`Syncing from snapshot at L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, { snapshot, snapshotsUrl });
-  await snapshotSync(snapshot, log, {
-    dataDirectory: config.dataDirectory!,
-    rollupAddress: config.l1Contracts.rollupAddress,
-    snapshotsUrl,
-  });
-  log.info(`Snapshot synced to L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, { snapshot });
-  return true;
+  log.error(`Failed to download snapshot from all URLs.`, { snapshotsUrls });
+  return false;
 }
 
 /**

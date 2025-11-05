@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Send bash xtrace (set -x) to stdout so callers don't treat it as stderr (ERROR)
+export BASH_XTRACEFD=1
 set -exu
 
 # NOTICE: This script is intended for non-production (i.e. testnet) use only.
@@ -24,8 +26,8 @@ set -exu
 # where:
 #  - aztec-docker-tag is the tag of the aztec docker image to use.
 #  - registry is the address of the registry contract.
-#  - test-accounts is optional, and if provided, will initialise the genesis state with funded test accounts.
-#  - sponsored-fpc is optional, and if provided, will initialise the genesis state with a funded FPC.
+#  - test-accounts is optional, and if provided, will initialize the genesis state with funded test accounts.
+#  - sponsored-fpc is optional, and if provided, will initialize the genesis state with a funded FPC.
 #
 # It can also be used locally by providing an --aztec-bin argument to the path of the aztec binary.
 # For example, --aztec-bin /usr/src/yarn-project/aztec/dest/bin/index.js
@@ -98,7 +100,7 @@ cleanup() {
 
 # if aztec-docker-tag is set, use it
 if [ -n "$AZTEC_DOCKER_IMAGE" ]; then
-  EXE="docker run --rm --network=host --env-file .env.tmp $AZTEC_DOCKER_IMAGE node --no-warnings $AZTEC_BIN"
+  EXE="docker run --rm --network=host --env-file .env.tmp $AZTEC_DOCKER_IMAGE"
   # Check if the image exists locally before pulling it
   if ! docker images $AZTEC_DOCKER_IMAGE -q; then
     echo "Pulling docker image $AZTEC_DOCKER_IMAGE"

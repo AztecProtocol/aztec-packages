@@ -1,18 +1,12 @@
 import { css } from '@mui/styled-engine';
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type SendInteractionOptions, ContractFunctionInteraction, Contract } from '@aztec/aztec.js/contracts';
+import { type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
-import {
-  FunctionType,
-  type FunctionAbi,
-  ContractFunctionInteraction,
-  Contract,
-  type SendMethodOptions,
-  AztecAddress,
-  type ContractArtifact,
-} from '@aztec/aztec.js';
-import { CopyCatAccountWallet } from '@aztec/accounts/copy-cat/lazy';
-import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import PsychologyIcon from '@mui/icons-material/Psychology';
@@ -25,7 +19,7 @@ import IconButton from '@mui/material/IconButton';
 import FormGroup from '@mui/material/FormGroup';
 import { FunctionParameter } from '../../common/FnParameter';
 import { useContext, useState } from 'react';
-import { AztecContext } from '../../../aztecEnv';
+import { AztecContext } from '../../../aztecContext';
 import { ConfigureInteractionDialog } from './ConfigureInteractionDialog';
 import { CreateAuthwitDialog } from './CreateAuthwitDialog';
 import TableHead from '@mui/material/TableHead';
@@ -72,7 +66,7 @@ interface FunctionCardProps {
     name?: string,
     interaction?: ContractFunctionInteraction,
     contractAddress?: AztecAddress,
-    opts?: SendMethodOptions,
+    opts?: SendInteractionOptions,
   ) => void;
 }
 
@@ -87,16 +81,15 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
   const [profile, setProfile] = useState(false);
 
-  const { wallet, pxe } = useContext(AztecContext);
+  const { wallet, from } = useContext(AztecContext);
 
   const simulate = async (fnName: string) => {
     trackButtonClick(`Simulate ${fnName}`, 'Contract Interaction');
     setIsWorking(true);
     let result;
     try {
-      const copyCatWallet = await CopyCatAccountWallet.create(pxe, wallet);
-      const call = contract.withWallet(copyCatWallet).methods[fnName](...parameters);
-      result = await call.simulate({ skipFeeEnforcement: true });
+      const call = contract.methods[fnName](...parameters);
+      result = await call.simulate({ from, skipFeeEnforcement: true });
       const stringResult = JSON.stringify(result, (key, value) => {
         if (typeof value === 'bigint') {
           return value.toString();
@@ -121,7 +114,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const handleAuthwitCreation = async (
     isPublic?: boolean,
     interaction?: ContractFunctionInteraction,
-    opts?: SendMethodOptions,
+    opts?: SendInteractionOptions,
   ) => {
     setOpenCreateAuthwitDialog(false);
     if (isPublic && interaction && opts) {
@@ -132,7 +125,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const handleConfigureInteractionDialogClose = async (
     name?: string,
     interaction?: ContractFunctionInteraction,
-    opts?: SendMethodOptions,
+    opts?: SendInteractionOptions,
   ) => {
     setOpenConfigureInteractionDialog(false);
     if (name && interaction && opts) {
@@ -154,7 +147,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
             return { ...step, subtotal: acc };
           });
 
-          const totalRPCCalls = Object.values(profileResult.stats.nodeRPCCalls ?? {}).reduce((acc, calls) => acc + calls.times.length, 0);
+          const totalRPCCalls = Object.values(profileResult.stats.nodeRPCCalls ?? {}).reduce(
+            (acc, calls) => acc + calls.times.length,
+            0,
+          );
 
           setProfileResults({
             ...profileResults,
@@ -257,9 +253,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                 </Typography>
                 <div css={{ backgroundColor: 'var(--mui-palette-grey-A100)', padding: '0.5rem', borderRadius: '6px' }}>
                   {simulationResults?.success ? (
-                    <Typography variant="body1">
-                      {simulationResults?.data ?? 'No return value'}
-                    </Typography>
+                    <Typography variant="body1">{simulationResults?.data ?? 'No return value'}</Typography>
                   ) : (
                     <Typography variant="body1" color="error">
                       {simulationResults?.error}
@@ -381,7 +375,9 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
           <Tooltip title="Simulate and send the transaction to the Aztec network by creating a client side proof.">
             <Button
-              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid}
+              disabled={
+                !wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid
+              }
               size="small"
               color="primary"
               variant="contained"
@@ -398,7 +394,9 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
           <Tooltip title="Authorization witnesses (AuthWits) work similarly to permit/approval on Ethereum. They allow execution of functions on behalf of other contracts or addresses.">
             <Button
-              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid}
+              disabled={
+                !wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid
+              }
               size="small"
               color="primary"
               variant="contained"

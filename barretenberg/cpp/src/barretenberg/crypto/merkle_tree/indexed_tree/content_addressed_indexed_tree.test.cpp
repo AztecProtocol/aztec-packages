@@ -224,12 +224,12 @@ void check_sibling_path(TypeOfTree& tree,
     EXPECT_EQ(path, expected_sibling_path);
 }
 
-template <typename TypeOfTree> void check_unfinalised_block_height(TypeOfTree& tree, index_t expected_block_height)
+template <typename TypeOfTree> void check_unfinalized_block_height(TypeOfTree& tree, index_t expected_block_height)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.meta.unfinalisedBlockHeight, expected_block_height);
+        EXPECT_EQ(response.inner.meta.unfinalizedBlockHeight, expected_block_height);
         signal.signal_level();
     };
     tree.get_meta_data(true, completion);
@@ -341,14 +341,14 @@ void remove_historic_block(TypeOfTree& tree, const block_number_t& blockNumber, 
 }
 
 template <typename TypeOfTree>
-void finalise_block(TypeOfTree& tree, const block_number_t& blockNumber, bool expected_success = true)
+void finalize_block(TypeOfTree& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const Response& response) -> void {
         EXPECT_EQ(response.success, expected_success);
         signal.signal_level();
     };
-    tree.finalise_block(blockNumber, completion);
+    tree.finalize_block(blockNumber, completion);
     signal.wait_for_level();
 }
 
@@ -369,7 +369,7 @@ template <typename TypeOfTree> void check_block_height(TypeOfTree& tree, index_t
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.meta.unfinalisedBlockHeight, expected_block_height);
+        EXPECT_EQ(response.inner.meta.unfinalizedBlockHeight, expected_block_height);
         signal.signal_level();
     };
     tree.get_meta_data(true, completion);
@@ -2044,7 +2044,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_forks_at_histor
         treeAtBlock2, { batch3[3] }, 2, 20 + batch_size, { std::nullopt }, true, false);
     check_historic_find_leaf_index_from(treeAtBlock2, batch3[3], 2, 20 + batch_size, 35 + batch_size, true, true);
 
-    check_unfinalised_block_height(treeAtBlock2, 2);
+    check_unfinalized_block_height(treeAtBlock2, 2);
 
     // It should be impossible to commit using the image
     commit_tree(treeAtBlock2, false);
@@ -2192,7 +2192,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_remove_historical_blocks)
     lowLeaf = get_historic_low_leaf(tree, 2, PublicDataLeafValue(60, 0));
     EXPECT_EQ(lowLeaf.index, 2);
 
-    finalise_block(tree, 3);
+    finalize_block(tree, 3);
 
     // remove historical block 1
     remove_historic_block(tree, 1);

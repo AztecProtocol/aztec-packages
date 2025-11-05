@@ -13,8 +13,8 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 
 namespace bb {
@@ -25,7 +25,7 @@ namespace bb {
  * Translator flavor. It is similar in structure to its native counterpart with two main differences: 1) the
  * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
  * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
- * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialise identical  constructions.
+ * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialize identical  constructions.
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
 class TranslatorRecursiveFlavor {
@@ -77,16 +77,12 @@ class TranslatorRecursiveFlavor {
     using Relations = TranslatorFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
-
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
@@ -105,8 +101,9 @@ class TranslatorRecursiveFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey
-        : public StdlibVerificationKey_<CircuitBuilder, TranslatorFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
+                                                          TranslatorFlavor::PrecomputedEntities<Commitment>,
+                                                          VKSerializationMode::NO_METADATA> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
@@ -114,33 +111,12 @@ class TranslatorRecursiveFlavor {
             // and the verification key.
             this->log_circuit_size = FF{ uint64_t(TranslatorFlavor::CONST_TRANSLATOR_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->num_public_inputs = FF::from_witness(builder, typename FF::native(native_key->num_public_inputs));
+            this->pub_inputs_offset = FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset));
 
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
             }
-        }
-
-        /**
-         * @brief Serialize verification key to field elements.
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<FF> to_field_elements() const override
-        {
-            using namespace bb::stdlib::field_conversion;
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            return elements;
         }
 
         /**
@@ -149,8 +125,8 @@ class TranslatorRecursiveFlavor {
          * @param domain_separator
          * @param transcript
          */
-        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
@@ -172,7 +148,7 @@ class TranslatorRecursiveFlavor {
     // Reuse the VerifierCommitments from Translator
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from Translator
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = UltraStdlibTranscript;
 
     using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };

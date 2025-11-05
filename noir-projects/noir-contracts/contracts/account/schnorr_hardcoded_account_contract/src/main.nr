@@ -1,13 +1,12 @@
-// docs:start:contract
 // Account contract that uses Schnorr signatures for authentication using a hardcoded public key.
 use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract SchnorrHardcodedAccount {
     use dep::aztec::{
-        authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}},
+        authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::functions::{private, view},
+        macros::functions::{external, view},
         oracle::{auth_witness::get_auth_witness, notes::set_sender_for_tags},
     };
     use std::embedded_curve_ops::EmbeddedCurvePoint;
@@ -18,26 +17,25 @@ pub contract SchnorrHardcodedAccount {
         is_infinite: false,
     };
 
-    // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
-    #[private]
-    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
+    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts (specifically `getEntrypointAbi()`)
+    #[external("private")]
+    fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
         // it is safe to set from a constrained context.
-        unsafe { set_sender_for_tags(context.this_address()) };
+        unsafe { set_sender_for_tags(self.address) };
 
-        let actions = AccountActions::init(&mut context, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payload, cancellable);
+        let actions = AccountActions::init(self.context, is_valid_impl);
+        actions.entrypoint(app_payload, fee_payment_method, cancellable);
     }
 
-    #[private]
+    #[external("private")]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::init(&mut context, is_valid_impl);
+        let actions = AccountActions::init(self.context, is_valid_impl);
         actions.verify_private_authwit(inner_hash)
     }
 
-    // docs:start:is-valid
     #[contract_library_method]
     fn is_valid_impl(_context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load auth witness and format as an u8 array
@@ -57,6 +55,4 @@ pub contract SchnorrHardcodedAccount {
             outer_hash.to_be_bytes::<32>(),
         )
     }
-    // docs:end:is-valid
 }
-// docs:end:contract

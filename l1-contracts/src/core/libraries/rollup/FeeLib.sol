@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {
   EthValue,
   FeeAssetValue,
@@ -26,7 +27,6 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {SignedMath} from "@oz/utils/math/SignedMath.sol";
 import {Errors} from "./../Errors.sol";
 import {Slot, Timestamp, TimeLib} from "./../TimeLib.sol";
-import {BlobLib} from "./BlobLib.sol";
 import {STFLib} from "./STFLib.sol";
 
 // The lowest number of fee asset per eth is 10 with a precision of 1e9.
@@ -93,10 +93,10 @@ library FeeLib {
     FeeStore storage feeStore = getStorage();
 
     feeStore.config = FeeConfig({
-      manaTarget: _manaTarget,
-      congestionUpdateFraction: _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR,
-      provingCostPerMana: _provingCostPerMana
-    }).compress();
+        manaTarget: _manaTarget,
+        congestionUpdateFraction: _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR,
+        provingCostPerMana: _provingCostPerMana
+      }).compress();
 
     feeStore.l1GasOracleValues = L1GasOracleValues({
       pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}).compress(),
@@ -199,13 +199,15 @@ library FeeLib {
       // Prover cost per mana
       {
         proverCostPerMana = EthValue.wrap(
-          Math.mulDiv(
-            Math.mulDiv(L1_GAS_PER_EPOCH_VERIFIED, fees.baseFee, TimeLib.getStorage().epochDuration, Math.Rounding.Ceil),
-            1,
-            manaTarget,
-            Math.Rounding.Ceil
-          )
-        ) + feeStore.config.getProvingCostPerMana();
+            Math.mulDiv(
+              Math.mulDiv(
+                L1_GAS_PER_EPOCH_VERIFIED, fees.baseFee, TimeLib.getStorage().epochDuration, Math.Rounding.Ceil
+              ),
+              1,
+              manaTarget,
+              Math.Rounding.Ceil
+            )
+          ) + feeStore.config.getProvingCostPerMana();
       }
 
       total = sequencerCostPerMana + proverCostPerMana;
@@ -216,9 +218,10 @@ library FeeLib {
       FeeLib.clampedAdd(parentFeeHeader.getExcessMana() + parentFeeHeader.getManaUsed(), -int256(manaTarget));
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
 
-    EthValue congestionCost = EthValue.wrap(
-      Math.mulDiv(EthValue.unwrap(total), congestionMultiplier_, MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor)
-    ) - total;
+    EthValue congestionCost =
+    EthValue.wrap(
+        Math.mulDiv(EthValue.unwrap(total), congestionMultiplier_, MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor)
+      ) - total;
 
     FeeAssetPerEthE9 feeAssetPrice =
       _inFeeAsset ? FeeLib.getFeeAssetPerEthAtBlock(_blockOfInterest) : FeeAssetPerEthE9.wrap(1e9);

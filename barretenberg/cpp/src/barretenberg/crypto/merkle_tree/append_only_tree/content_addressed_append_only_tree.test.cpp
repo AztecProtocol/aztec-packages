@@ -68,12 +68,12 @@ void check_size(TreeType& tree, index_t expected_size, bool includeUncommitted =
     signal.wait_for_level();
 }
 
-void check_finalised_block_height(TreeType& tree, block_number_t expected_finalised_block)
+void check_finalized_block_height(TreeType& tree, block_number_t expected_finalized_block)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.meta.finalisedBlockHeight, expected_finalised_block);
+        EXPECT_EQ(response.inner.meta.finalizedBlockHeight, expected_finalized_block);
         signal.signal_level();
     };
     tree.get_meta_data(false, completion);
@@ -85,7 +85,7 @@ void check_block_height(TreeType& tree, index_t expected_block_height)
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.meta.unfinalisedBlockHeight, expected_block_height);
+        EXPECT_EQ(response.inner.meta.unfinalizedBlockHeight, expected_block_height);
         signal.signal_level();
     };
     tree.get_meta_data(true, completion);
@@ -239,7 +239,7 @@ void add_values(TreeType& tree, const std::vector<fr>& values)
     signal.wait_for_level();
 }
 
-void finalise_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
+void finalize_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const Response& response) -> void {
@@ -249,17 +249,21 @@ void finalise_block(TreeType& tree, const block_number_t& blockNumber, bool expe
         }
         signal.signal_level();
     };
-    tree.finalise_block(blockNumber, completion);
+    tree.finalize_block(blockNumber, completion);
     signal.wait_for_level();
 }
 
-void check_leaf(
-    TreeType& tree, const fr& leaf, index_t leaf_index, bool expected_success, bool includeUncommitted = true)
+void check_leaf(TreeType& tree,
+                const fr& leaf,
+                index_t leaf_index,
+                bool expected_success,
+                bool expected_match = true,
+                bool includeUncommitted = true)
 {
     Signal signal;
     tree.get_leaf(leaf_index, includeUncommitted, [&](const TypedResponse<GetLeafResponse>& response) {
         EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
+        if (response.success && expected_match) {
             EXPECT_EQ(response.inner.leaf, leaf);
         }
         signal.signal_level();
@@ -272,12 +276,13 @@ void check_historic_leaf(TreeType& tree,
                          const fr& leaf,
                          index_t leaf_index,
                          bool expected_success,
+                         bool expected_match = true,
                          bool includeUncommitted = true)
 {
     Signal signal;
     tree.get_leaf(leaf_index, blockNumber, includeUncommitted, [&](const TypedResponse<GetLeafResponse>& response) {
         EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
+        if (response.success && expected_match) {
             EXPECT_EQ(response.inner.leaf, leaf);
         }
         signal.signal_level();
@@ -424,7 +429,6 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
 {
     constexpr size_t depth = 4;
     std::string name = random_string();
-    std::string directory = random_temp_directory();
     LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
     std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
 
@@ -432,6 +436,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
     TreeType tree(std::move(store), pool);
 
     std::vector<fr> values;
+    values.reserve(16);
     for (uint32_t i = 0; i < 16; i++) {
         values.push_back(VALUES[i]);
     }
@@ -448,6 +453,49 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
     };
     tree.add_value(VALUES[16], add_completion);
     signal.wait_for_level();
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_index_out_of_tree_range)
+{
+    constexpr size_t depth = 4;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+
+    std::vector<fr> values;
+    values.reserve(16);
+    for (uint32_t i = 0; i < 16; i++) {
+        values.push_back(VALUES[i]);
+    }
+    add_values(tree, values);
+    commit_tree(tree);
+
+    {
+        std::string str = "Unable to get leaf at index 17, leaf index out of tree range.";
+        Signal signal;
+        auto get_completion = [&](const TypedResponse<GetLeafResponse>& response) {
+            EXPECT_EQ(response.success, false);
+            EXPECT_EQ(response.message, str);
+            signal.signal_level();
+        };
+        tree.get_leaf(17, true, get_completion);
+        signal.wait_for_level();
+    }
+
+    {
+        std::string str = "Unable to get leaf at index 17 for block 1, leaf index out of tree range.";
+        Signal signal;
+        auto get_completion = [&](const TypedResponse<GetLeafResponse>& response) {
+            EXPECT_EQ(response.success, false);
+            EXPECT_EQ(response.message, str);
+            signal.signal_level();
+        };
+        tree.get_leaf(17, 1, true, get_completion);
+        signal.wait_for_level();
+    }
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handled)
@@ -833,9 +881,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
     TreeType tree(std::move(store), pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
-    auto check = [&](index_t expected_size, index_t expected_unfinalised_block_height) {
+    auto check = [&](index_t expected_size, index_t expected_unfinalized_block_height) {
         check_size(tree, expected_size);
-        check_block_height(tree, expected_unfinalised_block_height);
+        check_block_height(tree, expected_unfinalized_block_height);
         check_root(tree, memdb.root());
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
@@ -870,9 +918,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_varying_size_blocks)
     TreeType tree(std::move(store), pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
-    auto check = [&](index_t expected_size, index_t expected_unfinalised_block_height) {
+    auto check = [&](index_t expected_size, index_t expected_unfinalized_block_height) {
         check_size(tree, expected_size);
-        check_block_height(tree, expected_unfinalised_block_height);
+        check_block_height(tree, expected_unfinalized_block_height);
         check_root(tree, memdb.root());
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
@@ -914,9 +962,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
     std::vector<fr_sibling_path> historicPathsZeroIndex;
     std::vector<fr_sibling_path> historicPathsMaxIndex;
 
-    auto check = [&](index_t expected_size, index_t expected_unfinalised_block_height) {
+    auto check = [&](index_t expected_size, index_t expected_unfinalized_block_height) {
         check_size(tree, expected_size);
-        check_block_height(tree, expected_unfinalised_block_height);
+        check_block_height(tree, expected_unfinalized_block_height);
         check_root(tree, memdb.root());
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
@@ -974,11 +1022,14 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, retrieves_historic_leaves)
         commit_tree(tree);
     }
 
+    uint64_t block_tree_size = 0;
+
     for (uint32_t i = 0; i < num_blocks; i++) {
+        tree.get_meta_data(i + 1, false, [&](auto response) -> void { block_tree_size = response.inner.meta.size; });
         for (uint32_t j = 0; j < num_blocks; j++) {
             index_t indexToQuery = j * batch_size;
             fr expectedLeaf = j <= i ? VALUES[indexToQuery] : fr::zero();
-            check_historic_leaf(tree, i + 1, expectedLeaf, indexToQuery, j <= i, false);
+            check_historic_leaf(tree, i + 1, expectedLeaf, indexToQuery, indexToQuery <= block_tree_size, true, false);
         }
     }
 }
@@ -1107,7 +1158,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_get_inserted_leaves)
     check_leaf(tree, 20, 2, true);
     check_leaf(tree, 40, 3, true);
 
-    check_leaf(tree, 0, 4, false);
+    check_leaf(tree, 1, 4, true, false);
+    check_leaf(tree, 0, 4, true);
+    check_leaf(tree, 0, 9, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, returns_sibling_path)
@@ -1217,7 +1270,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
     check_find_leaf_index_from(treeAtBlock2, fr(15), 1, 4, true);
 
     // should not exist in our image
-    check_leaf(treeAtBlock2, 4, 9, false);
+    check_leaf(treeAtBlock2, 4, 9, true, false);
     check_find_leaf_index<fr, TreeType>(treeAtBlock2, { fr(4) }, { std::nullopt }, true);
 
     // now add the same values to our image
@@ -1300,8 +1353,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
         check(expected_size, i);
         commit_tree(tree);
 
-        // immediately finalise the block
-        finalise_block(tree, i + 1);
+        // immediately finalize the block
+        finalize_block(tree, i + 1);
 
         historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
         historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
@@ -1427,7 +1480,7 @@ void test_unwind(std::string directory,
                            true);
 
         // Trying to find leaves appended in the block that was removed should fail
-        check_leaf(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, false);
+        check_leaf(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, true, false);
         check_find_leaf_index<fr, TreeType>(tree, { values[1 + deletedBlockStartIndex] }, { std::nullopt }, true);
 
         for (block_number_t j = 0; j < numBlocks; j++) {
@@ -1628,7 +1681,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_remove_histor
     block_number_t blockToRemove = 1;
 
     while (blockToRemove < blockNumber) {
-        finalise_block(tree, blockToRemove + 1);
+        finalize_block(tree, blockToRemove + 1);
         // Remove the historic next block
         remove_historic_block(tree, blockToRemove);
 
@@ -1735,7 +1788,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     }
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalized_blocks)
 {
     std::string name = random_string();
     constexpr uint32_t depth = 10;
@@ -1747,7 +1800,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
 
     uint32_t blockSize = 16;
     uint32_t numBlocks = 16;
-    uint32_t finalisedBlockDelay = 4;
+    uint32_t finalizedBlockDelay = 4;
     std::vector<fr> values = create_values(blockSize * numBlocks);
 
     for (uint32_t i = 0; i < numBlocks; i++) {
@@ -1761,25 +1814,25 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
         add_values(tree, to_add);
         commit_tree(tree);
 
-        block_number_t expectedFinalisedBlock = i < finalisedBlockDelay ? 0 : i - finalisedBlockDelay;
-        check_finalised_block_height(tree, expectedFinalisedBlock);
+        block_number_t expectedFinalizedBlock = i < finalizedBlockDelay ? 0 : i - finalizedBlockDelay;
+        check_finalized_block_height(tree, expectedFinalizedBlock);
 
-        if (i >= finalisedBlockDelay) {
+        if (i >= finalizedBlockDelay) {
 
-            block_number_t blockToFinalise = expectedFinalisedBlock + 1;
+            block_number_t blockToFinalize = expectedFinalizedBlock + 1;
 
-            // attempting to finalise a block that doesn't exist should fail
-            finalise_block(tree, blockToFinalise + numBlocks, false);
+            // attempting to finalize a block that doesn't exist should fail
+            finalize_block(tree, blockToFinalize + numBlocks, false);
 
-            finalise_block(tree, blockToFinalise, true);
+            finalize_block(tree, blockToFinalize, true);
 
-            // finalising the currently finalised block should succeed
-            finalise_block(tree, blockToFinalise, true);
+            // finalising the currently finalized block should succeed
+            finalize_block(tree, blockToFinalize, true);
         }
     }
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_finalise_multiple_blocks)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_finalize_multiple_blocks)
 {
     std::string name = random_string();
     constexpr uint32_t depth = 10;
@@ -1807,12 +1860,12 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_finalise_multiple_blocks
 
     check_block_height(tree, numBlocks);
 
-    block_number_t blockToFinalise = 8;
+    block_number_t blockToFinalize = 8;
 
-    finalise_block(tree, blockToFinalise);
+    finalize_block(tree, blockToFinalize);
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyond_pending_chain)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalize_block_beyond_pending_chain)
 {
     std::string name = random_string();
     constexpr uint32_t depth = 10;
@@ -1827,7 +1880,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyon
     std::vector<fr> values = create_values(blockSize * numBlocks);
 
     // finalising block 1 should fail
-    finalise_block(tree, 1, false);
+    finalize_block(tree, 1, false);
 
     for (uint32_t i = 0; i < numBlocks; i++) {
         std::vector<fr> to_add;
@@ -1844,12 +1897,12 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyon
     check_block_height(tree, numBlocks);
 
     // should fail
-    finalise_block(tree, numBlocks + 1, false);
+    finalize_block(tree, numBlocks + 1, false);
 
-    // finalise the entire chain
-    block_number_t blockToFinalise = numBlocks;
+    // finalize the entire chain
+    block_number_t blockToFinalize = numBlocks;
 
-    finalise_block(tree, blockToFinalise);
+    finalize_block(tree, blockToFinalize);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_unwound_blocks)
@@ -1888,7 +1941,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_expired_hi
         add_values(tree, values);
         commit_tree(tree);
     }
-    finalise_block(tree, 3);
+    finalize_block(tree, 3);
 
     remove_historic_block(tree, 1);
     remove_historic_block(tree, 2);
@@ -1928,7 +1981,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_fork_from_block_zero_whe
     check_sibling_path(tree2, 0, path, false, true);
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_unwind_finalised_block)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_unwind_finalized_block)
 {
     std::string name = random_string();
     constexpr uint32_t depth = 10;
@@ -1956,17 +2009,17 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_unwind_finalised_blo
 
     check_block_height(tree, numBlocks);
 
-    block_number_t blockToFinalise = 8;
+    block_number_t blockToFinalize = 8;
 
-    finalise_block(tree, blockToFinalise);
+    finalize_block(tree, blockToFinalize);
 
-    for (uint32_t i = numBlocks; i > blockToFinalise; i--) {
+    for (uint32_t i = numBlocks; i > blockToFinalize; i--) {
         unwind_block(tree, i);
     }
-    unwind_block(tree, blockToFinalise, false);
+    unwind_block(tree, blockToFinalize, false);
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_historically_remove_finalised_block)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_historically_remove_finalized_block)
 {
     std::string name = random_string();
     constexpr uint32_t depth = 10;
@@ -1994,14 +2047,14 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_historically_remove_
 
     check_block_height(tree, numBlocks);
 
-    block_number_t blockToFinalise = 8;
+    block_number_t blockToFinalize = 8;
 
-    finalise_block(tree, blockToFinalise);
+    finalize_block(tree, blockToFinalize);
 
-    for (uint32_t i = 0; i < blockToFinalise - 1; i++) {
+    for (uint32_t i = 0; i < blockToFinalize - 1; i++) {
         remove_historic_block(tree, i + 1);
     }
-    remove_historic_block(tree, blockToFinalise, false);
+    remove_historic_block(tree, blockToFinalize, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_forks)

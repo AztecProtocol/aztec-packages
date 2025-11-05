@@ -3,7 +3,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { L2Block, ValidateBlockResult } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractInstanceUpdateWithAddress,
@@ -62,6 +62,18 @@ export interface ArchiverDataStore {
   getPublishedBlock(number: number): Promise<PublishedL2Block | undefined>;
 
   /**
+   * Returns the block for the given hash, or undefined if not exists.
+   * @param blockHash - The block hash to return.
+   */
+  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined>;
+
+  /**
+   * Returns the block for the given archive root, or undefined if not exists.
+   * @param archive - The archive root to return.
+   */
+  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined>;
+
+  /**
    * Gets up to `limit` amount of published L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
@@ -76,6 +88,18 @@ export interface ArchiverDataStore {
    * @returns The requested L2 block headers.
    */
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]>;
+
+  /**
+   * Returns the block header for the given hash, or undefined if not exists.
+   * @param blockHash - The block hash to return.
+   */
+  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined>;
+
+  /**
+   * Returns the block header for the given archive root, or undefined if not exists.
+   * @param archive - The archive root to return.
+   */
+  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
 
   /**
    * Gets a tx effect.
@@ -272,4 +296,10 @@ export interface ArchiverDataStore {
 
   /** Returns the last L1 to L2 message stored. */
   getLastL1ToL2Message(): Promise<InboxMessage | undefined>;
+
+  /** Returns the last synced validation status of the pending chain. */
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined>;
+
+  /** Sets the last synced validation status of the pending chain. */
+  setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void>;
 }

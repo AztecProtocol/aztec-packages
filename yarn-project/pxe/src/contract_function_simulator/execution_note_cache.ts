@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 
-import type { NoteData } from './oracle/typed_oracle.js';
+import type { NoteData } from './oracle/interfaces.js';
 
 interface PendingNote {
   note: NoteData;
@@ -44,9 +44,9 @@ export class ExecutionNoteCache {
    * We don't need to use the tx request hash for nonces if another non revertible nullifier is emitted.
    * In that case we disable injecting the tx request hash as a nullifier.
    */
-  private usedTxRequestHashForNonces = true;
+  private usedProtocolNullifierForNonces = true;
 
-  constructor(private readonly txRequestHash: Fr) {}
+  constructor(private readonly protocolNullifier: Fr) {}
 
   /**
    * Enters the revertible phase of the transaction.
@@ -60,12 +60,11 @@ export class ExecutionNoteCache {
     }
     this.inRevertiblePhase = true;
     this.minRevertibleSideEffectCounter = minRevertibleSideEffectCounter;
-
-    let nonceGenerator = this.txRequestHash;
+    let nonceGenerator = this.protocolNullifier;
     const nullifiers = this.getAllNullifiers();
     if (nullifiers.length > 0) {
       nonceGenerator = new Fr(nullifiers[0]);
-      this.usedTxRequestHashForNonces = false;
+      this.usedProtocolNullifierForNonces = false;
     }
 
     // The existing pending notes are all non-revertible.
@@ -93,13 +92,14 @@ export class ExecutionNoteCache {
   }
 
   public finish() {
-    // If we never entered the revertible phase, we need to use the tx request hash as a nonce for the notes if no nullifiers have been emitted.
+    // If we never entered the revertible phase, we need to use the protocol nullifier to compute the nonces for the
+    // notes if no nullifiers have been emitted.
     if (!this.inRevertiblePhase) {
-      this.usedTxRequestHashForNonces = this.getAllNullifiers().length === 0;
+      this.usedProtocolNullifierForNonces = this.getAllNullifiers().length === 0;
     }
     // If we entered the revertible phase, the nonce generator was decided based on wether or not a nullifier was emitted before entering.
     return {
-      usedTxRequestHashForNonces: this.usedTxRequestHashForNonces,
+      usedProtocolNullifierForNonces: this.usedProtocolNullifierForNonces,
     };
   }
 
@@ -126,7 +126,7 @@ export class ExecutionNoteCache {
    * transaction (and thus not a new note).
    */
   public async nullifyNote(contractAddress: AztecAddress, innerNullifier: Fr, noteHash: Fr) {
-    const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
+    const siloedNullifier = (await siloNullifier(contractAddress, innerNullifier)).toBigInt();
     let nullifiedNoteHashCounter: number | undefined = undefined;
     // Find and remove the matching new note and log(s) if the emitted noteHash is not empty.
     if (!noteHash.isEmpty()) {
@@ -158,7 +158,7 @@ export class ExecutionNoteCache {
    * @param innerNullifier
    */
   public async nullifierCreated(contractAddress: AztecAddress, innerNullifier: Fr) {
-    const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
+    const siloedNullifier = (await siloNullifier(contractAddress, innerNullifier)).toBigInt();
     this.recordNullifier(contractAddress, siloedNullifier);
   }
 
@@ -208,10 +208,15 @@ export class ExecutionNoteCache {
     return [...this.allNullifiers].map(n => new Fr(n));
   }
 
-  recordNullifier(contractAddress: AztecAddress, siloedNullifier: Fr) {
+  recordNullifier(contractAddress: AztecAddress, siloedNullifier: bigint) {
     const nullifiers = this.getNullifiers(contractAddress);
-    nullifiers.add(siloedNullifier.toBigInt());
+
+    if (nullifiers.has(siloedNullifier)) {
+      throw new Error(`Duplicate siloed nullifier ${siloedNullifier} emitted by contract ${contractAddress}`);
+    }
+
+    nullifiers.add(siloedNullifier);
     this.nullifierMap.set(contractAddress.toBigInt(), nullifiers);
-    this.allNullifiers.add(siloedNullifier.toBigInt());
+    this.allNullifiers.add(siloedNullifier);
   }
 }

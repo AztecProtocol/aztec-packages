@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import type { L1ContractAddresses } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { downloadEpochProvingJob, getProverNodeConfigFromEnv, rerunEpochProvingJob } from '@aztec/prover-node';
@@ -25,8 +25,8 @@ async function rerunFailedEpoch(provingJobUrl: string, baseLocalDir: string) {
   const config = {
     ...getProverNodeConfigFromEnv(),
     dataDirectory: dataDir,
-    dataStoreMapSizeKB: env.dataStoreMapSizeKB ?? 1024 * 1024,
-    proverId: env.proverId ?? Fr.random(),
+    dataStoreMapSizeKb: env.dataStoreMapSizeKb ?? 1024 * 1024,
+    proverId: env.proverId ?? EthAddress.random(),
   };
 
   let metadata: UploadSnapshotMetadata;

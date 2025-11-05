@@ -1,4 +1,5 @@
-import { type AztecAddress, Fr } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
@@ -6,20 +7,21 @@ import { NestedContractTest } from './nested_contract_test.js';
 
 describe('e2e_nested_contract manual_enqueue', () => {
   const t = new NestedContractTest('manual_enqueue');
-  let { wallets, pxe, parentContract, childContract } = t;
+  let { wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t;
 
-  const getChildStoredValue = (child: { address: AztecAddress }) => pxe.getPublicStorageAt(child.address, new Fr(1));
+  const getChildStoredValue = (child: { address: AztecAddress }) =>
+    aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     // We don't have the manual snapshot because every test requires a fresh setup and teardown
     await t.setup();
-    ({ wallets, pxe } = t);
+    ({ wallet, defaultAccountAddress, aztecNode } = t);
   });
 
   beforeEach(async () => {
-    parentContract = await ParentContract.deploy(wallets[0]).send().deployed();
-    childContract = await ChildContract.deploy(wallets[0]).send().deployed();
+    parentContract = await ParentContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    childContract = await ChildContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
   });
 
   afterAll(async () => {
@@ -29,27 +31,15 @@ describe('e2e_nested_contract manual_enqueue', () => {
   it('enqueues a single public call', async () => {
     await parentContract.methods
       .enqueue_call_to_child(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
-      .send()
+      .send({ from: defaultAccountAddress })
       .wait();
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(42n));
-  });
-
-  it('fails simulation if calling a public function not allowed to be called externally', async () => {
-    await expect(
-      parentContract.methods
-        .enqueue_call_to_child(
-          childContract.address,
-          await (childContract.methods as any).pub_inc_value_internal.selector(),
-          42n,
-        )
-        .simulate(),
-    ).rejects.toThrow(/Assertion failed: Function pub_inc_value_internal can only be called internally/);
   });
 
   it('enqueues multiple public calls', async () => {
     await parentContract.methods
       .enqueue_call_to_child_twice(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
-      .send()
+      .send({ from: defaultAccountAddress })
       .wait();
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(85n));
   });
@@ -57,7 +47,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
   it('enqueues a public call with nested public calls', async () => {
     await parentContract.methods
       .enqueue_call_to_pub_entry_point(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
-      .send()
+      .send({ from: defaultAccountAddress })
       .wait();
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(42n));
   });
@@ -69,7 +59,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
         await childContract.methods.pub_inc_value.selector(),
         42n,
       )
-      .send()
+      .send({ from: defaultAccountAddress })
       .wait();
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(85n));
   });

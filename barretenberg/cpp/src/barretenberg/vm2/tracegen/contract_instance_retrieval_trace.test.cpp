@@ -24,10 +24,10 @@ ContractInstance create_test_contract_instance(uint32_t salt_value = 123)
 {
     return ContractInstance{
         .salt = FF(salt_value),
-        .deployer_addr = FF(0x123456789ULL),
-        .current_class_id = FF(0xdeadbeefULL),
-        .original_class_id = FF(0xcafebabeULL),
-        .initialisation_hash = FF(0x11111111ULL),
+        .deployer = FF(0x123456789ULL),
+        .current_contract_class_id = FF(0xdeadbeefULL),
+        .original_contract_class_id = FF(0xcafebabeULL),
+        .initialization_hash = FF(0x11111111ULL),
         .public_keys =
             PublicKeys{
                 .nullifier_key = { FF(0x100), FF(0x101) },
@@ -61,7 +61,6 @@ TEST(ContractInstanceRetrievalTraceGenTest, SingleEvent)
     const auto nullifier_tree_root = FF(0x9999);
     const auto public_data_tree_root = FF(0x8888);
     const auto deployment_nullifier = FF(0x7777);
-    const auto deployer_protocol_contract_address = FF(0x6666);
     const auto expected_rows = 2;
 
     auto contract_instance = create_test_contract_instance();
@@ -74,8 +73,7 @@ TEST(ContractInstanceRetrievalTraceGenTest, SingleEvent)
                 .nullifier_tree_root = nullifier_tree_root,
                 .public_data_tree_root = public_data_tree_root,
                 .deployment_nullifier = deployment_nullifier,
-                .nullifier_exists = true,
-                .deployer_protocol_contract_address = deployer_protocol_contract_address,
+                .exists = true,
             },
         },
         trace);
@@ -117,7 +115,7 @@ TEST(ContractInstanceRetrievalTraceGenTest, SingleEvent)
 
                       // Deployer protocol contract address
                       ROW_FIELD_EQ(contract_instance_retrieval_deployer_protocol_contract_address,
-                                   deployer_protocol_contract_address)));
+                                   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)));
 }
 
 TEST(ContractInstanceRetrievalTraceGenTest, MultipleEvents)
@@ -131,7 +129,6 @@ TEST(ContractInstanceRetrievalTraceGenTest, MultipleEvents)
     const auto base_nullifier_tree_root = 0x2000;
     const auto base_public_data_tree_root = 0x3000;
     const auto base_deployment_nullifier = 0x4000;
-    const auto base_deployer_protocol_contract_address = 0x5000;
     const auto base_salt = 1000;
     const auto expected_rows = num_events + 1; // +1 for skippable gadget row
 
@@ -147,8 +144,7 @@ TEST(ContractInstanceRetrievalTraceGenTest, MultipleEvents)
             .nullifier_tree_root = FF(base_nullifier_tree_root + i),
             .public_data_tree_root = FF(base_public_data_tree_root + i),
             .deployment_nullifier = FF(base_deployment_nullifier + i),
-            .nullifier_exists = (i % 2 == 0), // Alternate true/false
-            .deployer_protocol_contract_address = FF(base_deployer_protocol_contract_address + i),
+            .exists = (i % 2 == 0), // Alternate true/false
         });
     }
 
@@ -168,7 +164,7 @@ TEST(ContractInstanceRetrievalTraceGenTest, MultipleEvents)
                   ROW_FIELD_EQ(contract_instance_retrieval_nullifier_tree_root, base_nullifier_tree_root + i),
                   ROW_FIELD_EQ(contract_instance_retrieval_public_data_tree_root, base_public_data_tree_root + i),
                   ROW_FIELD_EQ(contract_instance_retrieval_deployer_protocol_contract_address,
-                               base_deployer_protocol_contract_address + i)));
+                               CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)));
     }
 }
 

@@ -7,18 +7,18 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
@@ -28,28 +28,11 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
 {
     std::string in;
     in.resize(32);
-    stdlib::packed_byte_array<Builder> input(&builder, in);
+    stdlib::byte_array<Builder> input(&builder, in);
     for (size_t i = 0; i < num_iterations; i++) {
         input = stdlib::SHA256<Builder>::hash(input);
     }
 }
-
-/**
- * @brief An arbitrary but small-ish structuring that can be used for testing with non-trivial circuits in cases when
- * they overflow
- */
-static constexpr TraceStructure SMALL_TEST_STRUCTURE_FOR_OVERFLOWS{ .ecc_op = 1 << 14,
-                                                                    .busread = 1 << 14,
-                                                                    .lookup = 1 << 14,
-                                                                    .pub_inputs = 1 << 14,
-                                                                    .arithmetic = 1 << 15,
-                                                                    .delta_range = 1 << 14,
-                                                                    .elliptic = 1 << 14,
-                                                                    .memory = 1 << 14,
-                                                                    .nnf = 1 << 7,
-                                                                    .poseidon2_external = 1 << 14,
-                                                                    .poseidon2_internal = 1 << 15,
-                                                                    .overflow = 0 };
 
 class GoblinMockCircuits {
   public:
@@ -63,19 +46,13 @@ class GoblinMockCircuits {
     using Flavor = bb::MegaFlavor;
     using RecursiveFlavor = bb::MegaRecursiveFlavor_<MegaBuilder>;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
-    using DeciderVerificationKey = bb::DeciderVerificationKey_<Flavor>;
-    using RecursiveDeciderVerificationKey =
-        ::bb::stdlib::recursion::honk::RecursiveDeciderVerificationKey_<RecursiveFlavor>;
-    using RecursiveVKAndHash = RecursiveDeciderVerificationKey::VKAndHash;
-    using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveDeciderVerificationKey>;
+    using VerifierInstance = bb::VerifierInstance_<Flavor>;
+    using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
+    using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
     using VerificationKey = Flavor::VerificationKey;
 
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
-
-    struct KernelInput {
-        HonkProof proof;
-        std::shared_ptr<Flavor::VerificationKey> verification_key;
-    };
 
     /**
      * @brief Populate a builder with some arbitrary but nontrivial constraints
@@ -88,7 +65,7 @@ class GoblinMockCircuits {
      */
     static void construct_mock_app_circuit(MegaBuilder& builder, bool large = false)
     {
-        PROFILE_THIS();
+        BB_BENCH();
 
         if (large) { // Results in circuit size 2^19
             generate_sha256_test_circuit<MegaBuilder>(builder, 9);
@@ -100,11 +77,10 @@ class GoblinMockCircuits {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
         // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // DeciderProvingKey creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other
+        // ProverInstance creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other
         // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
-        bb::stdlib::recursion::honk::AppIO::add_default(builder);
     }
 
     /**
@@ -114,7 +90,7 @@ class GoblinMockCircuits {
      */
     static void add_some_ecc_op_gates(MegaBuilder& builder)
     {
-        PROFILE_THIS();
+        BB_BENCH();
 
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
@@ -128,29 +104,53 @@ class GoblinMockCircuits {
     }
 
     /**
+     * @brief Add some randomness into the op queue.
+     */
+    static void randomise_op_queue(MegaBuilder& builder, size_t num_ops)
+    {
+
+        for (size_t i = 0; i < num_ops; ++i) {
+            builder.queue_ecc_random_op();
+        }
+    }
+
+    /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
      *
      * @param builder
      */
-    static void construct_simple_circuit(MegaBuilder& builder, bool last_circuit = false)
+    static void construct_simple_circuit(MegaBuilder& builder)
     {
-        PROFILE_THIS();
-        // The last circuit to be accumulated must contain a no-op
-        if (last_circuit) {
-            builder.queue_ecc_no_op();
-        }
+        BB_BENCH();
 
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
-        // Flavor = bb::MegaFlavor, so the public inputs should be that of the HidingKernelIO (UltraVerifier<MegaFlavor>
-        // expects the public inputs to be that of the HidingKernel)
-        bb::stdlib::recursion::honk::HidingKernelIO<MegaBuilder>::add_default(builder);
+        bb::stdlib::recursion::honk::DefaultIO<MegaBuilder>::add_default(builder);
+    }
+
+    static void construct_and_merge_mock_circuits(Goblin& goblin, const size_t num_circuits = 3)
+    {
+        for (size_t idx = 0; idx < num_circuits - 1; ++idx) {
+            MegaCircuitBuilder builder{ goblin.op_queue };
+            if (idx == num_circuits - 2) {
+                // Last circuit appended needs to begin with a no-op for translator to be shiftable
+                builder.queue_ecc_no_op();
+                randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
+            }
+            construct_simple_circuit(builder);
+            goblin.prove_merge();
+            // Pop the merge proof from the queue, Goblin will be verified at the end
+            goblin.merge_verification_queue.pop_front();
+        }
+        MegaCircuitBuilder builder{ goblin.op_queue };
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
     }
 
     /**
      * @brief Construct a mock kernel circuit
      * @details Construct an arbitrary circuit meant to represent the aztec private function execution kernel. Recursive
-     * folding verification is handled internally by ClientIvc, not in the kernel.
+     * folding verification is handled internally by Chonk, not in the kernel.
      *
      * @param builder
      * @param function_fold_proof
@@ -158,7 +158,7 @@ class GoblinMockCircuits {
      */
     static void construct_mock_folding_kernel(MegaBuilder& builder)
     {
-        PROFILE_THIS();
+        BB_BENCH();
 
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17

@@ -7,6 +7,7 @@
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
+#include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
@@ -54,154 +55,98 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 {
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
-
-    static constexpr size_t IPA_CLAIM_SIZE = stdlib::recursion::honk::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
 
     // Set vkey->circuit_size correctly based on the proof size
-    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-    // a lambda that adds dummy commitments (libra and gemini)
-    auto set_dummy_commitment = [&](size_t& offset) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
-    };
+    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
 
-    auto set_dummy_evaluation = [&](size_t& offset) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
-    };
-
-    // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
-    auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
-    size_t offset = 0;
-    // First key field is circuit size
-    builder.set_variable(key_fields[offset++].witness_index, 1 << log_circuit_size);
-    // Second key field is number of public inputs
-    builder.set_variable(key_fields[offset++].witness_index, public_inputs_size);
-    // Third key field is the pub inputs offset
+    size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
     uint32_t pub_inputs_offset = NativeFlavor::has_zero_row ? 1 : 0;
-    builder.set_variable(key_fields[offset++].witness_index, pub_inputs_offset);
-    size_t num_inner_public_inputs = HasIPAAccumulator<Flavor> ? public_inputs_size - bb::RollupIO::PUBLIC_INPUTS_SIZE
-                                                               : public_inputs_size - bb::DefaultIO::PUBLIC_INPUTS_SIZE;
 
-    for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
-        set_dummy_commitment(offset);
-    }
+    // Generate mock honk vk
+    auto honk_vk = create_mock_honk_vk<typename Flavor::NativeFlavor, IO>(
+        1 << Flavor::VIRTUAL_LOG_N, pub_inputs_offset, num_inner_public_inputs);
 
-    offset = 0; // Reset offset for parsing proof fields
+    size_t offset = 0;
 
-    // the inner public inputs
-    for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        set_dummy_evaluation(offset);
-    }
-
-    // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
-    std::array<fr, PairingPoints<Builder>::PUBLIC_INPUTS_SIZE> dummy_pairing_points_values =
-        PairingPoints<Builder>::construct_dummy();
-    for (size_t i = 0; i < PairingPoints<Builder>::PUBLIC_INPUTS_SIZE; i++) {
-        builder.set_variable(proof_fields[offset].witness_index, dummy_pairing_points_values[i]);
+    // Set honk vk in builder
+    for (auto& vk_element : honk_vk->to_field_elements()) {
+        builder.set_variable(key_fields[offset].get_witness_index(), vk_element);
         offset++;
     }
 
-    // IPA claim
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1392): Don't use random elements here.
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
-            set_dummy_evaluation(offset);
-        }
-    }
+    // Generate dummy honk proof
+    bb::HonkProof honk_proof = create_mock_honk_proof<typename Flavor::NativeFlavor, IO>(num_inner_public_inputs);
 
-    // first NUM_WITNESS_ENTITIES witness commitments
-    for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
-        set_dummy_commitment(offset);
-    }
-
-    if constexpr (Flavor::HasZK) {
-        // Libra concatenation commitment
-        set_dummy_commitment(offset);
-        // libra sum
-        set_dummy_evaluation(offset);
-    }
-
-    // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation
-    // degree)
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
-        set_dummy_evaluation(offset);
-    }
-
-    // now the sumcheck evaluations, which is just 44 0s
-    for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
-        set_dummy_evaluation(offset);
-    }
-
-    if constexpr (Flavor::HasZK) {
-        // Libra claimed evaluation
-        set_dummy_evaluation(offset);
-        // Libra grand sum commitment
-
-        set_dummy_commitment(offset);
-        // Libra quotient commitment
-        set_dummy_commitment(offset);
-        // Gemini masking commitment
-        set_dummy_commitment(offset);
-        // Gemini masking evaluation
-        set_dummy_evaluation(offset);
-    }
-
-    // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
-    for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
-        set_dummy_commitment(offset);
-    }
-
-    // the gemini fold evaluations which are also CONST_PROOF_SIZE_LOG_N
-    for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) {
-        set_dummy_evaluation(offset);
-    }
-
-    if constexpr (Flavor::HasZK) {
-        // NUM_SMALL_IPA_EVALUATIONS libra evals
-        for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
-            set_dummy_evaluation(offset);
-        }
-    }
-
-    // lastly the shplonk batched quotient commitment and kzg quotient commitment
-    for (size_t i = 0; i < 2; i++) {
-        set_dummy_commitment(offset);
-    }
-    // IPA Proof
-    if constexpr (HasIPAAccumulator<Flavor>) {
-
-        // Ls and Rs
-        for (size_t i = 0; i < static_cast<size_t>(2) * CONST_ECCVM_LOG_N; i++) {
-            auto comm = curve::Grumpkin::AffineElement::one() * fq::random_element();
-            auto frs = field_conversion::convert_to_bn254_frs(comm);
-            builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-            builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-            offset += 2;
-        }
-
-        // G_zero
-        auto G_zero = curve::Grumpkin::AffineElement::one() * fq::random_element();
-        auto G_zero_frs = field_conversion::convert_to_bn254_frs(G_zero);
-        builder.set_variable(proof_fields[offset].witness_index, G_zero_frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, G_zero_frs[1]);
-        offset += 2;
-
-        // a_zero
-        auto a_zero = fq::random_element();
-        auto a_zero_frs = field_conversion::convert_to_bn254_frs(a_zero);
-        builder.set_variable(proof_fields[offset].witness_index, a_zero_frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, a_zero_frs[1]);
-        offset += 2;
+    offset = 0;
+    // Set honk proof in builder
+    for (auto& proof_element : honk_proof) {
+        builder.set_variable(proof_fields[offset].get_witness_index(), proof_element);
+        offset++;
     }
 
     BB_ASSERT_EQ(offset, proof_size + public_inputs_size);
 }
+
+/**
+ * @brief Creates a vkey and proof object.
+ * @details if has_valid_witness_assignments is false, generates a dummy proof and vkey matching the given sizes.
+ * the data is not meaningful but its structure is correct.
+ * if has_valid_witness_assignments is true, generates a valid proof and vkey for a simple circuit, matching the given
+ * sizes. This simple proof will be used if the recursion is done under a false predicate. In that case, the recursive
+ * verification must not fail so that's why a valid proof is needed.
+ * @param builder
+ * @param proof_size Size of proof with NO public inputs
+ * @param public_inputs_size Total size of public inputs including aggregation object
+ * @param key_fields
+ * @param proof_fields
+ */
+template <typename Flavor>
+void place_holder_proof_and_vk(typename Flavor::CircuitBuilder& builder,
+                               std::vector<fr>& place_holder_vk_fields,
+                               HonkProof& place_holder_proof,
+                               field_ct<typename Flavor::CircuitBuilder>& place_holder_vk_hash,
+                               bool has_valid_witness_assignments,
+                               size_t proof_size,
+                               size_t public_inputs_size,
+                               const std::vector<field_ct<typename Flavor::CircuitBuilder>>& vk_fields,
+                               const std::vector<field_ct<typename Flavor::CircuitBuilder>>& proof_fields)
+{
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
+    // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
+    if (!has_valid_witness_assignments) {
+        // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
+        // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
+        size_t size_of_proof_with_no_pub_inputs = proof_size - IO::PUBLIC_INPUTS_SIZE;
+        size_t total_num_public_inputs = public_inputs_size + IO::PUBLIC_INPUTS_SIZE;
+        // Set a dummy vkey and proof in the builder
+        create_dummy_vkey_and_proof<Flavor>(
+            builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, vk_fields, proof_fields);
+        // Generate a mock place holder proof, vk and vk hash, to keep the circuit the same independent of whether a
+        // witness is provided or not.
+        uint32_t pub_inputs_offset = Flavor::NativeFlavor::has_zero_row ? 1 : 0;
+
+        // Generate mock honk vk
+        auto honk_vk = create_mock_honk_vk<typename Flavor::NativeFlavor, IO>(
+            1 << Flavor::VIRTUAL_LOG_N, pub_inputs_offset, public_inputs_size);
+        place_holder_vk_fields = honk_vk->to_field_elements();
+        place_holder_proof = create_mock_honk_proof<typename Flavor::NativeFlavor, IO>(public_inputs_size);
+        place_holder_vk_hash = honk_vk->hash();
+    } else {
+        // If we have an actual witness, the place holder proof and VK should be an actual verifiable honk proof and
+        // honk vk. Otherwise the recursive verification would fail if the predicate is false.
+        auto [place_holder_honk_proof, place_holder_vk] =
+            construct_honk_proof_for_simple_circuit<typename Flavor::NativeFlavor>(public_inputs_size);
+        place_holder_proof = place_holder_honk_proof;
+        place_holder_vk_fields = place_holder_vk->to_field_elements();
+        place_holder_vk_hash = place_holder_vk->hash();
+    }
+}
+
 } // namespace
 
 /**
@@ -219,62 +164,92 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>)
 {
     using Builder = typename Flavor::CircuitBuilder;
+    using bool_ct = bb::stdlib::bool_t<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVKAndHash = Flavor::VKAndHash;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
 
-    ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
+    BB_ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
     BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
-    std::vector<field_ct<Builder>> key_fields;
-    key_fields.reserve(input.key.size());
-    for (const auto& idx : input.key) {
-        auto field = field_ct<Builder>::from_witness_index(&builder, idx);
-        key_fields.emplace_back(field);
-    }
+    std::vector<field_ct<Builder>> vk_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
 
     // Create circuit type for vkey hash.
     auto vk_hash = field_ct<Builder>::from_witness_index(&builder, input.key_hash);
 
-    stdlib::Proof<Builder> proof_fields;
-
     // Create witness indices for the proof with public inputs reinserted
     std::vector<uint32_t> proof_indices =
-        ProofSurgeon::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
-    proof_fields.reserve(proof_indices.size());
-    for (const auto& idx : proof_indices) {
-        auto field = field_ct<Builder>::from_witness_index(&builder, idx);
-        proof_fields.emplace_back(field);
-    }
+        ProofSurgeon<uint256_t>::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
+    stdlib::Proof<Builder> proof_fields = RecursionConstraint::fields_from_witnesses(builder, proof_indices);
 
-    // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
-    if (!has_valid_witness_assignments) {
-        // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
-        // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size();
-        size_t total_num_public_inputs = input.public_inputs.size();
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            using RollupIO = stdlib::recursion::honk::RollupIO;
-            size_of_proof_with_no_pub_inputs -= RollupIO::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += RollupIO::PUBLIC_INPUTS_SIZE;
-        } else {
-            using DefaultIO = stdlib::recursion::honk::DefaultIO<Builder>;
-            size_of_proof_with_no_pub_inputs -= DefaultIO::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += DefaultIO::PUBLIC_INPUTS_SIZE;
+    // Recursion constraints come with a predicate (e.g. when the black-box call is done in an if conditional depending
+    // on a witness value in a Noir circuit) To keep the circuit constants (selectors and copy constraints) the same
+    // independent of value of the conditional, we create a place holder proof, vk and vk_hash and conditionally select
+    // between the two (in circuit) depending on the predicate value.
+    std::vector<fr> place_holder_vk_fields;
+    HonkProof place_holder_proof;
+
+    field_ct<Builder> place_holder_vk_hash;
+
+    place_holder_proof_and_vk<Flavor>(builder,
+                                      place_holder_vk_fields,
+                                      place_holder_proof,
+                                      place_holder_vk_hash,
+                                      has_valid_witness_assignments,
+                                      input.proof.size(),
+                                      input.public_inputs.size(),
+                                      vk_fields,
+                                      proof_fields);
+
+    if (!input.predicate.is_constant) {
+        bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, input.predicate.index);
+        stdlib::Proof<Builder> result_proof;
+        std::vector<field_ct<Builder>> result_vk;
+        result_proof.reserve(proof_fields.size());
+        result_vk.reserve(vk_fields.size());
+        // Replace the proof by the placeholder proof in case the predicate is 1
+        for (uint32_t i = 0; i < proof_fields.size(); ++i) {
+            field_ct<Builder> place_holder_proof_witness =
+                field_ct<Builder>::from_witness(&builder, place_holder_proof[i]);
+            // Note: we have essentially created a dangling witness. However, this is not a problem given the
+            // context. When this witness is being conditionally assigned, we are in a scenario where we are using
+            // an place holder proof instead of the real proof. Hence, it is not a soundness issue if we use the
+            // specific place holder proof generated by construct_honk_proof_for_simple_circuit or another one. We
+            // manually unset the free_witness_tag to ensure the automatic tooling does not catch this as a free
+            // witness
+            place_holder_proof_witness.unset_free_witness_tag();
+            auto valid_proof =
+                field_ct<Builder>::conditional_assign(predicate_witness, proof_fields[i], place_holder_proof_witness);
+            result_proof.push_back(valid_proof);
         }
 
-        create_dummy_vkey_and_proof<Flavor>(
-            builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
+        // Replace the VK with the placeholder vk in case the predicate is 1
+        for (uint32_t i = 0; i < vk_fields.size(); ++i) {
+            field_ct<Builder> place_holder_vk_witness =
+                field_ct<Builder>::from_witness(&builder, place_holder_vk_fields[i]);
+            // Same as above. This witness being a free witness is not a soundness issue
+            place_holder_vk_witness.unset_free_witness_tag();
+            auto valid_vk =
+                field_ct<Builder>::conditional_assign(predicate_witness, vk_fields[i], place_holder_vk_witness);
+            result_vk.push_back(valid_vk);
+        }
+        vk_hash = field_ct<Builder>::conditional_assign(
+            predicate_witness, vk_hash, field_ct<Builder>::from_witness(&builder, place_holder_vk_hash.get_value()));
+        proof_fields = result_proof;
+        vk_fields = result_vk;
     }
 
     // Recursively verify the proof
-    auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
+    auto vkey = std::make_shared<RecursiveVerificationKey>(vk_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
     RecursiveVerifier verifier(&builder, vk_and_hash);
-    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
+    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.template verify_proof<IO>(proof_fields);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
     return verifier_output;

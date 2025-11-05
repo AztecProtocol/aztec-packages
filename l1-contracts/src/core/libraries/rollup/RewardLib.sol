@@ -9,6 +9,7 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {CompressedTimeMath, CompressedTimestamp} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -46,6 +47,8 @@ struct RewardStorage {
   mapping(Epoch => EpochRewards) epochRewards;
   mapping(address prover => BitMaps.BitMap claimed) proverClaimed;
   RewardConfig config;
+  CompressedTimestamp earliestRewardsClaimableTimestamp;
+  bool isRewardsClaimable;
 }
 
 struct Values {
@@ -64,7 +67,8 @@ struct Totals {
 library RewardLib {
   using SafeERC20 for IERC20;
   using BitMaps for BitMaps.BitMap;
-
+  using CompressedTimeMath for CompressedTimestamp;
+  using CompressedTimeMath for Timestamp;
   using TimeLib for Timestamp;
   using TimeLib for Epoch;
   using FeeHeaderLib for CompressedFeeHeader;
@@ -72,31 +76,57 @@ library RewardLib {
 
   bytes32 private constant REWARD_STORAGE_POSITION = keccak256("aztec.reward.storage");
 
-  // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold offerings,
+  // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold
+  // offerings,
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
+  function initialize(Timestamp _earliestRewardsClaimableTimestamp) internal {
+    RewardStorage storage rewardStorage = getStorage();
+    rewardStorage.earliestRewardsClaimableTimestamp = _earliestRewardsClaimableTimestamp.compress();
+    rewardStorage.isRewardsClaimable = false;
+  }
+
   function setConfig(RewardConfig memory _config) internal {
+    require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
   }
 
-  function claimSequencerRewards(address _recipient) internal returns (uint256) {
+  function setIsRewardsClaimable(bool _isRewardsClaimable) internal {
     RewardStorage storage rewardStorage = getStorage();
+    uint256 earliestRewardsClaimableTimestamp =
+      Timestamp.unwrap(rewardStorage.earliestRewardsClaimableTimestamp.decompress());
+    require(
+      block.timestamp >= earliestRewardsClaimableTimestamp,
+      Errors.Rollup__TooSoonToSetRewardsClaimable(earliestRewardsClaimableTimestamp, block.timestamp)
+    );
+
+    rewardStorage.isRewardsClaimable = _isRewardsClaimable;
+  }
+
+  function claimSequencerRewards(address _sequencer) internal returns (uint256) {
+    RewardStorage storage rewardStorage = getStorage();
+    require(rewardStorage.isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 amount = rewardStorage.sequencerRewards[msg.sender];
-    rewardStorage.sequencerRewards[msg.sender] = 0;
-    rollupStore.config.feeAsset.transfer(_recipient, amount);
+    uint256 amount = rewardStorage.sequencerRewards[_sequencer];
+
+    if (amount > 0) {
+      rewardStorage.sequencerRewards[_sequencer] = 0;
+      rollupStore.config.feeAsset.safeTransfer(_sequencer, amount);
+    }
 
     return amount;
   }
 
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs) internal returns (uint256) {
+  function claimProverRewards(address _prover, Epoch[] memory _epochs) internal returns (uint256) {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
     RewardStorage storage rewardStorage = getStorage();
+
+    require(rewardStorage.isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
 
     uint256 accumulatedRewards = 0;
     for (uint256 i = 0; i < _epochs.length; i++) {
@@ -105,21 +135,22 @@ library RewardLib {
         Errors.Rollup__NotPastDeadline(_epochs[i].toDeadlineEpoch(), currentEpoch)
       );
 
-      require(
-        !rewardStorage.proverClaimed[msg.sender].get(Epoch.unwrap(_epochs[i])),
-        Errors.Rollup__AlreadyClaimed(msg.sender, _epochs[i])
-      );
-      rewardStorage.proverClaimed[msg.sender].set(Epoch.unwrap(_epochs[i]));
+      if (rewardStorage.proverClaimed[_prover].get(Epoch.unwrap(_epochs[i]))) {
+        continue;
+      }
+      rewardStorage.proverClaimed[_prover].set(Epoch.unwrap(_epochs[i]));
 
       EpochRewards storage e = rewardStorage.epochRewards[_epochs[i]];
       SubEpochRewards storage se = e.subEpoch[e.longestProvenLength];
-      uint256 shares = se.shares[msg.sender];
+      uint256 shares = se.shares[_prover];
       if (shares > 0) {
         accumulatedRewards += (shares * e.rewards / se.summedShares);
       }
     }
 
-    rollupStore.config.feeAsset.transfer(_recipient, accumulatedRewards);
+    if (accumulatedRewards > 0) {
+      rollupStore.config.feeAsset.safeTransfer(_prover, accumulatedRewards);
+    }
 
     return accumulatedRewards;
   }
@@ -172,10 +203,10 @@ library RewardLib {
           }
         }
 
-        uint256 sequencerShare = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
-        v.sequencerBlockReward = sequencerShare / added;
+        uint256 sequenceBlockRewards = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
+        v.sequencerBlockReward = sequenceBlockRewards / added;
 
-        $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
+        $er.rewards += (blockRewardsAvailable - sequenceBlockRewards).toUint128();
       }
 
       bool isTxsEnabled = FeeLib.isTxsEnabled();
@@ -215,7 +246,7 @@ library RewardLib {
       }
 
       if (t.totalBurn > 0) {
-        rollupStore.config.feeAsset.transfer(BURN_ADDRESS, t.totalBurn);
+        rollupStore.config.feeAsset.safeTransfer(BURN_ADDRESS, t.totalBurn);
       }
     }
   }
@@ -261,6 +292,14 @@ library RewardLib {
     }
 
     return (se.shares[_prover] * er.rewards / se.summedShares);
+  }
+
+  function isRewardsClaimable() internal view returns (bool) {
+    return getStorage().isRewardsClaimable;
+  }
+
+  function getEarliestRewardsClaimableTimestamp() internal view returns (Timestamp) {
+    return getStorage().earliestRewardsClaimableTimestamp.decompress();
   }
 
   function getStorage() internal pure returns (RewardStorage storage storageStruct) {

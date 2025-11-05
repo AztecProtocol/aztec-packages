@@ -78,13 +78,11 @@ export const SimulationStatsSchema = z.object({
   nodeRPCCalls: NodeStatsSchema,
 });
 
-// docs:start:tx-profile-result
 export class TxProfileResult {
   constructor(
     public executionSteps: PrivateExecutionStep[],
     public stats: ProvingStats,
   ) {}
-  // docs:end:tx-profile-result
   static get schema(): ZodFor<TxProfileResult> {
     return z
       .object({

@@ -1,0 +1,68 @@
+services:
+  web3signer:
+    image: consensys/web3signer:25.6.0
+    command:
+      - --http-listen-port=9000
+      - --http-host-allowlist=*
+      - --key-store-path=/keys
+      - --logging=ALL
+      - eth1
+      - --chain-id=31337
+    volumes:
+      - web3signer_keys:/keys
+
+  end-to-end:
+    image: aztecprotocol/build:3.0
+    cpus: 4
+    cpuset: ${CPU_LIST:-}
+    mem_limit: 8G
+    volumes:
+      - ../../../../:/root/aztec-packages
+      - ${HOME}/.bb-crs:/root/.bb-crs
+      - web3signer_keys:/keys
+    tmpfs:
+      - /tmp:rw,size=1g
+      - /tmp-jest:rw,size=512m
+    working_dir: /root/aztec-packages/yarn-project/end-to-end
+    environment:
+      JEST_CACHE_DIR: /tmp-jest
+      LOG_LEVEL: ${LOG_LEVEL:-verbose}
+      L1_CHAIN_ID: 31337
+      WEB3_SIGNER_URL: http://web3signer:9000
+      WEB3_SIGNER_TEST_KEYSTORE_DIR: /keys
+      FORCE_COLOR: ${FORCE_COLOR:-1}
+      # Allow git usage despite different ownership. Relevant for script tests.
+      GIT_CONFIG_GLOBAL: /root/aztec-packages/build-images/src/home/.gitconfig
+      # For debugging scripts that were passed as TEST.
+      BUILD_SYSTEM_DEBUG: ${BUILD_SYSTEM_DEBUG:-}
+    # Voodoo explanation.
+    # Why do we do all this? To ensure tests can have their own traps for cleanup. Namely up_quick_start...
+    # Propagating the signal (e.g. via exec) isn't much use, as jest provides no mechanism for cleanup on signals.
+    # Better would be just to have no state...
+    #
+    # We wait for the sandbox to become live.
+    # We launch the test in the background and capture it's process id.
+    # We launch it using setsid, which will ensure the test and all subprocesses have their own process group id.
+    # We set a trap to handle SIGTERM (comes from docker-compose when it receives e.g. SIGINT).
+    # For the trap to execute the script needs to have control, hence the test is launched in the background.
+    # We get the "process group id" from the process id.
+    # The trap sends a SIGTERM to the process group, we negate the process group id to let kill know its a group id.
+    # We wait on the entire process group to complete to allow cleanup to happen. (kill -0 just checks for existence).
+    # We wait on the direct test pid, to ensure we propagate the exit code to docker.
+    # There's a lot of doubling of $'s to escape dockers string interpolation.
+    entrypoint: >
+      bash -c '
+        while ! nc -z web3signer 9000; do sleep 1; done;
+        setsid ./scripts/test_simple.sh ${TEST:-./src/e2e_deploy_contract.test.ts} &
+        pid=$$!
+        pgid=$$(($$(ps -o pgid= -p $$pid)))
+        trap "kill -SIGTERM -$$pgid" SIGTERM
+        while kill -0 -$$pgid 2>/dev/null; do sleep 0.1; done
+        wait $$pid
+      '
+    depends_on:
+      - web3signer
+
+volumes:
+  # a shared volume so that tests can load up arbitrary private keys into web3signer
+  web3signer_keys: {}

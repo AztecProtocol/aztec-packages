@@ -1,14 +1,25 @@
-use dep::aztec::protocol_types::{traits::{Deserialize, Serialize}, utils::field::field_from_bytes};
+use dep::aztec::protocol_types::{
+    traits::{Deserialize, Packable, Serialize},
+    utils::field::field_from_bytes,
+};
 
-// The general Compressed String.
-// Compresses M bytes into N fields.
-// Can be used for longer strings that don't fit in a single field.
-// Each field can store 31 characters, so N should be M/31 rounded up.
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/15968): Kill, refactor and/or relocate this.
+
+/// Convenience struct for capturing a string of type `str<M>`, and converting it
+/// into other basic Noir types. Notably: converts to `[Field; N]` or `[u8; M]`.
+/// This particular conversion process tightly-packs the M bytes of the input `str`
+/// into 31-byte chunks, with each chunk being put into a field.
+/// Each field can store 31 characters, so N should be M/31 rounded up.
+/// Can be used for longer strings that don't fit into a single field.
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct CompressedString<let N: u32, let M: u32> {
     value: [Field; N],
 }
 
 impl<let N: u32, let M: u32> CompressedString<N, M> {
+    // TODO: if we move this into the utils of aztecnr (as suggested by #15968),
+    // we can adopt its existing `fields_from_bytes` conversion function,
+    // instead of this duplicated logic here.
     pub fn from_string(input_string: str<M>) -> Self {
         let mut fields = [0; N];
         let byts = input_string.as_bytes();
@@ -30,6 +41,9 @@ impl<let N: u32, let M: u32> CompressedString<N, M> {
         Self { value: fields }
     }
 
+    // TODO: if we move this into the utils of aztecnr (as suggested by #15968),
+    // we can adopt its existing `bytes_from_fields` conversion function,
+    // instead of this duplicated logic here.
     pub fn to_bytes(self) -> [u8; M] {
         let mut result = [0; M];
         let mut w_index = 0 as u32;
@@ -43,28 +57,6 @@ impl<let N: u32, let M: u32> CompressedString<N, M> {
             }
         }
         result
-    }
-}
-
-impl<let N: u32, let M: u32> Eq for CompressedString<N, M> {
-    fn eq(self, other: CompressedString<N, M>) -> bool {
-        self.value == other.value
-    }
-}
-
-impl<let N: u32, let M: u32> Serialize for CompressedString<N, M> {
-    let N: u32 = N;
-
-    fn serialize(self) -> [Field; Self::N] {
-        self.value
-    }
-}
-
-impl<let N: u32, let M: u32> Deserialize for CompressedString<N, M> {
-    let N: u32 = N;
-
-    fn deserialize(input: [Field; Self::N]) -> Self {
-        Self { value: input }
     }
 }
 

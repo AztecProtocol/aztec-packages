@@ -4,9 +4,10 @@ import {
   type NULLIFIER_TREE_HEIGHT,
 } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
-import { type IndexedTreeLeafPreimage, MembershipWitness } from '@aztec/foundation/trees';
+import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { siloNullifier } from '../../hash/hash.js';
+import type { NullifierLeafPreimage } from '../../trees/nullifier_leaf.js';
 import type { ClaimedLengthArray } from '../claimed_length_array.js';
 import type { ScopedNullifier } from '../nullifier.js';
 import { NullifierReadRequestHintsBuilder } from './nullifier_read_request_hints.js';
@@ -24,7 +25,7 @@ export function isValidNullifierReadRequest(readRequest: ScopedReadRequest, null
 
 interface NullifierMembershipWitnessWithPreimage {
   membershipWitness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>;
-  leafPreimage: IndexedTreeLeafPreimage;
+  leafPreimage: NullifierLeafPreimage;
 }
 
 export function getNullifierReadRequestResetActions(

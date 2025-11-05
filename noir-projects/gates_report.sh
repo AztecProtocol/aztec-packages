@@ -5,13 +5,14 @@ set -eu
 # The script needs some slight updating as `nargo info` expects a complete JSON object, while this script expects a single object field
 # representing a list of circuit reports for a program.
 # The ACIR tests in barretenberg also expect every target bytecode to have the name `acir.gz` while this script expects the same name of the package
-MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' client_ivc_circuits.json)
+MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' chonk_circuits.json)
+HIDING_CIRCUIT_PATTERNS=$(jq -r '.[]' chonk_tail_circuits.json)
 ROLLUP_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' rollup_honk_circuits.json)
 
 cd noir-protocol-circuits
 PROTOCOL_CIRCUITS_DIR=$PWD
 
-BB_BIN=${BB_BIN:-../../barretenberg/cpp/build/bin/bb}
+BB_BIN=${BB_BIN:-../../barretenberg/cpp/build/bin/bb-avm}
 
 echo "{\"programs\": [" > gates_report.json
 
@@ -32,6 +33,13 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
         fi
     done
 
+    for pattern in $HIDING_CIRCUIT_PATTERNS; do
+        if echo "$ARTIFACT_NAME" | grep -qE "$pattern"; then
+            IS_MEGA_HONK_CIRCUIT="true"
+            break
+        fi
+    done
+
     IS_ROLLUP_HONK_CIRCUIT="false"
     for pattern in $ROLLUP_HONK_CIRCUIT_PATTERNS; do
         if echo "$ARTIFACT_NAME" | grep -qE "$pattern"; then
@@ -40,13 +48,13 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
         fi
     done
 
-    # If it's mega honk, we need to use the gates command with --scheme client_ivc flag
+    # If it's mega honk, we need to use the gates command with --scheme chonk flag
     if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-        GATES_INFO=$($BB_BIN gates --scheme client_ivc -b "$pathname")
+        GATES_INFO=$($BB_BIN gates --scheme chonk -b "$pathname")
     elif [ "$IS_ROLLUP_HONK_CIRCUIT" = "true" ]; then
-        GATES_INFO=$($BB_BIN gates --scheme ultra_honk -b "$pathname" --honk_recursion 2)
+        GATES_INFO=$($BB_BIN gates --scheme ultra_honk -b "$pathname" --ipa_accumulation)
     else
-        GATES_INFO=$($BB_BIN gates --scheme ultra_honk -b "$pathname" --honk_recursion 1)
+        GATES_INFO=$($BB_BIN gates --scheme ultra_honk -b "$pathname")
     fi
 
     MAIN_FUNCTION_INFO=$(echo $GATES_INFO | jq -r ".functions[0] | {package_name: "\"$ARTIFACT_NAME\"", functions: [{name: \"main\", opcodes: .acir_opcodes, circuit_size}]}")

@@ -9,7 +9,6 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 ECCVMRecursiveVerifier::ECCVMRecursiveVerifier(Builder* builder,
@@ -70,8 +69,7 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
     }
 
     // Get challenge for sorted list batching and wire four memory records
-    const std::array<std::string, 2> challenge_labels{ "alpha, beta" };
-    const auto [beta, gamma] = transcript->template get_challenges<FF>(challenge_labels);
+    const auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
     auto beta_sqr = beta * beta;
 

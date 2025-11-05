@@ -34,8 +34,7 @@ function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
 // EC Point utilities
 function bytesToG1Point(bytes calldata proofSection) pure returns (Honk.G1Point memory point) {
     point = Honk.G1Point({
-        x: uint256(bytes32(proofSection[0x00:0x20])) % Q,
-        y: uint256(bytes32(proofSection[0x20:0x40])) % Q
+        x: uint256(bytes32(proofSection[0x00:0x20])) % Q, y: uint256(bytes32(proofSection[0x20:0x40])) % Q
     });
 }
 
@@ -183,6 +182,8 @@ function ecMul(Fr value, Honk.G1Point memory point) view returns (Honk.G1Point m
         // result + 0x20|  result.y
         mstore(result, mload(free))
         mstore(add(result, 0x20), mload(add(free, 0x20)))
+
+        mstore(0x40, add(free, 0x60))
     }
 
     return result;
@@ -229,6 +230,8 @@ function ecAdd(Honk.G1Point memory lhs, Honk.G1Point memory rhs) view returns (H
         // result + 0x20|  result.y
         mstore(result, mload(free))
         mstore(add(result, 0x20), mload(add(free, 0x20)))
+
+        mstore(0x40, add(free, 0x80))
     }
 
     return result;

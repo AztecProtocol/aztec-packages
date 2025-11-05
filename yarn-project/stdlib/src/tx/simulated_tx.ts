@@ -4,7 +4,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
-import { AztecAddress } from '../aztec-address/index.js';
 import {
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
@@ -12,7 +11,7 @@ import {
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
-import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
+import { ChonkProof } from '../proofs/chonk_proof.js';
 import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
@@ -37,10 +36,7 @@ export type ContractOverrides = Record<
  * set, it *must* be run without the kernel circuits, or validations will fail
  */
 export class SimulationOverrides {
-  constructor(
-    public contracts?: ContractOverrides,
-    public msgSender?: AztecAddress,
-  ) {}
+  constructor(public contracts?: ContractOverrides) {}
 
   static get schema() {
     return z
@@ -51,10 +47,9 @@ export class SimulationOverrides {
             z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
           ),
         ),
-        msgSender: optional(AztecAddress.schema),
       })
-      .transform(({ contracts, msgSender }) => {
-        return new SimulationOverrides(contracts, msgSender);
+      .transform(({ contracts }) => {
+        return new SimulationOverrides(contracts);
       });
   }
 }
@@ -74,7 +69,7 @@ export class PrivateSimulationResult {
 
     return await Tx.create({
       data: this.publicInputs,
-      clientIvcProof: ClientIvcProof.empty(),
+      chonkProof: ChonkProof.empty(),
       contractClassLogFields: contractClassLogs,
       publicFunctionCalldata: this.privateExecutionResult.publicFunctionCalldata,
     });

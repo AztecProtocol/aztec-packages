@@ -51,7 +51,7 @@ std::vector<ECCVMOperation> parse_operations(const unsigned char* data, size_t s
     // Just iterate and parse until there's no data left
     while (size_left >= sizeof(ECCVMOperation)) {
         ECCVMOperation op;
-        std::memcpy(&op, data + (size - size_left), sizeof(ECCVMOperation));
+        std::memcpy(static_cast<void*>(&op), data + (size - size_left), sizeof(ECCVMOperation));
         eccvm_ops.emplace_back(op);
         size_left -= sizeof(ECCVMOperation);
     }

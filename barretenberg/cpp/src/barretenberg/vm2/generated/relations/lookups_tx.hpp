@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_tx_read_phase_table_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_TABLE";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 17;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 19;
     static constexpr Column SRC_SELECTOR = Column::tx_start_phase;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
     static constexpr Column COUNTS = Column::lookup_tx_read_phase_table_counts;
@@ -25,6 +25,8 @@ struct lookup_tx_read_phase_table_settings_ {
         ColumnAndShifts::tx_phase_value,
         ColumnAndShifts::tx_is_public_call_request,
         ColumnAndShifts::tx_is_collect_fee,
+        ColumnAndShifts::tx_is_tree_padding,
+        ColumnAndShifts::tx_is_cleanup,
         ColumnAndShifts::tx_is_revertible,
         ColumnAndShifts::tx_read_pi_offset,
         ColumnAndShifts::tx_read_pi_length_offset,
@@ -44,6 +46,8 @@ struct lookup_tx_read_phase_table_settings_ {
         ColumnAndShifts::precomputed_phase_value,
         ColumnAndShifts::precomputed_is_public_call_request_phase,
         ColumnAndShifts::precomputed_sel_collect_fee,
+        ColumnAndShifts::precomputed_sel_tree_padding,
+        ColumnAndShifts::precomputed_sel_cleanup,
         ColumnAndShifts::precomputed_is_revertible,
         ColumnAndShifts::precomputed_read_public_input_offset,
         ColumnAndShifts::precomputed_read_public_input_length_offset,
@@ -109,6 +113,30 @@ using lookup_tx_read_phase_length_settings = lookup_settings<lookup_tx_read_phas
 template <typename FF_>
 using lookup_tx_read_phase_length_relation = lookup_relation_base<FF_, lookup_tx_read_phase_length_settings>;
 
+/////////////////// lookup_tx_read_calldata_hash ///////////////////
+
+struct lookup_tx_read_calldata_hash_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_READ_CALLDATA_HASH";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column DST_SELECTOR = Column::calldata_hashing_latch;
+    static constexpr Column COUNTS = Column::lookup_tx_read_calldata_hash_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_read_calldata_hash_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_calldata_hash, ColumnAndShifts::tx_calldata_size, ColumnAndShifts::tx_next_context_id
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::calldata_hashing_output_hash,
+        ColumnAndShifts::calldata_hashing_calldata_size,
+        ColumnAndShifts::calldata_hashing_context_id
+    };
+};
+
+using lookup_tx_read_calldata_hash_settings = lookup_settings<lookup_tx_read_calldata_hash_settings_>;
+template <typename FF_>
+using lookup_tx_read_calldata_hash_relation = lookup_relation_base<FF_, lookup_tx_read_calldata_hash_settings>;
+
 /////////////////// lookup_tx_read_public_call_request_phase ///////////////////
 
 struct lookup_tx_read_public_call_request_phase_settings_ {
@@ -138,6 +166,140 @@ using lookup_tx_read_public_call_request_phase_settings =
 template <typename FF_>
 using lookup_tx_read_public_call_request_phase_relation =
     lookup_relation_base<FF_, lookup_tx_read_public_call_request_phase_settings>;
+
+/////////////////// lookup_tx_dispatch_exec_start ///////////////////
+
+struct lookup_tx_dispatch_exec_start_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_DISPATCH_EXEC_START";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 26;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_start;
+    static constexpr Column COUNTS = Column::lookup_tx_dispatch_exec_start_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_dispatch_exec_start_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_next_context_id,
+        ColumnAndShifts::tx_discard,
+        ColumnAndShifts::tx_msg_sender,
+        ColumnAndShifts::tx_contract_addr,
+        ColumnAndShifts::tx_fee,
+        ColumnAndShifts::tx_is_static,
+        ColumnAndShifts::tx_calldata_size,
+        ColumnAndShifts::tx_prev_note_hash_tree_root,
+        ColumnAndShifts::tx_prev_note_hash_tree_size,
+        ColumnAndShifts::tx_prev_num_note_hashes_emitted,
+        ColumnAndShifts::tx_prev_nullifier_tree_root,
+        ColumnAndShifts::tx_prev_nullifier_tree_size,
+        ColumnAndShifts::tx_prev_num_nullifiers_emitted,
+        ColumnAndShifts::tx_prev_public_data_tree_root,
+        ColumnAndShifts::tx_prev_public_data_tree_size,
+        ColumnAndShifts::tx_prev_written_public_data_slots_tree_root,
+        ColumnAndShifts::tx_prev_written_public_data_slots_tree_size,
+        ColumnAndShifts::tx_l1_l2_tree_root,
+        ColumnAndShifts::tx_prev_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::tx_prev_retrieved_bytecodes_tree_size,
+        ColumnAndShifts::tx_prev_num_unencrypted_log_fields,
+        ColumnAndShifts::tx_prev_num_l2_to_l1_messages,
+        ColumnAndShifts::tx_prev_l2_gas_used_sent_to_enqueued_call,
+        ColumnAndShifts::tx_prev_da_gas_used_sent_to_enqueued_call,
+        ColumnAndShifts::tx_l2_gas_limit,
+        ColumnAndShifts::tx_da_gas_limit
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::execution_discard,
+        ColumnAndShifts::execution_msg_sender,
+        ColumnAndShifts::execution_contract_address,
+        ColumnAndShifts::execution_transaction_fee,
+        ColumnAndShifts::execution_is_static,
+        ColumnAndShifts::execution_parent_calldata_size,
+        ColumnAndShifts::execution_prev_note_hash_tree_root,
+        ColumnAndShifts::execution_prev_note_hash_tree_size,
+        ColumnAndShifts::execution_prev_num_note_hashes_emitted,
+        ColumnAndShifts::execution_prev_nullifier_tree_root,
+        ColumnAndShifts::execution_prev_nullifier_tree_size,
+        ColumnAndShifts::execution_prev_num_nullifiers_emitted,
+        ColumnAndShifts::execution_prev_public_data_tree_root,
+        ColumnAndShifts::execution_prev_public_data_tree_size,
+        ColumnAndShifts::execution_prev_written_public_data_slots_tree_root,
+        ColumnAndShifts::execution_prev_written_public_data_slots_tree_size,
+        ColumnAndShifts::execution_l1_l2_tree_root,
+        ColumnAndShifts::execution_prev_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::execution_prev_retrieved_bytecodes_tree_size,
+        ColumnAndShifts::execution_prev_num_unencrypted_log_fields,
+        ColumnAndShifts::execution_prev_num_l2_to_l1_messages,
+        ColumnAndShifts::execution_prev_l2_gas_used,
+        ColumnAndShifts::execution_prev_da_gas_used,
+        ColumnAndShifts::execution_l2_gas_limit,
+        ColumnAndShifts::execution_da_gas_limit
+    };
+};
+
+using lookup_tx_dispatch_exec_start_settings = lookup_settings<lookup_tx_dispatch_exec_start_settings_>;
+template <typename FF_>
+using lookup_tx_dispatch_exec_start_relation = lookup_relation_base<FF_, lookup_tx_dispatch_exec_start_settings>;
+
+/////////////////// lookup_tx_dispatch_exec_end ///////////////////
+
+struct lookup_tx_dispatch_exec_end_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_DISPATCH_EXEC_END";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 21;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_end;
+    static constexpr Column COUNTS = Column::lookup_tx_dispatch_exec_end_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_dispatch_exec_end_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_next_context_id,
+        ColumnAndShifts::tx_next_context_id_shift,
+        ColumnAndShifts::tx_reverted,
+        ColumnAndShifts::tx_discard,
+        ColumnAndShifts::tx_next_note_hash_tree_root,
+        ColumnAndShifts::tx_next_note_hash_tree_size,
+        ColumnAndShifts::tx_next_num_note_hashes_emitted,
+        ColumnAndShifts::tx_next_nullifier_tree_root,
+        ColumnAndShifts::tx_next_nullifier_tree_size,
+        ColumnAndShifts::tx_next_num_nullifiers_emitted,
+        ColumnAndShifts::tx_next_public_data_tree_root,
+        ColumnAndShifts::tx_next_public_data_tree_size,
+        ColumnAndShifts::tx_next_written_public_data_slots_tree_root,
+        ColumnAndShifts::tx_next_written_public_data_slots_tree_size,
+        ColumnAndShifts::tx_l1_l2_tree_root,
+        ColumnAndShifts::tx_next_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::tx_next_retrieved_bytecodes_tree_size,
+        ColumnAndShifts::tx_next_num_unencrypted_log_fields,
+        ColumnAndShifts::tx_next_num_l2_to_l1_messages,
+        ColumnAndShifts::tx_next_l2_gas_used_sent_to_enqueued_call,
+        ColumnAndShifts::tx_next_da_gas_used_sent_to_enqueued_call
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::execution_next_context_id,
+        ColumnAndShifts::execution_sel_failure,
+        ColumnAndShifts::execution_discard,
+        ColumnAndShifts::execution_note_hash_tree_root,
+        ColumnAndShifts::execution_note_hash_tree_size,
+        ColumnAndShifts::execution_num_note_hashes_emitted,
+        ColumnAndShifts::execution_nullifier_tree_root,
+        ColumnAndShifts::execution_nullifier_tree_size,
+        ColumnAndShifts::execution_num_nullifiers_emitted,
+        ColumnAndShifts::execution_public_data_tree_root,
+        ColumnAndShifts::execution_public_data_tree_size,
+        ColumnAndShifts::execution_written_public_data_slots_tree_root,
+        ColumnAndShifts::execution_written_public_data_slots_tree_size,
+        ColumnAndShifts::execution_l1_l2_tree_root,
+        ColumnAndShifts::execution_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::execution_retrieved_bytecodes_tree_size,
+        ColumnAndShifts::execution_num_unencrypted_log_fields,
+        ColumnAndShifts::execution_num_l2_to_l1_messages,
+        ColumnAndShifts::execution_l2_gas_used,
+        ColumnAndShifts::execution_da_gas_used
+    };
+};
+
+using lookup_tx_dispatch_exec_end_settings = lookup_settings<lookup_tx_dispatch_exec_end_settings_>;
+template <typename FF_>
+using lookup_tx_dispatch_exec_end_relation = lookup_relation_base<FF_, lookup_tx_dispatch_exec_end_settings>;
 
 /////////////////// lookup_tx_read_tree_insert_value ///////////////////
 
@@ -364,6 +526,34 @@ using lookup_tx_balance_slot_poseidon2_settings = lookup_settings<lookup_tx_bala
 template <typename FF_>
 using lookup_tx_balance_slot_poseidon2_relation = lookup_relation_base<FF_, lookup_tx_balance_slot_poseidon2_settings>;
 
+/////////////////// lookup_tx_balance_read ///////////////////
+
+struct lookup_tx_balance_read_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_BALANCE_READ";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr Column SRC_SELECTOR = Column::tx_is_collect_fee;
+    static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
+    static constexpr Column COUNTS = Column::lookup_tx_balance_read_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_balance_read_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_fee_payer_balance,
+        ColumnAndShifts::tx_fee_juice_contract_address,
+        ColumnAndShifts::tx_fee_juice_balance_slot,
+        ColumnAndShifts::tx_prev_public_data_tree_root
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::public_data_check_value,
+        ColumnAndShifts::public_data_check_address,
+        ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_root
+    };
+};
+
+using lookup_tx_balance_read_settings = lookup_settings<lookup_tx_balance_read_settings_>;
+template <typename FF_>
+using lookup_tx_balance_read_relation = lookup_relation_base<FF_, lookup_tx_balance_read_settings>;
+
 /////////////////// lookup_tx_balance_validation ///////////////////
 
 struct lookup_tx_balance_validation_settings_ {
@@ -385,5 +575,27 @@ struct lookup_tx_balance_validation_settings_ {
 using lookup_tx_balance_validation_settings = lookup_settings<lookup_tx_balance_validation_settings_>;
 template <typename FF_>
 using lookup_tx_balance_validation_relation = lookup_relation_base<FF_, lookup_tx_balance_validation_settings>;
+
+/////////////////// lookup_tx_write_fee_public_inputs ///////////////////
+
+struct lookup_tx_write_fee_public_inputs_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_WRITE_FEE_PUBLIC_INPUTS";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::tx_is_collect_fee;
+    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr Column COUNTS = Column::lookup_tx_write_fee_public_inputs_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_write_fee_public_inputs_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::tx_write_pi_offset,
+                                                                                    ColumnAndShifts::tx_fee };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+    };
+};
+
+using lookup_tx_write_fee_public_inputs_settings = lookup_settings<lookup_tx_write_fee_public_inputs_settings_>;
+template <typename FF_>
+using lookup_tx_write_fee_public_inputs_relation =
+    lookup_relation_base<FF_, lookup_tx_write_fee_public_inputs_settings>;
 
 } // namespace bb::avm2

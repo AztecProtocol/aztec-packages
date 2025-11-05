@@ -1,38 +1,46 @@
-import { sleep } from '@aztec/aztec.js';
+// CREATE_CHAOS_MESH should be set to true to run this test
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
+import { DateProvider } from '@aztec/foundation/timer';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { expect, jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import { type TestWallets, performTransfers, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import {
+  type TestAccounts,
+  createWalletAndAztecNodeClient,
+  deploySponsoredTestAccounts,
+  performTransfers,
+} from './setup_test_wallets.js';
 import {
   applyProverFailure,
-  deleteResourceByLabel,
-  isK8sConfig,
+  getGitProjectRoot,
   setupEnvironment,
-  startPortForward,
-  waitForResourceByLabel,
+  startPortForwardForEthereum,
+  startPortForwardForRPC,
 } from './utils.js';
 
-const config = setupEnvironment(process.env);
-if (!isK8sConfig(config)) {
-  throw new Error('This test must be run in a k8s environment');
-}
-const { NAMESPACE, CONTAINER_PXE_PORT, CONTAINER_ETHEREUM_PORT, SPARTAN_DIR } = config;
+const config = { ...setupEnvironment(process.env) };
 const debugLogger = createLogger('e2e:spartan-test:reorg');
 
-async function checkBalances(testWallets: TestWallets, mintAmount: bigint, totalAmountTransferred: bigint) {
-  for (const w of testWallets.wallets) {
-    expect(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate()).toBe(
-      mintAmount - totalAmountTransferred,
-    );
+async function checkBalances(testAccounts: TestAccounts, mintAmount: bigint, totalAmountTransferred: bigint) {
+  for (const acc of testAccounts.accounts) {
+    expect(
+      await testAccounts.tokenContract.methods
+        .balance_of_public(acc)
+        .simulate({ from: testAccounts.tokenAdminAddress }),
+    ).toBe(mintAmount - totalAmountTransferred);
   }
 
   expect(
-    await testWallets.tokenAdminWallet.methods.balance_of_public(testWallets.recipientWallet.getAddress()).simulate(),
-  ).toBe(totalAmountTransferred * BigInt(testWallets.wallets.length));
+    await testAccounts.tokenContract.methods
+      .balance_of_public(testAccounts.recipientAddress)
+      .simulate({ from: testAccounts.tokenAdminAddress }),
+  ).toBe(totalAmountTransferred * BigInt(testAccounts.accounts.length));
 }
 
 describe('reorg test', () => {
@@ -41,54 +49,58 @@ describe('reorg test', () => {
   const MINT_AMOUNT = 2_000_000n;
   const SETUP_EPOCHS = 2;
   const TRANSFER_AMOUNT = 1n;
-  let ETHEREUM_HOSTS: string;
-  let PXE_URL: string;
+  let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
+  let rpcUrl: string;
+  let wallet: TestWallet;
+  let spartanDir: string;
 
-  let testWallets: TestWallets;
+  let testAccounts: TestAccounts;
+  let aztecNode: AztecNode;
+  let cleanup: undefined | (() => Promise<void>);
 
-  afterAll(() => {
+  afterAll(async () => {
+    await cleanup?.();
     forwardProcesses.forEach(p => p.kill());
   });
 
-  it('survives a reorg', async () => {
-    const { process: pxeProcess, port: pxePort } = await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
-      namespace: NAMESPACE,
-      containerPort: CONTAINER_PXE_PORT,
-    });
-    forwardProcesses.push(pxeProcess);
-    PXE_URL = `http://127.0.0.1:${pxePort}`;
-
-    const { process: ethProcess, port: ethPort } = await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
-      namespace: NAMESPACE,
-      containerPort: CONTAINER_ETHEREUM_PORT,
-    });
+  beforeAll(async () => {
+    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
+    const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(config.NAMESPACE);
+    forwardProcesses.push(aztecRpcProcess);
     forwardProcesses.push(ethProcess);
-    ETHEREUM_HOSTS = `http://127.0.0.1:${ethPort}`;
-    testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, debugLogger);
+
+    rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
+    spartanDir = `${getGitProjectRoot()}/spartan`;
+
+    ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, debugLogger);
+  });
+
+  it('survives a reorg', async () => {
     const rollupCheatCodes = new RollupCheatCodes(
-      new EthCheatCodesWithState([ETHEREUM_HOSTS]),
-      await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses),
+      new EthCheatCodesWithState(ETHEREUM_HOSTS, new DateProvider()),
+      await testAccounts.aztecNode.getNodeInfo().then(n => n.l1ContractAddresses),
     );
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();
 
     await performTransfers({
-      testWallets,
+      wallet,
+      testAccounts,
       rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,
       logger: debugLogger,
     });
-    await checkBalances(testWallets, MINT_AMOUNT, TRANSFER_AMOUNT * epochDuration * BigInt(SETUP_EPOCHS));
+    await checkBalances(testAccounts, MINT_AMOUNT, TRANSFER_AMOUNT * epochDuration * BigInt(SETUP_EPOCHS));
 
     // get the tips before the reorg
     const { pending: preReorgPending, proven: preReorgProven } = await rollupCheatCodes.getTips();
 
     // kill the provers
     const stdout = await applyProverFailure({
-      namespace: NAMESPACE,
-      spartanDir: SPARTAN_DIR,
+      namespace: config.NAMESPACE,
+      spartanDir,
       durationSeconds: Number(epochDuration * slotDuration) * 2,
       logger: debugLogger,
     });
@@ -101,23 +113,20 @@ describe('reorg test', () => {
 
     // TODO(#9327): begin delete
     // The bot must be restarted because the PXE does not handle reorgs without a restart.
-    // When the issue is fixed, we can remove the following delete, wait, startPortForward, and setupTestWallets
-    await deleteResourceByLabel({ resource: 'pods', namespace: NAMESPACE, label: 'app=pxe' });
+    // When the issue is fixed, we can remove the following restart logic
+    await cleanup?.();
     await sleep(30 * 1000);
-    await waitForResourceByLabel({ resource: 'pods', namespace: NAMESPACE, label: 'app=pxe' });
+
+    // Restart the PXE
+    ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
+
     await sleep(30 * 1000);
-    await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
-      namespace: NAMESPACE,
-      containerPort: CONTAINER_PXE_PORT,
-    });
-    forwardProcesses.push(pxeProcess);
-    PXE_URL = `http://127.0.0.1:${pxePort}`;
-    testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, debugLogger);
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, debugLogger);
     // TODO(#9327): end delete
 
     await performTransfers({
-      testWallets,
+      wallet,
+      testAccounts,
       rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,
       logger: debugLogger,

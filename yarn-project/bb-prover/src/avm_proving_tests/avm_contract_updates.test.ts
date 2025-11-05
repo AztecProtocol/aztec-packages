@@ -10,18 +10,27 @@ import {
   ScheduledValueChange,
 } from '@aztec/stdlib/delayed-public-mutable';
 import type { UInt64 } from '@aztec/stdlib/types';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 300_000;
+const TIMEOUT = 60_000;
 
-describe.skip('AVM WitGen & Circuit - contract updates', () => {
+describe('AVM check-circuit - contract updates', () => {
   const sender = AztecAddress.fromNumber(42);
 
   const avmTestContractClassSeed = 0;
   let avmTestContractInstance: ContractInstanceWithAddress;
 
-  beforeEach(async () => {});
+  let worldStateService: NativeWorldStateService;
+
+  beforeEach(async () => {
+    worldStateService = await NativeWorldStateService.tmp();
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
+  });
 
   const writeContractUpdate = async (
     tester: AvmProvingTester,
@@ -50,7 +59,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
+      const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
 
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
@@ -58,6 +67,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         /*contractArtifact=*/ AvmTestContractArtifact,
         /*skipNullifierInsertion=*/ false,
         /*seed=*/ avmTestContractClassSeed,
+        /*contractClassSeed=*/ avmTestContractClassSeed,
         /*originalContractClassId=*/ originalClassId, // upgraded from
       );
 
@@ -88,13 +98,14 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
+      const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
         /*contractArtifact=*/ AvmTestContractArtifact,
         /*skipNullifierInsertion=*/ false,
         /*seed=*/ avmTestContractClassSeed,
+        /*contractClassSeed=*/ avmTestContractClassSeed,
         /*originalContractClassId=*/ originalClassId, // upgraded from
       );
 
@@ -128,7 +139,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       const newClassId = new Fr(27);
 
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
+      const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -165,7 +176,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       const newClassId = new Fr(27);
 
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
+      const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,

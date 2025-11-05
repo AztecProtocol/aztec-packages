@@ -1,5 +1,5 @@
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { type AztecNode, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -32,6 +32,6 @@ export class NodeRpcTxSource implements TxSource {
 }
 
 export function createNodeRpcTxSources(urls: string[], chainConfig: ChainConfig) {
-  const versions = getComponentsVersionsFromConfig(chainConfig, protocolContractTreeRoot, getVKTreeRoot());
+  const versions = getComponentsVersionsFromConfig(chainConfig, protocolContractsHash, getVKTreeRoot());
   return urls.map(url => NodeRpcTxSource.fromUrl(url, versions));
 }
