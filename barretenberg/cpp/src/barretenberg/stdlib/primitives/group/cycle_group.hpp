@@ -131,7 +131,6 @@ template <typename Builder> class cycle_group {
     bool_t operator==(cycle_group& other);
     void assert_equal(cycle_group& other, std::string const& msg = "cycle_group::assert_equal");
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
-    cycle_group operator/(const cycle_group& other) const;
 
     /**
      * @brief Set the origin tag for x, y and _is_infinity members of cycle_group

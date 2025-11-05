@@ -1235,12 +1235,6 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
     return result;
 };
 
-template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/(const cycle_group& /*unused*/) const
-{
-    // TODO(@kevaundray solve the discrete logarithm problem)
-    throw_or_abort("Implementation under construction...");
-}
-
 template class cycle_group<bb::UltraCircuitBuilder>;
 template class cycle_group<bb::MegaCircuitBuilder>;
 
