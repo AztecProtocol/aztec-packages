@@ -102,7 +102,7 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "ENABLE_ASAN": "OFF",
         "DISABLE_ASM": "OFF",
-        "ENABLE_STACKTRACES": "ON"
+        "ENABLE_STACKTRACES": "OFF"
       }
     },
     {

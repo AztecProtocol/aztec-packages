@@ -22,9 +22,9 @@
 #include <type_traits>
 #include <vector>
 
-// Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1532): Re-enable this once we resolve these issues.
-#define DISABLE_CHILD_TAG_CHECKS
+// Child tag checks are now enabled - they detect when submitted values from different rounds
+// mix without proper challenge separation (Fiat-Shamir ordering violations)
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1532): Fix remaining violations
 
 // Trait to detect if a type is iterable
 template <typename T, typename = void> struct is_iterable : std::false_type {};
