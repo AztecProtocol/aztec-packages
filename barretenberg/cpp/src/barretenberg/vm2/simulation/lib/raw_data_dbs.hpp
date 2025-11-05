@@ -37,18 +37,13 @@ class HintedRawContractDB final : public ContractDBInterface {
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
+    uint32_t get_checkpoint_id() const override;
 
   private:
-    uint32_t get_checkpoint_id() const;
-
-    using GetContractInstanceKey = std::tuple<uint32_t, AztecAddress>;
-    using GetContractClassKey = std::tuple<uint32_t, ContractClassId>;
-    using GetBytecodeCommitmentKey = std::tuple<uint32_t, ContractClassId>;
-
     unordered_flat_map<GetContractInstanceKey, ContractInstanceHint> contract_instances;
     unordered_flat_map<GetContractClassKey, ContractClassHint> contract_classes;
     unordered_flat_map<GetBytecodeCommitmentKey, FF> bytecode_commitments;
-    unordered_flat_map<std::pair<AztecAddress, FunctionSelector>, std::string> debug_function_names;
+    unordered_flat_map<GetDebugFunctionNameKey, std::string> debug_function_names;
 
     uint32_t action_counter = 0;
     std::stack<uint32_t> checkpoint_stack{ { 0 } };

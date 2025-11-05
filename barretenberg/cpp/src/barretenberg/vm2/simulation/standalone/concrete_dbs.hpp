@@ -29,6 +29,7 @@ class PureContractDB final : public ContractDBInterface {
     void create_checkpoint() override { raw_contract_db.create_checkpoint(); }
     void commit_checkpoint() override { raw_contract_db.commit_checkpoint(); }
     void revert_checkpoint() override { raw_contract_db.revert_checkpoint(); }
+    uint32_t get_checkpoint_id() const override { return raw_contract_db.get_checkpoint_id(); };
 
   private:
     ContractDBInterface& raw_contract_db;

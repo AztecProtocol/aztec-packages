@@ -19,12 +19,17 @@ using GetLeafValueKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, index_t
 using SequentialInsertHintPublicDataTreeKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataLeafValue>;
 using SequentialInsertHintNullifierTreeKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, NullifierLeafValue>;
 using AppendLeavesHintKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, std::vector<FF>>;
+using GetContractInstanceKey = std::tuple<uint32_t, AztecAddress>;
+using GetContractClassKey = std::tuple<uint32_t, ContractClassId>;
+using GetBytecodeCommitmentKey = std::tuple<uint32_t, ContractClassId>;
+using GetDebugFunctionNameKey = std::tuple<AztecAddress, FunctionSelector>;
 
 // TODO(MW): Temp struct for hints to allow using a ref in the HintingContractsDB class constructor
 struct MappedContractHints {
-    unordered_flat_map<AztecAddress, ContractInstanceHint> contract_instances;
-    unordered_flat_map<ContractClassId, ContractClassHint> contract_classes;
-    unordered_flat_map<ContractClassId, BytecodeCommitmentHint> bytecode_commitments;
+    unordered_flat_map<GetContractInstanceKey, ContractInstanceHint> contract_instances;
+    unordered_flat_map<GetContractClassKey, ContractClassHint> contract_classes;
+    unordered_flat_map<GetBytecodeCommitmentKey, BytecodeCommitmentHint> bytecode_commitments;
+    unordered_flat_map<GetDebugFunctionNameKey, DebugFunctionNameHint> debug_function_names;
 };
 
 // TODO(MW): Temp struct for hints to allow using a ref in the HintingRawDB class constructor

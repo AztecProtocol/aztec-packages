@@ -27,13 +27,27 @@ class HintingContractsDB final : public ContractDBInterface {
 
     std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
+    std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const override;
+    std::optional<std::string> get_debug_function_name(const AztecAddress& address,
+                                                       const FunctionSelector& selector) const override;
 
-    // TODO(MW): Can rework for just contract hints
+    void add_contracts(const ContractDeploymentData& contract_deployment_data) override;
+
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
+    uint32_t get_checkpoint_id() const override { return db.get_checkpoint_id(); }
+
     void dump_hints(ExecutionHints& hints);
 
   private:
     ContractDBInterface& db;
+    uint32_t checkpoint_action_counter = 0;
+
     mutable MappedContractHints contract_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, ContractDBCreateCheckpointHint> create_checkpoint_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, ContractDBCommitCheckpointHint> commit_checkpoint_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, ContractDBRevertCheckpointHint> revert_checkpoint_hints;
 };
 
 class HintingRawDB final : public LowLevelMerkleDBInterface {

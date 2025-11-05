@@ -125,6 +125,14 @@ class TsCallbackContractDB : public avm2::simulation::ContractDBInterface {
     void revert_checkpoint() override;
 
     /**
+     * @brief Fetches the current checkpoint id
+     *
+     * Required for ContractDBInterface. TypeScript's PublicContractsDB does not use checkpoint ids,
+     * so this is currently a noop.
+     */
+    uint32_t get_checkpoint_id() const override { return 0; };
+
+    /**
      * @brief Releases the thread-safe function handles
      *
      * Must be called before destruction to properly clean up NAPI resources.

@@ -31,17 +31,25 @@ class HintingDBsTest : public ::testing::Test {
             return values;
         };
 
-        unordered_flat_map<AztecAddress, ContractInstanceHint> input_instances;
+        unordered_flat_map<GetContractInstanceKey, ContractInstanceHint> input_instances;
         for (const auto& contract_instance_hint : input_hints.contractInstances) {
-            input_instances[contract_instance_hint.address] = contract_instance_hint;
+            GetContractInstanceKey key = { contract_instance_hint.hintKey, contract_instance_hint.address };
+            input_instances[key] = contract_instance_hint;
         }
-        unordered_flat_map<AztecAddress, ContractClassHint> input_classes;
+        unordered_flat_map<GetContractClassKey, ContractClassHint> input_classes;
         for (const auto& contract_class_hint : input_hints.contractClasses) {
-            input_classes[contract_class_hint.classId] = contract_class_hint;
+            GetContractClassKey key = { contract_class_hint.hintKey, contract_class_hint.classId };
+            input_classes[key] = contract_class_hint;
         }
-        unordered_flat_map<AztecAddress, BytecodeCommitmentHint> input_commitments;
+        unordered_flat_map<GetBytecodeCommitmentKey, BytecodeCommitmentHint> input_commitments;
         for (const auto& bytecode_commitment_hint : input_hints.bytecodeCommitments) {
-            input_commitments[bytecode_commitment_hint.classId] = bytecode_commitment_hint;
+            GetBytecodeCommitmentKey key = { bytecode_commitment_hint.hintKey, bytecode_commitment_hint.classId };
+            input_commitments[key] = bytecode_commitment_hint;
+        }
+        unordered_flat_map<GetDebugFunctionNameKey, DebugFunctionNameHint> debug_function_names;
+        for (const auto& debug_function_name_hint : input_hints.debugFunctionNames) {
+            GetDebugFunctionNameKey key = { debug_function_name_hint.address, debug_function_name_hint.selector };
+            debug_function_names[key] = debug_function_name_hint;
         }
 
         unordered_flat_map<GetSiblingPathKey, GetSiblingPathHint> input_get_sibling_path_hints;
@@ -113,6 +121,21 @@ class HintingDBsTest : public ::testing::Test {
         for (const auto& revert_checkpoint_hint : input_hints.revertCheckpointHints) {
             input_revert_checkpoint_hints[revert_checkpoint_hint.actionCounter] = revert_checkpoint_hint;
         }
+        unordered_flat_map</*action_counter*/ uint32_t, ContractDBCreateCheckpointHint>
+            input_contract_create_checkpoint_hints;
+        for (const auto& create_checkpoint_hint : input_hints.contractDBCreateCheckpointHints) {
+            input_contract_create_checkpoint_hints[create_checkpoint_hint.actionCounter] = create_checkpoint_hint;
+        }
+        unordered_flat_map</*action_counter*/ uint32_t, ContractDBCommitCheckpointHint>
+            input_contract_commit_checkpoint_hints;
+        for (const auto& commit_checkpoint_hint : input_hints.contractDBCommitCheckpointHints) {
+            input_contract_commit_checkpoint_hints[commit_checkpoint_hint.actionCounter] = commit_checkpoint_hint;
+        }
+        unordered_flat_map</*action_counter*/ uint32_t, ContractDBRevertCheckpointHint>
+            input_contract_revert_checkpoint_hints;
+        for (const auto& revert_checkpoint_hint : input_hints.contractDBRevertCheckpointHints) {
+            input_contract_revert_checkpoint_hints[revert_checkpoint_hint.actionCounter] = revert_checkpoint_hint;
+        }
 
         return ExecutionHints{
             .globalVariables = input_hints.globalVariables,
@@ -121,6 +144,7 @@ class HintingDBsTest : public ::testing::Test {
             .contractInstances = hint_values(input_instances),
             .contractClasses = hint_values(input_classes),
             .bytecodeCommitments = hint_values(input_commitments),
+            .debugFunctionNames = hint_values(debug_function_names),
             .startingTreeRoots = input_hints.startingTreeRoots,
             .getSiblingPathHints = hint_values(input_get_sibling_path_hints),
             .getPreviousValueIndexHints = hint_values(input_get_previous_value_index_hints),
@@ -133,6 +157,9 @@ class HintingDBsTest : public ::testing::Test {
             .createCheckpointHints = hint_values(input_create_checkpoint_hints),
             .commitCheckpointHints = hint_values(input_commit_checkpoint_hints),
             .revertCheckpointHints = hint_values(input_revert_checkpoint_hints),
+            .contractDBCreateCheckpointHints = hint_values(input_contract_create_checkpoint_hints),
+            .contractDBCommitCheckpointHints = hint_values(input_contract_commit_checkpoint_hints),
+            .contractDBRevertCheckpointHints = hint_values(input_contract_revert_checkpoint_hints),
         };
     }
 
@@ -141,6 +168,12 @@ class HintingDBsTest : public ::testing::Test {
         compare_hints(input_hints.contractInstances, collected_hints.contractInstances);
         compare_hints(input_hints.contractClasses, collected_hints.contractClasses);
         compare_hints(input_hints.bytecodeCommitments, collected_hints.bytecodeCommitments);
+        // TODO(MW): Behaviour discrepancy for protocol contracts - in ts we call getPublicFunctionDebugName which
+        // collects hints for the external contracts, but in c++ we do not (and proving passes without these hints):
+        // compare_hints(input_hints.debugFunctionNames, collected_hints.debugFunctionNames);
+        compare_hints(input_hints.contractDBCreateCheckpointHints, collected_hints.contractDBCreateCheckpointHints);
+        compare_hints(input_hints.contractDBCommitCheckpointHints, collected_hints.contractDBCommitCheckpointHints);
+        compare_hints(input_hints.contractDBRevertCheckpointHints, collected_hints.contractDBRevertCheckpointHints);
         // TODO(MW): Bulk test inputs collect a single extra sibling path from a storage read c++ does not perform
         // (still proves without this hint):
 

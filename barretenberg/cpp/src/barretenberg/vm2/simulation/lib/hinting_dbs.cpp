@@ -43,14 +43,15 @@ std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const 
     // If we don't find the instance hint, this is not a catastrophic failure. The inner db should handle it, and
     // here we simply don't store any hint:
     if (instance.has_value()) {
-        // TODO(MW): Use/write instance to hint methods for ContractInstance, PublicKeys, ContractClass, etc.
-        contract_hints.contract_instances[address] = ContractInstanceHint{
+        GetContractInstanceKey key = { checkpoint_action_counter, address };
+        contract_hints.contract_instances[key] = ContractInstanceHint{
+            .hintKey = checkpoint_action_counter,
             .address = address,
             .salt = instance->salt,
-            .deployer = instance->deployer_addr,
-            .currentContractClassId = instance->current_class_id,
-            .originalContractClassId = instance->original_class_id,
-            .initializationHash = instance->initialisation_hash,
+            .deployer = instance->deployer,
+            .currentContractClassId = instance->current_contract_class_id,
+            .originalContractClassId = instance->original_contract_class_id,
+            .initializationHash = instance->initialization_hash,
             .publicKeys = PublicKeysHint{ .masterNullifierPublicKey = instance->public_keys.nullifier_key,
                                           .masterIncomingViewingPublicKey = instance->public_keys.incoming_viewing_key,
                                           .masterOutgoingViewingPublicKey = instance->public_keys.outgoing_viewing_key,
@@ -68,20 +69,98 @@ std::optional<ContractClass> HintingContractsDB::get_contract_class(const Contra
     // If we don't find the instance hint, this is not a catastrophic failure. The inner db should handle it, and
     // here we simply don't store any hint:
     if (klass.has_value()) {
-        // TODO(MW): Use/write instance to hint methods for ContractInstance, PublicKeys, ContractClass, etc.
-        contract_hints.contract_classes[class_id] = ContractClassHint{
+        GetContractClassKey key = { checkpoint_action_counter, class_id };
+        contract_hints.contract_classes[key] = ContractClassHint{
+            .hintKey = checkpoint_action_counter,
             .classId = class_id,
             .artifactHash = klass->artifact_hash,
-            .privateFunctionsRoot = klass->private_function_root,
+            .privateFunctionsRoot = klass->private_functions_root,
             .packedBytecode = klass->packed_bytecode,
         };
-        // Note: HintedRawContractDB accesses the bytecode commitment 'hint' during get_contract_class, so following
-        // same logic here:
-        contract_hints.bytecode_commitments[class_id] =
-            BytecodeCommitmentHint{ .classId = class_id, .commitment = klass->public_bytecode_commitment };
     }
 
     return klass;
+}
+
+std::optional<FF> HintingContractsDB::get_bytecode_commitment(const ContractClassId& class_id) const
+{
+    auto commitment = db.get_bytecode_commitment(class_id);
+    if (commitment.has_value()) {
+        GetBytecodeCommitmentKey key = { checkpoint_action_counter, class_id };
+        contract_hints.bytecode_commitments[key] = BytecodeCommitmentHint{ .hintKey = checkpoint_action_counter,
+                                                                           .classId = class_id,
+                                                                           .commitment = commitment.value() };
+    }
+
+    return commitment;
+}
+
+std::optional<std::string> HintingContractsDB::get_debug_function_name(const AztecAddress& address,
+                                                                       const FunctionSelector& selector) const
+{
+    auto name = db.get_debug_function_name(address, selector);
+    if (name.has_value()) {
+        GetDebugFunctionNameKey key = { address, selector };
+        contract_hints.debug_function_names[key] =
+            DebugFunctionNameHint{ .address = address, .selector = selector, .name = name.value() };
+    }
+
+    return name;
+}
+
+void HintingContractsDB::add_contracts(const ContractDeploymentData& contract_deployment_data)
+{
+    // Adding contracts does not require any hints:
+    db.add_contracts(contract_deployment_data);
+}
+
+void HintingContractsDB::create_checkpoint()
+{
+    auto old_checkpoint_id = db.get_checkpoint_id();
+    // Update underlying db:
+    db.create_checkpoint();
+
+    // Store hint:
+    create_checkpoint_hints[checkpoint_action_counter] = {
+        .actionCounter = checkpoint_action_counter,
+        .oldCheckpointId = old_checkpoint_id,
+        .newCheckpointId = db.get_checkpoint_id(),
+    };
+
+    // Update this db:
+    checkpoint_action_counter++;
+}
+
+void HintingContractsDB::commit_checkpoint()
+{
+    auto old_checkpoint_id = db.get_checkpoint_id();
+    // Update underlying db:
+    db.commit_checkpoint();
+    // Store hint:
+    commit_checkpoint_hints[checkpoint_action_counter] = {
+        .actionCounter = checkpoint_action_counter,
+        .oldCheckpointId = old_checkpoint_id,
+        .newCheckpointId = db.get_checkpoint_id(),
+    };
+
+    // Update this db:
+    checkpoint_action_counter++;
+}
+
+void HintingContractsDB::revert_checkpoint()
+{
+    auto old_checkpoint_id = db.get_checkpoint_id();
+    // Update underlying db:
+    db.revert_checkpoint();
+    // Store hint:
+    revert_checkpoint_hints[checkpoint_action_counter] = {
+        .actionCounter = checkpoint_action_counter,
+        .oldCheckpointId = old_checkpoint_id,
+        .newCheckpointId = db.get_checkpoint_id(),
+    };
+
+    // Update this db:
+    checkpoint_action_counter++;
 }
 
 void HintingContractsDB::dump_hints(ExecutionHints& hints)
@@ -97,6 +176,25 @@ void HintingContractsDB::dump_hints(ExecutionHints& hints)
     std::ranges::transform(contract_hints.bytecode_commitments,
                            std::back_inserter(hints.bytecodeCommitments),
                            [](const auto& mapped_bytecode_commitment) { return mapped_bytecode_commitment.second; });
+
+    std::ranges::transform(contract_hints.debug_function_names,
+                           std::back_inserter(hints.debugFunctionNames),
+                           [](const auto& mapped_debug_function_name) { return mapped_debug_function_name.second; });
+
+    std::ranges::transform(
+        create_checkpoint_hints,
+        std::back_inserter(hints.contractDBCreateCheckpointHints),
+        [](const auto& mapped_create_checkpoint_hint) { return mapped_create_checkpoint_hint.second; });
+
+    std::ranges::transform(
+        commit_checkpoint_hints,
+        std::back_inserter(hints.contractDBCommitCheckpointHints),
+        [](const auto& mapped_commit_checkpoint_hint) { return mapped_commit_checkpoint_hint.second; });
+
+    std::ranges::transform(
+        revert_checkpoint_hints,
+        std::back_inserter(hints.contractDBRevertCheckpointHints),
+        [](const auto& mapped_revert_checkpoint_hint) { return mapped_revert_checkpoint_hint.second; });
 }
 
 // Hinting MerkleDB starts.
