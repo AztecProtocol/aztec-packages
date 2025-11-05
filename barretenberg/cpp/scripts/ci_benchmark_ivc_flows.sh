@@ -143,9 +143,9 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
     # Run in foreground to catch any errors
     gh auth setup-git &>/dev/null || true
 
-    # Clone gh-pages once (not shallow, we need full history for rebase)
+    # Clone gh-pages once (shallow clone for speed)
     rm -rf "/tmp/gh-pages-$$" 2>/dev/null || true
-    if ! git clone --branch gh-pages "$(git config --get remote.origin.url)" /tmp/gh-pages-$$; then
+    if ! git clone --depth 1 --branch gh-pages "$(git config --get remote.origin.url)" /tmp/gh-pages-$$; then
       echo "Failed to clone gh-pages, skipping upload"
     else
       cd "/tmp/gh-pages-$$"
