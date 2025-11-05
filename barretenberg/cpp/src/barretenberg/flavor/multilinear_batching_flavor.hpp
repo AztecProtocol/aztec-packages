@@ -70,14 +70,26 @@ class MultilinearBatchingFlavor {
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = false;
 
+    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
+    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
+
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS()
+    {
+        return /*accumulator commitments*/ (NUM_WITNESS_ENTITIES / 2 * num_frs_comm) +
+               /*multivariate challenges*/ (VIRTUAL_LOG_N * num_frs_fr) +
+               /*witness evaluations*/ (NUM_WITNESS_ENTITIES / 2 * num_frs_fr) +
+               /*sumcheck univariates*/ (VIRTUAL_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
+               /*sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr);
+    }
+
     // WireEntities for basic witness entities
     template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_non_shifted_accumulator, // column 0
                               w_non_shifted_instance,    // column 1
-                              w_evaluations_accumulator, // column 2
-                              w_evaluations_instance);   // column 3
+                              w_evaluations_accumulator, // column 2, eq(Sumcheck::alpha, accumulator_challenge)
+                              w_evaluations_instance);   // column 3, eq(Sumcheck::alpha, instance_challenge)
     };
 
     /**
@@ -90,8 +102,8 @@ class MultilinearBatchingFlavor {
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_non_shifted_accumulator, // column 0
                               w_non_shifted_instance,    // column 1
-                              w_evaluations_accumulator, // column 2
-                              w_evaluations_instance);   // column 3
+                              w_evaluations_accumulator, // column 2, eq(Sumcheck::alpha, accumulator_challenge)
+                              w_evaluations_instance);   // column 3, eq(Sumcheck::alpha, instance_challenge)
 
         MSGPACK_FIELDS(this->w_non_shifted_accumulator,
                        this->w_non_shifted_instance,
