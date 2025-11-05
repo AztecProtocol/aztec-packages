@@ -33,7 +33,7 @@ endef
 # project-path: Path to the project directory
 # function-name: Optional bootstrap.sh command (defaults to $(BUILD_MODE))
 define build
-	$(call run_command,$(1),$(ROOT)/$(2),$(ROOT)/ci3/denoise './bootstrap.sh $(3))')
+	$(call run_command,$(1),$(ROOT)/$(2),$(ROOT)/ci3/denoise './bootstrap.sh $(3)')
 endef
 
 # Collects the test commands from the given project
