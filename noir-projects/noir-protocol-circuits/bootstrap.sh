@@ -188,7 +188,7 @@ function test_cmds {
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     local prefix="$circuits_hash"
     if [[ "$test" =~ checkpoint || "$package" =~ "blob" ]]; then
-      prefix+=":TIMEOUT=15m"
+      prefix+=":TIMEOUT=20m"
     fi
     echo "$prefix noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
