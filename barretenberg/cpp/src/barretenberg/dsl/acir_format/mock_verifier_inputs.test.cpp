@@ -2,7 +2,14 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/honk/types/public_inputs_type.hpp"
 #include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
@@ -31,6 +38,9 @@ TYPED_TEST_SUITE(MockVerifierInputsTest, FlavorTypes);
  */
 TEST(MockVerifierInputsTest, MockMergeProofSize)
 {
+    size_t CURRENT_MERGE_PROOF_SIZE = 42;
+    EXPECT_EQ(CURRENT_MERGE_PROOF_SIZE, MERGE_PROOF_SIZE) << "The length of the Merge proof changed.";
+
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
     EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
 }
@@ -40,6 +50,10 @@ TEST(MockVerifierInputsTest, MockMergeProofSize)
  */
 TEST(MockVerifierInputsTest, MockPreIpaProofSize)
 {
+    size_t CURRENT_PRE_IPA_PROOF_SIZE = 616;
+    EXPECT_EQ(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH, CURRENT_PRE_IPA_PROOF_SIZE)
+        << "The length of the Pre-IPA proof changed.";
+
     HonkProof pre_ipa_proof = create_mock_pre_ipa_proof();
     EXPECT_EQ(pre_ipa_proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
 }
@@ -49,6 +63,9 @@ TEST(MockVerifierInputsTest, MockPreIpaProofSize)
  */
 TEST(MockVerifierInputsTest, MockIPAProofSize)
 {
+    size_t CURRENT_IPA_PROOF_SIZE = 68;
+    EXPECT_EQ(IPA_PROOF_LENGTH, CURRENT_IPA_PROOF_SIZE) << "The length of the IPA proof changed.";
+
     HonkProof ipa_proof = create_mock_ipa_proof();
     EXPECT_EQ(ipa_proof.size(), IPA_PROOF_LENGTH);
 }
@@ -58,6 +75,10 @@ TEST(MockVerifierInputsTest, MockIPAProofSize)
  */
 TEST(MockVerifierInputsTest, MockTranslatorProofSize)
 {
+    size_t CURRENT_TRANSLATOR_PROOF_SIZE = 818;
+    EXPECT_EQ(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS, CURRENT_TRANSLATOR_PROOF_SIZE)
+        << "The length of the Translator proof changed.";
+
     HonkProof translator_proof = create_mock_translator_proof();
     EXPECT_EQ(translator_proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 }
@@ -70,6 +91,10 @@ TEST(MockVerifierInputsTest, MockMegaOinkProofSize)
 {
     using Flavor = MegaFlavor;
     using Builder = MegaCircuitBuilder;
+
+    size_t CURRENT_OINK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 96;
+    EXPECT_EQ(Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS, CURRENT_OINK_PROOF_SIZE_WITHOUT_PUB_INPUTS)
+        << "The length of the Mega Oink proof changed.";
 
     {
         // AppIO
@@ -106,6 +131,10 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraOinkProofSize)
                                   stdlib::recursion::honk::DefaultIO<Builder>>;
 
     if (!std::is_same_v<Flavor, MegaFlavor>) {
+        size_t CURRENT_OINK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 32;
+        EXPECT_EQ(Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS, CURRENT_OINK_PROOF_SIZE_WITHOUT_PUB_INPUTS)
+            << "The length of the Ultra Oink proof changed.";
+
         const size_t NUM_PUBLIC_INPUTS = IO::PUBLIC_INPUTS_SIZE;
         HonkProof honk_proof = create_mock_oink_proof<Flavor, IO>();
         EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
@@ -123,6 +152,10 @@ TYPED_TEST(MockVerifierInputsTest, MockDeciderProofSize)
     using Flavor = TypeParam;
 
     if (!std::is_same_v<Flavor, UltraZKFlavor>) {
+        size_t CURRENT_DECIDER_ULTRAZK_PROOF_SIZE = IsMegaFlavor<Flavor> ? 337 : 409;
+        EXPECT_EQ(Flavor::DECIDER_PROOF_LENGTH(), CURRENT_DECIDER_ULTRAZK_PROOF_SIZE)
+            << "The length of the Decider UltraZK proof changed.";
+
         HonkProof honk_proof = create_mock_decider_proof<Flavor>();
         EXPECT_EQ(honk_proof.size(), Flavor::DECIDER_PROOF_LENGTH());
     } else {
@@ -138,6 +171,12 @@ TEST(MockVerifierInputsTest, MockMegaHonkProofSize)
 {
     using Flavor = MegaFlavor;
     using Builder = MegaCircuitBuilder;
+
+    // If this value changes, we need to update the corresponding constants in noir and in yarn-project. Also, we need
+    // to update the Prover.toml file for rollup-tx-private to reflect the new length of the MegaHonk proof.
+    size_t CURRENT_MEGA_PROOF_SIZE_WITHOUT_PUB_INPUTS = 433;
+    EXPECT_EQ(Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(), CURRENT_MEGA_PROOF_SIZE_WITHOUT_PUB_INPUTS)
+        << "The length of the Mega Honk proof changed.";
 
     {
         // AppIO
@@ -174,9 +213,21 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
                                   stdlib::recursion::honk::DefaultIO<Builder>>;
 
     if (!std::is_same_v<Flavor, MegaFlavor>) {
+        // If this value changes, we need to update the corresponding constants in noir and in yarn-project. Also, we
+        // need to update the relevant Prover.toml files to reflect the new length of the Ultra Honk proof.
+        size_t CURRENT_ULTRA_HONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 0;
+        if constexpr (std::is_same_v<Flavor, UltraFlavor>) {
+            CURRENT_ULTRA_HONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 441;
+        } else if constexpr (std::is_same_v<Flavor, UltraRollupFlavor>) {
+            CURRENT_ULTRA_HONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 509;
+        } else if constexpr (std::is_same_v<Flavor, UltraZKFlavor>) {
+            CURRENT_ULTRA_HONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 492;
+        }
         const size_t NUM_PUBLIC_INPUTS = IO::PUBLIC_INPUTS_SIZE;
         HonkProof honk_proof = create_mock_honk_proof<Flavor, IO>();
         EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + NUM_PUBLIC_INPUTS);
+        EXPECT_EQ(Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(), CURRENT_ULTRA_HONK_PROOF_SIZE_WITHOUT_PUB_INPUTS)
+            << "The length of the Ultra Honk proof changed.";
     } else {
         GTEST_SKIP();
     }
@@ -190,6 +241,25 @@ TEST(MockVerifierInputsTest, MockChonkProofSize)
 {
     using Builder = MegaCircuitBuilder;
 
+    // If this value changes, we need to update the corresponding constants in noir and in yarn-project. Also, we need
+    // to update the Prover.toml file for rollup-tx-private to reflect the new length of the Chonk proof.
+    size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 2021;
     HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
     EXPECT_EQ(chonk_proof.size(), Chonk::Proof::PROOF_LENGTH());
+    EXPECT_EQ(chonk_proof.size(),
+              CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS +
+                  stdlib::recursion::honk::HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE)
+        << "The length of the Chonk proof changed.";
+}
+
+/**
+ * @brief Check that the size of a mock MultiLinearBatching proof matches expectation
+ */
+TEST(MockVerifierInputsTest, MockMultilinearBatchingProofSize)
+{
+    size_t CURRENT_MULTILINEAR_BATCHING_PROOF_SIZE_WITHOUT_PUB_INPUTS = 121;
+    HonkProof batching_proof = create_mock_multilinear_batch_proof();
+    EXPECT_EQ(batching_proof.size(), MultilinearBatchingFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
+    EXPECT_EQ(batching_proof.size(), CURRENT_MULTILINEAR_BATCHING_PROOF_SIZE_WITHOUT_PUB_INPUTS)
+        << "The length of the MultiLinearBatching proof changed.";
 }
