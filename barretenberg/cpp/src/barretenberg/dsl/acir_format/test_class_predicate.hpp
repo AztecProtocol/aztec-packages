@@ -111,26 +111,22 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
     static void update_witness_based_on_predicate(AcirConstraint& constraint,
                                                   WitnessVector& witness_values,
                                                   const Predicate<InvalidWitnessTarget>& mode,
-                                                  const bool forced_invalidation = false)
+                                                  [[maybe_unused]] const bool forced_invalidation = false)
     {
         switch (mode.test_case) {
         case PredicateTestCase::ConstantTrue:
             constraint.predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr(1));
             witness_values.pop_back();
-            // Invalidate witnesses based on the target
-            Base::invalidate_witness(constraint, witness_values, mode.invalid_witness);
             break;
         case PredicateTestCase::WitnessTrue:
-            // Invalidate based on invalid_witness target
-            // In forced mode: invalidate target even though predicate is true (for test_witness_false_slow validation)
-            if (forced_invalidation || mode.invalid_witness != InvalidWitnessTarget::None) {
-                Base::invalidate_witness(constraint, witness_values, mode.invalid_witness);
-            }
+            // Nothing to do - keep default witness predicate
             break;
         case PredicateTestCase::WitnessFalse:
             witness_values[constraint.predicate.index] = bb::fr(0);
-            Base::invalidate_witness(constraint, witness_values, mode.invalid_witness);
+            break;
         }
+        // Apply witness invalidation for all cases
+        Base::invalidate_witness(constraint, witness_values, mode.invalid_witness);
     }
 
     /**
