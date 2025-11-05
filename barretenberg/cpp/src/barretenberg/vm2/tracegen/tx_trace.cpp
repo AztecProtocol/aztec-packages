@@ -4,7 +4,6 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx.hpp"
-// #include "barretenberg/vm2/generated/relations/lookups_tx_context.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx_context.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
@@ -166,38 +165,26 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
           next_state.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
 
         // Prev sideffect state
-        { Column::tx_prev_num_unencrypted_log_fields, prev_state.side_effect_states.numUnencryptedLogFields },
-        { Column::tx_prev_num_l2_to_l1_messages, prev_state.side_effect_states.numL2ToL1Messages },
+        { Column::tx_prev_num_unencrypted_log_fields, prev_state.numUnencryptedLogFields },
+        { Column::tx_prev_num_l2_to_l1_messages, prev_state.numL2ToL1Messages },
 
         // Next sideffect state
-        { Column::tx_next_num_unencrypted_log_fields, next_state.side_effect_states.numUnencryptedLogFields },
-        { Column::tx_next_num_l2_to_l1_messages, next_state.side_effect_states.numL2ToL1Messages },
+        { Column::tx_next_num_unencrypted_log_fields, next_state.numUnencryptedLogFields },
+        { Column::tx_next_num_l2_to_l1_messages, next_state.numL2ToL1Messages },
 
         // Execution context
         { Column::tx_next_context_id, prev_state.next_context_id },
     };
 }
 
-std::vector<std::pair<Column, FF>> insert_side_effect_states(const SideEffectStates& prev_side_effect_states,
-                                                             const SideEffectStates& next_side_effect_states)
+std::vector<std::pair<Column, FF>> insert_side_effect_states(const TxContextEvent& prev_state,
+                                                             const TxContextEvent& next_state)
 {
     return {
-        {
-            Column::tx_prev_num_unencrypted_log_fields,
-            prev_side_effect_states.numUnencryptedLogFields,
-        },
-        {
-            Column::tx_prev_num_l2_to_l1_messages,
-            prev_side_effect_states.numL2ToL1Messages,
-        },
-        {
-            Column::tx_next_num_unencrypted_log_fields,
-            next_side_effect_states.numUnencryptedLogFields,
-        },
-        {
-            Column::tx_next_num_l2_to_l1_messages,
-            next_side_effect_states.numL2ToL1Messages,
-        },
+        { Column::tx_prev_num_unencrypted_log_fields, prev_state.numUnencryptedLogFields },
+        { Column::tx_prev_num_l2_to_l1_messages, prev_state.numL2ToL1Messages },
+        { Column::tx_next_num_unencrypted_log_fields, next_state.numUnencryptedLogFields },
+        { Column::tx_next_num_l2_to_l1_messages, next_state.numL2ToL1Messages },
     };
 }
 
@@ -322,7 +309,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
                                                           const TxContextEvent& state_before,
                                                           bool reverted)
 {
-    uint32_t remaining_l2_to_l1_msgs = MAX_L2_TO_L1_MSGS_PER_TX - state_before.side_effect_states.numL2ToL1Messages;
+    uint32_t remaining_l2_to_l1_msgs = MAX_L2_TO_L1_MSGS_PER_TX - state_before.numL2ToL1Messages;
     return {
         { Column::tx_sel_revertible_append_l2_l1_msg, phase == TransactionPhase::R_L2_TO_L1_MESSAGE },
         { Column::tx_sel_non_revertible_append_l2_l1_msg, phase == TransactionPhase::NR_L2_TO_L1_MESSAGE },
@@ -333,8 +320,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
         { Column::tx_l2_l1_msg_recipient, event.scoped_msg.message.recipient },
         { Column::tx_l2_l1_msg_content, event.scoped_msg.message.content },
         { Column::tx_write_pi_offset,
-          AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
-              state_before.side_effect_states.numL2ToL1Messages },
+          AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + state_before.numL2ToL1Messages },
         // Selectors
         { Column::tx_reverted, reverted ? 1 : 0 },
     };
@@ -613,9 +599,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
             // We always set the tree state
             trace.set(row, insert_state(tx_phase_event->state_before, tx_phase_event->state_after));
-            trace.set(row,
-                      insert_side_effect_states(tx_phase_event->state_before.side_effect_states,
-                                                tx_phase_event->state_after.side_effect_states));
+            trace.set(row, insert_side_effect_states(tx_phase_event->state_before, tx_phase_event->state_after));
             trace.set(
                 row,
                 { {

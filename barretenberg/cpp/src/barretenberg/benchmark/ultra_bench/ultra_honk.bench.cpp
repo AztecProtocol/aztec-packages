@@ -27,6 +27,16 @@ static void construct_proof_ultrahonk_power_of_2(State& state) noexcept
         state, &bb::mock_circuits::generate_basic_arithmetic_circuit<UltraCircuitBuilder>, log2_of_gates);
 }
 
+/**
+ * @brief Benchmark: Construction of a Ultra Honk ZK proof with 2**n gates
+ */
+static void construct_proof_ultrahonk_zk_power_of_2(State& state) noexcept
+{
+    auto log2_of_gates = static_cast<size_t>(state.range(0));
+    bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraZKProver>(
+        state, &bb::mock_circuits::generate_basic_arithmetic_circuit<UltraCircuitBuilder>, log2_of_gates);
+}
+
 // Define benchmarks
 BENCHMARK_CAPTURE(construct_proof_ultrahonk, sha256, &generate_sha256_test_circuit<UltraCircuitBuilder>)
     ->Unit(kMillisecond);
@@ -38,6 +48,11 @@ BENCHMARK_CAPTURE(construct_proof_ultrahonk,
     ->Unit(kMillisecond);
 
 BENCHMARK(construct_proof_ultrahonk_power_of_2)
+    // 2**15 gates to 2**20 gates
+    ->DenseRange(15, 20)
+    ->Unit(kMillisecond);
+
+BENCHMARK(construct_proof_ultrahonk_zk_power_of_2)
     // 2**15 gates to 2**20 gates
     ->DenseRange(15, 20)
     ->Unit(kMillisecond);

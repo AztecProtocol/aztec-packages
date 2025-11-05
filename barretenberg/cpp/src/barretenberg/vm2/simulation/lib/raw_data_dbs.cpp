@@ -77,44 +77,58 @@ HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
           "\n * contractClasses: ",
           hints.contractClasses.size(),
           "\n * bytecodeCommitments: ",
-          hints.bytecodeCommitments.size());
+          hints.bytecodeCommitments.size(),
+          "\n * debugFunctionNames: ",
+          hints.debugFunctionNames.size());
 
     for (const auto& contract_instance_hint : hints.contractInstances) {
-        // TODO(fcarreiro): We are currently generating duplicates in TS.
-        // assert(!contract_instances.contains(contract_instance_hint.address));
-        contract_instances[contract_instance_hint.address] = contract_instance_hint;
+        contract_instances[std::make_tuple(contract_instance_hint.hintKey, contract_instance_hint.address)] =
+            contract_instance_hint;
     }
 
     for (const auto& contract_class_hint : hints.contractClasses) {
-        // TODO(fcarreiro): We are currently generating duplicates in TS.
-        // assert(!contract_classes.contains(contract_class_hint.classId));
-        contract_classes[contract_class_hint.classId] = contract_class_hint;
+        contract_classes[std::make_tuple(contract_class_hint.hintKey, contract_class_hint.classId)] =
+            contract_class_hint;
     }
 
     for (const auto& bytecode_commitment_hint : hints.bytecodeCommitments) {
-        // TODO(fcarreiro): We are currently generating duplicates in TS.
-        // assert(!bytecode_commitments.contains(bytecode_commitment_hint.classId));
-        bytecode_commitments[bytecode_commitment_hint.classId] = bytecode_commitment_hint.commitment;
+        bytecode_commitments[std::make_tuple(bytecode_commitment_hint.hintKey, bytecode_commitment_hint.classId)] =
+            bytecode_commitment_hint.commitment;
+    }
+
+    for (const auto& debug_function_name_hint : hints.debugFunctionNames) {
+        debug_function_names[std::make_pair(debug_function_name_hint.address, debug_function_name_hint.selector)] =
+            debug_function_name_hint.name;
+    }
+
+    for (const auto& hint : hints.contractDBCreateCheckpointHints) {
+        create_checkpoint_hints[hint.actionCounter] = hint;
+    }
+    for (const auto& hint : hints.contractDBCommitCheckpointHints) {
+        commit_checkpoint_hints[hint.actionCounter] = hint;
+    }
+    for (const auto& hint : hints.contractDBRevertCheckpointHints) {
+        revert_checkpoint_hints[hint.actionCounter] = hint;
     }
 }
 
 std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const AztecAddress& address) const
 {
-    auto it = contract_instances.find(address);
-    // If we don't find the instance hint, this is not a catastrohic failure. It means that on the TS side,
-    // the instance was also not found, and should be handled.
+    uint32_t hint_key = action_counter;
+    auto key = std::make_tuple(hint_key, address);
+    auto it = contract_instances.find(key);
     if (it == contract_instances.end()) {
-        vinfo("Contract instance not found: ", address);
+        vinfo("Contract instance not found for key (", hint_key, ", ", address, ")");
         return std::nullopt;
     }
     const auto& contract_instance_hint = it->second;
 
     return std::make_optional<ContractInstance>({
         .salt = contract_instance_hint.salt,
-        .deployer_addr = contract_instance_hint.deployer,
-        .current_class_id = contract_instance_hint.currentContractClassId,
-        .original_class_id = contract_instance_hint.originalContractClassId,
-        .initialisation_hash = contract_instance_hint.initializationHash,
+        .deployer = contract_instance_hint.deployer,
+        .current_contract_class_id = contract_instance_hint.currentContractClassId,
+        .original_contract_class_id = contract_instance_hint.originalContractClassId,
+        .initialization_hash = contract_instance_hint.initializationHash,
         .public_keys =
             PublicKeys{
                 .nullifier_key = contract_instance_hint.publicKeys.masterNullifierPublicKey,
@@ -127,28 +141,93 @@ std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const
 
 std::optional<ContractClass> HintedRawContractDB::get_contract_class(const ContractClassId& class_id) const
 {
-    auto it = contract_classes.find(class_id);
-    // If we don't find the class hint, this is not a catastrohic failure. It means that on the TS side,
-    // the class was also not found, and should be handled.
+    uint32_t hint_key = action_counter;
+    auto key = std::make_tuple(hint_key, class_id);
+    auto it = contract_classes.find(key);
     if (it == contract_classes.end()) {
-        vinfo("Contract class not found: ", class_id);
+        vinfo("Contract class not found for key (", hint_key, ", ", class_id, ")");
         return std::nullopt;
     }
     const auto& contract_class_hint = it->second;
 
     return std::make_optional<ContractClass>({
+        .id = class_id,
         .artifact_hash = contract_class_hint.artifactHash,
-        .private_function_root = contract_class_hint.privateFunctionsRoot,
-        // We choose to embed the bytecode commitment in the contract class.
-        .public_bytecode_commitment = get_bytecode_commitment(class_id),
+        .private_functions_root = contract_class_hint.privateFunctionsRoot,
         .packed_bytecode = contract_class_hint.packedBytecode,
     });
 }
 
-FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+std::optional<FF> HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
 {
-    assert(bytecode_commitments.contains(class_id));
-    return bytecode_commitments.at(class_id);
+    uint32_t hint_key = action_counter;
+    auto key = std::make_tuple(hint_key, class_id);
+    auto it = bytecode_commitments.find(key);
+    if (it == bytecode_commitments.end()) {
+        vinfo("Bytecode commitment not found for key (", hint_key, ", ", class_id, ")");
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+std::optional<std::string> HintedRawContractDB::get_debug_function_name(const AztecAddress& address,
+                                                                        const FunctionSelector& selector) const
+{
+    auto it = debug_function_names.find(std::make_pair(address, selector));
+    if (it != debug_function_names.end()) {
+        return it->second;
+    }
+    return std::nullopt;
+}
+
+void HintedRawContractDB::add_contracts([[maybe_unused]] const ContractDeploymentData& contract_deployment_data)
+{
+    debug("add_contracts called (no-op in hinted mode)");
+}
+
+void HintedRawContractDB::create_checkpoint()
+{
+    auto hint_it = create_checkpoint_hints.find(action_counter);
+    assert(hint_it != create_checkpoint_hints.end());
+
+    const auto& hint = hint_it->second;
+    assert(hint.oldCheckpointId == checkpoint_stack.top());
+
+    checkpoint_stack.push(hint.newCheckpointId);
+    action_counter++;
+}
+
+void HintedRawContractDB::commit_checkpoint()
+{
+    auto hint_it = commit_checkpoint_hints.find(action_counter);
+    assert(hint_it != commit_checkpoint_hints.end());
+
+    const auto& hint = hint_it->second;
+    assert(hint.oldCheckpointId == checkpoint_stack.top());
+
+    checkpoint_stack.pop();
+    assert(hint.newCheckpointId == checkpoint_stack.top());
+    action_counter++;
+    (void)hint;
+}
+
+void HintedRawContractDB::revert_checkpoint()
+{
+    auto hint_it = revert_checkpoint_hints.find(action_counter);
+    assert(hint_it != revert_checkpoint_hints.end());
+
+    const auto& hint = hint_it->second;
+    assert(hint.oldCheckpointId == checkpoint_stack.top());
+
+    checkpoint_stack.pop();
+    assert(hint.newCheckpointId == checkpoint_stack.top());
+    action_counter++;
+    (void)hint;
+}
+
+uint32_t HintedRawContractDB::get_checkpoint_id() const
+{
+    return checkpoint_stack.top();
 }
 
 // Hinted MerkleDB starts.

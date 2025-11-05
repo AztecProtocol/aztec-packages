@@ -110,14 +110,14 @@ export interface L2BlockSource {
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
 
   /**
-   * Returns the current L2 slot number based on the current L1 timestamp.
+   * Returns the current L2 slot number based on the currently synced L1 timestamp.
    */
-  getL2SlotNumber(): Promise<bigint>;
+  getL2SlotNumber(): Promise<bigint | undefined>;
 
   /**
-   * Returns the current L2 epoch number based on the current L1 timestamp.
+   * Returns the current L2 epoch number based on the currently synced L1 timestamp.
    */
-  getL2EpochNumber(): Promise<bigint>;
+  getL2EpochNumber(): Promise<bigint | undefined>;
 
   /**
    * Returns all blocks for a given epoch.
@@ -153,7 +153,7 @@ export interface L2BlockSource {
   getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }>;
 
   /** Latest synced L1 timestamp. */
-  getL1Timestamp(): Promise<bigint>;
+  getL1Timestamp(): Promise<bigint | undefined>;
 
   /**
    * Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect).

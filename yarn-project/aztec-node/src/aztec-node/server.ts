@@ -277,7 +277,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const archiver = await createArchiver(
       config,
       { blobSinkClient, epochCache, telemetry, dateProvider },
-      { blockUntilSync: true },
+      { blockUntilSync: !config.skipArchiverInitialSync },
     );
 
     // now create the merkle trees and the world state synchronizer
@@ -365,12 +365,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await p2pClient.start();
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    if (validatorsSentinel) {
-      // we can run a sentinel without trying to slash.
-      await validatorsSentinel.start();
-      if (config.slashInactivityPenalty > 0n) {
-        watchers.push(validatorsSentinel);
-      }
+    if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
+      watchers.push(validatorsSentinel);
     }
 
     let epochPruneWatcher: EpochPruneWatcher | undefined;
@@ -383,7 +379,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         blockBuilder,
         config,
       );
-      await epochPruneWatcher.start();
       watchers.push(epochPruneWatcher);
     }
 
@@ -391,16 +386,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
     if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
       attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
-      await attestationsBlockWatcher.start();
       watchers.push(attestationsBlockWatcher);
     }
 
-    log.verbose(`All Aztec Node subsystems synced`);
+    // Start p2p-related services once the archiver has completed sync
+    void archiver
+      .waitForInitialSync()
+      .then(async () => {
+        await p2pClient.start();
+        await validatorsSentinel?.start();
+        await epochPruneWatcher?.start();
+        await attestationsBlockWatcher?.start();
+        log.info(`All p2p services started`);
+      })
+      .catch(err => log.error('Failed to start p2p services after archiver sync', err));
 
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     let slasherClient: SlasherClientInterface | undefined;
-
     if (!config.disableValidator) {
       // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
       // as they are executed when the node is selected as proposer.
@@ -427,9 +430,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
       );
 
+      // Create and start the sequencer client
       sequencer = await SequencerClient.new(config, {
-        // if deps were provided, they should override the defaults,
-        // or things that we created in this function
         ...deps,
         epochCache,
         l1TxUtils,
@@ -1251,32 +1253,39 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We break support for archiver running remotely to the node
     const archiver = this.blockSource as Archiver;
     if (!('backupTo' in archiver)) {
+      this.metrics.recordSnapshotError();
       throw new Error('Archiver implementation does not support backups. Cannot generate snapshot.');
     }
 
     // Test that the archiver has done an initial sync.
     if (!archiver.isInitialSyncComplete()) {
+      this.metrics.recordSnapshotError();
       throw new Error(`Archiver initial sync not complete. Cannot start snapshot.`);
     }
 
     // And it has an L2 block hash
     const l2BlockHash = await archiver.getL2Tips().then(tips => tips.latest.hash);
     if (!l2BlockHash) {
+      this.metrics.recordSnapshotError();
       throw new Error(`Archiver has no latest L2 block hash downloaded. Cannot start snapshot.`);
     }
 
     if (this.isUploadingSnapshot) {
+      this.metrics.recordSnapshotError();
       throw new Error(`Snapshot upload already in progress. Cannot start another one until complete.`);
     }
 
     // Do not wait for the upload to be complete to return to the caller, but flag that an operation is in progress
     this.isUploadingSnapshot = true;
+    const timer = new Timer();
     void uploadSnapshot(location, this.blockSource as Archiver, this.worldStateSynchronizer, this.config, this.log)
       .then(() => {
         this.isUploadingSnapshot = false;
+        this.metrics.recordSnapshot(timer.ms());
       })
       .catch(err => {
         this.isUploadingSnapshot = false;
+        this.metrics.recordSnapshotError();
         this.log.error(`Error uploading snapshot: ${err}`);
       });
 

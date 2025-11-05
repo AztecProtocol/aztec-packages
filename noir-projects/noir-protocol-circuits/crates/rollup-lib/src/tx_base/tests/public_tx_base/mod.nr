@@ -2,10 +2,10 @@ mod child_proof_vk_tests;
 mod end_blob_sponge_tests;
 mod out_hash_tests;
 mod validate_private_tail_to_public_tests;
-mod validate_public_tube_against_avm_tests;
+mod validate_public_chonk_verifier_against_avm_tests;
 
 use crate::{
-    abis::{PublicTubePublicInputs, TxRollupPublicInputs},
+    abis::{PublicChonkVerifierPublicInputs, TxRollupPublicInputs},
     tests::RollupFixtureBuilder,
     tx_base::public_tx_base_rollup_private_inputs::PublicTxBaseRollupPrivateInputs,
 };
@@ -18,7 +18,7 @@ use dep::types::{
     },
     constants::{
         ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, PUBLIC_TUBE_VK_INDEX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, PUBLIC_CHONK_VERIFIER_VK_INDEX,
     },
     hash::silo_l2_to_l1_message,
     tests::fixture_builder::FixtureBuilder,
@@ -26,8 +26,8 @@ use dep::types::{
 
 struct TestBuilder {
     private_tail: PrivateToPublicKernelCircuitPublicInputs,
-    public_tube_vk_index: u32,
-    public_tube_prover_id: Field,
+    public_chonk_verifier_vk_index: u32,
+    public_chonk_verifier_prover_id: Field,
     avm: AvmCircuitPublicInputs,
     avm_vk_index: u32,
     start_sponge_blob: SpongeBlob,
@@ -87,8 +87,8 @@ impl TestBuilder {
 
         TestBuilder {
             private_tail,
-            public_tube_vk_index: PUBLIC_TUBE_VK_INDEX,
-            public_tube_prover_id: prover_id,
+            public_chonk_verifier_vk_index: PUBLIC_CHONK_VERIFIER_VK_INDEX,
+            public_chonk_verifier_prover_id: prover_id,
             avm,
             avm_vk_index: AVM_VK_INDEX,
             start_sponge_blob,
@@ -136,19 +136,19 @@ impl TestBuilder {
     }
 
     pub fn execute(self) -> TxRollupPublicInputs {
-        let public_tube_public_inputs = PublicTubePublicInputs {
+        let public_chonk_verifier_public_inputs = PublicChonkVerifierPublicInputs {
             private_tail: self.private_tail,
-            prover_id: self.public_tube_prover_id,
+            prover_id: self.public_chonk_verifier_prover_id,
         };
-        let public_tube_proof_data = RollupFixtureBuilder::make_proof_data(
-            public_tube_public_inputs,
-            self.public_tube_vk_index,
+        let public_chonk_verifier_proof_data = RollupFixtureBuilder::make_proof_data(
+            public_chonk_verifier_public_inputs,
+            self.public_chonk_verifier_vk_index,
         );
 
         let avm_proof_data = RollupFixtureBuilder::make_proof_data(self.avm, self.avm_vk_index);
 
         PublicTxBaseRollupPrivateInputs {
-            public_tube_proof_data,
+            public_chonk_verifier_proof_data,
             avm_proof_data,
             start_sponge_blob: self.start_sponge_blob,
             last_archive: self.last_archive,

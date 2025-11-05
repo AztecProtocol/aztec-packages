@@ -1,75 +1,80 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
-import { poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { BLS12Fr, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './deserialize.js';
-import { BlobDeserializationError } from './errors.js';
+import { computeBlobCommitment, computeChallengeZ, computeEthVersionedBlobHash } from './hash.js';
 import type { BlobJson } from './interface.js';
-import { BYTES_PER_BLOB, kzg } from './kzg_context.js';
+import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, kzg } from './kzg_context.js';
 
-// The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification
-export const VERSIONED_HASH_VERSION_KZG = 0x01;
+export { FIELDS_PER_BLOB };
 
 /**
  * A class to create, manage, and prove EVM blobs.
+ *
+ * @dev Note: All methods in this class do not check the encoding of the given data. It's the responsibility of other
+ * components to ensure that the blob data (which might spread across multiple blobs) was created following the protocol
+ * and is correctly encoded.
  */
 export class Blob {
   constructor(
-    /** The blob to be broadcast on L1 in bytes form. */
+    /**
+     * The data to be broadcast on L1 in bytes form.
+     */
     public readonly data: Uint8Array,
-    /** The hash of all tx effects inside the blob. Used in generating the challenge z and proving that we have included all required effects. */
-    public readonly fieldsHash: Fr,
-    /** Challenge point z (= H(H(tx_effects), kzgCommmitment). Used such that p(z) = y for a single blob, used as z_i in batching (see ./blob_batching.ts). */
-    public readonly challengeZ: Fr,
-    /** Commitment to the blob C. Used in compressed BLS12 point format (48 bytes). */
+    /**
+     * Commitment to the blob data. Used in compressed BLS12 point format (48 bytes).
+     */
     public readonly commitment: Buffer,
-  ) {}
+  ) {
+    if (data.length !== BYTES_PER_BLOB) {
+      throw new Error(`Blob data must be ${BYTES_PER_BLOB} bytes. Got ${data.length}.`);
+    }
+    if (commitment.length !== BYTES_PER_COMMITMENT) {
+      throw new Error(`Blob commitment must be ${BYTES_PER_COMMITMENT} bytes. Got ${commitment.length}.`);
+    }
+  }
 
   /**
-   * The encoded version of the blob will determine the end of the blob based on the transaction encoding.
-   * This is required when the fieldsHash of a blob will contain trailing zeros.
-   *
-   * See `./encoding.ts` for more details.
-   *
-   * This method is used to create a Blob from a buffer.
-   * @param blob - The buffer to create the Blob from.
-   * @param multiBlobFieldsHash - The fields hash to use for the Blob.
+   * Create a Blob from a buffer.
+   * @param data - The buffer of the Blob.
    * @returns A Blob created from the buffer.
    *
-   * @throws If unable to deserialize the blob.
+   * @throws If data does not match the expected length (BYTES_PER_BLOB).
    */
-  static fromEncodedBlobBuffer(blob: Uint8Array, multiBlobFieldsHash?: Fr): Promise<Blob> {
-    try {
-      const fields: Fr[] = deserializeEncodedBlobToFields(blob);
-      return Blob.fromFields(fields, multiBlobFieldsHash);
-    } catch {
-      throw new BlobDeserializationError(
-        `Failed to create Blob from encoded blob buffer, this blob was likely not created by us`,
-      );
-    }
+  static fromBlobBuffer(data: Uint8Array): Blob {
+    const commitment = computeBlobCommitment(data);
+    return new Blob(data, commitment);
   }
 
   /**
    * Create a Blob from an array of fields.
    *
+   * @dev This method pads 0s to the data, extending it to the size of a full blob.
+   *
    * @param fields - The array of fields to create the Blob from.
-   * @param multiBlobFieldsHash - The fields hash to use for the Blob.
    * @returns A Blob created from the array of fields.
    */
-  static async fromFields(fields: Fr[], multiBlobFieldsHash?: Fr): Promise<Blob> {
+  static fromFields(fields: Fr[]): Blob {
     if (fields.length > FIELDS_PER_BLOB) {
-      throw new Error(`Attempted to overfill blob with ${fields.length} elements. The maximum is ${FIELDS_PER_BLOB}`);
+      throw new Error(`Attempted to overfill blob with ${fields.length} fields. The maximum is ${FIELDS_PER_BLOB}.`);
     }
 
     const data = Buffer.concat([serializeToBuffer(fields)], BYTES_PER_BLOB);
+    const commitment = computeBlobCommitment(data);
+    return new Blob(data, commitment);
+  }
 
-    // This matches the output of SpongeBlob.squeeze() in the blob circuit
-    const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : await poseidon2Hash(fields);
-    const commitment = Buffer.from(kzg.blobToKzgCommitment(data));
-    const challengeZ = await poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
-
-    return new Blob(data, fieldsHash, challengeZ, commitment);
+  /**
+   * Get the fields from the blob data.
+   *
+   * @dev WARNING: this method returns all fields
+   *
+   * @returns The fields from the blob.
+   */
+  toFields(): Fr[] {
+    const reader = BufferReader.asReader(this.data);
+    const numTotalFields = this.data.length / Fr.SIZE_IN_BYTES;
+    return reader.readArray(numTotalFields, Fr);
   }
 
   /**
@@ -79,22 +84,16 @@ export class Blob {
    * the beacon chain via `getBlobSidecars`
    * https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
    *
-   * @dev WARNING: by default json deals with encoded buffers
-   *
    * @param json - The JSON object to create the Blob from.
    * @returns A Blob created from the JSON object.
    */
-  static async fromJson(json: BlobJson): Promise<Blob> {
+  static fromJson(json: BlobJson): Blob {
     const blobBuffer = Buffer.from(json.blob.slice(2), 'hex');
-
-    const blob = await Blob.fromEncodedBlobBuffer(blobBuffer);
+    const blob = Blob.fromBlobBuffer(blobBuffer);
 
     if (blob.commitment.toString('hex') !== json.kzg_commitment.slice(2)) {
       throw new Error('KZG commitment does not match');
     }
-
-    // We do not check the proof, as it will be different if the challenge is shared
-    // across multiple blobs
 
     return blob;
   }
@@ -102,7 +101,6 @@ export class Blob {
   /**
    * Get the JSON representation of the blob.
    *
-   * @dev WARNING: by default json deals with encoded buffers
    * @param index - optional - The index of the blob in the block.
    * @returns The JSON representation of the blob.
    */
@@ -115,133 +113,61 @@ export class Blob {
     };
   }
 
-  /**
-   * Get the fields from the blob.
-   *
-   * @dev WARNING: this method does not take into account trailing zeros
-   *
-   * @returns The fields from the blob.
-   */
-  toFields(): Fr[] {
-    return extractBlobFieldsFromBuffer(this.data);
-  }
-
-  /**
-   * Get the encoded fields from the blob.
-   *
-   * @dev This method takes into account trailing zeros
-   *
-   * @returns The encoded fields from the blob.
-   *
-   * @throws If unable to deserialize the blob.
-   */
-  toEncodedFields(): Fr[] {
-    try {
-      return deserializeEncodedBlobToFields(this.data);
-    } catch {
-      throw new BlobDeserializationError(
-        `Failed to deserialize encoded blob fields, this blob was likely not created by us`,
-      );
-    }
-  }
-
-  /**
-   * Get the encoded fields from multiple blobs.
-   *
-   * @dev This method takes into account trailing zeros
-   *
-   * @returns The encoded fields from the blobs.
-   */
-  static toEncodedFields(blobs: Blob[]): Fr[] {
-    try {
-      return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)));
-    } catch {
-      throw new BlobDeserializationError(
-        `Failed to deserialize encoded blob fields, this blob was likely not created by us`,
-      );
-    }
-  }
-
-  /**
-   * Get the commitment fields from the blob.
-   *
-   * The 48-byte commitment is encoded into two field elements:
-   * +------------------+------------------+
-   * | Field Element 1  | Field Element 2  |
-   * | [bytes 0-31]     | [bytes 32-47]   |
-   * +------------------+------------------+
-   * |     32 bytes     |     16 bytes    |
-   * +------------------+------------------+
-   * @returns The commitment fields from the blob.
-   */
-  commitmentToFields(): [Fr, Fr] {
-    return commitmentToFields(this.commitment);
-  }
-
-  // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash: https://eips.ethereum.org/EIPS/eip-4844#helpers
   getEthVersionedBlobHash(): Buffer {
-    const hash = sha256(this.commitment);
-    hash[0] = VERSIONED_HASH_VERSION_KZG;
-    return hash;
+    return computeEthVersionedBlobHash(this.commitment);
   }
 
-  static getEthVersionedBlobHash(commitment: Buffer): Buffer {
-    const hash = sha256(commitment);
-    hash[0] = VERSIONED_HASH_VERSION_KZG;
-    return hash;
+  /**
+   * Challenge point z (= H(H(tx_effects), kzgCommitment)).
+   * Used such that p(z) = y for a single blob, used as z_i in batching (see ./blob_batching.ts).
+   */
+  async computeChallengeZ(blobFieldsHash: Fr): Promise<Fr> {
+    return await computeChallengeZ(blobFieldsHash, this.commitment);
   }
 
   /**
    * Evaluate the blob at a given challenge and return the evaluation and KZG proof.
    *
-   * @param challengeZ - The challenge z at which to evaluate the blob. If not given, assume we want to evaluate at the individual blob's z.
+   * @param challengeZ - The challenge z at which to evaluate the blob.
+   * @param verifyProof - Whether to verify the KZG proof.
    *
-   * @returns -
-   *  y: Buffer -  Evaluation y = p(z), where p() is the blob polynomial. BLS12 field element, rep. as BigNum in nr, bigint in ts
+   * @returns
+   *  y: BLS12Fr -  Evaluation y = p(z), where p() is the blob polynomial. BLS12 field element, rep. as BigNum in nr, bigint in ts.
    *  proof: Buffer - KZG opening proof for y = p(z). The commitment to quotient polynomial Q, used in compressed BLS12 point format (48 bytes).
    */
-  evaluate(challengeZ?: Fr) {
-    const z = challengeZ || this.challengeZ;
-    const res = kzg.computeKzgProof(this.data, z.toBuffer());
-    if (!kzg.verifyKzgProof(this.commitment, z.toBuffer(), res[1], res[0])) {
+  evaluate(challengeZ: Fr, verifyProof = false) {
+    const res = kzg.computeKzgProof(this.data, challengeZ.toBuffer());
+    if (verifyProof && !kzg.verifyKzgProof(this.commitment, challengeZ.toBuffer(), res[1], res[0])) {
       throw new Error(`KZG proof did not verify.`);
     }
+
     const proof = Buffer.from(res[0]);
-    const y = Buffer.from(res[1]);
+    const y = BLS12Fr.fromBuffer(Buffer.from(res[1]));
     return { y, proof };
   }
 
   /**
    * Get the buffer representation of the ENTIRE blob.
    *
-   * @dev WARNING: this buffer contains all metadata aswell as the data itself
+   * @dev WARNING: this buffer contains all metadata as well as the data itself.
    *
    * @returns The buffer representation of the blob.
    */
   toBuffer(): Buffer {
-    return Buffer.from(
-      serializeToBuffer(
-        this.data.length,
-        this.data,
-        this.fieldsHash,
-        this.challengeZ,
-        this.commitment.length,
-        this.commitment,
-      ),
-    );
+    return Buffer.from(serializeToBuffer(this.data.length, this.data, this.commitment.length, this.commitment));
   }
 
   /**
    * Create a Blob from a buffer.
    *
-   * @dev WARNING: this method contains all metadata aswell as the data itself
+   * @dev WARNING: this method contains all metadata as well as the data itself.
    *
    * @param buf - The buffer to create the Blob from.
    * @returns A Blob created from the buffer.
    */
   static fromBuffer(buf: Buffer | BufferReader): Blob {
     const reader = BufferReader.asReader(buf);
-    return new Blob(reader.readUint8Array(), reader.readObject(Fr), reader.readObject(Fr), reader.readBuffer());
+    return new Blob(reader.readUint8Array(), reader.readBuffer());
   }
 
   /**
@@ -249,24 +175,6 @@ export class Blob {
    */
   getSize() {
     return this.data.length;
-  }
-
-  /**
-   * @param blobs - The blobs to emit
-   * @returns The blobs' compressed commitments in hex prefixed by the number of blobs
-   * @dev Used for proposing blocks to validate injected blob commitments match real broadcast blobs:
-   * One byte for the number blobs + 48 bytes per blob commitment
-   */
-  static getPrefixedEthBlobCommitments(blobs: Blob[]): `0x${string}` {
-    let buf = Buffer.alloc(0);
-    blobs.forEach(blob => {
-      buf = Buffer.concat([buf, blob.commitment]);
-    });
-    // We prefix the number of blobs:
-    const lenBuf = Buffer.alloc(1);
-    lenBuf.writeUint8(blobs.length);
-    buf = Buffer.concat([lenBuf, buf]);
-    return `0x${buf.toString('hex')}`;
   }
 
   static getViemKzgInstance() {
@@ -279,25 +187,4 @@ export class Blob {
       },
     };
   }
-
-  /**
-   * @param fields - Fields to broadcast in the blob(s)
-   * @returns As many blobs as we require to broadcast the given fields for a block
-   * @dev Assumes we share the fields hash between all blobs which can only be done for ONE BLOCK because the hash is calculated in block root.
-   */
-  static async getBlobsPerBlock(fields: Fr[]): Promise<Blob[]> {
-    const numBlobs = Math.max(Math.ceil(fields.length / FIELDS_PER_BLOB), 1);
-    const multiBlobFieldsHash = await poseidon2Hash(fields);
-    const res = [];
-    for (let i = 0; i < numBlobs; i++) {
-      const end = fields.length < (i + 1) * FIELDS_PER_BLOB ? fields.length : (i + 1) * FIELDS_PER_BLOB;
-      res.push(await Blob.fromFields(fields.slice(i * FIELDS_PER_BLOB, end), multiBlobFieldsHash));
-    }
-    return res;
-  }
-}
-
-// 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
-function commitmentToFields(commitment: Buffer): [Fr, Fr] {
-  return [new Fr(commitment.subarray(0, 31)), new Fr(commitment.subarray(31, 48))];
 }

@@ -5,7 +5,8 @@ const INSTRUMENTER = createInstrumenter({ compact: true });
 
 hookRequire(
   (filePath: string): boolean => {
-    return true;
+    // Don't instrument node_modules because there's something funky with babel + browserlists dependencies
+    return !filePath.includes('node_modules');
   },
   (code: string, { filename }: { filename: string }): string => {
     const newCode = INSTRUMENTER.instrumentSync(code, filename);

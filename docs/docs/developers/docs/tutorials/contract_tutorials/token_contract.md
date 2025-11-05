@@ -18,6 +18,7 @@ In this tutorial, we'll build a token contract that allows Giggle to mint BOB to
 ## Prerequisites
 
 This is an intermediate tutorial that assumes you have:
+
 - Completed the [Counter Contract tutorial](./counter_contract.md)
 - A running Aztec Sandbox (see the Counter tutorial for setup)
 - Basic understanding of Aztec.nr syntax and structure
@@ -184,7 +185,7 @@ You should now have a nice typescript interface in a new `artifacts` folder. Pre
 
 ### Deploy and Test
 
-Create `index.ts`. We will connect to our running sandbox and its PXE, then deploy the test accounts and get three wallets out of it.
+Create `index.ts`. We will connect to our running sandbox and its wallet, then deploy the test accounts and get three wallets out of it.
 
 Then we will use the `giggleWallet` to deploy our contract, mint 100 BOB to Alice, then transfer 10 of those to Bob's Clinic publicly... for now. Let's go:
 
@@ -247,7 +248,7 @@ In this case, all that the network sees (including Giggle) is just "something ha
 
 ### Updating Storage for Privacy
 
-For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../concepts/storage/notes.md). For now, let's just import the library in `Nargo.toml`:
+For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `Nargo.toml`:
 
 ```toml
 [dependencies]
@@ -420,5 +421,5 @@ The BOB token shows how blockchain can enable new models of corporate benefits t
 
 ### Continue Your Journey
 
-- Explore [cross-chain communication](../../concepts/communication/cross_chain_calls.md) to integrate with existing health systems
-- Learn about [account abstraction](../../concepts/accounts/index.md) for recovery mechanisms
+- Explore [cross-chain communication](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md) to integrate with existing health systems
+- Learn about [account abstraction](../../foundational-topics/accounts/index.md) for recovery mechanisms

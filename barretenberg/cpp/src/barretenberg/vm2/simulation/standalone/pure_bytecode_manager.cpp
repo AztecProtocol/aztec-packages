@@ -48,7 +48,7 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     }
 
     ContractInstance instance = maybe_instance.value();
-    ContractClassId current_class_id = instance.current_class_id;
+    ContractClassId current_class_id = instance.current_contract_class_id;
 
     bool is_new_class = !retrieved_class_ids.contains(current_class_id);
     size_t retrieved_bytecodes_count = retrieved_class_ids.size();
@@ -63,14 +63,20 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // Contract class retrieval and class ID validation
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
-    // Note: we don't need to silo and check the class id because the deployer contract guarrantees
+    // Note: we don't need to silo and check the class id because the deployer contract guarantees
     // that if a contract instance exists, the class has been registered.
     assert(maybe_klass.has_value());
     auto& klass = maybe_klass.value();
     debug("Bytecode for ", address, " successfully retrieved!");
 
-    // Bytecode hashing and decomposition, deduplicated by bytecode_id (commitment)
-    BytecodeId bytecode_id = klass.public_bytecode_commitment;
+    // TODO(dbanks12): in TS, the PublicContractsDB will hash the bytecode if it has never been hashed there before.
+    // After that, it caches it. It should only happen once per contract class, but when we are making a callback
+    // to the TS cache to hash the bytecode there, it might be unnecessarily slow, in which case we could do the same
+    // hashing and caching here in C++ and avoid callbacks to TS.
+    std::optional<FF> maybe_bytecode_commitment = contract_db.get_bytecode_commitment(current_class_id);
+    // If we reach this point, class ID and instance both exist which means bytecode commitment must exist.
+    assert(maybe_bytecode_commitment.has_value());
+    BytecodeId bytecode_id = maybe_bytecode_commitment.value();
 
     // Check if we've already processed this bytecode.
     if (bytecodes.contains(bytecode_id)) {

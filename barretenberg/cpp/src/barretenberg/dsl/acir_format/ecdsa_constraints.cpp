@@ -94,8 +94,11 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
 
         // P is on the curve
         typename Curve::AffineElement default_point(Curve::g1::one + Curve::g1::one);
-        public_key.x = Fq::conditional_assign(predicate, public_key.x, default_point.x);
-        public_key.y = Fq::conditional_assign(predicate, public_key.y, default_point.y);
+        // BIGGROUP_AUDITTODO: mutable accessor needed for conditional_assign(). Could add a conditional_assign method
+        // to biggroup or could just perform these operations on the underlying fields prior to constructing the
+        // biggroup element.
+        public_key.x() = Fq::conditional_assign(predicate, public_key.x(), default_point.x());
+        public_key.y() = Fq::conditional_assign(predicate, public_key.y(), default_point.y());
     } else {
         BB_ASSERT(input.predicate.value, "Creating ECDSA constraints with a constant predicate equal to false.");
     }
@@ -105,12 +108,8 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
         stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
 
     // Step 5.
-    if (!input.predicate.is_constant) {
-        // Ensure the circuit is satisfied when predicate is witness false
-        signature_result.assert_equal(bool_ct::conditional_assign(predicate, result, signature_result));
-    } else {
-        signature_result.assert_equal(result);
-    }
+    // Ensure the circuit is satisfied when predicate is witness false
+    signature_result.assert_equal(bool_ct::conditional_assign(predicate, result, signature_result));
 }
 
 /**

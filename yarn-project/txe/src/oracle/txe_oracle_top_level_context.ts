@@ -49,14 +49,14 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block } from '@aztec/stdlib/block';
 import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
-import { computeCalldataHash, siloNullifier } from '@aztec/stdlib/hash';
+import { computeCalldataHash, computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -291,8 +291,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const blockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
 
-    const txRequestHash = getSingleTxBlockRequestHash(blockNumber);
-    const noteCache = new ExecutionNoteCache(txRequestHash);
+    const protocolNullifier = await computeProtocolNullifier(getSingleTxBlockRequestHash(blockNumber));
+    const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const simulator = new WASMSimulator();
@@ -359,7 +359,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     // According to the protocol rules, the nonce generator for the note hashes
     // can either be the first nullifier in the tx or the hash of the initial tx request
     // if there are none.
-    const nonceGenerator = result.firstNullifier.equals(Fr.ZERO) ? txRequestHash : result.firstNullifier;
+    const nonceGenerator = result.firstNullifier.equals(Fr.ZERO) ? protocolNullifier : result.firstNullifier;
     const { publicInputs } = await generateSimulatedProvingResult(result, nonceGenerator, this.contractDataProvider);
 
     const globals = makeGlobalVariables();
@@ -386,7 +386,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const tx = await Tx.create({
       data: publicInputs,
-      clientIvcProof: ClientIvcProof.empty(),
+      chonkProof: ChonkProof.empty(),
       contractClassLogFields: [],
       publicFunctionCalldata: result.publicFunctionCalldata,
     });
@@ -530,7 +530,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const tx = await Tx.create({
       data: txData,
-      clientIvcProof: ClientIvcProof.empty(),
+      chonkProof: ChonkProof.empty(),
       contractClassLogFields: [],
       publicFunctionCalldata: [calldataHashedValues],
     });

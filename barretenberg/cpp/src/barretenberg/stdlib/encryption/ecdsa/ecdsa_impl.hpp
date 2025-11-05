@@ -90,10 +90,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr z(hashed_message);
 
     // Step 1.
-    public_key.x.assert_is_in_field(
-        "ECDSA input validation: the x coordinate of the public key is bigger than the base field modulus."); // x < q
-    public_key.y.assert_is_in_field(
-        "ECDSA input validation: the y coordinate of the public key is bigger than the base field modulus."); // y < q
+    public_key.assert_coordinates_in_field(
+        "ECDSA input validation: coordinate(s) of the public key bigger than the base field modulus."); // x < q, y < q
 
     // Step 2.
     public_key.validate_on_curve("ECDSA input validation: the public key is not a point on the elliptic curve.");
@@ -137,19 +135,22 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
         bool_t<Builder>(false), "ECDSA validation: the result of the batch multiplication is the point at infinity.");
 
     // Step 8.
-    result.x.reduce_mod_target_modulus();
+    // We reduce result.x() to 2^s, where s is the smallest s.t. 2^s > q. It is cheap in terms of constraints, and
+    // avoids possible edge cases
+    // BIGGROUP_AUDITTODO: mutable accessor needed for self_reduce()
+    result.x().reduce_mod_target_modulus();
 
-    // Transfer Fq value result.x to Fr (this is just moving from a C++ class to another)
-    Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x.binary_basis_limbs[0].element,
-                                                        result.x.binary_basis_limbs[1].element,
-                                                        result.x.binary_basis_limbs[2].element,
-                                                        result.x.binary_basis_limbs[3].element);
+    // Transfer Fq value result.x() to Fr (this is just moving from a C++ class to another)
+    Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x().binary_basis_limbs[0].element,
+                                                        result.x().binary_basis_limbs[1].element,
+                                                        result.x().binary_basis_limbs[2].element,
+                                                        result.x().binary_basis_limbs[3].element);
     // Copy maximum limb values from Fq to Fr: this is needed by the subtraction happening in the == operator
     for (size_t idx = 0; idx < 4; idx++) {
-        result_x_mod_r.binary_basis_limbs[idx].maximum_value = result.x.binary_basis_limbs[idx].maximum_value;
+        result_x_mod_r.binary_basis_limbs[idx].maximum_value = result.x().binary_basis_limbs[idx].maximum_value;
     }
 
-    // Check result.x = r mod n
+    // Check result.x() = r mod n
     bool_t<Builder> is_signature_valid = result_x_mod_r == r;
 
     // Logging

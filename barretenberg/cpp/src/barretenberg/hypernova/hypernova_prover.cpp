@@ -9,6 +9,36 @@
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 
 namespace bb {
+
+std::pair<std::vector<HypernovaFoldingProver::FF>, std::vector<HypernovaFoldingProver::FF>> HypernovaFoldingProver::
+    get_batching_challenges()
+{
+    std::vector<std::string> labels_unshifted_entities(NUM_UNSHIFTED_ENTITIES);
+    std::vector<std::string> labels_shifted_witnesses(NUM_SHIFTED_ENTITIES);
+    for (size_t idx = 0; idx < NUM_UNSHIFTED_ENTITIES; idx++) {
+        labels_unshifted_entities[idx] = "unshifted_challenge_" + std::to_string(idx);
+    }
+    for (size_t idx = 0; idx < NUM_SHIFTED_ENTITIES; idx++) {
+        labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
+    }
+    auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted_entities);
+    auto shifted_challenges = transcript->template get_challenges<FF>(labels_shifted_witnesses);
+
+    return { unshifted_challenges, shifted_challenges };
+}
+
+template <size_t N>
+HypernovaFoldingProver::Commitment HypernovaFoldingProver::batch_mul(const RefArray<Commitment, N>& _points,
+                                                                     const std::vector<FF>& scalars)
+{
+    std::vector<Commitment> points(N);
+    for (size_t idx = 0; auto point : _points) {
+        points[idx++] = point;
+    }
+
+    return batch_mul_native(points, scalars);
+}
+
 HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_accumulator(
     HypernovaFoldingProver::MegaSumcheckOutput& sumcheck_output,
     const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance,
@@ -17,18 +47,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     BB_BENCH();
 
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
-    std::array<std::string, Flavor::NUM_UNSHIFTED_ENTITIES> labels_unshifted_entities;
-    std::array<std::string, Flavor::NUM_SHIFTED_ENTITIES> labels_shifted_witnesses;
-    for (size_t idx = 0; idx < Flavor::NUM_UNSHIFTED_ENTITIES; idx++) {
-        labels_unshifted_entities[idx] = "unshifted_challenge_" + std::to_string(idx);
-    }
-    for (size_t idx = 0; idx < Flavor::NUM_SHIFTED_ENTITIES; idx++) {
-        labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
-    }
-    std::array<FF, Flavor::NUM_UNSHIFTED_ENTITIES> unshifted_challenges =
-        transcript->template get_challenges<FF>(labels_unshifted_entities);
-    std::array<FF, Flavor::NUM_SHIFTED_ENTITIES> shifted_challenges =
-        transcript->template get_challenges<FF>(labels_shifted_witnesses);
+    auto [unshifted_challenges, shifted_challenges] = get_batching_challenges();
 
     // Batch polynomials
     Polynomial<FF> batched_unshifted_polynomial = batch_polynomials<Flavor::NUM_UNSHIFTED_ENTITIES>(
@@ -50,31 +69,14 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     // Batch commitments
     VerifierCommitments verifier_commitments(honk_vk, instance->commitments);
 
-    Commitment batched_unshifted_commitment;
-    Commitment batched_shifted_commitment;
-
-    std::vector<Commitment> points;
-    std::vector<FF> scalars;
-    for (auto [commitment, scalar] : zip_view(verifier_commitments.get_unshifted(), unshifted_challenges)) {
-        points.emplace_back(commitment);
-        scalars.emplace_back(scalar);
-    }
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1552): Optimize batch_mul_native
-    batched_unshifted_commitment = batch_mul_native(points, scalars);
-
-    points.clear();
-    scalars.clear();
-    for (auto [commitment, scalar] : zip_view(verifier_commitments.get_to_be_shifted(), shifted_challenges)) {
-        points.emplace_back(commitment);
-        scalars.emplace_back(scalar);
-    }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1552): Optimize batch_mul_native
-    batched_shifted_commitment = batch_mul_native(points, scalars);
+    Commitment batched_unshifted_commitment = batch_mul(verifier_commitments.get_unshifted(), unshifted_challenges);
+    Commitment batched_shifted_commitment = batch_mul(verifier_commitments.get_to_be_shifted(), shifted_challenges);
 
     return Accumulator{
         .challenge = std::move(sumcheck_output.challenge),
-        .shifted_evaluation = batched_shifted_evaluation,
         .non_shifted_evaluation = batched_unshifted_evaluation,
+        .shifted_evaluation = batched_shifted_evaluation,
         .non_shifted_polynomial = std::move(batched_unshifted_polynomial),
         .shifted_polynomial = std::move(batched_shifted_polynomial),
         .non_shifted_commitment = batched_unshifted_commitment,
@@ -87,12 +89,14 @@ template <size_t N>
 Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::batch_polynomials(
     RefArray<Polynomial<FF>, N> polynomials_to_batch,
     const size_t& full_batched_size,
-    const std::array<FF, N>& challenges)
+    const std::vector<FF>& challenges)
 {
     BB_BENCH();
     BB_ASSERT_EQ(full_batched_size,
                  polynomials_to_batch[0].virtual_size(),
                  "The virtual size of the first polynomial is different from the full batched size.");
+    BB_ASSERT_EQ(
+        challenges.size(), N, "The number of challenges provided does not match the number of polynomials to batch.");
 
     size_t challenge_idx = 0;
 
@@ -154,8 +158,7 @@ std::pair<HonkProof, HypernovaFoldingProver::Accumulator> HypernovaFoldingProver
                                               transcript);
 
     HonkProof proof = batching_prover.construct_proof();
-    batching_prover.compute_new_claim();
 
-    return { proof, batching_prover.get_new_claim() };
+    return { proof, batching_prover.compute_new_claim() };
 }
 } // namespace bb

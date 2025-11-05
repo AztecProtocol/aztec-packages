@@ -200,10 +200,12 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
      *
      * @tparam Flavor
      */
-    template <typename Flavor> static void test_vk_independence()
+    template <typename Flavor> static std::vector<size_t> test_vk_independence()
     {
         using ProverInstance = ProverInstance_<Flavor>;
         using VerificationKey = Flavor::VerificationKey;
+
+        std::vector<size_t> num_gates;
 
         for (auto [predicate_case, label] :
              zip_view(Predicate<WitnessOverrideCase>::get_all(), Predicate<WitnessOverrideCase>::get_labels())) {
@@ -230,7 +232,7 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             {
                 AcirProgram program{ constraint_system, witness_values };
                 auto builder = create_circuit<Builder>(program);
-                info("Num gates: ", builder.get_estimated_num_finalized_gates());
+                num_gates.emplace_back(builder.get_num_finalized_gates_inefficient());
 
                 auto prover_instance = std::make_shared<ProverInstance>(builder);
                 vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
@@ -250,6 +252,8 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             EXPECT_EQ(*vk_from_witness, *vk_from_constraint) << "Mismatch in the vks for predicate case " << label;
             vinfo("VK independence passed for predicate case: ", label);
         }
+
+        return num_gates;
     }
 
     /**
@@ -269,9 +273,12 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
         // Constant true, default tampering
         {
-            auto [circuit_checker_result, builder_failed, _] =
+            auto [circuit_checker_result, builder_failed, builder_err] =
                 test_constraints(PredicateTestCase::ConstantTrue, WitnessOverrideCase::None, default_tampering_mode);
-            EXPECT_FALSE(circuit_checker_result) << "Circuit checker succeeded unexpectedly.";
+            // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the CircuitChecker
+            // failed, or the builder error resulted from an assert_eq.
+            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                << "Circuit checker succeeded unexpectedly and no assert_eq failure.";
             EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly.";
         }
     }
@@ -293,9 +300,12 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
         // Witness true, default tampering
         {
-            auto [circuit_checker_result, builder_failed, _] =
+            auto [circuit_checker_result, builder_failed, builder_err] =
                 test_constraints(PredicateTestCase::WitnessTrue, WitnessOverrideCase::None, default_tampering_mode);
-            EXPECT_FALSE(circuit_checker_result) << "Circuit checker succeeded unexpectedly.";
+            // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the CircuitChecker
+            // failed, or the builder error resulted from an assert_eq.
+            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                << "Circuit checker succeeded unexpectedly and no assert_eq failure.";
             EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly.";
         }
     }
@@ -349,10 +359,14 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
             {
                 // Check that the same configuration would have failed if the predicate was witness true
-                auto [circuit_checker_result, builder_failed, _] = test_constraints(
+                auto [circuit_checker_result, builder_failed, builder_err] = test_constraints(
                     PredicateTestCase::WitnessTrue, override_case, tampering_mode, /*forced_override=*/true);
 
-                EXPECT_FALSE(circuit_checker_result) << "Check builder succeeded for override case " + override_label;
+                // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the
+                // CircuitChecker failed, or the builder error resulted from an assert_eq.
+                EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                    << "Circuit checker succeeded unexpectedly and no assert_eq failure for override case " +
+                           override_label;
                 EXPECT_TRUE(builder_failed) << "Builder succeeded for override case " + override_label;
                 vinfo("Passed override case (witness true confirmation): ", override_label);
             }
@@ -377,9 +391,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                 if (predicate_case != PredicateTestCase::WitnessFalse) {
                     // If the predicate is not witness false, tampering should cause failure
                     if (mode != Tampering::Mode::None) {
-                        EXPECT_FALSE(circuit_checker_result)
-                            << "Circuit checker succeeded unexpectedly for tampering mode " + label +
-                                   " with predicate " + predicate_label;
+                        EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                            << "Circuit checker succeeded unexpectedly and no assert_eq failure for tampering mode " +
+                                   label + " with predicate " + predicate_label;
                         EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly for tampering mode " + label +
                                                            " with predicate " + predicate_label;
                     } else {

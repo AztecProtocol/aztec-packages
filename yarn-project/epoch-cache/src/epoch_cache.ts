@@ -244,7 +244,7 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   /**
-   * Get the proposer attester address in the gien slot
+   * Get the proposer attester address in the given L2 slot
    * @returns The proposer attester address. If the committee does not exist, we throw a NoCommitteeError.
    * If the committee is empty (i.e. target committee size is 0, and anyone can propose), we return undefined.
    */

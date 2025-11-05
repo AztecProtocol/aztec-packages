@@ -8,8 +8,12 @@ import {
   AvmBytecodeCommitmentHint,
   AvmCommitCheckpointHint,
   AvmContractClassHint,
+  AvmContractDBCommitCheckpointHint,
+  AvmContractDBCreateCheckpointHint,
+  AvmContractDBRevertCheckpointHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
+  AvmDebugFunctionNameHint,
   type AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
@@ -50,8 +54,11 @@ import type { PublicContractsDBInterface } from './db_interfaces.js';
  * A public contracts database that forwards requests and collects AVM hints.
  */
 export class HintingPublicContractsDB implements PublicContractsDBInterface {
-  // We deduplicate contract classes because they include the whole bytecode.
-  private contractClassIds: Set<bigint> = new Set();
+  private static readonly log: Logger = createLogger('simulator:hinting-public-contracts-db');
+
+  private checkpointActionCounter: number = 0;
+  private nextCheckpointId: number = 1;
+  private checkpointStack: number[] = [0];
 
   constructor(
     private readonly db: PublicContractsDBInterface,
@@ -64,9 +71,11 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
   ): Promise<ContractInstanceWithAddress | undefined> {
     const instance = await this.db.getContractInstance(address, timestamp);
     if (instance) {
-      // We don't need to hint the block number because it doesn't change.
+      const hintKey = this.getHintKey();
+
       this.hints.contractInstances.push(
         new AvmContractInstanceHint(
+          hintKey,
           instance.address,
           instance.salt,
           instance.deployer,
@@ -76,21 +85,30 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
           instance.publicKeys,
         ),
       );
+
+      HintingPublicContractsDB.log.trace(
+        `[getContractInstance:${hintKey}] Added contract instance ${instance.address.toString()} to hints.`,
+      );
     }
     return instance;
   }
 
   public async getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined> {
     const contractClass = await this.db.getContractClass(contractClassId);
-    if (contractClass && !this.contractClassIds.has(contractClassId.toBigInt())) {
-      this.contractClassIds.add(contractClassId.toBigInt());
+    if (contractClass) {
+      const hintKey = this.getHintKey();
       this.hints.contractClasses.push(
         new AvmContractClassHint(
+          hintKey,
           contractClass.id,
           contractClass.artifactHash,
           contractClass.privateFunctionsRoot,
           contractClass.packedBytecode,
         ),
+      );
+
+      HintingPublicContractsDB.log.trace(
+        `[getContractClass:${hintKey}] Added contract class ${contractClassId.toString()} to hints.`,
       );
     }
     return contractClass;
@@ -99,7 +117,12 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
   public async getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
     const commitment = await this.db.getBytecodeCommitment(contractClassId);
     if (commitment) {
-      this.hints.bytecodeCommitments.push(new AvmBytecodeCommitmentHint(contractClassId, commitment));
+      const hintKey = this.getHintKey();
+      this.hints.bytecodeCommitments.push(new AvmBytecodeCommitmentHint(hintKey, contractClassId, commitment));
+
+      HintingPublicContractsDB.log.trace(
+        `[getBytecodeCommitment:${hintKey}] Added bytecode commitment ${commitment.toString()} to hints for contract class ${contractClassId.toString()}.`,
+      );
     }
     return commitment;
   }
@@ -108,7 +131,81 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<string | undefined> {
-    return await this.db.getDebugFunctionName(contractAddress, selector);
+    const name = await this.db.getDebugFunctionName(contractAddress, selector);
+    if (name) {
+      HintingPublicContractsDB.log.debug(
+        `[getDebugFunctionName] Adding debug function name ${name} to hints for contract ${contractAddress.toString()} and selector ${selector.toString()}.`,
+      );
+      // We hint selector as a field to make things way simpler in C++.
+      this.hints.debugFunctionNames.push(new AvmDebugFunctionNameHint(contractAddress, selector.toField(), name));
+    }
+    return name;
+  }
+
+  public createCheckpoint(): void {
+    const hintKey = this.getHintKey();
+    this.checkpointActionCounter++;
+    const oldCheckpointId = this.getCurrentCheckpointId();
+
+    this.db.createCheckpoint();
+
+    const newCheckpointId = this.nextCheckpointId++;
+    this.checkpointStack.push(newCheckpointId);
+
+    this.hints.contractDBCreateCheckpointHints.push(
+      new AvmContractDBCreateCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
+    );
+
+    HintingPublicContractsDB.log.trace(
+      `[createCheckpoint:${hintKey}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId}.`,
+    );
+  }
+
+  public commitCheckpoint(): void {
+    const hintKey = this.getHintKey();
+    this.checkpointActionCounter++;
+    const oldCheckpointId = this.getCurrentCheckpointId();
+
+    this.db.commitCheckpoint();
+
+    this.checkpointStack.pop();
+    const newCheckpointId = this.getCurrentCheckpointId();
+
+    this.hints.contractDBCommitCheckpointHints.push(
+      new AvmContractDBCommitCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
+    );
+
+    HintingPublicContractsDB.log.trace(
+      `[commitCheckpoint:${hintKey}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId}.`,
+    );
+  }
+
+  public revertCheckpoint(): void {
+    const hintKey = this.getHintKey();
+    this.checkpointActionCounter++;
+    const oldCheckpointId = this.getCurrentCheckpointId();
+
+    this.db.revertCheckpoint();
+
+    this.checkpointStack.pop();
+    const newCheckpointId = this.getCurrentCheckpointId();
+
+    this.hints.contractDBRevertCheckpointHints.push(
+      new AvmContractDBRevertCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
+    );
+
+    HintingPublicContractsDB.log.trace(
+      `[revertCheckpoint:${hintKey}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId}.`,
+    );
+  }
+
+  // Private methods.
+  private getHintKey(): number {
+    return this.checkpointActionCounter;
+  }
+
+  private getCurrentCheckpointId(): number {
+    return this.checkpointStack[this.checkpointStack.length - 1];
   }
 }
 

@@ -145,7 +145,10 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
-    output.points_accumulator.set_public();
+
+    stdlib::recursion::honk::DefaultIO<Builder> inputs;
+    inputs.pairing_inputs = output.points_accumulator;
+    inputs.set_public();
 
     info("Recursive Verifier: num gates = ", builder.num_gates());
 
@@ -181,7 +184,10 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
         GoblinRecursiveVerifierOutput output =
             verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
-        output.points_accumulator.set_public();
+
+        stdlib::recursion::honk::DefaultIO<Builder> inputs;
+        inputs.pairing_inputs = output.points_accumulator;
+        inputs.set_public();
 
         info("Recursive Verifier: num gates = ", builder.num_gates());
 

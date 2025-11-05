@@ -1113,7 +1113,7 @@ impl PrivateContext {
             log.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
         // Note: the length is not always N, it is the number of fields we want to broadcast, omitting trailing zeros to save blob space.
         // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond length are zero.
-        // However, it won't be able to check that we didn't add extra padding (trailing zeroes)
+        // However, it won't be able to check that we didn't add extra padding (trailing zeroes) or that we cut trailing zeroes from the end.
         let length = unsafe { trimmed_array_length_hint(log_to_emit) };
         // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter bytecode.
         let log_hash = poseidon2_hash(log_to_emit);
@@ -1175,7 +1175,7 @@ impl PrivateContext {
     ///     - Padding the lengths of note & nullifier arrays
     ///     - Padding private logs with random fields, up to some standardised
     ///       size.
-    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Advanced
     /// * The call is added to the private call stack and executed by kernel
@@ -1369,7 +1369,7 @@ impl PrivateContext {
     /// calls sparingly, and carefully.
     /// _Internal_ public function calls are especially leaky, because they
     /// completely leak which private contract made the call.
-    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Arguments
     /// * `contract_address` - Address of the contract containing the function

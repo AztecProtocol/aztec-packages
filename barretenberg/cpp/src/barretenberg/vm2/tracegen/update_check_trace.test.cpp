@@ -82,7 +82,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 {
     uint64_t current_timestamp = 100;
     ContractInstance instance = testing::random_contract_instance();
-    instance.current_class_id = instance.original_class_id;
+    instance.current_contract_class_id = instance.original_contract_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
     FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
@@ -176,7 +176,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     uint64_t update_timestamp_of_change = current_timestamp - 1;
 
     ContractInstance instance = testing::random_contract_instance();
-    instance.current_class_id = update_post_class;
+    instance.current_contract_class_id = update_post_class;
     AztecAddress derived_address = compute_contract_address(instance);
     FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
 

@@ -20,6 +20,15 @@ class PureContractDB final : public ContractDBInterface {
 
     std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
+    std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const override;
+    std::optional<std::string> get_debug_function_name(const AztecAddress& address,
+                                                       const FunctionSelector& selector) const override;
+
+    void add_contracts(const ContractDeploymentData& contract_deployment_data) override;
+
+    void create_checkpoint() override { raw_contract_db.create_checkpoint(); }
+    void commit_checkpoint() override { raw_contract_db.commit_checkpoint(); }
+    void revert_checkpoint() override { raw_contract_db.revert_checkpoint(); }
 
   private:
     ContractDBInterface& raw_contract_db;

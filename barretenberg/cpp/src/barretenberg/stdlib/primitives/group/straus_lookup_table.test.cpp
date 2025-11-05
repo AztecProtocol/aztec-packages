@@ -87,7 +87,7 @@ TYPED_TEST(StrausLookupTableTest, TestTableRead)
     // Read from the table at each index and verify the result vs expected value
     const size_t table_size = (1ULL << table_bits);
     for (size_t i = 0; i < table_size; i++) {
-        auto index = field_t::from_witness(&builder, i);
+        auto index = field_t::from_witness(&builder, typename field_t::native(i));
         auto result = table.read(index);
 
         // Expected value: offset_gen + i * base_point
@@ -142,7 +142,7 @@ TYPED_TEST(StrausLookupTableTest, TestWithProvidedHints)
 
     // Verify reading works correctly
     auto index_val = 5;
-    auto index = field_t::from_witness(&builder, index_val);
+    auto index = field_t::from_witness(&builder, typename field_t::native(index_val));
     auto result = table.read(index);
 
     AffineElement expected = AffineElement(offset_gen_native + (base_point_native * index_val));
@@ -183,7 +183,7 @@ TYPED_TEST(StrausLookupTableTest, TestInfinityBasePoint)
 
     // All entries should be just the offset generator since base_point is infinity
     for (size_t i = 0; i < (1ULL << table_bits); i++) {
-        auto index = field_t::from_witness(&builder, i);
+        auto index = field_t::from_witness(&builder, typename field_t::native(i));
         auto result = table.read(index);
         EXPECT_EQ(result.get_value(), AffineElement(offset_gen_native));
     }

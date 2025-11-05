@@ -307,7 +307,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
     /**
      * @brief Given δ, compute the vector [δ, δ^2,..., δ^2^num_powers].
-     * @details This is Step 2 of the protocol as written in the Protogalaxy paper.
      */
     template <typename ChallengeType>
     std::vector<ChallengeType> compute_round_challenge_pows(const size_t num_powers,
@@ -525,5 +524,19 @@ using UltraStdlibTranscript =
     BaseTranscript<stdlib::StdlibCodec<stdlib::field_t<UltraCircuitBuilder>>, stdlib::poseidon2<UltraCircuitBuilder>>;
 using MegaStdlibTranscript =
     BaseTranscript<stdlib::StdlibCodec<stdlib::field_t<MegaCircuitBuilder>>, stdlib::poseidon2<MegaCircuitBuilder>>;
+
+/**
+ * @brief Helper to get the appropriate Transcript type for a given Curve
+ * @details Maps native curves to NativeTranscript and stdlib curves to StdlibTranscript<Builder>
+ */
+template <typename Curve, bool = Curve::is_stdlib_type> struct TranscriptFor {
+    using type = NativeTranscript;
+};
+
+template <typename Curve> struct TranscriptFor<Curve, true> {
+    using type = StdlibTranscript<typename Curve::Builder>;
+};
+
+template <typename Curve> using TranscriptFor_t = typename TranscriptFor<Curve>::type;
 
 } // namespace bb

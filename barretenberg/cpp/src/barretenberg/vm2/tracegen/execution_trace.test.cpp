@@ -1209,9 +1209,9 @@ TEST(ExecutionTraceGenTest, SendL2ToL1Msg)
                                                                                  MemoryValue::from<FF>(recipient) },
                                                                            { .resolved_operand =
                                                                                  MemoryValue::from<FF>(content) } } },
-                                .before_context_event = { .side_effect_states = {
-                                                              .numL2ToL1Messages = prev_num_l2_to_l1_msgs,
-                                                          } } };
+                                .before_context_event = {
+                                    .numL2ToL1Messages = prev_num_l2_to_l1_msgs,
+                                } };
 
     builder.process({ ex_event }, trace);
     EXPECT_THAT(

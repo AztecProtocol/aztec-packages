@@ -2,7 +2,8 @@
 set -euo pipefail
 
 export AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
-export VERSION="${VERSION:-$(cat "$AZTEC_PATH/default_version")}"
+DEFAULT_VERSION=$(cat "$AZTEC_PATH/default_version" 2> /dev/null || echo latest)
+export VERSION="${VERSION:-$DEFAULT_VERSION}"
 export DOCKER_REPO="${DOCKER_REPO:-"aztecprotocol/aztec"}"
 
 # Take copy of command-line arguments, so we can mutate to parse.

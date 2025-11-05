@@ -121,9 +121,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->log_circuit_size = FF::from_witness(builder, native_key->log_circuit_size);
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->log_circuit_size = FF::from_witness(builder, typename FF::native(native_key->log_circuit_size));
+            this->num_public_inputs = FF::from_witness(builder, typename FF::native(native_key->num_public_inputs));
+            this->pub_inputs_offset = FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset));
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {

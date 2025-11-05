@@ -1,7 +1,5 @@
 import {
   AVM_MAX_PROCESSABLE_L2_GAS,
-  CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
-  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   GAS_ESTIMATION_DA_GAS_LIMIT,
   GAS_ESTIMATION_L2_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
@@ -16,7 +14,6 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { bufferAsFields } from '@aztec/stdlib/abi';
 import { PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -24,17 +21,15 @@ import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { LogHash, countAccumulatedItems } from '@aztec/stdlib/kernel';
-import { ContractClassLogFields } from '@aztec/stdlib/logs';
+import { countAccumulatedItems } from '@aztec/stdlib/kernel';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import { fr, makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
+import { fr, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   GlobalVariables,
   PartialStateReference,
   StateReference,
-  Tx,
   TxExecutionPhase,
 } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -187,38 +182,6 @@ describe('public_tx_simulator', () => {
         },
       );
     }
-  };
-
-  const mockContractClassForTx = async (tx: Tx, revertible = true) => {
-    const publicContractClass = await makeContractClassPublic(42);
-    const contractClassLogFields = [
-      new Fr(CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE),
-      publicContractClass.id,
-      new Fr(publicContractClass.version),
-      publicContractClass.artifactHash,
-      publicContractClass.privateFunctionsRoot,
-      ...bufferAsFields(
-        publicContractClass.packedBytecode,
-        Math.ceil(publicContractClass.packedBytecode.length / 31) + 1,
-      ),
-    ];
-    const contractAddress = new AztecAddress(new Fr(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS));
-    const emittedLength = contractClassLogFields.length;
-    const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
-
-    tx.contractClassLogFields.push(logFields);
-
-    const contractClassLogHash = LogHash.from({
-      value: await logFields.hash(),
-      length: emittedLength,
-    }).scope(contractAddress);
-    if (revertible) {
-      tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
-    } else {
-      tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
-    }
-
-    return publicContractClass.id;
   };
 
   const checkNullifierRoot = async (txResult: PublicTxResult) => {
@@ -1112,57 +1075,6 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     await checkNullifierRoot(txResult);
-  });
-
-  it.each([
-    [' not', 'revertible'],
-    ['', 'non-revertible'],
-  ])('after a revert, does%s retain contract classes emitted from %s logs', async (_, kind) => {
-    const tx = await mockTxWithPublicCalls({
-      numberOfSetupCalls: 1,
-      numberOfAppLogicCalls: 2,
-      hasPublicTeardownCall: true,
-    });
-
-    const contractClassId = await mockContractClassForTx(tx, kind == 'revertible');
-    const appLogicFailure = new SimulationError('Simulation Failed in app logic', []);
-    const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
-    mockPublicExecutor([
-      // SETUP
-      async (stateManager: PublicPersistableStateManager) => {
-        await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
-      },
-      // APP LOGIC
-      async (stateManager: PublicPersistableStateManager) => {
-        await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
-        await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
-      },
-      async (stateManager: PublicPersistableStateManager) => {
-        await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
-        return Promise.resolve(appLogicFailure);
-      },
-      // TEARDOWN
-      async (stateManager: PublicPersistableStateManager) => {
-        await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
-      },
-    ]);
-
-    const txResult = await simulator.simulate(tx);
-
-    expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
-    // tx reports app logic failure
-    expect(txResult.revertReason).toBe(appLogicFailure);
-
-    // Note that we do not check tx.data.forPublic? since these are not mutated in the case of a revert.
-    // When contract class logs are fields and only stored here, they will be filtered after simulation
-    // in processed_tx.ts -> makeProcessedTxFromTxWithPublicCalls() like PrivateLogs.
-
-    const contractClass = await contractsDB.getContractClass(contractClassId);
-    if (kind == 'revertible') {
-      expect(contractClass).toBeUndefined();
-    } else {
-      expect(contractClass).toBeDefined();
-    }
   });
 
   it('runs a tx with non-empty priority fees', async () => {

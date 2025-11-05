@@ -44,7 +44,7 @@ class MegaFlavor {
     using TraceBlocks = MegaExecutionTraceBlocks;
     using Transcript = NativeTranscript;
 
-    // An upper bound on the size of the Mega-circuits. `CONST_PG_LOG_N` bounds the log circuit sizes in the CIVC
+    // An upper bound on the size of the Mega-circuits. `CONST_PG_LOG_N` bounds the log circuit sizes in the Chonk
     // context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
     static constexpr size_t VIRTUAL_LOG_N = std::max(CONST_PG_LOG_N, MEGA_AVM_LOG_N);
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
@@ -76,7 +76,7 @@ class MegaFlavor {
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
-    using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
+    using Relations_ = std::tuple<bb::ArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,

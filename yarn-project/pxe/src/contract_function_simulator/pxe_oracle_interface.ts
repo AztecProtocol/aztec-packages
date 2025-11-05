@@ -81,7 +81,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.
-        Register it by calling pxe.addAccount(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
+        Register it by calling pxe.addAccount(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
       );
     }
     return completeAddress;
@@ -795,9 +795,26 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
     // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
     // since `fetchTaggedLogs` only processes logs up to the synced block.
-    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
+    const [syncedBlockNumber, siloedEventCommitment, txEffect] = await Promise.all([
+      this.syncDataProvider.getBlockNumber(),
+      siloNullifier(contractAddress, eventCommitment),
+      this.aztecNode.getTxEffect(txHash),
+    ]);
 
-    const siloedEventCommitment = await siloNullifier(contractAddress, eventCommitment);
+    if (!txEffect) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash}`);
+    }
+
+    if (txEffect.l2BlockNumber > syncedBlockNumber) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
+    }
+
+    const eventInTx = txEffect.data.nullifiers.some(nullifier => nullifier.equals(siloedEventCommitment));
+    if (!eventInTx) {
+      throw new Error(
+        `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present in tx ${txHash}`,
+      );
+    }
 
     const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
       siloedEventCommitment,
@@ -816,7 +833,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       content,
       txHash,
       Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
-      nullifierIndex.l2BlockNumber, // Block in which the event was emitted
+      nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
+      nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
     );
   }
 

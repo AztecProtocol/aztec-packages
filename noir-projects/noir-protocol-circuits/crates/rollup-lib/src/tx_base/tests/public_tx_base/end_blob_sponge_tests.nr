@@ -231,7 +231,7 @@ unconstrained fn all_side_effects_non_full() {
     }
     offset += num_public_data_writes * 2;
 
-    let private_logs = builder.private_tail.non_revertible_accumulated_data.private_logs;
+    let private_logs = builder.private_tail.revertible_accumulated_data.private_logs;
     for i in 0..private_log_lengths.len() {
         let log_length = private_log_lengths[i];
         expected_blob_fields[offset] = log_length as Field;
@@ -250,7 +250,7 @@ unconstrained fn all_side_effects_non_full() {
     offset += public_logs_length;
 
     let contract_class_log_hashes =
-        builder.private_tail.non_revertible_accumulated_data.contract_class_logs_hashes;
+        builder.private_tail.revertible_accumulated_data.contract_class_logs_hashes;
     let contract_class_log_fields = builder.contract_class_log_fields;
     for i in 0..contract_class_log_lengths.len() {
         let log_hash = contract_class_log_hashes[i];

@@ -1,4 +1,4 @@
-import { FinalBlobAccumulator } from '@aztec/blob-lib';
+import { FinalBlobAccumulator } from '@aztec/blob-lib/types';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';

@@ -24,10 +24,10 @@ ContractInstance create_test_contract_instance(uint32_t salt_value = 123)
 {
     return ContractInstance{
         .salt = FF(salt_value),
-        .deployer_addr = FF(0x123456789ULL),
-        .current_class_id = FF(0xdeadbeefULL),
-        .original_class_id = FF(0xcafebabeULL),
-        .initialisation_hash = FF(0x11111111ULL),
+        .deployer = FF(0x123456789ULL),
+        .current_contract_class_id = FF(0xdeadbeefULL),
+        .original_contract_class_id = FF(0xcafebabeULL),
+        .initialization_hash = FF(0x11111111ULL),
         .public_keys =
             PublicKeys{
                 .nullifier_key = { FF(0x100), FF(0x101) },

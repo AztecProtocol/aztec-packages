@@ -5,6 +5,7 @@
 
 #include <gmock/gmock.h>
 
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
@@ -38,16 +39,15 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(const AztecAddress&, get_msg_sender, (), (const, override));
     MOCK_METHOD(const FF&, get_transaction_fee, (), (const, override));
     MOCK_METHOD(bool, get_is_static, (), (const, override));
-    MOCK_METHOD(SideEffectStates&, get_side_effect_states, (), (override));
-    MOCK_METHOD(void, set_side_effect_states, (SideEffectStates side_effect_states), (override));
+    MOCK_METHOD(SideEffectTrackerInterface&, get_side_effect_tracker, (), (override));
     MOCK_METHOD(AppendOnlyTreeSnapshot, get_written_public_data_slots_tree_snapshot, (), (override));
     MOCK_METHOD(const GlobalVariables&, get_globals, (), (const, override));
 
     MOCK_METHOD(TransactionPhase, get_phase, (), (const, override));
 
     // Input / Output.
-    MOCK_METHOD(std::vector<FF>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));
-    MOCK_METHOD(std::vector<FF>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (override));
+    MOCK_METHOD(std::vector<MemoryValue>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));
+    MOCK_METHOD(std::vector<MemoryValue>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (override));
     MOCK_METHOD(ContextInterface&, get_child_context, (), (override));
     MOCK_METHOD(void, set_child_context, (std::unique_ptr<ContextInterface> child_ctx), (override));
 

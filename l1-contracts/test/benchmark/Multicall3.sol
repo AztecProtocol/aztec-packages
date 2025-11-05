@@ -59,7 +59,11 @@ contract Multicall3 {
   /// @param requireSuccess If true, require all calls to succeed
   /// @param calls An array of Call structs
   /// @return returnData An array of Result structs
-  function tryAggregate(bool requireSuccess, Call[] calldata calls) public payable returns (Result[] memory returnData) {
+  function tryAggregate(bool requireSuccess, Call[] calldata calls)
+    public
+    payable
+    returns (Result[] memory returnData)
+  {
     uint256 length = calls.length;
     returnData = new Result[](length);
     Call calldata call;

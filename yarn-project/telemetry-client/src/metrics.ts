@@ -63,6 +63,9 @@ export const ARCHIVER_TOTAL_TXS = 'aztec.archiver.tx_count';
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
 
+export const NODE_SNAPSHOT_DURATION = 'aztec.node.snapshot_duration';
+export const NODE_SNAPSHOT_ERROR_COUNT = 'aztec.node.snapshot_error_count';
+
 export const SEQUENCER_STATE_TRANSITION_BUFFER_DURATION = 'aztec.sequencer.state_transition_buffer.duration';
 export const SEQUENCER_BLOCK_BUILD_DURATION = 'aztec.sequencer.block.build_duration';
 export const SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND = 'aztec.sequencer.block.build_mana_per_second';

@@ -93,7 +93,7 @@ void create_block_constraints(MegaCircuitBuilder& builder,
         process_call_data_operations(builder, constraint, has_valid_witness_assignments, init);
     } break;
     case BlockType::ReturnData: {
-        process_return_data_operations(constraint, init);
+        process_return_data_operations(builder, constraint, init);
     } break;
     default:
         throw_or_abort("Unexpected block constraint type.");
@@ -169,6 +169,7 @@ void process_call_data_operations(Builder& builder,
 
     // Method for processing operations on a generic databus calldata array
     auto process_calldata = [&](auto& calldata_array) {
+        calldata_array.set_context(&builder);
         calldata_array.set_values(init); // Initialize the data in the bus array
 
         for (const auto& op : constraint.trace) {
@@ -195,11 +196,15 @@ void process_call_data_operations(Builder& builder,
 }
 
 template <typename Builder>
-void process_return_data_operations(const BlockConstraint& constraint, std::vector<bb::stdlib::field_t<Builder>>& init)
+void process_return_data_operations(Builder& builder,
+                                    const BlockConstraint& constraint,
+                                    std::vector<bb::stdlib::field_t<Builder>>& init)
 {
     using databus_ct = stdlib::databus<Builder>;
 
     databus_ct databus;
+
+    databus.return_data.set_context(&builder);
     // Populate the returndata in the databus
     databus.return_data.set_values(init);
     // For each entry of the return data, explicitly assert equality with the initialization value. This implicitly

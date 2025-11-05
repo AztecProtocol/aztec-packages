@@ -43,15 +43,15 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
     return avmResult;
   }
 
-  protected override async insertNonRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
+  protected override async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
     const timer = new Timer();
-    await super.insertNonRevertiblesFromPrivate(context, tx);
+    await super.insertNonRevertiblesFromPrivate(context);
     this.metrics.recordPrivateEffectsInsertion(timer.us(), 'non-revertible');
   }
 
-  protected override async insertRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
+  protected override async insertRevertiblesFromPrivate(context: PublicTxContext) {
     const timer = new Timer();
-    await super.insertRevertiblesFromPrivate(context, tx);
+    await super.insertRevertiblesFromPrivate(context);
     this.metrics.recordPrivateEffectsInsertion(timer.us(), 'revertible');
   }
 

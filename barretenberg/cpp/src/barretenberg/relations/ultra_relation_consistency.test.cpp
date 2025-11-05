@@ -108,13 +108,13 @@ class UltraRelationConsistency : public testing::Test {
     };
 };
 
-TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
+TEST_F(UltraRelationConsistency, ArithmeticRelation)
 {
-    const auto run_test = [](bool random_inputs) {
-        using Relation = UltraArithmeticRelation<FF>;
+    const auto run_test = [](bool random_inputs, const FF& q_arith_value = FF::random_element()) {
+        using Relation = ArithmeticRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+        InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
         const auto& w_1_shift = input_elements.w_l_shift;
         const auto& w_2 = input_elements.w_r;
@@ -127,21 +127,48 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
         const auto& q_o = input_elements.q_o;
         const auto& q_4 = input_elements.q_4;
         const auto& q_c = input_elements.q_c;
+
+        // Set specific q_arith value to enable testing different modes of the arithmetic relation
+        input_elements.q_arith = q_arith_value;
         const auto& q_arith = input_elements.q_arith;
 
         SumcheckArrayOfValuesOverSubrelations expected_values;
         static const FF neg_half = FF(-2).invert();
 
-        // Contribution 1
-        auto contribution_1 = (q_arith - 3) * (q_m * w_2 * w_1) * neg_half;
-        contribution_1 += (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c;
-        contribution_1 += (q_arith - 1) * w_4_shift;
-        contribution_1 *= q_arith;
-        expected_values[0] = contribution_1;
+        FF contribution_1 = FF(0);
+        FF contribution_2 = FF(0);
+        if (q_arith == FF(1)) {
+            // Contribution 1
+            contribution_1 = (q_m * w_2 * w_1) + (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c;
 
-        // Contribution 2
-        auto contribution_2 = (w_1 + w_4 - w_1_shift + q_m);
-        contribution_2 *= (q_arith - 2) * (q_arith - 1) * q_arith;
+            // Contribution 2: None
+        } else if (q_arith == FF(2)) {
+            // Contribution 1
+            contribution_1 = (q_m * w_2 * w_1);
+            contribution_1 += ((q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + w_4_shift + q_c) * FF(2);
+
+            // Contribution 2: None
+        } else if (q_arith == FF(3)) {
+            // Contribution 1
+            contribution_1 = (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c;
+            contribution_1 += w_4_shift * FF(2);
+            contribution_1 *= FF(3);
+
+            // Contribution 2
+            contribution_2 = (w_1 + w_4 - w_1_shift + q_m) * FF(6);
+        } else {
+            // Contribution 1
+            contribution_1 = (q_arith - 3) * (q_m * w_2 * w_1) * neg_half;
+            contribution_1 += (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c;
+            contribution_1 += (q_arith - 1) * w_4_shift;
+            contribution_1 *= q_arith;
+
+            // Contribution 2
+            contribution_2 = (w_1 + w_4 - w_1_shift + q_m);
+            contribution_2 *= (q_arith - 2) * (q_arith - 1) * q_arith;
+        }
+
+        expected_values[0] = contribution_1;
         expected_values[1] = contribution_2;
 
         const auto parameters = RelationParameters<FF>::get_random();
@@ -150,6 +177,9 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
     };
     run_test(/*random_inputs=*/false);
     run_test(/*random_inputs=*/true);
+    run_test(/*random_inputs=*/true, /*q_arith_value=*/FF(1));
+    run_test(/*random_inputs=*/true, /*q_arith_value=*/FF(2));
+    run_test(/*random_inputs=*/true, /*q_arith_value=*/FF(3));
 };
 
 TEST_F(UltraRelationConsistency, UltraPermutationRelation)

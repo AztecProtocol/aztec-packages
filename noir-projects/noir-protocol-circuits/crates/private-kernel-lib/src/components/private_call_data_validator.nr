@@ -2,6 +2,10 @@ pub(crate) mod find_index_of_first_fully_revertible_private_call_request;
 mod validate_contract_address;
 mod validate_min_revertible_side_effect_counter;
 
+use crate::accumulated_data::{
+    validate_incrementing_call_request_counters_within_range,
+    validate_incrementing_counters_within_range,
+};
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -10,70 +14,9 @@ use dep::types::{
         public_call_request::PublicCallRequest, transaction::tx_request::TxRequest,
     },
     constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
-    side_effect::{Ordered, RangeOrdered},
-    utils::arrays::ClaimedLengthArray,
 };
 use validate_contract_address::validate_contract_address;
 use validate_min_revertible_side_effect_counter::validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame;
-
-fn validate_incrementing_counters_within_range<T, let N: u32>(
-    counter_start: u32,
-    counter_end: u32,
-    items: ClaimedLengthArray<T, N>,
-)
-where
-    T: Ordered,
-{
-    let num_items = items.length;
-    let mut prev_counter = counter_start;
-    let mut should_check = true;
-
-    for i in 0..N {
-        should_check &= i != num_items;
-        if should_check {
-            let item = items.array[i];
-            assert(
-                item.counter() > prev_counter,
-                "counter must be larger than the counter of the previous item",
-            );
-            prev_counter = item.counter();
-        }
-    }
-    assert(prev_counter < counter_end, "counter must be smaller than the end counter of the call");
-}
-
-fn validate_incrementing_counter_ranges_within_range<T, let N: u32>(
-    counter_start: u32,
-    counter_end: u32,
-    items: ClaimedLengthArray<T, N>,
-)
-where
-    T: RangeOrdered,
-{
-    let num_items = items.length;
-    let mut prev_counter = counter_start;
-    let mut should_check = true;
-
-    for i in 0..N {
-        should_check &= i != num_items;
-        if should_check {
-            let item = items.array[i];
-            assert(
-                item.counter_start() > prev_counter,
-                "start counter must be larger than the end counter of the previous call",
-            );
-            assert(
-                item.counter_end() > item.counter_start(),
-                "nested call has incorrect counter range",
-            );
-            prev_counter = item.counter_end();
-        }
-    }
-    assert(
-        prev_counter < counter_end,
-        "end counter must be smaller than the end counter of the parent call",
-    );
-}
 
 pub struct PrivateCallDataValidator {
     data: PrivateCallData,
@@ -352,7 +295,7 @@ impl PrivateCallDataValidator {
             counter_end,
             public_inputs.contract_class_logs_hashes,
         );
-        validate_incrementing_counter_ranges_within_range(
+        validate_incrementing_call_request_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.private_call_requests,

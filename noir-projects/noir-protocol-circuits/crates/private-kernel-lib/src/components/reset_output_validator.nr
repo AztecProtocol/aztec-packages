@@ -2,6 +2,10 @@ mod validate_note_logs_linked_to_note_hashes;
 
 use crate::{
     abis::{PaddedSideEffects, PrivateKernelResetHints},
+    accumulated_data::{
+        assert_sorted_padded_transformed_array_capped_size,
+        assert_sorted_padded_transformed_i_array_capped_size,
+    },
     components::reset_output_composer::ResetOutputHints,
     reset::{KeyValidationRequestsValidator, ReadRequestValidator, TransientDataValidator},
 };
@@ -19,10 +23,6 @@ use dep::types::{
         compute_siloed_private_log_field, silo_nullifier,
     },
     side_effect::{Counted, Ordered, Scoped},
-    utils::arrays::{
-        assert_sorted_transformed_i_padded_array_capped_size,
-        assert_sorted_transformed_padded_array_capped_size,
-    },
 };
 use validate_note_logs_linked_to_note_hashes::validate_note_logs_linked_to_note_hashes;
 
@@ -372,7 +372,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // TODO: because this is only called for one purpose (note hashes), consider not using the
         // lambda function, because it's hard to read.
         // Edit: oh, the nullifier and log paths also end up in this function too.
-        assert_sorted_transformed_i_padded_array_capped_size::<_, _, _, _, NoteHashSiloingAmount>(
+        assert_sorted_padded_transformed_i_array_capped_size::<_, _, _, _, NoteHashSiloingAmount>(
             self.output_hints.kept_note_hashes,
             padded_scoped_note_hashes,
             self.output.end.note_hashes,
@@ -387,14 +387,20 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                 );
                 assert(out.contract_address.is_zero());
             },
-            self.output_hints.sorted_kept_note_hash_indexes,
         );
     }
 
     fn validate_sorted_siloed_padded_nullifiers<let NullifierSiloingAmount: u32>(self) {
-        // Unlike note hashes, we don't have to check that the nullifiers haven't been siloed.
-        // silo_nullifier() will return the already-siloed value if contract address is zero.
-        // Q: why isn't it the same flow for note_hashes?
+        // Check that the nullifiers were not already siloed in a previous reset.
+        // We only need to check the first nullifier, since we always start siloing from index 0.
+        // The first nullifier should not be siloed (i.e. contract_address != 0). It won't be empty because a protocol
+        // nullifier will be created in the init circuit if no nullifiers are emitted throughout the private execution.
+        let first_nullifier = self.previous_kernel.end.nullifiers.array[0];
+        assert(
+            (self.previous_kernel.end.nullifiers.length == 0)
+                | !first_nullifier.contract_address.is_zero(),
+            "Nullifiers have been siloed in a previous reset",
+        );
 
         //---------------
 
@@ -412,7 +418,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         //---------------
         // Sort, Silo, Pad:
 
-        assert_sorted_transformed_padded_array_capped_size::<_, _, _, _, NullifierSiloingAmount>(
+        assert_sorted_padded_transformed_array_capped_size::<_, _, _, _, NullifierSiloingAmount>(
             self.output_hints.kept_nullifiers,
             padded_nullifiers,
             self.output.end.nullifiers,
@@ -431,15 +437,21 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                     out.contract_address.is_zero(),
                     "The contract_address of a siloed nullified should be set to 0",
                 );
-                // counter is checked in assert_sorted_transformed_padded_array_capped_size
+                // counter is checked in assert_sorted_padded_transformed_array_capped_size
             },
-            self.output_hints.sorted_kept_nullifier_indexes,
         );
     }
 
     fn validate_sorted_siloed_padded_private_logs<let PrivateLogSiloingAmount: u32>(self) {
-        // Unlike note hashes, we don't have to check that the private logs haven't been siloed.
-        // `assert_valid_siloed_private_log` checks the already-siloed value if contract address is zero.
+        // Check that the private logs were not already siloed in a previous reset.
+        // We only need to check the first item, since we always start siloing from index 0.
+        // The first item should either be empty or not siloed (contract_address != 0).
+        let first_private_log = self.previous_kernel.end.private_logs.array[0];
+        assert(
+            (self.previous_kernel.end.private_logs.length == 0)
+                | !first_private_log.contract_address.is_zero(),
+            "Private logs have been siloed in a previous reset",
+        );
 
         //---------------
 
@@ -457,7 +469,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         //---------------
         // Sort, Silo, Pad:
 
-        assert_sorted_transformed_padded_array_capped_size::<_, _, _, _, PrivateLogSiloingAmount>(
+        assert_sorted_padded_transformed_array_capped_size::<_, _, _, _, PrivateLogSiloingAmount>(
             self.output_hints.kept_private_logs,
             padded_logs,
             self.output.end.private_logs,
@@ -465,9 +477,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                 assert_valid_siloed_private_log(out.innermost().log, prev);
                 assert_eq(out.innermost().note_hash_counter, prev.innermost().note_hash_counter);
                 assert(out.contract_address.is_zero());
-                // counter is checked in assert_sorted_transformed_padded_array_capped_size
+                // counter is checked in assert_sorted_padded_transformed_array_capped_size
             },
-            self.output_hints.sorted_kept_private_log_indexes,
         );
     }
 }

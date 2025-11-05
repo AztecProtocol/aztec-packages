@@ -42,7 +42,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     }
 
     ContractInstance instance = maybe_instance.value();
-    ContractClassId current_class_id = instance.current_class_id;
+    ContractClassId current_class_id = instance.current_contract_class_id;
     retrieval_event.current_class_id = current_class_id;
 
     bool is_new_class = !retrieved_bytecodes_tree_check.contains(current_class_id);
@@ -69,11 +69,14 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     assert(maybe_klass.has_value());
     auto& klass = maybe_klass.value();
     retrieval_event.contract_class = klass; // WARNING: this class has the whole bytecode.
-    debug("Bytecode for ", address, " successfully retrieved!");
 
     // Bytecode hashing and decomposition, deduplicated by bytecode_id (commitment)
-    BytecodeId bytecode_id = klass.public_bytecode_commitment;
+    std::optional<FF> maybe_bytecode_commitment = contract_db.get_bytecode_commitment(current_class_id);
+    // If we reach this point, class ID and instance both exist which means bytecode commitment must exist.
+    assert(maybe_bytecode_commitment.has_value());
+    BytecodeId bytecode_id = maybe_bytecode_commitment.value();
     retrieval_event.bytecode_id = bytecode_id;
+    debug("Bytecode for ", address, " successfully retrieved!");
 
     // Check if we've already processed this bytecode. If so, don't do hashing and decomposition again!
     if (bytecodes.contains(bytecode_id)) {
@@ -84,7 +87,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // First time seeing this bytecode - check hashing and decomposition
     bytecode_hasher.assert_public_bytecode_commitment(
-        bytecode_id, klass.packed_bytecode, klass.public_bytecode_commitment);
+        bytecode_id, klass.packed_bytecode, /*public_bytecode_commitment=*/bytecode_id);
 
     // We convert the bytecode to a shared_ptr because it will be shared by some events.
     auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));

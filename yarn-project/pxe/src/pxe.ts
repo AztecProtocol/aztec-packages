@@ -28,7 +28,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
@@ -73,7 +73,10 @@ import { AddressDataProvider } from './storage/address_data_provider/address_dat
 import { CapsuleDataProvider } from './storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from './storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from './storage/note_data_provider/note_data_provider.js';
-import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
+import {
+  type PrivateEvent,
+  PrivateEventDataProvider,
+} from './storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from './storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from './storage/tagging_data_provider/tagging_data_provider.js';
 import { Synchronizer } from './synchronizer/index.js';
@@ -250,7 +253,7 @@ export class PXE {
     const contract = await this.contractDataProvider.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+        `Unknown contract ${to}: add it to PXE by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -362,7 +365,7 @@ export class PXE {
    * @param proofCreator - The proof creator to use for proving the execution.
    * @param privateExecutionResult - The result of the private execution
    * @param config - The configuration for the kernel execution prover.
-   * @returns An object that contains the output of the kernel execution, including the ClientIvcProof if proving is enabled.
+   * @returns An object that contains the output of the kernel execution, including the ChonkProof if proving is enabled.
    */
   async #prove(
     txExecutionRequest: TxExecutionRequest,
@@ -707,7 +710,7 @@ export class PXE {
 
         const {
           publicInputs,
-          clientIvcProof,
+          chonkProof,
           executionSteps,
           timings: { proving } = {},
         } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
@@ -735,7 +738,7 @@ export class PXE {
 
         this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
 
-        const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
+        const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, chonkProof!, {
           timings,
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
@@ -905,10 +908,9 @@ export class PXE {
 
         if (skipKernels) {
           // According to the protocol rules, the nonce generator for the note hashes
-          // can either be the first nullifier in the tx or the hash of the initial tx request
-          // if there are none.
+          // can either be the first nullifier in the tx or the protocol nullifier if there are none.
           const nonceGenerator = privateExecutionResult.firstNullifier.equals(Fr.ZERO)
-            ? await txRequest.toTxRequest().hash()
+            ? await computeProtocolNullifier(await txRequest.toTxRequest().hash())
             : privateExecutionResult.firstNullifier;
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
@@ -1094,7 +1096,9 @@ export class PXE {
       eventMetadataDef.eventSelector,
     );
 
-    const decodedEvents = events.map((event: Fr[]): T => decodeFromAbi([eventMetadataDef.abiType], event) as T);
+    const decodedEvents = events.map(
+      (event: PrivateEvent): T => decodeFromAbi([eventMetadataDef.abiType], event.msgContent) as T,
+    );
 
     return decodedEvents;
   }

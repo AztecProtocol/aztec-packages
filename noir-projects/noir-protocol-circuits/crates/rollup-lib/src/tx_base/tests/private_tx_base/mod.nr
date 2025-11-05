@@ -39,7 +39,7 @@ use dep::types::{
         fixture_builder::FixtureBuilder, merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end,
     },
     traits::FromField,
-    utils::arrays::{find_first_index, get_sorted_tuple, subarray},
+    utils::arrays::{find_first_index, get_sorted_tuples, subarray},
 };
 
 // The circuit updates an existing leaf in the public data tree, so we only need to build the tree with a subtree big
@@ -223,7 +223,7 @@ impl TestBuilder {
         let new_nullifiers = self.private_tail.end.nullifiers;
 
         // Safety: This is for testing only.
-        let sorted_tuples = unsafe { get_sorted_tuple(new_nullifiers, |a, b| b.lt(a)) };
+        let sorted_tuples = unsafe { get_sorted_tuples(new_nullifiers, |a, b| b.lt(a)) };
         let sorted_nullifiers = sorted_tuples.map(|tuple| tuple.elem);
         let sorted_nullifier_indexes = sorted_tuples.map(|tuple| tuple.original_index);
         self.tree_snapshot_diff_hints.sorted_nullifiers = sorted_nullifiers;

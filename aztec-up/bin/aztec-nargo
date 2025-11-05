@@ -6,6 +6,12 @@ if [[ $PWD != ${HOME}* ]]; then
   exit 1
 fi
 
+AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
+DEFAULT_VERSION=$(cat "$AZTEC_PATH/default_version" 2> /dev/null || echo latest)
+VERSION="${VERSION:-$DEFAULT_VERSION}"
+DOCKER_REPO="${DOCKER_REPO:-"aztecprotocol/aztec"}"
+IMAGE="$DOCKER_REPO:$VERSION"
+
 # Special-case nargo's LSP command:
 # 1. include --rm for cleanup
 # 2. don't specify a user (run as root)
@@ -16,7 +22,7 @@ if [ "${1:-}" == "lsp" ]; then
     -v $HOME:$HOME \
     -e HOME=$HOME \
     --entrypoint=/usr/src/noir/noir-repo/target/release/nargo \
-    aztecprotocol/aztec lsp
+    $IMAGE lsp
   exit
 fi
 
@@ -36,4 +42,4 @@ docker run ${args:-} \
   -e HOME=$HOME \
   --workdir="$PWD" \
   --entrypoint=/usr/src/noir/noir-repo/target/release/nargo \
-  aztecprotocol/aztec "$@"
+  $IMAGE "$@"

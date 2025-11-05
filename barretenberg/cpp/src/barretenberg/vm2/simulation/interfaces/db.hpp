@@ -20,6 +20,15 @@ class ContractDBInterface {
 
     virtual std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const = 0;
     virtual std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const = 0;
+    virtual std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const = 0;
+    virtual std::optional<std::string> get_debug_function_name(const AztecAddress& address,
+                                                               const FunctionSelector& selector) const = 0;
+
+    virtual void add_contracts(const ContractDeploymentData& contract_deployment_data) = 0;
+
+    virtual void create_checkpoint() = 0;
+    virtual void commit_checkpoint() = 0;
+    virtual void revert_checkpoint() = 0;
 };
 
 // Aliases.
@@ -114,6 +123,11 @@ class HighLevelMerkleDBInterface {
     virtual LowLevelMerkleDBInterface& as_unconstrained() const = 0;
 };
 
+/**
+ * @brief Interface for a checkpoint notifiable.
+ *
+ * This interface is used to notify listeners when a checkpoint is created, committed, or reverted.
+ */
 class CheckpointNotifiable {
   public:
     virtual ~CheckpointNotifiable() = default;
