@@ -37,7 +37,7 @@ provider "helm" {
 
 module "web3signer" {
   # Only deploy web3signer if we have validators or provers that need to publish to L1
-  count = tonumber(var.VALIDATOR_REPLICAS) > 0 || (tonumber(var.PROVER_REPLICAS) > 0 && !var.PROVER_NODE_DISABLE_PROOF_PUBLISH) ? 1 : 0
+  count = tonumber(var.VALIDATOR_REPLICAS) > 0 ? 1 : 0
 
   source                                   = "../modules/web3signer"
   NAMESPACE                                = var.NAMESPACE
@@ -202,7 +202,7 @@ locals {
         },
         # Only set web3signerUrl if proof publishing is enabled
         !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
-          "node.web3signerUrl" = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+          "node.node.web3signerUrl" = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         } : {}
       )
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
