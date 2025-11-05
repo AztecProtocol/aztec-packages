@@ -26,7 +26,7 @@ namespace bb::avm2::simulation {
 // TODO(fcarreiro): Create interface and move there.
 struct TxExecutionResult {
     GasUsed gas_used;
-    RevertCode revert_code;
+    RevertCode revert_code = RevertCode::OK;
     std::optional<std::vector<FF>> app_logic_return_value;
 };
 

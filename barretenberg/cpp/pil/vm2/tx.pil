@@ -17,7 +17,6 @@ include "tx_discard.pil";
 // (e) Revertible TEARDOWN phase
 // (f) Non-Revertible Collect Gas Phase
 
-// Things that are still underconstrained - see issue tracker #14666
 namespace tx;
 
     pol commit sel;

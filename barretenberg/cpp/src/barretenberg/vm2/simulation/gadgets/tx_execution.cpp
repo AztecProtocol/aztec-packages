@@ -54,8 +54,8 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
 // (5) Collec Gas fee
 TxExecutionResult TxExecution::simulate(const Tx& tx)
 {
-    Gas gas_limit = tx.gasSettings.gasLimits;
-    Gas teardown_gas_limit = tx.gasSettings.teardownGasLimits;
+    const Gas& gas_limit = tx.gasSettings.gasLimits;
+    const Gas& teardown_gas_limit = tx.gasSettings.teardownGasLimits;
     tx_context.gas_used = tx.gasUsedByPrivate;
     std::optional<std::vector<FF>> app_logic_return_value;
 
@@ -173,11 +173,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     }
 
     // Compute the transaction fee here so it can be passed to teardown
-    Gas gas_used_before_teardown = tx_context.gas_used;
-    uint128_t fee_per_da_gas = tx.effectiveGasFees.feePerDaGas;
-    uint128_t fee_per_l2_gas = tx.effectiveGasFees.feePerL2Gas;
-    FF fee = FF(fee_per_da_gas) * FF(gas_used_before_teardown.daGas) +
-             FF(fee_per_l2_gas) * FF(gas_used_before_teardown.l2Gas);
+    const Gas& gas_used_before_teardown = tx_context.gas_used;
+    const uint128_t& fee_per_da_gas = tx.effectiveGasFees.feePerDaGas;
+    const uint128_t& fee_per_l2_gas = tx.effectiveGasFees.feePerL2Gas;
+    const FF fee = FF(fee_per_da_gas) * FF(gas_used_before_teardown.daGas) +
+                   FF(fee_per_l2_gas) * FF(gas_used_before_teardown.l2Gas);
 
     // Teardown.
     try {
@@ -192,14 +192,13 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                   fn_name);
             // Teardown has its own gas limit and usage.
             Gas start_gas = { 0, 0 };
-            gas_limit = teardown_gas_limit;
             TxContextEvent state_before = tx_context.serialize_tx_context_event();
             auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->request.contractAddress,
                                                                   tx.teardownEnqueuedCall->request.msgSender,
                                                                   fee,
                                                                   tx.teardownEnqueuedCall->calldata,
                                                                   tx.teardownEnqueuedCall->request.isStaticCall,
-                                                                  gas_limit,
+                                                                  teardown_gas_limit,
                                                                   start_gas,
                                                                   TransactionPhase::TEARDOWN);
             // This call should not throw unless it's an unexpected unrecoverable failure.
@@ -353,7 +352,6 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
     }
 }
 
-// TODO: How to increment the context id here?
 // This function inserts the non-revertible accumulated data into the Merkle DB.
 // It might error if the limits for number of allowable inserts are exceeded, but this result in an unprovable tx.
 void TxExecution::insert_non_revertibles(const Tx& tx)
@@ -398,7 +396,6 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
     contract_db.add_contracts(tx.nonRevertibleContractDeploymentData);
 }
 
-// TODO: Error Handling
 void TxExecution::insert_revertibles(const Tx& tx)
 {
     vinfo("[REVERTIBLE] Inserting ",
@@ -486,9 +483,10 @@ void TxExecution::pad_trees()
 
 void TxExecution::cleanup()
 {
+    TxContextEvent current_state = tx_context.serialize_tx_context_event();
     events.emit(TxPhaseEvent{ .phase = TransactionPhase::CLEANUP,
-                              .state_before = tx_context.serialize_tx_context_event(),
-                              .state_after = tx_context.serialize_tx_context_event(),
+                              .state_before = current_state,
+                              .state_after = current_state,
                               .reverted = false,
                               .event = CleanupEvent{} });
 }
