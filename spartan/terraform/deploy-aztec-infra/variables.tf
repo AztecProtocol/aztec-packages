@@ -522,3 +522,9 @@ variable "PROVER_AGENTS_PER_PROVER" {
   type        = string
   default     = 1
 }
+
+variable "BLOB_ALLOW_EMPTY_SOURCES" {
+  description = "Whether to allow starting without any consensus client URLs"
+  type        = bool
+  default     = false
+}
