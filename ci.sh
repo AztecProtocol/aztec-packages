@@ -154,6 +154,12 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ci-network-tests"
     ;;
   "release-pr")
+    # Configure git with author's identity in worktree
+    pr_info=$(gh pr view "$pr_number" --json title,body,author,headRepository,isCrossRepository)
+    pr_author=$(echo "$pr_info" | jq -r '.author.login')
+    author_email="${user_id}+${pr_author}@users.noreply.github.com"
+    git config user.name "$pr_author"
+    git config user.email "$author_email"
     # Prep commit release tag.
     tag_name="v0.0.1-commit-$(git rev-parse --short HEAD)"
     git tag "${tag_name}"
