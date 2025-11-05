@@ -21,7 +21,6 @@ Chonk::Chonk(size_t num_circuits)
     : num_circuits(num_circuits)
     , goblin(bn254_commitment_key)
 {
-    info("IVC: total num circuits =", num_circuits);
     BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater than 0.");
     // Allocate BN254 commitment key based on translator circuit size.
     // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
@@ -531,7 +530,7 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                         const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
-    info("hiding dyadic size ", hiding_prover_inst->dyadic_size());
+
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
     HonkProof proof = prover.construct_proof();

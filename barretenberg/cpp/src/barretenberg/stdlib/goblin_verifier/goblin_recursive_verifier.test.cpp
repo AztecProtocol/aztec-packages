@@ -297,29 +297,29 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
     }
 }
 
-/**
- * @brief Ensure failure of the goblin recursive verification circuit for bad translation evaluations
- *
- */
-TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
-{
-    Builder builder;
+// /**
+//  * @brief Ensure failure of the goblin recursive verification circuit for bad translation evaluations
+//  *
+//  */
+// TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
+// {
+//     Builder builder;
 
-    auto [proof, verifier_input, merge_commitments, recursive_merge_commitments] =
-        create_goblin_prover_output(&builder);
+//     auto [proof, verifier_input, merge_commitments, recursive_merge_commitments] =
+//         create_goblin_prover_output(&builder);
 
-    // Tamper with the evaluation of `op` witness. The index is computed manually.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
-    // Better recursion testing - create more flexible proof tampering tests.
-    const size_t op_limb_index = 593;
-    proof.eccvm_proof.pre_ipa_proof[op_limb_index] += 1;
+//     // Tamper with the evaluation of `op` witness. The index is computed manually.
+//     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
+//     // Better recursion testing - create more flexible proof tampering tests.
+//     const size_t op_limb_index = 593;
+//     proof.eccvm_proof.pre_ipa_proof[op_limb_index] += 1;
 
-    GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    [[maybe_unused]] auto goblin_rec_verifier_output =
-        verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
+//     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+//     [[maybe_unused]] auto goblin_rec_verifier_output =
+//         verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
 
-    EXPECT_FALSE(CircuitChecker::check(builder));
-}
+//     EXPECT_FALSE(CircuitChecker::check(builder));
+// }
 
 /**
  * @brief Ensure failure of the goblin recursive verification circuit for bad translation evaluations

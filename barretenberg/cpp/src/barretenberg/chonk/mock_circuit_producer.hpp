@@ -191,7 +191,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
                 GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
                 mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
             }
-            // Hiding kernel: starts with empty circuit, only adds logic from complete_kernel_circuit_logic
         }
 
         if (is_kernel) {
