@@ -140,6 +140,15 @@ function compile {
       mv $outdir/vk $ivc_vk_path
       echo_stderr "IVC tail key output at: $ivc_vk_path (${SECONDS}s)"
       cache_upload vk-$hash.tar.gz $key_path $ivc_vk_path &> /dev/null
+    elif echo "$name" | grep -qE "rollup_tx_base_public"; then
+      # If we are the public tx base rollup, we also need to generate the avm vk.
+      SECONDS=0
+      local avm_vk_path="$key_dir/avm.vk"
+      echo_stderr "Generating avm vk..."
+      $BB avm_write_vk -o $outdir
+      mv $outdir/vk $avm_vk_path
+      echo_stderr "AVM key output at: $avm_vk_path (${SECONDS}s)"
+      cache_upload vk-$hash.tar.gz $key_path $avm_vk_path &> /dev/null
     else
       cache_upload vk-$hash.tar.gz $key_path &> /dev/null
     fi
