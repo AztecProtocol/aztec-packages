@@ -245,18 +245,6 @@ template <typename Builder> void cycle_group<Builder>::validate_on_curve() const
     res.assert_is_zero();
 }
 
-/**
- * @brief Convert the point to standard form.
- * @details If the point is a point at infinity, ensure the coordinates are (0,0). If the point is already standard
- * nothing changes.
- *
- */
-template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_standard_form()
-{
-    this->standardize();
-    return *this;
-}
-
 #ifdef FUZZING
 /**
  * @brief  Set the point to the point at infinity.

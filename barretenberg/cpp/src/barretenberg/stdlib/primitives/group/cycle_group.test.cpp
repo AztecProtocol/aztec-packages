@@ -326,12 +326,18 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     input_c.set_origin_tag(next_challenge_tag);
     input_d.set_origin_tag(first_two_merged_tag);
 
-    auto standard_a = input_a.get_standard_form();
-    auto standard_b = input_b.get_standard_form();
-    auto standard_c = input_c.get_standard_form();
-    auto standard_d = input_d.get_standard_form();
-    auto standard_e = input_e.get_standard_form();
-    auto standard_f = input_f.get_standard_form();
+    input_a.standardize();
+    auto standard_a = input_a;
+    input_b.standardize();
+    auto standard_b = input_b;
+    input_c.standardize();
+    auto standard_c = input_c;
+    input_d.standardize();
+    auto standard_d = input_d;
+    input_e.standardize();
+    auto standard_e = input_e;
+    input_f.standardize();
+    auto standard_f = input_f;
 
     EXPECT_EQ(standard_a.is_point_at_infinity().get_value(), false);
     EXPECT_EQ(standard_b.is_point_at_infinity().get_value(), true);

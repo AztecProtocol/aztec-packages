@@ -95,7 +95,6 @@ template <typename Builder> class cycle_group {
 #endif
     void standardize();
     bool is_standard() const { return this->_is_standard; };
-    cycle_group get_standard_form();
     void validate_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
@@ -221,7 +220,7 @@ template <typename Builder> class cycle_group {
     // - It's not a point at infinity, and the coordinates belong to the curve
     // - It's a point at infinity and both of the coordinates are set to be 0. (0, 0)
     // Most of the time it is true, so we won't need to do extra conditional_assign
-    // during `get_standard_form`, `assert_equal` or `==` calls
+    // during `standardize`, `assert_equal` or `==` calls
     // However sometimes it won't be the case(due to some previous design choices),
     // so we can handle these cases using this flag
     bool _is_standard;
