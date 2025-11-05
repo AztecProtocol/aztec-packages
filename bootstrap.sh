@@ -28,7 +28,6 @@ function cleanup {
   if [ -n "${txe_pids:-}" ]; then
     kill -SIGTERM $txe_pids &>/dev/null || true
   fi
-  rm -f $test_cmds_file
 }
 trap cleanup EXIT
 
@@ -201,6 +200,8 @@ function prep {
 
   # Ensure we have yarn set up.
   corepack enable
+
+  rm -f $test_cmds_file
 }
 
 function build_and_test {

@@ -41,9 +41,7 @@ endef
 # The test engine is expected to be running and it will read commands from this file.
 define test
 	$(call run_command,$(1),$(ROOT)/$(2),\
-	  ./bootstrap.sh test_cmds $(3) | $(ROOT)/ci3/filter_test_cmds | while IFS= read -r line; do \
-	    echo "$$line" >> /tmp/test_cmds; \
-	  done)
+	  ./bootstrap.sh test_cmds $(3) | $(ROOT)/ci3/filter_test_cmds | tee -a /tmp/test_cmds >/dev/null)
 endef
 
 #==============================================================================
