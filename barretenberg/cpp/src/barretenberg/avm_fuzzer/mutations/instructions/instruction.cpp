@@ -92,9 +92,9 @@ FuzzInstruction generate_instruction(std::mt19937_64& rng)
                                    .value = generate_random_uint64(rng) };
     case InstructionGenerationOptions::SET_128:
         return SET_128_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .offset = generate_random_uint16(rng),
-                                   .value_low = generate_random_uint64(rng),
-                                   .value_high = generate_random_uint64(rng) };
+                                    .offset = generate_random_uint16(rng),
+                                    .value_low = generate_random_uint64(rng),
+                                    .value_high = generate_random_uint64(rng) };
     case InstructionGenerationOptions::SET_FF:
         return SET_FF_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
                                    .offset = generate_random_uint16(rng),

@@ -7,6 +7,3 @@
 
 bb::avm2::FF generate_random_field(std::mt19937_64& rng);
 void mutate_field(bb::avm2::FF& value, std::mt19937_64& rng, const FieldMutationConfig& config);
-
-
-
