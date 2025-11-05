@@ -64,7 +64,7 @@ full: release-image barretenberg boxes playground docs spartan aztec-up \
 		  bb-full-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests
 
 # Release. Everything plus copy bb cross compiles to bb.js.
-release: full bb-ts-cross-copy
+release: full bb-ts-cross-copy yarn-project-cross-copy
 
 #==============================================================================
 # Noir
@@ -280,6 +280,10 @@ yarn-project-tests: yarn-project
 
 yarn-project-benches: yarn-project
 	$(call build,$@,yarn-project/end-to-end,build_bench)
+
+# Copies the cross-compiles into yarn-project/native/build.
+yarn-project-cross-copy: bb-cpp-cross
+	$(call build,$@,barretenberg/yarn-project,cross_copy)
 
 #==============================================================================
 # The Rest
