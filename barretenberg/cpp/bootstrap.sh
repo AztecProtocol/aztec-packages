@@ -11,13 +11,6 @@ else
 fi
 export hash=$(cache_content_hash .rebuild_patterns)
 
-# Mix whether we're building multi-arch or single-arch into the hash
-if semver check "$REF_NAME"; then
-  export hash="$hash-multiarch"
-else
-  export hash="$hash-singlearch"
-fi
-
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
@@ -48,10 +41,6 @@ function build_preset() {
   local cmake_args=()
   if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
     cmake_args+=(-DAVM_TRANSPILER_LIB=)
-  fi
-  # Auto-enable ENABLE_WASM_BENCH for wasm-threads preset on non-semver builds
-  if [[ "$preset" == "wasm-threads" ]] && ! semver check "$REF_NAME"; then
-    cmake_args+=(-DENABLE_WASM_BENCH=ON)
   fi
   cmake --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"

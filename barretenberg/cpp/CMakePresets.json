@@ -412,7 +412,8 @@
       "binaryDir": "build-wasm-threads",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "MULTITHREADING": "ON"
+        "MULTITHREADING": "ON",
+        "ENABLE_WASM_BENCH": "ON"
       }
     },
     {

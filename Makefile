@@ -179,7 +179,7 @@ bb-ts-cross-copy: bb-ts bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy)
 
 # BB ACIR Tests - ACIR compatibility tests
-bb-acir: noir bb-cpp-native
+bb-acir: noir bb-cpp-native bb-ts
 	$(call build,$@,barretenberg/acir_tests)
 
 # BB Documentation
