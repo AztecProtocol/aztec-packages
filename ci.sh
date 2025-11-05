@@ -154,11 +154,10 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ci-network-tests"
     ;;
   "release-pr")
-    set -x
     # Prep commit release tag.
     tag_name="v0.0.1-commit-$(git rev-parse --short HEAD)"
     git tag "${tag_name}"
-    git push origin tag "${tag_name}"
+    git push origin "${tag_name}"
     ;;
   "release")
     prep_vars
