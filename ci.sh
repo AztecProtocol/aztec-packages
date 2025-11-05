@@ -155,7 +155,7 @@ case "$cmd" in
     ;;
   "release-pr")
     # Configure git with author's identity in worktree
-    pr_info=$(gh pr view "$pr_number" --json title,body,author,headRepository,isCrossRepository)
+    pr_info=$(gh pr view "$PR_NUMBER" --json title,body,author,headRepository,isCrossRepository)
     pr_author=$(echo "$pr_info" | jq -r '.author.login')
     author_email="${user_id}+${pr_author}@users.noreply.github.com"
     git config user.name "$pr_author"
@@ -164,6 +164,7 @@ case "$cmd" in
     tag_name="v0.0.1-commit-$(git rev-parse --short HEAD)"
     git tag "${tag_name}"
     git push origin "${tag_name}"
+    gh pr edit "$PR_NUMBER" --remove-label 'ci-release-pr'
     ;;
   "release")
     prep_vars
