@@ -363,11 +363,15 @@ export const deploySharedContracts = async (
   }
 
   const coinIssuerAddress = (
-    await deployer.deploy(CoinIssuerArtifact, [
-      feeAssetAddress.toString(),
-      2n * 10n ** 17n, // hard cap of 20% per year
-      l1Client.account.address,
-    ])
+    await deployer.deploy(
+      CoinIssuerArtifact,
+      [
+        feeAssetAddress.toString(),
+        2n * 10n ** 17n, // hard cap of 20% per year
+        l1Client.account.address,
+      ],
+      { gasLimit: 1_000_000n },
+    )
   ).address;
   logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
