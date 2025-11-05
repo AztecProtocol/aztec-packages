@@ -26,7 +26,7 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
     using Fr = typename Curve::ScalarField;
     using NativeFr = typename NativeCurve::ScalarField;
     using NativeCommitment = typename NativeCurve::AffineElement;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
     using MockClaimGen = MockClaimGenerator<NativeCurve>;
@@ -166,32 +166,6 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         [[maybe_unused]] auto _ = stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
 
         // Execute Verifier protocol without the need for vk prior the final check
-        const auto commitments_to_witnesses = [&builder](const auto& commitments) {
-            std::vector<Commitment> commitments_in_biggroup(commitments.size());
-            std::transform(commitments.begin(),
-                           commitments.end(),
-                           commitments_in_biggroup.begin(),
-                           [&builder](const auto& native_commitment) {
-                               auto comm = Commitment::from_witness(&builder, native_commitment);
-                               // Removing the free witness tag, since the commitment in the full scheme are supposed to
-                               // be fiat-shamirred earlier
-                               comm.unset_free_witness_tag();
-                               return comm;
-                           });
-            return commitments_in_biggroup;
-        };
-        const auto elements_to_witness = [&](const auto& elements) {
-            std::vector<Fr> elements_in_circuit(elements.size());
-            std::transform(
-                elements.begin(), elements.end(), elements_in_circuit.begin(), [&builder](const auto& native_element) {
-                    auto element = Fr::from_witness(&builder, native_element);
-                    // Removing the free witness tag, since the element in the full scheme are supposed to
-                    // be fiat-shamirred earlier
-                    element.unset_free_witness_tag();
-                    return element;
-                });
-            return elements_in_circuit;
-        };
         auto stdlib_unshifted_commitments =
             convert_commitments_to_witnesses(builder, mock_claims.claim_batcher.get_unshifted().commitments);
         auto stdlib_shifted_commitments =
@@ -202,10 +176,27 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         auto stdlib_shifted_evaluations =
             convert_elements_to_witnesses(builder, mock_claims.claim_batcher.get_shifted().evaluations);
 
+        // Removing the free witness tag, since in the full scheme these are supposed to
+        // be fiat-shamirred earlier from the transcript
+        for (auto& comm : stdlib_unshifted_commitments) {
+            comm.unset_free_witness_tag();
+        }
+        for (auto& comm : stdlib_shifted_commitments) {
+            comm.unset_free_witness_tag();
+        }
+        for (auto& eval : stdlib_unshifted_evaluations) {
+            eval.unset_free_witness_tag();
+        }
+        for (auto& eval : stdlib_shifted_evaluations) {
+            eval.unset_free_witness_tag();
+        }
+
         std::vector<Fr> u_challenge_in_circuit = convert_elements_to_witnesses(builder, u_challenge);
         // Removing the free witness tag, since the u_challenge in the full scheme are supposed to
         // be derived from the transcript earlier
-        u_challenge_in_circuit.back().unset_free_witness_tag();
+        for (auto& challenge : u_challenge_in_circuit) {
+            challenge.unset_free_witness_tag();
+        }
 
         ClaimBatcher claim_batcher{
             .unshifted = ClaimBatch{ RefVector(stdlib_unshifted_commitments), RefVector(stdlib_unshifted_evaluations) },
@@ -305,7 +296,7 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
                      " ms");
             }
         } else {
-            info("builder num gates ", builder.get_estimated_num_finalized_gates());
+            info("builder num gates ", builder.get_num_finalized_gates_inefficient());
         }
     }
 };

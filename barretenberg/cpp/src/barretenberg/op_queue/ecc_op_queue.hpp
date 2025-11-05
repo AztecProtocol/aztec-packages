@@ -127,8 +127,6 @@ class ECCOpQueue {
      */
     size_t get_num_msm_rows() const { return eccvm_row_tracker.get_num_msm_rows(); }
 
-    size_t get_num_transcript_rows() const { return eccvm_row_tracker.get_num_transcript_rows(); }
-
     /**
      * @brief Get the number of rows for the current ECCVM circuit
      */
