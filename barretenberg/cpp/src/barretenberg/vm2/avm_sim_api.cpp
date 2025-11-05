@@ -24,7 +24,6 @@ TxSimulationResult AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inpu
 {
     info("Simulating...");
     AvmSimulationHelper simulation_helper;
-    // TODO(MW): add simulate_without_hinted_dbs version, either as input option or new API method
     auto result = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_fast_with_hinted_dbs(inputs.hints));
 
     if (debug_logging) {

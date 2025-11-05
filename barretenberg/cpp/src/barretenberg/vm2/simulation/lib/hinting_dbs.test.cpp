@@ -2,6 +2,7 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 
 #include <algorithm>
@@ -19,6 +20,9 @@ class HintingDBsTest : public ::testing::Test {
         AvmProvingInputs::from(read_file("../src/barretenberg/vm2/testing/minimal_tx.testdata.bin"));
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    HintedRawContractDB base_contract_db = HintedRawContractDB(inputs.hints);
+    HintedRawMerkleDB base_merkle_db = HintedRawMerkleDB(inputs.hints);
 
     static ExecutionHints dedupe_input_hints(const ExecutionHints& input_hints)
     {
@@ -145,6 +149,9 @@ class HintingDBsTest : public ::testing::Test {
             .contractClasses = hint_values(input_classes),
             .bytecodeCommitments = hint_values(input_commitments),
             .debugFunctionNames = hint_values(debug_function_names),
+            .contractDBCreateCheckpointHints = hint_values(input_contract_create_checkpoint_hints),
+            .contractDBCommitCheckpointHints = hint_values(input_contract_commit_checkpoint_hints),
+            .contractDBRevertCheckpointHints = hint_values(input_contract_revert_checkpoint_hints),
             .startingTreeRoots = input_hints.startingTreeRoots,
             .getSiblingPathHints = hint_values(input_get_sibling_path_hints),
             .getPreviousValueIndexHints = hint_values(input_get_previous_value_index_hints),
@@ -157,9 +164,6 @@ class HintingDBsTest : public ::testing::Test {
             .createCheckpointHints = hint_values(input_create_checkpoint_hints),
             .commitCheckpointHints = hint_values(input_commit_checkpoint_hints),
             .revertCheckpointHints = hint_values(input_revert_checkpoint_hints),
-            .contractDBCreateCheckpointHints = hint_values(input_contract_create_checkpoint_hints),
-            .contractDBCommitCheckpointHints = hint_values(input_contract_commit_checkpoint_hints),
-            .contractDBRevertCheckpointHints = hint_values(input_contract_revert_checkpoint_hints),
         };
     }
 
@@ -234,7 +238,11 @@ class HintingDBsTest : public ::testing::Test {
 TEST_F(HintingDBsTest, Basic)
 {
     AvmSimulationHelper simulation_helper;
-    TxSimulationResult result = simulation_helper.simulate_fast_with_real_dbs(inputs.hints);
+    TxSimulationResult result = simulation_helper.simulate_fast_with_hinting_dbs(base_contract_db,
+                                                                                 base_merkle_db,
+                                                                                 inputs.hints.tx,
+                                                                                 inputs.hints.globalVariables,
+                                                                                 inputs.hints.protocolContracts);
 
     EXPECT_TRUE(result.execution_hints.has_value());
     auto collected_hints = result.execution_hints.value();

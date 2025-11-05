@@ -19,11 +19,17 @@ class AvmSimulationHelper {
                                                       world_state::WorldState& ws,
                                                       const Tx& tx,
                                                       const GlobalVariables& global_variables,
-                                                      const ProtocolContracts& protocol_contracts);
+                                                      const ProtocolContracts& protocol_contracts,
+                                                      bool generate_hints = false);
 
     TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
-    // Note: we currently only have hinted raw dbs, TODO eventually use real dbs and remove hint inputs:
-    TxSimulationResult simulate_fast_with_real_dbs(const ExecutionHints& hints);
+
+    // TODO(MW): REMOVE - currently for testing only
+    TxSimulationResult simulate_fast_with_hinting_dbs(simulation::ContractDBInterface& raw_contract_db,
+                                                      simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+                                                      const Tx& tx,
+                                                      const GlobalVariables& global_variables,
+                                                      const ProtocolContracts& protocol_contracts);
 
   protected:
     // Helper called by simulate_fast* functions.

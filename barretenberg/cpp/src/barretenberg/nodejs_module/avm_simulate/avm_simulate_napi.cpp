@@ -110,6 +110,7 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
     // arg[0]: inputs Buffer (required)
     // arg[1]: contractProvider object (required)
     // arg[2]: worldStateHandle external (required)
+    // TODO(MW): include arg[3] = generate_hints here?
     if (cb_info.Length() < 3) {
         throw Napi::TypeError::New(env,
                                    "Wrong number of arguments. Expected 3 arguments: inputs Buffer, contractProvider "

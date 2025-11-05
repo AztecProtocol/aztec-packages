@@ -469,10 +469,29 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
     world_state::WorldState& ws,
     const Tx& tx,
     const GlobalVariables& global_variables,
-    const ProtocolContracts& protocol_contracts)
+    const ProtocolContracts& protocol_contracts,
+    bool generate_hints)
 {
     // Create PureRawMerkleDB with the provided WorldState instance
     PureRawMerkleDB raw_merkle_db(world_state_revision, ws);
+
+    if (generate_hints) {
+        auto starting_tree_roots = raw_merkle_db.get_tree_roots();
+        HintingContractsDB hinting_contract_db(raw_contract_db);
+        HintingRawDB hinting_merkle_db(raw_merkle_db);
+        auto result = simulate_fast(raw_contract_db, raw_merkle_db, tx, global_variables, protocol_contracts);
+        // TODO(MW): move to simulate_fast?
+        ExecutionHints collected_hints = ExecutionHints{ .globalVariables = global_variables,
+                                                         .tx = tx,
+                                                         .protocolContracts = protocol_contracts,
+                                                         .startingTreeRoots = starting_tree_roots };
+        hinting_contract_db.dump_hints(collected_hints);
+        hinting_merkle_db.dump_hints(collected_hints);
+
+        result.execution_hints = collected_hints;
+        return result;
+    };
+
     return simulate_fast(raw_contract_db, raw_merkle_db, tx, global_variables, protocol_contracts);
 }
 
@@ -483,25 +502,23 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const Exec
     return simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
 }
 
-// Note: we currently only have hinted raw dbs, TODO eventually use real dbs and remove hint inputs:
-TxSimulationResult AvmSimulationHelper::simulate_fast_with_real_dbs(const ExecutionHints& hints)
+// TODO(MW): REMOVE - currently for testing only
+TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinting_dbs(ContractDBInterface& raw_contract_db,
+                                                                       LowLevelMerkleDBInterface& raw_merkle_db,
+                                                                       const Tx& tx,
+                                                                       const GlobalVariables& global_variables,
+                                                                       const ProtocolContracts& protocol_contracts)
 {
-    // Note: we currently only have hinted raw dbs, TODO eventually replace with real db:
-    HintedRawContractDB base_contract_db(hints);
-    HintedRawMerkleDB base_merkle_db(hints);
-
-    HintingContractsDB raw_contract_db(base_contract_db);
-    HintingRawDB raw_merkle_db(base_merkle_db);
-    auto result =
-        simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
-
-    // TODO(MW): move to simulate_fast?
-    ExecutionHints collected_hints = ExecutionHints{ .globalVariables = hints.globalVariables,
-                                                     .tx = hints.tx,
-                                                     .protocolContracts = hints.protocolContracts,
-                                                     .startingTreeRoots = hints.startingTreeRoots };
-    raw_contract_db.dump_hints(collected_hints);
-    raw_merkle_db.dump_hints(collected_hints);
+    HintingContractsDB hinting_contract_db(raw_contract_db);
+    HintingRawDB hinting_merkle_db(raw_merkle_db);
+    auto starting_tree_roots = raw_merkle_db.get_tree_roots();
+    auto result = simulate_fast(hinting_contract_db, hinting_merkle_db, tx, global_variables, protocol_contracts);
+    ExecutionHints collected_hints = ExecutionHints{ .globalVariables = global_variables,
+                                                     .tx = tx,
+                                                     .protocolContracts = protocol_contracts,
+                                                     .startingTreeRoots = starting_tree_roots };
+    hinting_contract_db.dump_hints(collected_hints);
+    hinting_merkle_db.dump_hints(collected_hints);
 
     result.execution_hints = collected_hints;
     return result;

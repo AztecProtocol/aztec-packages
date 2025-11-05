@@ -16,7 +16,6 @@ class AvmSimAPI {
                                 simulation::ContractDBInterface& contract_db,
                                 world_state::WorldState& ws);
     TxSimulationResult simulate_with_hinted_dbs(const AvmProvingInputs& inputs);
-    // TODO(MW): add simulate_without_hinted_dbs version, either as input option or new API method
 };
 
 } // namespace bb::avm2
