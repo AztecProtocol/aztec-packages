@@ -283,7 +283,7 @@ yarn-project-benches: yarn-project
 
 # Copies the cross-compiles into yarn-project/native/build.
 yarn-project-cross-copy: bb-cpp-cross
-	$(call build,$@,barretenberg/yarn-project,cross_copy)
+	$(call build,$@,yarn-project,cross_copy)
 
 #==============================================================================
 # The Rest
