@@ -157,6 +157,7 @@ case "$cmd" in
     # Configure git with author's identity in worktree
     pr_info=$(gh pr view "$PR_NUMBER" --json title,body,author,headRepository,isCrossRepository)
     pr_author=$(echo "$pr_info" | jq -r '.author.login')
+    user_id=$(gh api "/users/$pr_author" --jq '.id')
     author_email="${user_id}+${pr_author}@users.noreply.github.com"
     git config user.name "$pr_author"
     git config user.email "$author_email"
