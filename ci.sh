@@ -153,12 +153,6 @@ case "$cmd" in
     export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
     bootstrap_ec2 "./bootstrap.sh ci-network-tests"
     ;;
-  "release-pr")
-    git config user.name  "github-actions[bot]"
-    git config user.email "github-actions[bot]@users.noreply.github.com"
-    git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
-    # Prep commit release tag.
-    ;;
   "release")
     prep_vars
     # Spin up ec2 instance and run the release flow.
