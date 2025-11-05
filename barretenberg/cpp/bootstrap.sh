@@ -232,7 +232,11 @@ function build_release_dir {
 export -f build_preset build_native_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
-    (cd $root && make barretenberg)
+  if [ "$CI_FULL" -eq 1 ]; then
+    # Deletes all build dirs and build bb and wasms from scratch.
+    rm -rf build*
+  fi
+  (cd $root && make barretenberg)
 }
 
 # Print every individual test command. Can be fed into gnu parallel.
@@ -325,12 +329,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast")
-    build
-    ;;
-  "full")
-    # Deletes all build dirs and build bb and wasms from scratch.
-    rm -rf build*
+  "")
     build
     ;;
   "ci")

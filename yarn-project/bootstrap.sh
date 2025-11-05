@@ -253,11 +253,8 @@ case "$cmd" in
     build
     test
     ;;
-  ""|"fast")
+  "")
     build
-    ;;
-  "full")
-    TYPECHECK=1 build
     ;;
   "compile")
     if [ -n "${1:-}" ]; then

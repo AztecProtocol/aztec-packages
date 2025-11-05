@@ -206,13 +206,7 @@ function prep {
 
 function build_and_test {
   prep
-
   echo_header "build and test"
-
-  # If no specific targets given, build everything (all), run all tests (tests).
-  if [ "$#" -eq 0 ]; then
-    set -- all tests
-  fi
 
   # Start the test engine.
   color_prefix "test-engine" "denoise test_engine_start" &
@@ -233,27 +227,8 @@ function build_and_test {
 function build {
   prep
   echo_header "build"
-  make BUILD_MODE=${1:-} $@
+  make "$@"
 }
-
-# function test {
-#   echo_header "test from /tmp/test_cmds"
-
-#   start_txes
-
-#   # We will start half as many jobs as we have cpu's.
-#   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
-#   # and also that half the cpus are logical, not physical.
-#   echo "Gathering tests to run..."
-#   tests=$(test_cmds $@)
-
-#   # Note: Capturing strips last newline. The echo re-adds it.
-#   local num
-#   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
-#   echo "Gathered $num tests."
-
-#   echo "$tests" | parallelize
-# }
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
@@ -387,6 +362,7 @@ case "$cmd" in
     build
   ;;
   "full")
+    export CI_FULL=1
     install_hooks
     build full
   ;;
@@ -422,7 +398,6 @@ case "$cmd" in
     ;;
   "ci-release")
     export CI=1
-    export USE_TEST_CACHE=1
     if ! semver check $REF_NAME; then
       exit 1
     fi

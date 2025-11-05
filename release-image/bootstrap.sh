@@ -43,7 +43,7 @@ function build {
 }
 
 case "$cmd" in
-  ""|"fast"|"full")
+  "")
     build
     ;;
   "push")
