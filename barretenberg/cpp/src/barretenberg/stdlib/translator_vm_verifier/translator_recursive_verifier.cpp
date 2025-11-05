@@ -14,6 +14,7 @@
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
 #include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb {
 
@@ -60,6 +61,13 @@ void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(co
     }
 
     relation_parameters.accumulated_result = compute_four_limbs(accumulated_result);
+
+    // The accumulated result limbs are evaluation claims that will be checked by the relation.
+    // Clear their origin tags to prevent false positives from child tag checks when these claims
+    // are used in arithmetic operations with prover evaluations from different rounds.
+    for (auto& limb : relation_parameters.accumulated_result) {
+        limb.set_origin_tag(OriginTag());
+    }
 };
 
 /**
@@ -217,21 +225,14 @@ void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
 {
     // Check the consistency with final merge
     for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {
-        // These are witness commitments sent as part of the proof, so their coordinates are already in reduced form.
-        // This approach is preferred over implementing assert_equal for biggroup, as it avoids the need to handle
-        // constants within biggroup logic.
-        bool consistency_check_failed = (merge_commitment.y().get_value() != translator_commitment.y().get_value()) ||
-                                        (merge_commitment.y().get_value() != translator_commitment.y().get_value()) ||
-                                        (merge_commitment.is_point_at_infinity().get_value() !=
-                                         translator_commitment.is_point_at_infinity().get_value());
+        // Clear origin tags on both commitments before comparison to prevent false positives from child tag checks.
+        // These are commitment coordinates being verified for consistency, not Fiat-Shamir participants.
+        merge_commitment.set_origin_tag(OriginTag());
+        translator_commitment.set_origin_tag(OriginTag());
 
-        if (consistency_check_failed) {
-            vinfo("translator commitments are inconsistent with the final merge commitments");
-        }
-
-        merge_commitment.x().assert_equal(translator_commitment.x());
-        merge_commitment.y().assert_equal(translator_commitment.y());
-        merge_commitment.is_point_at_infinity().assert_equal(translator_commitment.is_point_at_infinity());
+        // Use incomplete_assert_equal to verify x, y coordinates and infinity flag match
+        merge_commitment.incomplete_assert_equal(translator_commitment,
+                                                 "translator commitments inconsistent with final merge");
     }
 }
 
