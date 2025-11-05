@@ -8,6 +8,7 @@
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../witness/witness.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
 
@@ -76,6 +77,15 @@ static std::vector<typename Curve::ScalarField> compute_padding_indicator_array(
     for (size_t idx = virtual_log_n - 1; idx > 0; idx--) {
         // Use idx - 1 in the body if you prefer
         result[idx - 1] += result[idx];
+    }
+
+    // The padding indicator array elements are derived computational constants (not Fiat-Shamir participants).
+    // Clear their origin tags to prevent false positives from child tag checks when these constants are later
+    // used in combination with transcript values from different rounds.
+    if constexpr (Curve::is_stdlib_type) {
+        for (auto& indicator : result) {
+            indicator.set_origin_tag(OriginTag());
+        }
     }
 
     return result;
