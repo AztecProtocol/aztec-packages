@@ -70,7 +70,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
         std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
 
-        return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
+        const Fq x = Fq::reconstruct_from_public(x_limbs);
+        const Fq y = Fq::reconstruct_from_public(y_limbs);
+        const element result = element(x, y);
+        result.validate_on_curve();
+        return result;
     }
 
     /**
