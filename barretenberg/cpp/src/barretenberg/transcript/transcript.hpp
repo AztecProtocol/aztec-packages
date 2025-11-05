@@ -78,7 +78,8 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     DataType previous_challenge{};            // Previous challenge buffer (default-initialized to zeros)
     std::vector<DataType> current_round_data; // Data for the current round that will be hashed to generate challenges
 
-    // Proof parsing state     std::ptrdiff_t proof_start = 0;
+    // Proof parsing state
+    std::ptrdiff_t proof_start = 0;
     size_t num_frs_written = 0; // Number of frs written to proof_data by the prover
     size_t num_frs_read = 0;    // Number of frs read from proof_data by the verifier
     size_t round_number = 0;    // Current round number for manifest
