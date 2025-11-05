@@ -153,17 +153,11 @@ case "$cmd" in
     export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
     bootstrap_ec2 "./bootstrap.sh ci-network-tests"
     ;;
-  "nightly")
-    prep_vars
-    # Spin up ec2 instance and run the nightly flow.
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-nightly'"
-    }
-    export -f run
-    # We need to run the release flow on both x86 and arm64.
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-nightly amd64' \
-      'run a-nightly arm64' | DUP=1 cache_log "Nightly CI run" $RUN_ID
+  "release-pr")
+    # Prep commit release tag.
+    tag_name="v0.0.1-commit-$(git rev-parse --short HEAD)"
+    git tag "${tag_name}"
+    git push origin tag "${tag_name}"
     ;;
   "release")
     prep_vars

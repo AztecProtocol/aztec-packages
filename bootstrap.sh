@@ -379,13 +379,6 @@ case "$cmd" in
     build_and_test full
     bench
     ;;
-  "ci-nightly")
-    export CI=1
-    export USE_TEST_CACHE=1
-    export CI_NIGHTLY=1
-    build release
-    release
-    ;;
   "ci-network-deploy")
     export CI=1
     build
