@@ -19,7 +19,14 @@ using namespace acir_format;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
+
+// returns a standard `poly_triple` from an index in our WitnessVector, which just corresponds to the aforementioned
+// value.
+[[maybe_unused]] poly_triple poly_triple_from_witness_values_index(uint32_t value_index)
+{
+    return poly_triple{ .a = value_index, .b = 0, .c = 0, .q_m = 0, .q_l = 1, .q_r = 0, .q_o = 0, .q_c = 0 };
 }
+} // namespace
 template <typename Builder_, size_t TableSize_, size_t NumReads_> struct ROMTestParams {
     using Builder = Builder_;
     static constexpr size_t table_size = TableSize_;
@@ -27,9 +34,8 @@ template <typename Builder_, size_t TableSize_, size_t NumReads_> struct ROMTest
 };
 template <typename Builder_, size_t table_size, size_t num_reads> class ROMTestingFunctions {
   public:
-    using MemoryConstraint = BlockConstraint;
-    using Builder = Builder_;
     using AcirConstraint = BlockConstraint;
+    using Builder = Builder_;
     struct Tampering {
       public:
         enum class Mode : uint8_t { None, ReadValueIncremented };
@@ -51,15 +57,7 @@ template <typename Builder_, size_t table_size, size_t num_reads> class ROMTesti
         };
     };
 
-    // TODO(RAJU): remove `poly_triple`.
-    // returns a standard `poly_triple` from an index in our WitnessVector, which just corresponds to the aforementioned
-    // value.
-    static poly_triple poly_triple_from_witness_values_index(uint32_t value_index)
-    {
-        return poly_triple{ .a = value_index, .b = 0, .c = 0, .q_m = 0, .q_l = 1, .q_r = 0, .q_o = 0, .q_c = 0 };
-    }
-
-    static void generate_constraints(MemoryConstraint& memory_constraint, WitnessVector& witness_values)
+    static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {
         // 1. Create initial memory values "natively"
         std::vector<bb::fr> table_values;
@@ -101,9 +99,9 @@ template <typename Builder_, size_t table_size, size_t num_reads> class ROMTesti
             }
         }
         // 4. Create the MemoryConstraint
-        memory_constraint = MemoryConstraint{ .init = init_polys, .trace = trace, .type = BlockType::ROM };
+        memory_constraint = AcirConstraint{ .init = init_polys, .trace = trace, .type = BlockType::ROM };
     }
-    static void tampering([[maybe_unused]] MemoryConstraint& memory_constraint,
+    static void tampering([[maybe_unused]] AcirConstraint& memory_constraint,
                           WitnessVector& witness_values,
                           const Tampering::Mode& tampering_mode)
     {
@@ -112,9 +110,12 @@ template <typename Builder_, size_t table_size, size_t num_reads> class ROMTesti
             break;
         case Tampering::Mode::ReadValueIncremented:
             if constexpr (num_reads > 0 && table_size > 0) {
-                // change the first read value to 0
-                size_t first_read_value_index = table_size + 1;
-                witness_values[first_read_value_index] += bb::fr(1);
+                // Tamper with a random read value
+                const size_t random_read = static_cast<size_t>(engine.get_random_uint32() % num_reads);
+                // Each read has 2 witness values: index at offset 0, value at offset 1
+                // The reads start after the table_size init values
+                const size_t read_value_witness_index = table_size + (random_read * 2) + 1;
+                witness_values[read_value_witness_index] += bb::fr(1);
             }
             break;
         }
@@ -134,15 +135,207 @@ using ROMTestConfigs = testing::Types<ROMTestParams<UltraCircuitBuilder, 0, 0>,
 
 TYPED_TEST_SUITE(ROMTest, ROMTestConfigs);
 
+TYPED_TEST(ROMTest, GenerateVKFromConstraints)
+{
+    using Flavor =
+        std::conditional_t<std::is_same_v<typename TypeParam::Builder, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
+}
+
 TYPED_TEST(ROMTest, Basic)
 {
     TestFixture::test_tampering();
 }
 
-class UltraPlonkRAM : public ::testing::Test {
+template <typename Builder_, size_t TableSize_, size_t NumReads_, size_t NumWrites_> struct RAMTestParams {
+    using Builder = Builder_;
+    static constexpr size_t table_size = TableSize_;
+    static constexpr size_t num_reads = NumReads_;
+    static constexpr size_t num_writes = NumWrites_;
+};
+
+template <typename Builder_, size_t table_size, size_t num_reads, size_t num_writes> class RAMTestingFunctions {
+  public:
+    using AcirConstraint = BlockConstraint;
+    using Builder = Builder_;
+    enum class AccessType : std::uint8_t { READ, WRITE };
+
+    // Track witness value and its index in witness_values
+    struct WitnessValue {
+        bb::fr value;
+        uint32_t witness_index;
+    };
+
+    // Instance members to track reads and writes. The use of these requires that `generate_constraints` and `tampering`
+    // are non-static.
+    std::vector<WitnessValue> read_values;
+    std::vector<WitnessValue> write_values;
+
+    struct Tampering {
+      public:
+        enum class Mode : uint8_t { None, ReadValueIncremented };
+        static std::vector<Mode> get_all()
+        {
+            std::vector<Mode> modes = { Mode::None };
+            if constexpr (num_reads > 0 && table_size > 0) {
+                modes.push_back(Mode::ReadValueIncremented);
+            }
+            return modes;
+        };
+        static std::vector<std::string> get_labels()
+        {
+            std::vector<std::string> labels = { "None" };
+            if constexpr (num_reads > 0 && table_size > 0) {
+                labels.push_back("ReadValueIncremented");
+            }
+            return labels;
+        };
+    };
+
+    void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
+    {
+        // Clear any previous state
+        read_values.clear();
+        write_values.clear();
+
+        // 1. Create initial memory values "natively". RAM tables always start out initialized.
+        std::vector<bb::fr> table_values;
+        table_values.reserve(table_size);
+        for (size_t _i = 0; _i < table_size; _i++) {
+            table_values.push_back(bb::fr::random_element());
+        }
+
+        // 2. Add these values to witness_values and track their indices
+        std::vector<poly_triple> init_polys;
+        for (const auto& val : table_values) {
+            uint32_t value_index = static_cast<uint32_t>(witness_values.size());
+            witness_values.emplace_back(val);
+            init_polys.push_back(poly_triple_from_witness_values_index(value_index));
+        }
+
+        // 3. Initialize and create memory operations
+        std::vector<MemOp> trace;
+        size_t num_reads_remaining = num_reads;
+        size_t num_writes_remaining = num_writes;
+
+        // `read_write_sequence` is a _random_ list of read and write operations.
+        std::vector<AccessType> read_write_sequence;
+        while (num_reads_remaining + num_writes_remaining > 0) {
+            bool try_read = (engine.get_random_uint32() & 1) != 0;
+            if (try_read && (num_reads_remaining > 0)) {
+                read_write_sequence.push_back(AccessType::READ);
+                num_reads_remaining--;
+            } else if (num_writes_remaining > 0) {
+                read_write_sequence.push_back(AccessType::WRITE);
+                num_writes_remaining--;
+            } else {
+                // writes exhausted, hence only reads left
+                for (size_t _j = 0; _j < num_reads_remaining; _j++) {
+                    read_write_sequence.push_back(AccessType::READ);
+                }
+                num_reads_remaining = 0;
+            }
+        }
+
+        // Add read/writes only if we have a non-empty table
+        if constexpr (table_size > 0) {
+            for (auto& access_type : read_write_sequence) {
+                MemOp mem_op;
+                switch (access_type) {
+                case AccessType::READ: {
+                    const size_t ram_index_to_read = static_cast<size_t>(engine.get_random_uint32() % table_size);
+                    const uint32_t index_for_read = static_cast<uint32_t>(witness_values.size());
+                    witness_values.emplace_back(bb::fr(ram_index_to_read));
+                    const uint32_t value_for_read = static_cast<uint32_t>(witness_values.size());
+                    bb::fr read_value = table_values[ram_index_to_read];
+                    witness_values.emplace_back(read_value);
+
+                    // Record this read value and its witness index
+                    read_values.push_back({ .value = read_value, .witness_index = value_for_read });
+
+                    mem_op = { .access_type = 0, // READ
+                               .index = poly_triple_from_witness_values_index(index_for_read),
+                               .value = poly_triple_from_witness_values_index(value_for_read) };
+                    trace.push_back(mem_op);
+                    break;
+                }
+                case AccessType::WRITE: {
+                    const size_t ram_index_to_write = static_cast<size_t>(engine.get_random_uint32() % table_size);
+                    const uint32_t index_to_write = static_cast<uint32_t>(witness_values.size());
+                    witness_values.emplace_back(bb::fr(ram_index_to_write));
+                    const uint32_t value_to_write = static_cast<uint32_t>(witness_values.size());
+                    bb::fr write_value = bb::fr::random_element();
+                    witness_values.emplace_back(write_value);
+
+                    // Record this write value and its witness index
+                    write_values.push_back({ .value = write_value, .witness_index = value_to_write });
+
+                    // Update the table_values to reflect this write
+                    table_values[ram_index_to_write] = write_value;
+
+                    mem_op = { .access_type = 1, // WRITE
+                               .index = poly_triple_from_witness_values_index(index_to_write),
+                               .value = poly_triple_from_witness_values_index(value_to_write) };
+                    trace.push_back(mem_op);
+                    break;
+                }
+                }
+            }
+        }
+        // 4. Create the MemoryConstraint
+        memory_constraint = AcirConstraint{ .init = init_polys, .trace = trace, .type = BlockType::RAM };
+    }
+
+    void tampering([[maybe_unused]] AcirConstraint& memory_constraint,
+                   WitnessVector& witness_values,
+                   const Tampering::Mode& tampering_mode)
+    {
+        switch (tampering_mode) {
+        case Tampering::Mode::None:
+            break;
+        case Tampering::Mode::ReadValueIncremented:
+            if constexpr (num_reads > 0 && table_size > 0) {
+                // Tamper with a random read value using the recorded witness index
+                if (!read_values.empty()) {
+                    const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % read_values.size());
+                    const uint32_t witness_idx = read_values[random_read_idx].witness_index;
+                    witness_values[witness_idx] += bb::fr(1);
+                }
+            }
+            break;
+        }
+    }
+};
+
+template <typename Params>
+class RAMTest
+    : public ::testing::Test,
+      public TestClass<
+          RAMTestingFunctions<typename Params::Builder, Params::table_size, Params::num_reads, Params::num_writes>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
+
+using RAMTestConfigs = testing::Types<RAMTestParams<UltraCircuitBuilder, 0, 0, 0>,
+                                      RAMTestParams<UltraCircuitBuilder, 10, 10, 0>,
+                                      RAMTestParams<UltraCircuitBuilder, 10, 20, 10>,
+                                      RAMTestParams<MegaCircuitBuilder, 0, 0, 0>,
+                                      RAMTestParams<MegaCircuitBuilder, 10, 10, 0>,
+                                      RAMTestParams<MegaCircuitBuilder, 10, 20, 10>>;
+
+TYPED_TEST_SUITE(RAMTest, RAMTestConfigs);
+
+TYPED_TEST(RAMTest, GenerateVKFromConstraints)
+{
+    using Flavor =
+        std::conditional_t<std::is_same_v<typename TypeParam::Builder, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
+}
+
+TYPED_TEST(RAMTest, Tampering)
+{
+    TestFixture::test_tampering();
+}
 
 class MegaHonk : public ::testing::Test {
   public:
@@ -258,25 +451,6 @@ size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& wit
     };
 
     return witness_len;
-}
-
-TEST_F(UltraPlonkRAM, TestBlockConstraint)
-{
-    BlockConstraint block;
-    AcirProgram program;
-    size_t num_variables = generate_block_constraint(block, program.witness);
-    program.constraints = {
-        .varnum = static_cast<uint32_t>(num_variables),
-        .num_acir_opcodes = 7,
-        .public_inputs = {},
-        .block_constraints = { block },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
-    };
-    mock_opcode_indices(program.constraints);
-
-    auto builder = create_circuit(program);
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST_F(MegaHonk, Databus)

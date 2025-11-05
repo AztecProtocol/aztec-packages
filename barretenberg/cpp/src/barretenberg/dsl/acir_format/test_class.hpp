@@ -99,21 +99,22 @@ concept TestBase = requires {
     { T::Tampering::get_all() } -> std::same_as<std::vector<typename T::Tampering::Mode>>;
     { T::Tampering::get_labels() } -> std::same_as<std::vector<std::string>>;
 
-    // Required static constraint manipulation methods
-    requires requires(typename T::AcirConstraint& constraint,
+    // Required constraint manipulation methods (can be static or non-static)
+    requires requires(T& instance,
+                      typename T::AcirConstraint& constraint,
                       WitnessVector& witness_values,
                       const typename T::Tampering::Mode& tampering_mode) {
         /**
          * @brief Generate valid constraints with predicate set to a witness holding the value true.
          *
          */
-        { T::generate_constraints(constraint, witness_values) } -> std::same_as<void>;
+        { instance.generate_constraints(constraint, witness_values) } -> std::same_as<void>;
 
         /**
          * @brief Tamper with the witness values to test that invalid witnesses produce unsatisfied constraints.
          *
          */
-        { T::tampering(constraint, witness_values, tampering_mode) } -> std::same_as<void>;
+        { instance.tampering(constraint, witness_values, tampering_mode) } -> std::same_as<void>;
     };
 };
 
@@ -132,8 +133,11 @@ template <TestBase Base> class TestClass {
     {
         AcirConstraint constraint;
         WitnessVector witness_values;
-        Base::generate_constraints(constraint, witness_values);
-        Base::tampering(constraint, witness_values, tampering_mode);
+
+        // Create an instance to allow for non-static methods
+        Base base_instance;
+        base_instance.generate_constraints(constraint, witness_values);
+        base_instance.tampering(constraint, witness_values, tampering_mode);
 
         return { constraint, witness_values };
     }
