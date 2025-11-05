@@ -256,7 +256,7 @@ Stores the key in a note that can be updated, enabling key rotation.
 
 ### Delayed Public Mutable State
 
-Stores the key in [delayed public mutable state](../../guides/smart_contracts/state-variavles.md#delayed-public-mutable) - publicly accessible but privately readable with a delay window.
+Stores the key in [delayed public mutable state](../../guides/smart_contracts/state-variables.md#delayed-public-mutable) - publicly accessible but privately readable with a delay window.
 
 **Pros:**
 
