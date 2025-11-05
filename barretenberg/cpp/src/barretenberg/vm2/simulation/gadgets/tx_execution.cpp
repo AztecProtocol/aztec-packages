@@ -274,6 +274,7 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
+                                  .reverted = false,
                                   .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
 
     } catch (const TxExecutionException& e) {
@@ -310,6 +311,7 @@ void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
+                                  .reverted = false,
                                   .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
     } catch (const TxExecutionException& e) {
         events.emit(TxPhaseEvent{ .phase = phase,
@@ -338,6 +340,7 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
+                                  .reverted = false,
                                   .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_message } });
     } catch (const TxExecutionException& e) {
         events.emit(TxPhaseEvent{ .phase = phase,
@@ -459,6 +462,7 @@ void TxExecution::pay_fee(const FF& fee_payer,
     events.emit(TxPhaseEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
                               .state_before = state_before,
                               .state_after = tx_context.serialize_tx_context_event(),
+                              .reverted = false,
                               .event = CollectGasFeeEvent{
                                   .effective_fee_per_da_gas = fee_per_da_gas,
                                   .effective_fee_per_l2_gas = fee_per_l2_gas,
@@ -476,6 +480,7 @@ void TxExecution::pad_trees()
     events.emit(TxPhaseEvent{ .phase = TransactionPhase::TREE_PADDING,
                               .state_before = state_before,
                               .state_after = tx_context.serialize_tx_context_event(),
+                              .reverted = false,
                               .event = PadTreesEvent{} });
 }
 
@@ -484,6 +489,7 @@ void TxExecution::cleanup()
     events.emit(TxPhaseEvent{ .phase = TransactionPhase::CLEANUP,
                               .state_before = tx_context.serialize_tx_context_event(),
                               .state_after = tx_context.serialize_tx_context_event(),
+                              .reverted = false,
                               .event = CleanupEvent{} });
 }
 
