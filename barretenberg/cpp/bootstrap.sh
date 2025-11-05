@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+# I (benesjan) temporarily disabled caching to avoid issues with stale AVM transpiler.
+export NO_CACHE=1
+
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
