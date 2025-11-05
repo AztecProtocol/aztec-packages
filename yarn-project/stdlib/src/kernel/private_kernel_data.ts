@@ -8,7 +8,7 @@ import { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_publi
  */
 export class PrivateKernelData {
   // NOTE: as of move to honk and chonk, previous private kernels no longer come with their proof
-  // as we do chonk not recursive verification. We need to ensure the public inputs here is properly constrained, TODO(https://github.com/AztecProtocol/barretenberg/issues/1048)
+  // as we do chonk not recursive verification. We need to ensure the public inputs here is properly constrained.
   constructor(
     /**
      * Public inputs of the previous kernel.
