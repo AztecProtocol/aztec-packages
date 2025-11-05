@@ -579,6 +579,14 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                        os << "CAST_16_Instruction " << arg.src_tag << " " << arg.src_offset_index << " "
                           << arg.dst_offset << " " << arg.target_tag;
                    },
+                   [&](MOV_8_Instruction arg) {
+                       os << "MOV_8_Instruction " << arg.value_tag << " " << arg.src_offset_index << " "
+                          << static_cast<int>(arg.dst_offset);
+                   },
+                   [&](MOV_16_Instruction arg) {
+                       os << "MOV_16_Instruction " << arg.value_tag << " " << arg.src_offset_index << " "
+                          << arg.dst_offset;
+                   },
                    [&](auto) { os << "Unknown instruction"; },
                },
                instruction);
