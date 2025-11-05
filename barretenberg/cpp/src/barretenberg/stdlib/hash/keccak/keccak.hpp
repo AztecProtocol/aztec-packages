@@ -174,7 +174,6 @@ template <typename Builder> class keccak {
                               const std::vector<field_ct>& msb_buffer);
     static byte_array_ct sponge_squeeze(keccak_state& internal);
     static void keccakf1600(keccak_state& state);
-    static byte_array_ct hash(byte_array_ct& input);
 
     static std::vector<field_ct> format_input_lanes(byte_array_ct& input);
 
@@ -200,7 +199,5 @@ template <typename Builder> class keccak {
     static byte_array_ct sponge_squeeze_for_permutation_opcode(std::array<field_ct, NUM_KECCAK_LANES> lanes,
                                                                Builder* context);
 };
-
-template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations);
 
 } // namespace bb::stdlib

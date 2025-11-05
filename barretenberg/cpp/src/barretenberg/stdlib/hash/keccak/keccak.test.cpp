@@ -176,45 +176,45 @@ TEST(stdlib_keccak, test_format_input_lanes)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_keccak, test_single_block)
-{
-    Builder builder = Builder();
-    std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
-    std::vector<uint8_t> input_v(input.begin(), input.end());
+// TEST(stdlib_keccak, test_single_block)
+// {
+//     Builder builder = Builder();
+//     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
+//     std::vector<uint8_t> input_v(input.begin(), input.end());
 
-    byte_array input_arr(&builder, input_v);
-    byte_array output = stdlib::keccak<Builder>::hash(input_arr);
+//     byte_array input_arr(&builder, input_v);
+//     byte_array output = stdlib::keccak<Builder>::hash(input_arr);
 
-    std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
+//     std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
 
-    EXPECT_EQ(output.get_value(), expected);
+//     EXPECT_EQ(output.get_value(), expected);
 
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
+//     bool proof_result = CircuitChecker::check(builder);
+//     EXPECT_EQ(proof_result, true);
+// }
 
-TEST(stdlib_keccak, test_double_block)
-{
+// TEST(stdlib_keccak, test_double_block)
+// {
 
-    GTEST_SKIP() << "Bug in constant case?";
+//     GTEST_SKIP() << "Bug in constant case?";
 
-    Builder builder = Builder();
-    std::string input = "";
-    for (size_t i = 0; i < 200; ++i) {
-        input += "a";
-    }
-    std::vector<uint8_t> input_v(input.begin(), input.end());
+//     Builder builder = Builder();
+//     std::string input = "";
+//     for (size_t i = 0; i < 200; ++i) {
+//         input += "a";
+//     }
+//     std::vector<uint8_t> input_v(input.begin(), input.end());
 
-    byte_array input_arr(&builder, input_v);
-    byte_array output = stdlib::keccak<Builder>::hash(input_arr);
+//     byte_array input_arr(&builder, input_v);
+//     byte_array output = stdlib::keccak<Builder>::hash(input_arr);
 
-    std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
+//     std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
 
-    EXPECT_EQ(output.get_value(), expected);
+//     EXPECT_EQ(output.get_value(), expected);
 
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
+//     bool proof_result = CircuitChecker::check(builder);
+//     EXPECT_EQ(proof_result, true);
+// }
 
 TEST(stdlib_keccak, test_permutation_opcode_single_block)
 {

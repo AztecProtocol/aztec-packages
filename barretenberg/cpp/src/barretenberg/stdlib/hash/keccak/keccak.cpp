@@ -701,46 +701,6 @@ stdlib::byte_array<Builder> keccak<Builder>::hash_using_permutation_opcode(byte_
     return result;
 }
 
-template <typename Builder> stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input)
-{
-    auto ctx = input.get_context();
-
-    const auto constant_case = [&] { // if buffer is constant, compute hash and return w/o creating constraints
-        byte_array_ct output(nullptr, 32);
-        const std::vector<uint8_t> result = hash_native(input.get_value());
-        for (size_t i = 0; i < 32; ++i) {
-            output[i] = result[i];
-        }
-        return output;
-    };
-
-    if (ctx == nullptr) {
-        return constant_case();
-    }
-
-    // convert the input byte array into 64-bit keccak lanes (+ apply padding)
-    auto formatted_slices = format_input_lanes(input);
-
-    std::vector<field_ct> converted_buffer(formatted_slices.size());
-    std::vector<field_ct> msb_buffer(formatted_slices.size());
-
-    // populate keccak_state, convert our 64-bit lanes into an extended base-11 representation
-    keccak_state internal;
-    internal.context = ctx;
-    for (size_t i = 0; i < formatted_slices.size(); ++i) {
-        const auto accumulators =
-            plookup_read<Builder>::get_lookup_accumulators(KECCAK_FORMAT_INPUT, formatted_slices[i]);
-        converted_buffer[i] = accumulators[ColumnIdx::C2][0];
-        msb_buffer[i] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
-    }
-
-    sponge_absorb(internal, converted_buffer, msb_buffer);
-
-    auto result = sponge_squeeze(internal);
-
-    return result;
-}
-
 // Convert the 'extended' representation of the internal Keccak state into the usual array of 64 bits lanes
 template <typename Builder>
 std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>::extended_2_normal(
@@ -782,26 +742,7 @@ stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opco
     return result;
 }
 
-/**
- * @brief Generate a simple keccak circuit for testing purposes
- *
- * @tparam Builder
- * @param builder
- * @param num_iterations number of hashes to perform
- */
-template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations)
-{
-    std::string in = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
-
-    stdlib::byte_array<Builder> input(&builder, in);
-    for (size_t i = 0; i < num_iterations; i++) {
-        input = stdlib::keccak<Builder>::hash(input);
-    }
-}
-
 template class keccak<bb::UltraCircuitBuilder>;
 template class keccak<bb::MegaCircuitBuilder>;
-template void generate_keccak_test_circuit(bb::UltraCircuitBuilder&, size_t);
-template void generate_keccak_test_circuit(bb::MegaCircuitBuilder&, size_t);
 
 } // namespace bb::stdlib
