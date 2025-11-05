@@ -148,7 +148,7 @@ jobs:
             exec ./ci.sh merge-queue
           elif [ "${CI_RELEASE_PR:-0}" -eq 1 ]; then
             git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
-            tag_name="v0.0.1-commit-$(git rev-parse --short HEAD)"
+            tag_name="v0.0.1-commit.$(git rev-parse --short HEAD)"
             git tag ${tag_name}
             git push origin ${tag_name}
             gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-release-pr

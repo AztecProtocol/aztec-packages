@@ -233,7 +233,7 @@ function release_packages {
   rm -rf "$dir"
 }
 
-function copy_cross {
+function cross_copy {
   ./native/scripts/copy_cross.sh
 }
 
