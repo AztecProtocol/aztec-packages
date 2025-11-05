@@ -1,17 +1,24 @@
 #pragma once
 
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/simulation/events/calldata_event.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/tx_context_event.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
-#include "barretenberg/vm2/simulation/gadgets/calldata_hashing.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context_provider.hpp"
-#include "barretenberg/vm2/simulation/gadgets/execution.hpp"
-#include "barretenberg/vm2/simulation/gadgets/nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/tx_context.hpp"
-#include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/execution.hpp"
+#include "barretenberg/vm2/simulation/interfaces/field_gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/interfaces/retrieved_bytecodes_tree_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 
 namespace bb::avm2::simulation {

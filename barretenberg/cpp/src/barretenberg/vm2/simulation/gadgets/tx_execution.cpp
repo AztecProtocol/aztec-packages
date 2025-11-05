@@ -1,15 +1,9 @@
 #include "barretenberg/vm2/simulation/gadgets/tx_execution.hpp"
 
-#include <algorithm>
+#include <cstdint>
 #include <stdexcept>
 
-#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/simulation/events/tx_context_event.hpp"
-#include "barretenberg/vm2/simulation/events/tx_events.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context.hpp"
-#include "barretenberg/vm2/simulation/gadgets/tx_context.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
