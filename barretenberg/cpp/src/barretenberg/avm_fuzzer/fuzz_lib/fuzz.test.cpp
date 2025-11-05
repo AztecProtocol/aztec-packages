@@ -386,4 +386,91 @@ TEST(fuzz, CAST16)
     EXPECT_EQ(result.output.at(0), 2);
 }
 
+TEST(fuzz, SET16)
+{
+    const uint16_t test_value = 0xABCD;
+    auto set_instruction =
+        SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U16, .offset = 0, .value = test_value };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U16, .return_value_offset_index = 0 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
+TEST(fuzz, SET32)
+{
+    const uint32_t test_value = 0x12345678UL;
+    auto set_instruction =
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .offset = 0, .value = test_value };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U32, .return_value_offset_index = 0 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
+TEST(fuzz, SET64)
+{
+    const uint64_t test_value = 0xABCDEF0123456789ULL;
+    auto set_instruction =
+        SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64, .offset = 0, .value = test_value };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U64, .return_value_offset_index = 0 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
+TEST(fuzz, SET128)
+{
+    const uint64_t test_value_low = 0xFEDCBA9876543210ULL;
+    const uint64_t test_value_high = 0x123456789ABCDEF0ULL;
+    const uint128_t test_value = (static_cast<uint128_t>(test_value_high) << 64) | static_cast<uint128_t>(test_value_low);
+    auto set_instruction =
+        SET_128_Instruction{ .value_tag = bb::avm2::MemoryTag::U128, .offset = 0, .value_low = test_value_low, .value_high = test_value_high };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction };
+    auto return_options = ReturnOptions{ .return_size = 1,
+                                         .return_value_tag = bb::avm2::MemoryTag::U128,
+                                         .return_value_offset_index = 0 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
+TEST(fuzz, SETFF)
+{
+    const bb::avm2::FF test_value = bb::avm2::FF(123456789);
+    auto set_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = test_value };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
 } // namespace arithmetic

@@ -6,4 +6,4 @@
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint_mutations.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 
-void mutate_uint16_t(uint16_t& value, std::mt19937_64& rng, const Uint16MutationConfig& config);
+void mutate_uint32_t(uint32_t& value, std::mt19937_64& rng, const Uint32MutationConfig& config);
