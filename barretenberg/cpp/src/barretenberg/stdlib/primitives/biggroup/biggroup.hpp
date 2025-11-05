@@ -137,6 +137,16 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         }
     }
 
+    [[nodiscard]] bool is_constant() const
+    {
+        const bool x_is_const = _x.is_constant();
+        const bool y_is_const = _y.is_constant();
+        const bool infinity_is_const = is_point_at_infinity().is_constant();
+        BB_ASSERT_EQ(x_is_const, y_is_const, "biggroup: x and y coordinate constant status mismatch");
+        BB_ASSERT_EQ(x_is_const, infinity_is_const, "biggroup: coordinate and infinity constant status mismatch");
+        return x_is_const;
+    }
+
     /**
      * @brief Creates fixed witnesses from a constant element.
      **/

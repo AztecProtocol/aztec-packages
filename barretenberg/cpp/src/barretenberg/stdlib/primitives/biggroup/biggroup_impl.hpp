@@ -782,6 +782,25 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         scalars[i].set_origin_tag(empty_tag);
     }
 
+    // Accumulate constant-constant pairs out of circuit
+    bool has_constant_terms = false;
+    typename G::element constant_accumulator = G::element::infinity();
+    std::vector<element> new_points;
+    std::vector<Fr> new_scalars;
+    for (size_t i = 0; i < points.size(); ++i) {
+        if (points[i].is_constant() && scalars[i].is_constant()) {
+            const auto& point_value = typename G::element(points[i].get_value());
+            const auto& scalar_value = typename G::Fr(scalars[i].get_value());
+            constant_accumulator += (point_value * scalar_value);
+            has_constant_terms = true;
+        } else {
+            new_points.emplace_back(points[i]);
+            new_scalars.emplace_back(scalars[i]);
+        }
+    }
+    points = new_points;
+    scalars = new_scalars;
+
     // If with_edgecases is false, masking_scalar must be constant and equal to 1 (as it is unused).
     if (!with_edgecases) {
         BB_ASSERT_EQ(
@@ -836,10 +855,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
 
     const size_t max_num_bits_in_field = Fr::modulus.get_msb() + 1;
     element accumulator;
+    if (has_constant_terms) {
+        // Initialize accumulator with constant terms
+        accumulator = element(constant_accumulator);
+    }
+
     if (!big_points.empty()) {
         // Process big scalars separately
         element big_result = element::process_strauss_msm_rounds(big_points, big_scalars, max_num_bits_in_field);
-        accumulator = big_result;
+        accumulator = has_constant_terms ? accumulator + big_result : big_result;
     }
 
     if (!small_points.empty()) {
@@ -899,22 +923,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const 
      **/
     OriginTag tag{};
     tag = OriginTag(tag, OriginTag(this->get_origin_tag(), scalar.get_origin_tag()));
-
-    // Fast path: if both point and scalar are constants, compute the result out of circuit
-    if (_x.is_constant() && _y.is_constant() && scalar.is_constant()) {
-        // Get native values
-        auto point_native = this->get_value();
-        auto scalar_native = scalar.get_value();
-
-        // Compute result natively
-        auto result_native =
-            typename G::affine_element(typename G::element(point_native) * (typename G::Fr(scalar_native)));
-
-        // Return as a constant element
-        element result(result_native);
-        result.set_origin_tag(tag);
-        return result;
-    }
 
     bool_ct is_point_at_infinity = this->is_point_at_infinity();
 
