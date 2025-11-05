@@ -184,7 +184,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     ExecutionTrace blocks;
 
     // The set of variables which have been constrained to a particular value via an arithmetic gate
-    std::map<FF, uint32_t> constant_variable_indices;
+    std::unordered_map<FF, uint32_t> constant_variable_indices;
 
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
     std::vector<plookup::BasicTable> lookup_tables;
@@ -196,7 +196,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::vector<uint32_t> memory_read_records;
     // Stores gate index of RAM writes (required by proving key)
     std::vector<uint32_t> memory_write_records;
-    std::map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
+    std::unordered_map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
 
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
