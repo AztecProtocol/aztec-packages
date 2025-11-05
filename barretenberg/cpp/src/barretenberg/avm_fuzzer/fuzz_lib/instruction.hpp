@@ -229,6 +229,22 @@ struct SET_FF_Instruction {
     MSGPACK_FIELDS(value_tag, offset, value);
 };
 
+/// @brief MOV_8 instruction: mem[dst_offset] = mem[src_offset]
+struct MOV_8_Instruction {
+    MemoryTagWrapper value_tag;
+    uint16_t src_offset_index;
+    uint8_t dst_offset;
+    MSGPACK_FIELDS(value_tag, src_offset_index, dst_offset);
+};
+
+/// @brief MOV_16 instruction: mem[dst_offset] = mem[src_offset]
+struct MOV_16_Instruction {
+    MemoryTagWrapper value_tag;
+    uint16_t src_offset_index;
+    uint16_t dst_offset;
+    MSGPACK_FIELDS(value_tag, src_offset_index, dst_offset);
+};
+
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address] (16-bit)
 struct ADD_16_Instruction {
     MemoryTagWrapper argument_tag;
@@ -378,6 +394,8 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      SET_64_Instruction,
                                      SET_128_Instruction,
                                      SET_FF_Instruction,
+                                     MOV_8_Instruction,
+                                     MOV_16_Instruction,
                                      SUB_8_Instruction,
                                      MUL_8_Instruction,
                                      DIV_8_Instruction,
@@ -439,7 +457,8 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                        os << "SET_64_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
                    },
                    [&](SET_128_Instruction arg) {
-                       os << "SET_128_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value_high << " " << arg.value_low;
+                       os << "SET_128_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value_high
+                          << " " << arg.value_low;
                    },
                    [&](SET_FF_Instruction arg) {
                        os << "SET_FF_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;

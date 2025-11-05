@@ -269,7 +269,8 @@ void ProgramBlock::process_set_64_instruction(SET_64_Instruction instruction)
 
 void ProgramBlock::process_set_128_instruction(SET_128_Instruction instruction)
 {
-    uint128_t value = (static_cast<uint128_t>(instruction.value_high) << 64) | static_cast<uint128_t>(instruction.value_low);
+    uint128_t value =
+        (static_cast<uint128_t>(instruction.value_high) << 64) | static_cast<uint128_t>(instruction.value_low);
     instructions.push_back(bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_128)
                                .operand(instruction.offset)
                                .operand(instruction.value_tag.value)
@@ -286,6 +287,36 @@ void ProgramBlock::process_set_ff_instruction(SET_FF_Instruction instruction)
                                .operand(instruction.value)
                                .build());
     memory_manager.set_memory_address(instruction.value_tag.value, instruction.offset);
+}
+
+void ProgramBlock::process_mov_8_instruction(MOV_8_Instruction instruction)
+{
+    auto src_addr = memory_manager.get_memory_offset_8_bit(instruction.value_tag.value, instruction.src_offset_index);
+    if (!src_addr.has_value()) {
+        return;
+    }
+
+    auto mov_8_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::MOV_8)
+                                 .operand(src_addr.value())
+                                 .operand(instruction.dst_offset)
+                                 .build();
+    instructions.push_back(mov_8_instruction);
+    memory_manager.set_memory_address(instruction.value_tag.value, instruction.dst_offset);
+}
+
+void ProgramBlock::process_mov_16_instruction(MOV_16_Instruction instruction)
+{
+    auto src_addr = memory_manager.get_memory_offset_16_bit(instruction.value_tag.value, instruction.src_offset_index);
+    if (!src_addr.has_value()) {
+        return;
+    }
+
+    auto mov_16_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::MOV_16)
+                                  .operand(src_addr.value())
+                                  .operand(instruction.dst_offset)
+                                  .build();
+    instructions.push_back(mov_16_instruction);
+    memory_manager.set_memory_address(instruction.value_tag.value, instruction.dst_offset);
 }
 
 void ProgramBlock::process_fdiv_8_instruction(FDIV_8_Instruction instruction)
@@ -646,6 +677,8 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                    [this](SET_64_Instruction instruction) { return this->process_set_64_instruction(instruction); },
                    [this](SET_128_Instruction instruction) { return this->process_set_128_instruction(instruction); },
                    [this](SET_FF_Instruction instruction) { return this->process_set_ff_instruction(instruction); },
+                   [this](MOV_8_Instruction instruction) { return this->process_mov_8_instruction(instruction); },
+                   [this](MOV_16_Instruction instruction) { return this->process_mov_16_instruction(instruction); },
                    [this](FDIV_8_Instruction instruction) { return this->process_fdiv_8_instruction(instruction); },
                    [this](NOT_8_Instruction instruction) { return this->process_not_8_instruction(instruction); },
                    [this](ADD_16_Instruction instruction) { return this->process_add_16_instruction(instruction); },
