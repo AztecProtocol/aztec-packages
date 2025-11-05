@@ -105,6 +105,7 @@ function run_ci_with_cache {
   # Upload success marker
   echo "success" > success.txt
   cache_upload "$cache_key" success.txt
+  rm success.txt
 }
 
 case "$cmd" in

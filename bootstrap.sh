@@ -279,7 +279,6 @@ function bench {
     return
   fi
   echo_header "bench all"
-  build_bench
   find . -type d -iname bench-out | xargs rm -rf
   bench_cmds | STRICT_SCHEDULING=1 parallelize
   rm -rf bench-out
