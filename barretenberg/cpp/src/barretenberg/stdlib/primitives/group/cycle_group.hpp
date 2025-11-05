@@ -26,6 +26,9 @@ namespace bb::stdlib {
  * defined over a field equal to the circuit's native field Builder::FF
  * @details In barretenberg, cycle group is used to represent the Grumpkin curve defined over the bn254 scalar field.
  *
+ * @note The x and y coordinates of a point must have matching constancy. Either both are constants or both
+ * are witnesses. This invariant is enforced at construction and simplifies circuit operations.
+ *
  * @tparam Builder
  */
 template <typename Builder> class cycle_group {
