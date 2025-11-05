@@ -1,10 +1,11 @@
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract, ViemPublicClient } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import type { GetBlockReturnType } from 'viem';
 
 import { EpochCache, type EpochCommitteeInfo } from './epoch_cache.js';
 
@@ -21,6 +22,7 @@ class TestEpochCache extends EpochCache {
 describe('EpochCache', () => {
   let rollupContract: MockProxy<RollupContract>;
   let epochCache: TestEpochCache;
+  let client: MockProxy<ViemPublicClient>;
 
   // Test constants
   const SLOT_DURATION = 12;
@@ -46,17 +48,27 @@ describe('EpochCache', () => {
 
     l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
 
+    // Mock the client.getBlock method for timestamp retrieval
+    // Return a timestamp far enough in the future to accommodate test queries
+    // lagInEpochs * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds
+    // Add extra buffer for random slots in tests (e.g., 1000 slots = 12000 seconds)
+    client = mock<ViemPublicClient>();
+    const futureTimestamp = l1GenesisTime + BigInt(768 + 12000);
+    client.getBlock.mockResolvedValue({ timestamp: futureTimestamp } as GetBlockReturnType);
+    (rollupContract as any).client = client;
+
     // Setup fake timers
     jest.useFakeTimers();
 
     // Initialize with test constants
-    const testConstants: L1RollupConstants = {
+    const testConstants: L1RollupConstants & { lagInEpochs: number } = {
       l1StartBlock: 0n,
       l1GenesisTime,
       slotDuration: SLOT_DURATION,
       ethereumSlotDuration: SLOT_DURATION,
       epochDuration: EPOCH_DURATION,
       proofSubmissionEpochs: 1,
+      lagInEpochs: 2,
     };
 
     epochCache = new TestEpochCache(rollupContract, testConstants);
@@ -238,5 +250,23 @@ describe('EpochCache', () => {
     const validators3 = await epochCache.getRegisteredValidators();
     expect(validators3.map(v => v.toString())).toEqual(updatedValidators.map(v => v.toString()));
     expect(rollupContract.getAttesters).toHaveBeenCalledTimes(2);
+  });
+
+  it('should throw error when querying committee for future epoch beyond lag', async () => {
+    const { l1GenesisTime, epochDuration } = epochCache.getL1Constants();
+
+    // Mock the client to return a current L1 timestamp that's close to genesis
+    const currentL1Timestamp = l1GenesisTime + BigInt(100); // Just 100 seconds after genesis
+    client.getBlock.mockResolvedValue({ timestamp: currentL1Timestamp } as GetBlockReturnType);
+
+    // Calculate a slot far in the future (epoch 100) that's definitely not cached
+    // and is beyond the allowed lag (lagInEpochs * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds)
+    const futureEpoch = BigInt(100);
+    const futureSlot = futureEpoch * BigInt(epochDuration);
+
+    // Attempt to get committee for this future slot should throw
+    await expect(epochCache.getCommittee(futureSlot)).rejects.toThrow(
+      /Cannot query committee for future epoch.*with timestamp.*\(current L1 time is/,
+    );
   });
 });
