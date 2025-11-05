@@ -134,36 +134,38 @@ locals {
         "validator-resources-${var.VALIDATOR_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "validator.web3signerUrl"                               = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
-        "validator.mnemonic"                                    = var.VALIDATOR_MNEMONIC
-        "validator.mnemonicStartIndex"                          = var.VALIDATOR_MNEMONIC_START_INDEX
-        "validator.validatorsPerNode"                           = var.VALIDATORS_PER_NODE
-        "validator.publishersPerValidatorKey"                   = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
-        "validator.publisherMnemonicStartIndex"                 = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-        "validator.replicaCount"                                = var.VALIDATOR_REPLICAS
-        "validator.sentinel.enabled"                            = var.SENTINEL_ENABLED
-        "validator.slash.minPenaltyPercentage"                  = var.SLASH_MIN_PENALTY_PERCENTAGE
-        "validator.slash.maxPenaltyPercentage"                  = var.SLASH_MAX_PENALTY_PERCENTAGE
-        "validator.slash.inactivityTargetPercentage"            = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
-        "validator.slash.inactivityPenalty"                     = var.SLASH_INACTIVITY_PENALTY
-        "validator.slash.prunePenalty"                          = var.SLASH_PRUNE_PENALTY
-        "validator.slash.dataWithholdingPenalty"                = var.SLASH_DATA_WITHHOLDING_PENALTY
-        "validator.slash.proposeInvalidAttestationsPenalty"     = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
-        "validator.slash.attestDescendantOfInvalidPenalty"      = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
-        "validator.slash.unknownPenalty"                        = var.SLASH_UNKNOWN_PENALTY
-        "validator.slash.invalidBlockPenalty"                   = var.SLASH_INVALID_BLOCK_PENALTY
-        "validator.slash.offenseExpirationRounds"               = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
-        "validator.slash.maxPayloadSize"                        = var.SLASH_MAX_PAYLOAD_SIZE
-        "validator.node.env.TRANSACTIONS_DISABLED"              = var.TRANSACTIONS_DISABLED
-        "validator.node.env.KEY_INDEX_START"                    = var.VALIDATOR_MNEMONIC_START_INDEX
-        "validator.node.env.PUBLISHER_KEY_INDEX_START"          = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-        "validator.node.env.VALIDATORS_PER_NODE"                = var.VALIDATORS_PER_NODE
-        "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"       = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
-        "validator.node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "validator.node.env.SEQ_MIN_TX_PER_BLOCK"               = var.SEQ_MIN_TX_PER_BLOCK
-        "validator.node.env.SEQ_MAX_TX_PER_BLOCK"               = var.SEQ_MAX_TX_PER_BLOCK
-        "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-        "validator.node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "validator.web3signerUrl"                                  = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+        "validator.mnemonic"                                       = var.VALIDATOR_MNEMONIC
+        "validator.mnemonicStartIndex"                             = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.validatorsPerNode"                              = var.VALIDATORS_PER_NODE
+        "validator.publishersPerValidatorKey"                      = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.publisherMnemonicStartIndex"                    = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+        "validator.replicaCount"                                   = var.VALIDATOR_REPLICAS
+        "validator.sentinel.enabled"                               = var.SENTINEL_ENABLED
+        "validator.slash.minPenaltyPercentage"                     = var.SLASH_MIN_PENALTY_PERCENTAGE
+        "validator.slash.maxPenaltyPercentage"                     = var.SLASH_MAX_PENALTY_PERCENTAGE
+        "validator.slash.inactivityTargetPercentage"               = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
+        "validator.slash.inactivityPenalty"                        = var.SLASH_INACTIVITY_PENALTY
+        "validator.slash.prunePenalty"                             = var.SLASH_PRUNE_PENALTY
+        "validator.slash.dataWithholdingPenalty"                   = var.SLASH_DATA_WITHHOLDING_PENALTY
+        "validator.slash.proposeInvalidAttestationsPenalty"        = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+        "validator.slash.attestDescendantOfInvalidPenalty"         = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+        "validator.slash.unknownPenalty"                           = var.SLASH_UNKNOWN_PENALTY
+        "validator.slash.invalidBlockPenalty"                      = var.SLASH_INVALID_BLOCK_PENALTY
+        "validator.slash.offenseExpirationRounds"                  = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
+        "validator.slash.maxPayloadSize"                           = var.SLASH_MAX_PAYLOAD_SIZE
+        "validator.node.env.TRANSACTIONS_DISABLED"                 = var.TRANSACTIONS_DISABLED
+        "validator.node.env.KEY_INDEX_START"                       = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.node.env.PUBLISHER_KEY_INDEX_START"             = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+        "validator.node.env.VALIDATORS_PER_NODE"                   = var.VALIDATORS_PER_NODE
+        "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"          = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
+        "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                  = var.SEQ_MIN_TX_PER_BLOCK
+        "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                  = var.SEQ_MAX_TX_PER_BLOCK
+        "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "validator.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
+        "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
+        "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -180,21 +182,23 @@ locals {
       ]
       custom_settings = merge(
         {
-          "node.mnemonic"                                    = var.PROVER_MNEMONIC
-          "node.mnemonicStartIndex"                          = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "node.node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-          "node.node.env.PROVER_FAILED_PROOF_STORE"          = var.PROVER_FAILED_PROOF_STORE
-          "node.node.env.KEY_INDEX_START"                    = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "node.node.env.PUBLISHER_KEY_INDEX_START"          = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "node.node.env.PUBLISHERS_PER_PROVER"              = var.PROVER_PUBLISHERS_PER_PROVER
-          "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH"  = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
-          "node.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-          "broker.node.proverRealProofs"                     = var.PROVER_REAL_PROOFS
-          "broker.node.env.BOOTSTRAP_NODES"                  = "asdf"
-          "agent.node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
-          "agent.replicaCount"                               = var.PROVER_REPLICAS
-          "agent.node.env.BOOTSTRAP_NODES"                   = "asdf"
-          "agent.node.env.AGENT_COUNT"                       = var.PROVER_AGENTS_PER_PROVER
+          "node.mnemonic"                                       = var.PROVER_MNEMONIC
+          "node.mnemonicStartIndex"                             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
+          "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
+          "node.node.env.KEY_INDEX_START"                       = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.env.PUBLISHERS_PER_PROVER"                 = var.PROVER_PUBLISHERS_PER_PROVER
+          "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH"     = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
+          "node.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+          "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
+          "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
+          "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
+          "agent.replicaCount"                                  = var.PROVER_REPLICAS
+          "agent.node.env.BOOTSTRAP_NODES"                      = "asdf"
+          "agent.node.env.AGENT_COUNT"                          = var.PROVER_AGENTS_PER_PROVER
+          "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
+          "node.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
         },
         # Only set web3signerUrl if proof publishing is enabled
         !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
