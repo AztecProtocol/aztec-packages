@@ -134,19 +134,19 @@ template <class Curve> class EcdsaTestingFunctions {
 
         // Create witness indices and witnesses
         std::array<uint32_t, 32> hashed_message_indices =
-            add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(hashed_message));
+            add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(hashed_message));
 
         std::array<uint32_t, 32> pub_x_indices =
-            add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(buffer_x));
+            add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(buffer_x));
 
         std::array<uint32_t, 32> pub_y_indices =
-            add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(buffer_y));
+            add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(buffer_y));
 
         std::array<uint32_t, 32> r_indices =
-            add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(signature.r));
+            add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(signature.r));
 
         std::array<uint32_t, 32> s_indices =
-            add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(signature.s));
+            add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(signature.s));
 
         uint32_t result_index = add_to_witness_and_track_indices(witness_values, bb::fr(1));
 
