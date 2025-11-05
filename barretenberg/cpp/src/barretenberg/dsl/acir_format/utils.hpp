@@ -106,7 +106,7 @@ inline uint32_t add_to_witness_and_track_indices(WitnessVector& witness, const b
  * @brief Add a span of values to the witness and track their indices, returning them as a fixed-size array.
  */
 template <typename T, size_t N>
-std::array<uint32_t, N> add_to_witness_and_track_indices(WitnessVector& witness, const std::span<T> input)
+std::array<uint32_t, N> add_to_witness_and_track_indices(WitnessVector& witness, const T& input)
 {
     std::vector<uint32_t> tracked_indices = add_to_witness_and_track_indices(witness, input);
     std::array<uint32_t, N> indices;
