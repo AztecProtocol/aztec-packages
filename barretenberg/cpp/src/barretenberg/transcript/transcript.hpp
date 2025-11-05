@@ -40,7 +40,6 @@ inline std::atomic<size_t> unique_transcript_index{ 0 };
  */
 template <typename Codec_, typename HashFunction_> class BaseTranscript {
   public:
-    // ==================== TYPE ALIASES & CONSTANTS ====================
     using Codec = Codec_;
     using HashFunction = HashFunction_;
     using DataType = typename Codec::DataType;
@@ -51,7 +50,6 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     // A `DataType` challenge is split into two limbs that consitute challenge buffer
     static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
 
-    // ==================== CONSTRUCTORS ====================
     BaseTranscript()
     {
         // If we are in circuit, we need to get a unique index for the transcript
@@ -63,41 +61,31 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     // Verifier-specific constructor.
     explicit BaseTranscript(const Proof& proof) { load_proof(proof); }
 
-    // ==================== PROTOCOL METHODS & UTILITIES ====================
-    // (public protocol methods defined below in the class body)
-
   protected:
-    // ==================== PROTECTED STATE (for derived classes) ====================
     Proof proof_data; // Contains the raw data sent by the prover.
-
-    // ==================== PROTECTED HELPERS (for derived classes) ====================
-    // (protected helper methods defined below in the class body)
 
   private:
     // Friend function for secure tag context extraction
-    template <typename T> friend OriginTag bb::create_transcript_tag(const T& transcript);
+    template <typename T> friend OriginTag bb::extract_transcript_tag(const T& transcript);
 
-    // ==================== FIAT-SHAMIR ROUND TRACKING (security-critical) ====================
-    size_t transcript_index = 0; // Unique transcript ID (PRIVATE - access via create_transcript_tag)
-    size_t round_index = 0;      // Current FS round (PRIVATE - access via create_transcript_tag)
+    // Fiat-Shamir Round Tracking
+    size_t transcript_index = 0; // Unique transcript ID (PRIVATE - access via extract_transcript_tag)
+    size_t round_index = 0;      // Current FS round (PRIVATE - access via extract_transcript_tag)
     bool reception_phase = true; // Whether receiving from prover or generating challenges
 
-    // ==================== CHALLENGE GENERATION STATE ====================
+    // Challenge generatopm state==
     bool is_first_challenge = true;           // Indicates if this is the first challenge this transcript is generating
     DataType previous_challenge{};            // Previous challenge buffer (default-initialized to zeros)
     std::vector<DataType> current_round_data; // Data for the current round that will be hashed to generate challenges
 
-    // ==================== PROOF PARSING STATE ====================
-    std::ptrdiff_t proof_start = 0;
+    // Proof parsing state     std::ptrdiff_t proof_start = 0;
     size_t num_frs_written = 0; // Number of frs written to proof_data by the prover
     size_t num_frs_read = 0;    // Number of frs read from proof_data by the verifier
     size_t round_number = 0;    // Current round number for manifest
 
-    // ==================== MANIFEST (optional debugging) ====================
+    // Manifest (debugging tool)
     bool use_manifest = false;   // Indicates whether the manifest is turned on (only for manifest tests)
     TranscriptManifest manifest; // Records a summary of the transcript interactions
-
-    // ==================== PRIVATE HELPERS ====================
 
     /**
      * @brief Compute next challenge c_next = H( Compress(c_prev || round_buffer) )
@@ -105,7 +93,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
      * and the current round data, if they exist. It clears the current_round_data if nonempty after
      * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
-     * @return std::array<DataType, 2>
+     * @return std::array<DataType, CHALLENGE_BUFFER_SIZE>
      */
     [[nodiscard]] std::array<DataType, CHALLENGE_BUFFER_SIZE> get_next_duplex_challenge_buffer()
     {
@@ -477,9 +465,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
         manifest.print();
     }
 
-    // ==================== TEST-SPECIFIC UTILITIES ====================
-    // Methods for test utilities to manipulate proof parsing state.
-    // These should ONLY be used in test code for proof tampering/validation.
+    // Test-specific utils
 
     /**
      * @brief Test utility: Set proof parsing state for export after deserialization
@@ -487,8 +473,8 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
      */
     void test_set_proof_parsing_state(std::ptrdiff_t start, size_t written)
     {
-        proof_start = start;
-        num_frs_written = written;
+        this->proof_start = start;
+        this->num_frs_written = written;
     }
 
     /**

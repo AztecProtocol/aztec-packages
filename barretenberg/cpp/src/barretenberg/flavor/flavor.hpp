@@ -261,27 +261,25 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Hashes the vk by tagging VK witnesses with origin tags and hashing directly.
+     * @brief Tag VK components and hash.
      * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses.
      * If we instead did the hashing outside and just submitted the hash, only the origin tag of the hash would be set
-     * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags for use
-     * later in the protocol without needing manual backpropagation.
+     * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags.
      *
      * @param domain_separator (currently unused, kept for API compatibility)
      * @param transcript Used to extract tag context (transcript_index, round_index)
      * @returns The hash of the verification key
      */
-    virtual typename Transcript::DataType hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
-                                                                  Transcript& transcript) const
+    virtual typename Transcript::DataType hash_with_origin_tags([[maybe_unused]] const std::string& domain_separator,
+                                                                Transcript& transcript) const
     {
         using DataType = typename Transcript::DataType;
         using Codec = typename Transcript::Codec;
         std::vector<DataType> vk_elements;
 
-        // Create origin tag for all VK components (securely extracts transcript state)
-        const OriginTag tag = bb::create_transcript_tag(transcript);
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
 
-        // Helper to tag, serialize, and append to vk_elements
+        // Tag, serialize, and append to vk_elements
         auto append_tagged = [&]<typename T>(const T& component) {
             auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
             vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
@@ -375,26 +373,23 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Hashes the vk by tagging VK witnesses with origin tags and hashing directly.
+     * @brief Tag VK components and hash.
      * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses.
      * If we instead did the hashing outside and just submitted the hash, only the origin tag of the hash would be set
-     * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags for use
-     * later in the protocol without needing manual backpropagation.
+     * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags.
      *
      * @param domain_separator (currently unused, kept for API compatibility)
      * @param transcript Used to extract tag context (transcript_index, round_index)
      * @returns The hash of the verification key
      */
-    virtual FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
-                                       Transcript& transcript) const
+    virtual FF hash_with_origin_tags([[maybe_unused]] const std::string& domain_separator, Transcript& transcript) const
     {
         using Codec = stdlib::StdlibCodec<FF>;
         std::vector<FF> vk_elements;
 
-        // Create origin tag for all VK components (securely extracts transcript state)
-        const OriginTag tag = bb::create_transcript_tag(transcript);
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
 
-        // Helper to tag, serialize, and append to vk_elements
+        // Tag, serialize, and append to vk_elements
         auto append_tagged = [&]<typename T>(const T& component) {
             auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
             vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
@@ -414,7 +409,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         bb::unset_free_witness_tags<Transcript::in_circuit, FF>(vk_elements);
 
         // Hash the tagged elements directly
-        return stdlib::poseidon2<Builder>::hash(vk_elements);
+        return Transcript::HashFunction::hash(vk_elements);
     }
 };
 

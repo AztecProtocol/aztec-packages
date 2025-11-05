@@ -277,10 +277,7 @@ template <bool in_circuit, typename DataType> inline void unset_free_witness_tag
 }
 
 /**
- * @brief Tag a component with an origin tag and serialize it to field elements.
- * @details This is a utility function for VK and verifier instance hashing. The const_cast is safe because:
- * - In native mode (in_circuit=false): assign_origin_tag is a no-op
- * - In recursive mode (in_circuit=true): stdlib types have mutable origin tags
+ * @brief Tag a component with a given origin tag and serialize it to field elements.
  *
  * @tparam in_circuit Whether the transcript is in-circuit mode
  * @tparam Codec The codec to use for serialization (provides DataType and serialize_to_fields)
@@ -292,22 +289,22 @@ template <bool in_circuit, typename DataType> inline void unset_free_witness_tag
 template <bool in_circuit, typename Codec, typename T>
 inline std::vector<typename Codec::DataType> tag_and_serialize(const T& component, const OriginTag& tag)
 {
-    // Tag the component (const_cast is safe - see details above)
-    assign_origin_tag<in_circuit>(const_cast<T&>(component), tag);
+    if constexpr (in_circuit) {
+        assign_origin_tag<in_circuit>(const_cast<T&>(component), tag);
+    }
     // Serialize to field elements
     return Codec::serialize_to_fields(component);
 }
 
 /**
- * @brief Securely extract origin tag context from a transcript.
+ * @brief Extract origin tag context from a transcript.
  * @details Friend function that has controlled access to transcript's private round tracking state.
- * This ensures transcript_index and round_index are not exposed as public members.
  *
  * @tparam TranscriptType The type of transcript (NativeTranscript or StdlibTranscript)
  * @param transcript The transcript to extract tag context from
  * @return OriginTag with (transcript_index, round_index, is_submitted=true)
  */
-template <typename TranscriptType> inline OriginTag create_transcript_tag(const TranscriptType& transcript)
+template <typename TranscriptType> inline OriginTag extract_transcript_tag(const TranscriptType& transcript)
 {
     return OriginTag(transcript.transcript_index, transcript.round_index, /*is_submitted=*/true);
 }

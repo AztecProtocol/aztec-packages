@@ -61,7 +61,7 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
     std::shared_ptr<VerificationKey> get_vk() const { return vk; }
 
     /**
-     * @brief Hash the verifier instance by tagging all components with origin tags and hashing directly.
+     * @brief Tag all components and hash.
      * @details Tags all instance components (VK, commitments, challenges) with transcript context to ensure
      * proper origin tag tracking for recursive verification.
      *
@@ -69,17 +69,16 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
      * @param transcript Used to extract tag context (transcript_index, round_index)
      * @return FF Hash of the verifier instance
      */
-    FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator, Transcript& transcript) const
+    FF hash_with_origin_tags([[maybe_unused]] const std::string& domain_separator, Transcript& transcript) const
     {
         BB_ASSERT_EQ(is_complete, true, "Trying to hash a verifier instance that has not been completed.");
 
         using Codec = typename Transcript::Codec;
         std::vector<FF> instance_elements;
 
-        // Create origin tag for all instance components (securely extracts transcript state)
-        const OriginTag tag = bb::create_transcript_tag(transcript);
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
 
-        // Helper to tag, serialize, and append to instance_elements
+        // Tag, serialize, and append to instance_elements
         auto append_tagged = [&]<typename T>(const T& component) {
             auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
             instance_elements.insert(instance_elements.end(), frs.begin(), frs.end());

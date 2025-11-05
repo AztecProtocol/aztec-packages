@@ -114,7 +114,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
 
     // Update previous accumulator hash so that we can check it against the one extracted from the public inputs
     if (verifier_inputs.is_kernel && verifier_inputs.type != QUEUE_TYPE::OINK) {
-        prev_accum_hash = input_verifier_accumulator->hash_through_transcript("", *accumulation_recursive_transcript);
+        prev_accum_hash = input_verifier_accumulator->hash_with_origin_tags("", *accumulation_recursive_transcript);
     }
 
     RecursiveFoldingVerifier folding_verifier(accumulation_recursive_transcript);
@@ -307,7 +307,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.ecc_op_tables = T_prev_commitments;
         RecursiveTranscript hash_transcript;
         kernel_output.output_hn_accum_hash =
-            current_stdlib_verifier_accumulator->hash_through_transcript("", hash_transcript);
+            current_stdlib_verifier_accumulator->hash_with_origin_tags("", hash_transcript);
         info("Kernel output accumulator hash: ", kernel_output.output_hn_accum_hash);
         kernel_output.set_public();
     }
@@ -734,7 +734,7 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
     }
 
     info("DEBUG: Hash of verifier accumulator computed natively ",
-         native_verifier_accum.hash_through_transcript("", *verifier_transcript));
+         native_verifier_accum.hash_with_origin_tags("", *verifier_transcript));
 }
 #endif
 

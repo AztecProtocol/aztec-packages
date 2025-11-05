@@ -31,7 +31,7 @@ using FlavorTypes = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
 TYPED_TEST_SUITE(StdlibVerificationKeyTests, FlavorTypes);
 
 /**
- * @brief Checks that the hash produced from calling hash() is the same as hash_through_transcript().
+ * @brief Checks that the hash produced from calling hash() is the same as hash_with_origin_tags().
  *
  */
 TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
@@ -68,11 +68,11 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     // First method of hashing: using hash().
     FF vk_hash_1 = vk.hash();
 
-    // Second method of hashing: using hash_through_transcript.
-    // (ECCVM and Translator recursive flavors don't support hash_through_transcript as their VKs are hardcoded)
+    // Second method of hashing: using hash_with_origin_tags.
+    // (ECCVM and Translator recursive flavors don't support hash_with_origin_tags as their VKs are hardcoded)
     if constexpr (!IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {
         StdlibTranscript transcript;
-        FF vk_hash_2 = vk.hash_through_transcript("", transcript);
+        FF vk_hash_2 = vk.hash_with_origin_tags("", transcript);
         EXPECT_EQ(vk_hash_1.get_value(), vk_hash_2.get_value());
     }
 }

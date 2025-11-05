@@ -92,19 +92,17 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
     }
 
     /**
-     * @brief Hash the claim by tagging components with origin tags and hashing directly.
-     * @details Tags all claim components (challenges, evaluations, commitments) with transcript context.
+     * @brief Tag claim components and hash.
      */
     template <typename T>
-    FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator, T& transcript) const
+    FF hash_with_origin_tags([[maybe_unused]] const std::string& domain_separator, T& transcript) const
     {
         using Codec = typename T::Codec;
         std::vector<FF> claim_elements;
 
-        // Create origin tag for all claim components (securely extracts transcript state)
-        const OriginTag tag = bb::create_transcript_tag(transcript);
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
 
-        // Helper to tag, serialize, and append
+        // Tag, serialize, and append
         auto append_tagged = [&]<typename U>(const U& component) {
             auto frs = bb::tag_and_serialize<T::in_circuit, Codec>(component, tag);
             claim_elements.insert(claim_elements.end(), frs.begin(), frs.end());

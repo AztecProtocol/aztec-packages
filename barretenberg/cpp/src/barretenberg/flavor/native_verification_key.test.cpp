@@ -54,7 +54,7 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
 TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
 
 /**
- * @brief Checks that the hash produced from calling hash() is the same as hash_through_transcript().
+ * @brief Checks that the hash produced from calling hash() is the same as hash_with_origin_tags().
  *
  */
 TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
@@ -67,11 +67,11 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     // First method of hashing: using hash().
     fr vk_hash_1 = vk.hash();
 
-    // Second method of hashing: using hash_through_transcript.
-    // (ECCVM and Translator flavors don't support hash_through_transcript as their VKs are hardcoded)
+    // Second method of hashing: using hash_with_origin_tags.
+    // (ECCVM and Translator flavors don't support hash_with_origin_tags as their VKs are hardcoded)
     if constexpr (!IsAnyOf<Flavor, ECCVMFlavor, TranslatorFlavor>) {
         typename Flavor::Transcript transcript;
-        fr vk_hash_2 = vk.hash_through_transcript("", transcript);
+        fr vk_hash_2 = vk.hash_with_origin_tags("", transcript);
         EXPECT_EQ(vk_hash_1, vk_hash_2);
     }
 }

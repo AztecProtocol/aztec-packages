@@ -30,7 +30,7 @@ template <typename Codec_, typename HashFunction>
 class BaseTranscript
 ```
 
-- **Codec**: Serialization/deserialization strategy (`FrCodec`,  `StdlibCodec`, `U256Codec`).
+- **Codec**: Serialization/deserialization gadget (`FrCodec`,  `StdlibCodec`, `U256Codec`).
 - **HashFunction**: Hash function for challenge generation (Poseidon2, Keccak)
 
 ### Common Instantiations
@@ -62,11 +62,13 @@ The transcript operates in two fundamentally different modes:
 #### Native Mode
 - **Purpose**: Used for proving and out-of-circuit verification
 - **DataType**: Native types (`bb::fr`, `grumpkin::fr`, `uint256_t`)
+- **ChallengeType**: Native types
 - **Origin Tags**: Disabled
 
 #### In-Circuit Mode (Recursive Verification)
 - **Purpose**: Verifying proofs in-circuit (recursive proofs)
 - **DataType**: Circuit field elements (`field_t<Builder>`)
+- **ChallengeType**: `field_t` or `bigfield`
 - **Origin Tags**: **Enabled** to detect Fiat-Shamir violations
 
 The mode is set at compile-time.
@@ -140,7 +142,7 @@ The transcript's Fiat-Shamir state (`transcript_index` and `round_index`) is **s
 
 ```cpp
 // Securely extract origin tag context from transcript
-OriginTag tag = bb::create_transcript_tag(transcript);
+OriginTag tag = bb::extract_transcript_tag(transcript);
 // Returns: OriginTag(transcript.transcript_index, transcript.round_index, is_submitted=true)
 ```
 
@@ -155,9 +157,6 @@ This ensures the transcript's internal round tracking cannot be accidentally exp
 #### `send_to_verifier<T>(const std::string& label, const T& element)`
 Serialize element, add to proof, and update transcript state.
 
-```cpp
-transcript->send_to_verifier("wire_commitments", commitments);
-```
 
 **Effects**:
 - Serializes `element` to field elements
@@ -170,7 +169,7 @@ Add element to the Fiat-Shamir transcript (affects challenge generation).
 
 ```cpp
 // Add VK hash to the Fiat-Shamir transcript
-FF vk_hash = vk->hash_through_transcript(domain_separator, *transcript);
+FF vk_hash = vk->hash_with_origin_tags(domain_separator, *transcript);
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 
 // Now challenges will depend on the VK hash
@@ -181,7 +180,7 @@ auto alpha = transcript->get_challenge<FF>("alpha");
 
 **Use cases**:
 - Public inputs (verifier reconstructs, must hash for Fiat-Shamir)
-- VK/verifier instance hashes (to bind challenges to the verification key)
+- VK or claim hashes
 - Metadata that should influence challenges
 
 #### `receive_from_prover<T>(const std::string& label) -> T`
@@ -480,8 +479,8 @@ ROUND 0 - PREAMBLE (reception_phase=true, round_index=0)
 ** VK hash MUST be the first element added to transcript **
 
 ┌──────────────────────────────────────────────┐
-│ vk->hash_through_transcript(...)             │──► Internally:
-│                                              │    1. create_transcript_tag(transcript)
+│ vk->hash_with_origin_tags(...)             │──► Internally:
+│                                              │    1. extract_transcript_tag(transcript)
 │ Returns: vk_hash                             │    2. tag_and_serialize() all VK components
 └──────────────────────────────────────────────┘    3. Hash the serialized elements
          │                                          Side effect: Tags all VK commitment witnesses
@@ -620,16 +619,16 @@ VK HASHING WITH ORIGIN TAG ASSIGNMENT
 ═══════════════════════════════════════
 
 ┌────────────────────────────────────────────────────────────────┐
-│ VK Hash Computation (via hash_through_transcript())            │
+│ VK Hash Computation (via hash_with_origin_tags())            │
 └────────────────────────────────────────────────────────────────┘
 
     ┌──────────────────────────────────────────┐
-    │ vk->hash_through_transcript(domain, tx)  │
+    │ vk->hash_with_origin_tags(domain, tx)  │
     └──────────────────────────────────────────┘
                     │
                     ▼
     ┌──────────────────────────────────────────┐
-    │ tag = create_transcript_tag(transcript)  │──► Secure extraction:
+    │ tag = extract_transcript_tag(transcript)  │──► Secure extraction:
     └──────────────────────────────────────────┘    OriginTag(42, round_index, is_submitted=true)
                     │
                     ▼
@@ -668,7 +667,7 @@ TRANSCRIPT STATE TRACKING
     current_round_data:            // Main Fiat-Shamir buffer (cleared on challenge)
     previous_challenge:            // For duplex sponge c_next = H(c_prev || data)
 
-    // Security-critical state is private, accessed via create_transcript_tag()
+    // Security-critical state is private, accessed via extract_transcript_tag()
 ```
 
 ---
@@ -782,13 +781,13 @@ transcript->add_to_hash_buffer("public_input", input);  // Hash only
 transcript->send_to_verifier("public_input", input);
 ```
 
-### 3. **Use `hash_through_transcript()` for VK/Instance Hashing**
+### 3. **Use `hash_with_origin_tags()` for VK/Instance Hashing**
 
 Always use the dedicated method for hashing verification keys and verifier instances:
 
 ```cpp
 // ✅ CORRECT - proper origin tag assignment
-FF vk_hash = vk->hash_through_transcript(domain_separator, *transcript);
+FF vk_hash = vk->hash_with_origin_tags(domain_separator, *transcript);
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 
 // ❌ WRONG - no origin tags in recursive verification
@@ -796,7 +795,7 @@ FF vk_hash = vk->hash();
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 ```
 
-**Why**: `hash_through_transcript()` uses `create_transcript_tag()` and `tag_and_serialize()` to ensure all VK commitments get proper origin tags as a side effect of hashing.
+**Why**: `hash_with_origin_tags()` uses `extract_transcript_tag()` and `tag_and_serialize()` to ensure all VK commitments get proper origin tags as a side effect of hashing.
 
 ### 4. **Test-Specific Utilities**
 
