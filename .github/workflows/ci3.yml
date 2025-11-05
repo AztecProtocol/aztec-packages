@@ -80,6 +80,8 @@ jobs:
 
       - name: CI Release PR Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-release-pr')
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           gh pr edit "${{ github.event.pull_request.number }}" --remove-label 'ci-release-pr'
           echo "CI_RELEASE_PR=1" >> $GITHUB_ENV
@@ -129,7 +131,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
