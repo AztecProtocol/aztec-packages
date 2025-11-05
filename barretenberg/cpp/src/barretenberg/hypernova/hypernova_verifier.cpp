@@ -8,6 +8,42 @@
 
 namespace bb {
 
+template <typename Flavor_>
+std::pair<std::vector<typename HypernovaFoldingVerifier<Flavor_>::FF>,
+          std::vector<typename HypernovaFoldingVerifier<Flavor_>::FF>>
+HypernovaFoldingVerifier<Flavor_>::get_batching_challenges()
+{
+    std::vector<std::string> labels_unshifted_entities(NUM_UNSHIFTED_ENTITIES);
+    std::vector<std::string> labels_shifted_witnesses(NUM_SHIFTED_ENTITIES);
+    for (size_t idx = 0; idx < NUM_UNSHIFTED_ENTITIES; idx++) {
+        labels_unshifted_entities[idx] = "unshifted_challenge_" + std::to_string(idx);
+    }
+    for (size_t idx = 0; idx < NUM_SHIFTED_ENTITIES; idx++) {
+        labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
+    }
+    auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted_entities);
+    auto shifted_challenges = transcript->template get_challenges<FF>(labels_shifted_witnesses);
+
+    return { unshifted_challenges, shifted_challenges };
+}
+
+template <typename Flavor_>
+template <size_t N>
+HypernovaFoldingVerifier<Flavor_>::Commitment HypernovaFoldingVerifier<Flavor_>::batch_mul(
+    const RefArray<Commitment, N>& _points, const std::vector<FF>& scalars)
+{
+    std::vector<Commitment> points(N);
+    for (size_t idx = 0; const auto& point : _points) {
+        points[idx++] = point;
+    }
+
+    if constexpr (IsRecursiveFlavor<Flavor>) {
+        return Curve::Group::batch_mul(points, scalars);
+    } else {
+        return batch_mul_native(points, scalars);
+    }
+}
+
 template <typename Flavor>
 HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::sumcheck_output_to_accumulator(
     HypernovaFoldingVerifier<Flavor>::MegaSumcheckOutput& sumcheck_output,

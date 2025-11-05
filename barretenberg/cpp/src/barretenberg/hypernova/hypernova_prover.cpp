@@ -9,6 +9,36 @@
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 
 namespace bb {
+
+std::pair<std::vector<HypernovaFoldingProver::FF>, std::vector<HypernovaFoldingProver::FF>> HypernovaFoldingProver::
+    get_batching_challenges()
+{
+    std::vector<std::string> labels_unshifted_entities(NUM_UNSHIFTED_ENTITIES);
+    std::vector<std::string> labels_shifted_witnesses(NUM_SHIFTED_ENTITIES);
+    for (size_t idx = 0; idx < NUM_UNSHIFTED_ENTITIES; idx++) {
+        labels_unshifted_entities[idx] = "unshifted_challenge_" + std::to_string(idx);
+    }
+    for (size_t idx = 0; idx < NUM_SHIFTED_ENTITIES; idx++) {
+        labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
+    }
+    auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted_entities);
+    auto shifted_challenges = transcript->template get_challenges<FF>(labels_shifted_witnesses);
+
+    return { unshifted_challenges, shifted_challenges };
+}
+
+template <size_t N>
+HypernovaFoldingProver::Commitment HypernovaFoldingProver::batch_mul(const RefArray<Commitment, N>& _points,
+                                                                     const std::vector<FF>& scalars)
+{
+    std::vector<Commitment> points(N);
+    for (size_t idx = 0; auto point : _points) {
+        points[idx++] = point;
+    }
+
+    return batch_mul_native(points, scalars);
+}
+
 HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_accumulator(
     HypernovaFoldingProver::MegaSumcheckOutput& sumcheck_output,
     const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance,
