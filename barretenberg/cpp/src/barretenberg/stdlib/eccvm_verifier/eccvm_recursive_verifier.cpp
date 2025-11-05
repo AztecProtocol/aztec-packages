@@ -9,6 +9,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb {
 ECCVMRecursiveVerifier::ECCVMRecursiveVerifier(Builder* builder,
@@ -214,6 +215,13 @@ void ECCVMRecursiveVerifier::compute_translation_opening_claims(const std::vecto
         small_ipa_evaluations[idx] = transcript->template receive_from_prover<FF>(labels[idx]);
         opening_claims[idx] = { { evaluation_points[idx], small_ipa_evaluations[idx] },
                                 small_ipa_commitments.get_all()[idx] };
+    }
+
+    // The small IPA evaluations are evaluation claims that will be verified via the consistency check.
+    // Clear their origin tags to prevent false positives from child tag checks when these evaluations
+    // are used together in arithmetic operations within the consistency check.
+    for (auto& eval : small_ipa_evaluations) {
+        eval.set_origin_tag(OriginTag());
     }
 
     // Check Grand Sum Identity at r
