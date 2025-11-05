@@ -95,6 +95,11 @@ async function main() {
         .default(`http://${LOCALHOST}:8080`),
     )
     .hook('preSubcommand', async command => {
+      // Skip initialization if user is just requesting help
+      if (command.args.includes('--help') || command.args.includes('-h')) {
+        return;
+      }
+
       const { dataDir, nodeUrl, prover } = command.optsWithGlobals();
 
       const proverEnabled = prover !== 'none';
