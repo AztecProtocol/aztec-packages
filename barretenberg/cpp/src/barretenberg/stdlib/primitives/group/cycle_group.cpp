@@ -845,11 +845,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     std::vector<straus_lookup_table> point_tables;
     point_tables.reserve(num_points);
     const size_t hints_per_table = (1ULL << ROM_TABLE_BITS) - 1;
-    OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
-        // Merge tags
-        tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
-
         // Construct Straus table
         std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
         straus_lookup_table table(context, base_points[i], offset_generators[i + 1], ROM_TABLE_BITS, table_hints);
@@ -889,9 +885,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     if (!unconditional_add) {
         coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
     }
-
-    // Set the final accumulator's tag to the union of all points' and scalars' tags
-    accumulator.set_origin_tag(tag);
 
     // Note: offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
     // We don't subtract it off yet as we may be able to combine it with other constant terms in `batch_mul` before
@@ -935,11 +928,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     std::vector<MultiTableId> multitable_ids;
     std::vector<field_t> scalar_limbs;
 
-    OriginTag tag{};
     for (const auto [point, scalar] : zip_view(base_points, scalars)) {
-        // Merge all scalar tags
-        // AUDITTODO: in the variable base method we combine point and scalar tags - should we do the same here?
-        tag = OriginTag(tag, scalar.get_origin_tag());
         std::array<MultiTableId, 2> table_id = table::get_lookup_table_ids_for_point(point);
         multitable_ids.push_back(table_id[0]);
         multitable_ids.push_back(table_id[1]);
@@ -993,7 +982,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     // The offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
     // We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant
     // terms in `batch_mul` before performing the subtraction.
-    accumulator.set_origin_tag(tag); // Set accumulator's origin tag to the union of all scalars' tags
     return { accumulator, offset_generator_accumulator };
 }
 
@@ -1222,6 +1210,16 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
     bool _is_standard_res = lhs._is_standard && rhs._is_standard;
     if (predicate.is_constant()) {
         _is_standard_res = predicate.get_value() ? lhs._is_standard : rhs._is_standard;
+    }
+
+    // Handle case where x_res is constant but y_res is not:
+    // Due to the nature of field_t::conditional_assign, if the inputs to this method are such that predicate is a
+    // witness and lhs = -rhs and both are constants, x_res will be constant equal to lhs.x and y_res will be witness
+    // equal to lhs.y or rhs.y (depending on value of predicate). Since we do not allow coordinates with mixed
+    // constancy, we make x_res a fixed-witness to achieve consistency.
+    if (x_res.is_constant() && !y_res.is_constant()) {
+        auto ctx = predicate.get_context();
+        x_res.convert_constant_to_fixed_witness(ctx);
     }
 
     cycle_group<Builder> result(x_res, y_res, _is_infinity_res, /*assert_on_curve=*/false);

@@ -550,32 +550,6 @@ TYPED_TEST(CycleGroupTest, TestDblConstantPoints)
     }
 }
 
-#ifndef NDEBUG
-TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
-{
-    STDLIB_TYPE_ALIASES;
-    auto builder = Builder();
-
-    // Test doubling where x is constant but y is witness (edge case)
-    // This currently fails due to implementation issues with mixed constant/witness points
-    // TODO: Fix the implementation to handle this case properly
-
-    auto point = TestFixture::generators[1];
-    auto x = stdlib::field_t<Builder>(&builder, point.x);             // constant
-    auto y = stdlib::field_t<Builder>(witness_ct(&builder, point.y)); // witness
-    cycle_group_ct a(x, y, false, /*assert_on_curve=*/false);
-
-    // Currently this crashes with an assertion error about invalid variable_index
-    // The issue is that when we have mixed constant/witness coordinates, the dbl()
-    // implementation tries to access witness indices that don't exist for constants
-
-    EXPECT_THROW(
-        { [[maybe_unused]] cycle_group_ct result = a.dbl(); },
-        std::exception // Expect exception from assertion failure
-    );
-}
-#endif
-
 TYPED_TEST(CycleGroupTest, TestUnconditionalAddNonConstantPoints)
 {
     STDLIB_TYPE_ALIASES;
