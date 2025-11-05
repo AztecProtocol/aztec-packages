@@ -124,4 +124,4 @@ try {
 - [Send transactions](./how_to_send_transaction.md) to modify contract state
 - Learn about [private and public functions](../smart_contracts/how_to_define_functions.md)
 - Explore [testing patterns](./how_to_test.md) for simulations
-- Understand [state management](../smart_contracts/state-variables.md)
+- Understand [state management](../smart_contracts/how_to_define_storage.md)

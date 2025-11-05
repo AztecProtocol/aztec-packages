@@ -119,5 +119,5 @@ try {
 - [Send transactions](./how_to_send_transaction.md) to modify contract state
 - Learn about [private and public functions](../aztec-nr/framework-description/functions/how_to_define_functions.md)
 - Explore [testing patterns](./how_to_test.md) for simulations
-- Understand [state management](../aztec-nr/framework-description/state-variables.md)
+- Understand [state management](../aztec-nr/framework-description/how_to_define_storage.md)
 

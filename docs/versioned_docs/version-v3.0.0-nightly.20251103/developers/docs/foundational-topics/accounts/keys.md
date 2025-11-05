@@ -255,7 +255,7 @@ Stores the key in a note that can be updated, enabling key rotation.
 
 ### Delayed Public Mutable State
 
-Stores the key in [delayed public mutable state](../../aztec-nr/framework-description/state-variables.md#delayed-public-mutable) - publicly accessible but privately readable with a delay window.
+Stores the key in [delayed public mutable state](../../aztec-nr/framework-description/how_to_define_storage.md#delayed-public-mutable) - publicly accessible but privately readable with a delay window.
 
 **Pros:**
 
