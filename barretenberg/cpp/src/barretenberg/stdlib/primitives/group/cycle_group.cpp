@@ -393,7 +393,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 
 /**
  * @brief Will evaluate ECC point addition or subtraction over `*this` and `other`.
- * @details Incomplete addition formula edge cases are *NOT* checked! Only use this method if you know the x-coordinates
+ * @warning Incomplete addition formula edge cases are *NOT* checked! Only use this method if you know the x-coordinates
  * of the operands cannot collide and none of the operands is a point at infinity. Uses Ultra-arithmetic elliptic curve
  * addition gate.
  *
@@ -472,6 +472,12 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
     return result;
 }
 
+/**
+ * @brief Evaluate incomplete ECC point addition over `*this` and `other`.
+ * @warning Incomplete addition formula edge cases are *NOT* checked! Only use this method if you know the x-coordinates
+ * of the operands cannot collide and none of the operands is a point at infinity. Uses Ultra-arithmetic elliptic curve
+ * addition gate.
+ */
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other,
                                                              const std::optional<AffineElement> hint) const
@@ -479,6 +485,12 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     return _unconditional_add_or_subtract(other, /*is_addition=*/true, hint);
 }
 
+/**
+ * @brief Evaluate incomplete ECC point subtraction over `*this` and `other`.
+ * @warning Incomplete subtraction formula edge cases are *NOT* checked! Only use this method if you know the
+ * x-coordinates of the operands cannot collide and none of the operands is a point at infinity. Uses Ultra-arithmetic
+ * elliptic curve subtraction gate.
+ */
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_group& other,
                                                                   const std::optional<AffineElement> hint) const
@@ -487,7 +499,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
 }
 
 /**
- * @brief Will evaluate ECC point addition over `*this` and `other`.
+ * @brief Evaluate incomplete ECC point addition over `*this` and `other`, with x-coordinate collision checks
  * @details Uses incomplete addition formula. If incomplete addition formula edge cases are triggered (x-coordinates of
  * operands collide), the constraints produced by this method will be unsatisfiable. Useful when an honest prover will
  * not produce a point collision with overwhelming probability, but a cheating prover will be able to.
@@ -511,10 +523,11 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
 }
 
 /**
- * @brief Will evaluate ECC point subtraction over `*this` and `other`.
- * @details Uses incomplete addition formula. If incomplete addition formula edge cases are triggered (x-coordinates of
- * operands collide), the constraints produced by this method will be unsatisfiable. Useful when an honest prover will
- * not produce a point collision with overwhelming probability, but a cheating prover will be able to.
+ * @brief Evaluate incomplete ECC point subtraction over `*this` and `other`, with x-coordinate collision checks
+ * @details Uses incomplete subtraction formula. If incomplete subtraction formula edge cases are triggered
+ * (x-coordinates of operands collide), the constraints produced by this method will be unsatisfiable. Useful when an
+ * honest prover will not produce a point collision with overwhelming probability, but a cheating prover will be able
+ * to.
  *
  * @tparam Builder
  * @param other Point to subtract
@@ -535,7 +548,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
 }
 
 /**
- * @brief Will evaluate ECC point addition over `*this` and `other`.
+ * @brief Evaluate ECC point addition over `*this` and `other`.
  * @details This method uses complete addition i.e. is compatible with all edge cases and is therefore expensive. To
  * handle the possibility of x-coordinate collisions we evaluate both an addition (modified to avoid division by zero)
  * and and a doubling, then conditionally assign the result.
@@ -609,7 +622,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
 }
 
 /**
- * @brief Will evaluate ECC point subtraction over `*this` and `other`.
+ * @brief Evaluate ECC point subtraction over `*this` and `other`.
  * @details This method uses complete subtraction i.e. is compatible with all edge cases and is therefore expensive. To
  * handle the possibility of x-coordinate collisions we evaluate both a subtraction (modified to avoid division by zero)
  * and a doubling, then conditionally assign the result.
