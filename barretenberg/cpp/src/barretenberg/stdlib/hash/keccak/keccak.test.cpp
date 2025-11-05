@@ -135,3 +135,40 @@ TEST(stdlib_keccak, keccak_chi_output_table)
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
+
+// Matches the fuzzer logic
+TEST(stdlib_keccak, permutation_opcode)
+{
+    Builder builder = Builder();
+
+    // Create a random state (25 lanes of 64 bits)
+    std::array<uint64_t, 25> native_state;
+    for (size_t i = 0; i < 25; ++i) {
+        native_state[i] = engine.get_random_uint64();
+    }
+
+    // Run native permutation
+    std::array<uint64_t, 25> expected_state = native_state;
+    ethash_keccakf1600(expected_state.data());
+
+    // Convert state to circuit field elements
+    std::array<field_ct, 25> circuit_state;
+    for (size_t i = 0; i < 25; i++) {
+        circuit_state[i] = witness_ct(&builder, native_state[i]);
+    }
+
+    // Run circuit permutation
+    auto circuit_output = stdlib::keccak<Builder>::permutation_opcode(circuit_state, &builder);
+
+    // Verify circuit correctness
+    bool proof_result = CircuitChecker::check(builder);
+    EXPECT_EQ(proof_result, true);
+
+    // Compare outputs
+    for (size_t i = 0; i < 25; i++) {
+        uint64_t circuit_value = static_cast<uint64_t>(circuit_output[i].get_value());
+        EXPECT_EQ(circuit_value, expected_state[i]);
+    }
+
+    info("num gates = ", builder.get_num_finalized_gates_inefficient());
+}
