@@ -47,6 +47,10 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     std::vector<Fr> scalars;
     BB_ASSERT_EQ(_points.size(), _scalars.size());
 
+    BB_ASSERT_LTE(uint256_t(masking_scalar.get_value()).get_msb() + 1ULL,
+                  128ULL,
+                  "biggroup mask_points: masking_scalar must ≤ 128 bits");
+
     // Get the offset generator G_offset in native and in-circuit form
     const typename G::affine_element native_offset_generator = element::compute_table_offset_generator();
     C* builder = validate_context<C>(validate_context<C>(_points), validate_context<C>(_scalars));

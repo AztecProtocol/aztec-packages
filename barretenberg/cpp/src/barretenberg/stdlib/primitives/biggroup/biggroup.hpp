@@ -948,6 +948,20 @@ class element_test_accessor {
         return element<C, Fq, Fr, G>::template get_staggered_wnaf_fragment_value<wnaf_size>(
             fragment_u64, stagger, is_negative, wnaf_skew);
     }
+
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto checked_unconditional_add_sub(const element<C, Fq, Fr, G>& elem1, const element<C, Fq, Fr, G>& elem2)
+    {
+        return elem1.checked_unconditional_add_sub(elem2);
+    }
+
+    // Overload for goblin_element
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto checked_unconditional_add_sub(const element_goblin::goblin_element<C, Fq, Fr, G>& elem1,
+                                              const element_goblin::goblin_element<C, Fq, Fr, G>& elem2)
+    {
+        return elem1.checked_unconditional_add_sub(elem2);
+    }
 };
 
 template <typename C, typename Fq, typename Fr, typename G>

@@ -120,6 +120,21 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         return get_random_constant_scalar(builder, even);
     }
 
+    static std::pair<fr, scalar_ct> get_random_short_scalar(Builder* builder, InputType type, size_t num_bits)
+    {
+        uint256_t scalar_u256 = engine.get_random_uint256();
+        scalar_u256 = scalar_u256 >> (256 - num_bits); // keep only the lower num_bits bits
+
+        fr scalar_native(scalar_u256);
+        scalar_ct scalar_ct_val;
+        if (type == InputType::WITNESS) {
+            scalar_ct_val = scalar_ct::from_witness(builder, scalar_native);
+        } else {
+            scalar_ct_val = scalar_ct(builder, scalar_native);
+        }
+        return std::make_pair(scalar_native, scalar_ct_val);
+    }
+
   public:
     static void test_basic_tag_logic()
     {
@@ -368,7 +383,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             auto standard_b = input_b.get_standard_form();
 
             // Check that tags are preserved
-
             EXPECT_EQ(standard_a.get_origin_tag(), submitted_value_origin_tag);
             EXPECT_EQ(standard_b.get_origin_tag(), challenge_origin_tag);
 
@@ -547,10 +561,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            auto [input_a, a] = get_random_point(&builder, a_type);
-            auto [input_b, b] = get_random_point(&builder, b_type);
+            const auto [input_a, a] = get_random_point(&builder, a_type);
+            const auto [input_b, b] = get_random_point(&builder, b_type);
 
-            auto [sum, diff] = a.checked_unconditional_add_sub(b);
+            // Since unchecked_unconditional_add_sub is private in biggroup, we test it via the element_test_accessor
+            auto [sum, diff] = stdlib::element_default::element_test_accessor::checked_unconditional_add_sub(a, b);
 
             affine_element expected_sum(element(input_a) + element(input_b));
             affine_element expected_diff(element(input_a) - element(input_b));
@@ -593,7 +608,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(c_x_result, c_expected.x);
             EXPECT_EQ(c_y_result, c_expected.y);
         }
-
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
@@ -638,7 +652,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             affine_element c_expected = predicate_value ? affine_element(-element(input_a)) : input_a;
             EXPECT_EQ(c.get_value(), c_expected);
         }
-
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
@@ -669,11 +682,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             affine_element c_expected = predicate_value ? input_b : input_a;
             EXPECT_EQ(c.get_value(), c_expected);
         }
-
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_incomplete_assert_equal_success()
+    static void test_incomplete_assert_equal()
     {
         // Case 1: Should pass because the points are identical
         {
@@ -852,6 +864,49 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(c_y_result, c_expected.y);
         }
 
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_mul_edge_cases(InputType scalar_type = InputType::WITNESS,
+                                    InputType point_type = InputType::WITNESS)
+    {
+        Builder builder;
+
+        const auto run_mul_and_check = [&](element_ct& P, scalar_ct& x) {
+            // Set input tags
+            x.set_origin_tag(challenge_origin_tag);
+            P.set_origin_tag(submitted_value_origin_tag);
+
+            // Perform multiplication
+            element_ct c = P * x;
+
+            // Check the result of the multiplication has a tag that's the union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
+
+            // Result must be a point at infinity
+            EXPECT_EQ(c.is_point_at_infinity().get_value(), true);
+        };
+
+        // Case 1: P * 0
+        {
+            auto [input, P] = get_random_point(&builder, point_type);
+            scalar_ct x = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, fr(0))
+                                                              : scalar_ct(&builder, fr(0));
+            run_mul_and_check(P, x);
+        }
+        // Case 2: (∞) * k
+        {
+            auto [input, P] = get_random_point(&builder, point_type);
+            if (point_type == InputType::CONSTANT) {
+                P.set_point_at_infinity(bool_ct(true));
+            } else {
+                P.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+            }
+            auto [scalar, x] = get_random_scalar(&builder, scalar_type, /*even*/ true);
+            run_mul_and_check(P, x);
+        }
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
@@ -1352,6 +1407,92 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
         }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Overload: defaults to all WITNESS types for given num_points
+    static void test_helper_batch_mul(size_t num_points,
+                                      const bool short_scalars = false,
+                                      const bool with_edgecases = false)
+    {
+        std::vector<InputType> point_types(num_points, InputType::WITNESS);
+        std::vector<InputType> scalar_types(num_points, InputType::WITNESS);
+        test_helper_batch_mul(point_types, scalar_types, short_scalars, with_edgecases);
+    }
+
+    static void test_helper_batch_mul(std::vector<InputType> point_types,
+                                      std::vector<InputType> scalar_types,
+                                      const bool short_scalars = false,
+                                      const bool with_edgecases = false)
+    {
+        Builder builder;
+
+        const size_t num_points = point_types.size();
+        std::vector<affine_element> points;
+        std::vector<fr> scalars;
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+
+        for (size_t i = 0; i < num_points; ++i) {
+            // Generate scalars
+            if (short_scalars) {
+                auto [input_scalar, x] = get_random_short_scalar(&builder, scalar_types[i], /*num_bits*/ 128);
+                scalars.push_back(input_scalar);
+                circuit_scalars.push_back(x);
+            } else {
+                auto [input_scalar, x] = get_random_scalar(&builder, scalar_types[i], /*even*/ true);
+                scalars.push_back(input_scalar);
+                circuit_scalars.push_back(x);
+            }
+
+            // Generate points
+            auto [input_point, P] = get_random_point(&builder, point_types[i]);
+            points.push_back(input_point);
+            circuit_points.push_back(P);
+        }
+
+        OriginTag tag_union{};
+        for (size_t i = 0; i < num_points; ++i) {
+            // Set tag to submitted value tag at round i
+            circuit_points[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
+            tag_union = OriginTag(tag_union, circuit_points[i].get_origin_tag());
+
+            // Set tag to challenge tag at round i
+            circuit_scalars[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
+            tag_union = OriginTag(tag_union, circuit_scalars[i].get_origin_tag());
+        }
+
+        // Define masking scalar (128 bits) if with_edgecases is true
+        const auto get_128_bit_scalar = []() {
+            uint256_t scalar_u256(0, 0, 0, 0);
+            scalar_u256.data[0] = engine.get_random_uint64();
+            scalar_u256.data[1] = engine.get_random_uint64();
+            fr scalar(scalar_u256);
+            return scalar;
+        };
+        fr masking_scalar = with_edgecases ? get_128_bit_scalar() : fr(1);
+        scalar_ct masking_scalar_ct =
+            with_edgecases ? scalar_ct::from_witness(&builder, masking_scalar) : scalar_ct(&builder, fr(1));
+
+        element_ct result_point = element_ct::batch_mul(
+            circuit_points, circuit_scalars, /*max_num_bits=*/0, with_edgecases, masking_scalar_ct);
+
+        // Check the resulting tag is a union of inputs' tags
+        EXPECT_EQ(result_point.get_origin_tag(), tag_union);
+
+        element expected_point = g1::one;
+        expected_point.self_set_infinity();
+        for (size_t i = 0; i < num_points; ++i) {
+            expected_point += (element(points[i]) * scalars[i]);
+        }
+
+        expected_point = expected_point.normalize();
+        fq result_x(result_point.x().get_value().lo);
+        fq result_y(result_point.y().get_value().lo);
+
+        EXPECT_EQ(result_x, expected_point.x);
+        EXPECT_EQ(result_y, expected_point.y);
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
@@ -2533,7 +2674,7 @@ TYPED_TEST(stdlib_biggroup, conditional_select_with_constants)
 }
 TYPED_TEST(stdlib_biggroup, incomplete_assert_equal)
 {
-    TestFixture::test_incomplete_assert_equal_success();
+    TestFixture::test_incomplete_assert_equal();
 }
 TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_fails)
 {
@@ -2555,6 +2696,20 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mul_with_constants)
         TestFixture::test_mul(InputType::WITNESS, InputType::CONSTANT);  // w * c
         TestFixture::test_mul(InputType::CONSTANT, InputType::WITNESS);  // c * w
         TestFixture::test_mul(InputType::CONSTANT, InputType::CONSTANT); // c * c
+    }
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases)
+{
+    TestFixture::test_mul_edge_cases();
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_mul_edge_cases(InputType::WITNESS, InputType::CONSTANT);  // w * c
+        TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::WITNESS);  // c * w
+        TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::CONSTANT); // c * c
     }
 }
 
@@ -2582,6 +2737,85 @@ HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_infinity)
     } else {
         TestFixture::test_short_scalar_mul_infinity();
     }
+}
+
+// 1 point - Base case only
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_singleton)
+{
+    TestFixture::test_helper_batch_mul(1);
+}
+
+// 2 points - Base case + flag variations + one constant mix
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin)
+{
+    TestFixture::test_helper_batch_mul(2);
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_short_scalars)
+{
+    TestFixture::test_helper_batch_mul(2, true); // short_scalars
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_with_edgecases)
+{
+    TestFixture::test_helper_batch_mul(2, false, true); // short_scalars, with_edgecases
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_short_scalars_with_edgecases)
+{
+    TestFixture::test_helper_batch_mul(2, true, true); // short_scalars, with_edgecases
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_mixed_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_helper_batch_mul({ InputType::WITNESS, InputType::CONSTANT },
+                                           { InputType::CONSTANT, InputType::WITNESS });
+    }
+}
+
+// 3 points - Base case only
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_triple)
+{
+    TestFixture::test_helper_batch_mul(3);
+}
+
+// 4 points - Base case only
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_quad)
+{
+    TestFixture::test_helper_batch_mul(4);
+}
+
+// 5 points - Base case + edge case + short scalar + mixed constant
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five)
+{
+    TestFixture::test_helper_batch_mul(5);
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_with_edgecases)
+{
+    TestFixture::test_helper_batch_mul(5, false, true); // short_scalars, with_edgecases
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_short_scalars)
+{
+    TestFixture::test_helper_batch_mul(5, true); // short_scalars
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_short_scalars_with_edgecases)
+{
+    TestFixture::test_helper_batch_mul(5, true, true); // short_scalars, with_edgecases
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_mixed_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_helper_batch_mul(
+            { InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT },
+            { InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT });
+    }
+}
+
+// 6 points - Base case only
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_six)
+{
+    TestFixture::test_helper_batch_mul(6);
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)

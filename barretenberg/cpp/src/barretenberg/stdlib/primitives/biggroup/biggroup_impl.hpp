@@ -783,7 +783,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     }
 
     // Accumulate constant-constant pairs out of circuit
-    bool has_constant_terms = false;
     typename G::element constant_accumulator = G::element::infinity();
     std::vector<element> new_points;
     std::vector<Fr> new_scalars;
@@ -792,7 +791,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
             const auto& point_value = typename G::element(points[i].get_value());
             const auto& scalar_value = typename G::Fr(scalars[i].get_value());
             constant_accumulator += (point_value * scalar_value);
-            has_constant_terms = true;
         } else {
             new_points.emplace_back(points[i]);
             new_scalars.emplace_back(scalars[i]);
@@ -854,16 +852,14 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                  "biggroup batch_mul: small points and scalars size mismatch after separating big scalars");
 
     const size_t max_num_bits_in_field = Fr::modulus.get_msb() + 1;
-    element accumulator;
-    if (has_constant_terms) {
-        // Initialize accumulator with constant terms
-        accumulator = element(constant_accumulator);
-    }
+
+    // Initialize accumulator with constant terms
+    element accumulator = element(constant_accumulator);
 
     if (!big_points.empty()) {
         // Process big scalars separately
         element big_result = element::process_strauss_msm_rounds(big_points, big_scalars, max_num_bits_in_field);
-        accumulator = has_constant_terms ? accumulator + big_result : big_result;
+        accumulator = accumulator + big_result;
     }
 
     if (!small_points.empty()) {
@@ -921,22 +917,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const 
      *the specifics.
      *
      **/
-    OriginTag tag{};
-    tag = OriginTag(tag, OriginTag(this->get_origin_tag(), scalar.get_origin_tag()));
-
-    bool_ct is_point_at_infinity = this->is_point_at_infinity();
-
-    element result = element::batch_mul({ *this }, { scalar }, max_num_bits, /*with_edgecases=*/false);
-
-    // Handle point at infinity
-    result._x = Fq::conditional_assign(is_point_at_infinity, _x, result._x);
-    result._y = Fq::conditional_assign(is_point_at_infinity, _y, result._y);
-
-    result.set_point_at_infinity(is_point_at_infinity);
-
-    // Propagate the origin tag
-    result.set_origin_tag(tag);
-
-    return result;
+    return element::batch_mul({ *this }, { scalar }, max_num_bits, /*with_edgecases=*/false);
 }
 } // namespace bb::stdlib::element_default
