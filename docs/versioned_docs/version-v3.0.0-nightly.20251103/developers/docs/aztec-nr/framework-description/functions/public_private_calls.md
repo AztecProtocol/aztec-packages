@@ -8,10 +8,6 @@ description: Learn how to make calls between public and private functions in Azt
 
 import Image from "@theme/IdealImage";
 
-import Disclaimer from "@site/src/components/Disclaimers/_wip_disclaimer.mdx";
-
-<Disclaimer/>
-
 Aztec operates on a model of private and public functions that are able to work together. Private functions work by providing evidence of correct execution generated locally through kernel proofs. Public functions, on the other hand, are able to utilize the latest state to manage updates and perform alterations.
 
 On this page, you’ll learn:

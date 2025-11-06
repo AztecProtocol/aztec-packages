@@ -105,15 +105,15 @@ Collisions and other hash-related attacks might be possible in the Sandbox. Obvi
 
 ### `msg_sender` is leaked when making a private -> public call
 
-There are ongoing discussions [here](https://forum.aztec.network/t/what-is-msg-sender-when-calling-private-public-plus-a-big-foray-into-stealth-addresses/7527 (and some more recent discussions that need to be documented) around how to address this.
+There are ongoing discussions [here](https://forum.aztec.network/t/what-is-msg-sender-when-calling-private-public-plus-a-big-foray-into-stealth-addresses/7527) (and some more recent discussions that need to be documented) around how to address this.
 
 ### New Privacy Standards are required
 
-There are many [patterns](../../resources/considerations/privacy_considerations.md) which can leak privacy, even on Aztec. Standards haven't been developed yet, to encourage best practices when designing private smart contracts.
+There are many [patterns](./privacy_considerations.md) which can leak privacy, even on Aztec. Standards haven't been developed yet, to encourage best practices when designing private smart contracts.
 
 #### What are the consequences?
 
-For example, until community standards are developed to reduce the uniqueness of ['Tx Fingerprints'](../../resources/considerations/privacy_considerations.md#function-fingerprints-and-tx-fingerprints) app developers might accidentally forfeit some function privacy.
+For example, until community standards are developed to reduce the uniqueness of ['Tx Fingerprints'](./privacy_considerations.md#function-fingerprints-and-tx-fingerprints) app developers might accidentally forfeit some function privacy.
 
 ## Smart Contract limitations
 

@@ -78,8 +78,12 @@ const config = {
               label: "Devnet (v3.0.0-devnet.4)",
               path: "devnet",
             },
+            [versions[2]]: {
+              label: "RC (v2.1.2)",
+            },
             "v2.0.4": {
               label: "Testnet (v2.0.4)",
+              path: "testnet",
             },
             ...(process.env.CONTEXT !== "production" && {
               current: {
@@ -199,11 +203,11 @@ const config = {
             position: "left",
             label: "Run a node",
           },
-          {
-            to: "/developers/getting_started_on_sandbox",
-            label: "Install Sandbox",
-            position: "right",
-          },
+          // {
+          //   to: "/developers/getting_started_on_sandbox",
+          //   label: "Install Sandbox",
+          //   position: "right",
+          // },
           {
             to: "/try_testnet",
             label: "Try Testnet",
@@ -251,16 +255,6 @@ const config = {
                 type: "html",
                 value: '<span class="dropdown-subtitle">Other Docs</span>',
                 className: "dropdown-subtitle",
-              },
-              {
-                to: "/developers/docs/reference/glossary",
-                label: "Glossary",
-                className: "no-external-icon",
-              },
-              {
-                to: "/developers/migration_notes",
-                label: "Migration Notes",
-                className: "no-external-icon",
               },
               {
                 to: "/aztec_connect_sunset",
