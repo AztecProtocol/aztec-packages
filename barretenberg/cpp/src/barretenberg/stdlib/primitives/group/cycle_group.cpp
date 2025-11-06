@@ -1230,13 +1230,6 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
         _is_standard_res = predicate.get_value() ? lhs._is_standard : rhs._is_standard;
     }
 
-    // AUDITTODO: Talk to Sasha. Comment seems to be unrelated and its not clear why the logic is needed.
-    // Rare case when we bump into two constants, s.t. lhs = -rhs
-    if (x_res.is_constant() && !y_res.is_constant()) {
-        auto ctx = predicate.get_context();
-        x_res = field_t::from_witness_index(ctx, ctx->put_constant_variable(x_res.get_value()));
-    }
-
     cycle_group<Builder> result(x_res, y_res, _is_infinity_res, /*assert_on_curve=*/false);
     result._is_standard = _is_standard_res;
     return result;
