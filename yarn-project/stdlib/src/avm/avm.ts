@@ -574,6 +574,9 @@ export class AvmExecutionHints {
     public readonly contractClasses: AvmContractClassHint[] = [],
     public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
     public readonly debugFunctionNames: AvmDebugFunctionNameHint[] = [],
+    public readonly contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint[] = [],
+    public readonly contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint[] = [],
+    public readonly contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint[] = [],
     // Merkle DB hints.
     public startingTreeRoots: TreeSnapshots = TreeSnapshots.empty(),
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
@@ -587,9 +590,6 @@ export class AvmExecutionHints {
     public readonly createCheckpointHints: AvmCreateCheckpointHint[] = [],
     public readonly commitCheckpointHints: AvmCommitCheckpointHint[] = [],
     public readonly revertCheckpointHints: AvmRevertCheckpointHint[] = [],
-    public readonly contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint[] = [],
-    public readonly contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint[] = [],
-    public readonly contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint[] = [],
   ) {}
 
   static empty() {
@@ -606,6 +606,9 @@ export class AvmExecutionHints {
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
         debugFunctionNames: AvmDebugFunctionNameHint.schema.array(),
+        contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint.schema.array(),
+        contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint.schema.array(),
+        contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint.schema.array(),
         startingTreeRoots: TreeSnapshots.schema,
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
@@ -618,9 +621,6 @@ export class AvmExecutionHints {
         createCheckpointHints: AvmCreateCheckpointHint.schema.array(),
         commitCheckpointHints: AvmCommitCheckpointHint.schema.array(),
         revertCheckpointHints: AvmRevertCheckpointHint.schema.array(),
-        contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint.schema.array(),
-        contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint.schema.array(),
-        contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint.schema.array(),
       })
       .transform(
         ({
@@ -631,6 +631,9 @@ export class AvmExecutionHints {
           contractClasses,
           bytecodeCommitments,
           debugFunctionNames,
+          contractDBCreateCheckpointHints,
+          contractDBCommitCheckpointHints,
+          contractDBRevertCheckpointHints,
           startingTreeRoots,
           getSiblingPathHints,
           getPreviousValueIndexHints,
@@ -643,9 +646,6 @@ export class AvmExecutionHints {
           createCheckpointHints,
           commitCheckpointHints,
           revertCheckpointHints,
-          contractDBCreateCheckpointHints,
-          contractDBCommitCheckpointHints,
-          contractDBRevertCheckpointHints,
         }) =>
           new AvmExecutionHints(
             globalVariables,
@@ -655,6 +655,9 @@ export class AvmExecutionHints {
             contractClasses,
             bytecodeCommitments,
             debugFunctionNames,
+            contractDBCreateCheckpointHints,
+            contractDBCommitCheckpointHints,
+            contractDBRevertCheckpointHints,
             startingTreeRoots,
             getSiblingPathHints,
             getPreviousValueIndexHints,
@@ -667,9 +670,6 @@ export class AvmExecutionHints {
             createCheckpointHints,
             commitCheckpointHints,
             revertCheckpointHints,
-            contractDBCreateCheckpointHints,
-            contractDBCommitCheckpointHints,
-            contractDBRevertCheckpointHints,
           ),
       );
   }
