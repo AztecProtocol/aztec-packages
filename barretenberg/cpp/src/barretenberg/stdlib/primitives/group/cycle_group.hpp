@@ -25,9 +25,12 @@ namespace bb::stdlib {
  * @brief cycle_group represents a group Element of the proving system's embedded curve, i.e. a curve with a cofactor 1
  * defined over a field equal to the circuit's native field Builder::FF
  * @details In barretenberg, cycle group is used to represent the Grumpkin curve defined over the bn254 scalar field.
+ * The point at infinity is represented as (0, 0).
  *
- * @note The x and y coordinates of a point must have matching constancy. Either both are constants or both
- * are witnesses. This invariant is enforced at construction and simplifies circuit operations.
+ * @note For the honest prover, we restrict the construction of cycle group elements in the following ways: (1) x and y
+ * coordinates of a point must have matching constancy, i.e. both are constants or both are witnesses, enforced via a
+ * runtime assert. (2) We disallow construction of points not on the curve via runtime asserts (always) and via circuit
+ * constraints in select situations, e.g. EC operations from noir in DSL.
  *
  * @tparam Builder
  */

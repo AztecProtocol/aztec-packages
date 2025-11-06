@@ -19,16 +19,17 @@
 #include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib {
 
+#ifdef FUZZING
 /**
  * @brief Construct a new constant point at infinity cycle group object.
  *
  * @note Don't use this constructor in case you want to assign the coordinates later.
  */
-// AUDITTODO: Used only by fuzzer. Remove if possible, otherwise mark it accordingly.
 template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
 {
     *this = constant_infinity(_context);
 }
+#endif
 
 /**
  * @brief Construct a new cycle group<Builder>::cycle group object
