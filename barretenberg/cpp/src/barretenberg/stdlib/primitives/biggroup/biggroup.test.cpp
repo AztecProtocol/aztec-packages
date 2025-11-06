@@ -1678,7 +1678,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             scalar_val = fr(scalar_raw);
 
-            // NAF with short scalars doesn't handle 0
+            // We test non-zero scalars here
             if (scalar_val == fr(0)) {
                 scalar_val += 1;
             };
@@ -1736,10 +1736,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
-
-    // ============================================
-    // NEW TESTS: batch_mul Edge Cases
-    // ============================================
 
     // Test batch_mul with all points at infinity
     static void test_batch_mul_all_infinity()
