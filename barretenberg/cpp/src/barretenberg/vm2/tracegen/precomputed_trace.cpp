@@ -365,30 +365,12 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 {
     using C = Column;
 
-    // Ordered array of phases to maintain the original row order
-    constexpr std::array<TransactionPhase, 12> phase_order = {
-        TransactionPhase::NR_NULLIFIER_INSERTION,
-        TransactionPhase::NR_NOTE_INSERTION,
-        TransactionPhase::NR_L2_TO_L1_MESSAGE,
-        TransactionPhase::SETUP,
-        TransactionPhase::R_NULLIFIER_INSERTION,
-        TransactionPhase::R_NOTE_INSERTION,
-        TransactionPhase::R_L2_TO_L1_MESSAGE,
-        TransactionPhase::APP_LOGIC,
-        TransactionPhase::TEARDOWN,
-        TransactionPhase::COLLECT_GAS_FEES,
-        TransactionPhase::TREE_PADDING,
-        TransactionPhase::CLEANUP,
-    };
+    for (const auto& [_, spec] : TX_PHASE_SPEC_MAP) {
 
-    uint32_t row = 0;
-    for (const auto phase : phase_order) {
-        const auto& spec = TX_PHASE_SPEC_MAP.at(phase);
-
+        const uint32_t row = static_cast<uint32_t>(spec.phase_value);
         // Populate all columns that are part of the #[READ_PHASE_TABLE] lookup in tx.pil.
         std::vector<std::pair<Column, FF>> row_data = {
             { C::precomputed_sel_phase, 1 },
-            { C::precomputed_phase_value, spec.phase_value },
             { C::precomputed_is_public_call_request, spec.is_public_call_request },
             { C::precomputed_is_collect_fee, spec.is_collect_fee },
             { C::precomputed_is_tree_padding, spec.is_tree_padding },
@@ -407,15 +389,10 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
             { C::precomputed_sel_can_write_public_data, spec.can_write_public_data },
             { C::precomputed_sel_can_emit_unencrypted_log, spec.can_emit_unencrypted_log },
             { C::precomputed_sel_can_emit_l2_l1_msg, spec.can_emit_l2_l1_msg },
+            { C::precomputed_next_phase_on_revert, spec.next_phase_on_revert },
         };
 
-        // Add next_phase_on_revert (used in #[PHASE_JUMP_ON_REVERT] lookup, not in #[READ_PHASE_TABLE])
-        if (spec.next_phase_on_revert != 0) {
-            row_data.push_back({ C::precomputed_next_phase_on_revert, spec.next_phase_on_revert });
-        }
-
         trace.set(row, row_data);
-        row++;
     }
 }
 

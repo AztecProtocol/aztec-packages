@@ -128,7 +128,7 @@ namespace tx;
     }
     in
     precomputed.sel_phase {
-        precomputed.phase_value,
+        precomputed.clk,
         precomputed.is_public_call_request,
         precomputed.is_collect_fee,
         precomputed.is_tree_padding,
@@ -152,7 +152,7 @@ namespace tx;
     // If a phase reverts (when it is allowed to), it jumps to a known next phase
     #[PHASE_JUMP_ON_REVERT]
     reverted { phase_value, phase_value' } in
-    precomputed.sel_phase { precomputed.phase_value, precomputed.next_phase_on_revert};
+    precomputed.sel_phase { precomputed.clk, precomputed.next_phase_on_revert};
 
     // === Phase Lengths ===
     // Read the number of steps in the phase from public inputs

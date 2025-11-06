@@ -43,7 +43,7 @@ struct lookup_tx_read_phase_table_settings_ {
         ColumnAndShifts::tx_sel_can_emit_l2_l1_msg
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_phase_value,
+        ColumnAndShifts::precomputed_clk,
         ColumnAndShifts::precomputed_is_public_call_request,
         ColumnAndShifts::precomputed_is_collect_fee,
         ColumnAndShifts::precomputed_is_tree_padding,
@@ -83,7 +83,7 @@ struct lookup_tx_phase_jump_on_revert_settings_ {
         ColumnAndShifts::tx_phase_value, ColumnAndShifts::tx_phase_value_shift
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_phase_value, ColumnAndShifts::precomputed_next_phase_on_revert
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_next_phase_on_revert
     };
 };
 

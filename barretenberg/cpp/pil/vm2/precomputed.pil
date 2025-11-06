@@ -138,7 +138,7 @@ pol constant addressing_gas;
 
 // Phase Table for Tx Trace
 pol constant sel_phase; // Selector for phase table
-pol constant phase_value; // e.g.: NR_PRIVATE_INSERTS, SETUP, R_PRIVATE_INSERTS, APPLOGIC, TEARDOWN
+// phase_value is encoded in clk, e.g.: NR_PRIVATE_INSERTS, SETUP, R_PRIVATE_INSERTS, APPLOGIC, TEARDOWN
 pol constant is_public_call_request;
 pol constant is_collect_fee;
 pol constant is_tree_padding;

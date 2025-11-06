@@ -452,6 +452,7 @@ TEST_F(TxExecutionConstrainingTestHelper, JumpOnRevert)
     trace.set(8, { { { C::tx_is_padded, 1 } } });
 
     precomputed_builder.process_phase_table(trace);
+    precomputed_builder.process_misc(trace);
 
     check_relation<tx>(trace);
     check_interaction<TxTraceBuilder, lookup_tx_phase_jump_on_revert_settings>(trace);
