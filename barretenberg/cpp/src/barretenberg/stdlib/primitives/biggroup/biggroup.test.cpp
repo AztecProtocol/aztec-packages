@@ -611,6 +611,73 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_chain_add(InputType a_type = InputType::WITNESS,
+                               InputType b_type = InputType::WITNESS,
+                               InputType c_type = InputType::WITNESS)
+    {
+        Builder builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+
+            auto [input_a, a] = get_random_point(&builder, a_type);
+            auto [input_b, b] = get_random_point(&builder, b_type);
+            auto [input_c, c] = get_random_point(&builder, c_type);
+
+            auto acc = element_ct::chain_add_start(a, b);
+            auto acc_out = element_ct::chain_add(c, acc);
+            element_ct result = element_ct::chain_add_end(acc_out);
+
+            // Verify result
+            affine_element expected(element(input_a) + element(input_b) + element(input_c));
+            uint256_t result_x = result.x().get_value().lo;
+            uint256_t result_y = result.y().get_value().lo;
+            EXPECT_EQ(fq(result_x), expected.x);
+            EXPECT_EQ(fq(result_y), expected.y);
+
+            // Check intermediate values
+            auto lambda_prev = (input_b.y - input_a.y) / (input_b.x - input_a.x);
+            auto x3_prev = lambda_prev * lambda_prev - input_b.x - input_a.x;
+            auto y3_prev = lambda_prev * (input_a.x - x3_prev) - input_a.y;
+            auto lambda = (y3_prev - input_c.y) / (x3_prev - input_c.x);
+            auto x3 = lambda * lambda - x3_prev - input_c.x;
+
+            uint256_t x3_u256 = acc_out.x3_prev.get_value().lo;
+            uint256_t lambda_u256 = acc_out.lambda_prev.get_value().lo;
+
+            fq x3_result(x3_u256);
+            fq lambda_result(lambda_u256);
+
+            EXPECT_EQ(x3_result, x3);
+            EXPECT_EQ(lambda_result, lambda);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_multiple_montgomery_ladder()
+    {
+        Builder builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element acc_small(element::random_element());
+            element_ct acc_big = element_ct::from_witness(&builder, acc_small);
+
+            std::vector<typename element_ct::chain_add_accumulator> to_add;
+            for (size_t j = 0; j < i; ++j) {
+                affine_element add_1_small_0(element::random_element());
+                element_ct add_1_big_0 = element_ct::from_witness(&builder, add_1_small_0);
+                affine_element add_2_small_0(element::random_element());
+                element_ct add_2_big_0 = element_ct::from_witness(&builder, add_2_small_0);
+                typename element_ct::chain_add_accumulator add_1 =
+                    element_ct::chain_add_start(add_1_big_0, add_2_big_0);
+                to_add.emplace_back(add_1);
+            }
+            acc_big.multiple_montgomery_ladder(to_add);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_normalize(InputType point_type = InputType::WITNESS)
     {
         Builder builder;
@@ -878,6 +945,78 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         // Circuit should fail
         EXPECT_EQ(builder.failed(), true);
         EXPECT_EQ(builder.err(), "points at infinity with different x,y should not be equal (x coordinate)");
+    }
+
+    static void test_compute_naf()
+    {
+        Builder builder = Builder();
+        size_t max_num_bits = 254;
+        for (size_t length = 2; length < max_num_bits; length += 1) {
+
+            fr scalar_val;
+
+            uint256_t scalar_raw = engine.get_random_uint256();
+            scalar_raw = scalar_raw >> (256 - length);
+
+            scalar_val = fr(scalar_raw);
+
+            // We test non-zero scalars here
+            if (scalar_val == fr(0)) {
+                scalar_val += 1;
+            };
+            scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+            // Set tag for scalar
+            scalar.set_origin_tag(submitted_value_origin_tag);
+            auto naf = element_ct::compute_naf(scalar, length);
+
+            for (const auto& bit : naf) {
+                // Check that the tag is propagated to bits
+                EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+            }
+            // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
+            fr reconstructed_val(0);
+            for (size_t i = 0; i < length; i++) {
+                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
+            };
+            reconstructed_val -= fr(naf[length].get_value());
+            EXPECT_EQ(scalar_val, reconstructed_val);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_compute_naf_zero()
+    {
+        Builder builder = Builder();
+        size_t length = 254;
+
+        // Our algorithm for input 0 outputs the NAF representation of r (the field modulus)
+        fr scalar_val(0);
+
+        scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+
+        // Set tag for scalar
+        scalar.set_origin_tag(submitted_value_origin_tag);
+        auto naf = element_ct::compute_naf(scalar, length);
+
+        for (const auto& bit : naf) {
+            // Check that the tag is propagated to bits
+            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
+        fr reconstructed_val(0);
+        uint256_t reconstructed_u256(0);
+        for (size_t i = 0; i < length; i++) {
+            reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
+            reconstructed_u256 +=
+                (uint256_t(1) - uint256_t(2) * uint256_t(naf[i].get_value())) * (uint256_t(1) << (length - 1 - i));
+        };
+        reconstructed_val -= fr(naf[length].get_value());
+        EXPECT_EQ(scalar_val, reconstructed_val);
+        EXPECT_EQ(reconstructed_u256, uint256_t(fr::modulus));
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
     static void test_mul(InputType scalar_type = InputType::WITNESS, InputType point_type = InputType::WITNESS)
@@ -1596,145 +1735,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             EXPECT_CIRCUIT_CORRECTNESS(builder);
         }
-    }
-
-    static void test_chain_add(InputType a_type = InputType::WITNESS,
-                               InputType b_type = InputType::WITNESS,
-                               InputType c_type = InputType::WITNESS)
-    {
-        Builder builder = Builder();
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-
-            auto [input_a, a] = get_random_point(&builder, a_type);
-            auto [input_b, b] = get_random_point(&builder, b_type);
-            auto [input_c, c] = get_random_point(&builder, c_type);
-
-            auto acc = element_ct::chain_add_start(a, b);
-            auto acc_out = element_ct::chain_add(c, acc);
-            element_ct result = element_ct::chain_add_end(acc_out);
-
-            // Verify result
-            affine_element expected(element(input_a) + element(input_b) + element(input_c));
-            uint256_t result_x = result.x().get_value().lo;
-            uint256_t result_y = result.y().get_value().lo;
-            EXPECT_EQ(fq(result_x), expected.x);
-            EXPECT_EQ(fq(result_y), expected.y);
-
-            // Check intermediate values
-            auto lambda_prev = (input_b.y - input_a.y) / (input_b.x - input_a.x);
-            auto x3_prev = lambda_prev * lambda_prev - input_b.x - input_a.x;
-            auto y3_prev = lambda_prev * (input_a.x - x3_prev) - input_a.y;
-            auto lambda = (y3_prev - input_c.y) / (x3_prev - input_c.x);
-            auto x3 = lambda * lambda - x3_prev - input_c.x;
-
-            uint256_t x3_u256 = acc_out.x3_prev.get_value().lo;
-            uint256_t lambda_u256 = acc_out.lambda_prev.get_value().lo;
-
-            fq x3_result(x3_u256);
-            fq lambda_result(lambda_u256);
-
-            EXPECT_EQ(x3_result, x3);
-            EXPECT_EQ(lambda_result, lambda);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_multiple_montgomery_ladder()
-    {
-        Builder builder = Builder();
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element acc_small(element::random_element());
-            element_ct acc_big = element_ct::from_witness(&builder, acc_small);
-
-            std::vector<typename element_ct::chain_add_accumulator> to_add;
-            for (size_t j = 0; j < i; ++j) {
-                affine_element add_1_small_0(element::random_element());
-                element_ct add_1_big_0 = element_ct::from_witness(&builder, add_1_small_0);
-                affine_element add_2_small_0(element::random_element());
-                element_ct add_2_big_0 = element_ct::from_witness(&builder, add_2_small_0);
-                typename element_ct::chain_add_accumulator add_1 =
-                    element_ct::chain_add_start(add_1_big_0, add_2_big_0);
-                to_add.emplace_back(add_1);
-            }
-            acc_big.multiple_montgomery_ladder(to_add);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_compute_naf()
-    {
-        Builder builder = Builder();
-        size_t max_num_bits = 254;
-        for (size_t length = 2; length < max_num_bits; length += 1) {
-
-            fr scalar_val;
-
-            uint256_t scalar_raw = engine.get_random_uint256();
-            scalar_raw = scalar_raw >> (256 - length);
-
-            scalar_val = fr(scalar_raw);
-
-            // We test non-zero scalars here
-            if (scalar_val == fr(0)) {
-                scalar_val += 1;
-            };
-            scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
-            // Set tag for scalar
-            scalar.set_origin_tag(submitted_value_origin_tag);
-            auto naf = element_ct::compute_naf(scalar, length);
-
-            for (const auto& bit : naf) {
-                // Check that the tag is propagated to bits
-                EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
-            }
-            // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
-            fr reconstructed_val(0);
-            for (size_t i = 0; i < length; i++) {
-                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
-            };
-            reconstructed_val -= fr(naf[length].get_value());
-            EXPECT_EQ(scalar_val, reconstructed_val);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_compute_naf_zero()
-    {
-        Builder builder = Builder();
-        size_t length = 254;
-
-        // Our algorithm for input 0 outputs the NAF representation of r (the field modulus)
-        fr scalar_val(0);
-
-        scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
-
-        // Set tag for scalar
-        scalar.set_origin_tag(submitted_value_origin_tag);
-        auto naf = element_ct::compute_naf(scalar, length);
-
-        for (const auto& bit : naf) {
-            // Check that the tag is propagated to bits
-            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
-        }
-
-        // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
-        fr reconstructed_val(0);
-        uint256_t reconstructed_u256(0);
-        for (size_t i = 0; i < length; i++) {
-            reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
-            reconstructed_u256 +=
-                (uint256_t(1) - uint256_t(2) * uint256_t(naf[i].get_value())) * (uint256_t(1) << (length - 1 - i));
-        };
-        reconstructed_val -= fr(naf[length].get_value());
-        EXPECT_EQ(scalar_val, reconstructed_val);
-        EXPECT_EQ(reconstructed_u256, uint256_t(fr::modulus));
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
     // Test batch_mul with all points at infinity
