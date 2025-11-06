@@ -2446,8 +2446,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
 
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 {
-    // ULTRATODO: make this work for secp curves
-    if constexpr ((TypeParam::Curve::type == CurveType::BN254) && !HasGoblinBuilder<TypeParam>) {
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; i++) {
             TestFixture::test_compute_naf();
@@ -2459,8 +2458,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 
 TYPED_TEST(stdlib_biggroup, compute_naf_zero)
 {
-    // ULTRATODO: make this work for secp curves
-    if constexpr ((TypeParam::Curve::type == CurveType::BN254) && !HasGoblinBuilder<TypeParam>) {
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
         TestFixture::test_compute_naf_zero();
     } else {
         GTEST_SKIP();
