@@ -200,6 +200,9 @@ class TranslatorRecursiveTests : public ::testing::Test {
             auto stdlib_batching_challenge_v = TranslatorBF::from_witness(&outer_circuit, batching_challenge_v);
             transcript->add_to_hash_buffer("evaluation_challenge_x", stdlib_evaluation_challenge_x);
             transcript->add_to_hash_buffer("batching_challenge_v", stdlib_batching_challenge_v);
+            // Clear child tags from challenges to avoid false positives in IndependentVKHash test
+            stdlib_evaluation_challenge_x.clear_child_tag();
+            stdlib_batching_challenge_v.clear_child_tag();
             typename RecursiveVerifier::PairingPoints pairing_points =
                 verifier.verify_proof(inner_proof, stdlib_evaluation_challenge_x, stdlib_batching_challenge_v);
 
