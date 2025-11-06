@@ -538,7 +538,7 @@ struct DebugLog {
 };
 
 struct ProtocolContracts {
-    std::array<AztecAddress, MAX_PROTOCOL_CONTRACTS> derivedAddresses;
+    std::array<AztecAddress, MAX_PROTOCOL_CONTRACTS> derivedAddresses{};
 
     bool operator==(const ProtocolContracts& other) const = default;
 
