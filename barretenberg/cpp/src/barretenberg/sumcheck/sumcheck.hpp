@@ -548,6 +548,8 @@ template <typename Flavor> class SumcheckProver {
      */
     void partially_evaluate(auto& polynomials, const FF& round_challenge)
     {
+        BB_BENCH_NAME("SumcheckProver::partially_evaluate generic");
+
         auto pep_view = partially_evaluated_polynomials.get_all();
         auto poly_view = polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
@@ -574,6 +576,8 @@ template <typename Flavor> class SumcheckProver {
     template <typename PolynomialT, std::size_t N>
     void partially_evaluate(std::array<PolynomialT, N>& polynomials, const FF& round_challenge)
     {
+        BB_BENCH_NAME("SumcheckProver::partially_evaluate array");
+
         auto pep_view = partially_evaluated_polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(polynomials.size(), [&](size_t j) {
