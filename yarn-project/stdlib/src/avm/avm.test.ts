@@ -11,9 +11,10 @@ describe('Avm circuit inputs', () => {
     const avmCircuitInputs = await makeAvmCircuitInputs(randomInt(2000));
     const json = jsonStringify(avmCircuitInputs);
     const res = jsonParseWithSchema(json, AvmCircuitInputs.schema);
-    // Note: ideally we don't want to use toStrictEqual here (see other test),
-    // but I couldn't find an equivalent equality check.
-    expect(res).toStrictEqual(avmCircuitInputs);
+    // Note: using toEqual instead of toStrictEqual to match other serialization tests in the codebase.
+    // toEqual checks deep value equality, while toStrictEqual also checks prototypes and property
+    // descriptors, which can differ for schema-reconstructed objects even when data is identical.
+    expect(res).toEqual(avmCircuitInputs);
   });
 
   // This test makes sure that any TS changes are propagated to the testdata,

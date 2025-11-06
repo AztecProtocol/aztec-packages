@@ -138,7 +138,7 @@ const TestnetGovernanceConfiguration = {
   gracePeriod: 1n * 24n * 60n * 60n, // 1 day
   quorum: 2n * 10n ** 17n, // 20%
   requiredYeaMargin: 1n * 10n ** 17n, // 10%
-  minimumVotes: 1250n * 200_000n * 10n ** 18n,
+  minimumVotes: 100n * 200_000n * 10n ** 18n,
 };
 
 const StagingIgnitionGovernanceConfiguration = {
@@ -256,11 +256,11 @@ const StagingPublicEntryQueueConfig = {
 };
 
 const TestnetEntryQueueConfig = {
-  bootstrapValidatorSetSize: 750n,
-  bootstrapFlushSize: 32n,
-  normalFlushSizeMin: 32n,
-  normalFlushSizeQuotient: 2475n,
-  maxQueueFlushSize: 32n,
+  bootstrapValidatorSetSize: 256n,
+  bootstrapFlushSize: 256n,
+  normalFlushSizeMin: 4n,
+  normalFlushSizeQuotient: 2048n,
+  maxQueueFlushSize: 8n,
 };
 
 const StagingIgnitionEntryQueueConfig = {

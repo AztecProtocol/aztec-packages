@@ -1,7 +1,6 @@
 use crate::{
     abis::{PaddedSideEffects, PrivateKernelResetHints},
     components::{
-        previous_kernel_validator::PreviousKernelValidator,
         reset_output_composer::{ResetOutputComposer, ResetOutputHints},
         reset_output_validator::ResetOutputValidator,
     },
@@ -59,8 +58,11 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     ) -> PrivateKernelCircuitPublicInputs {
         let previous_public_inputs = self.previous_kernel.public_inputs;
         // Validate inputs.
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS, false);
+
+        if !dep::std::runtime::is_unconstrained() {
+            self.previous_kernel.verify(false /* is_last_kernel */);
+            self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
 
         // Generate output.
         // Safety: The output is validated below by ResetOutputValidator.

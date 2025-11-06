@@ -13,11 +13,15 @@ import { PublicContractsDB } from '../../../server.js';
 import { createContractClassAndInstance } from '../../avm/fixtures/utils.js';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
+import { CppPublicTxSimulator } from '../../public_tx_simulator/cpp_public_tx_simulator.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
 import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
-describe('Public processor contract registration/deployment tests', () => {
+describe.each([
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public processor contract registration/deployment tests ($simulatorName)', ({ useCppSimulator }) => {
   const admin = AztecAddress.fromNumber(42);
   const sender = AztecAddress.fromNumber(111);
 
@@ -36,9 +40,13 @@ describe('Public processor contract registration/deployment tests', () => {
     const merkleTrees = await worldStateService.fork();
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
-    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
-      doMerkleOperations: true,
-    });
+    const simulator = useCppSimulator
+      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
+          doMerkleOperations: true,
+        })
+      : new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
+          doMerkleOperations: true,
+        });
 
     processor = new PublicProcessor(
       globals,

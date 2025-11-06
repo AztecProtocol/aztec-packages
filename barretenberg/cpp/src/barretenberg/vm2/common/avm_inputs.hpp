@@ -130,6 +130,7 @@ struct PublicKeysHint {
 };
 
 struct ContractInstanceHint {
+    uint32_t hintKey;
     AztecAddress address;
     FF salt;
     AztecAddress deployer;
@@ -140,11 +141,18 @@ struct ContractInstanceHint {
 
     bool operator==(const ContractInstanceHint& other) const = default;
 
-    MSGPACK_FIELDS(
-        address, salt, deployer, currentContractClassId, originalContractClassId, initializationHash, publicKeys);
+    MSGPACK_FIELDS(hintKey,
+                   address,
+                   salt,
+                   deployer,
+                   currentContractClassId,
+                   originalContractClassId,
+                   initializationHash,
+                   publicKeys);
 };
 
 struct ContractClassHint {
+    uint32_t hintKey;
     FF classId;
     FF artifactHash;
     FF privateFunctionsRoot;
@@ -152,16 +160,27 @@ struct ContractClassHint {
 
     bool operator==(const ContractClassHint& other) const = default;
 
-    MSGPACK_FIELDS(classId, artifactHash, privateFunctionsRoot, packedBytecode);
+    MSGPACK_FIELDS(hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode);
 };
 
 struct BytecodeCommitmentHint {
+    uint32_t hintKey;
     FF classId;
     FF commitment;
 
     bool operator==(const BytecodeCommitmentHint& other) const = default;
 
-    MSGPACK_FIELDS(classId, commitment);
+    MSGPACK_FIELDS(hintKey, classId, commitment);
+};
+
+struct DebugFunctionNameHint {
+    AztecAddress address;
+    FunctionSelector selector;
+    std::string name;
+
+    bool operator==(const DebugFunctionNameHint& other) const = default;
+
+    MSGPACK_FIELDS(address, selector, name);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -279,6 +298,10 @@ struct RevertCheckpointHint {
     MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter);
 };
 
+using ContractDBCreateCheckpointHint = CheckpointActionNoStateChangeHint;
+using ContractDBCommitCheckpointHint = CheckpointActionNoStateChangeHint;
+using ContractDBRevertCheckpointHint = CheckpointActionNoStateChangeHint;
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -309,6 +332,8 @@ struct Tx {
     std::string hash;
     GasSettings gasSettings;
     GasFees effectiveGasFees;
+    ContractDeploymentData nonRevertibleContractDeploymentData;
+    ContractDeploymentData revertibleContractDeploymentData;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
     std::vector<PublicCallRequestWithCalldata> setupEnqueuedCalls;
@@ -321,6 +346,8 @@ struct Tx {
     MSGPACK_FIELDS(hash,
                    gasSettings,
                    effectiveGasFees,
+                   nonRevertibleContractDeploymentData,
+                   revertibleContractDeploymentData,
                    nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,
@@ -339,6 +366,7 @@ struct ExecutionHints {
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
     std::vector<BytecodeCommitmentHint> bytecodeCommitments;
+    std::vector<DebugFunctionNameHint> debugFunctionNames;
     // Merkle DB.
     TreeSnapshots startingTreeRoots;
     std::vector<GetSiblingPathHint> getSiblingPathHints;
@@ -354,6 +382,9 @@ struct ExecutionHints {
     std::vector<CreateCheckpointHint> createCheckpointHints;
     std::vector<CommitCheckpointHint> commitCheckpointHints;
     std::vector<RevertCheckpointHint> revertCheckpointHints;
+    std::vector<ContractDBCreateCheckpointHint> contractDBCreateCheckpointHints;
+    std::vector<ContractDBCommitCheckpointHint> contractDBCommitCheckpointHints;
+    std::vector<ContractDBRevertCheckpointHint> contractDBRevertCheckpointHints;
 
     bool operator==(const ExecutionHints& other) const = default;
 
@@ -363,6 +394,7 @@ struct ExecutionHints {
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,
+                   debugFunctionNames,
                    startingTreeRoots,
                    getSiblingPathHints,
                    getPreviousValueIndexHints,
@@ -374,7 +406,10 @@ struct ExecutionHints {
                    appendLeavesHints,
                    createCheckpointHints,
                    commitCheckpointHints,
-                   revertCheckpointHints);
+                   revertCheckpointHints,
+                   contractDBCreateCheckpointHints,
+                   contractDBCommitCheckpointHints,
+                   contractDBRevertCheckpointHints);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -388,6 +423,18 @@ struct AvmProvingInputs {
     bool operator==(const AvmProvingInputs& other) const = default;
 
     MSGPACK_FIELDS(publicInputs, hints);
+};
+
+struct AvmFastSimulationInputs {
+    world_state::WorldStateRevision wsRevision;
+    Tx tx;
+    GlobalVariables globalVariables;
+    ProtocolContracts protocolContracts;
+
+    static AvmFastSimulationInputs from(const std::vector<uint8_t>& data);
+    bool operator==(const AvmFastSimulationInputs& other) const = default;
+
+    MSGPACK_FIELDS(wsRevision, tx, globalVariables, protocolContracts);
 };
 
 ////////////////////////////////////////////////////////////////////////////

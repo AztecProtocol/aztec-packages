@@ -79,9 +79,9 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
             const std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_flat;
 
             RecursionConstraint avm_recursion_constraint{
-                .key = add_to_witness_and_track_indices<bb::fr>(witness, key_witnesses),
-                .proof = add_to_witness_and_track_indices<bb::fr>(witness, proof_witnesses),
-                .public_inputs = add_to_witness_and_track_indices<bb::fr>(witness, public_inputs_witnesses),
+                .key = add_to_witness_and_track_indices(witness, key_witnesses),
+                .proof = add_to_witness_and_track_indices(witness, proof_witnesses),
+                .public_inputs = add_to_witness_and_track_indices(witness, public_inputs_witnesses),
                 .key_hash = 0, // not used
                 .proof_type = AVM,
             };

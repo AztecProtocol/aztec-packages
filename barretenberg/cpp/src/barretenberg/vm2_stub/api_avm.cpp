@@ -30,4 +30,9 @@ void avm_simulate([[maybe_unused]] const std::filesystem::path& inputs_path)
     throw_or_abort("AVM is not supported in this build. Use the 'bb-avm' binary with full AVM support.");
 }
 
+void avm_write_verification_key([[maybe_unused]] const std::filesystem::path& output_path)
+{
+    throw_or_abort("AVM is not supported in this build. Use the 'bb-avm' binary with full AVM support.");
+}
+
 } // namespace bb

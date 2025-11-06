@@ -64,9 +64,9 @@ void GetContractInstance::get_contract_instance(MemoryInterface& memory,
     FF selected_member_value = 0; // default if instance does not exist
     if (instance_exists) {
         const auto& instance = maybe_instance.value();
-        event.retrieved_deployer_addr = instance.deployer_addr;
-        event.retrieved_class_id = instance.current_class_id;
-        event.retrieved_init_hash = instance.initialisation_hash;
+        event.retrieved_deployer_addr = instance.deployer;
+        event.retrieved_class_id = instance.current_contract_class_id;
+        event.retrieved_init_hash = instance.initialization_hash;
 
         // Select the requested member based on the enum
         selected_member_value = select_instance_member(instance, member_enum);
@@ -93,11 +93,11 @@ FF GetContractInstance::select_instance_member(const ContractInstance& instance,
 {
     switch (static_cast<ContractInstanceMember>(member_enum)) {
     case ContractInstanceMember::DEPLOYER:
-        return instance.deployer_addr;
+        return instance.deployer;
     case ContractInstanceMember::CLASS_ID:
-        return instance.current_class_id;
+        return instance.current_contract_class_id;
     case ContractInstanceMember::INIT_HASH:
-        return instance.initialisation_hash;
+        return instance.initialization_hash;
     default:
         throw std::runtime_error("This error should have been handled earlier! Invalid member enum: " +
                                  std::to_string(member_enum));

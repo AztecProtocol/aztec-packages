@@ -16,6 +16,8 @@ namespace bb::stdlib {
 template <typename Builder> class Blake2s {
     using field_ct = field_t<Builder>;
     using byte_array_ct = byte_array<Builder>;
+    using bool_ct = bool_t<Builder>;
+    using witness_ct = witness_t<Builder>;
 
     static constexpr uint32_t blake2s_IV[8] = { 0x6A09E667UL, 0xBB67AE85UL, 0x3C6EF372UL, 0xA54FF53AUL,
                                                 0x510E527FUL, 0x9B05688CUL, 0x1F83D9ABUL, 0x5BE0CD19UL };

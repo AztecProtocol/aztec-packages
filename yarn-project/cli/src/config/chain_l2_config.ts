@@ -147,11 +147,10 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   ejectionThreshold: 100_000n * 10n ** 18n,
   activationThreshold: 200_000n * 10n ** 18n,
 
-  governanceProposerRoundSize: 300, // TODO TMNT-322
-  governanceProposerQuorum: 151, // TODO TMNT-322
+  governanceProposerRoundSize: 300,
+  governanceProposerQuorum: 151,
 
   // Node slashing config
-  // TODO TMNT-330
   slashMinPenaltyPercentage: 0.5,
   slashMaxPenaltyPercentage: 2.0,
   slashInactivityTargetPercentage: 0.7,
@@ -299,39 +298,69 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   skipArchiverInitialSync: true,
   blobAllowEmptySources: true,
 
-  // Deployment stuff
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
   /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
-  aztecSlotDuration: 36,
+  aztecSlotDuration: 72,
   /** How many L2 slots an epoch lasts. */
   aztecEpochDuration: 32,
   /** The target validator committee size. */
-  aztecTargetCommitteeSize: 48,
+  aztecTargetCommitteeSize: 24,
   /** The number of epochs to lag behind the current epoch for validator selection. */
   lagInEpochs: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
-  /** The deposit amount for a validator */
-  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
-  /** The minimum stake for a validator. */
-  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
-  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
-  /** The slashing round size */
-  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
-  /** Governance proposing round size */
-  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
+
+  // This is a diff from mainnet: we have 2-strikes you're out, rather than 3 on mainnet.
+  localEjectionThreshold: 198_000n * 10n ** 18n,
+  /** How many sequencers must agree with a slash for it to be executed. */
+  slashingQuorum: 65,
+  slashingRoundSizeInEpochs: 4,
+  slashingExecutionDelayInRounds: 28,
+  slashingLifetimeInRounds: 34,
+  slashingVetoer: EthAddress.fromString('0xBbB4aF368d02827945748b28CD4b2D42e4A37480'),
+  slashingOffsetInRounds: 2,
+
+  slashingDisableDuration: 259_200, // 3 days
+  slasherFlavor: 'tally',
+
+  slashAmountSmall: 2_000n * 10n ** 18n,
+  slashAmountMedium: 2_000n * 10n ** 18n,
+  slashAmountLarge: 2_000n * 10n ** 18n,
+
   /** The mana target for the rollup */
   manaTarget: 0n,
-  /** The proving cost per mana */
-  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
-  /** Exit delay for stakers */
-  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
 
-  ...DefaultSlashConfig,
-  slashPrunePenalty: 0n,
-  slashDataWithholdingPenalty: 0n,
+  /** The proving cost per mana */
+  provingCostPerMana: 0n,
+
+  exitDelaySeconds: 4 * 24 * 60 * 60, // 4 days
+
+  activationThreshold: 200_000n * 10n ** 18n,
+  ejectionThreshold: 100_000n * 10n ** 18n,
+
+  governanceProposerRoundSize: 300,
+  governanceProposerQuorum: 151,
+
+  // Node slashing config
+  slashInactivityTargetPercentage: 0.8,
+  slashInactivityConsecutiveEpochThreshold: 2,
+  slashInactivityPenalty: 2_000n * 10n ** 18n,
+  slashPrunePenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for prune offenses right now
+  slashDataWithholdingPenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for data withholding offenses right now
+  slashProposeInvalidAttestationsPenalty: 2_000n * 10n ** 18n,
+  slashAttestDescendantOfInvalidPenalty: 2_000n * 10n ** 18n,
+  slashUnknownPenalty: 2_000n * 10n ** 18n,
+  slashBroadcastedInvalidBlockPenalty: 2_000n * 10n ** 18n, // 10_000n * 10n ** 18n, Disabled for now until further testing
+  slashGracePeriodL2Slots: 1_200, // One day from deployment
+  slashOffenseExpirationRounds: 8,
+
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashMaxPayloadSize: 50,
+  slashExecuteRoundsLookBack: 4,
+
+  sentinelEnabled: true,
 
   ...DefaultNetworkDBMapSizeConfig,
 };
@@ -398,7 +427,6 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   governanceProposerQuorum: 600,
 
   // Node slashing config
-  // TODO TMNT-330
   slashInactivityTargetPercentage: 0.8,
   slashInactivityConsecutiveEpochThreshold: 2,
   slashInactivityPenalty: 2_000n * 10n ** 18n,

@@ -1,4 +1,4 @@
-use dep::types::{side_effect::Ordered, traits::Empty, utils::arrays::find_index_hint};
+use dep::types::{abis::private_call_request::PrivateCallRequest, utils::arrays::find_index_hint};
 use std::option::Option;
 
 // - If the min_revertible_side_effect_counter was set before any of the call requests (possibly even before "this" function (the function call that this kernel is currently processing)):
@@ -34,17 +34,14 @@ use std::option::Option;
 //     // If set here, then A has no idea. Since none of the start counters of any of A's nested calls came before the `min_revertible_side_effect_counter`, the returned index will be `none`.
 // }
 // ```
-pub unconstrained fn find_index_of_first_fully_revertible_private_call_request<T, let N: u32>(
+pub unconstrained fn find_index_of_first_fully_revertible_private_call_request<let N: u32>(
     min_revertible_side_effect_counter: u32,
-    private_call_requests: [T; N],
-) -> Option<u32>
-where
-    T: Ordered + Empty,
-{
+    private_call_requests: [PrivateCallRequest; N],
+) -> Option<u32> {
     find_index_hint(
         private_call_requests,
         |private_call_request| {
-            private_call_request.counter() >= min_revertible_side_effect_counter
+            private_call_request.start_side_effect_counter >= min_revertible_side_effect_counter
         },
     )
 }

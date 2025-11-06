@@ -187,6 +187,20 @@ variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   default     = 5000
 }
 
+variable "VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE" {
+  description = "Override for validator L1 priority fee bump percentage"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" {
+  description = "Override for validator L1 priority fee retry bump percentage"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "VALIDATOR_REPLICAS" {
   description = "The number of validator replicas"
   type        = string
@@ -215,6 +229,20 @@ variable "PROVER_PUBLISHER_MNEMONIC_START_INDEX" {
   description = "The prover publisher mnemonic start index"
   type        = string
   default     = 8000
+}
+
+variable "PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE" {
+  description = "Override for prover L1 priority fee bump percentage"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" {
+  description = "Override for prover L1 priority fee retry bump percentage"
+  type        = string
+  nullable    = true
+  default     = null
 }
 
 variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
@@ -493,4 +521,10 @@ variable "PROVER_AGENTS_PER_PROVER" {
   description = "Number of prover agents per prover"
   type        = string
   default     = 1
+}
+
+variable "BLOB_ALLOW_EMPTY_SOURCES" {
+  description = "Whether to allow starting without any consensus client URLs"
+  type        = bool
+  default     = false
 }

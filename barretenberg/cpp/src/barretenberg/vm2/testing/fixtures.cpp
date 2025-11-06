@@ -159,10 +159,10 @@ TestTraceContainer empty_trace()
 ContractInstance random_contract_instance()
 {
     ContractInstance instance = { .salt = FF::random_element(),
-                                  .deployer_addr = FF::random_element(),
-                                  .current_class_id = FF::random_element(),
-                                  .original_class_id = FF::random_element(),
-                                  .initialisation_hash = FF::random_element(),
+                                  .deployer = FF::random_element(),
+                                  .current_contract_class_id = FF::random_element(),
+                                  .original_contract_class_id = FF::random_element(),
+                                  .initialization_hash = FF::random_element(),
                                   .public_keys = PublicKeys{
                                       .nullifier_key = AffinePoint::random_element(),
                                       .incoming_viewing_key = AffinePoint::random_element(),
@@ -174,9 +174,9 @@ ContractInstance random_contract_instance()
 
 ContractClass random_contract_class(size_t bytecode_size)
 {
-    return ContractClass{ .artifact_hash = FF::random_element(),
-                          .private_function_root = FF::random_element(),
-                          .public_bytecode_commitment = FF::random_element(),
+    return ContractClass{ .id = FF::random_element(),
+                          .artifact_hash = FF::random_element(),
+                          .private_functions_root = FF::random_element(),
                           .packed_bytecode = random_bytes(bytecode_size) };
 }
 

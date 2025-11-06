@@ -15,6 +15,8 @@ class AvmProvingHelper {
     using VkData = std::vector<uint8_t>;
 
     static std::shared_ptr<AvmVerifier::VerificationKey> create_verification_key(const VkData& vk_data);
+    // Computes the verification key from the given trace. It should have at least the precomputed columns filled.
+    VkData compute_verification_key(tracegen::TraceContainer& trace);
     std::pair<Proof, VkData> prove(tracegen::TraceContainer&& trace);
     bool check_circuit(tracegen::TraceContainer&& trace);
     bool verify(const Proof& proof, const PublicInputs& pi, const VkData& vk_data);

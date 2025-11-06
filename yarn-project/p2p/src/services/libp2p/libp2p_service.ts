@@ -478,7 +478,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     };
 
     // Only handle block transactions request if attestation pool is available to the client
-    if (this.mempools.attestationPool) {
+    if (this.mempools.attestationPool && !this.config.disableTransactions) {
       const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
       requestResponseHandlers[ReqRespSubProtocol.BLOCK_TXS] = blockTxsHandler.bind(this);
     }
