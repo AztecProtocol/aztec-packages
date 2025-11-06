@@ -67,8 +67,8 @@ template <typename Builder> class cycle_group {
 
   public:
     cycle_group(Builder* _context = nullptr);
-    cycle_group(field_t _x, field_t _y, bool_t _is_infinity, bool assert_on_curve);
-    cycle_group(const bb::fr& _x, const bb::fr& _y, bool _is_infinity);
+    cycle_group(const field_t& x, const field_t& y, bool_t is_infinity, bool assert_on_curve);
+    cycle_group(const bb::fr& x, const bb::fr& y, bool is_infinity);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group constant_infinity(Builder* _context = nullptr);
