@@ -14,6 +14,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "sumcheck_round.hpp"
+#include <cstddef>
 
 namespace bb {
 
@@ -555,21 +556,25 @@ template <typename Flavor> class SumcheckProver {
         auto pep_view = partially_evaluated_polynomials.get_all();
         auto poly_view = polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
-        parallel_for(poly_view.size(), [&](size_t j) {
-            const auto& poly = poly_view[j];
-            // The polynomial is shorter than the round size.
-            size_t limit = poly.end_index();
-            for (size_t i = 0; i < limit; i += 2) {
-                pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
+        parallel_for([&](const ThreadChunk chunk) {
+            for (size_t j = 0; j < poly_view.size(); j++) {
+                const auto& poly = poly_view[j];
+                // The polynomial is shorter than the round size.
+                size_t limit = (poly.end_index() + 1) / 2;
+                for (size_t i : chunk.range(limit)) {
+                    pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
+                }
             }
+        });
 
+        for (size_t j = 0; j < poly_view.size(); j++) {
             // We resize pep_view[j] to have the exact size required for the next round which is
             // CEIL(limit/2). This has the effect to reduce the limit in next round and also to
             // virtually zeroize any leftover values beyond the limit (in-place computation).
             // This is important to zeroize leftover values to not mess up with compute_univariate().
             // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index((limit / 2) + (limit % 2));
-        });
+            pep_view[j].shrink_end_index((poly_view[j].end_index() + 1) / 2);
+        }
     };
     /**
      * @brief Evaluate at the round challenge and prepare class for next round.
@@ -582,21 +587,25 @@ template <typename Flavor> class SumcheckProver {
 
         auto pep_view = partially_evaluated_polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
-        parallel_for(polynomials.size(), [&](size_t j) {
-            const auto& poly = polynomials[j];
-            // The polynomial is shorter than the round size.
-            size_t limit = poly.end_index();
-            for (size_t i = 0; i < limit; i += 2) {
-                pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
+        parallel_for([&](const ThreadChunk chunk) {
+            for (size_t j = 0; j < polynomials.size(); j++) {
+                const auto& poly = polynomials[j];
+                // The polynomial is shorter than the round size.
+                size_t limit = (poly.end_index() + 1) / 2;
+                for (size_t i : chunk.range(limit)) {
+                    pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
+                }
             }
+        });
 
+        for (size_t j = 0; j < polynomials.size(); j++) {
             // We resize pep_view[j] to have the exact size required for the next round which is
             // CEIL(limit/2). This has the effect to reduce the limit in next round and also to
             // virtually zeroize any leftover values beyond the limit (in-place computation).
             // This is important to zeroize leftover values to not mess up with compute_univariate().
             // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index((limit / 2) + (limit % 2));
-        });
+            pep_view[j].shrink_end_index((polynomials[j].end_index() + 1) / 2);
+        }
     };
 
     /**
