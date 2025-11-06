@@ -2110,7 +2110,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
         TestFixture::test_chain_add();
     };
 }
-TYPED_TEST(stdlib_biggroup, chain_add_with_constants)
+HEAVY_TYPED_TEST(stdlib_biggroup, chain_add_with_constants)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP() << "mega builder does not support operations with constant elements";
@@ -2314,7 +2314,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
     }
 }
 
-TYPED_TEST(stdlib_biggroup, compute_naf_zero)
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_zero)
 {
     if constexpr (!HasGoblinBuilder<TypeParam>) {
         TestFixture::test_compute_naf_zero();
@@ -2504,18 +2504,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set2)
     TestFixture::test_batch_mul_edge_case_set2();
 }
 
-// ============================================
-// NEW TESTS: Constant-Witness Combinations
-// ============================================
-//
-// NOTE: In recursive circuits using biggroup_goblin, constant-constant operations never occur
-// and constant-witness operations are not used in batch_mul. These tests are skipped for
-// goblin builders when any input is constant, as they don't represent real usage patterns.
-
-// ============================================
-// NEW TESTS: batch_mul Edge Cases
-// ============================================
-
+// Batch mul edge case tests
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_all_infinity)
 {
     TestFixture::test_batch_mul_all_infinity();
