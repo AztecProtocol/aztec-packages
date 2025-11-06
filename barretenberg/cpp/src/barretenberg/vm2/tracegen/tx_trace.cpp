@@ -192,14 +192,14 @@ std::vector<std::pair<Column, FF>> insert_side_effect_states(const TxContextEven
 std::vector<std::pair<Column, FF>> handle_pi_read(TransactionPhase phase, uint32_t phase_length, uint32_t read_counter)
 
 {
-    auto [read_offset, write_offset, length_offset] = TxPhaseOffsetsTable::get_offsets(phase);
+    const auto& phase_spec = TX_PHASE_SPEC_MAP.at(phase);
 
     auto remaining_length = phase_length - read_counter;
 
     return {
-        { Column::tx_read_pi_offset, read_offset + read_counter },
-        { Column::tx_read_pi_start_offset, read_offset },
-        { Column::tx_read_pi_length_offset, length_offset - read_counter },
+        { Column::tx_read_pi_offset, phase_spec.read_pi_start_offset + read_counter },
+        { Column::tx_read_pi_start_offset, phase_spec.read_pi_start_offset },
+        { Column::tx_read_pi_length_offset, phase_spec.read_pi_length_offset - read_counter },
 
         { Column::tx_remaining_phase_counter, remaining_length },
         { Column::tx_remaining_phase_inv, remaining_length },               // Will be inverted in batch later
