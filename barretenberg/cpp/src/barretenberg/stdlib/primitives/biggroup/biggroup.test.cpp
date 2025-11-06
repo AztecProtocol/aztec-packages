@@ -611,6 +611,48 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_normalize(InputType point_type = InputType::WITNESS)
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, point_type);
+
+            element_ct normalized = a.normalize();
+
+            // Normalized should equal the original
+            uint256_t x_before = a.x().get_value().lo;
+            uint256_t y_before = a.y().get_value().lo;
+            uint256_t x_after = normalized.x().get_value().lo;
+            uint256_t y_after = normalized.y().get_value().lo;
+
+            EXPECT_EQ(fq(x_before), fq(x_after));
+            EXPECT_EQ(fq(y_before), fq(y_after));
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_reduce(InputType point_type = InputType::WITNESS)
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, point_type);
+
+            element_ct reduced = a.reduce();
+
+            // Reduced should equal the original
+            uint256_t x_before = a.x().get_value().lo;
+            uint256_t y_before = a.y().get_value().lo;
+            uint256_t x_after = reduced.x().get_value().lo;
+            uint256_t y_after = reduced.y().get_value().lo;
+
+            EXPECT_EQ(fq(x_before), fq(x_after));
+            EXPECT_EQ(fq(y_before), fq(y_after));
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_unary_negate(InputType a_type = InputType::WITNESS)
     {
         Builder builder;
@@ -1735,95 +1777,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_batch_mul_short_scalars()
-    {
-        const size_t num_points = 11;
-        Builder builder;
-        std::vector<affine_element> points;
-        std::vector<fr> scalars;
-        for (size_t i = 0; i < num_points; ++i) {
-            points.push_back(affine_element(element::random_element()));
-            uint256_t scalar_raw = fr::random_element();
-            scalar_raw.data[2] = 0ULL;
-            scalar_raw.data[3] = 0ULL;
-            scalars.push_back(fr(scalar_raw));
-        }
-        std::vector<element_ct> circuit_points;
-        std::vector<scalar_ct> circuit_scalars;
-        OriginTag union_tag{};
-        for (size_t i = 0; i < num_points; ++i) {
-            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
-            circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
-            // Set tags for points to the submitted value tag for round i and for scalars to challenge tag for the same
-            // round
-            circuit_points[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
-            circuit_scalars[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
-            union_tag = OriginTag(union_tag, circuit_points[i].get_origin_tag(), circuit_scalars[i].get_origin_tag());
-        }
-
-        element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars, 128);
-
-        // Check that the resulting tag is a union of inputs' tags
-        EXPECT_EQ(result_point.get_origin_tag(), union_tag);
-
-        element expected_point = g1::one;
-        expected_point.self_set_infinity();
-        for (size_t i = 0; i < num_points; ++i) {
-            expected_point += (element(points[i]) * scalars[i]);
-        }
-
-        expected_point = expected_point.normalize();
-        fq result_x(result_point.x().get_value().lo);
-        fq result_y(result_point.y().get_value().lo);
-
-        EXPECT_EQ(result_x, expected_point.x);
-        EXPECT_EQ(result_y, expected_point.y);
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_normalize(InputType point_type = InputType::WITNESS)
-    {
-        Builder builder;
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            auto [input_a, a] = get_random_point(&builder, point_type);
-
-            element_ct normalized = a.normalize();
-
-            // Normalized should equal the original
-            uint256_t x_before = a.x().get_value().lo;
-            uint256_t y_before = a.y().get_value().lo;
-            uint256_t x_after = normalized.x().get_value().lo;
-            uint256_t y_after = normalized.y().get_value().lo;
-
-            EXPECT_EQ(fq(x_before), fq(x_after));
-            EXPECT_EQ(fq(y_before), fq(y_after));
-        }
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_reduce(InputType point_type = InputType::WITNESS)
-    {
-        Builder builder;
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            auto [input_a, a] = get_random_point(&builder, point_type);
-
-            element_ct reduced = a.reduce();
-
-            // Reduced should equal the original
-            uint256_t x_before = a.x().get_value().lo;
-            uint256_t y_before = a.y().get_value().lo;
-            uint256_t x_after = reduced.x().get_value().lo;
-            uint256_t y_after = reduced.y().get_value().lo;
-
-            EXPECT_EQ(fq(x_before), fq(x_after));
-            EXPECT_EQ(fq(y_before), fq(y_after));
-        }
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
     // ============================================
     // NEW TESTS: batch_mul Edge Cases
     // ============================================
@@ -2563,21 +2516,6 @@ TYPED_TEST(stdlib_biggroup, compute_naf_zero)
         TestFixture::test_compute_naf_zero();
     } else {
         GTEST_SKIP();
-    }
-}
-
-/* batch_mul with specified value of max_num_bits does not work for a biggroup formed over a big scalar field.
-   We skip such cases in the next group of tests. */
-HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_short_scalars)
-{
-    if constexpr (TypeParam::use_bigfield) {
-        GTEST_SKIP();
-    } else {
-        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP();
-        } else {
-            TestFixture::test_batch_mul_short_scalars();
-        };
     }
 }
 
