@@ -17,6 +17,7 @@ import {
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   type L2BlockSource,
+  MaliciousCommitteeAttestationsAndSigners,
   type ValidateBlockResult,
 } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
@@ -631,18 +632,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       );
 
       this.log.debug('Collecting attestations');
-      const attestations = await this.collectAttestations(block, usedTxs, proposerAddress);
-      if (attestations !== undefined) {
-        this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
-      }
+      const attestationsAndSigners = await this.collectAttestations(block, usedTxs, proposerAddress);
+      this.log.verbose(
+        `Collected ${attestationsAndSigners.attestations.length} attestations for block ${blockNumber} at slot ${slot}`,
+        { blockHash, blockNumber, slot },
+      );
 
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations ?? []);
-      const attestationsAndSignersSignature = this.validatorClient
-        ? await this.validatorClient.signAttestationsAndSigners(
-            attestationsAndSigners,
-            proposerAddress ?? publisher.getSenderAddress(),
-          )
-        : Signature.empty();
+      const attestationsAndSignersSignature =
+        (await this.validatorClient?.signAttestationsAndSigners(
+          attestationsAndSigners,
+          proposerAddress ?? publisher.getSenderAddress(),
+        )) ?? Signature.empty();
 
       await this.enqueuePublishL2Block(
         block,
@@ -668,8 +668,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     block: L2Block,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
-  ): Promise<CommitteeAttestation[] | undefined> {
-    const { committee } = await this.epochCache.getCommittee(block.header.getSlot());
+  ): Promise<CommitteeAttestationsAndSigners> {
+    const { committee, seed, epoch } = await this.epochCache.getCommittee(block.slot);
 
     // We checked above that the committee is defined, so this should never happen.
     if (!committee) {
@@ -678,15 +678,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     if (committee.length === 0) {
       this.log.verbose(`Attesting committee is empty`);
-      return undefined;
+      return CommitteeAttestationsAndSigners.empty();
     } else {
       this.log.debug(`Attesting committee length is ${committee.length}`);
     }
 
     if (!this.validatorClient) {
-      const msg = 'Missing validator client: Cannot collect attestations';
-      this.log.error(msg);
-      throw new Error(msg);
+      throw new Error('Missing validator client: Cannot collect attestations');
     }
 
     const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
@@ -716,7 +714,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     if (this.config.skipCollectingAttestations) {
       this.log.warn('Skipping attestation collection as per config (attesting with own keys only)');
       const attestations = await this.validatorClient?.collectOwnAttestations(proposal);
-      return orderAttestations(attestations ?? [], committee);
+      return new CommitteeAttestationsAndSigners(orderAttestations(attestations ?? [], committee));
     }
 
     this.log.debug('Broadcasting block proposal to validators');
@@ -742,13 +740,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
       // note: the smart contract requires that the signatures are provided in the order of the committee
       const sorted = orderAttestations(attestations, committee);
-      if (this.config.injectFakeAttestation) {
-        const nonEmpty = sorted.filter(a => !a.signature.isEmpty());
-        const randomIndex = randomInt(nonEmpty.length);
-        this.log.warn(`Injecting fake attestation in block ${block.number}`);
-        unfreeze(nonEmpty[randomIndex]).signature = Signature.random();
+
+      // manipulate the attestations if we've been configured to do so
+      if (this.config.injectFakeAttestation || this.config.shuffleAttestationOrdering) {
+        return this.manipulateAttestations(block, epoch, seed, committee, sorted);
       }
-      return sorted;
+
+      return new CommitteeAttestationsAndSigners(sorted);
     } catch (err) {
       if (err && err instanceof AttestationTimeoutError) {
         collectedAttestationsCount = err.collectedCount;
@@ -757,6 +755,53 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     } finally {
       this.metrics.recordCollectedAttestations(collectedAttestationsCount, timer.ms());
     }
+  }
+
+  /** Breaks the attestations before publishing based on attack configs */
+  private manipulateAttestations(
+    block: L2Block,
+    epoch: bigint,
+    seed: bigint,
+    committee: EthAddress[],
+    attestations: CommitteeAttestation[],
+  ) {
+    // Compute the proposer index in the committee, since we dont want to tweak it.
+    // Otherwise, the L1 rollup contract will reject the block outright.
+    const proposerIndex = Number(
+      this.epochCache.computeProposerIndex(block.slot, epoch, seed, BigInt(committee.length)),
+    );
+
+    if (this.config.injectFakeAttestation) {
+      // Find non-empty attestations that are not from the proposer
+      const nonProposerIndices: number[] = [];
+      for (let i = 0; i < attestations.length; i++) {
+        if (!attestations[i].signature.isEmpty() && i !== proposerIndex) {
+          nonProposerIndices.push(i);
+        }
+      }
+      if (nonProposerIndices.length > 0) {
+        const targetIndex = nonProposerIndices[randomInt(nonProposerIndices.length)];
+        this.log.warn(`Injecting fake attestation in block ${block.number} at index ${targetIndex}`);
+        unfreeze(attestations[targetIndex]).signature = Signature.random();
+      }
+      return new CommitteeAttestationsAndSigners(attestations);
+    }
+
+    if (this.config.shuffleAttestationOrdering) {
+      this.log.warn(`Shuffling attestation ordering in block ${block.number} (proposer index ${proposerIndex})`);
+
+      const shuffled = [...attestations];
+      const [i, j] = [(proposerIndex + 1) % shuffled.length, (proposerIndex + 2) % shuffled.length];
+      const valueI = shuffled[i];
+      const valueJ = shuffled[j];
+      shuffled[i] = valueJ;
+      shuffled[j] = valueI;
+
+      const signers = new CommitteeAttestationsAndSigners(attestations).getSigners();
+      return new MaliciousCommitteeAttestationsAndSigners(shuffled, signers);
+    }
+
+    return new CommitteeAttestationsAndSigners(attestations);
   }
 
   /**

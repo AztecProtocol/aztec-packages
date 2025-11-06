@@ -424,7 +424,63 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       toBlock: 'latest',
     });
 
-    // The next proposer should invalidate the previous block and publish a new one
+    // The next proposer should invalidate the previous block
+    logger.warn('Waiting for next proposer to invalidate the previous block');
+
+    // Wait for the BlockInvalidated event
+    const blockInvalidatedEvents = await retryUntil(
+      async () => {
+        const events = await l1Client.getFilterLogs({ filter: blockInvalidatedFilter });
+        return events.length > 0 ? events : undefined;
+      },
+      'BlockInvalidated event',
+      test.L2_SLOT_DURATION_IN_S * 5,
+      0.1,
+    );
+
+    // Verify the BlockInvalidated event was emitted and that the block was removed
+    const [event] = blockInvalidatedEvents;
+    logger.warn(`BlockInvalidated event emitted`, { event });
+    expect(event.args.blockNumber).toBeGreaterThan(initialBlockNumber);
+    expect(await test.rollup.getBlockNumber()).toEqual(BigInt(initialBlockNumber));
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+  });
+
+  // Same as test above but with shuffled attestations instead of missing attestations
+  // REFACTOR: Remove code duplication with above test (and others?)
+  it('proposer invalidates previous block with shuffled attestations', async () => {
+    const sequencers = nodes.map(node => node.getSequencer()!);
+    const initialBlockNumber = await nodes[0].getBlockNumber();
+
+    // Configure all sequencers to shuffle attestations before starting
+    logger.warn('Configuring all sequencers to shuffle attestations and always publish blocks');
+    sequencers.forEach(sequencer => {
+      sequencer.updateConfig({ shuffleAttestationOrdering: true, minTxsPerBlock: 0 });
+    });
+
+    // Disable shuffleAttestationOrdering after the first block is mined and prevent sequencers from publishing any more blocks
+    test.monitor.once('l2-block', ({ l2BlockNumber }) => {
+      logger.warn(`Disabling shuffleAttestationOrdering after L2 block ${l2BlockNumber} has been mined`);
+      sequencers.forEach(sequencer => {
+        sequencer.updateConfig({ shuffleAttestationOrdering: false, minTxsPerBlock: 100 });
+      });
+    });
+
+    // Start all sequencers
+    await Promise.all(sequencers.map(s => s.start()));
+    logger.warn(`Started all sequencers with shuffleAttestationOrdering=true`);
+
+    // Create a filter for BlockInvalidated events
+    const blockInvalidatedFilter = await l1Client.createContractEventFilter({
+      address: rollupContract.address,
+      abi: RollupAbi,
+      eventName: 'BlockInvalidated',
+      fromBlock: 1n,
+      toBlock: 'latest',
+    });
+
+    // The next proposer should invalidate the previous block
     logger.warn('Waiting for next proposer to invalidate the previous block');
 
     // Wait for the BlockInvalidated event
