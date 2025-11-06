@@ -110,7 +110,6 @@ namespace tx;
         is_collect_fee,
         is_tree_padding,
         is_cleanup,
-
         is_revertible,
         read_pi_offset,
         read_pi_length_offset,
@@ -129,14 +128,13 @@ namespace tx;
     in
     precomputed.sel_phase {
         precomputed.phase_value,
-        precomputed.is_public_call_request_phase,
-        precomputed.sel_collect_fee,
-        precomputed.sel_tree_padding,
-        precomputed.sel_cleanup,
-
+        precomputed.is_public_call_request,
+        precomputed.is_collect_fee,
+        precomputed.is_tree_padding,
+        precomputed.is_cleanup,
         precomputed.is_revertible,
-        precomputed.read_public_input_offset,
-        precomputed.read_public_input_length_offset,
+        precomputed.read_pi_offset,
+        precomputed.read_pi_length_offset,
         precomputed.sel_non_revertible_append_note_hash,
         precomputed.sel_non_revertible_append_nullifier,
         precomputed.sel_non_revertible_append_l2_l1_msg,
