@@ -85,6 +85,10 @@ function chonk_flow {
   echo "$flow ($runtime) has proven in $((elapsed_ms / 1000))s and peak memory of ${memory_taken_mb}MB."
   dump_fail "verify_ivc_flow $flow $output/proof"
   echo "$flow ($runtime) has verified."
+  # Get proof size after compression
+  tar -czf "$output/proof.tar.gz" -C "$output" proof
+  local proof_size_bytes=$(stat -c%s "$output/proof.tar.gz" 2>/dev/null || stat -f%z "$output/proof.tar.gz")
+  local proof_size_kb=$(( proof_size_bytes / 1024 ))
 
   cat > "$output/benchmarks.bench.json" <<EOF
 [
@@ -97,6 +101,11 @@ function chonk_flow {
     "name": "$name_path/memory",
     "unit": "MB",
     "value": ${memory_taken_mb}
+  },
+  {
+    "name": "$name_path/proof-size",
+    "unit": "KB",
+    "value": ${proof_size_kb}
   }
 ]
 EOF
