@@ -366,11 +366,6 @@ std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_tree_padding()
-{
-    return {};
-}
-
 std::vector<std::pair<Column, FF>> handle_cleanup()
 {
     return {
@@ -620,7 +615,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                     },
                     [&](const simulation::PadTreesEvent&) {
                         trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0));
-                        trace.set(row, handle_tree_padding());
                     },
                     [&](const simulation::CleanupEvent&) {
                         trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0));
