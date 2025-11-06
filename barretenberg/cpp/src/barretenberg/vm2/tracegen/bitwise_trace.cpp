@@ -67,11 +67,11 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_start, 1 },
                           { C::bitwise_sel_get_ctr, 0 },
                           { C::bitwise_last, 1 }, // Error triggers a last
-                          { C::bitwise_acc_ia, uint256_t::from_uint128(input_a) },
-                          { C::bitwise_acc_ib, uint256_t::from_uint128(input_b) },
+                          { C::bitwise_acc_ia, event.a.as_ff() },
+                          { C::bitwise_acc_ib, event.b.as_ff() },
                           { C::bitwise_acc_ic, uint256_t::from_uint128(output_c) },
-                          { C::bitwise_ia_byte, uint256_t::from_uint128(input_a) },
-                          { C::bitwise_ib_byte, uint256_t::from_uint128(input_b) },
+                          { C::bitwise_ia_byte, event.a.as_ff() },
+                          { C::bitwise_ib_byte, event.b.as_ff() },
                           { C::bitwise_ic_byte, uint256_t::from_uint128(output_c) },
                           { C::bitwise_tag_a, tag_a_u8 },
                           { C::bitwise_tag_b, tag_b_u8 },
@@ -101,6 +101,8 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
             bool is_start = (ctr == start_ctr);
             trace.set(row,
                       { { { C::bitwise_op_id, static_cast<uint8_t>(event.operation) },
+                          // It is fine to use the truncated input_a/b here instead of event.a/b because if event.a/b
+                          // were FF values we would have taken the error branch above.
                           { C::bitwise_acc_ia, uint256_t::from_uint128(input_a) },
                           { C::bitwise_acc_ib, uint256_t::from_uint128(input_b) },
                           { C::bitwise_acc_ic, uint256_t::from_uint128(output_c) },
