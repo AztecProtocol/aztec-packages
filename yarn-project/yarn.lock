@@ -2156,6 +2156,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     jest: "npm:^30.0.0"
+    jest-mock-extended: "npm:^4.0.0"
     resolve-typescript-plugin: "npm:^2.0.1"
     ts-loader: "npm:^9.5.4"
     ts-node: "npm:^10.9.1"
