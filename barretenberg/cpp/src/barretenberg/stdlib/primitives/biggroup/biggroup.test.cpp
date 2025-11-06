@@ -952,14 +952,14 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    // Test short scalar mul with variable even bit length. For efficiency, it's split into two tests.
-    static void test_short_scalar_mul_2_126()
+    // Test short scalar mul with variable bit lengths.
+    static void test_short_scalar_mul_with_bit_lengths()
     {
         Builder builder;
-        const size_t max_num_bits = 128;
 
-        // TODO: add support for odd lengths.
-        for (size_t i = 2; i < max_num_bits; i += 2) {
+        std::vector<size_t> test_lengths = { 2, 3, 10, 11, 31, 32, 63, 64, 127, 128, 252, 253 };
+
+        for (size_t i : test_lengths) {
             affine_element input(element::random_element());
             // Get a random 256 integer
             uint256_t scalar_raw = engine.get_random_uint256();
@@ -971,46 +971,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             if (scalar == fr(0)) {
                 scalar += 1;
             };
-
-            element_ct P = element_ct::from_witness(&builder, input);
-            scalar_ct x = scalar_ct::from_witness(&builder, scalar);
-
-            // Set input tags
-            x.set_origin_tag(challenge_origin_tag);
-            P.set_origin_tag(submitted_value_origin_tag);
-
-            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
-            // Multiply using specified scalar length
-            element_ct c = P.scalar_mul(x, i);
-            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
-            affine_element c_expected(element(input) * scalar);
-
-            // Check the result of the multiplication has a tag that's the union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            fq c_x_result(c.x().get_value().lo);
-            fq c_y_result(c.y().get_value().lo);
-
-            EXPECT_EQ(c_x_result, c_expected.x);
-
-            EXPECT_EQ(c_y_result, c_expected.y);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_short_scalar_mul_128_252()
-    {
-        Builder builder;
-        const size_t max_num_bits = 254;
-
-        // TODO: add support for odd lengths.
-        for (size_t i = 128; i < max_num_bits; i += 2) {
-            affine_element input(element::random_element());
-            // Get a random 256-bit integer
-            uint256_t scalar_raw = engine.get_random_uint256();
-            // Produce a length =< i scalar.
-            scalar_raw = scalar_raw >> (256 - i);
-            fr scalar = fr(scalar_raw);
 
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
@@ -2306,20 +2266,12 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases_with_constants)
     }
 }
 
-HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_2_126_bits)
+HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_with_bit_lengths)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
     } else {
-        TestFixture::test_short_scalar_mul_2_126();
-    }
-}
-HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_128_252_bits)
-{
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
-    } else {
-        TestFixture::test_short_scalar_mul_128_252();
+        TestFixture::test_short_scalar_mul_with_bit_lengths();
     }
 }
 
