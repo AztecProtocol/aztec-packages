@@ -2043,6 +2043,7 @@ TYPED_TEST(stdlib_biggroup, assert_coordinates_in_field)
     TestFixture::test_assert_coordinates_in_field();
 }
 
+// Addition tests
 TYPED_TEST(stdlib_biggroup, add)
 {
 
@@ -2066,6 +2067,8 @@ TYPED_TEST(stdlib_biggroup, standard_form_of_point_at_infinity)
 {
     TestFixture::test_standard_form_of_point_at_infinity();
 }
+
+// Subtraction tests
 TYPED_TEST(stdlib_biggroup, sub)
 {
     TestFixture::test_sub();
@@ -2098,6 +2101,69 @@ TYPED_TEST(stdlib_biggroup, dbl_with_constant)
     }
 }
 
+// Test chain_add
+HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_chain_add();
+    };
+}
+TYPED_TEST(stdlib_biggroup, chain_add_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_chain_add(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w, w, c
+        TestFixture::test_chain_add(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w, c, w
+        TestFixture::test_chain_add(InputType::WITNESS, InputType::CONSTANT, InputType::CONSTANT);  // w, c, c
+        TestFixture::test_chain_add(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);   // c, w, w
+        TestFixture::test_chain_add(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);  // c, w, c
+        TestFixture::test_chain_add(InputType::CONSTANT, InputType::CONSTANT, InputType::WITNESS);  // c, c, w
+        TestFixture::test_chain_add(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT); // c, c, c
+    }
+}
+
+// Test multiple_montgomery_ladder
+HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
+{
+
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_multiple_montgomery_ladder();
+    };
+}
+
+// Test normalize
+TYPED_TEST(stdlib_biggroup, normalize)
+{
+    TestFixture::test_normalize();
+}
+TYPED_TEST(stdlib_biggroup, normalize_constant)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_normalize(InputType::CONSTANT);
+    }
+}
+
+// Test reduce
+TYPED_TEST(stdlib_biggroup, reduce)
+{
+    TestFixture::test_reduce();
+}
+TYPED_TEST(stdlib_biggroup, reduce_constant)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_reduce(InputType::CONSTANT);
+    }
+}
+
 // Test unary negation
 TYPED_TEST(stdlib_biggroup, unary_negate)
 {
@@ -2112,6 +2178,7 @@ TYPED_TEST(stdlib_biggroup, unary_negate_with_constants)
         TestFixture::test_unary_negate(InputType::CONSTANT);
     }
 }
+
 // Test operator+=
 TYPED_TEST(stdlib_biggroup, add_assign)
 {
@@ -2127,6 +2194,7 @@ TYPED_TEST(stdlib_biggroup, add_assign_with_constants)
         TestFixture::test_add_assign(InputType::CONSTANT, InputType::WITNESS); // c += w
     }
 }
+
 // Test operator-=
 TYPED_TEST(stdlib_biggroup, sub_assign)
 {
@@ -2233,6 +2301,28 @@ TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_edge_cases)
 {
     TestFixture::test_incomplete_assert_equal_edge_cases();
 }
+
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
+{
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        size_t num_repetitions = 1;
+        for (size_t i = 0; i < num_repetitions; i++) {
+            TestFixture::test_compute_naf();
+        }
+    } else {
+        GTEST_SKIP();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, compute_naf_zero)
+{
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_compute_naf_zero();
+    } else {
+        GTEST_SKIP();
+    }
+}
+
 HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 {
     TestFixture::test_mul();
@@ -2280,6 +2370,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_infinity)
     }
 }
 
+// Batch multiplication tests
 // 1 point - Base case only
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_singleton)
 {
@@ -2411,84 +2502,6 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set1)
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set2)
 {
     TestFixture::test_batch_mul_edge_case_set2();
-}
-HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
-{
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_chain_add();
-    };
-}
-TYPED_TEST(stdlib_biggroup, chain_add_with_constants)
-{
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_chain_add(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w, w, c
-        TestFixture::test_chain_add(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w, c, w
-        TestFixture::test_chain_add(InputType::WITNESS, InputType::CONSTANT, InputType::CONSTANT);  // w, c, c
-        TestFixture::test_chain_add(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);   // c, w, w
-        TestFixture::test_chain_add(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);  // c, w, c
-        TestFixture::test_chain_add(InputType::CONSTANT, InputType::CONSTANT, InputType::WITNESS);  // c, c, w
-        TestFixture::test_chain_add(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT); // c, c, c
-    }
-}
-HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
-{
-
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_multiple_montgomery_ladder();
-    };
-}
-
-HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
-{
-    if constexpr (!HasGoblinBuilder<TypeParam>) {
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; i++) {
-            TestFixture::test_compute_naf();
-        }
-    } else {
-        GTEST_SKIP();
-    }
-}
-
-TYPED_TEST(stdlib_biggroup, compute_naf_zero)
-{
-    if constexpr (!HasGoblinBuilder<TypeParam>) {
-        TestFixture::test_compute_naf_zero();
-    } else {
-        GTEST_SKIP();
-    }
-}
-
-TYPED_TEST(stdlib_biggroup, normalize)
-{
-    TestFixture::test_normalize();
-}
-TYPED_TEST(stdlib_biggroup, normalize_constant)
-{
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_normalize(InputType::CONSTANT);
-    }
-}
-
-TYPED_TEST(stdlib_biggroup, reduce)
-{
-    TestFixture::test_reduce();
-}
-TYPED_TEST(stdlib_biggroup, reduce_constant)
-{
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_reduce(InputType::CONSTANT);
-    }
 }
 
 // ============================================
