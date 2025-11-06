@@ -175,9 +175,11 @@ namespace tx;
     #[DECR_REM_PHASE_EVENTS]
     (1 - precomputed.first_row) * NOT_PHASE_END * (remaining_phase_counter' - (remaining_phase_counter - 1)) = 0;
 
+    #[READ_PI_OFFSET_INIT]
+    start_phase * (read_pi_offset - read_pi_start_offset) = 0;
     // The read index increments at each row
-    #[INCR_READ_PI_OFFSET]
-    (1 - precomputed.first_row) * NOT_PHASE_END * (read_pi_offset' - (read_pi_offset + 1)) = 0;
+    #[READ_PI_OFFSET_INCREMENT]
+    NOT_PHASE_END * (read_pi_offset + 1 - read_pi_offset') = 0;
 
     // === Public Call Request Phase ===
     pol commit is_public_call_request;
