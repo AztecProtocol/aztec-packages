@@ -147,7 +147,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         shifted_batching_challenge_labels.push_back("rho_" + std::to_string(unshifted_comms.size() - 1 + idx));
     }
 
-    // Get short (128-bit) batching challenges from transcript
+    // Get short batching challenges from transcript
     auto unshifted_challenges = transcript->template get_challenges<FF>(unshifted_batching_challenge_labels);
     auto shifted_challenges = transcript->template get_challenges<FF>(shifted_batching_challenge_labels);
 

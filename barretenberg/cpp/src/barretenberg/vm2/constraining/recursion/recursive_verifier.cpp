@@ -180,7 +180,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
                                  format("public_input_evaluation failed at column ", i));
     }
 
-    // Batch commitments and evaluations using short (128-bit) scalars to reduce ECCVM circuit size
+    // Batch commitments and evaluations using short scalars to reduce ECCVM circuit size
     auto unshifted_comms = commitments.get_unshifted();
     auto unshifted_evals = output.claimed_evaluations.get_unshifted();
     auto shifted_comms = commitments.get_to_be_shifted();
