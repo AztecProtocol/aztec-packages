@@ -155,7 +155,6 @@ struct OriginTag {
     bool is_poisoned() const { return instant_death; }
     bool is_empty() const { return !instant_death && parent_tag == CONSTANT; };
 
-#ifndef DISABLE_FREE_WITNESS_CHECK
     bool is_free_witness() const { return parent_tag == FREE_WITNESS; }
     void set_free_witness()
     {
@@ -169,18 +168,9 @@ struct OriginTag {
     }
 
     /**
-     * @brief Clear the child_tag to address child tag  false positives.
+     * @brief Clear the child_tag to address child tag false positives.
      */
     void clear_child_tag() { child_tag = numeric::uint256_t(0); }
-
-// The checks are disabled by disallowing to set the free witness tag, because if they are set, it's very hard to make
-// the logic of checks work
-#else
-    bool is_free_witness() const { return false; }
-    void set_free_witness() {}
-    void unset_free_witness() {}
-    void clear_child_tag() {}
-#endif
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)
 {
@@ -212,6 +202,7 @@ struct OriginTag {
     bool is_free_witness() const { return false; }
     void set_free_witness() {}
     void unset_free_witness() {}
+    void clear_child_tag() {}
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const&)
 {
