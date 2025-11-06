@@ -2149,93 +2149,45 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<element_ct> circuit_points;
         std::vector<scalar_ct> circuit_scalars;
 
-        // Add constant points
+        // Add constant-constant points
         for (size_t i = 0; i < 3; ++i) {
-            affine_element point(element::random_element());
-            fr scalar = fr::random_element();
+            const auto [point, point_ct] = get_random_point(&builder, InputType::CONSTANT);
+            const auto [scalar, scalar_ct] = get_random_scalar(&builder, InputType::CONSTANT);
             points_native.push_back(point);
             scalars_native.push_back(scalar);
-            circuit_points.push_back(element_ct(point));            // Constant
-            circuit_scalars.push_back(scalar_ct(&builder, scalar)); // Constant
+            circuit_points.push_back(point_ct);   // Constant
+            circuit_scalars.push_back(scalar_ct); // Constant
         }
 
-        // Add witness points
+        // Add witness-witness points
         for (size_t i = 0; i < 3; ++i) {
-            affine_element point(element::random_element());
-            fr scalar = fr::random_element();
+            const auto [point, point_ct] = get_random_point(&builder, InputType::WITNESS);
+            const auto [scalar, scalar_ct] = get_random_scalar(&builder, InputType::WITNESS);
             points_native.push_back(point);
             scalars_native.push_back(scalar);
-            circuit_points.push_back(element_ct::from_witness(&builder, point));  // Witness
+            circuit_points.push_back(point_ct);   // Witness
+            circuit_scalars.push_back(scalar_ct); // Witness
+        }
+
+        // Add constant-witness points
+        for (size_t i = 0; i < 4; ++i) {
+            const auto [point, point_ct] = get_random_point(&builder, InputType::CONSTANT);
+            const auto [scalar, scalar_ct] = get_random_scalar(&builder, InputType::WITNESS);
+            points_native.push_back(point);
+            scalars_native.push_back(scalar);
+            circuit_points.push_back(element_ct(point));                          // Constant
             circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalar)); // Witness
         }
 
-        element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars);
-
-        // Compute expected result
-        element expected = element::infinity();
-        for (size_t i = 0; i < points_native.size(); ++i) {
-            expected += (element(points_native[i]) * scalars_native[i]);
+        // Add witness-constant points
+        for (size_t i = 0; i < 4; ++i) {
+            const auto [point, point_ct] = get_random_point(&builder, InputType::WITNESS);
+            const auto [scalar, scalar_ct] = get_random_scalar(&builder, InputType::CONSTANT);
+            points_native.push_back(point);
+            scalars_native.push_back(scalar);
+            circuit_points.push_back(point_ct);   // Witness
+            circuit_scalars.push_back(scalar_ct); // Constant
         }
-        affine_element expected_affine = affine_element(expected);
-
-        uint256_t result_x = result.x().get_value().lo;
-        uint256_t result_y = result.y().get_value().lo;
-
-        EXPECT_EQ(fq(result_x), expected_affine.x);
-        EXPECT_EQ(fq(result_y), expected_affine.y);
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_batch_mul_one_constant_witness()
-    {
-        Builder builder;
-        std::vector<affine_element> points_native;
-        std::vector<fr> scalars_native;
-        std::vector<element_ct> circuit_points;
-        std::vector<scalar_ct> circuit_scalars;
-
-        // Witness point and scalar
-        affine_element witness_point(element::random_element());
-        fr const_scalar = fr::random_element();
-        points_native.push_back(witness_point);
-        scalars_native.push_back(const_scalar);
-        circuit_points.push_back(element_ct::from_witness(&builder, witness_point)); // witness point
-        circuit_scalars.push_back(scalar_ct(&builder, const_scalar));                // constant scalar
-
-        element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars);
-
-        // Compute expected result
-        element expected = element::infinity();
-        for (size_t i = 0; i < points_native.size(); ++i) {
-            expected += (element(points_native[i]) * scalars_native[i]);
-        }
-        affine_element expected_affine = affine_element(expected);
-
-        uint256_t result_x = result.x().get_value().lo;
-        uint256_t result_y = result.y().get_value().lo;
-
-        EXPECT_EQ(fq(result_x), expected_affine.x);
-        EXPECT_EQ(fq(result_y), expected_affine.y);
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_batch_mul_constant_constant()
-    {
-        Builder builder;
-        std::vector<affine_element> points_native;
-        std::vector<fr> scalars_native;
-        std::vector<element_ct> circuit_points;
-        std::vector<scalar_ct> circuit_scalars;
-
-        // Constant point and scalar
-        affine_element const_point(element::random_element());
-        fr const_scalar = fr::random_element();
-        points_native.push_back(const_point);
-        scalars_native.push_back(const_scalar);
-        circuit_points.push_back(element_ct(const_point));            // constant point
-        circuit_scalars.push_back(scalar_ct(&builder, const_scalar)); // constant scalar
 
         element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars);
 
@@ -2845,9 +2797,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_cancellation)
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_mixed_constant_witness)
 {
-    // Skip for bigfield case - constant/witness mixing has issues with bigfield scalars
     // Skip for goblin case - causes segfault with mixed constant/witness points
-    if constexpr (TypeParam::use_bigfield || HasGoblinBuilder<TypeParam>) {
+    if constexpr (HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
     } else {
         TestFixture::test_batch_mul_mixed_constant_witness();
@@ -2857,24 +2808,4 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_mixed_constant_witness)
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_large_number_of_points)
 {
     TestFixture::test_batch_mul_large_number_of_points();
-}
-
-TYPED_TEST(stdlib_biggroup, batch_mul_one_constant_witness)
-{
-    // Skip for goblin builders (MegaCircuitBuilder)
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
-    } else {
-        TestFixture::test_batch_mul_one_constant_witness();
-    }
-}
-
-TYPED_TEST(stdlib_biggroup, batch_mul_constant_constant)
-{
-    // Skip for goblin builders (MegaCircuitBuilder)
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
-    } else {
-        TestFixture::test_batch_mul_constant_constant();
-    }
 }
