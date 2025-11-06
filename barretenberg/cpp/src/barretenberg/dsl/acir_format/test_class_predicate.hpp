@@ -290,7 +290,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                 test_constraints(PredicateTestCase::WitnessTrue, default_invalid_witness_target);
             // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the CircuitChecker
             // failed, or the builder error resulted from an assert_eq.
-            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") == std::string::npos))
+            bool circuit_check_failed = !circuit_checker_result;
+            bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
+            EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
                 << "Circuit checker succeeded unexpectedly and no assert_eq failure.";
             EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly.";
         }
@@ -351,7 +353,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
                 // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the
                 // CircuitChecker failed, or the builder error resulted from an assert_eq.
-                EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                bool circuit_check_failed = !circuit_checker_result;
+                bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
+                EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
                     << "Circuit checker succeeded unexpectedly and no assert_eq failure for invalid witness target " +
                            target_label;
                 EXPECT_TRUE(builder_failed) << "Builder succeeded for invalid witness target " + target_label;
@@ -386,7 +390,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                 if (predicate_case != PredicateTestCase::WitnessFalse) {
                     // If the predicate is not witness false, invalid witnesses should cause failure
                     if (target != InvalidWitnessTarget::None) {
-                        EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") == std::string::npos))
+                        bool circuit_check_failed = !circuit_checker_result;
+                        bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
+                        EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
                             << "Circuit checker succeeded unexpectedly and no assert_eq failure for invalid witness "
                                "target " +
                                    label + " with predicate " + predicate_label;
