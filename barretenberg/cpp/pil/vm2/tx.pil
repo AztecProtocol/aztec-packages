@@ -103,7 +103,7 @@ namespace tx;
     #[REM_COUNT_IS_ONE]
     sel * (1 - reverted) * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
 
-    #[READ_PHASE_TABLE]
+    #[READ_PHASE_SPEC]
     sel {
         phase_value,
         is_public_call_request,

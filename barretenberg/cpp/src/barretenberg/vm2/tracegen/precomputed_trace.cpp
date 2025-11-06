@@ -368,7 +368,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     for (const auto& [_, spec] : TX_PHASE_SPEC_MAP) {
 
         const uint32_t row = static_cast<uint32_t>(spec.phase_value);
-        // Populate all columns that are part of the #[READ_PHASE_TABLE] lookup in tx.pil.
+        // Populate all columns that are part of the #[READ_PHASE_SPEC] lookup in tx.pil.
         std::vector<std::pair<Column, FF>> row_data = {
             { C::precomputed_sel_phase, 1 },
             { C::precomputed_is_public_call_request, spec.is_public_call_request },

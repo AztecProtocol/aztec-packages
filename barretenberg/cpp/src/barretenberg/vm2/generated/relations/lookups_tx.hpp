@@ -11,16 +11,16 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_tx_read_phase_table ///////////////////
+/////////////////// lookup_tx_read_phase_spec ///////////////////
 
-struct lookup_tx_read_phase_table_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_TABLE";
+struct lookup_tx_read_phase_spec_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_SPEC";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 20;
     static constexpr Column SRC_SELECTOR = Column::tx_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
-    static constexpr Column COUNTS = Column::lookup_tx_read_phase_table_counts;
-    static constexpr Column INVERSES = Column::lookup_tx_read_phase_table_inv;
+    static constexpr Column COUNTS = Column::lookup_tx_read_phase_spec_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_read_phase_spec_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::tx_phase_value,
         ColumnAndShifts::tx_is_public_call_request,
@@ -67,9 +67,9 @@ struct lookup_tx_read_phase_table_settings_ {
     };
 };
 
-using lookup_tx_read_phase_table_settings = lookup_settings<lookup_tx_read_phase_table_settings_>;
+using lookup_tx_read_phase_spec_settings = lookup_settings<lookup_tx_read_phase_spec_settings_>;
 template <typename FF_>
-using lookup_tx_read_phase_table_relation = lookup_relation_base<FF_, lookup_tx_read_phase_table_settings>;
+using lookup_tx_read_phase_spec_relation = lookup_relation_base<FF_, lookup_tx_read_phase_spec_settings>;
 
 /////////////////// lookup_tx_read_phase_length ///////////////////
 

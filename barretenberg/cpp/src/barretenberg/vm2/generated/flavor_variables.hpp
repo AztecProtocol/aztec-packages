@@ -609,7 +609,7 @@ struct AvmFlavorVariables {
         lookup_tx_read_fee_payer_public_inputs_relation<FF_>,
         lookup_tx_read_l2_l1_msg_relation<FF_>,
         lookup_tx_read_phase_length_relation<FF_>,
-        lookup_tx_read_phase_table_relation<FF_>,
+        lookup_tx_read_phase_spec_relation<FF_>,
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
         lookup_tx_write_fee_public_inputs_relation<FF_>,

@@ -652,7 +652,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 const InteractionDefinition TxTraceBuilder::interactions =
     InteractionDefinition()
         // These are all generic, think which, if any, can be made sequential.
-        .add<lookup_tx_read_phase_table_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_read_phase_spec_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_calldata_hash_settings, InteractionType::LookupSequential>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()

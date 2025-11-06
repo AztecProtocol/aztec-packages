@@ -385,7 +385,7 @@ TEST_F(TxExecutionConstrainingTestHelper, SimpleControlFlowRead)
 
     check_relation<tx>(trace);
     check_interaction<TxTraceBuilder,
-                      lookup_tx_read_phase_table_settings,
+                      lookup_tx_read_phase_spec_settings,
                       lookup_tx_read_phase_length_settings,
                       lookup_tx_read_public_call_request_phase_settings>(trace);
 }
@@ -715,7 +715,7 @@ TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
     check_relation<tx>(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_table_settings>()->process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_spec_settings>()->process(trace);
     TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_length_settings>()->process(trace);
     TxTraceBuilder::interactions.get_test_job<lookup_tx_read_public_call_request_phase_settings>()->process(trace);
     TxTraceBuilder::interactions.get_test_job<lookup_tx_read_effective_fee_public_inputs_settings>()->process(trace);
@@ -867,7 +867,7 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
     check_relation<tx>(trace);
     check_interaction<TxTraceBuilder,
                       lookup_tx_read_calldata_hash_settings,
-                      lookup_tx_read_phase_table_settings,
+                      lookup_tx_read_phase_spec_settings,
                       lookup_tx_read_phase_length_settings,
                       lookup_tx_read_public_call_request_phase_settings>(trace);
     check_relation<bb::avm2::calldata_hashing<FF>>(trace);

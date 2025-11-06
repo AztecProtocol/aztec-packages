@@ -7,7 +7,7 @@
 namespace bb::avm2::tracegen {
 
 // TxPhaseSpec contains the fields that are read from the precomputed table
-// via the #[READ_PHASE_TABLE] lookup in tx.pil.
+// via the #[READ_PHASE_SPEC] lookup in tx.pil.
 struct TxPhaseSpec {
     uint8_t phase_value = 0;
     uint8_t is_public_call_request = 0;
