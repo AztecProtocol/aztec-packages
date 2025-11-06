@@ -63,6 +63,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     Gas gas_limit = tx.gasSettings.gasLimits;
     Gas teardown_gas_limit = tx.gasSettings.teardownGasLimits;
     tx_context.gas_used = tx.gasUsedByPrivate;
+    std::optional<std::vector<FF>> app_logic_return_value;
 
     events.emit(TxStartupEvent{
         .state = tx_context.serialize_tx_context_event(),
@@ -149,7 +150,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                 // This call should not throw unless it's an unexpected unrecoverable failure.
                 EnqueuedCallResult result = call_execution.execute(std::move(context));
                 tx_context.gas_used = result.gas_used;
-                tx_context.app_logic_output = std::move(result.output);
+                app_logic_return_value = std::move(result.output);
                 emit_public_call_request(call,
                                          TransactionPhase::APP_LOGIC,
                                          /*transaction_fee=*/FF(0),
@@ -167,7 +168,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         }
     } catch (const TxExecutionException& e) {
         vinfo("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
-        tx_context.reverted = true;
+        tx_context.revert_code = RevertCode::APP_LOGIC_REVERTED;
         // We revert to the post-setup state.
         merkle_db.revert_checkpoint();
         contract_db.revert_checkpoint();
@@ -230,7 +231,9 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         contract_db.commit_checkpoint();
     } catch (const TxExecutionException& e) {
         info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
-        tx_context.reverted = true;
+        tx_context.revert_code = tx_context.revert_code == RevertCode::APP_LOGIC_REVERTED
+                                     ? RevertCode::BOTH_REVERTED
+                                     : RevertCode::TEARDOWN_REVERTED;
         // We rollback to the post-setup state.
         merkle_db.revert_checkpoint();
         contract_db.revert_checkpoint();
@@ -244,9 +247,15 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     cleanup();
 
     return {
-        .gas_used = tx_context.gas_used,
-        .reverted = tx_context.reverted,
-        .app_logic_output = std::move(tx_context.app_logic_output),
+        .gas_used = {
+            .total_gas = tx_context.gas_used,
+            // TODO(fcarreiro): complete.
+            .teardown_gas = { 0, 0 },
+            .public_gas = { 0, 0 },
+            .billed_gas = { 0, 0 },
+        },
+        .revert_code = tx_context.revert_code,
+        .app_logic_return_value = std::move(app_logic_return_value),
     };
 }
 

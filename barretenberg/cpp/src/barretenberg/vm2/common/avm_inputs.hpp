@@ -440,29 +440,39 @@ struct AvmFastSimulationInputs {
 ////////////////////////////////////////////////////////////////////////////
 // Tx Simulation Result
 ////////////////////////////////////////////////////////////////////////////
+
+// TODO(fcarreiro): Remove.
+// I'm using this structure as dummy content for optionals and vectors that will be empty for now.
+struct DummyStructure {
+    bool dummy;
+    bool operator==(const DummyStructure& other) const = default;
+    MSGPACK_FIELDS(dummy);
+};
+
 struct TxSimulationResult {
-    /**
-     * TODO(fcarreiro): This is what we want it to be.
-     *
-     * avmProvingRequest: AvmProvingRequest;
-     * gasUsed: GasUsed;
-     * revertCode: RevertCode;
-     * revertReason?: SimulationError;
-     * processedPhases: ProcessedPhase[];
-     * logs: DebugLog[];
-     */
+    // Simulation.
+    GasUsed gas_used;
+    RevertCode revert_code;
+    std::optional<DummyStructure> revert_reason;
+    // These are only guaranteed to be present in "client initiated simulation" mode.
+    // TODO(fcarreiro): Sort these out.
+    std::optional<std::vector<DummyStructure>> processed_phases;
+    std::optional<std::vector<FF>> app_logic_return_value;
+    std::optional<std::vector<DebugLog>> logs;
     // Proving request data.
     PublicInputs public_inputs;
     std::optional<ExecutionHints> execution_hints;
-    // The rest.
-    Gas gas_used;
-    std::vector<DebugLog> debug_logs;
-    // TODO(fcarreiro): To enable the fuzzer. The format might change.
-    std::optional<std::vector<FF>> app_logic_output;
-    bool reverted;
 
     bool operator==(const TxSimulationResult& other) const = default;
-    MSGPACK_FIELDS(public_inputs, execution_hints, gas_used, debug_logs);
+
+    MSGPACK_CAMEL_CASE_FIELDS(gas_used,
+                              revert_code,
+                              revert_reason,
+                              processed_phases,
+                              app_logic_return_value,
+                              logs,
+                              public_inputs,
+                              execution_hints);
 };
 
 } // namespace bb::avm2

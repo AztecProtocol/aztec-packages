@@ -5,8 +5,11 @@
 #include <vector>
 
 #include "barretenberg/common/streams.hpp" // Derives operator<< from MSGPACK_FIELDS.
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl/uint_128_t_adaptor.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "msgpack/adaptor/define_decl.hpp"
 
 namespace bb::avm2 {
 
@@ -21,7 +24,7 @@ using EthAddress = FF;
 
 using FunctionSelector = FF; // really a 4-byte BE buffer in TS, but we use FF for simplicity
 
-enum TransactionPhase {
+enum class TransactionPhase {
     NR_NULLIFIER_INSERTION = 1,
     NR_NOTE_INSERTION = 2,
     NR_L2_TO_L1_MESSAGE = 3,
@@ -296,6 +299,16 @@ struct Gas {
     MSGPACK_FIELDS(l2Gas, daGas);
 };
 
+struct GasUsed {
+    Gas total_gas;
+    Gas teardown_gas;
+    Gas public_gas;
+    Gas billed_gas;
+
+    bool operator==(const GasUsed& other) const = default;
+    MSGPACK_CAMEL_CASE_FIELDS(total_gas, teardown_gas, public_gas, billed_gas);
+};
+
 struct GasSettings {
     Gas gasLimits;
     Gas teardownGasLimits;
@@ -485,6 +498,13 @@ struct TreeStates {
 // Misc Types
 ////////////////////////////////////////////////////////////////////////////
 
+enum RevertCode {
+    OK,
+    APP_LOGIC_REVERTED,
+    TEARDOWN_REVERTED,
+    BOTH_REVERTED,
+};
+
 enum class DebugLogLevel {
     SILENT = 0,
     FATAL = 1,
@@ -562,3 +582,5 @@ inline std::optional<AztecAddress> get_derived_address(const ProtocolContracts& 
 }
 
 } // namespace bb::avm2
+
+MSGPACK_ADD_ENUM(bb::avm2::RevertCode)

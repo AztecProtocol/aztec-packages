@@ -439,18 +439,20 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     // TODO(fcarreiro): get these values from somewhere.
     FF transaction_fee = 0;
     public_inputs_builder.extract_outputs(raw_merkle_db,
-                                          tx_execution_result.gas_used,
+                                          tx_execution_result.gas_used.total_gas,
                                           transaction_fee,
-                                          tx_execution_result.reverted,
+                                          tx_execution_result.revert_code != RevertCode::OK,
                                           side_effect_tracker.get_side_effects());
 
     return {
+        // Simulation.
+        .gas_used = tx_execution_result.gas_used,
+        .revert_code = tx_execution_result.revert_code,
+        .app_logic_return_value = tx_execution_result.app_logic_return_value,
+        .logs = debug_log_component->dump_logs(),
+        // Proving request data.
         .public_inputs = public_inputs_builder.build(),
         .execution_hints = std::nullopt, // TODO: add execution hints, optionally.
-        .gas_used = tx_execution_result.gas_used,
-        .debug_logs = debug_log_component->dump_logs(),
-        .app_logic_output = tx_execution_result.app_logic_output,
-        .reverted = tx_execution_result.reverted,
     };
 }
 

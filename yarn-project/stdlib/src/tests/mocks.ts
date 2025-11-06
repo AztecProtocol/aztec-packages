@@ -32,8 +32,8 @@ import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
 import { HashedValues, PrivateCallExecutionResult, PrivateExecutionResult, StateReference, Tx } from '../tx/index.js';
-import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
-import { TxSimulationResult, accumulatePrivateReturnValues } from '../tx/simulated_tx.js';
+import { NestedProcessReturnValues, PublicSimulationOutput } from '../tx/public_simulation_output.js';
+import { TxSimulationResult } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { makeGas, makeGlobalVariables, makeL2BlockHeader, makePublicCallRequest } from './factories.js';
@@ -184,7 +184,7 @@ export const mockSimulatedTx = async (seed = 1) => {
     undefined,
     makeGlobalVariables(),
     await TxEffect.random(),
-    [accumulatePrivateReturnValues(privateExecutionResult)],
+    times(2, () => NestedProcessReturnValues.random(2)),
     {
       totalGas: makeGas(),
       teardownGas: makeGas(),
