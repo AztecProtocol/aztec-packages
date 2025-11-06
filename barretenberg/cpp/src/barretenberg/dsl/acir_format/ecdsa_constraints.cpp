@@ -74,8 +74,8 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     byte_array_ct pub_y_bytes = fields_to_bytes(builder, pub_y_fields);
     byte_array_ct r = fields_to_bytes(builder, r_fields);
     byte_array_ct s = fields_to_bytes(builder, s_fields);
-    bool_ct result = static_cast<bool_ct>(result_field); // Constructor enforces result = 0 or 1
-    bool_ct predicate;
+    bool_ct result = static_cast<bool_ct>(result_field);       // Constructor enforces result = 0 or 1
+    bool_ct predicate = static_cast<bool_ct>(predicate_field); // Constructor enforces predicate = 0 or 1
 
     // Step 2.
     Fq pub_x(pub_x_bytes);
@@ -88,7 +88,6 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     // There is one remaining edge case that happens with negligible probability, see here:
     // https://github.com/AztecProtocol/barretenberg/issues/1570
     if (!input.predicate.is_constant) {
-        predicate = static_cast<bool_ct>(predicate_field);                 // Constructor enforces predicate = 0 or 1
         r[0] = field_ct::conditional_assign(predicate, r[0], field_ct(1)); // 0 < r < n
         s[0] = field_ct::conditional_assign(predicate, s[0], field_ct(1)); // 0 < s < n/2
 
