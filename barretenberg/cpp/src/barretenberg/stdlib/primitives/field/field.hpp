@@ -355,6 +355,8 @@ template <typename Builder_> class field_t {
      */
     void unset_free_witness_tag() const { tag.unset_free_witness(); }
 
+    void clear_child_tag() const { tag.clear_child_tag(); }
+
     field_t conditional_negate(const bool_t<Builder>& predicate) const;
 
     void assert_equal(const field_t& rhs, std::string const& msg = "field_t::assert_equal") const;

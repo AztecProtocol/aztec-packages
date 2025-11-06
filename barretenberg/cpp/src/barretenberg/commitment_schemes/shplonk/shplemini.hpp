@@ -268,12 +268,11 @@ template <typename Curve> class ShpleminiVerifier_ {
             libra_evaluations[2] = transcript->template receive_from_prover<Fr>("Libra:grand_sum_eval");
             libra_evaluations[3] = transcript->template receive_from_prover<Fr>("Libra:quotient_eval");
 
-            // The Libra evaluations are evaluation claims that will be verified via the consistency check.
-            // Clear their origin tags to prevent false positives from child tag checks when these evaluations
-            // are used together in arithmetic operations within the consistency check.
+            // OriginTag false positive: Libra evaluations need to satisfy an identity where they
+            // are mixing without challenge, it is safe because these evaluations are opened in Shplonk.
             if constexpr (Curve::is_stdlib_type) {
                 for (auto& eval : libra_evaluations) {
-                    eval.set_origin_tag(OriginTag());
+                    eval.clear_child_tag();
                 }
             }
         }

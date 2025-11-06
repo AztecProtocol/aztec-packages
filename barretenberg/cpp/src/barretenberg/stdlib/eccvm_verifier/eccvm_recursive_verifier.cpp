@@ -217,11 +217,10 @@ void ECCVMRecursiveVerifier::compute_translation_opening_claims(const std::vecto
                                 small_ipa_commitments.get_all()[idx] };
     }
 
-    // The small IPA evaluations are evaluation claims that will be verified via the consistency check.
-    // Clear their origin tags to prevent false positives from child tag checks when these evaluations
-    // are used together in arithmetic operations within the consistency check.
+    // OriginTag false positive: Small IPA evaluations need to satisfy an identity where they are mixing without
+    // challenges, it is safe because these evaluations are opened in Shplonk.
     for (auto& eval : small_ipa_evaluations) {
-        eval.set_origin_tag(OriginTag());
+        eval.clear_child_tag();
     }
 
     // Check Grand Sum Identity at r

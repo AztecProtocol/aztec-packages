@@ -79,12 +79,12 @@ static std::vector<typename Curve::ScalarField> compute_padding_indicator_array(
         result[idx - 1] += result[idx];
     }
 
-    // The padding indicator array elements are derived computational constants (not Fiat-Shamir participants).
-    // Clear their origin tags to prevent false positives from child tag checks when these constants are later
-    // used in combination with transcript values from different rounds.
+    // OriginTag false positive: the padding indicator array elements are derived from a `log_circuit_size` and are used
+    // to perform conditional padding logic in Sumcheck (Currently, only in UltraZKRecursiveFlavor), where they are
+    // mixing with sumcheck univariates.
     if constexpr (Curve::is_stdlib_type) {
         for (auto& indicator : result) {
-            indicator.set_origin_tag(OriginTag());
+            indicator.clear_child_tag();
         }
     }
 

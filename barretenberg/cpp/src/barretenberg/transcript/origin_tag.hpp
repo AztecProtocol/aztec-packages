@@ -22,10 +22,6 @@
 #include <type_traits>
 #include <vector>
 
-// Child tag checks are now enabled - they detect when submitted values from different rounds
-// mix without proper challenge separation (Fiat-Shamir ordering violations)
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1532): Fix remaining violations
-
 // Trait to detect if a type is iterable
 template <typename T, typename = void> struct is_iterable : std::false_type {};
 
@@ -172,12 +168,18 @@ struct OriginTag {
         child_tag = numeric::uint256_t(0);
     }
 
+    /**
+     * @brief Clear the child_tag to address child tag  false positives.
+     */
+    void clear_child_tag() { child_tag = numeric::uint256_t(0); }
+
 // The checks are disabled by disallowing to set the free witness tag, because if they are set, it's very hard to make
 // the logic of checks work
 #else
     bool is_free_witness() const { return false; }
     void set_free_witness() {}
     void unset_free_witness() {}
+    void clear_child_tag() {}
 #endif
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)

@@ -62,11 +62,10 @@ void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(co
 
     relation_parameters.accumulated_result = compute_four_limbs(accumulated_result);
 
-    // The accumulated result limbs are evaluation claims that will be checked by the relation.
-    // Clear their origin tags to prevent false positives from child tag checks when these claims
-    // are used in arithmetic operations with prover evaluations from different rounds.
+    // OriginTag false positive: The accumulated result limbs are evaluation claims that will be checked by
+    // `TranslatorAccumulatorTransferRelationImpl`.
     for (auto& limb : relation_parameters.accumulated_result) {
-        limb.set_origin_tag(OriginTag());
+        limb.clear_child_tag();
     }
 };
 
@@ -225,10 +224,9 @@ void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
 {
     // Check the consistency with final merge
     for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {
-        // Clear origin tags on both commitments before comparison to prevent false positives from child tag checks.
-        // These are commitment coordinates being verified for consistency, not Fiat-Shamir participants.
-        merge_commitment.set_origin_tag(OriginTag());
-        translator_commitment.set_origin_tag(OriginTag());
+        // OriginTag false positive. Clear child tag before asserting
+        merge_commitment.clear_child_tag();
+        translator_commitment.clear_child_tag();
 
         // Use incomplete_assert_equal to verify x, y coordinates and infinity flag match
         merge_commitment.incomplete_assert_equal(translator_commitment,
