@@ -58,9 +58,14 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typen
     }
 
     // If the predicate is a non-constant witness, conditionally replace coordinates with a valid point.
+    // We always replace the x and y coordinates with witnesses to avoid the edge case in which point_x =
+    // g1::affine_one.x, in which case the conditional assign would return point_x (as a constant) while with high
+    // probability point_y would return a witness
     if (!predicate.is_constant()) {
-        point_x = field_ct::conditional_assign(predicate, point_x, field_ct(bb::grumpkin::g1::affine_one.x));
-        point_y = field_ct::conditional_assign(predicate, point_y, field_ct(bb::grumpkin::g1::affine_one.y));
+        point_x = field_ct::conditional_assign(
+            predicate, point_x, field_ct::from_witness(&builder, bb::grumpkin::g1::affine_one.x));
+        point_y = field_ct::conditional_assign(
+            predicate, point_y, field_ct::from_witness(&builder, bb::grumpkin::g1::affine_one.y));
         infinite = bool_ct::conditional_assign(predicate, infinite, bool_ct(false));
     } else {
         BB_ASSERT(predicate.get_value(), "Creating Grumpkin point with a constant predicate equal to false.");
