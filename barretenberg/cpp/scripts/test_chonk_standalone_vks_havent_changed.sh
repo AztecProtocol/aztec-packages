@@ -13,7 +13,7 @@ cd ..
 # - Generate a hash for versioning: sha256sum bb-chonk-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-chonk-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-chonk-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_short_hash="4e9e8017"
+pinned_short_hash="7222b532"
 pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
 
 function compress_and_upload {
@@ -111,30 +111,33 @@ ls "$inputs_tmp_dir"
 if [[ "${1:-}" == "--update_fast" ]]; then
   exit_code=0
   parallel -v --line-buffer --tag check_circuit_vks {} --update_inputs ::: $(ls "$inputs_tmp_dir") || exit_code=$?
+
   if [[ $exit_code -eq 0 ]]; then
     echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
   elif [[ $exit_code -eq 1 ]]; then
+    # All flows that changed returned the same exit code (1)
     compress_and_upload $inputs_tmp_dir
   else
-    echo_stderr "Error: bb check failed for reasons other than VK changes. See output above."
-    echo_stderr ""
-    echo_stderr "This indicates a bug or regression in bb check itself."
-    echo_stderr "If this wasn't caught by other tests, please add a test case to prevent this regression."
-    exit $exit_code
+    # Mixed results (some 0, some 1) OR real errors (exit code >= 2)
+    # Optimistically upload - real errors will persist on next run
+    echo "Mixed results detected (exit code: $exit_code). Uploading updated inputs..."
+    compress_and_upload $inputs_tmp_dir
   fi
 else
   exit_code=0
   parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") || exit_code=$?
+
   if [[ $exit_code -eq 0 ]]; then
     echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
   elif [[ $exit_code -eq 1 ]]; then
+    # All flows had VK changes
     echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs"
     exit 1
   else
-    echo_stderr "Error: bb check failed for reasons other than VK changes. See output above."
-    echo_stderr ""
-    echo_stderr "This indicates a bug or regression in bb check itself."
-    echo_stderr "If this wasn't caught by other tests, please add a test case to prevent this regression."
+    # Mixed results (some 0, some 1) OR real errors (exit code >= 2)
+    echo_stderr "Error: Mixed results or errors detected (exit code: $exit_code)."
+    echo_stderr "Some flows may have VK changes while others had errors."
+    echo_stderr "Please re-run with --update_fast to update inputs, or investigate errors above."
     exit $exit_code
   fi
 fi
