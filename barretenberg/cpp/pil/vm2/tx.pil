@@ -87,6 +87,7 @@ namespace tx;
     pol commit read_pi_offset; // index in public inputs to read data from -> Revisit!
     pol commit read_pi_length_offset; // index in public inputs to read lengths from
     pol commit write_pi_offset; // index in public inputs to write data to: Constrain in the phases that need it.
+    pol commit next_phase_on_revert; // phase to jump to if we revert
 
     pol commit remaining_phase_inv;
     pol commit remaining_phase_counter;
@@ -124,7 +125,8 @@ namespace tx;
         sel_can_emit_nullifier,
         sel_can_write_public_data,
         sel_can_emit_unencrypted_log,
-        sel_can_emit_l2_l1_msg
+        sel_can_emit_l2_l1_msg,
+        next_phase_on_revert
     }
     in
     precomputed.sel_phase {
@@ -146,13 +148,13 @@ namespace tx;
         precomputed.sel_can_emit_nullifier,
         precomputed.sel_can_write_public_data,
         precomputed.sel_can_emit_unencrypted_log,
-        precomputed.sel_can_emit_l2_l1_msg
+        precomputed.sel_can_emit_l2_l1_msg,
+        precomputed.next_phase_on_revert
     };
 
     // If a phase reverts (when it is allowed to), it jumps to a known next phase
     #[PHASE_JUMP_ON_REVERT]
-    reverted { phase_value, phase_value' } in
-    precomputed.sel_phase { precomputed.clk, precomputed.next_phase_on_revert};
+    reverted * (next_phase_on_revert - phase_value') = 0;
 
     // === Phase Lengths ===
     // Read the number of steps in the phase from public inputs

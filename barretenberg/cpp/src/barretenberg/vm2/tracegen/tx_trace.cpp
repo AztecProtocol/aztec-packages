@@ -216,6 +216,7 @@ std::vector<std::pair<Column, FF>> handle_phase_spec(TransactionPhase phase)
         { Column::tx_sel_can_write_public_data, phase_spec.can_write_public_data },
         { Column::tx_sel_can_emit_unencrypted_log, phase_spec.can_emit_unencrypted_log },
         { Column::tx_sel_can_emit_l2_l1_msg, phase_spec.can_emit_l2_l1_msg },
+        { Column::tx_next_phase_on_revert, phase_spec.next_phase_on_revert },
     };
 }
 
@@ -630,7 +631,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                         // revert, but just has no contents to process, like when app logic starts but has no
                         // enqueued calls.
                         trace.set(row, handle_pi_read(tx_phase_event->phase, 0, 0));
-                        trace.set(row, handle_phase_spec(tx_phase_event->phase));
                         trace.set(row, handle_padded_row(tx_phase_event->phase, gas_used, discard));
                     } },
                 tx_phase_event->event);
@@ -653,7 +653,6 @@ const InteractionDefinition TxTraceBuilder::interactions =
     InteractionDefinition()
         // These are all generic, think which, if any, can be made sequential.
         .add<lookup_tx_read_phase_table_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_phase_jump_on_revert_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_calldata_hash_settings, InteractionType::LookupSequential>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()

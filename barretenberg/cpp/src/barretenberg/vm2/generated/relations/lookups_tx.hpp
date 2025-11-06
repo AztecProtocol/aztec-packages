@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_tx_read_phase_table_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_TABLE";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 19;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 20;
     static constexpr Column SRC_SELECTOR = Column::tx_start_phase;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
     static constexpr Column COUNTS = Column::lookup_tx_read_phase_table_counts;
@@ -40,7 +40,8 @@ struct lookup_tx_read_phase_table_settings_ {
         ColumnAndShifts::tx_sel_can_emit_nullifier,
         ColumnAndShifts::tx_sel_can_write_public_data,
         ColumnAndShifts::tx_sel_can_emit_unencrypted_log,
-        ColumnAndShifts::tx_sel_can_emit_l2_l1_msg
+        ColumnAndShifts::tx_sel_can_emit_l2_l1_msg,
+        ColumnAndShifts::tx_next_phase_on_revert
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk,
@@ -61,35 +62,14 @@ struct lookup_tx_read_phase_table_settings_ {
         ColumnAndShifts::precomputed_sel_can_emit_nullifier,
         ColumnAndShifts::precomputed_sel_can_write_public_data,
         ColumnAndShifts::precomputed_sel_can_emit_unencrypted_log,
-        ColumnAndShifts::precomputed_sel_can_emit_l2_l1_msg
+        ColumnAndShifts::precomputed_sel_can_emit_l2_l1_msg,
+        ColumnAndShifts::precomputed_next_phase_on_revert
     };
 };
 
 using lookup_tx_read_phase_table_settings = lookup_settings<lookup_tx_read_phase_table_settings_>;
 template <typename FF_>
 using lookup_tx_read_phase_table_relation = lookup_relation_base<FF_, lookup_tx_read_phase_table_settings>;
-
-/////////////////// lookup_tx_phase_jump_on_revert ///////////////////
-
-struct lookup_tx_phase_jump_on_revert_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_TX_PHASE_JUMP_ON_REVERT";
-    static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_reverted;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
-    static constexpr Column COUNTS = Column::lookup_tx_phase_jump_on_revert_counts;
-    static constexpr Column INVERSES = Column::lookup_tx_phase_jump_on_revert_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_phase_value, ColumnAndShifts::tx_phase_value_shift
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_next_phase_on_revert
-    };
-};
-
-using lookup_tx_phase_jump_on_revert_settings = lookup_settings<lookup_tx_phase_jump_on_revert_settings_>;
-template <typename FF_>
-using lookup_tx_phase_jump_on_revert_relation = lookup_relation_base<FF_, lookup_tx_phase_jump_on_revert_settings>;
 
 /////////////////// lookup_tx_read_phase_length ///////////////////
 

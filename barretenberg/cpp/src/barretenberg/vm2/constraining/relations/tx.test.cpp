@@ -205,6 +205,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel_read_phase_length, 1 },
                 { C::tx_read_pi_length_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
+                { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                 { C::tx_start_phase, 1 },
                 { C::tx_end_phase, 1 },
             } });
@@ -224,6 +225,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel_read_phase_length, 1 },
                 { C::tx_read_pi_length_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
+                { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                 { C::tx_start_phase, 1 },
                 { C::tx_end_phase, 1 },
             } });
@@ -243,6 +245,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_read_pi_length_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX },
                 { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
+                { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                 { C::tx_start_phase, 1 },
                 { C::tx_end_phase, 1 },
             } });
@@ -276,6 +279,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                     { C::tx_sel_can_write_public_data, 1 },
                     { C::tx_sel_can_emit_unencrypted_log, 1 },
                     { C::tx_sel_can_emit_l2_l1_msg, 1 },
+                    { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                     // Public Input Loaded Values
                     { C::tx_msg_sender, app_logic_call.msgSender },
                     { C::tx_contract_addr, app_logic_call.contractAddress },
@@ -303,6 +307,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_sel_can_write_public_data, 1 },
                       { C::tx_sel_can_emit_unencrypted_log, 1 },
                       { C::tx_sel_can_emit_l2_l1_msg, 1 },
+                      { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
                       { C::tx_start_phase, 1 },
                       { C::tx_end_phase, 1 },
                   } });
@@ -455,7 +460,6 @@ TEST_F(TxExecutionConstrainingTestHelper, JumpOnRevert)
     precomputed_builder.process_misc(trace);
 
     check_relation<tx>(trace);
-    check_interaction<TxTraceBuilder, lookup_tx_phase_jump_on_revert_settings>(trace);
 }
 
 } // namespace
