@@ -184,15 +184,15 @@ void AvmProver::execute_pcs_rounds()
         shifted_batching_challenge_labels.push_back("rho_" + std::to_string(unshifted_polys.size() - 1 + idx));
     }
 
-    // Get short (128-bit) batching challenges from transcript (must match verifier)
-    auto unshifted_tail = transcript->template get_challenges<FF>(unshifted_batching_challenge_labels);
+    // Get short batching challenges from transcript
+    auto unshifted_challenges = transcript->template get_challenges<FF>(unshifted_batching_challenge_labels);
     auto shifted_challenges = transcript->template get_challenges<FF>(shifted_batching_challenge_labels);
 
     // Batch the polynomials
     Polynomial squashed_unshifted(key->circuit_size);
     squashed_unshifted += unshifted_polys[0]; // First polynomial has coefficient 1
-    for (size_t i = 0; i < unshifted_tail.size(); ++i) {
-        squashed_unshifted.add_scaled(unshifted_polys[i + 1], unshifted_tail[i]);
+    for (size_t i = 0; i < unshifted_challenges.size(); ++i) {
+        squashed_unshifted.add_scaled(unshifted_polys[i + 1], unshifted_challenges[i]);
     }
 
     Polynomial squashed_shifted(Polynomial::shiftable(key->circuit_size));
