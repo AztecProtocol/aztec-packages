@@ -195,13 +195,10 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
             // Create AVM API and run simulation with the callback-based contracts DB and
             // WorldState reference
             avm2::AvmSimAPI avm;
-            avm.simulate(inputs, contract_db, *ws_ptr);
-            // TODO(dbanks12): return PublicTxResult as the TS PublicTxSimulator returns.
-            // For now just a bool true.
-            bool success = true;
+            avm2::TxSimulationResult result = avm.simulate(inputs, contract_db, *ws_ptr);
 
             // Serialize the simulation result with msgpack into the return buffer to TS.
-            msgpack::pack(result_buffer, success);
+            msgpack::pack(result_buffer, result);
         } catch (const std::exception& e) {
             // Rethrow with context (RAII wrappers will clean up automatically)
             throw std::runtime_error(std::string("AVM simulation failed: ") + e.what());

@@ -21,10 +21,12 @@ import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import {
   GlobalVariables,
+  NestedProcessReturnValues,
   ProtocolContracts,
   PublicCallRequestWithCalldata,
   TreeSnapshots,
   type Tx,
+  TxExecutionPhase,
 } from '../tx/index.js';
 import { WorldStateRevision } from '../world-state/world_state_revision.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
@@ -705,18 +707,44 @@ export class AvmCircuitInputs {
   }
 }
 
+export type ProcessedPhase = {
+  phase: TxExecutionPhase;
+  durationMs?: number;
+  returnValues: NestedProcessReturnValues[];
+  reverted: boolean;
+  revertReason?: SimulationError;
+};
+
 export class PublicTxResult {
   constructor(
     // Simulation result.
     public gasUsed: GasUsed,
     public revertCode: RevertCode,
     public revertReason: SimulationError | undefined, // Revert reason, if any
-    public appLogicReturnValue: Fr[] | undefined, // Return/revert value of the app logic phase
-    public logs: DebugLog[],
+    // These are only guaranteed to be present in "client initiated simulation" mode.
+    public processedPhases: ProcessedPhase[] | undefined,
+    public logs: DebugLog[] | undefined,
     // For the proving request.
     public hints: AvmExecutionHints | undefined,
     public publicInputs: AvmCircuitPublicInputs,
   ) {}
+
+  static empty() {
+    return new PublicTxResult(
+      {
+        totalGas: Gas.empty(),
+        teardownGas: Gas.empty(),
+        publicGas: Gas.empty(),
+        billedGas: Gas.empty(),
+      },
+      RevertCode.OK,
+      /*revertReason=*/ undefined,
+      /*processedPhases=*/ [],
+      /*logs=*/ [],
+      /*hints=*/ AvmExecutionHints.empty(),
+      /*publicInputs=*/ AvmCircuitPublicInputs.empty(),
+    );
+  }
 
   /*
   static get schema(): ZodFor<PublicTxResult> {

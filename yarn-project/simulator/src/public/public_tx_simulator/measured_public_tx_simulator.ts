@@ -1,5 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
+import type { ProcessedPhase, PublicTxResult, PublicTxSimulatorConfig } from '@aztec/stdlib/avm';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -10,12 +11,7 @@ import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js'
 import type { PublicContractsDB } from '../public_db_sources.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
-import {
-  type ProcessedPhase,
-  type PublicTxResult,
-  PublicTxSimulator,
-  type PublicTxSimulatorConfig,
-} from './public_tx_simulator.js';
+import { PublicTxSimulator } from './public_tx_simulator.js';
 import type { MeasuredPublicTxSimulatorInterface } from './public_tx_simulator_interface.js';
 
 /**
