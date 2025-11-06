@@ -117,22 +117,76 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
   if [[ -f "$benchmark_breakdown_file" ]]; then
     current_sha=$(git rev-parse HEAD)
 
+    # Copy to /tmp with unique name to avoid race conditions with concurrent flows
+    # Other flows might delete bench-out before we finish uploading
+    tmp_breakdown_file="/tmp/benchmark_breakdown_${runtime}_${flow_name}_$$.json"
+    cp "$benchmark_breakdown_file" "$tmp_breakdown_file"
+
     # Create cache key: bench-bb-breakdown-<runtime>-<flow_name>-<sha>
     # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<runtime>-<flow_name>-<sha>
     cache_key="bench-bb-breakdown-${runtime}-${flow_name}-${current_sha}"
 
-    # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder)
+    # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder) in background
     {
       # Write to Redis for ci.aztec-labs.com access
-      cat "$benchmark_breakdown_file" | gzip | redis_cli -x SETEX "$cache_key" 2592000 &>/dev/null
+      cat "$tmp_breakdown_file" | gzip | redis_cli -x SETEX "$cache_key" 2592000 &>/dev/null
 
       # Write to disk in explicit subfolder (only if disk logging enabled)
       if [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
         # Strip the prefix from key when writing to disk subfolder
         disk_key="${cache_key#bench-bb-breakdown-}"
-        cat "$benchmark_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$disk_key"
+        cat "$tmp_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$disk_key"
       fi
     } &
+
+    # Also commit to gh-pages for public access via GitHub raw URLs
+    # Run in foreground to catch any errors
+    gh auth setup-git &>/dev/null || true
+
+    # Clone gh-pages once (shallow clone for speed)
+    rm -rf "/tmp/gh-pages-$$" 2>/dev/null || true
+    if ! git clone --depth 1 --branch gh-pages "$(git config --get remote.origin.url)" /tmp/gh-pages-$$; then
+      echo "Failed to clone gh-pages, skipping upload"
+    else
+      cd "/tmp/gh-pages-$$"
+      git config user.name "Aztec Bot"
+      git config user.email "bot@aztec.network"
+
+      # Create directory structure: bench/barretenberg-breakdowns/<flow>/<runtime>-<sha>.json
+      mkdir -p "bench/barretenberg-breakdowns/${flow_name}"
+      cp "$tmp_breakdown_file" "bench/barretenberg-breakdowns/${flow_name}/${runtime}-${current_sha:0:7}.json"
+
+      git add "bench/barretenberg-breakdowns/"
+
+      if ! git diff --staged --quiet; then
+        git commit -m "Add ${runtime} benchmark breakdown for ${flow_name} at ${current_sha:0:7}"
+
+        # Retry push up to 5 times with pull-rebase to handle concurrent pushes
+        for push_attempt in {1..5}; do
+          if git push 2>&1; then
+            echo "Successfully pushed breakdown to gh-pages"
+            break
+          else
+            echo "Push failed (attempt $push_attempt/5), pulling with rebase and retrying..."
+            # Pull with rebase to get latest changes and replay our commit on top
+            if git pull --rebase origin gh-pages; then
+              sleep $((push_attempt * 2))
+            else
+              echo "Rebase failed, this might happen if file already exists with same content"
+              break
+            fi
+          fi
+        done
+      else
+        echo "No changes to commit (file already exists)"
+      fi
+
+      cd - > /dev/null
+      rm -rf "/tmp/gh-pages-$$"
+    fi
+
+    # Clean up tmp file
+    rm -f "$tmp_breakdown_file"
 
     echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/$cache_key"
   else
