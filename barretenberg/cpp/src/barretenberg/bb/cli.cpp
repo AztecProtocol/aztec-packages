@@ -31,6 +31,7 @@
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/vm2/api_avm.hpp"
 #include <fstream>
 #include <iostream>
 
@@ -472,6 +473,17 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_avm_inputs_option(avm_prove_command);
 
     /***************************************************************************************************************
+     * Subcommand: avm_write_vk
+     ***************************************************************************************************************/
+    CLI::App* avm_write_vk_command = app.add_subcommand("avm_write_vk", "");
+    avm_write_vk_command->group(""); // hide from list of subcommands
+    add_verbose_flag(avm_write_vk_command);
+    add_debug_flag(avm_write_vk_command);
+    add_crs_path_option(avm_write_vk_command);
+    std::filesystem::path avm_write_vk_output_path{ "./keys" };
+    add_output_path_option(avm_write_vk_command, avm_write_vk_output_path);
+
+    /***************************************************************************************************************
      * Subcommand: avm_check_circuit
      ***************************************************************************************************************/
     CLI::App* avm_check_circuit_command = app.add_subcommand("avm_check_circuit", "");
@@ -651,6 +663,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
         } else if (avm_simulate_command->parsed()) {
             avm_simulate(avm_inputs_path);
+        } else if (avm_write_vk_command->parsed()) {
+            avm_write_verification_key(avm_write_vk_output_path);
         } else if (flags.scheme == "chonk") {
             ChonkAPI api;
             if (prove->parsed()) {

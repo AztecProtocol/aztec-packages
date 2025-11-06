@@ -162,9 +162,12 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
         }.execute();
 
         if (!response.valid) {
+            info("VK mismatch detected for function ", step.function_name);
             if (!flags.update_inputs) {
+                info("Computed VK differs from precomputed VK in ivc-inputs.msgpack");
                 return false;
             }
+            info("Updating VK in ivc-inputs.msgpack with computed value");
             step.vk = response.actual_vk;
             check_failed = true;
         }

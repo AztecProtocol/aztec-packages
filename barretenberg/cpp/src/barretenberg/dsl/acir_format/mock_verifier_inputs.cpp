@@ -106,14 +106,14 @@ HonkProof create_mock_multilinear_batch_proof()
     using FF = typename Flavor::FF;
     HonkProof proof;
 
-    // Populate mock witness polynomial commitments
-    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
+    // Populate mock witness accumulator commitments
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES / 2);
 
-    // Accumulator and instance multivariate challenges
-    populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N * 2);
+    // Accumulator multivariate challenges
+    populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N);
 
-    // Witness polynomial evaluations
-    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES);
+    // Witness accumulator polynomial evaluations
+    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES / 2);
 
     // Sumcheck proof
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();

@@ -1,11 +1,6 @@
-import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AVM_VK_INDEX,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-} from '@aztec/constants';
+import { AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
-import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
-import { getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { getAvmVkData, getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ProofData } from '@aztec/stdlib/proofs';
@@ -20,7 +15,6 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx } from '@aztec/stdlib/tx';
-import { VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
 import {
   getChonkProofFromTx,
@@ -123,16 +117,9 @@ export class TxProvingState {
     const avmProofData = new ProofData(
       this.processedTx.avmProvingRequest.inputs.publicInputs,
       this.avm.proof,
-      this.#getVkData(this.avm!.verificationKey, AVM_VK_INDEX),
+      getAvmVkData(),
     );
 
     return new PublicTxBaseRollupPrivateInputs(publicChonkVerifierProofData, avmProofData, this.baseRollupHints);
-  }
-
-  #getVkData(verificationKey: VerificationKeyData, vkIndex: number) {
-    // TODO(#17162): Add avm vk hash to the tree and call `getVkData('AVM')` instead.
-    // Below will return a path to an empty leaf.
-    const vkPath = getVKSiblingPath(vkIndex);
-    return new VkData(verificationKey, vkIndex, vkPath);
   }
 }

@@ -70,4 +70,15 @@ bool AvmAPI::verify(const AvmProof& proof, const PublicInputs& pi, const AvmVeri
     return AVM_TRACK_TIME_V("verifing/all", proving_helper.verify(proof, pi, vk_data));
 }
 
+AvmAPI::AvmVerificationKey AvmAPI::get_verification_key()
+{
+    info("Generating trace...");
+    AvmTraceGenHelper tracegen_helper;
+    auto trace = tracegen_helper.generate_precomputed_columns();
+
+    info("Computing verification key...");
+    AvmProvingHelper proving_helper;
+    return proving_helper.compute_verification_key(trace);
+}
+
 } // namespace bb::avm2

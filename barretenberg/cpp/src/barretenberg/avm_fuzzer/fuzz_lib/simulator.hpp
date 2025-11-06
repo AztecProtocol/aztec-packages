@@ -36,8 +36,11 @@ class CppSimulator : public Simulator {
 class JsSimulator : public Simulator {
   protected:
     static JsSimulator* instance;
+    std::string simulator_path;
     JsSimulator(std::string& simulator_path);
     Process process;
+
+    static void restart_simulator();
 
   public:
     JsSimulator(JsSimulator& other) = delete;
