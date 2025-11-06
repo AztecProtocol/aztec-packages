@@ -1,3845 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1762441522845,
+  "lastUpdate": 1762443202463,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "Aztec Benchmarks": [
-      {
-        "commit": {
-          "author": {
-            "name": "Aztec Bot",
-            "username": "AztecBot",
-            "email": "49558828+AztecBot@users.noreply.github.com"
-          },
-          "committer": {
-            "name": "GitHub",
-            "username": "web-flow",
-            "email": "noreply@github.com"
-          },
-          "id": "f95bd9eadd960ce5ae2a01f530cc9a507225d060",
-          "message": "feat(yp/crypto): BN254 ecc ops (#17968)\n\nAdds a barrentenberg-backed BN254 ECC ops module to foundation.\nCurrently uses WASM backend, this will change soon as the default\nbackend policy changes to native for node code.\n\n- Added `Bn254G1Point` and `Bn254G2Point` classes using foundation field\ntypes (`Fq` for coordinates, `Fr` for scalars)\n- G2 extension field coordinates represented as `[Fq, Fq]` tuples\n- Point operations (multiplication, curve membership checks) backed by\nbarretenberg\n\n**Barretenberg integration:**\n- Added bbapi wrappers for BN254 operations (point multiplication,\nisOnCurve checks, square root)\n- Programmatic curve constant generation via msgpack interface\n- Proper type-specific msgpack schemas for serialization\n\n**Cleanup:**\n- Don't expose bb.js Fr and delete Fq. For now, bb.js gives you raw\nbuffers and expects you to wrap them. We don't expect much use of bb.js\nfor cryptography work outside of foundation package.",
-          "timestamp": "2025-10-28T19:41:30Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f95bd9eadd960ce5ae2a01f530cc9a507225d060"
-        },
-        "date": 1761684225888,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "barretenberg/cpp/bb-micro-bench/wasm/chonk/seconds",
-            "value": 57369.50600499999,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/bb-micro-bench/wasm/chonk/memory",
-            "value": "1461",
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/bb-micro-bench/wasm/ultra_honk/seconds",
-            "value": 15912.542033000002,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/bb-micro-bench/wasm/ultra_honk/memory",
-            "value": "1472",
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/bb-micro-bench/native/chonk/seconds",
-            "value": 22206.93996,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/bb-micro-bench/native/chonk/memory",
-            "value": "959",
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/bb-micro-bench/native/ultra_honk/seconds",
-            "value": 6758.229919000314,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/bb-micro-bench/native/ultra_honk/memory",
-            "value": "1346",
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/bb-micro-bench/native/chonk_verify/seconds",
-            "value": 365.88079100010873,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/bb-micro-bench/native/chonk_verify/memory",
-            "value": "942",
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+sponsored_fpc/wasm/seconds",
-            "value": 27153,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+sponsored_fpc/wasm/memory",
-            "value": 525,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+sponsored_fpc/native/seconds",
-            "value": 10744,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+sponsored_fpc/native/memory",
-            "value": 511,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/chrome-wasm/memory",
-            "value": 498.13,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/chrome-wasm/time",
-            "value": 36983,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/wasm/seconds",
-            "value": 23810,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/wasm/memory",
-            "value": 515,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/native/seconds",
-            "value": 9948,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/native/memory",
-            "value": 482,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+token_bridge_claim_private+sponsored_fpc/wasm/seconds",
-            "value": 30140,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+token_bridge_claim_private+sponsored_fpc/wasm/memory",
-            "value": 535,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+token_bridge_claim_private+sponsored_fpc/native/seconds",
-            "value": 12036,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+token_bridge_claim_private+sponsored_fpc/native/memory",
-            "value": 517,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/deploy_ecdsar1+sponsored_fpc/wasm/seconds",
-            "value": 37218,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/deploy_ecdsar1+sponsored_fpc/wasm/memory",
-            "value": 1119,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/deploy_ecdsar1+sponsored_fpc/native/seconds",
-            "value": 12983,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/deploy_ecdsar1+sponsored_fpc/native/memory",
-            "value": 514,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+private_fpc/wasm/seconds",
-            "value": 42685,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+private_fpc/wasm/memory",
-            "value": 612,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+private_fpc/native/seconds",
-            "value": 17259,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+private_fpc/native/memory",
-            "value": 598,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/wasm/seconds",
-            "value": 47891,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/wasm/memory",
-            "value": 588,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/native/seconds",
-            "value": 20354,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/native/memory",
-            "value": 572,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/wasm/seconds",
-            "value": 33989,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/wasm/memory",
-            "value": 531,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/native/seconds",
-            "value": 13750,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/native/memory",
-            "value": 544,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/wasm/seconds",
-            "value": 37560,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/wasm/memory",
-            "value": 553,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/native/seconds",
-            "value": 12641,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/native/memory",
-            "value": 569,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/deploy_schnorr+sponsored_fpc/wasm/seconds",
-            "value": 30849,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/deploy_schnorr+sponsored_fpc/wasm/memory",
-            "value": 542,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/deploy_schnorr+sponsored_fpc/native/seconds",
-            "value": 13554,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/deploy_schnorr+sponsored_fpc/native/memory",
-            "value": 514,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+private_fpc/wasm/seconds",
-            "value": 37998,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+private_fpc/wasm/memory",
-            "value": 558,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+private_fpc/native/seconds",
-            "value": 14168,
-            "unit": "ms"
-          },
-          {
-            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+private_fpc/native/memory",
-            "value": 554,
-            "unit": "MB"
-          },
-          {
-            "name": "barretenberg/sol/Add2HonkVerifier",
-            "value": 959468,
-            "unit": "gas"
-          },
-          {
-            "name": "barretenberg/sol/Add2HonkZKVerifier",
-            "value": 1849902,
-            "unit": "gas"
-          },
-          {
-            "name": "barretenberg/sol/BlakeHonkVerifier",
-            "value": 1438985,
-            "unit": "gas"
-          },
-          {
-            "name": "barretenberg/sol/BlakeHonkZKVerifier",
-            "value": 2396924,
-            "unit": "gas"
-          },
-          {
-            "name": "barretenberg/sol/EcdsaHonkVerifier",
-            "value": 1494912,
-            "unit": "gas"
-          },
-          {
-            "name": "barretenberg/sol/EcdsaHonkZKVerifier",
-            "value": 2460293,
-            "unit": "gas"
-          },
-          {
-            "name": "barretenberg/sol/RecursiveHonkVerifier",
-            "value": 1700651,
-            "unit": "gas"
-          },
-          {
-            "name": "barretenberg/sol/RecursiveHonkZKVerifier",
-            "value": 2695776,
-            "unit": "gas"
-          },
-          {
-            "name": "barretenberg/sol/BlakeOptHonkVerifier",
-            "value": 585536,
-            "unit": "gas"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/totalDurationMs",
-            "value": 533.5762159999995,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/manaUsed",
-            "value": 2026756,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/totalInstructionsExecuted",
-            "value": 86681,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/nonRevertiblePrivateInsertionsUs",
-            "value": 8702.78000000053,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/revertiblePrivateInsertionsUs",
-            "value": 6239.6090000002005,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/proverSimulationStepMs",
-            "value": 599,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/proverProvingStepMs",
-            "value": 17181,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/proverTraceGenerationStepMs",
-            "value": 4007,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/traceGenerationInteractionsMs",
-            "value": 1387,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/traceGenerationTracesMs",
-            "value": 2554,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/provingSumcheckMs",
-            "value": 6520,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/provingPcsMs",
-            "value": 2831,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/provingLogDerivativeInverseMs",
-            "value": 393,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/provingLogDerivativeInverseCommitmentsMs",
-            "value": 2133,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/provingWireCommitmentsMs",
-            "value": 4087,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/kv-store/Map/Individual insertion",
-            "value": 2.2972008510000004,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/kv-store/Map/Batch insertion of 1000 items",
-            "value": 14.147364710000002,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/kv-store/Map/Individual read",
-            "value": 99.4475294,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/kv-store/Map/Iterator per item read of 10000 items",
-            "value": 18.998547899999995,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/kv-store/Map/Read size of 10000 items",
-            "value": 441.0282159999997,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/1 txs/addTxs/dbSize_after_50_batches",
-            "value": 8314880,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/1 txs/addTxs/avg",
-            "value": 21.44,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/1 txs/addTxs/p50",
-            "value": 20,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/1 txs/addTxs/p95",
-            "value": 28,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/1 txs/getTxsByHash/avg",
-            "value": 4.8,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/1 txs/getTxsByHash/p50",
-            "value": 4,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/1 txs/getTxsByHash/p95",
-            "value": 7,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/1 txs/deleteTxs/avg",
-            "value": 7.52,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/1 txs/deleteTxs/p50",
-            "value": 7,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/1 txs/deleteTxs/p95",
-            "value": 9,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/4 txs/addTxs/dbSize_after_50_batches",
-            "value": 33087488,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/4 txs/addTxs/avg",
-            "value": 60.9,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/4 txs/addTxs/p50",
-            "value": 60,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/4 txs/addTxs/p95",
-            "value": 65,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/4 txs/getTxsByHash/avg",
-            "value": 13.86,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/4 txs/getTxsByHash/p50",
-            "value": 14,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/4 txs/getTxsByHash/p95",
-            "value": 14,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/4 txs/deleteTxs/avg",
-            "value": 21.08,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/4 txs/deleteTxs/p50",
-            "value": 21,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/4 txs/deleteTxs/p95",
-            "value": 23,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/8 txs/addTxs/dbSize_after_50_batches",
-            "value": 66105344,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/8 txs/addTxs/avg",
-            "value": 117.42,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/8 txs/addTxs/p50",
-            "value": 112,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/8 txs/addTxs/p95",
-            "value": 154,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/8 txs/getTxsByHash/avg",
-            "value": 27.84,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/8 txs/getTxsByHash/p50",
-            "value": 28,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/8 txs/getTxsByHash/p95",
-            "value": 29,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/8 txs/deleteTxs/avg",
-            "value": 39.08,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/8 txs/deleteTxs/p50",
-            "value": 39,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/8 txs/deleteTxs/p95",
-            "value": 40,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/20 txs/addTxs/dbSize_after_50_batches",
-            "value": 165171200,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/20 txs/addTxs/avg",
-            "value": 276.64,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/20 txs/addTxs/p50",
-            "value": 266,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/20 txs/addTxs/p95",
-            "value": 306,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/20 txs/getTxsByHash/avg",
-            "value": 80.72,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/20 txs/getTxsByHash/p50",
-            "value": 77,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/20 txs/getTxsByHash/p95",
-            "value": 113,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/20 txs/deleteTxs/avg",
-            "value": 92.12,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/20 txs/deleteTxs/p50",
-            "value": 92,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/20 txs/deleteTxs/p95",
-            "value": 93,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/40 txs/addTxs/dbSize_after_50_batches",
-            "value": 330260480,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/40 txs/addTxs/avg",
-            "value": 530.4,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/40 txs/addTxs/p50",
-            "value": 531,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/40 txs/addTxs/p95",
-            "value": 563,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/40 txs/getTxsByHash/avg",
-            "value": 159.88,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/40 txs/getTxsByHash/p50",
-            "value": 150,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/40 txs/getTxsByHash/p95",
-            "value": 208,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/40 txs/deleteTxs/avg",
-            "value": 182.2,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/40 txs/deleteTxs/p50",
-            "value": 182,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/p2p/TxPool/40 txs/deleteTxs/p95",
-            "value": 188,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Sequencer/aztec.sequencer.block.build_duration",
-            "value": 4979,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.20588921389645132,
-            "unit": "us/mana"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/witgen",
-            "value": 2249.7234790000075,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/total",
-            "value": 2749.0349350000324,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/sync",
-            "value": 3.7461160000093514,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/unaccounted",
-            "value": 495.56534000001557,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/total_gate_count",
-            "value": 762902,
-            "unit": "gates"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/rpc",
-            "value": 32,
-            "unit": "calls"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/witgen",
-            "value": 1769.3116140000202,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/total",
-            "value": 2260.3474560000104,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/sync",
-            "value": 24.122128999995766,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/unaccounted",
-            "value": 466.91371299999446,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/total_gate_count",
-            "value": 573857,
-            "unit": "gates"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/rpc",
-            "value": 24,
-            "unit": "calls"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/witgen",
-            "value": 3930.210930000001,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/total",
-            "value": 4984.181256000025,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/sync",
-            "value": 13.209465000007185,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/unaccounted",
-            "value": 1040.760861000017,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/total_gate_count",
-            "value": 1159454,
-            "unit": "gates"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/rpc",
-            "value": 93,
-            "unit": "calls"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/witgen",
-            "value": 4831.751715999999,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/total",
-            "value": 6083.409722000011,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/sync",
-            "value": 19.30621299998893,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/unaccounted",
-            "value": 1232.3517930000235,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/total_gate_count",
-            "value": 1611870,
-            "unit": "gates"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/rpc",
-            "value": 96,
-            "unit": "calls"
-          },
-          {
-            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/witgen",
-            "value": 2717.075818000012,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/total",
-            "value": 3059.0423180000143,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/sync",
-            "value": 14.326850999997987,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/unaccounted",
-            "value": 327.6396490000043,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/total_gate_count",
-            "value": 956255,
-            "unit": "gates"
-          },
-          {
-            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/rpc",
-            "value": 21,
-            "unit": "calls"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/witgen",
-            "value": 4952.779503999976,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/total",
-            "value": 6250.596237999998,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/sync",
-            "value": 8.405100999982096,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/unaccounted",
-            "value": 1289.4116330000397,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/total_gate_count",
-            "value": 1389436,
-            "unit": "gates"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/rpc",
-            "value": 178,
-            "unit": "calls"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Snappy/Compression Duration",
-            "value": 0.10140105999991647,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Snappy/Decompression Duration",
-            "value": 0.08963087999989511,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Snappy/Compressed Size",
-            "value": 56264,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Zstd/Compression Duration",
-            "value": 0.6698865600000136,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Zstd/Decompression Duration",
-            "value": 0.570002000000095,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Zstd/Compressed Size",
-            "value": 50000,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Deflate/Compression Duration",
-            "value": 1.2823523600000772,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Deflate/Decompression Duration",
-            "value": 0.2445386399999552,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Deflate/Compressed Size",
-            "value": 51467,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Brotli/Compression Duration",
-            "value": 198.49969264000015,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Brotli/Decompression Duration",
-            "value": 0.5706357600001501,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Brotli/Compressed Size",
-            "value": 49684,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Snappy/Compression Duration",
-            "value": 0.12970888000010747,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Snappy/Decompression Duration",
-            "value": 0.15275859999994282,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Snappy/Compressed Size",
-            "value": 56891,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Zstd/Compression Duration",
-            "value": 0.6463887200001045,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Zstd/Decompression Duration",
-            "value": 0.265212360000005,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Zstd/Compressed Size",
-            "value": 48496,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Deflate/Compression Duration",
-            "value": 1.3606496599997626,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Deflate/Decompression Duration",
-            "value": 0.2372889200001373,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Deflate/Compressed Size",
-            "value": 49998,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Brotli/Compression Duration",
-            "value": 262.8373019599999,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Brotli/Decompression Duration",
-            "value": 0.686881739999808,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Brotli/Compressed Size",
-            "value": 47902,
-            "unit": "bytes"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/Single Private Transaction/IVC Verification Time",
-            "value": 401.3358807999997,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/Single Private Transaction/Total Verification Time (includes serde)",
-            "value": 406.0032727999991,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/Single Public Transaction/IVC Verification Time",
-            "value": 408.2323898500028,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/Single Public Transaction/Total Verification Time (includes serde)",
-            "value": 413.96817169999923,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Avg IVC Verification Time",
-            "value": 441.758756575,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Min IVC Verification Time",
-            "value": 405.49191800001427,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Max IVC Verification Time",
-            "value": 470.31727100000717,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Avg Total Verification Time (includes serde)",
-            "value": 448.74564746,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Min Total Verification Time  (includes serde)",
-            "value": 416.5795259999868,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Max Total Verification Time  (includes serde)",
-            "value": 483.8971099999908,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Overall Tx Verification Time",
-            "value": 60443.08908199999,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/witgen",
-            "value": 2290.2608130000044,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/total",
-            "value": 2713.2130149999975,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/sync",
-            "value": 10.38495200000034,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/unaccounted",
-            "value": 412.5672499999928,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/total_gate_count",
-            "value": 907783,
-            "unit": "gates"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/rpc",
-            "value": 21,
-            "unit": "calls"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/witgen",
-            "value": 2211.5858729999964,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/total",
-            "value": 2602.8412339999995,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/sync",
-            "value": 2.0360230000005686,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/unaccounted",
-            "value": 389.2193380000026,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/total_gate_count",
-            "value": 834470,
-            "unit": "gates"
-          },
-          {
-            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/rpc",
-            "value": 23,
-            "unit": "calls"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/witgen",
-            "value": 2702.9924300000057,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/total",
-            "value": 3059.502239000012,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/sync",
-            "value": 9.50459200000114,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/unaccounted",
-            "value": 347.00521700000536,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/total_gate_count",
-            "value": 1023119,
-            "unit": "gates"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/rpc",
-            "value": 20,
-            "unit": "calls"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/witgen",
-            "value": 2534.0963839999895,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/total",
-            "value": 3197.5137939999986,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/sync",
-            "value": 7.020449999996345,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/unaccounted",
-            "value": 656.3969600000128,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/total_gate_count",
-            "value": 726922,
-            "unit": "gates"
-          },
-          {
-            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/rpc",
-            "value": 80,
-            "unit": "calls"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_single_epoch/avg_latency",
-            "value": 56.49419335483868,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_single_epoch/median_latency",
-            "value": 56.03388800000039,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_single_epoch/p95_latency",
-            "value": 59.94960399999991,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_single_epoch/total_duration",
-            "value": 61.43055099999992,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_single_epoch/jobs_per_sec",
-            "value": 504.6349006376329,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_random_epochs/avg_latency",
-            "value": 15.685967999999965,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_random_epochs/median_latency",
-            "value": 13.688716000000113,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_random_epochs/p95_latency",
-            "value": 13.93762199999992,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_random_epochs/total_duration",
-            "value": 55.9844149999999,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_random_epochs/jobs_per_sec",
-            "value": 553.7255323646779,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/avg_latency",
-            "value": 11.658106612903177,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/median_latency",
-            "value": 10.491305999999895,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/p95_latency",
-            "value": 10.841929000000164,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/total_duration",
-            "value": 55.32799100000011,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/jobs_per_sec",
-            "value": 560.2950593308175,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/avg_latency",
-            "value": 29.78462858169934,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/median_latency",
-            "value": 23.23491100000001,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/p95_latency",
-            "value": 51.75733799999989,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/total_duration",
-            "value": 67.38101000000006,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/jobs_per_sec",
-            "value": 2270.6694363886777,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/avg_latency",
-            "value": 22.424372620915022,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/median_latency",
-            "value": 22.37503400000014,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/p95_latency",
-            "value": 26.700918,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/total_duration",
-            "value": 73.94329999999991,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/jobs_per_sec",
-            "value": 2069.1529861393824,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/avg_latency",
-            "value": 29.821952424836628,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/median_latency",
-            "value": 29.87515600000006,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/p95_latency",
-            "value": 29.93705,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/total_duration",
-            "value": 75.33063099999981,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/jobs_per_sec",
-            "value": 2031.0463083735535,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/avg_latency",
-            "value": 102.06685091140291,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/median_latency",
-            "value": 101.52762600000005,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/p95_latency",
-            "value": 166.25507199999993,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/total_duration",
-            "value": 218.67614400000002,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/jobs_per_sec",
-            "value": 5574.4535169780565,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/avg_latency",
-            "value": 145.6185686677603,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/median_latency",
-            "value": 143.21712400000024,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/p95_latency",
-            "value": 169.4299600000004,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/total_duration",
-            "value": 284.5938079999996,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/jobs_per_sec",
-            "value": 4283.297688613105,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/avg_latency",
-            "value": 188.76819406726796,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/median_latency",
-            "value": 189.0905969999999,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/p95_latency",
-            "value": 209.68818499999952,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/total_duration",
-            "value": 371.5915319999999,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/jobs_per_sec",
-            "value": 3280.4837974617794,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/avg_latency",
-            "value": 1326.289195476863,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/median_latency",
-            "value": 1328.6366369999996,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/p95_latency",
-            "value": 1995.5084959999995,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/total_duration",
-            "value": 2627.498573,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/jobs_per_sec",
-            "value": 7314.561536776142,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/avg_latency",
-            "value": 2067.91443491353,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/median_latency",
-            "value": 2080.5365230000007,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/p95_latency",
-            "value": 2120.7132029999993,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/total_duration",
-            "value": 4074.248074,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/jobs_per_sec",
-            "value": 4717.189442303949,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/avg_latency",
-            "value": 3038.8893053943916,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/median_latency",
-            "value": 3078.112700999998,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/p95_latency",
-            "value": 3628.6295949999985,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/total_duration",
-            "value": 5949.105373999999,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/jobs_per_sec",
-            "value": 3230.5697733973275,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/avg_latency",
-            "value": 2996.5582511763346,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/median_latency",
-            "value": 3015.207512000001,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/p95_latency",
-            "value": 4298.145465000001,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/total_duration",
-            "value": 5839.910899999999,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/jobs_per_sec",
-            "value": 6576.4701992285545,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/avg_latency",
-            "value": 5018.675228165763,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/median_latency",
-            "value": 5105.401654999998,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/p95_latency",
-            "value": 5240.747204999996,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/total_duration",
-            "value": 9751.735488999999,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/jobs_per_sec",
-            "value": 3938.3758966106225,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/avg_latency",
-            "value": 7313.576153282422,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/median_latency",
-            "value": 7495.844560999998,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/p95_latency",
-            "value": 9226.724056,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/total_duration",
-            "value": 13946.452129000001,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/jobs_per_sec",
-            "value": 2753.8186518519115,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_1agents_1agents/queue_empty_time",
-            "value": 1.127334000004339,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_1agents_1agents/avg_dequeue_latency",
-            "value": 0.03240438709561262,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_1agents_1agents/median_dequeue_latency",
-            "value": 0.015131000000110362,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_1agents_1agents/p95_dequeue_latency",
-            "value": 0.04716300000291085,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_10agents_10agents/queue_empty_time",
-            "value": 0.9701840000052471,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_10agents_10agents/avg_dequeue_latency",
-            "value": 0.2269822903228135,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_10agents_10agents/median_dequeue_latency",
-            "value": 0.2297850000031758,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_10agents_10agents/p95_dequeue_latency",
-            "value": 0.2579169999953592,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_50agents_50agents/queue_empty_time",
-            "value": 1.205268999998225,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_50agents_50agents/avg_dequeue_latency",
-            "value": 0.7289009677429755,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_50agents_50agents/median_dequeue_latency",
-            "value": 0.7164069999998901,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_50agents_50agents/p95_dequeue_latency",
-            "value": 0.7943920000034268,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_1agents_1agents/queue_empty_time",
-            "value": 2.0264830000014626,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_1agents_1agents/avg_dequeue_latency",
-            "value": 0.012556673202625997,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_1agents_1agents/median_dequeue_latency",
-            "value": 0.011279999998805579,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_1agents_1agents/p95_dequeue_latency",
-            "value": 0.014832000000751577,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_10agents_10agents/queue_empty_time",
-            "value": 2.0891669999982696,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_10agents_10agents/avg_dequeue_latency",
-            "value": 0.12598109150351425,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_10agents_10agents/median_dequeue_latency",
-            "value": 0.11879799999587703,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_10agents_10agents/p95_dequeue_latency",
-            "value": 0.15268999999534572,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_50agents_50agents/queue_empty_time",
-            "value": 2.6702250000016647,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_50agents_50agents/avg_dequeue_latency",
-            "value": 0.6439350457513725,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_50agents_50agents/median_dequeue_latency",
-            "value": 0.6235899999956018,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_50agents_50agents/p95_dequeue_latency",
-            "value": 0.7676910000009229,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_1agents_1agents/queue_empty_time",
-            "value": 15.732771999995748,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_1agents_1agents/avg_dequeue_latency",
-            "value": 0.012359560295270272,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_1agents_1agents/median_dequeue_latency",
-            "value": 0.011051000001316424,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_1agents_1agents/p95_dequeue_latency",
-            "value": 0.013371000000915956,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_10agents_10agents/queue_empty_time",
-            "value": 13.041914999994333,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_10agents_10agents/avg_dequeue_latency",
-            "value": 0.10510921985239798,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_10agents_10agents/median_dequeue_latency",
-            "value": 0.10042700000485638,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_10agents_10agents/p95_dequeue_latency",
-            "value": 0.12737799999740673,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_50agents_50agents/queue_empty_time",
-            "value": 15.136953000001085,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_50agents_50agents/avg_dequeue_latency",
-            "value": 0.5954207522560019,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_50agents_50agents/median_dequeue_latency",
-            "value": 0.5299149999991641,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_50agents_50agents/p95_dequeue_latency",
-            "value": 0.6926949999979115,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_1agents_1agents/queue_empty_time",
-            "value": 217.50528599999961,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_1agents_1agents/avg_dequeue_latency",
-            "value": 0.010890458504597465,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_1agents_1agents/median_dequeue_latency",
-            "value": 0.009891000001516659,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_1agents_1agents/p95_dequeue_latency",
-            "value": 0.011910999994142912,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_10agents_10agents/queue_empty_time",
-            "value": 225.86900199999945,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_10agents_10agents/avg_dequeue_latency",
-            "value": 0.11701834242159082,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_10agents_10agents/median_dequeue_latency",
-            "value": 0.10576700000092387,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_10agents_10agents/p95_dequeue_latency",
-            "value": 0.12436799999704817,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_50agents_50agents/queue_empty_time",
-            "value": 231.9381199999989,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_50agents_50agents/avg_dequeue_latency",
-            "value": 0.6013593912794666,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_50agents_50agents/median_dequeue_latency",
-            "value": 0.5500560000000405,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_50agents_50agents/p95_dequeue_latency",
-            "value": 0.5870090000025812,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_1agents_1agents/queue_empty_time",
-            "value": 470.77948299999116,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_1agents_1agents/avg_dequeue_latency",
-            "value": 0.011826607951851021,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_1agents_1agents/median_dequeue_latency",
-            "value": 0.010119999991729856,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_1agents_1agents/p95_dequeue_latency",
-            "value": 0.012910999997984618,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_10agents_10agents/queue_empty_time",
-            "value": 444.4751779999933,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_10agents_10agents/avg_dequeue_latency",
-            "value": 0.11525077138991718,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_10agents_10agents/median_dequeue_latency",
-            "value": 0.10631599999032915,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_10agents_10agents/p95_dequeue_latency",
-            "value": 0.12633899999491405,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_50agents_50agents/queue_empty_time",
-            "value": 448.18256099999417,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_50agents_50agents/avg_dequeue_latency",
-            "value": 0.5822036185492045,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_50agents_50agents/median_dequeue_latency",
-            "value": 0.5544760000047972,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_50agents_50agents/p95_dequeue_latency",
-            "value": 0.5925389999902109,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/minimum_epoch/startup_time",
-            "value": 20.994063999998616,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/minimum_epoch/jobs_per_sec",
-            "value": 1476.607864013468,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/minimum_epoch/no_epoch_deletion_cleanup_time",
-            "value": 0.035812000001897104,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/minimum_epoch/full_epoch_deletion_cleanup_time",
-            "value": 1.255961999995634,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/small_epoch/startup_time",
-            "value": 67.47635799999989,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/small_epoch/jobs_per_sec",
-            "value": 2267.460849028044,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/small_epoch/no_epoch_deletion_cleanup_time",
-            "value": 0.059563999995589256,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/small_epoch/full_epoch_deletion_cleanup_time",
-            "value": 0.7688009999983478,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/medium_epoch/startup_time",
-            "value": 494.6122400000022,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/medium_epoch/jobs_per_sec",
-            "value": 2464.556881972825,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/medium_epoch/no_epoch_deletion_cleanup_time",
-            "value": 0.19812299999466632,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/medium_epoch/full_epoch_deletion_cleanup_time",
-            "value": 1.5115989999903832,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/large_epoch/startup_time",
-            "value": 7347.926104999991,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/large_epoch/jobs_per_sec",
-            "value": 2615.5679473861587,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/large_epoch/no_epoch_deletion_cleanup_time",
-            "value": 1.5176999999966938,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/large_epoch/full_epoch_deletion_cleanup_time",
-            "value": 7.050301000010222,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/maximum_epoch/startup_time",
-            "value": 15918.116559000002,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/maximum_epoch/jobs_per_sec",
-            "value": 2412.7226269294715,
-            "unit": "jobs/s"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/maximum_epoch/no_epoch_deletion_cleanup_time",
-            "value": 2.9410619999980554,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/prover-client/proving_broker/initialization/maximum_epoch/full_epoch_deletion_cleanup_time",
-            "value": 14.994430999999167,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/constructor/0/totalDurationMs",
-            "value": 207.59915199999978,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/constructor/0/manaUsed",
-            "value": 402108,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/constructor/0/totalInstructionsExecuted",
-            "value": 17767,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/constructor/0/nonRevertiblePrivateInsertionsUs",
-            "value": 5742.145999999593,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/constructor/0/revertiblePrivateInsertionsUs",
-            "value": 3264.4829999999274,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/mint_to_public/1/totalDurationMs",
-            "value": 39.39451899999949,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/mint_to_public/1/manaUsed",
-            "value": 30722,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/mint_to_public/1/totalInstructionsExecuted",
-            "value": 1252,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/mint_to_public/1/nonRevertiblePrivateInsertionsUs",
-            "value": 2722.4779999996827,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/mint_to_public/1/revertiblePrivateInsertionsUs",
-            "value": 570.346999999856,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/2/totalDurationMs",
-            "value": 34.69598099999985,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/2/manaUsed",
-            "value": 11016,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/2/totalInstructionsExecuted",
-            "value": 497,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/2/nonRevertiblePrivateInsertionsUs",
-            "value": 2520.8050000001094,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/2/revertiblePrivateInsertionsUs",
-            "value": 469.67099999983475,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/transfer_in_public/3/totalDurationMs",
-            "value": 41.03890700000011,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/transfer_in_public/3/manaUsed",
-            "value": 39623,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/transfer_in_public/3/totalInstructionsExecuted",
-            "value": 1679,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/transfer_in_public/3/nonRevertiblePrivateInsertionsUs",
-            "value": 2364.5550000001094,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/transfer_in_public/3/revertiblePrivateInsertionsUs",
-            "value": 412.7469999993991,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/4/totalDurationMs",
-            "value": 29.38389300000017,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/4/manaUsed",
-            "value": 11016,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/4/totalInstructionsExecuted",
-            "value": 497,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/4/nonRevertiblePrivateInsertionsUs",
-            "value": 2464.58100000018,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/4/revertiblePrivateInsertionsUs",
-            "value": 488.26199999984965,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/5/totalDurationMs",
-            "value": 27.39197299999978,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/5/manaUsed",
-            "value": 11016,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/5/totalInstructionsExecuted",
-            "value": 497,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/5/nonRevertiblePrivateInsertionsUs",
-            "value": 2504.7239999994417,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/5/revertiblePrivateInsertionsUs",
-            "value": 404.5959999994011,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/burn_public/6/totalDurationMs",
-            "value": 33.751179999999295,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/burn_public/6/manaUsed",
-            "value": 24665,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/burn_public/6/totalInstructionsExecuted",
-            "value": 971,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/burn_public/6/nonRevertiblePrivateInsertionsUs",
-            "value": 2743.000000000393,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/burn_public/6/revertiblePrivateInsertionsUs",
-            "value": 427.2579999997106,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/7/totalDurationMs",
-            "value": 28.081648999999743,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/7/manaUsed",
-            "value": 11016,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/7/totalInstructionsExecuted",
-            "value": 497,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/7/nonRevertiblePrivateInsertionsUs",
-            "value": 2406.218000000081,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/7/revertiblePrivateInsertionsUs",
-            "value": 410.4269999997996,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/0/totalDurationMs",
-            "value": 136.78492599999936,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/0/manaUsed",
-            "value": 402108,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/0/totalInstructionsExecuted",
-            "value": 17767,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2733.849000000191,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/0/revertiblePrivateInsertionsUs",
-            "value": 430.4680000004737,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/1/totalDurationMs",
-            "value": 123.55544900000041,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/1/manaUsed",
-            "value": 402108,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/1/totalInstructionsExecuted",
-            "value": 17767,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/1/nonRevertiblePrivateInsertionsUs",
-            "value": 3105.032999999821,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/1/revertiblePrivateInsertionsUs",
-            "value": 435.11899999975867,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/2/totalDurationMs",
-            "value": 121.46909200000027,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/2/manaUsed",
-            "value": 402108,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/2/totalInstructionsExecuted",
-            "value": 17767,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/2/nonRevertiblePrivateInsertionsUs",
-            "value": 2333.0329999998867,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/2/revertiblePrivateInsertionsUs",
-            "value": 445.75999999960914,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/constructor/3/totalDurationMs",
-            "value": 54.00431599999956,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/constructor/3/manaUsed",
-            "value": 53769,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/constructor/3/totalInstructionsExecuted",
-            "value": 1928,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/constructor/3/nonRevertiblePrivateInsertionsUs",
-            "value": 2299.2999999996755,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/constructor/3/revertiblePrivateInsertionsUs",
-            "value": 425.82799999945564,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/set_minter/4/totalDurationMs",
-            "value": 26.626052999999956,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/set_minter/4/manaUsed",
-            "value": 13894,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/set_minter/4/totalInstructionsExecuted",
-            "value": 553,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/set_minter/4/nonRevertiblePrivateInsertionsUs",
-            "value": 2249.127000000044,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/set_minter/4/revertiblePrivateInsertionsUs",
-            "value": 404.0069999991829,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/add_liquidity/5/totalDurationMs",
-            "value": 122.34551999999985,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/add_liquidity/5/manaUsed",
-            "value": 177558,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/add_liquidity/5/totalInstructionsExecuted",
-            "value": 6873,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/add_liquidity/5/nonRevertiblePrivateInsertionsUs",
-            "value": 2574.2190000000846,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/add_liquidity/5/revertiblePrivateInsertionsUs",
-            "value": 401.6270000001896,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalDurationMs",
-            "value": 81.44692300000042,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/manaUsed",
-            "value": 112209,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalInstructionsExecuted",
-            "value": 4454,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/nonRevertiblePrivateInsertionsUs",
-            "value": 2397.4069999994754,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/revertiblePrivateInsertionsUs",
-            "value": 401.98599999985163,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/remove_liquidity/7/totalDurationMs",
-            "value": 131.38117199999942,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/remove_liquidity/7/manaUsed",
-            "value": 202483,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/remove_liquidity/7/totalInstructionsExecuted",
-            "value": 7857,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/remove_liquidity/7/nonRevertiblePrivateInsertionsUs",
-            "value": 2381.126000000222,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AMM contract tests/AMM/remove_liquidity/7/revertiblePrivateInsertionsUs",
-            "value": 498.7630000005083,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/bulk_testing/0/totalDurationMs",
-            "value": 480.5798840000007,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/bulk_testing/0/manaUsed",
-            "value": 2026756,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/bulk_testing/0/totalInstructionsExecuted",
-            "value": 86681,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/bulk_testing/0/nonRevertiblePrivateInsertionsUs",
-            "value": 3647.729000000254,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/bulk_testing/0/revertiblePrivateInsertionsUs",
-            "value": 3687.590999999884,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/mega_bulk_testing/0/totalDurationMs",
-            "value": 1225.258162,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/mega_bulk_testing/0/manaUsed",
-            "value": 5113143,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/mega_bulk_testing/0/totalInstructionsExecuted",
-            "value": 190089,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/mega_bulk_testing/0/nonRevertiblePrivateInsertionsUs",
-            "value": 3501.73900000118,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/mega_bulk_testing/0/revertiblePrivateInsertionsUs",
-            "value": 3604.1759999989154,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/nested_call_large_calldata/0/totalDurationMs",
-            "value": 233.37723000000005,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/nested_call_large_calldata/0/manaUsed",
-            "value": 1240107,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/nested_call_large_calldata/0/totalInstructionsExecuted",
-            "value": 59047,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/nested_call_large_calldata/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2284.299999999348,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/nested_call_large_calldata/0/revertiblePrivateInsertionsUs",
-            "value": 407.1170000006532,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalDurationMs",
-            "value": 59.182534999999916,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/manaUsed",
-            "value": 113268,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalInstructionsExecuted",
-            "value": 4775,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2395.5970000006346,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/revertiblePrivateInsertionsUs",
-            "value": 442.7289999985078,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/0/totalDurationMs",
-            "value": 60.89886800000022,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/0/manaUsed",
-            "value": 131841,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/0/totalInstructionsExecuted",
-            "value": 5520,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2186.223999999129,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/0/revertiblePrivateInsertionsUs",
-            "value": 419.90699999951175,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/0/totalDurationMs",
-            "value": 65.54311100000086,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/0/manaUsed",
-            "value": 157503,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/0/totalInstructionsExecuted",
-            "value": 6613,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2476.662999999462,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/0/revertiblePrivateInsertionsUs",
-            "value": 408.18600000056904,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/0/totalDurationMs",
-            "value": 68.65000499999951,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/0/manaUsed",
-            "value": 179547,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/0/totalInstructionsExecuted",
-            "value": 7555,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2685.355999999956,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/0/revertiblePrivateInsertionsUs",
-            "value": 405.82700000049954,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/0/totalDurationMs",
-            "value": 72.65911799999958,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/0/manaUsed",
-            "value": 205254,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/0/totalInstructionsExecuted",
-            "value": 8648,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2918.400999998994,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/0/revertiblePrivateInsertionsUs",
-            "value": 452.0799999991141,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/0/totalDurationMs",
-            "value": 77.12089000000014,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/0/manaUsed",
-            "value": 245664,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/0/totalInstructionsExecuted",
-            "value": 9906,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/0/nonRevertiblePrivateInsertionsUs",
-            "value": 3860.8819999990374,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/0/revertiblePrivateInsertionsUs",
-            "value": 387.2659999997268,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/0/totalDurationMs",
-            "value": 80.52381199999945,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/0/manaUsed",
-            "value": 287064,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/0/totalInstructionsExecuted",
-            "value": 11549,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2300.649999999223,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/0/revertiblePrivateInsertionsUs",
-            "value": 388.2450000000972,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/0/totalDurationMs",
-            "value": 84.00105000000076,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/0/manaUsed",
-            "value": 310542,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/0/totalInstructionsExecuted",
-            "value": 12537,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2356.5940000007686,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/0/revertiblePrivateInsertionsUs",
-            "value": 406.8969999989349,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/0/totalDurationMs",
-            "value": 93.21760300000096,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/0/manaUsed",
-            "value": 337356,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/0/totalInstructionsExecuted",
-            "value": 13662,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2944.072000000233,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/0/revertiblePrivateInsertionsUs",
-            "value": 407.8169999993406,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/0/totalDurationMs",
-            "value": 89.47683799999868,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/0/manaUsed",
-            "value": 360834,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/0/totalInstructionsExecuted",
-            "value": 14650,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2246.2369999993825,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/0/revertiblePrivateInsertionsUs",
-            "value": 389.07599999947706,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/0/totalDurationMs",
-            "value": 148.26227800000015,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/0/manaUsed",
-            "value": 815400,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/0/totalInstructionsExecuted",
-            "value": 32371,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2266.51800000036,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/0/revertiblePrivateInsertionsUs",
-            "value": 381.3559999998688,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/0/totalDurationMs",
-            "value": 148.69882599999983,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/0/manaUsed",
-            "value": 814593,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/0/totalInstructionsExecuted",
-            "value": 32525,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2337.853000000905,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/0/revertiblePrivateInsertionsUs",
-            "value": 406.17699999893375,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/0/totalDurationMs",
-            "value": 245.68786700000055,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/0/manaUsed",
-            "value": 1551663,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/0/totalInstructionsExecuted",
-            "value": 61465,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2242.0469999997295,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/0/revertiblePrivateInsertionsUs",
-            "value": 379.95499999851745,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/0/totalDurationMs",
-            "value": 246.50223000000005,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/0/manaUsed",
-            "value": 1552779,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/0/totalInstructionsExecuted",
-            "value": 61622,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2212.084999999206,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/0/revertiblePrivateInsertionsUs",
-            "value": 381.5049999993789,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1024/0/totalDurationMs",
-            "value": 439.971418000001,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1024/0/manaUsed",
-            "value": 3021084,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1024/0/totalInstructionsExecuted",
-            "value": 119802,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1024/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2326.151999999638,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1024/0/revertiblePrivateInsertionsUs",
-            "value": 405.09600000041246,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1536/0/totalDurationMs",
-            "value": 630.4854610000002,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1536/0/manaUsed",
-            "value": 4489389,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1536/0/totalInstructionsExecuted",
-            "value": 177982,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1536/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2338.723000000755,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1536/0/revertiblePrivateInsertionsUs",
-            "value": 407.7159999997093,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/0/totalDurationMs",
-            "value": 72.95010600000023,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/0/manaUsed",
-            "value": 265974,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/0/totalInstructionsExecuted",
-            "value": 8946,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2630.9629999996105,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/0/revertiblePrivateInsertionsUs",
-            "value": 387.5259999986156,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash_1400/0/totalDurationMs",
-            "value": 682.2873230000005,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash_1400/0/manaUsed",
-            "value": 5099022,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash_1400/0/totalInstructionsExecuted",
-            "value": 194558,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash_1400/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2229.615999996895,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash_1400/0/revertiblePrivateInsertionsUs",
-            "value": 418.6069999996107,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/0/totalDurationMs",
-            "value": 52.70302100000117,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/0/manaUsed",
-            "value": 122799,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/0/totalInstructionsExecuted",
-            "value": 2986,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2357.7640000003157,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/0/revertiblePrivateInsertionsUs",
-            "value": 403.3659999986412,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/0/totalDurationMs",
-            "value": 48.950864999998885,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/0/manaUsed",
-            "value": 47520,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/0/totalInstructionsExecuted",
-            "value": 2246,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2153.980999999476,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/0/revertiblePrivateInsertionsUs",
-            "value": 403.90599999955157,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash_1000fields/0/totalDurationMs",
-            "value": 614.9768260000019,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash_1000fields/0/manaUsed",
-            "value": 3729864,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash_1000fields/0/totalInstructionsExecuted",
-            "value": 175302,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash_1000fields/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2120.558999999048,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash_1000fields/0/revertiblePrivateInsertionsUs",
-            "value": 382.9349999978149,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/0/totalDurationMs",
-            "value": 457.45024099999864,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/0/manaUsed",
-            "value": 431091,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/0/totalInstructionsExecuted",
-            "value": 22721,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2277.078999999503,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/0/revertiblePrivateInsertionsUs",
-            "value": 408.20700000040233,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/0/totalDurationMs",
-            "value": 413.8206160000009,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/0/manaUsed",
-            "value": 430677,
-            "unit": "mana"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/0/totalInstructionsExecuted",
-            "value": 22698,
-            "unit": "#instructions"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/0/nonRevertiblePrivateInsertionsUs",
-            "value": 2168.5619999989285,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/0/revertiblePrivateInsertionsUs",
-            "value": 398.15599999928963,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/world-state/Block Sync/36 txs/1 leaves per tx",
-            "value": 317.35003250000045,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Block Sync/36 txs/8 leaves per tx",
-            "value": 293.55274049999935,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Block Sync/36 txs/64 leaves per tx",
-            "value": 303.4533285000016,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Block Sync/360 txs/8 leaves per tx",
-            "value": 2299.342055000001,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Tree Insertion/PUBLIC_DATA_TREE/SEQUENTIAL/1 leaves",
-            "value": 0.8187893750000512,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Tree Insertion/PUBLIC_DATA_TREE/SEQUENTIAL/8 leaves",
-            "value": 5.145897062500353,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Tree Insertion/PUBLIC_DATA_TREE/SEQUENTIAL/64 leaves",
-            "value": 39.60847118750007,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Tree Insertion/NULLIFIER_TREE/BATCH/1 leaves",
-            "value": 5.940297624999857,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Tree Insertion/NULLIFIER_TREE/BATCH/8 leaves",
-            "value": 8.19169012500015,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Tree Insertion/NULLIFIER_TREE/BATCH/64 leaves",
-            "value": 25.802182812500178,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Tree Insertion/NOTE_HASH_TREE/BATCH/1 leaves",
-            "value": 1.5449510000003102,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Tree Insertion/NOTE_HASH_TREE/BATCH/8 leaves",
-            "value": 1.568838187500205,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Tree Insertion/NOTE_HASH_TREE/BATCH/64 leaves",
-            "value": 1.6331011874999604,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/world-state/Data Retrieval/SIBLING_PATH",
-            "value": 146.82224609374828,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/world-state/Data Retrieval/LEAF_PREIMAGE",
-            "value": 161.65866113280458,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/world-state/Data Retrieval/LEAF_VALUE",
-            "value": 130.7686015624938,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/world-state/Data Retrieval/LEAF_INDICES",
-            "value": 102.63999414063107,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/world-state/Data Retrieval/LOW_LEAF",
-            "value": 100.6535751953237,
-            "unit": "us"
-          },
-          {
-            "name": "yarn-project/stdlib/Tx/private/getTxHash/avg",
-            "value": 17.26,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/stdlib/Tx/private/getTxHash/p50",
-            "value": 17,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/stdlib/Tx/private/getTxHash/p95",
-            "value": 18,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/stdlib/Tx/public/getTxHash/avg",
-            "value": 35.66,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/stdlib/Tx/public/getTxHash/p50",
-            "value": 36,
-            "unit": "ms"
-          },
-          {
-            "name": "yarn-project/stdlib/Tx/public/getTxHash/p95",
-            "value": 37,
-            "unit": "ms"
-          },
-          {
-            "name": "l1-contracts/alpha/no_validators/gasPerSecond",
-            "value": 7356.6,
-            "unit": "gas/second"
-          },
-          {
-            "name": "l1-contracts/alpha/no_validators/propose",
-            "value": 221030,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/alpha/no_validators/setupEpoch",
-            "value": 31914,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/alpha/no_validators/submitEpochRootProof",
-            "value": 684988,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/alpha/validators/gasPerSecond",
-            "value": 11280.1,
-            "unit": "gas/second"
-          },
-          {
-            "name": "l1-contracts/alpha/validators/propose",
-            "value": 348747,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/alpha/validators/proposeAndVote",
-            "value": 406860,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/alpha/validators/setupEpoch",
-            "value": 46375,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/alpha/validators/submitEpochRootProof",
-            "value": 894176,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/ignition/no_validators/gasPerSecond",
-            "value": 864,
-            "unit": "gas/second"
-          },
-          {
-            "name": "l1-contracts/ignition/no_validators/propose",
-            "value": 141903,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/ignition/no_validators/setupEpoch",
-            "value": 31233,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/ignition/no_validators/submitEpochRootProof",
-            "value": 559802,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/ignition/validators/gasPerSecond",
-            "value": 1289.4,
-            "unit": "gas/second"
-          },
-          {
-            "name": "l1-contracts/ignition/validators/propose",
-            "value": 218776,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/ignition/validators/proposeAndVote",
-            "value": 277021,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/ignition/validators/setupEpoch",
-            "value": 36701,
-            "unit": "gas"
-          },
-          {
-            "name": "l1-contracts/ignition/validators/submitEpochRootProof",
-            "value": 672518,
-            "unit": "gas"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_64_4_opcodes",
-            "value": 42857,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_64_4_gates",
-            "value": 227322,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_tail_to_public_opcodes",
-            "value": 47975,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_tail_to_public_gates",
-            "value": 104113,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_4_4_4_4_4_4_4_4_4_opcodes",
-            "value": 29429,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_4_4_4_4_4_4_4_4_4_gates",
-            "value": 116730,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_padding_opcodes",
-            "value": 193,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_padding_gates",
-            "value": 3954,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_4_64_opcodes",
-            "value": 39805,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_4_64_gates",
-            "value": 176099,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_64_64_opcodes",
-            "value": 45337,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_64_64_gates",
-            "value": 224867,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_64_4_opcodes",
-            "value": 39605,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_64_4_gates",
-            "value": 185424,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_4_4_opcodes",
-            "value": 33913,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_4_4_gates",
-            "value": 134705,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_4_4_opcodes",
-            "value": 40577,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_4_4_gates",
-            "value": 220452,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_root_single_block_opcodes",
-            "value": 962129,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_root_single_block_gates",
-            "value": 3665685,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_4_4_opcodes",
-            "value": 34305,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_4_4_gates",
-            "value": 160588,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_merge_opcodes",
-            "value": 1497,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_merge_gates",
-            "value": 1480935,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_root_opcodes",
-            "value": 2638,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_root_gates",
-            "value": 24314853,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_64_4_opcodes",
-            "value": 36585,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_64_4_gates",
-            "value": 167458,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_64_64_opcodes",
-            "value": 44785,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_64_64_gates",
-            "value": 197033,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_64_4_opcodes",
-            "value": 36745,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_64_4_gates",
-            "value": 169409,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_single_tx_opcodes",
-            "value": 906,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_single_tx_gates",
-            "value": 684510,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_32_32_32_32_32_32_32_32_opcodes",
-            "value": 53376,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_32_32_32_32_32_32_32_32_gates",
-            "value": 362199,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_4_4_opcodes",
-            "value": 37717,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_4_4_gates",
-            "value": 204437,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_single_tx_opcodes",
-            "value": 1197,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_single_tx_gates",
-            "value": 1425938,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_64_64_opcodes",
-            "value": 44945,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_64_64_gates",
-            "value": 198984,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_64_0_0_0_0_0_0_opcodes",
-            "value": 20035,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_64_0_0_0_0_0_0_gates",
-            "value": 59496,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_64_0_0_0_0_0_0_0_0_opcodes",
-            "value": 20035,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_64_0_0_0_0_0_0_0_0_gates",
-            "value": 59496,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_tx_base_private_opcodes",
-            "value": 278045,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_tx_base_private_gates",
-            "value": 3795828,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_64_64_opcodes",
-            "value": 42085,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_64_64_gates",
-            "value": 182969,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_init_opcodes",
-            "value": 8845,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_init_gates",
-            "value": 46760,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/chonk_verifier_public_opcodes",
-            "value": 3264,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/chonk_verifier_public_gates",
-            "value": 2534220,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_tx_merge_opcodes",
-            "value": 1486,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_tx_merge_gates",
-            "value": 1480533,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_opcodes",
-            "value": 2558,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_gates",
-            "value": 2228214,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_4_4_opcodes",
-            "value": 34465,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_4_4_gates",
-            "value": 162539,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_16_16_16_16_16_16_16_16_16_opcodes",
-            "value": 39703,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_16_16_16_16_16_16_16_16_16_gates",
-            "value": 221942,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_4_4_opcodes",
-            "value": 31053,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_4_4_gates",
-            "value": 118690,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_64_4_opcodes",
-            "value": 36193,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_64_4_gates",
-            "value": 141575,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_4_64_opcodes",
-            "value": 43057,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_4_64_gates",
-            "value": 217997,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/parity_base_opcodes",
-            "value": 296579,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/parity_base_gates",
-            "value": 2322599,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_4_64_opcodes",
-            "value": 36393,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_4_64_gates",
-            "value": 132250,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_0_0_64_0_0_0_opcodes",
-            "value": 30184,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_0_0_64_0_0_0_gates",
-            "value": 80978,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_64_4_opcodes",
-            "value": 39997,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_64_4_gates",
-            "value": 211307,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_64_64_opcodes",
-            "value": 48197,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_64_64_gates",
-            "value": 240882,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_64_0_0_0_0_0_0_0_opcodes",
-            "value": 35518,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_64_0_0_0_0_0_0_0_gates",
-            "value": 280614,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_opcodes",
-            "value": 80808,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_gates",
-            "value": 642799,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_4_64_opcodes",
-            "value": 45917,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_4_64_gates",
-            "value": 234012,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/ts_types_opcodes",
-            "value": 109,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/ts_types_gates",
-            "value": 3026,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_root_opcodes",
-            "value": 963487,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_root_gates",
-            "value": 4468143,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_64_64_opcodes",
-            "value": 41925,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_64_64_gates",
-            "value": 181018,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_opcodes",
-            "value": 2267,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_gates",
-            "value": 1486784,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_4_4_opcodes",
-            "value": 37325,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_4_4_gates",
-            "value": 178554,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_64_4_opcodes",
-            "value": 39445,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_64_4_gates",
-            "value": 183473,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_64_64_opcodes",
-            "value": 38673,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_64_64_gates",
-            "value": 139120,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_4_64_opcodes",
-            "value": 39645,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_4_64_gates",
-            "value": 174148,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_empty_tx_opcodes",
-            "value": 1132,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_empty_tx_gates",
-            "value": 686367,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_64_64_opcodes",
-            "value": 41533,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_64_64_gates",
-            "value": 155135,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_4_64_opcodes",
-            "value": 42665,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_4_64_gates",
-            "value": 192114,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_64_4_opcodes",
-            "value": 33333,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_64_4_gates",
-            "value": 125560,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_4_64_opcodes",
-            "value": 39253,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_4_64_gates",
-            "value": 148265,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_tail_opcodes",
-            "value": 17176,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_tail_gates",
-            "value": 54146,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_64_0_0_0_0_0_opcodes",
-            "value": 36480,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_64_0_0_0_0_0_gates",
-            "value": 291120,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_0_64_0_0_0_0_opcodes",
-            "value": 18700,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_0_64_0_0_0_0_gates",
-            "value": 112939,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/parity_root_opcodes",
-            "value": 3550,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/parity_root_gates",
-            "value": 2913723,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_inner_opcodes",
-            "value": 18027,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_inner_gates",
-            "value": 99327,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_4_64_opcodes",
-            "value": 42505,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_4_64_gates",
-            "value": 190163,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_4_4_opcodes",
-            "value": 37165,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_4_4_gates",
-            "value": 176603,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_64_64_64_64_64_64_64_64_64_opcodes",
-            "value": 80808,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_64_64_64_64_64_64_64_64_64_gates",
-            "value": 642799,
-            "unit": "gates"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_merge_opcodes",
-            "value": 2133,
-            "unit": "opcodes"
-          },
-          {
-            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_merge_gates",
-            "value": 1484049,
-            "unit": "gates"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -376657,6 +372820,3443 @@ window.BENCHMARK_DATA = {
           {
             "name": "yarn-project/stdlib/Tx/public/getTxHash/p95",
             "value": 36,
+            "unit": "ms"
+          },
+          {
+            "name": "l1-contracts/alpha/no_validators/gasPerSecond",
+            "value": 7360,
+            "unit": "gas/second"
+          },
+          {
+            "name": "l1-contracts/alpha/no_validators/propose",
+            "value": 221146,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/alpha/no_validators/setupEpoch",
+            "value": 31914,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/alpha/no_validators/submitEpochRootProof",
+            "value": 685044,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/alpha/validators/gasPerSecond",
+            "value": 11283.6,
+            "unit": "gas/second"
+          },
+          {
+            "name": "l1-contracts/alpha/validators/propose",
+            "value": 348871,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/alpha/validators/proposeAndVote",
+            "value": 406985,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/alpha/validators/setupEpoch",
+            "value": 46375,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/alpha/validators/submitEpochRootProof",
+            "value": 894220,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/ignition/no_validators/gasPerSecond",
+            "value": 864.5,
+            "unit": "gas/second"
+          },
+          {
+            "name": "l1-contracts/ignition/no_validators/propose",
+            "value": 142014,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/ignition/no_validators/setupEpoch",
+            "value": 31233,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/ignition/no_validators/submitEpochRootProof",
+            "value": 559834,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/ignition/validators/gasPerSecond",
+            "value": 1290,
+            "unit": "gas/second"
+          },
+          {
+            "name": "l1-contracts/ignition/validators/propose",
+            "value": 218884,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/ignition/validators/proposeAndVote",
+            "value": 277138,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/ignition/validators/setupEpoch",
+            "value": 36701,
+            "unit": "gas"
+          },
+          {
+            "name": "l1-contracts/ignition/validators/submitEpochRootProof",
+            "value": 672529,
+            "unit": "gas"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_64_4_opcodes",
+            "value": 42182,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_64_4_gates",
+            "value": 225647,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_tail_to_public_opcodes",
+            "value": 34697,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_tail_to_public_gates",
+            "value": 92368,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_4_4_4_4_4_4_4_4_4_opcodes",
+            "value": 28734,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_4_4_4_4_4_4_4_4_4_gates",
+            "value": 115275,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_padding_opcodes",
+            "value": 193,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_padding_gates",
+            "value": 3954,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_4_64_opcodes",
+            "value": 39590,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_4_64_gates",
+            "value": 173834,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_64_64_opcodes",
+            "value": 45122,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_64_64_gates",
+            "value": 222482,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_64_4_opcodes",
+            "value": 38930,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_64_4_gates",
+            "value": 183749,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_4_4_opcodes",
+            "value": 33238,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_4_4_gates",
+            "value": 133150,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_4_4_opcodes",
+            "value": 39902,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_4_4_gates",
+            "value": 218897,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_root_single_block_opcodes",
+            "value": 1919761,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_root_single_block_gates",
+            "value": 6670331,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_4_4_opcodes",
+            "value": 33610,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_4_4_gates",
+            "value": 159133,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_merge_opcodes",
+            "value": 1497,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_merge_gates",
+            "value": 1579191,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_root_opcodes",
+            "value": 2608,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_root_gates",
+            "value": 24413089,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_64_4_opcodes",
+            "value": 35890,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_64_4_gates",
+            "value": 165883,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_64_64_opcodes",
+            "value": 44590,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_64_64_gates",
+            "value": 194548,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_64_4_opcodes",
+            "value": 36050,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_64_4_gates",
+            "value": 167834,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_single_tx_opcodes",
+            "value": 876,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_single_tx_gates",
+            "value": 733053,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_32_32_32_32_32_32_32_32_opcodes",
+            "value": 52913,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_32_32_32_32_32_32_32_32_gates",
+            "value": 360598,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_4_4_opcodes",
+            "value": 37022,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_4_4_gates",
+            "value": 202982,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_single_tx_opcodes",
+            "value": 1166,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_single_tx_gates",
+            "value": 1524114,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_64_64_opcodes",
+            "value": 44750,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_64_64_gates",
+            "value": 196499,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_64_0_0_0_0_0_0_opcodes",
+            "value": 20226,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_64_0_0_0_0_0_0_gates",
+            "value": 59453,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_64_0_0_0_0_0_0_0_0_opcodes",
+            "value": 20226,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_64_0_0_0_0_0_0_0_0_gates",
+            "value": 59453,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_tx_base_private_opcodes",
+            "value": 306830,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_tx_base_private_gates",
+            "value": 4123510,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_64_64_opcodes",
+            "value": 41870,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_64_64_gates",
+            "value": 180584,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_init_opcodes",
+            "value": 8845,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_init_gates",
+            "value": 47471,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/chonk_verifier_public_opcodes",
+            "value": 3264,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/chonk_verifier_public_gates",
+            "value": 2651435,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_tx_merge_opcodes",
+            "value": 1486,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_tx_merge_gates",
+            "value": 1578790,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_opcodes",
+            "value": 2543,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_gates",
+            "value": 2376106,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_4_4_opcodes",
+            "value": 33770,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_4_4_4_gates",
+            "value": 161084,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_16_16_16_16_16_16_16_16_16_opcodes",
+            "value": 39106,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_16_16_16_16_16_16_16_16_16_gates",
+            "value": 220423,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_4_4_opcodes",
+            "value": 30358,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_4_4_gates",
+            "value": 117235,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_64_4_opcodes",
+            "value": 35518,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_64_4_gates",
+            "value": 139900,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_4_64_opcodes",
+            "value": 42842,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_4_64_gates",
+            "value": 215732,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/parity_base_opcodes",
+            "value": 296579,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/parity_base_gates",
+            "value": 2322599,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_4_64_opcodes",
+            "value": 36178,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_4_64_gates",
+            "value": 129985,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_0_0_64_0_0_0_opcodes",
+            "value": 29991,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_0_0_64_0_0_0_gates",
+            "value": 80551,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_64_4_opcodes",
+            "value": 39302,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_4_64_4_gates",
+            "value": 209732,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_64_64_opcodes",
+            "value": 48002,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_64_64_gates",
+            "value": 238397,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_64_0_0_0_0_0_0_0_opcodes",
+            "value": 35709,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_64_0_0_0_0_0_0_0_gates",
+            "value": 280572,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_opcodes",
+            "value": 80613,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_gates",
+            "value": 641034,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_4_64_opcodes",
+            "value": 45722,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_16_4_4_64_4_64_gates",
+            "value": 231647,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/ts_types_opcodes",
+            "value": 109,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/ts_types_gates",
+            "value": 3026,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_root_opcodes",
+            "value": 1921135,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_root_gates",
+            "value": 7522503,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_64_64_opcodes",
+            "value": 41710,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_64_64_gates",
+            "value": 178633,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_opcodes",
+            "value": 2253,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_gates",
+            "value": 1585043,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_4_4_opcodes",
+            "value": 36650,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_4_4_gates",
+            "value": 176999,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_64_4_opcodes",
+            "value": 38770,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_64_4_gates",
+            "value": 181798,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_64_64_opcodes",
+            "value": 38458,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_64_64_gates",
+            "value": 136735,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_4_64_opcodes",
+            "value": 39430,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_4_4_64_gates",
+            "value": 171883,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_empty_tx_opcodes",
+            "value": 1100,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_block_root_first_empty_tx_gates",
+            "value": 734903,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_64_64_opcodes",
+            "value": 41338,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_64_64_gates",
+            "value": 152650,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_4_64_opcodes",
+            "value": 42470,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_16_4_4_64_4_64_gates",
+            "value": 189749,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_64_4_opcodes",
+            "value": 32638,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_4_64_4_gates",
+            "value": 123985,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_4_64_opcodes",
+            "value": 39058,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_4_32_4_4_4_64_4_64_gates",
+            "value": 145900,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_tail_opcodes",
+            "value": 7209,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_tail_gates",
+            "value": 43952,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_64_0_0_0_0_0_opcodes",
+            "value": 36671,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_64_0_0_0_0_0_gates",
+            "value": 291078,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_0_64_0_0_0_0_opcodes",
+            "value": 18890,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_0_0_0_0_64_0_0_0_0_gates",
+            "value": 113663,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/parity_root_opcodes",
+            "value": 3550,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/parity_root_gates",
+            "value": 3111262,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_inner_opcodes",
+            "value": 18028,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_inner_gates",
+            "value": 99083,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_4_64_opcodes",
+            "value": 42310,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_4_64_gates",
+            "value": 187798,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_4_4_opcodes",
+            "value": 36490,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_32_16_32_4_4_4_64_4_4_gates",
+            "value": 175048,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_64_64_64_64_64_64_64_64_64_opcodes",
+            "value": 80613,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/private_kernel_reset_64_64_64_64_64_64_64_64_64_gates",
+            "value": 641034,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_merge_opcodes",
+            "value": 2133,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_merge_gates",
+            "value": 1582304,
+            "unit": "gates"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Aztec Bot",
+            "username": "AztecBot",
+            "email": "49558828+AztecBot@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d04297d6d393f12a6ea7df24814eaf1ff9b9a78b",
+          "message": "refactor: remove ABI decoding from pxe private events (#18190)\n\nPart of F-96\n\nThis refactor moves the responsibility of ABI-decoding private events\nfrom PXE to wallet. There are some details/design decisions to iron out\nthough, I'll try to summarize them below.\n\n## `PrivateEvent`: to `InBlock` or not to `InBlock`\n\nBefore this change, `PXE#getPrivateEvents` was generic on the type of\nevent, so we didn't need an explicit return type. After this change, PXE\nreturns `PrivateEvent`'s that the wallet must ABI decode.\n\nThere's an open conversation regarding whether `PrivateEvent` should be\ndefined in terms of `InBlock`. I'm a bit on the fence about forcing an\nartificial `data` attribute on the structure, so I'm discussing\npotentially changing `InBlock<T>` from a generic to a plain type that\ncan be used in intersections (hence more degrees of freedom for whoever\nis defining types on top of it). If that approach is blessed I'll\nprobably tackle it in its own PR since `InBlock` is defined in stdlib\nand changing it could ripple.\n\n## Unit test for PXE#getPrivateEvents\n\nI wanted to have some tests that don't require an e2e harness to check\nbasic functioning. Most of the setup of the test is mocking context so\nthat calling `sync_private_state` doesn't blow up.\n\nThe rest of it leverages `PrivateDataEventDataProvider` to make sure\nsome events are ready to be returned.\n\nThis at least works so if we break interfaces there's a quick unit test\nfailing to show it. More granular behaviors can be better tested at the\n`PrivateDataEventDataProvider` unit suite, and less artificial examples\ncan be exercised on e2e.\n\n## Unit test for ABI decoding at BaseWallet#getPrivateEvents\n\nSimilarly, I wanted to have some unit test in place before proceeding to\nrefactor these APIs further. At this layer I just wanted to have some\nchecks that we're actually ABI-decoding. I couldn't find a\nstraightforward/generic way to encode event data so I'm manually\nserializing it. If we prefer so, I can write an ad-hoc contract for this\ntest but first I would like to validate the general approach.",
+          "timestamp": "2025-11-06T14:52:19Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d04297d6d393f12a6ea7df24814eaf1ff9b9a78b"
+        },
+        "date": 1762443199546,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/wasm/ultra_honk_zk/seconds",
+            "value": 18420.798056000003,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/wasm/ultra_honk_zk/memory",
+            "value": "1485",
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/wasm/chonk/seconds",
+            "value": 48029.983819,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/wasm/chonk/memory",
+            "value": "1344",
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/wasm/ultra_honk/seconds",
+            "value": 16256.174353000002,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/wasm/ultra_honk/memory",
+            "value": "1467",
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/native/ultra_honk_zk/seconds",
+            "value": 6786.7714779999915,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/native/ultra_honk_zk/memory",
+            "value": "1516",
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/native/chonk/seconds",
+            "value": 22024.550767000164,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/native/chonk/memory",
+            "value": "802",
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/native/ultra_honk/seconds",
+            "value": 6299.052548999953,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/native/ultra_honk/memory",
+            "value": "1372",
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/native/chonk_verify/seconds",
+            "value": 364.2698344999644,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/bb-micro-bench/native/chonk_verify/memory",
+            "value": "804",
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+sponsored_fpc/wasm/seconds",
+            "value": 27546,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+sponsored_fpc/wasm/memory",
+            "value": 560,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+sponsored_fpc/native/seconds",
+            "value": 10354,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+sponsored_fpc/native/memory",
+            "value": 528,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/chrome-wasm/memory",
+            "value": 530.13,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/chrome-wasm/time",
+            "value": 36259,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/wasm/seconds",
+            "value": 25028,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/wasm/memory",
+            "value": 547,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/native/seconds",
+            "value": 9261,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+sponsored_fpc/native/memory",
+            "value": 488,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+token_bridge_claim_private+sponsored_fpc/wasm/seconds",
+            "value": 27258,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+token_bridge_claim_private+sponsored_fpc/wasm/memory",
+            "value": 573,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+token_bridge_claim_private+sponsored_fpc/native/seconds",
+            "value": 11191,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+token_bridge_claim_private+sponsored_fpc/native/memory",
+            "value": 528,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/deploy_ecdsar1+sponsored_fpc/wasm/seconds",
+            "value": 38995,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/deploy_ecdsar1+sponsored_fpc/wasm/memory",
+            "value": 1074,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/deploy_ecdsar1+sponsored_fpc/native/seconds",
+            "value": 12661,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/deploy_ecdsar1+sponsored_fpc/native/memory",
+            "value": 533,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+private_fpc/wasm/seconds",
+            "value": 42616,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+private_fpc/wasm/memory",
+            "value": 621,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+private_fpc/native/seconds",
+            "value": 16554,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_1_recursions+private_fpc/native/memory",
+            "value": 582,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/wasm/seconds",
+            "value": 47742,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/wasm/memory",
+            "value": 638,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/native/seconds",
+            "value": 18406,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/native/memory",
+            "value": 610,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/wasm/seconds",
+            "value": 32717,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/wasm/memory",
+            "value": 578,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/native/seconds",
+            "value": 13087,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/native/memory",
+            "value": 534,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/wasm/seconds",
+            "value": 31938,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/wasm/memory",
+            "value": 571,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/native/seconds",
+            "value": 12771,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/native/memory",
+            "value": 525,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/deploy_schnorr+sponsored_fpc/wasm/seconds",
+            "value": 30535,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/deploy_schnorr+sponsored_fpc/wasm/memory",
+            "value": 558,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/deploy_schnorr+sponsored_fpc/native/seconds",
+            "value": 12621,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/deploy_schnorr+sponsored_fpc/native/memory",
+            "value": 514,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+private_fpc/wasm/seconds",
+            "value": 42253,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+private_fpc/wasm/memory",
+            "value": 604,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+private_fpc/native/seconds",
+            "value": 15058,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp/app-proving/ecdsar1+transfer_0_recursions+private_fpc/native/memory",
+            "value": 550,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/sol/Add2HonkVerifier",
+            "value": 959468,
+            "unit": "gas"
+          },
+          {
+            "name": "barretenberg/sol/Add2HonkZKVerifier",
+            "value": 1849902,
+            "unit": "gas"
+          },
+          {
+            "name": "barretenberg/sol/BlakeHonkVerifier",
+            "value": 1438985,
+            "unit": "gas"
+          },
+          {
+            "name": "barretenberg/sol/BlakeHonkZKVerifier",
+            "value": 2396924,
+            "unit": "gas"
+          },
+          {
+            "name": "barretenberg/sol/EcdsaHonkVerifier",
+            "value": 1494912,
+            "unit": "gas"
+          },
+          {
+            "name": "barretenberg/sol/EcdsaHonkZKVerifier",
+            "value": 2460293,
+            "unit": "gas"
+          },
+          {
+            "name": "barretenberg/sol/RecursiveHonkVerifier",
+            "value": 1700651,
+            "unit": "gas"
+          },
+          {
+            "name": "barretenberg/sol/RecursiveHonkZKVerifier",
+            "value": 2695776,
+            "unit": "gas"
+          },
+          {
+            "name": "barretenberg/sol/BlakeOptHonkVerifier",
+            "value": 585536,
+            "unit": "gas"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/totalDurationMs",
+            "value": 555.1351699999996,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/manaUsed",
+            "value": 2028412,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/totalInstructionsExecuted",
+            "value": 86770,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/nonRevertiblePrivateInsertionsUs",
+            "value": 7257.380000000012,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/revertiblePrivateInsertionsUs",
+            "value": 5404.433999999128,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/proverSimulationStepMs",
+            "value": 601,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/proverProvingStepMs",
+            "value": 17008,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/proverTraceGenerationStepMs",
+            "value": 4029,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/traceGenerationInteractionsMs",
+            "value": 1488,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/traceGenerationTracesMs",
+            "value": 2482,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/provingSumcheckMs",
+            "value": 6420,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/provingPcsMs",
+            "value": 2909,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/provingLogDerivativeInverseMs",
+            "value": 391,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/provingLogDerivativeInverseCommitmentsMs",
+            "value": 2148,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/bb-prover/AvmTest/bulk_testing/0/provingWireCommitmentsMs",
+            "value": 3940,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/kv-store/Map/Individual insertion",
+            "value": 2.1720441609999996,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/kv-store/Map/Batch insertion of 1000 items",
+            "value": 14.15493845,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/kv-store/Map/Individual read",
+            "value": 88.28157410000004,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/kv-store/Map/Iterator per item read of 10000 items",
+            "value": 20.185366500000057,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/kv-store/Map/Read size of 10000 items",
+            "value": 429.9136520000002,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/1 txs/addTxs/dbSize_after_10_batches",
+            "value": 1695744,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/1 txs/addTxs/avg",
+            "value": 23.2,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/1 txs/addTxs/p50",
+            "value": 20,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/1 txs/addTxs/p95",
+            "value": 41,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/1 txs/getTxsByHash/avg",
+            "value": 4.2,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/1 txs/getTxsByHash/p50",
+            "value": 4,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/1 txs/getTxsByHash/p95",
+            "value": 5,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/1 txs/deleteTxs/avg",
+            "value": 7.6,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/1 txs/deleteTxs/p50",
+            "value": 7,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/1 txs/deleteTxs/p95",
+            "value": 9,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/4 txs/addTxs/dbSize_after_10_batches",
+            "value": 6676480,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/4 txs/addTxs/avg",
+            "value": 62.5,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/4 txs/addTxs/p50",
+            "value": 62,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/4 txs/addTxs/p95",
+            "value": 64,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/4 txs/getTxsByHash/avg",
+            "value": 14.3,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/4 txs/getTxsByHash/p50",
+            "value": 14,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/4 txs/getTxsByHash/p95",
+            "value": 15,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/4 txs/deleteTxs/avg",
+            "value": 22.4,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/4 txs/deleteTxs/p50",
+            "value": 22,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/4 txs/deleteTxs/p95",
+            "value": 25,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/8 txs/addTxs/dbSize_after_10_batches",
+            "value": 13324288,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/8 txs/addTxs/avg",
+            "value": 121.6,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/8 txs/addTxs/p50",
+            "value": 116,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/8 txs/addTxs/p95",
+            "value": 175,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/8 txs/getTxsByHash/avg",
+            "value": 30.8,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/8 txs/getTxsByHash/p50",
+            "value": 29,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/8 txs/getTxsByHash/p95",
+            "value": 38,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/8 txs/deleteTxs/avg",
+            "value": 41.2,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/8 txs/deleteTxs/p50",
+            "value": 41,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/8 txs/deleteTxs/p95",
+            "value": 43,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/20 txs/addTxs/dbSize_after_10_batches",
+            "value": 33173504,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/20 txs/addTxs/avg",
+            "value": 285.4,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/20 txs/addTxs/p50",
+            "value": 273,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/20 txs/addTxs/p95",
+            "value": 321,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/20 txs/getTxsByHash/avg",
+            "value": 83.6,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/20 txs/getTxsByHash/p50",
+            "value": 79,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/20 txs/getTxsByHash/p95",
+            "value": 111,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/20 txs/deleteTxs/avg",
+            "value": 95.8,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/20 txs/deleteTxs/p50",
+            "value": 95,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/20 txs/deleteTxs/p95",
+            "value": 99,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/40 txs/addTxs/dbSize_after_10_batches",
+            "value": 66355200,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/40 txs/addTxs/avg",
+            "value": 536.7,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/40 txs/addTxs/p50",
+            "value": 527,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/40 txs/addTxs/p95",
+            "value": 571,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/40 txs/getTxsByHash/avg",
+            "value": 163.7,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/40 txs/getTxsByHash/p50",
+            "value": 154,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/40 txs/getTxsByHash/p95",
+            "value": 217,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/40 txs/deleteTxs/avg",
+            "value": 187.8,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/40 txs/deleteTxs/p50",
+            "value": 187,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/p2p/TxPool/40 txs/deleteTxs/p95",
+            "value": 190,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4910,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.20306762070542442,
+            "unit": "us/mana"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/witgen",
+            "value": 2203.871457999994,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/total",
+            "value": 2697.201482000004,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/sync",
+            "value": 7.577055000001565,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/unaccounted",
+            "value": 485.7529690000083,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/total_gate_count",
+            "value": 780954,
+            "unit": "gates"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+token_bridge_claim_private+sponsored_fpc/rpc",
+            "value": 32,
+            "unit": "calls"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/witgen",
+            "value": 1639.496609000009,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/total",
+            "value": 2142.7580910000106,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/sync",
+            "value": 20.81182099999569,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/unaccounted",
+            "value": 482.449661000006,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/total_gate_count",
+            "value": 612721,
+            "unit": "gates"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+sponsored_fpc/rpc",
+            "value": 24,
+            "unit": "calls"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/witgen",
+            "value": 3703.844104999953,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/total",
+            "value": 4793.88700599999,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/sync",
+            "value": 12.025462999998126,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/unaccounted",
+            "value": 1078.017438000039,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/total_gate_count",
+            "value": 1246328,
+            "unit": "gates"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_0_recursions+private_fpc/rpc",
+            "value": 93,
+            "unit": "calls"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/witgen",
+            "value": 4714.689853999982,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/total",
+            "value": 6095.258669000061,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/sync",
+            "value": 19.65555100000347,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/unaccounted",
+            "value": 1360.9132640000753,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/total_gate_count",
+            "value": 1745388,
+            "unit": "gates"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc/rpc",
+            "value": 96,
+            "unit": "calls"
+          },
+          {
+            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/witgen",
+            "value": 2684.0241759999844,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/total",
+            "value": 3029.3576360000006,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/sync",
+            "value": 9.047764999995707,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/unaccounted",
+            "value": 336.2856950000205,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/total_gate_count",
+            "value": 973073,
+            "unit": "gates"
+          },
+          {
+            "name": "yarn-project/end-to-end/schnorr+deploy_tokenContract_with_registration+sponsored_fpc/rpc",
+            "value": 21,
+            "unit": "calls"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/witgen",
+            "value": 4755.1888919999765,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/total",
+            "value": 6147.734330000007,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/sync",
+            "value": 16.35887699999148,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/unaccounted",
+            "value": 1376.1865610000386,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/total_gate_count",
+            "value": 1499194,
+            "unit": "gates"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+private_fpc/rpc",
+            "value": 178,
+            "unit": "calls"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Snappy/Compression Duration",
+            "value": 0.10045458000007784,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Snappy/Decompression Duration",
+            "value": 0.0924324800001341,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Snappy/Compressed Size",
+            "value": 56220,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Zstd/Compression Duration",
+            "value": 0.5510641999999644,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Zstd/Decompression Duration",
+            "value": 0.14257715999992798,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Zstd/Compressed Size",
+            "value": 50085,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Deflate/Compression Duration",
+            "value": 1.231243559999857,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Deflate/Decompression Duration",
+            "value": 0.20211318000016035,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Deflate/Compressed Size",
+            "value": 51421,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Brotli/Compression Duration",
+            "value": 175.1434212799999,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Brotli/Decompression Duration",
+            "value": 0.5557790000000387,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Private Transfer/Brotli/Compressed Size",
+            "value": 49647,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Snappy/Compression Duration",
+            "value": 0.12664067999983672,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Snappy/Decompression Duration",
+            "value": 0.15254484000004595,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Snappy/Compressed Size",
+            "value": 57600,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Zstd/Compression Duration",
+            "value": 0.6715361599999596,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Zstd/Decompression Duration",
+            "value": 0.7318739400000777,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Zstd/Compressed Size",
+            "value": 48513,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Deflate/Compression Duration",
+            "value": 1.3497556000002078,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Deflate/Decompression Duration",
+            "value": 0.2594356600000174,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Deflate/Compressed Size",
+            "value": 49939,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Brotli/Compression Duration",
+            "value": 216.5529395599998,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Brotli/Decompression Duration",
+            "value": 0.6596443799999543,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx Compression/Public Transfer/Brotli/Compressed Size",
+            "value": 47870,
+            "unit": "bytes"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/Single Private Transaction/IVC Verification Time",
+            "value": 409.80150395000163,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/Single Private Transaction/Total Verification Time (includes serde)",
+            "value": 413.1766023999982,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/Single Public Transaction/IVC Verification Time",
+            "value": 416.0004758500014,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/Single Public Transaction/Total Verification Time (includes serde)",
+            "value": 421.59229109999796,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Avg IVC Verification Time",
+            "value": 445.15183385500023,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Min IVC Verification Time",
+            "value": 409.22540299998946,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Max IVC Verification Time",
+            "value": 493.07022100000177,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Avg Total Verification Time (includes serde)",
+            "value": 451.4643612516671,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Min Total Verification Time  (includes serde)",
+            "value": 412.5363580000121,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Max Total Verification Time  (includes serde)",
+            "value": 512.9399249999988,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/Tx IVC Verification/60 Seconds @10TPS/Overall Tx Verification Time",
+            "value": 60405.114755999995,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/witgen",
+            "value": 2168.812670999996,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/total",
+            "value": 2643.5900029999902,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/sync",
+            "value": 8.725819999999658,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/unaccounted",
+            "value": 466.05151199999455,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/total_gate_count",
+            "value": 957119,
+            "unit": "gates"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_ecdsar1+sponsored_fpc/rpc",
+            "value": 21,
+            "unit": "calls"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/witgen",
+            "value": 2150.264062999995,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/total",
+            "value": 2528.9895360000155,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/sync",
+            "value": 4.199275999999372,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/unaccounted",
+            "value": 374.52619700002106,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/total_gate_count",
+            "value": 882802,
+            "unit": "gates"
+          },
+          {
+            "name": "yarn-project/end-to-end/deploy_schnorr+sponsored_fpc/rpc",
+            "value": 23,
+            "unit": "calls"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/witgen",
+            "value": 2461.296709000002,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/total",
+            "value": 2836.595897000003,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/sync",
+            "value": 6.980405999998766,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/unaccounted",
+            "value": 368.3187820000021,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/total_gate_count",
+            "value": 1040941,
+            "unit": "gates"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/rpc",
+            "value": 20,
+            "unit": "calls"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/witgen",
+            "value": 2461.2313890000078,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/total",
+            "value": 3175.935234999997,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/sync",
+            "value": 4.160256999995909,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/unaccounted",
+            "value": 710.5435889999935,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/total_gate_count",
+            "value": 788550,
+            "unit": "gates"
+          },
+          {
+            "name": "yarn-project/end-to-end/ecdsar1+transfer_1_recursions+sponsored_fpc/rpc",
+            "value": 80,
+            "unit": "calls"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_single_epoch/avg_latency",
+            "value": 56.53742422580647,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_single_epoch/median_latency",
+            "value": 56.121173,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_single_epoch/p95_latency",
+            "value": 59.940665999999965,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_single_epoch/total_duration",
+            "value": 61.37519599999996,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_single_epoch/jobs_per_sec",
+            "value": 505.0900366982131,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_random_epochs/avg_latency",
+            "value": 16.081583516129022,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_random_epochs/median_latency",
+            "value": 13.888680999999906,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_random_epochs/p95_latency",
+            "value": 14.140544999999747,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_random_epochs/total_duration",
+            "value": 56.277575999999954,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_random_epochs/jobs_per_sec",
+            "value": 550.8410667865302,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/avg_latency",
+            "value": 11.544650903225829,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/median_latency",
+            "value": 10.407493000000159,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/p95_latency",
+            "value": 10.723927000000003,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/total_duration",
+            "value": 55.484735,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/jobs_per_sec",
+            "value": 558.712229588913,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/avg_latency",
+            "value": 31.507244248365996,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/median_latency",
+            "value": 26.090059999999994,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/p95_latency",
+            "value": 51.22789599999987,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/total_duration",
+            "value": 66.72706900000003,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/jobs_per_sec",
+            "value": 2292.9225319337784,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/avg_latency",
+            "value": 22.027689052287574,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/median_latency",
+            "value": 21.895140999999967,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/p95_latency",
+            "value": 26.359354000000167,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/total_duration",
+            "value": 74.5712669999998,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/jobs_per_sec",
+            "value": 2051.7285833429705,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/avg_latency",
+            "value": 29.293021542483665,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/median_latency",
+            "value": 29.11632200000031,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/p95_latency",
+            "value": 29.629088000000138,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/total_duration",
+            "value": 74.68569899999966,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/jobs_per_sec",
+            "value": 2048.5849640371002,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/avg_latency",
+            "value": 100.53211850697302,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/median_latency",
+            "value": 100.22091200000023,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/p95_latency",
+            "value": 165.01922400000012,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/total_duration",
+            "value": 217.24729399999978,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/jobs_per_sec",
+            "value": 5611.117071037033,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/avg_latency",
+            "value": 146.87732390484013,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/median_latency",
+            "value": 144.4549609999999,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/p95_latency",
+            "value": 170.72055199999977,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/total_duration",
+            "value": 286.13930200000004,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/jobs_per_sec",
+            "value": 4260.162765057698,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/avg_latency",
+            "value": 189.38478357998366,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/median_latency",
+            "value": 189.1132660000003,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/p95_latency",
+            "value": 211.97742100000005,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/total_duration",
+            "value": 373.7836110000003,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/jobs_per_sec",
+            "value": 3261.2451807042953,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/avg_latency",
+            "value": 1292.9226260454273,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/median_latency",
+            "value": 1296.1181190000007,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/p95_latency",
+            "value": 1940.982175,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/total_duration",
+            "value": 2562.8952940000004,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/jobs_per_sec",
+            "value": 7498.940766325351,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/avg_latency",
+            "value": 1998.7607975448757,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/median_latency",
+            "value": 2006.9100830000007,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/p95_latency",
+            "value": 2054.866354,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/total_duration",
+            "value": 3942.6201359999995,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/jobs_per_sec",
+            "value": 4874.677076929534,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/avg_latency",
+            "value": 2974.891017678721,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/median_latency",
+            "value": 3016.2127409999994,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/p95_latency",
+            "value": 3568.200127,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/total_duration",
+            "value": 5802.115277999999,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/jobs_per_sec",
+            "value": 3312.412642484557,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/avg_latency",
+            "value": 2878.2613388223863,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/median_latency",
+            "value": 2919.291304999999,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/p95_latency",
+            "value": 4133.756200000002,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/total_duration",
+            "value": 5545.300430000001,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/jobs_per_sec",
+            "value": 6925.864610008153,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/avg_latency",
+            "value": 4635.6834034768635,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/median_latency",
+            "value": 4712.506508999999,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/p95_latency",
+            "value": 4741.054034999997,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/total_duration",
+            "value": 9013.042031,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/jobs_per_sec",
+            "value": 4261.1584266337695,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/avg_latency",
+            "value": 6731.133095648283,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/median_latency",
+            "value": 6877.5707729999995,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/p95_latency",
+            "value": 8265.618388000003,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/total_duration",
+            "value": 12934.663602999997,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/jobs_per_sec",
+            "value": 2969.23067957425,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_1agents_1agents/queue_empty_time",
+            "value": 1.1100950000036391,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_1agents_1agents/avg_dequeue_latency",
+            "value": 0.03222490322561146,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_1agents_1agents/median_dequeue_latency",
+            "value": 0.015169999998761341,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_1agents_1agents/p95_dequeue_latency",
+            "value": 0.05032099999516504,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_10agents_10agents/queue_empty_time",
+            "value": 0.7300410000025295,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_10agents_10agents/avg_dequeue_latency",
+            "value": 0.17017270967757683,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_10agents_10agents/median_dequeue_latency",
+            "value": 0.1802830000015092,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_10agents_10agents/p95_dequeue_latency",
+            "value": 0.18769299999985378,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_50agents_50agents/queue_empty_time",
+            "value": 1.1715970000004745,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_50agents_50agents/avg_dequeue_latency",
+            "value": 0.7107169999998727,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_50agents_50agents/median_dequeue_latency",
+            "value": 0.7077900000003865,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/minimum_epoch_50agents_50agents/p95_dequeue_latency",
+            "value": 0.7622410000039963,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_1agents_1agents/queue_empty_time",
+            "value": 2.0086579999988317,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_1agents_1agents/avg_dequeue_latency",
+            "value": 0.012261633986781817,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_1agents_1agents/median_dequeue_latency",
+            "value": 0.011179999994055834,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_1agents_1agents/p95_dequeue_latency",
+            "value": 0.013579999998910353,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_10agents_10agents/queue_empty_time",
+            "value": 2.0422580000013113,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_10agents_10agents/avg_dequeue_latency",
+            "value": 0.12309850980395495,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_10agents_10agents/median_dequeue_latency",
+            "value": 0.11593200000061188,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_10agents_10agents/p95_dequeue_latency",
+            "value": 0.1591820000030566,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_50agents_50agents/queue_empty_time",
+            "value": 2.5557449999978417,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_50agents_50agents/avg_dequeue_latency",
+            "value": 0.618936856208855,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_50agents_50agents/median_dequeue_latency",
+            "value": 0.5850680000003194,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/small_epoch_50agents_50agents/p95_dequeue_latency",
+            "value": 0.7352399999945192,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_1agents_1agents/queue_empty_time",
+            "value": 13.794500999996671,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_1agents_1agents/avg_dequeue_latency",
+            "value": 0.01083914766198097,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_1agents_1agents/median_dequeue_latency",
+            "value": 0.010840999995707534,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_1agents_1agents/p95_dequeue_latency",
+            "value": 0.012799999996786937,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_10agents_10agents/queue_empty_time",
+            "value": 13.701029999996535,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_10agents_10agents/avg_dequeue_latency",
+            "value": 0.1106249507793109,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_10agents_10agents/median_dequeue_latency",
+            "value": 0.09694100000342587,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_10agents_10agents/p95_dequeue_latency",
+            "value": 0.11979199999768753,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_50agents_50agents/queue_empty_time",
+            "value": 14.49818999999843,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_50agents_50agents/avg_dequeue_latency",
+            "value": 0.5708388859721314,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_50agents_50agents/median_dequeue_latency",
+            "value": 0.5075770000039483,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/medium_epoch_50agents_50agents/p95_dequeue_latency",
+            "value": 0.6567890000005718,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_1agents_1agents/queue_empty_time",
+            "value": 207.74552699999913,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_1agents_1agents/avg_dequeue_latency",
+            "value": 0.010461001196727313,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_1agents_1agents/median_dequeue_latency",
+            "value": 0.009489999996731058,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_1agents_1agents/p95_dequeue_latency",
+            "value": 0.011050000000977889,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_10agents_10agents/queue_empty_time",
+            "value": 210.6439670000036,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_10agents_10agents/avg_dequeue_latency",
+            "value": 0.10917587423901363,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_10agents_10agents/median_dequeue_latency",
+            "value": 0.09988200000225333,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_10agents_10agents/p95_dequeue_latency",
+            "value": 0.11735100000078091,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_50agents_50agents/queue_empty_time",
+            "value": 210.68061699999816,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_50agents_50agents/avg_dequeue_latency",
+            "value": 0.5461849536916474,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_50agents_50agents/median_dequeue_latency",
+            "value": 0.5230479999954696,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/large_epoch_50agents_50agents/p95_dequeue_latency",
+            "value": 0.6259980000031646,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_1agents_1agents/queue_empty_time",
+            "value": 420.0142169999963,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_1agents_1agents/avg_dequeue_latency",
+            "value": 0.010581787897713536,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_1agents_1agents/median_dequeue_latency",
+            "value": 0.00983000000269385,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_1agents_1agents/p95_dequeue_latency",
+            "value": 0.011409999999159481,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_10agents_10agents/queue_empty_time",
+            "value": 430.8790270000027,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_10agents_10agents/avg_dequeue_latency",
+            "value": 0.11179623595275895,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_10agents_10agents/median_dequeue_latency",
+            "value": 0.10353100000065751,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_10agents_10agents/p95_dequeue_latency",
+            "value": 0.12048100000538398,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_50agents_50agents/queue_empty_time",
+            "value": 434.9595879999979,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_50agents_50agents/avg_dequeue_latency",
+            "value": 0.5650637815706163,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_50agents_50agents/median_dequeue_latency",
+            "value": 0.541096999993897,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/dequeue/maximum_epoch_50agents_50agents/p95_dequeue_latency",
+            "value": 0.571737000005669,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/minimum_epoch/startup_time",
+            "value": 20.801186999990023,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/minimum_epoch/jobs_per_sec",
+            "value": 1490.2995680013294,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/minimum_epoch/no_epoch_deletion_cleanup_time",
+            "value": 0.03372099999978673,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/minimum_epoch/full_epoch_deletion_cleanup_time",
+            "value": 1.211435999997775,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/small_epoch/startup_time",
+            "value": 68.68903599999612,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/small_epoch/jobs_per_sec",
+            "value": 2227.429716731046,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/small_epoch/no_epoch_deletion_cleanup_time",
+            "value": 0.06365999999979977,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/small_epoch/full_epoch_deletion_cleanup_time",
+            "value": 0.8075110000063432,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/medium_epoch/startup_time",
+            "value": 526.4498779999994,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/medium_epoch/jobs_per_sec",
+            "value": 2315.510081664415,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/medium_epoch/no_epoch_deletion_cleanup_time",
+            "value": 0.24654300000111107,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/medium_epoch/full_epoch_deletion_cleanup_time",
+            "value": 1.634591999987606,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/large_epoch/startup_time",
+            "value": 7219.713896000001,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/large_epoch/jobs_per_sec",
+            "value": 2662.016843998218,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/large_epoch/no_epoch_deletion_cleanup_time",
+            "value": 1.3479459999944083,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/large_epoch/full_epoch_deletion_cleanup_time",
+            "value": 7.0609110000077635,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/maximum_epoch/startup_time",
+            "value": 15919.634571000002,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/maximum_epoch/jobs_per_sec",
+            "value": 2412.492562483958,
+            "unit": "jobs/s"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/maximum_epoch/no_epoch_deletion_cleanup_time",
+            "value": 3.015897999997833,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/prover-client/proving_broker/initialization/maximum_epoch/full_epoch_deletion_cleanup_time",
+            "value": 14.47236200000043,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/constructor/0/totalDurationMs",
+            "value": 244.21673999999985,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/constructor/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/constructor/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/mint_to_public/1/totalDurationMs",
+            "value": 55.76995200000056,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/mint_to_public/1/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/mint_to_public/1/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/2/totalDurationMs",
+            "value": 48.500380999999834,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/2/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/2/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/transfer_in_public/3/totalDurationMs",
+            "value": 53.04185400000006,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/transfer_in_public/3/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/transfer_in_public/3/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/4/totalDurationMs",
+            "value": 43.223987999999736,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/4/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/4/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/5/totalDurationMs",
+            "value": 39.806211000000076,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/5/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/5/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/burn_public/6/totalDurationMs",
+            "value": 50.130764000000454,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/burn_public/6/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/burn_public/6/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/7/totalDurationMs",
+            "value": 40.550091000000066,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/7/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/Token contract tests/Token/balance_of_public/7/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/0/totalDurationMs",
+            "value": 172.07951200000025,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/1/totalDurationMs",
+            "value": 160.6936339999993,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/1/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/1/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/2/totalDurationMs",
+            "value": 159.81467199999952,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/2/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/Token/constructor/2/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/constructor/3/totalDurationMs",
+            "value": 76.22981600000003,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/constructor/3/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/constructor/3/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/set_minter/4/totalDurationMs",
+            "value": 43.28719000000001,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/set_minter/4/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/set_minter/4/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/add_liquidity/5/totalDurationMs",
+            "value": 157.00171300000056,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/add_liquidity/5/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/add_liquidity/5/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalDurationMs",
+            "value": 102.6102409999994,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/remove_liquidity/7/totalDurationMs",
+            "value": 158.19251000000077,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/remove_liquidity/7/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AMM contract tests/AMM/remove_liquidity/7/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/bulk_testing/0/totalDurationMs",
+            "value": 600.4170920000015,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/bulk_testing/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/bulk_testing/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/mega_bulk_testing/0/totalDurationMs",
+            "value": 1522.8984010000004,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/mega_bulk_testing/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/mega_bulk_testing/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/nested_call_large_calldata/0/totalDurationMs",
+            "value": 297.8714830000008,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/nested_call_large_calldata/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmTest contract tests/AvmTest/nested_call_large_calldata/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalDurationMs",
+            "value": 74.58542200000011,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/0/totalDurationMs",
+            "value": 77.5162020000007,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/0/totalDurationMs",
+            "value": 81.62975000000006,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/0/totalDurationMs",
+            "value": 87.43485099999998,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/0/totalDurationMs",
+            "value": 92.9322659999998,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/0/totalDurationMs",
+            "value": 95.68562500000007,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/0/totalDurationMs",
+            "value": 104.99483399999917,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/0/totalDurationMs",
+            "value": 106.47938500000055,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/0/totalDurationMs",
+            "value": 110.4557990000012,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/0/totalDurationMs",
+            "value": 115.12411400000019,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/0/totalDurationMs",
+            "value": 188.3209969999989,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/0/totalDurationMs",
+            "value": 187.57476700000007,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/0/totalDurationMs",
+            "value": 311.3917000000001,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/0/totalDurationMs",
+            "value": 308.7677739999999,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1024/0/totalDurationMs",
+            "value": 546.1632309999986,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1024/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1024/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1536/0/totalDurationMs",
+            "value": 781.0638819999986,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1536/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_1536/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/0/totalDurationMs",
+            "value": 90.91708800000197,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash_1400/0/totalDurationMs",
+            "value": 847.3477789999997,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash_1400/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash_1400/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/0/totalDurationMs",
+            "value": 68.06307100000049,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/0/totalDurationMs",
+            "value": 65.08297700000185,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash_1000fields/0/totalDurationMs",
+            "value": 756.4497699999993,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash_1000fields/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash_1000fields/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/0/totalDurationMs",
+            "value": 519.6115420000024,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/0/totalDurationMs",
+            "value": 488.74247300000206,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/0/manaUsed",
+            "value": 0,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator/AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/0/totalInstructionsExecuted",
+            "value": 0,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/world-state/Block Sync/36 txs/1 leaves per tx",
+            "value": 317.49840549999954,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Block Sync/36 txs/8 leaves per tx",
+            "value": 289.34881549999955,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Block Sync/36 txs/64 leaves per tx",
+            "value": 290.3869465000007,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Block Sync/360 txs/8 leaves per tx",
+            "value": 2282.8560599999983,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Tree Insertion/PUBLIC_DATA_TREE/SEQUENTIAL/1 leaves",
+            "value": 0.8461627500000759,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Tree Insertion/PUBLIC_DATA_TREE/SEQUENTIAL/8 leaves",
+            "value": 4.813545624999733,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Tree Insertion/PUBLIC_DATA_TREE/SEQUENTIAL/64 leaves",
+            "value": 38.3248987500001,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Tree Insertion/NULLIFIER_TREE/BATCH/1 leaves",
+            "value": 5.769026687500173,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Tree Insertion/NULLIFIER_TREE/BATCH/8 leaves",
+            "value": 8.027001312500033,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Tree Insertion/NULLIFIER_TREE/BATCH/64 leaves",
+            "value": 24.845826187499824,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Tree Insertion/NOTE_HASH_TREE/BATCH/1 leaves",
+            "value": 1.5913060624998252,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Tree Insertion/NOTE_HASH_TREE/BATCH/8 leaves",
+            "value": 1.5859203749996595,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Tree Insertion/NOTE_HASH_TREE/BATCH/64 leaves",
+            "value": 1.6813641250000728,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/world-state/Data Retrieval/SIBLING_PATH",
+            "value": 138.58686230469175,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/world-state/Data Retrieval/LEAF_PREIMAGE",
+            "value": 155.952347656239,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/world-state/Data Retrieval/LEAF_VALUE",
+            "value": 129.1763037109348,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/world-state/Data Retrieval/LEAF_INDICES",
+            "value": 100.14571582031806,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/world-state/Data Retrieval/LOW_LEAF",
+            "value": 97.30845898437224,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/stdlib/Tx/private/getTxHash/avg",
+            "value": 17.27,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/stdlib/Tx/private/getTxHash/p50",
+            "value": 17,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/stdlib/Tx/private/getTxHash/p95",
+            "value": 18,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/stdlib/Tx/public/getTxHash/avg",
+            "value": 35.83,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/stdlib/Tx/public/getTxHash/p50",
+            "value": 36,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/stdlib/Tx/public/getTxHash/p95",
+            "value": 37,
             "unit": "ms"
           },
           {
