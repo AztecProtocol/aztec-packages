@@ -207,7 +207,7 @@ This internal function uses `schedule_value_change` to update the `nfts` storage
 
 Another useful function checks how many notes a caller has. You can use this later to verify the claim and exit from L2:
 
-```rust title="notes_of" showLineNumbers 
+```rust title="notes_of" showLineNumbers
 #[external("utility")]
 unconstrained fn notes_of(from: AztecAddress) -> Field {
     let notes = storage.owners.at(from).view_notes(NoteViewerOptions::new());
@@ -634,23 +634,30 @@ This section assumes you're working locally using Sandbox. For the testnet, you 
 
 First, initialize the clients: `aztec.js` for Aztec and `viem` for Ethereum:
 
-```typescript title="setup" showLineNumbers 
-import { privateKeyToAccount } from 'viem/accounts';
-import { createPublicClient, createWalletClient, http, pad, getAbiItem, toEventHash } from 'viem';
-import { foundry } from 'viem/chains';
-import { EthAddress } from '@aztec/aztec.js/addresses';
-import { Fr } from '@aztec/aztec.js/fields';
-import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { computeSecretHash } from '@aztec/stdlib/hash';
-import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import { sha256ToField } from '@aztec/foundation/crypto';
-import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
-import { TestWallet } from '@aztec/test-wallet/server';
-import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import SimpleNFT from '../artifacts/contracts/SimpleNFT.sol/SimpleNFT.json';
-import NFTPortal from '../artifacts/contracts/NFTPortal.sol/NFTPortal.json';
-import { NFTPunkContract } from '../contracts/aztec/artifacts/NFTPunk.js';
-import { NFTBridgeContract } from '../contracts/aztec/artifacts/NFTBridge.js';
+```typescript title="setup" showLineNumbers
+import { privateKeyToAccount } from "viem/accounts";
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  pad,
+  getAbiItem,
+  toEventHash,
+} from "viem";
+import { foundry } from "viem/chains";
+import { EthAddress } from "@aztec/aztec.js/addresses";
+import { Fr } from "@aztec/aztec.js/fields";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { computeSecretHash } from "@aztec/stdlib/hash";
+import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
+import { sha256ToField } from "@aztec/foundation/crypto";
+import { computeL2ToL1MessageHash } from "@aztec/stdlib/hash";
+import { TestWallet } from "@aztec/test-wallet/server";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
+import SimpleNFT from "../artifacts/contracts/SimpleNFT.sol/SimpleNFT.json";
+import NFTPortal from "../artifacts/contracts/NFTPortal.sol/NFTPortal.json";
+import { NFTPunkContract } from "../contracts/aztec/artifacts/NFTPunk.js";
+import { NFTBridgeContract } from "../contracts/aztec/artifacts/NFTBridge.js";
 
 // Setup L1 clients using anvil's 1st account which should have a ton of ETH already
 const l1Account = privateKeyToAccount(
@@ -972,6 +979,24 @@ const msgLeaf = computeL2ToL1MessageHash({
   rollupVersion: new Fr(version),
   chainId: new Fr(foundry.id),
 });
+
+// Wait for the block to be proven before withdrawing
+// Waiting for the block to be proven is not necessary on the sandbox, but it is necessary on devnet
+console.log("⏳ Waiting for block to be proven...");
+console.log(`   Exit block number: ${exitReceipt.blockNumber}`);
+
+let provenBlockNumber = await node.getProvenBlockNumber();
+console.log(`   Current proven block: ${provenBlockNumber}`);
+
+while (provenBlockNumber < exitReceipt.blockNumber!) {
+  console.log(
+    `   Waiting... (proven: ${provenBlockNumber}, needed: ${exitReceipt.blockNumber})`
+  );
+  await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10 seconds
+  provenBlockNumber = await node.getProvenBlockNumber();
+}
+
+console.log("✅ Block proven!\n");
 
 // Compute the membership witness using the message hash
 const witness = await computeL2ToL1MembershipWitness(

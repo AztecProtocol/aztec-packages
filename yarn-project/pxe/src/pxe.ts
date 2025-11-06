@@ -9,16 +9,16 @@ import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/pr
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
-  type EventMetadataDefinition,
+  EventSelector,
   FunctionCall,
   FunctionSelector,
   FunctionType,
-  decodeFromAbi,
   decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockHash } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -46,6 +46,7 @@ import {
   type SimulationTimings,
   Tx,
   TxExecutionRequest,
+  TxHash,
   TxProfileResult,
   TxProvingResult,
   TxSimulationResult,
@@ -73,13 +74,19 @@ import { AddressDataProvider } from './storage/address_data_provider/address_dat
 import { CapsuleDataProvider } from './storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from './storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from './storage/note_data_provider/note_data_provider.js';
-import {
-  type PrivateEvent,
-  PrivateEventDataProvider,
-} from './storage/private_event_data_provider/private_event_data_provider.js';
+import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from './storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from './storage/tagging_data_provider/tagging_data_provider.js';
 import { Synchronizer } from './synchronizer/index.js';
+
+export type PrivateEvent = {
+  packedEvent: Fr[];
+  blockNumber: number;
+  blockHash: L2BlockHash;
+  txHash: TxHash;
+  recipient: AztecAddress;
+  eventSelector: EventSelector;
+};
 
 /**
  * Private eXecution Environment (PXE) is a library used by wallets to simulate private phase of transactions and to
@@ -1066,19 +1073,19 @@ export class PXE {
   /**
    * Returns the private events given search parameters.
    * @param contractAddress - The address of the contract to get events from.
-   * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+   * @param eventSelector - Event selector to search for.
    * @param from - The block number to search from.
    * @param numBlocks - The amount of blocks to search.
    * @param recipients - The addresses that decrypted the logs.
-   * @returns - The deserialized events.
+   * @returns - The packed events with block and tx metadata.
    */
-  public async getPrivateEvents<T>(
+  public async getPrivateEvents(
     contractAddress: AztecAddress,
-    eventMetadataDef: EventMetadataDefinition,
+    eventSelector: EventSelector,
     from: number,
     numBlocks: number,
     recipients: AztecAddress[],
-  ): Promise<T[]> {
+  ): Promise<PrivateEvent[]> {
     if (recipients.length === 0) {
       throw new Error('Recipients are required to get private events');
     }
@@ -1088,19 +1095,7 @@ export class PXE {
     // We need to manually trigger private state sync to have a guarantee that all the events are available.
     await this.simulateUtility('sync_private_state', [], contractAddress);
 
-    const events = await this.privateEventDataProvider.getPrivateEvents(
-      contractAddress,
-      from,
-      numBlocks,
-      recipients,
-      eventMetadataDef.eventSelector,
-    );
-
-    const decodedEvents = events.map(
-      (event: PrivateEvent): T => decodeFromAbi([eventMetadataDef.abiType], event.msgContent) as T,
-    );
-
-    return decodedEvents;
+    return this.privateEventDataProvider.getPrivateEvents(contractAddress, from, numBlocks, recipients, eventSelector);
   }
 
   /**

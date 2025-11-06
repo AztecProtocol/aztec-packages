@@ -233,6 +233,7 @@ penalised
 permissonless
 pkey
 posesses
+preconfigured
 preconfirmed
 prefered
 procss

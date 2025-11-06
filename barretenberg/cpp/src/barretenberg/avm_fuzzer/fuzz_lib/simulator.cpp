@@ -82,8 +82,19 @@ SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, con
 
 JsSimulator* JsSimulator::instance = nullptr;
 JsSimulator::JsSimulator(std::string& simulator_path)
-    : process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
+    : simulator_path(simulator_path)
+    , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
 {}
+
+void JsSimulator::restart_simulator()
+{
+    if (instance == nullptr) {
+        throw std::runtime_error("JsSimulator should be initialized before restarting");
+    }
+    std::string simulator_path = instance->simulator_path;
+    delete instance;
+    instance = new JsSimulator(simulator_path);
+}
 
 JsSimulator* JsSimulator::getInstance()
 {
@@ -113,9 +124,20 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
     // Remove the newline character
     response.erase(response.find_last_not_of('\n') + 1);
 
-    // HACK
-    // decode_bytecode decodes base64 and ungzips it
-    std::vector<uint8_t> decoded_response = decode_bytecode(response);
+    std::vector<uint8_t> decoded_response;
+    // for some reason, the typescript simulator responds with an empty response (invalid gzip) one time in ~500k runs
+    // restarting the process if this happens
+    try {
+        // HACK: decode_bytecode decodes base64 and ungzips it
+        decoded_response = decode_bytecode(response);
+    } catch (const std::exception& e) {
+        std::cout << "Error decoding response: " << e.what() << std::endl;
+        std::cout << "Response: " << response << std::endl;
+        restart_simulator();
+
+        return simulate(bytecode, calldata);
+    }
+
     std::string response_string(decoded_response.begin(), decoded_response.end());
     json response_json = json::parse(response_string);
     bool reverted = response_json["reverted"];
