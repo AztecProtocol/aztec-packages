@@ -9,7 +9,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl/msgpack_impl.hpp"
 #include "barretenberg/vm2/avm_sim_api.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 
 namespace bb::nodejs {
 

@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 
 #include <vector>
 

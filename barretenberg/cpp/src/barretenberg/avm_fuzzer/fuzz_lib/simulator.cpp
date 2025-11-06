@@ -13,7 +13,7 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/common/base64.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -83,15 +83,15 @@ Tx create_default_tx(const AztecAddress& contract_address,
             .nullifiers = {FF("0x00000000000000000000000000000000000000000000000000000000deadbeef")},
             .l2ToL1Messages = {},
         },
-        .revertibleAccumulatedData = AccumulatedData{ 
+        .revertibleAccumulatedData = AccumulatedData{
             .noteHashes = {},
             .nullifiers = {},
             .l2ToL1Messages = {},
         },
         .setupEnqueuedCalls = {},
-        .appLogicEnqueuedCalls = { 
+        .appLogicEnqueuedCalls = {
             PublicCallRequestWithCalldata{
-                .request = PublicCallRequest{ 
+                .request = PublicCallRequest{
                     .msgSender = 0,
                     .contractAddress = contract_address,
                     .isStaticCall = is_static_call,

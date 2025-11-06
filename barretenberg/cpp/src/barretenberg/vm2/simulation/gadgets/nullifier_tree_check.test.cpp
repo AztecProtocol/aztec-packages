@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
