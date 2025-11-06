@@ -259,13 +259,10 @@ Napi::Value AvmSimulateNapi::simulateWithHintedDbs(const Napi::CallbackInfo& cb_
             // Create AVM Sim API and run simulation with the hinted DBs
             // All hints are already in the inputs, so no runtime contract DB callbacks needed
             avm2::AvmSimAPI avm;
-            avm.simulate_with_hinted_dbs(inputs);
-            // TODO(dbanks12): return PublicTxResult as the TS PublicTxSimulator returns.
-            // For now just a bool true.
-            bool success = true;
+            avm2::TxSimulationResult result = avm.simulate_with_hinted_dbs(inputs);
 
             // Serialize the simulation result with msgpack into the return buffer to TS.
-            msgpack::pack(result_buffer, success);
+            msgpack::pack(result_buffer, result);
         } catch (const std::exception& e) {
             // Rethrow with context
             throw std::runtime_error(std::string("AVM simulation with hinted DBs failed: ") + e.what());

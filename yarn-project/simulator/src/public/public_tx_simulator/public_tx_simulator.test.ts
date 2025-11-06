@@ -14,7 +14,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
+import { PublicDataWrite, type PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
@@ -25,13 +25,7 @@ import { countAccumulatedItems } from '@aztec/stdlib/kernel';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { fr, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import {
-  BlockHeader,
-  GlobalVariables,
-  PartialStateReference,
-  StateReference,
-  TxExecutionPhase,
-} from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -47,7 +41,7 @@ import {
   NullifierLimitReachedError,
 } from '../side_effect_errors.js';
 import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
-import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
+import { PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
   // Nullifier must be >=128 since tree starts with 128 entries pre-filled
@@ -185,7 +179,7 @@ describe('public_tx_simulator', () => {
   };
 
   const checkNullifierRoot = async (txResult: PublicTxResult) => {
-    const siloedNullifiers = txResult.avmProvingRequest.inputs.publicInputs.accumulatedData.nullifiers;
+    const siloedNullifiers = txResult.publicInputs.accumulatedData.nullifiers;
     // Loop helpful for debugging so you can see root progression
     //for (const nullifier of siloedNullifiers) {
     //  await db.batchInsert(
@@ -198,12 +192,12 @@ describe('public_tx_simulator', () => {
     // This is how the public processor inserts nullifiers.
     await merkleTreesCopy.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
-      siloedNullifiers.map(n => n.toBuffer()),
+      siloedNullifiers.map((n: Fr) => n.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
     );
     const expectedRoot = new Fr((await merkleTrees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root);
     const gotRoot = new Fr((await merkleTrees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root);
-    const gotRootPublicInputs = txResult.avmProvingRequest.inputs.publicInputs.endTreeSnapshots.nullifierTree.root;
+    const gotRootPublicInputs = txResult.publicInputs.endTreeSnapshots.nullifierTree.root;
     expect(gotRoot).toEqual(expectedRoot);
     expect(gotRootPublicInputs).toEqual(expectedRoot);
   };
@@ -318,9 +312,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toEqual([
-      expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
-    ]);
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.revertReason).toBe(undefined);
 
@@ -337,7 +328,7 @@ describe('public_tx_simulator', () => {
     const availableGasForSecondSetup = availableGasForFirstSetup.sub(enqueuedCallGasUsed);
     expectAvailableGasForCalls([availableGasForFirstSetup, availableGasForSecondSetup]);
 
-    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+    const output = txResult.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
@@ -355,9 +346,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toEqual([
-      expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
-    ]);
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.revertReason).toBe(undefined);
 
@@ -374,7 +362,7 @@ describe('public_tx_simulator', () => {
     const availableGasForSecondAppLogic = availableGasForFirstAppLogic.sub(enqueuedCallGasUsed);
     expectAvailableGasForCalls([availableGasForFirstAppLogic, availableGasForSecondAppLogic]);
 
-    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+    const output = txResult.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
@@ -392,9 +380,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toEqual([
-      expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: undefined }),
-    ]);
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.revertReason).toBe(undefined);
 
@@ -410,7 +395,7 @@ describe('public_tx_simulator', () => {
 
     expectAvailableGasForCalls([teardownGasLimits]);
 
-    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+    const output = txResult.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
@@ -430,11 +415,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toEqual([
-      expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
-      expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
-      expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: undefined }),
-    ]);
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.revertReason).toBe(undefined);
 
@@ -461,7 +441,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+    const output = txResult.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
@@ -513,7 +493,7 @@ describe('public_tx_simulator', () => {
 
     expect(simulateInternal).toHaveBeenCalledTimes(3);
 
-    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+    const output = txResult.publicInputs;
 
     const numPublicDataWrites = 3;
     expect(countAccumulatedItems(output.accumulatedData.publicDataWrites)).toBe(numPublicDataWrites);
@@ -613,12 +593,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toEqual([
-      expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
-      expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
-      expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: undefined }),
-    ]);
-
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.revertReason).toBeUndefined();
 
@@ -644,7 +618,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+    const output = txResult.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
@@ -749,11 +723,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toEqual([
-      expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
-      expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: appLogicFailure }),
-      expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: undefined }),
-    ]);
     expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
     // tx reports app logic failure
     expect(txResult.revertReason).toBe(appLogicFailure);
@@ -780,7 +749,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+    const output = txResult.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
@@ -875,11 +844,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toEqual([
-      expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
-      expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
-      expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: teardownFailure }),
-    ]);
     expect(txResult.revertCode).toEqual(RevertCode.TEARDOWN_REVERTED);
     expect(txResult.revertReason).toBe(teardownFailure);
 
@@ -905,7 +869,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+    const output = txResult.publicInputs;
 
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
@@ -989,11 +953,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toEqual([
-      expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
-      expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: appLogicFailure }),
-      expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: teardownFailure }),
-    ]);
     expect(txResult.revertCode).toEqual(RevertCode.BOTH_REVERTED);
     // tx reports app logic failure
     expect(txResult.revertReason).toBe(appLogicFailure);
@@ -1020,7 +979,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+    const output = txResult.publicInputs;
 
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
@@ -1103,7 +1062,7 @@ describe('public_tx_simulator', () => {
       publicGas: expectedPublicGasUsed.add(expectedTeardownGasUsed),
     });
 
-    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+    const output = txResult.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
@@ -1178,12 +1137,6 @@ describe('public_tx_simulator', () => {
     // Verify that the transaction has app logic reverted code
     expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
 
-    // Verify that there are only 2 phases processed (setup and teardown), since app logic is skipped
-    expect(txResult.processedPhases).toEqual([
-      expect.objectContaining({ phase: TxExecutionPhase.SETUP }),
-      expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN }),
-    ]);
-
     // Verify that the SimulationError contains information about the nullifier collision
     const simulationError = txResult.revertReason as SimulationError;
     expect(simulationError.getOriginalMessage()).toContain('Nullifier collision');
@@ -1197,7 +1150,7 @@ describe('public_tx_simulator', () => {
 
       const txResult = await simulator.simulate(tx);
 
-      expect(txResult.avmProvingRequest!.inputs.publicInputs.proverId).toEqual(Fr.ZERO);
+      expect(txResult.publicInputs.proverId).toEqual(Fr.ZERO);
     });
 
     it('exposes the prover id in public inputs', async () => {
@@ -1211,7 +1164,7 @@ describe('public_tx_simulator', () => {
 
       const txResult = await simulator.simulate(tx);
 
-      expect(txResult.avmProvingRequest!.inputs.publicInputs.proverId).toEqual(proverId);
+      expect(txResult.publicInputs.proverId).toEqual(proverId);
     });
   });
 

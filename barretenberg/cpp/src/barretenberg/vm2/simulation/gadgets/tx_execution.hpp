@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/calldata_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
@@ -17,9 +18,9 @@ namespace bb::avm2::simulation {
 
 // TODO(fcarreiro): Create interface and move there.
 struct TxExecutionResult {
-    Gas gas_used;
-    bool reverted;
-    std::optional<std::vector<FF>> app_logic_output;
+    GasUsed gas_used;
+    RevertCode revert_code;
+    std::optional<std::vector<FF>> app_logic_return_value;
 };
 
 // In charge of executing a transaction.
