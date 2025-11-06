@@ -83,6 +83,7 @@ namespace tx;
     reverted * (1 - is_revertible) = 0;
 
     // Control flow
+    pol commit read_pi_start_offset; // start index in public inputs to read data for a given phase
     pol commit read_pi_offset; // index in public inputs to read data from -> Revisit!
     pol commit read_pi_length_offset; // index in public inputs to read lengths from
     pol commit write_pi_offset; // index in public inputs to write data to: Constrain in the phases that need it.
@@ -111,7 +112,7 @@ namespace tx;
         is_tree_padding,
         is_cleanup,
         is_revertible,
-        read_pi_offset,
+        read_pi_start_offset,
         read_pi_length_offset,
         sel_non_revertible_append_note_hash,
         sel_non_revertible_append_nullifier,
@@ -133,7 +134,7 @@ namespace tx;
         precomputed.is_tree_padding,
         precomputed.is_cleanup,
         precomputed.is_revertible,
-        precomputed.read_pi_offset,
+        precomputed.read_pi_start_offset,
         precomputed.read_pi_length_offset,
         precomputed.sel_non_revertible_append_note_hash,
         precomputed.sel_non_revertible_append_nullifier,

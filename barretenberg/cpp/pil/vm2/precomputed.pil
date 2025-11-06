@@ -144,7 +144,7 @@ pol constant is_collect_fee;
 pol constant is_tree_padding;
 pol constant is_cleanup;
 pol constant is_revertible;
-pol constant read_pi_offset;
+pol constant read_pi_start_offset;
 pol constant read_pi_length_offset;
 pol constant sel_non_revertible_append_note_hash;
 pol constant sel_non_revertible_append_nullifier;

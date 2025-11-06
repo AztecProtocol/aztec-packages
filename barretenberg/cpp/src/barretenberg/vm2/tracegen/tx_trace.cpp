@@ -198,6 +198,7 @@ std::vector<std::pair<Column, FF>> handle_pi_read(TransactionPhase phase, uint32
 
     return {
         { Column::tx_read_pi_offset, read_offset + read_counter },
+        { Column::tx_read_pi_start_offset, read_offset },
         { Column::tx_read_pi_length_offset, length_offset - read_counter },
 
         { Column::tx_remaining_phase_counter, remaining_length },
