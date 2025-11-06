@@ -385,6 +385,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     for (const auto phase : phase_order) {
         const auto& spec = TX_PHASE_SPEC_MAP.at(phase);
 
+        // Populate all columns that are part of the #[READ_PHASE_TABLE] lookup in tx.pil.
         std::vector<std::pair<Column, FF>> row_data = {
             { C::precomputed_sel_phase, 1 },
             { C::precomputed_phase_value, spec.phase_value },
@@ -408,7 +409,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
             { C::precomputed_sel_can_emit_l2_l1_msg, spec.can_emit_l2_l1_msg },
         };
 
-        // Add next_phase_on_revert if next_phase is set
+        // Add next_phase_on_revert (used in #[PHASE_JUMP_ON_REVERT] lookup, not in #[READ_PHASE_TABLE])
         if (spec.next_phase_on_revert != 0) {
             row_data.push_back({ C::precomputed_next_phase_on_revert, spec.next_phase_on_revert });
         }
