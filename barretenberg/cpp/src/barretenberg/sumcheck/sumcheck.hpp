@@ -238,6 +238,7 @@ template <typename Flavor> class SumcheckProver {
      */
     SumcheckOutput<Flavor> prove()
     {
+        BB_BENCH_NAME("SumcheckProver::prove non-ZK version");
         vinfo("starting sumcheck rounds...");
 
         // Given gate challenges β = (β₀, ..., β_{d−1}) and d = `multivariate_d`, compute the evaluations of
@@ -365,6 +366,7 @@ template <typename Flavor> class SumcheckProver {
     SumcheckOutput<Flavor> prove(ZKData& zk_sumcheck_data)
         requires Flavor::HasZK
     {
+        BB_BENCH_NAME("SumcheckProver::prove ZK version");
         CommitmentKey ck;
 
         if constexpr (IsGrumpkinFlavor<Flavor>) {
@@ -548,7 +550,7 @@ template <typename Flavor> class SumcheckProver {
      */
     void partially_evaluate(auto& polynomials, const FF& round_challenge)
     {
-        BB_BENCH_NAME("SumcheckProver::partially_evaluate generic");
+        BB_BENCH_NAME("SumcheckProver::partially_evaluate");
 
         auto pep_view = partially_evaluated_polynomials.get_all();
         auto poly_view = polynomials.get_all();
