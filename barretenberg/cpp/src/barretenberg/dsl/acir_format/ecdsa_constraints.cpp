@@ -68,39 +68,46 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
             builder, hashed_message_fields, r_fields, s_fields, pub_x_fields, pub_y_fields, result_field);
     }
 
-    // Step 1.
+    bool_ct result = static_cast<bool_ct>(result_field);       // Constructor enforces result = 0 or 1
+    bool_ct predicate = static_cast<bool_ct>(predicate_field); // Constructor enforces predicate = 0 or 1
+
+    // Step 1: Conditionally assign field values when predicate is false
+    // There is one remaining edge case that happens with negligible probability, see here:
+    // https://github.com/AztecProtocol/barretenberg/issues/1570
+    if (!input.predicate.is_constant) {
+        // Set first byte of r and s to 1 when predicate is false
+        r_fields[0] = field_ct::conditional_assign(predicate, r_fields[0], field_ct(1)); // 0 < r < n
+        s_fields[0] = field_ct::conditional_assign(predicate, s_fields[0], field_ct(1)); // 0 < s < n/2
+
+        // Set public key to 2*generator when predicate is false
+        // Compute as native type to get byte representation
+        typename Curve::AffineElementNative default_point_native(Curve::g1::one + Curve::g1::one);
+        std::array<uint8_t, 32> default_x_bytes;
+        std::array<uint8_t, 32> default_y_bytes;
+        Curve::fq::serialize_to_buffer(default_point_native.x, default_x_bytes.data());
+        Curve::fq::serialize_to_buffer(default_point_native.y, default_y_bytes.data());
+
+        for (size_t i = 0; i < 32; ++i) {
+            pub_x_fields[i] = field_ct::conditional_assign(predicate, pub_x_fields[i], field_ct(default_x_bytes[i]));
+            pub_y_fields[i] = field_ct::conditional_assign(predicate, pub_y_fields[i], field_ct(default_y_bytes[i]));
+        }
+    } else {
+        BB_ASSERT(input.predicate.value, "Creating ECDSA constraints with a constant predicate equal to false.");
+    }
+
+    // Step 2: Convert conditionally-assigned fields to byte arrays (adds range constraints on the correct values)
     byte_array_ct hashed_message = fields_to_bytes(builder, hashed_message_fields);
     byte_array_ct pub_x_bytes = fields_to_bytes(builder, pub_x_fields);
     byte_array_ct pub_y_bytes = fields_to_bytes(builder, pub_y_fields);
     byte_array_ct r = fields_to_bytes(builder, r_fields);
     byte_array_ct s = fields_to_bytes(builder, s_fields);
-    bool_ct result = static_cast<bool_ct>(result_field);       // Constructor enforces result = 0 or 1
-    bool_ct predicate = static_cast<bool_ct>(predicate_field); // Constructor enforces predicate = 0 or 1
 
-    // Step 2.
+    // Step 3: Construct public key from byte arrays
     Fq pub_x(pub_x_bytes);
     Fq pub_y(pub_y_bytes);
     // This constructor sets the infinity flag of public_key to false. This is OK because the point at infinity is not a
     // point on the curve and we check tha public_key is on the curve.
     G1 public_key(pub_x, pub_y);
-
-    // Step 3.
-    // There is one remaining edge case that happens with negligible probability, see here:
-    // https://github.com/AztecProtocol/barretenberg/issues/1570
-    if (!input.predicate.is_constant) {
-        r[0] = field_ct::conditional_assign(predicate, r[0], field_ct(1)); // 0 < r < n
-        s[0] = field_ct::conditional_assign(predicate, s[0], field_ct(1)); // 0 < s < n/2
-
-        // P is on the curve
-        typename Curve::AffineElement default_point(Curve::g1::one + Curve::g1::one);
-        // BIGGROUP_AUDITTODO: mutable accessor needed for conditional_assign(). Could add a conditional_assign method
-        // to biggroup or could just perform these operations on the underlying fields prior to constructing the
-        // biggroup element.
-        public_key.x() = Fq::conditional_assign(predicate, public_key.x(), default_point.x());
-        public_key.y() = Fq::conditional_assign(predicate, public_key.y(), default_point.y());
-    } else {
-        BB_ASSERT(input.predicate.value, "Creating ECDSA constraints with a constant predicate equal to false.");
-    }
 
     // Step 4.
     bool_ct signature_result =
