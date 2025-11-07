@@ -1514,6 +1514,9 @@ export async function makeAvmExecutionHints(
     fields.contractClasses,
     fields.bytecodeCommitments,
     fields.debugFunctionNames,
+    fields.createCheckpointHints,
+    fields.commitCheckpointHints,
+    fields.revertCheckpointHints,
     fields.startingTreeRoots,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,
@@ -1523,9 +1526,6 @@ export async function makeAvmExecutionHints(
     fields.sequentialInsertHintsPublicDataTree,
     fields.sequentialInsertHintsNullifierTree,
     fields.appendLeavesHints,
-    fields.createCheckpointHints,
-    fields.commitCheckpointHints,
-    fields.revertCheckpointHints,
   );
 }
 

@@ -80,7 +80,6 @@ class HintingRawDB final : public LowLevelMerkleDBInterface {
     void revert_checkpoint() override;
     uint32_t get_checkpoint_id() const override { return db.get_checkpoint_id(); }
 
-    // TODO(MW): Can rework - simply dumps all hints into input ref for now
     void dump_hints(ExecutionHints& hints);
 
   private:
@@ -92,7 +91,7 @@ class HintingRawDB final : public LowLevelMerkleDBInterface {
     unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;
 
-    // Private helper methods. TODO(MW): extract out? Copied from raw_data_dbs
+    // Private helper methods.
     const AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id) const;
     AppendOnlyTreeSnapshot appendLeafInternal(AppendOnlyTreeSnapshot state_before,
                                               SiblingPath& path,

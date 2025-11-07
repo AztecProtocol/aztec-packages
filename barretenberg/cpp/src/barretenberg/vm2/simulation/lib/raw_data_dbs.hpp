@@ -102,7 +102,7 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;
 
-    // Private helper methods. TODO(MW): extract out? Used by hinting dbs
+    // Private helper methods.
     const AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id) const;
     AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id);
     AppendLeafResult appendLeafInternal(MerkleTreeId tree_id, const FF& leaf);
