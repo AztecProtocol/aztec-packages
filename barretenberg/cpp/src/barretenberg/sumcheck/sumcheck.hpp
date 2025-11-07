@@ -265,7 +265,9 @@ template <typename Flavor> class SumcheckProver {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(full_polynomials, round_challenge);
+            // First round: source (full_polynomials) and destination (partially_evaluated_polynomials) are different,
+            // so we can use simple parallelization without waves
+            partially_evaluate(full_polynomials, round_challenge, /*use_wave_parallelization=*/false);
 
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
@@ -422,7 +424,9 @@ template <typename Flavor> class SumcheckProver {
 
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(full_polynomials, round_challenge);
+            // First round: source (full_polynomials) and destination (partially_evaluated_polynomials) are different,
+            // so we can use simple parallelization without waves
+            partially_evaluate(full_polynomials, round_challenge, /*use_wave_parallelization=*/false);
             // Prepare ZK Sumcheck data for the next round
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -549,8 +553,12 @@ template <typename Flavor> class SumcheckProver {
      * @param polynomials Honk polynomials at initialization; partially evaluated polynomials in subsequent rounds
      * @param round_size \f$2^{d-i}\f$
      * @param round_challenge \f$u_i\f$
+     * @param use_wave_parallelization Whether to use wave-based parallelization (true) or simple parallelization
+    (false).
+     *        Set to false when source and destination are different (first round), true when updating in place
+    (subsequent rounds).
      */
-    void partially_evaluate(auto& polynomials, const FF& round_challenge)
+    void partially_evaluate(auto& polynomials, const FF& round_challenge, bool use_wave_parallelization = true)
     {
         BB_BENCH_NAME("SumcheckProver::partially_evaluate");
 
@@ -565,11 +573,7 @@ template <typename Flavor> class SumcheckProver {
         }
         const size_t max_limit = *std::ranges::max_element(limits);
 
-        // Determine if we need wave-based parallelization to avoid read-write conflicts
-        // This happens when source and destination could overlap (i.e., when reading from same structure we write to)
-        bool source_equals_destination = (&pep_view == &poly_view);
-
-        if (source_equals_destination) {
+        if (use_wave_parallelization) {
             // Parallelize in exponentially growing waves to avoid read-write conflicts when source == destination
             // Wave 0: pep[0] alone (reads poly[0,1])
             // Wave 1: pep[1] alone (reads poly[2,3])
