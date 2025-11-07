@@ -77,7 +77,7 @@ function check_circuit_vks {
   local exit_code=0
 
   if [[ "${2:-}" == "--update_inputs" ]]; then
-    output=$($bb check --update_inputs --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" 2>&1) || exit_code=$?
+    output=$($bb check --vk_policy=rewrite --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" 2>&1) || exit_code=$?
   else
     output=$($bb check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" 2>&1) || exit_code=$?
   fi
