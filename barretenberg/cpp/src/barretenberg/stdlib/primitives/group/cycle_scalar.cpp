@@ -35,7 +35,7 @@ cycle_scalar<Builder>::cycle_scalar(const field_t& lo, const field_t& hi, [[mayb
  * previously validated.
  *
  * @warning The validation performed by this constructor is only sound if the resulting cycle_scalar is used in a
- * scalar multiplication operation (batch_mul), which provides the necessary range constraints on lo and _hi. See
+ * scalar multiplication operation (batch_mul), which provides the necessary range constraints on lo and hi. See
  * validate_scalar_is_in_field() documentation for details.
  *
  * @tparam Builder
