@@ -25,10 +25,9 @@ using namespace bb;
  *     coordinates.
  *  3. Conditionally select the public key, the signature, and the hash of the message when the predicate is witness
  *     false. This ensures that the circuit is satisfied when the predicate is false. We set:
- *      - The first byte of r and s to 1 (NOTE: This only works when the order of the curve divided by two is bigger
- *        than \f$2^{241}\f$).
+ *      - The r = s = 1
  *      - The public key to 2 times the generator of the curve (this is to avoid problems with lookup tables in
- *        secp265r1).
+ *        secp265r1)
  *  4. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
  *     whether the signature verification was successfull or not.
  *  5. Enforce that the result of the signature verification matches the expected result.
@@ -60,7 +59,7 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     std::vector<field_ct> pub_x_fields = fields_from_witnesses(builder, input.pub_x_indices);
     std::vector<field_ct> pub_y_fields = fields_from_witnesses(builder, input.pub_y_indices);
     field_ct result_field = field_ct::from_witness_index(&builder, input.result);
-    field_ct predicate_field = to_field_ct(input.predicate, builder);
+    bool_ct predicate(to_field_ct(input.predicate, builder)); // Constructor enforces predicate = 0 or 1
 
     if (!has_valid_witness_assignments) {
         // Fill builder variables in case of empty witness assignment
@@ -68,16 +67,15 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
             builder, hashed_message_fields, r_fields, s_fields, pub_x_fields, pub_y_fields, result_field);
     }
 
-    bool_ct result = static_cast<bool_ct>(result_field);       // Constructor enforces result = 0 or 1
-    bool_ct predicate = static_cast<bool_ct>(predicate_field); // Constructor enforces predicate = 0 or 1
-
     // Step 1: Conditionally assign field values when predicate is false
-    // There is one remaining edge case that happens with negligible probability, see here:
+    // If H(m) = -2 mod n, the constraints will fail even when the predicate is false, see
     // https://github.com/AztecProtocol/barretenberg/issues/1570
-    if (!input.predicate.is_constant) {
-        // Set first byte of r and s to 1 when predicate is false
-        r_fields[0] = field_ct::conditional_assign(predicate, r_fields[0], field_ct(1)); // 0 < r < n
-        s_fields[0] = field_ct::conditional_assign(predicate, s_fields[0], field_ct(1)); // 0 < s < n/2
+    if (!predicate.is_constant()) {
+        // Set r = s = 1 when the predicate is false
+        for (size_t idx = 0; idx < 32; idx++) {
+            r_fields[idx] = field_ct::conditional_assign(predicate, r_fields[idx], field_ct(idx == 0 ? 1 : 0));
+            s_fields[idx] = field_ct::conditional_assign(predicate, s_fields[idx], field_ct(idx == 0 ? 1 : 0));
+        }
 
         // Set public key to 2*generator when predicate is false
         // Compute as native type to get byte representation
@@ -101,6 +99,7 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     byte_array_ct pub_y_bytes = fields_to_bytes(builder, pub_y_fields);
     byte_array_ct r = fields_to_bytes(builder, r_fields);
     byte_array_ct s = fields_to_bytes(builder, s_fields);
+    bool_ct result(result_field); // Constructor enforces result = 0 or 1
 
     // Step 3: Construct public key from byte arrays
     Fq pub_x(pub_x_bytes);
