@@ -783,6 +783,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     }
 
     // Accumulate constant-constant pairs out of circuit
+    bool has_constant_terms = false;
     typename G::element constant_accumulator = G::element::infinity();
     std::vector<element> new_points;
     std::vector<Fr> new_scalars;
@@ -791,6 +792,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
             const auto& point_value = typename G::element(points[i].get_value());
             const auto& scalar_value = typename G::Fr(scalars[i].get_value());
             constant_accumulator += (point_value * scalar_value);
+            has_constant_terms = true;
         } else {
             new_points.emplace_back(points[i]);
             new_scalars.emplace_back(scalars[i]);
@@ -853,20 +855,32 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
 
     const size_t max_num_bits_in_field = Fr::modulus.get_msb() + 1;
 
-    // Initialize accumulator with constant terms
-    element accumulator = element(constant_accumulator);
+    element accumulator;
+    bool accumulator_initialized = false;
+
+    // Check if we'll need to process any witness points
+
+    // Initialize accumulator with constant terms if they exist, OR if there are no remaining points
+    // (to handle the case where all points were filtered out by handle_points_at_infinity)
+    const bool has_no_points = big_points.empty() && small_points.empty();
+    if (has_constant_terms || has_no_points) {
+        accumulator = element(constant_accumulator);
+        accumulator_initialized = true;
+    }
 
     if (!big_points.empty()) {
         // Process big scalars separately
         element big_result = element::process_strauss_msm_rounds(big_points, big_scalars, max_num_bits_in_field);
-        accumulator = accumulator + big_result;
+        accumulator = accumulator_initialized ? accumulator + big_result : big_result;
+        accumulator_initialized = true;
     }
 
     if (!small_points.empty()) {
         // Process small scalars
         const size_t effective_max_num_bits = (max_num_bits == 0) ? max_num_bits_in_field : max_num_bits;
         element small_result = element::process_strauss_msm_rounds(small_points, small_scalars, effective_max_num_bits);
-        accumulator = (big_points.size() > 0) ? accumulator + small_result : small_result;
+        accumulator = accumulator_initialized ? accumulator + small_result : small_result;
+        accumulator_initialized = true;
     }
 
     accumulator.set_origin_tag(tag);
