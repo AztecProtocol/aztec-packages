@@ -580,6 +580,15 @@ template <typename Flavor> class SumcheckProver {
             // Wave 2: pep[2,3] in parallel (read poly[4-7])
             // Wave k: pep[2^(k-1) ... 2^k-1] in parallel
             constexpr size_t PARALLEL_THRESHOLD = 32;
+
+            // Lambda to perform the partial evaluation computation for a single polynomial j over a range
+            auto process_polynomial_range = [&](size_t j, size_t wave_start, size_t wave_end) {
+                const auto& poly = poly_view[j];
+                for (size_t i = wave_start; i < wave_end; i++) {
+                    pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
+                }
+            };
+
             size_t processed = 0;
             size_t wave_size = 1;
             while (processed < max_limit) {
@@ -594,9 +603,8 @@ template <typename Flavor> class SumcheckProver {
                             const size_t wave_end = std::min(wave_start + wave_size, limits[j]);
                             const size_t actual_size = wave_end - wave_start;
 
-                            const auto& poly = poly_view[j];
                             for (size_t i : chunk.range(actual_size, wave_start)) {
-                                pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
+                                process_polynomial_range(j, i, i + 1);
                             }
                         }
                     });
@@ -608,11 +616,7 @@ template <typename Flavor> class SumcheckProver {
                         }
                         const size_t wave_start = processed;
                         const size_t wave_end = std::min(wave_start + wave_size, limits[j]);
-
-                        const auto& poly = poly_view[j];
-                        for (size_t i = wave_start; i < wave_end; i++) {
-                            pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
-                        }
+                        process_polynomial_range(j, wave_start, wave_end);
                     }
                 }
 
