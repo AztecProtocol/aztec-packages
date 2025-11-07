@@ -52,7 +52,7 @@ case "$cmd" in
     build
     test
     ;;
-  ""|"fast"|"full")
+  "")
     build
     ;;
   test|test_cmds|release|invalidate_cloudfront)

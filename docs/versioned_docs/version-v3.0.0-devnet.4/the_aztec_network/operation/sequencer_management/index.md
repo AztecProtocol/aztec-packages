@@ -32,7 +32,7 @@ As a sequencer operator, your responsibilities extend beyond simply running a no
 
 ## What This Guide Covers
 
-This guide walks you through sequencer management in three parts:
+This guide walks you through sequencer management in four parts:
 
 ### 1. Governance and Proposal Process
 
@@ -58,7 +58,18 @@ If you're operating a sequencer with delegated stake:
 
 See [Running Delegated Stake](./running_delegated_stake.md) for setup instructions.
 
-### 3. Useful Commands
+### 3. Claiming Rewards
+
+Learn how to claim your sequencer rewards:
+
+- Understanding how rewards accumulate in the Rollup contract
+- Checking reward claimability status and pending rewards
+- Claiming rewards to your coinbase address
+- Troubleshooting common claiming issues
+
+See [Claiming Rewards](./claiming_rewards.md) for detailed instructions.
+
+### 4. Useful Commands
 
 Essential contract query commands for operators:
 

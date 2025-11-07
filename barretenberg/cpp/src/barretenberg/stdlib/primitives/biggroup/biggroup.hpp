@@ -187,19 +187,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element& operator=(const element& other);
     element& operator=(element&& other) noexcept;
 
-    /**
-     * @brief Serialize the element to a byte array in form: (yhi || ylo || xhi || xlo).
-     *
-     * @return byte_array<Builder>
-     */
-    byte_array<Builder> to_byte_array() const
-    {
-        byte_array<Builder> result(get_context());
-        result.write(_y.to_byte_array());
-        result.write(_x.to_byte_array());
-        return result;
-    }
-
     element checked_unconditional_add(const element& other) const;
     element checked_unconditional_subtract(const element& other) const;
 

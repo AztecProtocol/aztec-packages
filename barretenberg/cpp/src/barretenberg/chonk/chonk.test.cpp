@@ -15,8 +15,6 @@
 using namespace bb;
 
 static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): The Chonk class should enforce the minimum number of
-// circuits in a test flow.
 
 class ChonkTests : public ::testing::Test {
   protected:

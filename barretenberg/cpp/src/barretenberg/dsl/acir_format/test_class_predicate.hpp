@@ -25,9 +25,9 @@ using namespace bb::stdlib;
  */
 enum class PredicateTestCase : uint8_t { ConstantTrue, WitnessTrue, WitnessFalse };
 
-template <typename WitnessOverrideCase> struct Predicate {
+template <typename InvalidWitnessTarget> struct Predicate {
     PredicateTestCase test_case;
-    WitnessOverrideCase witness_override;
+    InvalidWitnessTarget invalid_witness;
 
     std::vector<PredicateTestCase> static get_all()
     {
@@ -41,68 +41,51 @@ template <typename WitnessOverrideCase> struct Predicate {
  * @brief Concept defining the requirements for the Base template parameter of TestClassWithPredicate
  *
  * @details Base must provide:
- * - A struct Tampering, which specifies how to tamper with the witness values so to make the constraints
- *   unsatisfied. Tampering must specify an enum class Mode, which details the different tampering modes, and two
- *   functions get_all() and get_labels() to iterate over all the possible tampering modes.
- * - A struct WitnessOverride, which specifies how to override witness values so to test cases that would generate
- *   unsatisfied constraints, but that should pass if the predicate is a witness holding the value false.
- *   WitnessOverride must specify an enum class Case, which details which witness value should be overridden, and
- *   two functions get_all() and get_labels() to iterate over all the possible override cases.
+ * - A struct InvalidWitness, which specifies how to invalidate witness values to test predicate behavior.
+ *   InvalidWitness must specify an enum class Target, which details the different invalidation targets (e.g.,
+ *   inputs, outputs, specific validation cases), and two functions get_all() and get_labels() to iterate over
+ *   all possible invalidation targets.
  * - Type aliases: Builder and AcirConstraint, specifying the Builder and constraint we are working with.
- * - Static methods: override_witness (to override the witness values based on the WitnessOverride case),
- *   generate_constraints (to generate valid constraints with predicate set to witness true), tampering (to tamper
- * with the witness values to produce unsatisfied constraints).
+ * - Static methods: invalidate_witness (to invalidate witness values based on the target), generate_constraints
+ *   (to generate valid constraints with predicate set to witness true).
  */
 template <typename T>
 concept TestBaseWithPredicate = requires {
     // Required type aliases
     typename T::Builder;
-    typename T::WitnessOverride;
-    typename T::WitnessOverride::Case;
+    typename T::InvalidWitness;
+    typename T::InvalidWitness::Target;
     typename T::AcirConstraint;
-    typename T::Tampering;
-    typename T::Tampering::Mode;
 
-    // Ensure WitnessOverride::Case and Tampering::Mode are enums
-    requires std::is_enum_v<typename T::WitnessOverride::Case>;
-    requires std::is_enum_v<typename T::Tampering::Mode>;
+    // Ensure InvalidWitness::Target is an enum
+    requires std::is_enum_v<typename T::InvalidWitness::Target>;
 
-    // Ensure that WitnessOverride::Case has a None value
-    { T::WitnessOverride::Case::None };
-    // Ensure that Tampering::Mode has a None value
-    { T::Tampering::Mode::None };
+    // Ensure that InvalidWitness::Target has a None value
+    { T::InvalidWitness::Target::None };
 
-    // WitnessOverride and Tampering must provide static methods for test iteration
-    { T::WitnessOverride::get_all() } -> std::same_as<std::vector<typename T::WitnessOverride::Case>>;
-    { T::WitnessOverride::get_labels() } -> std::same_as<std::vector<std::string>>;
-    { T::Tampering::get_all() } -> std::same_as<std::vector<typename T::Tampering::Mode>>;
-    { T::Tampering::get_labels() } -> std::same_as<std::vector<std::string>>;
+    // InvalidWitness must provide static methods for test iteration
+    { T::InvalidWitness::get_all() } -> std::same_as<std::vector<typename T::InvalidWitness::Target>>;
+    { T::InvalidWitness::get_labels() } -> std::same_as<std::vector<std::string>>;
 
     // Required static constraint manipulation methods
     requires requires(typename T::AcirConstraint& constraint,
                       WitnessVector& witness_values,
-                      const typename T::WitnessOverride::Case& witness_override,
-                      const typename T::Tampering::Mode& tampering_mode) {
+                      const typename T::InvalidWitness::Target& invalid_witness_target) {
         /**
-         * @brief Override the witness values based on the override case
+         * @brief Invalidate witness values based on the target
          *
-         * @details This function is used when the predicate is a witness set to false, in which case we need to
-         * test our constraints correctly override each value which would produce an unsatisfied constraint.
+         * @details This function is used to invalidate specific witnesses to test that:
+         * 1. Constraints fail when predicate is true and witnesses are invalid
+         * 2. Constraints succeed when predicate is false, regardless of witness validity
          *
          */
-        { T::override_witness(constraint, witness_values, witness_override) } -> std::same_as<void>;
+        { T::invalidate_witness(constraint, witness_values, invalid_witness_target) } -> std::same_as<void>;
 
         /**
          * @brief Generate valid constraints with predicate set to a witness holding the value true.
          *
          */
         { T::generate_constraints(constraint, witness_values) } -> std::same_as<void>;
-
-        /**
-         * @brief Tamper with the witness values to test that invalid witnesses produce unsatisfied constraints.
-         *
-         */
-        { T::tampering(constraint, witness_values, tampering_mode) } -> std::same_as<void>;
     };
 };
 
@@ -112,11 +95,9 @@ concept TestBaseWithPredicate = requires {
 template <TestBaseWithPredicate Base> class TestClassWithPredicate {
   public:
     using Builder = Base::Builder;
-    using WitnessOverride = Base::WitnessOverride;
-    using WitnessOverrideCase = WitnessOverride::Case;
+    using InvalidWitness = Base::InvalidWitness;
+    using InvalidWitnessTarget = InvalidWitness::Target;
     using AcirConstraint = Base::AcirConstraint;
-    using Tampering = Base::Tampering;
-    using TamperingMode = Base::Tampering::Mode;
 
     /**
      * @brief Update the constraint and the witness based on the predicate
@@ -124,14 +105,13 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
      * @param constraint
      * @param witness_values
      * @param mode
-     * @param forced_override If true, forces the witness to be overridden even if the predicate is not witness false.
-     * Used to check that the circuit fails if the predicate is witness true and the circuit doesn't correctly assign
-     * witness values depending on the predicate.
+     * @param forced_invalidation If true, forces the witness to be invalidated even if the predicate is not witness
+     * false. Used to check that the circuit fails if the predicate is witness true and witnesses are invalid.
      */
     static void update_witness_based_on_predicate(AcirConstraint& constraint,
                                                   WitnessVector& witness_values,
-                                                  const Predicate<WitnessOverrideCase>& mode,
-                                                  const bool forced_override = false)
+                                                  const Predicate<InvalidWitnessTarget>& mode,
+                                                  [[maybe_unused]] const bool forced_invalidation = false)
     {
         switch (mode.test_case) {
         case PredicateTestCase::ConstantTrue:
@@ -139,44 +119,40 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             witness_values.pop_back();
             break;
         case PredicateTestCase::WitnessTrue:
-            if (forced_override) {
-                Base::override_witness(constraint, witness_values, mode.witness_override);
-            }
+            // Nothing to do - keep default witness predicate
             break;
         case PredicateTestCase::WitnessFalse:
             witness_values[constraint.predicate.index] = bb::fr(0);
-            Base::override_witness(constraint, witness_values, mode.witness_override);
+            break;
         }
+        // Apply witness invalidation for all cases
+        Base::invalidate_witness(constraint, witness_values, mode.invalid_witness);
     }
 
     /**
-     * @brief Generate constraints and witness values based on the predicate and the tampering mode.
+     * @brief Generate constraints and witness values based on the predicate and the invalidation target.
      */
-    static std::pair<AcirConstraint, WitnessVector> generate_constraints(
-        const Predicate<WitnessOverrideCase>& mode,
-        const TamperingMode& tampering_mode = TamperingMode::None,
-        const bool forced_override = false)
+    static std::pair<AcirConstraint, WitnessVector> generate_constraints(const Predicate<InvalidWitnessTarget>& mode,
+                                                                         const bool forced_invalidation = false)
     {
         AcirConstraint constraint;
         WitnessVector witness_values;
         Base::generate_constraints(constraint, witness_values);
-        update_witness_based_on_predicate(constraint, witness_values, mode, forced_override);
-        Base::tampering(constraint, witness_values, tampering_mode);
+        update_witness_based_on_predicate(constraint, witness_values, mode, forced_invalidation);
 
         return { constraint, witness_values };
     }
 
     /**
-     * @brief General purpose testing function. It generates the test based on the predicate, witness override case,
-     * and the tampering mode.
+     * @brief General purpose testing function. It generates the test based on the predicate and invalidation target.
      */
     static std::tuple<bool, bool, std::string> test_constraints(const PredicateTestCase& test_case,
-                                                                const WitnessOverrideCase& witness_override,
-                                                                const TamperingMode& tampering_mode,
-                                                                const bool forced_override = false)
+                                                                const InvalidWitnessTarget& invalid_witness_target,
+                                                                const bool forced_invalidation = false)
     {
-        Predicate<WitnessOverrideCase> predicate = { .test_case = test_case, .witness_override = witness_override };
-        auto [constraint, witness_values] = generate_constraints(predicate, tampering_mode, forced_override);
+        Predicate<InvalidWitnessTarget> predicate = { .test_case = test_case,
+                                                      .invalid_witness = invalid_witness_target };
+        auto [constraint, witness_values] = generate_constraints(predicate, forced_invalidation);
 
         AcirFormat constraint_system = {
             .varnum = static_cast<uint32_t>(witness_values.size()),
@@ -208,13 +184,13 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
         std::vector<size_t> num_gates;
 
         for (auto [predicate_case, label] :
-             zip_view(Predicate<WitnessOverrideCase>::get_all(), Predicate<WitnessOverrideCase>::get_labels())) {
+             zip_view(Predicate<InvalidWitnessTarget>::get_all(), Predicate<InvalidWitnessTarget>::get_labels())) {
             vinfo("Testing vk independence for predicate case: ", label);
 
             // Generate the constraint system
-            Predicate<WitnessOverrideCase> predicate = { .test_case = predicate_case,
-                                                         .witness_override = WitnessOverrideCase::None };
-            auto [constraint, witness_values] = generate_constraints(predicate, TamperingMode::None);
+            Predicate<InvalidWitnessTarget> predicate = { .test_case = predicate_case,
+                                                          .invalid_witness = InvalidWitnessTarget::None };
+            auto [constraint, witness_values] = generate_constraints(predicate);
 
             AcirFormat constraint_system = {
                 .varnum = static_cast<uint32_t>(witness_values.size()),
@@ -259,25 +235,33 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
     /**
      * @brief Test all cases in which the predicate is a constant holding the value true.
      *
-     * @param default_tampering_mode Tampering mode to be used to check that the circuit fails when tampered.
+     * @details When the predicate is a constant true, the constraint is always active and must be satisfied.
+     * This test verifies two scenarios:
+     * 1. With valid witnesses (no invalidation): the circuit should succeed
+     * 2. With invalid witnesses (using default_invalid_witness_target): the circuit should fail
+     *
+     * @param default_invalid_witness_target Invalidation target to be used to check that the circuit fails when
+     * witnesses are invalid.
      */
-    static void test_constant_true(TamperingMode default_tampering_mode)
+    static void test_constant_true(InvalidWitnessTarget default_invalid_witness_target)
     {
-        // Constant true, no tampering
+        // Constant true, no invalidation
         {
             auto [circuit_checker_result, builder_failed, _] =
-                test_constraints(PredicateTestCase::ConstantTrue, WitnessOverrideCase::None, TamperingMode::None);
+                test_constraints(PredicateTestCase::ConstantTrue, InvalidWitnessTarget::None);
             EXPECT_TRUE(circuit_checker_result) << "Circuit checker failed.";
             EXPECT_FALSE(builder_failed) << "Builder failed unexpectedly.";
         }
 
-        // Constant true, default tampering
+        // Constant true, default invalidation
         {
             auto [circuit_checker_result, builder_failed, builder_err] =
-                test_constraints(PredicateTestCase::ConstantTrue, WitnessOverrideCase::None, default_tampering_mode);
+                test_constraints(PredicateTestCase::ConstantTrue, default_invalid_witness_target);
             // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the CircuitChecker
             // failed, or the builder error resulted from an assert_eq.
-            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+            bool circuit_check_failed = !circuit_checker_result;
+            bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
+            EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
                 << "Circuit checker succeeded unexpectedly and no assert_eq failure.";
             EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly.";
         }
@@ -286,127 +270,151 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
     /**
      * @brief Test all cases in which the predicate is a witness holding the value true.
      *
-     * @param default_tampering_mode Tampering mode to be used to check that the circuit fails when tampered.
+     * @details When the predicate is a witness set to true, the constraint is active and must be satisfied.
+     * This test verifies two scenarios:
+     * 1. With valid witnesses (no invalidation): the circuit should succeed
+     * 2. With invalid witnesses (using default_invalid_witness_target): the circuit should fail
+     *
+     * @param default_invalid_witness_target Invalidation target to be used to check that the circuit fails when
+     * witnesses are invalid.
      */
-    static void test_witness_true(TamperingMode default_tampering_mode)
+    static void test_witness_true(InvalidWitnessTarget default_invalid_witness_target)
     {
-        // Witness true, no tampering
+        // Witness true, no invalidation
         {
             auto [circuit_checker_result, builder_failed, _] =
-                test_constraints(PredicateTestCase::WitnessTrue, WitnessOverrideCase::None, TamperingMode::None);
+                test_constraints(PredicateTestCase::WitnessTrue, InvalidWitnessTarget::None);
             EXPECT_TRUE(circuit_checker_result) << "Circuit checker failed.";
             EXPECT_FALSE(builder_failed) << "Builder failed unexpectedly.";
         }
 
-        // Witness true, default tampering
+        // Witness true, default invalidation
         {
             auto [circuit_checker_result, builder_failed, builder_err] =
-                test_constraints(PredicateTestCase::WitnessTrue, WitnessOverrideCase::None, default_tampering_mode);
+                test_constraints(PredicateTestCase::WitnessTrue, default_invalid_witness_target);
             // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the CircuitChecker
             // failed, or the builder error resulted from an assert_eq.
-            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+            bool circuit_check_failed = !circuit_checker_result;
+            bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
+            EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
                 << "Circuit checker succeeded unexpectedly and no assert_eq failure.";
             EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly.";
         }
     }
 
     /**
-     * @brief Test all witness override cases for the witness false predicate case.
+     * @brief Test all invalid witness cases for the witness false predicate case.
      *
-     * @param default_tampering_mode Tampering mode to be used to check that the circuit succeeds when tampered if the
-     * predicate is witness false.
+     * @details When the predicate is a witness set to false, the constraint is disabled and should not fail
+     * regardless of witness validity. This test iterates through ALL invalid witness targets (None, and all specific
+     * invalidation cases) and verifies that the circuit succeeds in every case when predicate = false.
      */
-    static void test_witness_false(TamperingMode default_tampering_mode)
+    static void test_witness_false()
     {
-        for (auto [override_case, override_label] :
-             zip_view(WitnessOverride::get_all(), WitnessOverride::get_labels())) {
-            vinfo("Testing witness override case: ", override_label);
+        for (auto [invalid_witness_target, target_label] :
+             zip_view(InvalidWitness::get_all(), InvalidWitness::get_labels())) {
+            vinfo("Testing invalid witness target: ", target_label);
 
-            auto tampering_mode =
-                override_case == WitnessOverrideCase::None ? default_tampering_mode : TamperingMode::None;
             auto [circuit_checker_result, builder_failed, _] =
-                test_constraints(PredicateTestCase::WitnessFalse, override_case, tampering_mode);
+                test_constraints(PredicateTestCase::WitnessFalse, invalid_witness_target);
 
-            EXPECT_TRUE(circuit_checker_result) << "Check builder failed for override case " + override_label;
-            EXPECT_FALSE(builder_failed) << "Builder failed for override case " + override_label;
-            vinfo("Passed override case: ", override_label);
+            EXPECT_TRUE(circuit_checker_result) << "Check builder failed for invalid witness target " + target_label;
+            EXPECT_FALSE(builder_failed) << "Builder failed for invalid witness target " + target_label;
+            vinfo("Passed invalid witness target: ", target_label);
         }
     }
 
     /**
-     * @brief Test all witness override cases for the witness false predicate case.
+     * @brief Test all invalid witness cases for the witness false predicate case (slow comprehensive version).
      *
-     * @details This version of test_witness_false also checks that each configuration would have failed if the
-     * predicate was witness true. Useful for debugging.
+     * @details This is an extended version of test_witness_false that performs double verification:
      *
-     * @param default_tampering_mode Tampering mode to be used to check that the circuit succeeds when tampered if the
-     * predicate is witness false.
+     * For each invalid witness target:
+     * 1. First pass (predicate = false): Verifies the circuit succeeds with invalid witnesses when predicate is false
+     * 2. Second pass (predicate = true, forced invalidation): Verifies the SAME invalid witness configuration would
+     *    fail if the predicate were true
+     *
+     * The second pass validates that our invalidation logic is actually creating invalid inputs. Useful for debugging.
      */
-    static void test_witness_false_slow(TamperingMode default_tampering_mode)
+    static void test_witness_false_slow()
     {
-        for (auto [override_case, override_label] :
-             zip_view(WitnessOverride::get_all(), WitnessOverride::get_labels())) {
-            vinfo("Testing witness override case: ", override_label);
+        for (auto [invalid_witness_target, target_label] :
+             zip_view(InvalidWitness::get_all(), InvalidWitness::get_labels())) {
+            vinfo("Testing invalid witness target: ", target_label);
 
-            auto tampering_mode =
-                override_case == WitnessOverrideCase::None ? default_tampering_mode : TamperingMode::None;
             auto [circuit_checker_result, builder_failed, _] =
-                test_constraints(PredicateTestCase::WitnessFalse, override_case, tampering_mode);
+                test_constraints(PredicateTestCase::WitnessFalse, invalid_witness_target);
 
-            EXPECT_TRUE(circuit_checker_result) << "Check builder failed for override case " + override_label;
-            EXPECT_FALSE(builder_failed) << "Builder failed for override case " + override_label;
-            vinfo("Passed override case: ", override_label);
+            EXPECT_TRUE(circuit_checker_result) << "Check builder failed for invalid witness target " + target_label;
+            EXPECT_FALSE(builder_failed) << "Builder failed for invalid witness target " + target_label;
+            vinfo("Passed invalid witness target: ", target_label);
 
-            {
+            // Only validate witness true failure for actual invalidation targets (skip None)
+            if (invalid_witness_target != InvalidWitnessTarget::None) {
                 // Check that the same configuration would have failed if the predicate was witness true
                 auto [circuit_checker_result, builder_failed, builder_err] = test_constraints(
-                    PredicateTestCase::WitnessTrue, override_case, tampering_mode, /*forced_override=*/true);
+                    PredicateTestCase::WitnessTrue, invalid_witness_target, /*forced_invalidation=*/true);
 
                 // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the
                 // CircuitChecker failed, or the builder error resulted from an assert_eq.
-                EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
-                    << "Circuit checker succeeded unexpectedly and no assert_eq failure for override case " +
-                           override_label;
-                EXPECT_TRUE(builder_failed) << "Builder succeeded for override case " + override_label;
-                vinfo("Passed override case (witness true confirmation): ", override_label);
+                bool circuit_check_failed = !circuit_checker_result;
+                bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
+                EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
+                    << "Circuit checker succeeded unexpectedly and no assert_eq failure for invalid witness target " +
+                           target_label;
+                EXPECT_TRUE(builder_failed) << "Builder succeeded for invalid witness target " + target_label;
+                vinfo("Passed invalid witness target (witness true confirmation): ", target_label);
             }
         }
     }
 
     /**
-     * @brief Test all tampering modes.
+     * @brief Test all invalid witness targets across all predicate cases (comprehensive matrix test).
      *
-     * @return std::vector<std::string> List of error messages from the builder for each tampering mode.
+     * @details This is a comprehensive test that creates a matrix of all combinations:
+     * - Predicate cases: ConstantTrue, WitnessTrue, WitnessFalse
+     * - Invalid witness targets: None, and all constraint-specific invalidation targets
+     *
+     * Expected behavior:
+     * - When predicate is TRUE (constant or witness) and target is None: circuit succeeds (valid witnesses)
+     * - When predicate is TRUE (constant or witness) and target is NOT None: circuit fails (invalid witnesses detected)
+     * - When predicate is FALSE and target is ANY value: circuit succeeds
+     *
+     * @return std::vector<std::string> List of error messages from the builder for each test case.
      */
-    static std::vector<std::string> test_tampering()
+    static std::vector<std::string> test_invalid_witnesses()
     {
         std::vector<std::string> error_msgs;
         for (auto [predicate_case, predicate_label] :
-             zip_view(Predicate<WitnessOverrideCase>::get_all(), Predicate<WitnessOverrideCase>::get_labels())) {
-            for (auto [mode, label] : zip_view(Tampering::get_all(), Tampering::get_labels())) {
-                auto [circuit_checker_result, builder_failed, builder_err] =
-                    test_constraints(predicate_case, WitnessOverrideCase::None, mode);
+             zip_view(Predicate<InvalidWitnessTarget>::get_all(), Predicate<InvalidWitnessTarget>::get_labels())) {
+            for (auto [target, label] : zip_view(InvalidWitness::get_all(), InvalidWitness::get_labels())) {
+                auto [circuit_checker_result, builder_failed, builder_err] = test_constraints(predicate_case, target);
                 error_msgs.emplace_back(builder_err);
 
                 if (predicate_case != PredicateTestCase::WitnessFalse) {
-                    // If the predicate is not witness false, tampering should cause failure
-                    if (mode != Tampering::Mode::None) {
-                        EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
-                            << "Circuit checker succeeded unexpectedly and no assert_eq failure for tampering mode " +
+                    // If the predicate is not witness false, invalid witnesses should cause failure
+                    if (target != InvalidWitnessTarget::None) {
+                        bool circuit_check_failed = !circuit_checker_result;
+                        bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
+                        EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
+                            << "Circuit checker succeeded unexpectedly and no assert_eq failure for invalid witness "
+                               "target " +
                                    label + " with predicate " + predicate_label;
-                        EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly for tampering mode " + label +
-                                                           " with predicate " + predicate_label;
+                        EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly for invalid witness target " +
+                                                           label + " with predicate " + predicate_label;
                     } else {
                         EXPECT_TRUE(circuit_checker_result)
-                            << "Circuit checker failed unexpectedly for tampering mode " + label + " with predicate " +
-                                   predicate_label;
-                        EXPECT_FALSE(builder_failed) << "Builder failed unexpectedly for tampering mode " + label +
-                                                            " with predicate " + predicate_label;
+                            << "Circuit checker failed unexpectedly for invalid witness target " + label +
+                                   " with predicate " + predicate_label;
+                        EXPECT_FALSE(builder_failed) << "Builder failed unexpectedly for invalid witness target " +
+                                                            label + " with predicate " + predicate_label;
                     }
                 } else {
-                    EXPECT_TRUE(circuit_checker_result) << "Circuit checker failed unexpectedly for tampering mode " +
+                    // If the predicate is witness false, all cases should succeed
+                    EXPECT_TRUE(circuit_checker_result) << "Circuit checker failed unexpectedly for invalid witness "
+                                                           "target " +
                                                                label + " with predicate " + predicate_label;
-                    EXPECT_FALSE(builder_failed) << "Builder failed unexpectedly for tampering mode " + label +
+                    EXPECT_FALSE(builder_failed) << "Builder failed unexpectedly for invalid witness target " + label +
                                                         " with predicate " + predicate_label;
                 }
             }

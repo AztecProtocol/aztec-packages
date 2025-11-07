@@ -111,13 +111,43 @@ fi
 set +e
 echo -e "Executing: $cmd ${log_info:-}"
 echo -n "   0 "
+
 tail --sleep-interval=0.2 -n +1 -f "$outfile" > >(
+  # Initialize variables inside the subshell
+  last_print_time=$SECONDS
+
   while IFS= read -r line; do
     dot_count=$((dot_count+1))
-    [ $realtime -eq 1 ] && printf "."
-    if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
-      [ $realtime -eq 0 ] && printf '%.s.' $(seq 1 "$dots_per_line")
-      printf "\n%4s " "$dot_count"
+
+    if [ $realtime -eq 1 ]; then
+      # REALTIME MODE: Print dots immediately as output arrives
+      printf "."
+      if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
+        printf "\n%4s " "$dot_count"
+      fi
+    else
+      # NON-REALTIME MODE: Print full lines of dots, or partial lines every 10s
+      should_print=0
+      partial=0
+
+      # Case 1: Full line reached
+      if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
+        should_print=1
+        partial=$dots_per_line
+      # Case 2: 10 seconds elapsed since last print
+      elif [ $((SECONDS - last_print_time)) -ge 10 ]; then
+        partial=$((dot_count % dots_per_line))
+        if [ $partial -gt 0 ]; then
+          should_print=1
+        fi
+      fi
+
+      # Print if needed
+      if [ $should_print -eq 1 ]; then
+        printf '%.s.' $(seq 1 "$partial")
+        printf "\n%4s " "$dot_count"
+        last_print_time=$SECONDS
+      fi
     fi
   done
 ) &

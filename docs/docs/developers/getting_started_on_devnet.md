@@ -105,7 +105,7 @@ aztec-wallet deploy \
     --args accounts:my-wallet Token TOK 18 --no-wait
 ```
 
-You can check the transaction status on [aztecscan](https://aztecscan.xyz) or [aztecexplorer](https://aztecexplorer.xyz).
+You can check the transaction status on [aztecscan](https://devnet.aztecscan.xyz).
 
 Interact with your deployed contract:
 

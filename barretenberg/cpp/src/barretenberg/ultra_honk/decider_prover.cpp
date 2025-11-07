@@ -12,22 +12,17 @@
 namespace bb {
 
 /**
- * Create DeciderProver_ from an accumulator.
- *
- * @param accumulator Relaxed instance (ϕ, ω, \vec{β}, e) whose proof we want to generate, produced by Protogalaxy
- * folding prover
- *
- * @tparam a type of UltraFlavor
- * */
+ * Create DeciderProver_ from a prover instance.
+ */
 template <IsUltraOrMegaHonk Flavor>
-DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<ProverInstance>& prover_instance,
-                                       const std::shared_ptr<Transcript>& transcript)
+DeciderProver_<Flavor>::DeciderProver_(std::shared_ptr<ProverInstance> prover_instance,
+                                       std::shared_ptr<Transcript> transcript)
     : prover_instance(std::move(prover_instance))
-    , transcript(transcript)
+    , transcript(std::move(transcript))
 {}
 
 /**
- * @brief Run Sumcheck to establish that ∑_i pow(\vec{β*})f_i(ω) = e*. This results in u = (u_1,...,u_d) sumcheck round
+ * @brief Run Sumcheck to establish that ∑_i pow(\vec{β*})f_i(ω) = 0. This results in u = (u_1,...,u_d) sumcheck round
  * challenges and all evaluations at u being calculated.
  *
  */

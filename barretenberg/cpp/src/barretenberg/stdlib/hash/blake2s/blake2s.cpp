@@ -117,8 +117,15 @@ template <typename Builder> void Blake2s<Builder>::blake2s(blake2s_state& S, byt
     // Set last block.
     S.f[0] = field_t<Builder>(uint256_t((uint32_t)-1));
 
-    byte_array_ct final(in.get_context());
-    final.write(in.slice(offset)).write(byte_array_ct(in.get_context(), BLAKE2S_BLOCKBYTES - size));
+    // Build final block: remaining input + constant padding
+    Builder* ctx = in.get_context();
+    auto remaining = in.slice(offset);
+
+    // Combine remaining bytes and constant padding (no constraints needed for constants)
+    byte_array_ct final = remaining; // Copy constrained remaining bytes
+    byte_array_ct padding = byte_array_ct::constant_padding(ctx, BLAKE2S_BLOCKBYTES - size);
+    final.write(padding);
+
     increment_counter(S, static_cast<uint32_t>(size));
     compress(S, final);
 }
@@ -133,10 +140,13 @@ template <typename Builder> byte_array<Builder> Blake2s<Builder>::hash(const byt
 
     blake2s(S, input);
 
-    byte_array_ct result(input.get_context());
-    for (auto h : S.h) {
+    // Build result from state values
+    byte_array_ct result = byte_array_ct::constant_padding(input.get_context(), 0);
+    for (const auto& h : S.h) {
+        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
         byte_array_ct v(h, 4);
-        result.write(v.reverse());
+        auto reversed = v.reverse();
+        result.write(reversed);
     }
     return result;
 }

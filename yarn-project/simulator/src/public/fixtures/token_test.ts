@@ -133,8 +133,8 @@ async function checkBalance(
   );
   expectToBeTrue(balResult.revertCode.isOK());
   // should be 1 call with 1 return value that is expectedBalance
-  expectToBeTrue(balResult.processedPhases.length == 1);
-  expectToBeTrue(balResult.processedPhases[0].returnValues.length == 1);
-  expectToBeTrue(balResult.processedPhases[0].returnValues[0].values!.length == 1);
-  expectToBeTrue(balResult.processedPhases[0].returnValues[0].values![0].toBigInt() == expectedBalance);
+  expectToBeTrue(balResult.processedPhases?.length == 1);
+  expectToBeTrue(balResult.processedPhases![0].returnValues.length == 1);
+  expectToBeTrue(balResult.processedPhases![0].returnValues[0].values!.length == 1);
+  expectToBeTrue(balResult.processedPhases![0].returnValues[0].values![0].toBigInt() == expectedBalance);
 }

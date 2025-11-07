@@ -10,6 +10,7 @@ import { EventSelector } from '../abi/event_selector.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { NoteSelector } from '../abi/note_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { Gas } from '../gas/gas.js';
 
 /**
  * Validation schemas for common types. Every schema must match its toJSON.
@@ -63,6 +64,13 @@ export const schemas = {
 
   /** Accepts a hex string. */
   EventSelector: EventSelector.schema,
+
+  GasUsed: z.object({
+    totalGas: Gas.schema,
+    teardownGas: Gas.schema,
+    publicGas: Gas.schema,
+    billedGas: Gas.schema,
+  }),
 };
 
 export const AbiDecodedSchema: ZodFor<AbiDecoded> = z.union([

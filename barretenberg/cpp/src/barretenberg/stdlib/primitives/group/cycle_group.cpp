@@ -40,9 +40,9 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bool assert_on_curve)
-    : _x(_x)
-    , _y(_y)
+cycle_group<Builder>::cycle_group(const field_t& x, const field_t& y, bool_t is_infinity, bool assert_on_curve)
+    : _x(x)
+    , _y(y)
     , _is_infinity(is_infinity)
 {
     if (_x.get_context() != nullptr) {
@@ -57,9 +57,15 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
         *this = constant_infinity(this->context);
     }
 
-    // Note: We enforce that x and y coordinates have matching constancy (both constant or both witness).
-    // This simplifies circuit operations and prevents edge cases in conditional assignment and arithmetic operations.
-    BB_ASSERT(_x.is_constant() == _y.is_constant(), "cycle_group: Inconsistent constancy of coordinates");
+    // For the simplicity of methods in this class, we ensure that the coordinates of a point always have the same
+    // constancy. If they don't, we convert the non-constant coordinate to a fixed witness. Should be rare.
+    if (_x.is_constant() != _y.is_constant()) {
+        if (_x.is_constant()) {
+            _x.convert_constant_to_fixed_witness(context);
+        } else {
+            _y.convert_constant_to_fixed_witness(context);
+        }
+    }
 
     // Ensure that if both coordinates are constant, is_infinity is also constant. This state is not necessarily
     // invalid, but there is no genuine use case and therefore it likely indicates a mistake.
@@ -88,9 +94,9 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_infinity)
-    : _x(is_infinity ? 0 : _x)
-    , _y(is_infinity ? 0 : _y)
+cycle_group<Builder>::cycle_group(const bb::fr& x, const bb::fr& y, bool is_infinity)
+    : _x(is_infinity ? 0 : x)
+    , _y(is_infinity ? 0 : y)
     , _is_infinity(is_infinity)
     , context(nullptr)
 {
@@ -920,8 +926,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         std::array<MultiTableId, 2> table_id = table::get_lookup_table_ids_for_point(point);
         multitable_ids.push_back(table_id[0]);
         multitable_ids.push_back(table_id[1]);
-        scalar_limbs.push_back(scalar.lo);
-        scalar_limbs.push_back(scalar.hi);
+        scalar_limbs.push_back(scalar.lo());
+        scalar_limbs.push_back(scalar.hi());
     }
 
     // Look up the multiples of each slice of each lo/hi scalar limb in the corresponding plookup table.
@@ -1194,16 +1200,6 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
     auto y_res = field_t::conditional_assign(predicate, lhs._y, rhs._y);
     auto _is_infinity_res =
         bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity());
-
-    // Handle case where x_res is constant but y_res is not:
-    // Due to the nature of field_t::conditional_assign, if the inputs to this method are such that predicate is a
-    // witness and lhs = -rhs and both are constants, x_res will be constant equal to lhs.x and y_res will be witness
-    // equal to lhs.y or rhs.y (depending on value of predicate). Since we do not allow coordinates with mixed
-    // constancy, we make x_res a fixed-witness to achieve consistency.
-    if (x_res.is_constant() && !y_res.is_constant()) {
-        auto ctx = predicate.get_context();
-        x_res.convert_constant_to_fixed_witness(ctx);
-    }
 
     cycle_group<Builder> result(x_res, y_res, _is_infinity_res, /*assert_on_curve=*/false);
     return result;

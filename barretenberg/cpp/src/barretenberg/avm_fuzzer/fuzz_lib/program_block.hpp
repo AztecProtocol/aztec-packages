@@ -45,6 +45,13 @@ class ProgramBlock {
     void process_shl_8_instruction(SHL_8_Instruction instruction);
     void process_shr_8_instruction(SHR_8_Instruction instruction);
     void process_set_8_instruction(SET_8_Instruction instruction);
+    void process_set_16_instruction(SET_16_Instruction instruction);
+    void process_set_32_instruction(SET_32_Instruction instruction);
+    void process_set_64_instruction(SET_64_Instruction instruction);
+    void process_set_128_instruction(SET_128_Instruction instruction);
+    void process_set_ff_instruction(SET_FF_Instruction instruction);
+    void process_mov_8_instruction(MOV_8_Instruction instruction);
+    void process_mov_16_instruction(MOV_16_Instruction instruction);
     void process_not_8_instruction(NOT_8_Instruction instruction);
     void process_fdiv_8_instruction(FDIV_8_Instruction instruction);
     void process_add_16_instruction(ADD_16_Instruction instruction);
