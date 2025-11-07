@@ -1,4 +1,5 @@
 import { getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import { makeRandomBlob } from '@aztec/blob-lib/testing';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
@@ -919,6 +920,84 @@ describe('Archiver', () => {
     // Then the archiver must reprocess the old block to get to the new one
     await retryUntil(async () => (await archiver.getBlockNumber()) === 3, 'resync', 10, 0.1);
   });
+
+  it('ignore block if blob fields are not encoded correctly', async () => {
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    const block = blocks[0];
+    const rollupTx = makeRollupTx(block);
+
+    mockL1BlockNumbers(100n);
+
+    mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 1n, block.archive.root.toString(), GENESIS_ROOT]);
+
+    const randomBlob = new BlobWithIndex(makeRandomBlob(3), 0);
+    const randomBlobHash = randomBlob.blob.getEthVersionedBlobHash();
+
+    makeL2BlockProposedEvent(70n, 1n, block.archive.root.toString(), [`0x${randomBlobHash.toString()}`]);
+
+    // Mock getBlobSidecar to return a random blob instead of the expected one
+    blobSinkClient.getBlobSidecar.mockResolvedValueOnce([randomBlob]);
+
+    publicClient.getTransaction.mockResolvedValueOnce(rollupTx);
+
+    await archiver.start(false);
+
+    // Give it some time to attempt processing
+    await sleep(1000);
+
+    // Should still be at block 0 since the blob processing failed
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+  }, 10_000);
+
+  it('can process block containing multiple blobs', async () => {
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    // Create a block with large blob data that requires multiple blobs
+    const block = await L2Block.random(
+      1 /* block number */,
+      5 /* txs per block */,
+      1 /* public calls per tx */,
+      1 /* public logs per call */,
+      undefined,
+      undefined,
+      100 /* max effects */,
+    );
+    block.header.globalVariables.timestamp = BigInt(now + Number(ETHEREUM_SLOT_DURATION) * 2);
+    const blobHashes = makeVersionedBlobHashes(block);
+    expect(blobHashes.length).toBeGreaterThan(1);
+
+    const rollupTx = makeRollupTx(block);
+
+    mockL1BlockNumbers(100n);
+
+    mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 1n, block.archive.root.toString(), GENESIS_ROOT]);
+
+    makeL2BlockProposedEvent(70n, 1n, block.archive.root.toString(), blobHashes);
+
+    const blobsFromBlock = makeBlobsFromBlock(block);
+    expect(blobsFromBlock.length).toBeGreaterThan(1);
+    blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromBlock);
+
+    publicClient.getTransaction.mockResolvedValueOnce(rollupTx);
+
+    await archiver.start(false);
+
+    // Wait until block 1 is processed. If this won't happen the test will fail with timeout.
+    await waitUntilArchiverBlock(1);
+
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(1);
+
+    // Verify the block was synced successfully
+    const syncedBlock = await archiver.getBlock(1);
+    expect(syncedBlock).toBeDefined();
+    // The tx effects should be the decoded correctly from the blobs
+    expect(syncedBlock!.body.txEffects).toEqual(block.body.txEffects);
+  }, 10_000);
 
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
   xit('handles an upcoming L2 prune', () => {});

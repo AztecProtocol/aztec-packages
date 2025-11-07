@@ -10,7 +10,7 @@ import { BYTES_PER_BLOB, kzg } from './kzg_context.js';
 import { makeRandomBlob } from './testing.js';
 
 describe('blob', () => {
-  it('c-kzg lib should verify a batch of blobs', () => {
+  it('kzg lib should verify a batch of blobs', () => {
     // This test is taken from the blob-lib repo
     const BATCH_SIZE = 3;
     const blobs: Uint8Array[] = [];
@@ -53,7 +53,7 @@ describe('blob', () => {
   });
 
   it('should evaluate a blob of 400 items', async () => {
-    // This test ensures that the Blob class correctly matches the c-kzg lib
+    // This test ensures that the noir blob lib correctly matches the kzg lib
     const blobFields = Array(400).fill(new Fr(3));
     const blobFieldsHash = await poseidon2Hash(blobFields);
     const blob = Blob.fromFields(blobFields);
@@ -83,7 +83,7 @@ describe('blob', () => {
   });
 
   it('should evaluate full blob', async () => {
-    // This test ensures that the Blob class correctly matches the c-kzg lib
+    // This test ensures that the noir blob lib correctly matches the kzg lib
     const blobFields = Array.from({ length: FIELDS_PER_BLOB }).map((_, i) => new Fr(i + 2));
     const blobFieldsHash = await poseidon2Hash(blobFields);
     const blob = Blob.fromFields(blobFields);

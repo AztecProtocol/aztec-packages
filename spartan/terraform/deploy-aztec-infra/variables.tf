@@ -22,53 +22,33 @@ variable "GCP_REGION" {
 }
 
 variable "P2P_BOOTSTRAP_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the p2p bootstrap (dev or prod)"
+  description = "Resource profile to use for the p2p bootstrap"
   type        = string
   default     = "prod"
-  validation {
-    condition     = contains(["dev", "prod"], var.P2P_BOOTSTRAP_RESOURCE_PROFILE)
-    error_message = "P2P_BOOTSTRAP_RESOURCE_PROFILE must be either 'dev' or 'prod'."
-  }
 }
 
 variable "VALIDATOR_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the validator (dev or prod)"
+  description = "Resource profile to use for the validator"
   type        = string
   default     = "prod"
-  validation {
-    condition     = contains(["dev", "prod"], var.VALIDATOR_RESOURCE_PROFILE)
-    error_message = "VALIDATOR_RESOURCE_PROFILE must be either 'dev' or 'prod'."
-  }
 }
 
 variable "PROVER_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the prover (dev or prod)"
+  description = "Resource profile to use for the prover"
   type        = string
   default     = "prod"
-  validation {
-    condition     = contains(["dev", "prod"], var.PROVER_RESOURCE_PROFILE)
-    error_message = "PROVER_RESOURCE_PROFILE must be either 'dev' or 'prod'."
-  }
 }
 
 variable "RPC_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the rpc (dev or prod)"
+  description = "Resource profile to use for the rpc"
   type        = string
   default     = "prod"
-  validation {
-    condition     = contains(["dev", "prod"], var.RPC_RESOURCE_PROFILE)
-    error_message = "RPC_RESOURCE_PROFILE must be either 'dev' or 'prod'."
-  }
 }
 
 variable "BOT_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the bots (dev or prod)"
+  description = "Resource profile to use for the bots"
   type        = string
   default     = "prod"
-  validation {
-    condition     = contains(["dev", "prod"], var.BOT_RESOURCE_PROFILE)
-    error_message = "BOT_RESOURCE_PROFILE must be either 'dev' or 'prod'."
-  }
 }
 
 variable "K8S_CLUSTER_CONTEXT" {
