@@ -75,7 +75,7 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_ic_byte, uint256_t::from_uint128(output_c) },
                           { C::bitwise_tag_a, tag_a_u8 },
                           { C::bitwise_tag_b, tag_b_u8 },
-                          { C::bitwise_tag_c, tag_a_u8 }, // same as tag_a
+                          { C::bitwise_tag_c, static_cast<uint8_t>(MemoryTag::FF) }, // Since error
                           // Err Flags
                           { C::bitwise_sel_tag_ff_err, is_tag_ff ? 1 : 0 },
                           { C::bitwise_sel_tag_mismatch_err, is_tag_mismatch ? 1 : 0 },
