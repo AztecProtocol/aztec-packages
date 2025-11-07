@@ -62,7 +62,6 @@ cycle_group<Builder>::cycle_group(const field_t& x, const field_t& y, bool_t is_
     // For the simplicity of methods in this class, we ensure that the coordinates of a point always have the same
     // constancy. If they don't, we convert the non-constant coordinate to a fixed witness.
     if (_x.is_constant() != _y.is_constant()) {
-        info("Warning: cycle_group constructed with inconsistent coordinate constancy - converting to fixed witness");
         if (_x.is_constant()) {
             _x.convert_constant_to_fixed_witness(context);
         } else {
