@@ -98,6 +98,8 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel_non_revertible_append_nullifier, 1 },
                 { C::tx_sel_can_emit_nullifier, 1 },
 
+                { C::tx_read_pi_start_offset,
+                  AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
                 { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
                 { C::tx_sel_read_phase_length, 1 },
                 { C::tx_read_pi_length_offset,
@@ -115,6 +117,8 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_is_tree_insert_phase, 1 },
                       { C::tx_sel_non_revertible_append_note_hash, 1 },
                       { C::tx_sel_can_emit_note_hash, 1 },
+                      { C::tx_read_pi_start_offset,
+                        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
                       { C::tx_read_pi_offset,
                         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
                       { C::tx_sel_read_phase_length, 1 },
@@ -133,6 +137,8 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel_non_revertible_append_l2_l1_msg, 1 },
                 { C::tx_sel_can_emit_l2_l1_msg, 1 },
 
+                { C::tx_read_pi_start_offset,
+                  AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
                 { C::tx_read_pi_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
                 { C::tx_sel_read_phase_length, 1 },
@@ -149,35 +155,35 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
         auto read_pi_offset = AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX;
         for (auto setup_call : setup_call_requests) {
             bool is_first_call = calls_remaining == setup_call_requests.size();
-            trace.set(
-                row++,
-                { {
-                    { C::tx_sel, 1 },
-                    { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
-                    { C::tx_start_phase, is_first_call ? 1 : 0 },
-                    { C::tx_end_phase, calls_remaining == 1 ? 1 : 0 },
-                    { C::tx_sel_read_phase_length, is_first_call ? 1 : 0 },
-                    // Lookup Precomputed Table Values
-                    { C::tx_is_public_call_request, 1 },
-                    { C::tx_should_process_call_request, 1 },
-                    { C::tx_read_pi_offset, read_pi_offset },
-                    { C::tx_read_pi_length_offset,
-                      is_first_call ? AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX : 0 },
-                    { C::tx_remaining_phase_counter, calls_remaining },
-                    { C::tx_remaining_phase_inv, FF(calls_remaining).invert() },
-                    { C::tx_remaining_phase_minus_one_inv,
-                      calls_remaining == 1 ? 0 : FF(calls_remaining - 1).invert() },
-                    { C::tx_sel_can_emit_note_hash, 1 },
-                    { C::tx_sel_can_emit_nullifier, 1 },
-                    { C::tx_sel_can_write_public_data, 1 },
-                    { C::tx_sel_can_emit_unencrypted_log, 1 },
-                    { C::tx_sel_can_emit_l2_l1_msg, 1 },
-                    // Public Input Loaded Values
-                    { C::tx_msg_sender, setup_call.msgSender },
-                    { C::tx_contract_addr, setup_call.contractAddress },
-                    { C::tx_is_static, setup_call.isStaticCall },
-                    { C::tx_calldata_hash, setup_call.calldataHash },
-                } });
+            trace.set(row++,
+                      { {
+                          { C::tx_sel, 1 },
+                          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
+                          { C::tx_start_phase, is_first_call ? 1 : 0 },
+                          { C::tx_end_phase, calls_remaining == 1 ? 1 : 0 },
+                          { C::tx_sel_read_phase_length, is_first_call ? 1 : 0 },
+                          // Lookup Precomputed Table Values
+                          { C::tx_is_public_call_request, 1 },
+                          { C::tx_should_process_call_request, 1 },
+                          { C::tx_read_pi_start_offset, AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX },
+                          { C::tx_read_pi_offset, read_pi_offset },
+                          { C::tx_read_pi_length_offset,
+                            AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX },
+                          { C::tx_remaining_phase_counter, calls_remaining },
+                          { C::tx_remaining_phase_inv, FF(calls_remaining).invert() },
+                          { C::tx_remaining_phase_minus_one_inv,
+                            calls_remaining == 1 ? 0 : FF(calls_remaining - 1).invert() },
+                          { C::tx_sel_can_emit_note_hash, 1 },
+                          { C::tx_sel_can_emit_nullifier, 1 },
+                          { C::tx_sel_can_write_public_data, 1 },
+                          { C::tx_sel_can_emit_unencrypted_log, 1 },
+                          { C::tx_sel_can_emit_l2_l1_msg, 1 },
+                          // Public Input Loaded Values
+                          { C::tx_msg_sender, setup_call.msgSender },
+                          { C::tx_contract_addr, setup_call.contractAddress },
+                          { C::tx_is_static, setup_call.isStaticCall },
+                          { C::tx_calldata_hash, setup_call.calldataHash },
+                      } });
             calls_remaining--;
             read_pi_offset++;
         }
@@ -192,10 +198,13 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel_revertible_append_nullifier, 1 },
                 { C::tx_sel_can_emit_nullifier, 1 },
                 { C::tx_is_revertible, 1 },
+                { C::tx_read_pi_start_offset,
+                  AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
                 { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
                 { C::tx_sel_read_phase_length, 1 },
                 { C::tx_read_pi_length_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
+                { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                 { C::tx_start_phase, 1 },
                 { C::tx_end_phase, 1 },
             } });
@@ -209,10 +218,13 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel_revertible_append_note_hash, 1 },
                 { C::tx_sel_can_emit_note_hash, 1 },
                 { C::tx_is_revertible, 1 },
+                { C::tx_read_pi_start_offset,
+                  AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
                 { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
                 { C::tx_sel_read_phase_length, 1 },
                 { C::tx_read_pi_length_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
+                { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                 { C::tx_start_phase, 1 },
                 { C::tx_end_phase, 1 },
             } });
@@ -225,11 +237,14 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel_revertible_append_l2_l1_msg, 1 },
                 { C::tx_sel_can_emit_l2_l1_msg, 1 },
                 { C::tx_is_revertible, 1 },
+                { C::tx_read_pi_start_offset,
+                  AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
                 { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
                 { C::tx_sel_read_phase_length, 1 },
                 { C::tx_read_pi_length_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX },
                 { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
+                { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                 { C::tx_start_phase, 1 },
                 { C::tx_end_phase, 1 },
             } });
@@ -238,36 +253,37 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
         read_pi_offset = AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX;
         for (auto app_logic_call : app_logic_call_requests) {
             bool is_first_call = calls_remaining == app_logic_call_requests.size();
-            trace.set(
-                row++,
-                { {
-                    { C::tx_sel, 1 },
-                    { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::APP_LOGIC) },
-                    { C::tx_start_phase, is_first_call ? 1 : 0 },
-                    { C::tx_end_phase, calls_remaining == 1 ? 1 : 0 },
-                    { C::tx_sel_read_phase_length, is_first_call ? 1 : 0 },
-                    // Lookup Precomputed Table Values
-                    { C::tx_is_public_call_request, 1 },
-                    { C::tx_should_process_call_request, 1 },
-                    { C::tx_read_pi_offset, read_pi_offset },
-                    { C::tx_read_pi_length_offset,
-                      is_first_call ? AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX : 0 },
-                    { C::tx_remaining_phase_counter, calls_remaining },
-                    { C::tx_remaining_phase_inv, FF(calls_remaining).invert() },
-                    { C::tx_remaining_phase_minus_one_inv,
-                      calls_remaining == 1 ? 0 : FF(calls_remaining - 1).invert() },
-                    { C::tx_is_revertible, 1 },
-                    { C::tx_sel_can_emit_note_hash, 1 },
-                    { C::tx_sel_can_emit_nullifier, 1 },
-                    { C::tx_sel_can_write_public_data, 1 },
-                    { C::tx_sel_can_emit_unencrypted_log, 1 },
-                    { C::tx_sel_can_emit_l2_l1_msg, 1 },
-                    // Public Input Loaded Values
-                    { C::tx_msg_sender, app_logic_call.msgSender },
-                    { C::tx_contract_addr, app_logic_call.contractAddress },
-                    { C::tx_is_static, app_logic_call.isStaticCall },
-                    { C::tx_calldata_hash, app_logic_call.calldataHash },
-                } });
+            trace.set(row++,
+                      { {
+                          { C::tx_sel, 1 },
+                          { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::APP_LOGIC) },
+                          { C::tx_start_phase, is_first_call ? 1 : 0 },
+                          { C::tx_end_phase, calls_remaining == 1 ? 1 : 0 },
+                          { C::tx_sel_read_phase_length, is_first_call ? 1 : 0 },
+                          // Lookup Precomputed Table Values
+                          { C::tx_is_public_call_request, 1 },
+                          { C::tx_should_process_call_request, 1 },
+                          { C::tx_read_pi_start_offset, AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX },
+                          { C::tx_read_pi_offset, read_pi_offset },
+                          { C::tx_read_pi_length_offset,
+                            AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX },
+                          { C::tx_remaining_phase_counter, calls_remaining },
+                          { C::tx_remaining_phase_inv, FF(calls_remaining).invert() },
+                          { C::tx_remaining_phase_minus_one_inv,
+                            calls_remaining == 1 ? 0 : FF(calls_remaining - 1).invert() },
+                          { C::tx_is_revertible, 1 },
+                          { C::tx_sel_can_emit_note_hash, 1 },
+                          { C::tx_sel_can_emit_nullifier, 1 },
+                          { C::tx_sel_can_write_public_data, 1 },
+                          { C::tx_sel_can_emit_unencrypted_log, 1 },
+                          { C::tx_sel_can_emit_l2_l1_msg, 1 },
+                          { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
+                          // Public Input Loaded Values
+                          { C::tx_msg_sender, app_logic_call.msgSender },
+                          { C::tx_contract_addr, app_logic_call.contractAddress },
+                          { C::tx_is_static, app_logic_call.isStaticCall },
+                          { C::tx_calldata_hash, app_logic_call.calldataHash },
+                      } });
             calls_remaining--;
             read_pi_offset++;
         }
@@ -278,6 +294,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                       { C::tx_is_teardown_phase, 1 },
                       { C::tx_sel_read_phase_length, 1 },
+                      { C::tx_read_pi_start_offset, AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX },
                       { C::tx_read_pi_length_offset,
                         AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX },
                       { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX },
@@ -288,6 +305,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_sel_can_write_public_data, 1 },
                       { C::tx_sel_can_emit_unencrypted_log, 1 },
                       { C::tx_sel_can_emit_l2_l1_msg, 1 },
+                      { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
                       { C::tx_start_phase, 1 },
                       { C::tx_end_phase, 1 },
                   } });
@@ -300,6 +318,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_remaining_phase_inv, 1 },
                       { C::tx_is_collect_fee, 1 },
                       { C::tx_sel_can_write_public_data, 1 },
+                      { C::tx_read_pi_start_offset, AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX },
                       { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX },
                       { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX },
                       { C::tx_fee_juice_contract_address, FEE_JUICE_ADDRESS },
@@ -366,7 +385,7 @@ TEST_F(TxExecutionConstrainingTestHelper, SimpleControlFlowRead)
 
     check_relation<tx>(trace);
     check_interaction<TxTraceBuilder,
-                      lookup_tx_read_phase_table_settings,
+                      lookup_tx_read_phase_spec_settings,
                       lookup_tx_read_phase_length_settings,
                       lookup_tx_read_public_call_request_phase_settings>(trace);
 }
@@ -436,9 +455,9 @@ TEST_F(TxExecutionConstrainingTestHelper, JumpOnRevert)
     trace.set(8, { { { C::tx_is_padded, 1 } } });
 
     precomputed_builder.process_phase_table(trace);
+    precomputed_builder.process_misc(trace);
 
     check_relation<tx>(trace);
-    check_interaction<TxTraceBuilder, lookup_tx_phase_jump_on_revert_settings>(trace);
 }
 
 } // namespace
@@ -696,7 +715,7 @@ TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
     check_relation<tx>(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_table_settings>()->process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_spec_settings>()->process(trace);
     TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_length_settings>()->process(trace);
     TxTraceBuilder::interactions.get_test_job<lookup_tx_read_public_call_request_phase_settings>()->process(trace);
     TxTraceBuilder::interactions.get_test_job<lookup_tx_read_effective_fee_public_inputs_settings>()->process(trace);
@@ -848,7 +867,7 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
     check_relation<tx>(trace);
     check_interaction<TxTraceBuilder,
                       lookup_tx_read_calldata_hash_settings,
-                      lookup_tx_read_phase_table_settings,
+                      lookup_tx_read_phase_spec_settings,
                       lookup_tx_read_phase_length_settings,
                       lookup_tx_read_public_call_request_phase_settings>(trace);
     check_relation<bb::avm2::calldata_hashing<FF>>(trace);

@@ -138,26 +138,26 @@ pol constant addressing_gas;
 
 // Phase Table for Tx Trace
 pol constant sel_phase; // Selector for phase table
-pol constant phase_value; // { NR_PRIVATE_INSERTS, SETUP, R_PRIVATE_INSERTS, APPLOGIC, TEARDOWN}
-pol constant is_public_call_request_phase;
+// phase_value is encoded in clk, e.g.: NR_PRIVATE_INSERTS, SETUP, R_PRIVATE_INSERTS, APPLOGIC, TEARDOWN
+pol constant is_public_call_request;
+pol constant is_collect_fee;
+pol constant is_tree_padding;
+pol constant is_cleanup;
 pol constant is_revertible;
-pol constant next_phase_on_revert;
-pol constant read_public_input_offset;
-pol constant read_public_input_length_offset;
+pol constant read_pi_start_offset;
+pol constant read_pi_length_offset;
 pol constant sel_non_revertible_append_note_hash;
 pol constant sel_non_revertible_append_nullifier;
 pol constant sel_non_revertible_append_l2_l1_msg;
 pol constant sel_revertible_append_note_hash;
 pol constant sel_revertible_append_nullifier;
 pol constant sel_revertible_append_l2_l1_msg;
-pol constant sel_collect_fee;
-pol constant sel_tree_padding;
-pol constant sel_cleanup;
 pol constant sel_can_emit_note_hash;
 pol constant sel_can_emit_nullifier;
 pol constant sel_can_write_public_data;
 pol constant sel_can_emit_unencrypted_log;
 pol constant sel_can_emit_l2_l1_msg;
+pol constant next_phase_on_revert;
 
 // Keccak round constants
 // Store the 24 round constants with indices ranging from 1 to 24.

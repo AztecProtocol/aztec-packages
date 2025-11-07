@@ -6,18 +6,31 @@
 
 namespace bb::avm2::tracegen {
 
-class TxPhaseOffsetsTable {
-  public:
-    struct Offsets {
-        uint32_t read_pi_offset;
-        uint32_t write_pi_offset;
-        uint32_t read_pi_length_offset;
-    };
-
-    static const Offsets& get_offsets(TransactionPhase phase);
-
-  private:
-    TxPhaseOffsetsTable();
+// TxPhaseSpec contains the fields that are read from the precomputed table
+// via the #[READ_PHASE_SPEC] lookup in tx.pil.
+struct TxPhaseSpec {
+    uint8_t phase_value = 0;
+    uint8_t is_public_call_request = 0;
+    uint8_t is_collect_fee = 0;
+    uint8_t is_tree_padding = 0;
+    uint8_t is_cleanup = 0;
+    uint8_t is_revertible = 0;
+    uint32_t read_pi_start_offset = 0;
+    uint32_t read_pi_length_offset = 0;
+    uint8_t non_revertible_append_note_hash = 0;
+    uint8_t non_revertible_append_nullifier = 0;
+    uint8_t non_revertible_append_l2_l1_msg = 0;
+    uint8_t revertible_append_note_hash = 0;
+    uint8_t revertible_append_nullifier = 0;
+    uint8_t revertible_append_l2_l1_msg = 0;
+    uint8_t can_emit_note_hash = 0;
+    uint8_t can_emit_nullifier = 0;
+    uint8_t can_write_public_data = 0;
+    uint8_t can_emit_unencrypted_log = 0;
+    uint8_t can_emit_l2_l1_msg = 0;
+    uint8_t next_phase_on_revert = 0;
 };
+
+extern const std::unordered_map<TransactionPhase, TxPhaseSpec> TX_PHASE_SPEC_MAP;
 
 } // namespace bb::avm2::tracegen
