@@ -518,7 +518,7 @@ TEST(BitwiseConstrainingTest, ErrorHandlingMultiple)
     check_relation<bitwise>(trace);
 }
 
-TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnError)
+TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnErrorMismatch)
 {
     // Bitwise operations on mismatch tags should error out and produce FF(0) result.
     MemoryValue a = MemoryValue::from_tag(MemoryTag::U16, 45486);
@@ -540,6 +540,37 @@ TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnError)
     } });
 
     std::vector<simulation::BitwiseEvent> event = { { .operation = BitwiseOperation::AND, .a = a, .b = b, .res = 0 } };
+
+    BitwiseTraceBuilder builder;
+    builder.process(event, trace);
+
+    check_relation<bitwise>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_bitwise_settings>(trace);
+}
+
+TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnErrorFF)
+{
+    // Bitwise operations on FF tags should error out and produce FF(0) result.
+    MemoryValue a =
+        MemoryValue::from_tag(MemoryTag::FF, FF("0x1b7f6afaafbe72d6c3fc1bc92828a395341af3d33f805af83f06cbf0dcaca8a9"));
+    MemoryValue b = MemoryValue::from_tag(MemoryTag::U64, 9873803468411284649ULL);
+
+    TestTraceContainer trace({ {
+        // Execution Entry
+        { C::execution_sel_exec_dispatch_bitwise, 1 },
+        { C::execution_subtrace_operation_id, static_cast<uint8_t>(BitwiseOperation::OR) },
+        { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(a.get_tag()) },
+        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(b.get_tag()) },
+        { C::execution_register_0_, a.as_ff() },
+        { C::execution_register_1_, b.as_ff() },
+
+        // Output is FF(0) due to error
+        { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::FF) },
+        { C::execution_register_2_, 0x00 },
+        { C::execution_sel_opcode_error, 1 },
+    } });
+
+    std::vector<simulation::BitwiseEvent> event = { { .operation = BitwiseOperation::OR, .a = a, .b = b, .res = 0 } };
 
     BitwiseTraceBuilder builder;
     builder.process(event, trace);
