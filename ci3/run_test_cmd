@@ -158,7 +158,7 @@ code=$?
 if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
   exit $code
 fi
-  
+
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
   # If the test succeeded and we're in CI, save the test log.
@@ -181,16 +181,14 @@ function track_test {
   # This means that in-PR tests for other branches get into history,
   # but it's better to have the noise than lack of data.
   # Skip tracking for non-merge-queue PRs on next branch
-  if [ "$is_merge_queue" -eq 0 ] && [ -z "${TARGET_BRANCH:-}" ] || [ "$TARGET_BRANCH" == "next" ]; then
-    return
+  if [ "$is_merge_queue" -eq 1 ] || [[ -n "${TARGET_BRANCH:-}" && "$TARGET_BRANCH" != "next" ]]; then
+    local key=$1
+    local line=$(pr_link "$2")
+
+    redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
+    # Keeps only the last 1000 lines.
+    redis_cli RTRIM $key -1000 -1 &>/dev/null
   fi
-
-  local key=$1
-  local line=$(pr_link "$2")
-
-  redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
-  # Keeps only the last 1000 lines.
-  redis_cli RTRIM $key -1000 -1 &>/dev/null
 }
 
 # Show PASSED and early out on success.
