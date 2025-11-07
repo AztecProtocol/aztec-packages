@@ -49,7 +49,7 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
     HypernovaFoldingVerifier<Flavor>::MegaSumcheckOutput& sumcheck_output,
     const std::shared_ptr<HypernovaFoldingVerifier::VerifierInstance>& instance)
 {
-    BB_BENCH();
+    BB_BENCH_NAME("HypernovaFoldingVerifier::sumcheck_output_to_accumulator");
 
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
     auto [unshifted_challenges, shifted_challenges] = get_batching_challenges();
@@ -82,7 +82,7 @@ template <typename Flavor>
 SumcheckOutput<Flavor> HypernovaFoldingVerifier<Flavor>::sumcheck_on_incoming_instance(
     const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance, const Proof& proof)
 {
-    BB_BENCH();
+    BB_BENCH_NAME("HypernovaFoldingVerifier::sumcheck_on_incoming_instance");
 
     vinfo("HypernovaFoldingVerifier: verifying Oink proof...");
     // Complete the incoming verifier instance
@@ -109,7 +109,7 @@ std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> Hypernov
     instance_to_accumulator(const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
                             const Proof& proof)
 {
-    BB_BENCH();
+    BB_BENCH_NAME("HypernovaFoldingVerifier::instance_to_accumulator");
 
     auto sumcheck_output = sumcheck_on_incoming_instance(instance, proof);
 
@@ -130,7 +130,7 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
     Flavor>::verify_folding_proof(const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
                                   const HypernovaFoldingVerifier::Proof& proof)
 {
-    BB_BENCH();
+    BB_BENCH_NAME("HypernovaFoldingVerifier::verify_folding_proof");
 
     vinfo("HypernovaFoldingVerifier: verifying folding proof...");
 

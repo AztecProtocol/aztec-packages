@@ -197,8 +197,8 @@ for test_case in test_cases:
             # Categorize metrics based on name
             if "Chonk" in metric_name or "Chonk" in metric_name:
                 components["Main"][metric_name][cpu] = time_ms
-            elif "ProtogalaxyProver" in metric_name:
-                components["ProtogalaxyProver"][metric_name][cpu] = time_ms
+            elif "HypernovaProver" in metric_name or "HypernovaFoldingProver" in metric_name or "HypernovaFoldingVerifier" in metric_name:
+                components["HypernovaProver"][metric_name][cpu] = time_ms
             elif "OinkProver" in metric_name:
                 components["OinkProver"][metric_name][cpu] = time_ms
             elif "Decider" in metric_name:
@@ -224,7 +224,7 @@ for test_case in test_cases:
     # Generate tables for each component
     sections = [
         ("Main Components", "Main"),
-        ("ProtogalaxyProver Components", "ProtogalaxyProver"),
+        ("HypernovaProver Components", "HypernovaProver"),
         ("OinkProver", "OinkProver"),
         ("Decider", "Decider"),
         ("Goblin", "Goblin"),
@@ -259,7 +259,7 @@ for test_case in test_cases:
                 count = int(count_match.group(1)) if count_match else None
 
                 # Clean up metric name
-                clean_name = metric_name.replace('ProtogalaxyProver::', '').replace('OinkProver::', '')
+                clean_name = metric_name.replace('HypernovaFoldingProver::', '').replace('HypernovaFoldingVerifier::', '').replace('HypernovaProver::', '').replace('OinkProver::', '')
 
                 row = generate_table_row(clean_name, times, available_cpus, count)
                 print("| " + row + " |")

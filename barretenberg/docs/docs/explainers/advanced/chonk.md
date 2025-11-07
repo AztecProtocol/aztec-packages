@@ -38,7 +38,7 @@ This eliminates FFT's and reduces prover time and memory at the expense of proof
 
 Folding schemes enable cheaper recursion than standard recursive proofs. They work most smoothly with elliptic-curve based proofs systems like CHONK. We specifically work with [HyperNova](https://eprint.iacr.org/2023/573) which is convenient and efficient for folding non-uniform PlonK circuits (i.e. not a fixed repeating circuit).
 
-### 4. Enhancing PG with "Goblin plonk"
+### 4. Enhancing HN with "Goblin plonk"
 
 Though HN (as do other folding schemes) already facilitates efficient recursion, it can still be a bit heavy client-side due to the non-native elliptic curve scalar multiplications performed by the folding verifier. For this reason, we use a "lazy" version of HN where the verifier doesn't perform these operations, but rather simply adds them to a queue of EC operations that need to be performed at the final proving stage. We call this deferral mechanism [*Goblin Plonk*](https://hackmd.io/@aztec-network/BkGNaHUJn/%2FdUsu57SOTBiQ4tS9KJMkMQ) (GP) (see also [this paper](https://eprint.iacr.org/2024/1651)).
 
