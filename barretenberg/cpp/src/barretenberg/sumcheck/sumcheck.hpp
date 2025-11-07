@@ -556,38 +556,49 @@ template <typename Flavor> class SumcheckProver {
         auto pep_view = partially_evaluated_polynomials.get_all();
         auto poly_view = polynomials.get_all();
 
-        // Parallelize in exponentially growing waves to avoid read-write conflicts when source == destination
-        // Wave 0: pep[0] alone (reads poly[0,1])
-        // Wave 1: pep[1] alone (reads poly[2,3])
-        // Wave 2: pep[2,3] in parallel (read poly[4-7])
-        // Wave k: pep[2^(k-1) ... 2^k-1] in parallel
+        size_t max_poly_end_index = 0;
+        for (const auto& poly : poly_view) {
+            max_poly_end_index = std::max(max_poly_end_index, poly.end_index());
+        }
+        const size_t max_limit = (max_poly_end_index + 1) / 2;
+
+        // // Start with pep[0]
         for (size_t j = 0; j < poly_view.size(); j++) {
             const auto& poly = poly_view[j];
-            size_t limit = (poly.end_index() + 1) / 2;
-
-            // Start with pep[0]
-            if (limit > 0) {
+            if (poly.end_index() > 0) {
                 pep_view[j].at(0) = poly[0] + round_challenge * (poly[1] - poly[0]);
-
-                // Process remaining indices in exponentially growing waves
-                size_t processed = 1;
-                for (size_t wave_size = 1; processed < limit; wave_size *= 2) {
-                    size_t wave_start = processed;
-                    size_t wave_end = std::min(wave_start + wave_size, limit);
-                    size_t actual_size = wave_end - wave_start;
-
-                    parallel_for([&](const ThreadChunk& chunk) {
-                        for (size_t i : chunk.range(actual_size, wave_start)) {
-                            pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
-                        }
-                    });
-
-                    processed = wave_end;
-                }
             }
+        }
 
-            // Resize after all waves complete for this polynomial
-            pep_view[j].shrink_end_index(limit);
+        // Parallelize in exponentially growing waves to avoid read-write conflicts when source == destination
+        // Wave 0: pep[1] alone (reads poly[2,3])
+        // Wave 1: pep[2,3] in parallel (read poly[4-7])
+        // Wave k: pep[2^k ... 2^(k+1)-1] in parallel
+        size_t processed = 1;
+        for (size_t wave_size = 1; processed < max_limit; wave_size *= 2) {
+            parallel_for([&](const ThreadChunk& chunk) {
+                for (size_t j = 0; j < poly_view.size(); j++) {
+                    const auto& poly = poly_view[j];
+                    const size_t limit = (poly.end_index() + 1) / 2;
+                    if (processed >= limit) {
+                        continue;
+                    }
+                    const size_t wave_start = processed;
+                    const size_t wave_end = std::min(wave_start + wave_size, limit);
+                    const size_t actual_size = wave_end - wave_start;
+
+                    for (size_t i : chunk.range(actual_size, wave_start)) {
+                        pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
+                    }
+                }
+            });
+
+            processed += wave_size;
+        }
+
+        // Resize after all waves complete
+        for (size_t j = 0; j < poly_view.size(); j++) {
+            pep_view[j].shrink_end_index((poly_view[j].end_index() + 1) / 2);
         }
     };
 
