@@ -565,24 +565,16 @@ template <typename Flavor> class SumcheckProver {
         }
         const size_t max_limit = *std::ranges::max_element(limits);
 
-        // // Start with pep[0]
-        for (size_t j = 0; j < poly_view.size(); j++) {
-            const auto& poly = poly_view[j];
-            if (poly.end_index() > 0) {
-                pep_view[j].at(0) = poly[0] + round_challenge * (poly[1] - poly[0]);
-            }
-        }
-
         // Parallelize in exponentially growing waves to avoid read-write conflicts when source == destination
-        // Wave 0: pep[1] alone (reads poly[2,3])
-        // Wave 1: pep[2,3] in parallel (read poly[4-7])
-        // Wave k: pep[2^k ... 2^(k+1)-1] in parallel
-        size_t processed = 1;
+        // Wave 0: pep[0] alone (reads poly[0,1])
+        // Wave 1: pep[1] alone (reads poly[2,3])
+        // Wave 2: pep[2,3] in parallel (read poly[4-7])
+        // Wave k: pep[2^(k-1) ... 2^k-1] in parallel
+        size_t processed = 0;
         size_t wave_size = 1;
         while (processed < max_limit) {
             parallel_for([&](const ThreadChunk& chunk) {
                 for (size_t j = 0; j < poly_view.size(); j++) {
-                    const auto& poly = poly_view[j];
                     if (processed >= limits[j]) {
                         continue;
                     }
@@ -590,6 +582,7 @@ template <typename Flavor> class SumcheckProver {
                     const size_t wave_end = std::min(wave_start + wave_size, limits[j]);
                     const size_t actual_size = wave_end - wave_start;
 
+                    const auto& poly = poly_view[j];
                     for (size_t i : chunk.range(actual_size, wave_start)) {
                         pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
                     }
@@ -597,7 +590,10 @@ template <typename Flavor> class SumcheckProver {
             });
 
             processed += wave_size;
-            wave_size *= 2;
+            // Special case: first 2 waves have size 1
+            if (processed > 1) {
+                wave_size *= 2;
+            }
         }
 
         // Resize after all waves complete
