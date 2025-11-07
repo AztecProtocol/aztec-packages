@@ -25,13 +25,6 @@ class AvmSimulationHelper {
 
     TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
 
-    // TODO(MW): REMOVE - currently for testing only
-    TxSimulationResult simulate_fast_with_hinting_dbs(simulation::ContractDBInterface& raw_contract_db,
-                                                      simulation::LowLevelMerkleDBInterface& raw_merkle_db,
-                                                      const Tx& tx,
-                                                      const GlobalVariables& global_variables,
-                                                      const ProtocolContracts& protocol_contracts);
-
   protected:
     // Helper called by simulate_fast* functions.
     TxSimulationResult simulate_fast(simulation::ContractDBInterface& raw_contract_db,

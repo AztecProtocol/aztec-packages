@@ -502,26 +502,4 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const Exec
     return simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
 }
 
-// TODO(MW): REMOVE - currently for testing only
-TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinting_dbs(ContractDBInterface& raw_contract_db,
-                                                                       LowLevelMerkleDBInterface& raw_merkle_db,
-                                                                       const Tx& tx,
-                                                                       const GlobalVariables& global_variables,
-                                                                       const ProtocolContracts& protocol_contracts)
-{
-    HintingContractsDB hinting_contract_db(raw_contract_db);
-    HintingRawDB hinting_merkle_db(raw_merkle_db);
-    auto starting_tree_roots = raw_merkle_db.get_tree_roots();
-    auto result = simulate_fast(hinting_contract_db, hinting_merkle_db, tx, global_variables, protocol_contracts);
-    ExecutionHints collected_hints = ExecutionHints{ .globalVariables = global_variables,
-                                                     .tx = tx,
-                                                     .protocolContracts = protocol_contracts,
-                                                     .startingTreeRoots = starting_tree_roots };
-    hinting_contract_db.dump_hints(collected_hints);
-    hinting_merkle_db.dump_hints(collected_hints);
-
-    result.execution_hints = collected_hints;
-    return result;
-}
-
 } // namespace bb::avm2
