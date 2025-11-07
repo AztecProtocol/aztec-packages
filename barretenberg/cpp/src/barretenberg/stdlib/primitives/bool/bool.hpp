@@ -134,7 +134,19 @@ template <typename Builder> class bool_t {
 
     bool_t normalize() const;
 
-    uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
+    /**
+     * @brief Get the witness index of the current boolean element.
+     *
+     * @details Returns the witness index of a normalized version of this element, where the witness
+     * actually contains the boolean value (not inverted). This is the safe default that prevents
+     * soundness vulnerabilities.
+     *
+     * Within the bool_t class implementation, the raw witness_index member can be accessed directly
+     * when needed.
+     *
+     * @return uint32_t The normalized witness index
+     */
+    uint32_t get_witness_index() const { return normalize().witness_index; }
 
     Builder* get_context() const { return context; }
 
@@ -154,6 +166,13 @@ template <typename Builder> class bool_t {
     mutable Builder* context = nullptr;
     mutable bool witness_bool = false;
     mutable bool witness_inverted = false;
+    /**
+     * @brief Index of the witness in the builder's witness vector.
+     *
+     * @details This is the raw witness index which may point to an inverted boolean value.
+     * External code should use get_witness_index() which returns a normalized witness containing
+     * the actual boolean value (not inverted). Direct access is restricted to internal bool_t methods.
+     */
     mutable uint32_t witness_index = IS_CONSTANT;
     mutable OriginTag tag{};
 

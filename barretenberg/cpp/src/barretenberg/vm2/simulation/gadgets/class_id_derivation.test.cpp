@@ -28,24 +28,29 @@ TEST(AvmSimulationClassIdDerivationTest, Positive)
 
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_event_emitter);
 
-    ContractClass klass = { .artifact_hash = FF::random_element(),
-                            .private_function_root = FF::random_element(),
-                            .public_bytecode_commitment = FF::random_element(),
-                            .packed_bytecode = { 0x01, 0x02, 0x03, 0x04 } };
-    ContractClassId class_id = poseidon2.hash(std::vector<FF>{ GENERATOR_INDEX__CONTRACT_LEAF,
-                                                               klass.artifact_hash,
-                                                               klass.private_function_root,
-                                                               klass.public_bytecode_commitment });
+    ContractClassWithCommitment klass = {
+        .id = FF::random_element(),
+        .artifact_hash = FF::random_element(),
+        .private_functions_root = FF::random_element(),
+        .packed_bytecode = { 0x01, 0x02, 0x03, 0x04 },
+        .public_bytecode_commitment = FF::random_element(),
+    };
+    ContractClassId expected_class_id = poseidon2.hash(std::vector<FF>{ GENERATOR_INDEX__CONTRACT_LEAF,
+                                                                        klass.artifact_hash,
+                                                                        klass.private_functions_root,
+                                                                        klass.public_bytecode_commitment });
+    // Update the klass.id to match the computed value
+    klass.id = expected_class_id;
 
-    class_id_derivation.assert_derivation(class_id, klass);
+    class_id_derivation.assert_derivation(klass);
 
     auto events = class_id_derivation_event_emitter.dump_events();
     EXPECT_THAT(events, SizeIs(1));
-    EXPECT_EQ(events[0].class_id, class_id);
+    EXPECT_EQ(events[0].klass.id, expected_class_id);
     EXPECT_EQ(events[0].klass.artifact_hash, klass.artifact_hash);
 
     // Second derivation for the same class ID should be a cache hit and should not emit an event
-    class_id_derivation.assert_derivation(class_id, klass);
+    class_id_derivation.assert_derivation(klass);
     events = class_id_derivation_event_emitter.dump_events();
     EXPECT_THAT(events, IsEmpty());
 }

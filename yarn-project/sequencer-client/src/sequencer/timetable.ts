@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js/log';
 
 import { DEFAULT_ATTESTATION_PROPAGATION_TIME } from '../config.js';
 import { SequencerTooSlowError } from './errors.js';
@@ -137,6 +137,13 @@ export class SequencerTimetable {
     return validationTimeEnd;
   }
 
+  public getMaxAllowedTime(
+    state: Extract<SequencerState, SequencerState.STOPPED | SequencerState.IDLE | SequencerState.SYNCHRONIZING>,
+  ): undefined;
+  public getMaxAllowedTime(
+    state: Exclude<SequencerState, SequencerState.STOPPED | SequencerState.IDLE | SequencerState.SYNCHRONIZING>,
+  ): number;
+  public getMaxAllowedTime(state: SequencerState): number | undefined;
   public getMaxAllowedTime(state: SequencerState): number | undefined {
     switch (state) {
       case SequencerState.STOPPED:

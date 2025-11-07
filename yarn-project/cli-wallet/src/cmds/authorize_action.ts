@@ -1,4 +1,7 @@
-import { type AztecAddress, Contract, SetPublicAuthwitContractInteraction, type Wallet } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { SetPublicAuthwitContractInteraction } from '@aztec/aztec.js/authorization';
+import { Contract } from '@aztec/aztec.js/contracts';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 

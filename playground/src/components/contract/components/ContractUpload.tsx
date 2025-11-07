@@ -1,7 +1,6 @@
 import { css } from '@mui/styled-engine';
 import { useDropzone } from 'react-dropzone';
-import './dropzone.css';
-import { loadContractArtifact } from '@aztec/aztec.js';
+import { loadContractArtifact } from '@aztec/aztec.js/abi';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -63,7 +62,7 @@ export function ContractUpload() {
         >
           <Box>
             <a
-              href="https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/counter_contract"
+              href="https://docs.aztec.network/developers/tutorials/contract_tutorials/counter_contract"
               target="_blank"
               rel="noopener noreferrer"
             >

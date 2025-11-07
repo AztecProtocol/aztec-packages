@@ -107,7 +107,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             // We mark this as public because our whole system depends on public
             // functions having this attribute. However, the public MACRO will
             // handle the public_dispatch function specially and do nothing.
-            #[public]
+            #[external("public")]
             pub unconstrained fn public_dispatch(selector: Field) {
                 $dispatch
             }

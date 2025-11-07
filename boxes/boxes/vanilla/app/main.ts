@@ -1,10 +1,7 @@
-import './style.css';
-import {
-  AztecAddress,
-  Fr,
-  getContractInstanceFromInstantiationParams,
-  type Wallet,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { EmbeddedWallet } from './embedded-wallet';
 import { PrivateVotingContract } from '../artifacts/PrivateVoting';
 

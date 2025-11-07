@@ -173,9 +173,9 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     const scratchDataPtr = this.msgpackOutputScratch + METADATA_SIZE;
     const scratchDataSize = this.MSGPACK_SCRATCH_SIZE - METADATA_SIZE;
 
-    // Get memory once and create DataView for all reads/writes (avoids creating multiple typed arrays)
-    const mem = this.getMemory();
-    const view = new DataView(mem.buffer);
+    // Get memory and create DataView for writing IN values
+    let mem = this.getMemory();
+    let view = new DataView(mem.buffer);
 
     // Write IN values: provide scratch buffer pointer and size to C++
     view.setUint32(outputPtrLocation, scratchDataPtr, true);
@@ -188,6 +188,10 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     if (needsCustomInputBuffer) {
       this.call('bbfree', inputPtr);
     }
+
+    // Re-fetch memory after WASM call, as the buffer may have been detached if memory grew
+    mem = this.getMemory();
+    view = new DataView(mem.buffer);
 
     // Read OUT values: C++ returns actual buffer pointer and size
     const outputDataPtr = view.getUint32(outputPtrLocation, true);

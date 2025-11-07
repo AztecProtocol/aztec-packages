@@ -106,14 +106,14 @@ HonkProof create_mock_multilinear_batch_proof()
     using FF = typename Flavor::FF;
     HonkProof proof;
 
-    // Populate mock witness polynomial commitments
-    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
+    // Populate mock witness accumulator commitments
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES / 2);
 
-    // Accumulator and instance multivariate challenges
-    populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N * 2);
+    // Accumulator multivariate challenges
+    populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N);
 
-    // Witness polynomial evaluations
-    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES);
+    // Witness accumulator polynomial evaluations
+    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES / 2);
 
     // Sumcheck proof
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
@@ -307,15 +307,11 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
         builder.add_public_variable(fr::random_element());
     }
 
-    // Add the default pairing points
-    stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
-
+    // Add the default pairing points and IPA claim
     if constexpr (HasIPAAccumulator<Flavor>) {
-        // Create a fake ipa claim and proof
-        auto [stdlib_opening_claim, ipa_proof] =
-            IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
-        stdlib_opening_claim.set_public();
-        builder.ipa_proof = ipa_proof;
+        stdlib::recursion::honk::RollupIO::add_default(builder);
+    } else {
+        stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
     }
 
     // prove the circuit constructed above
@@ -327,25 +323,6 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
     InnerProver prover(decider_pk, vk);
     auto honk_proof = prover.construct_proof();
     return std::pair(honk_proof, vk);
-}
-
-/**
- * @brief Create a mock PG proof that has the correct structure but is not in general valid
- *
- */
-template <typename Flavor, class PublicInputs> HonkProof create_mock_pg_proof()
-{
-    // The first part of a PG proof is an Oink proof
-    HonkProof proof = create_mock_oink_proof<Flavor, PublicInputs>();
-
-    // Populate mock perturbator coefficients
-    populate_field_elements<fr>(proof, CONST_PG_LOG_N, /*value=*/fr::zero());
-
-    // Populate mock combiner quotient coefficients
-    size_t NUM_COEFF_COMBINER_QUOTIENT = computed_batched_extended_length<Flavor>() - NUM_INSTANCES;
-    populate_field_elements<fr>(proof, NUM_COEFF_COMBINER_QUOTIENT, /*value=*/fr::zero());
-
-    return proof;
 }
 
 /**
@@ -363,16 +340,11 @@ Goblin::MergeProof create_mock_merge_proof()
     // Populate mock shift size
     populate_field_elements<fr>(proof, 1, /*value=*/fr{ mock_shift_size });
 
-    // There are 8 entities in the merge protocol (4 columns x 2 components: T_j, g_j(X) = X^{l-1} t_j(X))
-    // and 8 evaluations (4 columns x 2 components: g_j(kappa), t_j(1/kappa))
-    const size_t NUM_TRANSCRIPT_ENTITIES = 8;
-    const size_t NUM_TRANSCRIPT_EVALUATIONS = 8;
+    // Populate mock merged table commitments and batched degree check polynomial commitment
+    populate_field_elements_for_mock_commitments(proof, 5);
 
-    // Transcript poly commitments
-    populate_field_elements_for_mock_commitments(proof, NUM_TRANSCRIPT_ENTITIES);
-
-    // Transcript poly evaluations
-    populate_field_elements(proof, NUM_TRANSCRIPT_EVALUATIONS);
+    // Populate evaluations (3 * NUM_WIRES + 1: left, right, and merged tables, plus batched degree check polynomial)
+    populate_field_elements(proof, 13);
 
     // Shplonk proof: commitment to the quotient
     populate_field_elements_for_mock_commitments(proof, 1);
@@ -385,7 +357,7 @@ Goblin::MergeProof create_mock_merge_proof()
     return proof;
 }
 
-template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_public_inputs_size)
+template <typename Builder> HonkProof create_mock_chonk_proof(const size_t inner_public_inputs_size)
 {
     HonkProof proof;
 
@@ -395,8 +367,8 @@ template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_
     ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
     HonkProof translator_proof = create_mock_translator_proof();
 
-    ClientIVC::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
-    proof = civc_proof.to_field_elements();
+    Chonk::Proof chonk_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
+    proof = chonk_proof.to_field_elements();
 
     return proof;
 }
@@ -655,16 +627,16 @@ template std::pair<HonkProof, std::shared_ptr<UltraZKFlavor::VerificationKey>> c
 template std::pair<HonkProof, std::shared_ptr<UltraRollupFlavor::VerificationKey>>
 construct_honk_proof_for_simple_circuit<UltraRollupFlavor>(size_t num_public_inputs);
 
-template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
-template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
-template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
+// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
+// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
+// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
 
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
     bool);
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
 
-template HonkProof create_mock_civc_proof<UltraCircuitBuilder>(const size_t);
-template HonkProof create_mock_civc_proof<MegaCircuitBuilder>(const size_t);
+template HonkProof create_mock_chonk_proof<UltraCircuitBuilder>(const size_t);
+template HonkProof create_mock_chonk_proof<MegaCircuitBuilder>(const size_t);
 
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor, stdlib::recursion::honk::AppIO>(
     const size_t, const size_t, const size_t);

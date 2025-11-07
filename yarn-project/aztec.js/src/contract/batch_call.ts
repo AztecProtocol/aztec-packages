@@ -13,17 +13,9 @@ import {
 export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
-    protected interactions: BaseContractInteraction[],
+    protected interactions: (BaseContractInteraction | ExecutionPayload)[],
   ) {
     super(wallet);
-  }
-
-  /**
-   * Creates a new instance with no actual calls. Useful for triggering a no-op.
-   * @param wallet - The wallet to use for sending the batch call.
-   */
-  public static empty(wallet: Wallet) {
-    return new BatchCall(wallet, []);
   }
 
   /**
@@ -32,7 +24,7 @@ export class BatchCall extends BaseContractInteraction {
    * @returns An execution payload wrapped in promise.
    */
   public async request(options: RequestInteractionOptions = {}): Promise<ExecutionPayload> {
-    const requests = await this.getRequests();
+    const requests = await this.getExecutionPayloads();
     const feeExecutionPayload = options.fee?.paymentMethod
       ? await options.fee.paymentMethod.getExecutionPayload()
       : undefined;
@@ -52,7 +44,7 @@ export class BatchCall extends BaseContractInteraction {
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateInteractionOptions): Promise<any> {
-    const { indexedExecutionPayloads, utility } = (await this.getRequests()).reduce<{
+    const { indexedExecutionPayloads, utility } = (await this.getExecutionPayloads()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
       /** Keep track of the number of public calls to retrieve the return values */
@@ -87,37 +79,49 @@ export class BatchCall extends BaseContractInteraction {
       combinedPayload.extraHashedArgs,
     );
 
-    const utilityCalls = utility.map(
-      async ([call, index]) =>
-        [await this.wallet.simulateUtility(call.name, call.args, call.to, options?.authWitnesses), index] as const,
-    );
+    const utilityBatchPromise =
+      utility.length > 0
+        ? this.wallet.batch(
+            utility.map(([call]) => ({
+              name: 'simulateUtility' as const,
+              args: [call.name, call.args, call.to, options?.authWitnesses] as const,
+            })),
+          )
+        : Promise.resolve([]);
 
-    const [utilityResults, simulatedTx] = await Promise.all([
-      Promise.all(utilityCalls),
-      this.wallet.simulateTx(executionPayload, await toSimulateOptions(options)),
+    const [utilityBatchResults, simulatedTx] = await Promise.all([
+      utilityBatchPromise,
+      indexedExecutionPayloads.length > 0
+        ? this.wallet.simulateTx(executionPayload, await toSimulateOptions(options))
+        : Promise.resolve(),
     ]);
 
     const results: any[] = [];
 
-    utilityResults.forEach(([{ result }, index]) => {
-      results[index] = result;
+    utilityBatchResults.forEach((wrappedResult, utilityIndex) => {
+      const [, originalIndex] = utility[utilityIndex];
+      results[originalIndex] = wrappedResult.result.result;
     });
-    indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
-      const call = request.calls[0];
-      // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
-      // since we're interested in the first set of values AFTER the account entrypoint
-      // For public functions we retrieve the first values directly from the public output.
-      const rawReturnValues =
-        call.type == FunctionType.PRIVATE
-          ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
-          : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
 
-      results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
-    });
+    if (simulatedTx) {
+      indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
+        const call = request.calls[0];
+        // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
+        // since we're interested in the first set of values AFTER the account entrypoint
+        // For public functions we retrieve the first values directly from the public output.
+        const rawReturnValues =
+          call.type == FunctionType.PRIVATE
+            ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
+            : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
+
+        results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+      });
+    }
+
     return results;
   }
 
-  protected async getRequests() {
-    return await Promise.all(this.interactions.map(i => i.request()));
+  protected async getExecutionPayloads(): Promise<ExecutionPayload[]> {
+    return await Promise.all(this.interactions.map(i => (i instanceof ExecutionPayload ? i : i.request())));
   }
 }

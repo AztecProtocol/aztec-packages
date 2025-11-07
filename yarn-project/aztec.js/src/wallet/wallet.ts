@@ -107,7 +107,7 @@ export type SendOptions = Omit<SendInteractionOptions, 'fee'> & {
 /**
  * Helper type that represents all methods that can be batched.
  */
-export type BatchableMethods = Pick<Wallet, 'registerContract' | 'sendTx' | 'registerSender'>;
+export type BatchableMethods = Pick<Wallet, 'registerContract' | 'sendTx' | 'registerSender' | 'simulateUtility'>;
 
 /**
  * From the batchable methods, we create a type that represents a method call with its name and arguments.
@@ -161,7 +161,7 @@ export type Wallet = {
   getChainInfo(): Promise<ChainInfo>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
-  getSenders(): Promise<Aliased<AztecAddress>[]>;
+  getAddressBook(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
   registerContract(
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
@@ -288,6 +288,10 @@ export const BatchedMethodSchema = z.union([
     name: z.literal('sendTx'),
     args: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]),
   }),
+  z.object({
+    name: z.literal('simulateUtility'),
+    args: z.tuple([z.string(), z.array(z.any()), schemas.AztecAddress, optional(z.array(AuthWitness.schema))]),
+  }),
 ]);
 
 export const ContractMetadataSchema = z.object({
@@ -321,7 +325,7 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
     .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
     .returns(z.array(AbiDecodedSchema)),
   registerSender: z.function().args(schemas.AztecAddress, optional(z.string())).returns(schemas.AztecAddress),
-  getSenders: z
+  getAddressBook: z
     .function()
     .args()
     .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
@@ -351,6 +355,7 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
           z.object({ name: z.literal('registerSender'), result: schemas.AztecAddress }),
           z.object({ name: z.literal('registerContract'), result: ContractInstanceWithAddressSchema }),
           z.object({ name: z.literal('sendTx'), result: TxHash.schema }),
+          z.object({ name: z.literal('simulateUtility'), result: UtilitySimulationResult.schema }),
         ]),
       ),
     ),

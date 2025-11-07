@@ -46,6 +46,10 @@ export class AttestationValidator implements P2PValidator<BlockAttestation> {
         this.logger.warn(`No proposer defined for slot ${slotNumberBigInt}`);
         return PeerErrorSeverity.HighToleranceError;
       }
+      if (!proposer) {
+        this.logger.warn(`Invalid proposer signature in attestation for slot ${slotNumberBigInt}`);
+        return PeerErrorSeverity.LowToleranceError;
+      }
       if (!proposer.equals(expectedProposer)) {
         this.logger.warn(
           `Proposer signature mismatch in attestation. ` +

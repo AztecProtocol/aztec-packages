@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Contract, FunctionType } from "@aztec/aztec.js";
+import { Contract } from "@aztec/aztec.js/contracts";
+import { FunctionType } from "@aztec/aztec.js/abi";
 import { useNumber } from "../hooks/useNumber";
 
 const IGNORE_FUNCTIONS = ["constructor", "sync_private_state"];

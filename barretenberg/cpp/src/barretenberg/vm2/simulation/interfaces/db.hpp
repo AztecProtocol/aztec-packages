@@ -7,7 +7,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
@@ -20,6 +20,15 @@ class ContractDBInterface {
 
     virtual std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const = 0;
     virtual std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const = 0;
+    virtual std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const = 0;
+    virtual std::optional<std::string> get_debug_function_name(const AztecAddress& address,
+                                                               const FunctionSelector& selector) const = 0;
+
+    virtual void add_contracts(const ContractDeploymentData& contract_deployment_data) = 0;
+
+    virtual void create_checkpoint() = 0;
+    virtual void commit_checkpoint() = 0;
+    virtual void revert_checkpoint() = 0;
 };
 
 // Aliases.
@@ -43,7 +52,7 @@ class LowLevelMerkleDBInterface {
   public:
     virtual ~LowLevelMerkleDBInterface() = default;
 
-    virtual const TreeSnapshots& get_tree_roots() const = 0;
+    virtual TreeSnapshots get_tree_roots() const = 0;
 
     virtual SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const = 0;
     virtual GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const = 0;
@@ -58,6 +67,7 @@ class LowLevelMerkleDBInterface {
     virtual SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
         const NullifierLeafValue& leaf_value) = 0;
 
+    // todo(ilyas): does this need to be a vector of appendLeafResult? We should only care abou the end of appendings
     virtual std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
 
     virtual void pad_tree(MerkleTreeId tree_id, size_t num_leaves) = 0;
@@ -113,6 +123,11 @@ class HighLevelMerkleDBInterface {
     virtual LowLevelMerkleDBInterface& as_unconstrained() const = 0;
 };
 
+/**
+ * @brief Interface for a checkpoint notifiable.
+ *
+ * This interface is used to notify listeners when a checkpoint is created, committed, or reverted.
+ */
 class CheckpointNotifiable {
   public:
     virtual ~CheckpointNotifiable() = default;

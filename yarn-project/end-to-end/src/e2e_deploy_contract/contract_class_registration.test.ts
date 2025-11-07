@@ -1,25 +1,24 @@
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
-  AztecAddress,
-  type AztecNode,
-  type ContractArtifact,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
-  type FieldsOf,
-  Fr,
-  type Logger,
-  type TxReceipt,
-  TxStatus,
-  type Wallet,
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
-} from '@aztec/aztec.js';
+} from '@aztec/aztec.js/contracts';
 import {
   broadcastPrivateFunction,
   broadcastUtilityFunction,
   publishContractClass,
   publishInstance,
 } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { type TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { writeTestData } from '@aztec/foundation/testing/files';
+import type { FieldsOf } from '@aztec/foundation/types';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';

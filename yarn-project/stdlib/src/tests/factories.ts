@@ -1,10 +1,9 @@
-import { BlobAccumulator, FinalBlobAccumulator } from '@aztec/blob-lib';
 import { makeBatchedBlobAccumulator, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
-  CIVC_PROOF_LENGTH,
+  CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
@@ -42,9 +41,9 @@ import {
 } from '@aztec/constants';
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
 import { compact, padArrayEnd } from '@aztec/foundation/collection';
-import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
+import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -62,6 +61,7 @@ import {
   AvmContractClassHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
+  AvmDebugFunctionNameHint,
   AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
@@ -80,6 +80,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { L2BlockHeader } from '../block/index.js';
 import {
   type ContractClassPublic,
+  ContractDeploymentData,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
@@ -119,7 +120,7 @@ import {
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
-import { ContractClassLogFields } from '../logs/index.js';
+import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
@@ -143,7 +144,7 @@ import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { CheckpointRollupPublicInputs, FeeRecipient } from '../rollup/checkpoint_rollup_public_inputs.js';
 import { EpochConstantData } from '../rollup/epoch_constant_data.js';
 import { PrivateTxBaseRollupPrivateInputs } from '../rollup/private_tx_base_rollup_private_inputs.js';
-import { PublicTubePublicInputs } from '../rollup/public_tube_public_inputs.js';
+import { PublicChonkVerifierPublicInputs } from '../rollup/public_chonk_verifier_public_inputs.js';
 import { PublicTxBaseRollupPrivateInputs } from '../rollup/public_tx_base_rollup_private_inputs.js';
 import { RootRollupPublicInputs } from '../rollup/root_rollup_public_inputs.js';
 import { TreeSnapshotDiffHints } from '../rollup/tree_snapshot_diff_hints.js';
@@ -417,8 +418,8 @@ export function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
   );
 }
 
-export function makePublicTubePublicInputs(seed = 1) {
-  return new PublicTubePublicInputs(makePrivateToPublicKernelCircuitPublicInputs(seed), fr(seed + 0x1000));
+export function makePublicChonkVerifierPublicInputs(seed = 1) {
+  return new PublicChonkVerifierPublicInputs(makePrivateToPublicKernelCircuitPublicInputs(seed), fr(seed + 0x1000));
 }
 
 export function makeProtocolContracts(seed = 1) {
@@ -758,8 +759,8 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
-    BlobAccumulator.fromBatchedBlobAccumulator(startBlobAccumulator),
-    BlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 1)),
+    startBlobAccumulator.toBlobAccumulator(),
+    makeBatchedBlobAccumulator(seed + 1).toBlobAccumulator(),
     startBlobAccumulator.finalBlobChallenges,
   );
 }
@@ -795,7 +796,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
-    FinalBlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
+    makeBatchedBlobAccumulator(seed).toFinalBlobAccumulator(),
   );
 }
 
@@ -1084,18 +1085,22 @@ function makePublicBaseRollupHints(seed = 1) {
 
 export function makePrivateTxBaseRollupPrivateInputs(seed = 0) {
   return PrivateTxBaseRollupPrivateInputs.from({
-    hidingKernelProofData: makeProofData(seed, makePrivateToRollupKernelCircuitPublicInputs, CIVC_PROOF_LENGTH),
+    hidingKernelProofData: makeProofData(seed, makePrivateToRollupKernelCircuitPublicInputs, CHONK_PROOF_LENGTH),
     hints: makePrivateBaseRollupHints(seed + 0x100),
   });
 }
 
 export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
-  const publicTubeProofData = makeProofData(seed, makePublicTubePublicInputs, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
+  const publicChonkVerifierProofData = makeProofData(
+    seed,
+    makePublicChonkVerifierPublicInputs,
+    RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  );
   const avmProofData = makeProofData(seed + 0x100, makeAvmCircuitPublicInputs, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   const hints = makePublicBaseRollupHints(seed + 0x200);
 
   return PublicTxBaseRollupPrivateInputs.from({
-    publicTubeProofData,
+    publicChonkVerifierProofData,
     avmProofData,
     hints,
   });
@@ -1183,13 +1188,10 @@ export async function makeMapAsync<T>(size: number, fn: (i: number) => Promise<[
   return new Map(await makeArrayAsync(size, i => fn(i + offset)));
 }
 
-export function makePublicKeys(seed = 0): PublicKeys {
-  return new PublicKeys(
-    new Point(new Fr(seed + 0), new Fr(seed + 1), false),
-    new Point(new Fr(seed + 2), new Fr(seed + 3), false),
-    new Point(new Fr(seed + 4), new Fr(seed + 5), false),
-    new Point(new Fr(seed + 6), new Fr(seed + 7), false),
-  );
+export async function makePublicKeys(seed = 0): Promise<PublicKeys> {
+  const f = (offset: number) => Grumpkin.mul(Grumpkin.generator, new Fq(seed + offset));
+
+  return new PublicKeys(await f(0), await f(1), await f(2), await f(3));
 }
 
 export async function makeContractInstanceFromClassId(
@@ -1205,7 +1207,7 @@ export async function makeContractInstanceFromClassId(
   const salt = new Fr(seed);
   const initializationHash = overrides?.initializationHash ?? new Fr(seed + 1);
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
-  const publicKeys = overrides?.publicKeys ?? makePublicKeys(seed + 3);
+  const publicKeys = overrides?.publicKeys ?? (await makePublicKeys(seed + 3));
 
   const saltedInitializationHash = await poseidon2HashWithSeparator(
     [salt, initializationHash, deployer],
@@ -1369,6 +1371,7 @@ export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevert
  */
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
+    seed,
     new AztecAddress(new Fr(seed)),
     new Fr(seed + 0x2),
     new AztecAddress(new Fr(seed + 0x3)),
@@ -1384,19 +1387,28 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   );
 }
 
+/**
+ * Makes arbitrary AvmDebugFunctionNameHint.
+ * @param seed - The seed to use for generating the hint.
+ * @returns AvmDebugFunctionNameHint.
+ */
+export function makeAvmDebugFunctionNameHint(seed = 0): AvmDebugFunctionNameHint {
+  return new AvmDebugFunctionNameHint(new AztecAddress(new Fr(seed)), new Fr(seed + 0x2), `function-${seed}`);
+}
+
 /* Makes arbitrary AvmContractClassHint.
  * @param seed - The seed to use for generating the state reference.
  * @returns AvmContractClassHint.
  */
 export function makeAvmContractClassHint(seed = 0): AvmContractClassHint {
   const bytecode = makeBytes(32, seed + 0x5);
-  return new AvmContractClassHint(new Fr(seed), new Fr(seed + 0x2), new Fr(seed + 0x3), bytecode);
+  return new AvmContractClassHint(seed, new Fr(seed), new Fr(seed + 0x2), new Fr(seed + 0x3), bytecode);
 }
 
 export async function makeAvmBytecodeCommitmentHint(seed = 0): Promise<AvmBytecodeCommitmentHint> {
   const classId = new Fr(seed + 2);
   const bytecode = makeBytes(32, seed + 0x5);
-  return new AvmBytecodeCommitmentHint(classId, await computePublicBytecodeCommitment(bytecode));
+  return new AvmBytecodeCommitmentHint(seed, classId, await computePublicBytecodeCommitment(bytecode));
 }
 
 export async function makePublicCallRequestWithCalldata(seed = 0): Promise<PublicCallRequestWithCalldata> {
@@ -1411,11 +1423,23 @@ export async function makePublicCallRequestWithCalldata(seed = 0): Promise<Publi
   return new PublicCallRequestWithCalldata(publicCallRequest, calldata);
 }
 
+export function makeContractClassLog(seed = 0): ContractClassLog {
+  return new ContractClassLog(makeAztecAddress(seed + 0x1000), makeContractClassLogFields(seed + 0x2000), seed % 20);
+}
+
+export function makeContractDeploymentData(seed = 0): ContractDeploymentData {
+  const contractClassLogs = makeArray(seed % 20, i => makeContractClassLog(i), seed + 0x1000);
+  const privateLogs = makeArray(seed % 20, i => makePrivateLog(i), seed + 0x2000);
+  return new ContractDeploymentData(contractClassLogs, privateLogs);
+}
+
 export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   return new AvmTxHint(
     `txhash-${seed}`,
     makeGasSettings(),
     makeGasFees(seed + 0x1000),
+    makeContractDeploymentData(seed + 0x2000),
+    makeContractDeploymentData(seed + 0x3000),
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
@@ -1454,6 +1478,7 @@ export async function makeAvmExecutionHints(
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
+    debugFunctionNames: makeArray(baseLength + 5, makeAvmDebugFunctionNameHint, seed + 0x4a00),
     startingTreeRoots: makeTreeSnapshots(seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
     getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
@@ -1488,6 +1513,7 @@ export async function makeAvmExecutionHints(
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
+    fields.debugFunctionNames,
     fields.startingTreeRoots,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,

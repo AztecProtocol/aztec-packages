@@ -1,5 +1,9 @@
 // import { getInitialTestAccounts } from '@aztec/accounts/testing';
-// import { EthAddress, type NodeInfo, type PXE, createCompatibleClient, retryUntil } from '@aztec/aztec.js';
+// import { type PXE, createCompatibleClient } from '@aztec/aztec.js/wallet';
+// import { EthAddress } from '@aztec/aztec.js/addresses';
+// import type { NodeInfo } from '@aztec/aztec.js/node';
+// import { retryUntil } from '@aztec/foundation/retry';
+
 // import {
 //   DefaultL1ContractsConfig,
 //   type L1ContractAddresses,

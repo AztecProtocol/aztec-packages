@@ -1,12 +1,9 @@
-import {
-  AztecAddress,
-  type AztecNode,
-  EthAddress,
-  Fr,
-  type Logger,
-  computeAuthWitMessageHash,
-  generateClaimSecret,
-} from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
+import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import {
   type DeployL1ContractsReturnType,

@@ -434,6 +434,21 @@ export class Fq extends BaseField {
     return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
   }
 
+  /**
+   * Computes a square root of the field element.
+   * @returns A square root of the field element (null if it does not exist).
+   */
+  async sqrt(): Promise<Fq | null> {
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.bn254FqSqrt({ input: this.toBuffer() });
+    if (!response.isSquareRoot) {
+      // Field element is not a quadratic residue mod p so it has no square root.
+      return null;
+    }
+    return Fq.fromBuffer(Buffer.from(response.value));
+  }
+
   toJSON() {
     return this.toString();
   }

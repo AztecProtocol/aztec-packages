@@ -9,13 +9,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P, PeerId, TxProvider } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
-import {
-  OffenseType,
-  type SlasherConfig,
-  WANT_TO_SLASH_EVENT,
-  type Watcher,
-  type WatcherEmitter,
-} from '@aztec/slasher';
+import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2BlockSource } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder, Validator, ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
@@ -30,7 +24,6 @@ import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
 import { BlockProposalHandler, type BlockProposalValidationFailureReason } from './block_proposal_handler.js';
-import type { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
@@ -140,7 +133,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   static new(
-    config: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>,
+    config: ValidatorClientFullConfig,
     blockBuilder: IFullNodeBlockBuilder,
     epochCache: EpochCache,
     p2pClient: P2P,
@@ -152,7 +145,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     const metrics = new ValidatorMetrics(telemetry);
-    const blockProposalValidator = new BlockProposalValidator(epochCache);
+    const blockProposalValidator = new BlockProposalValidator(epochCache, {
+      txsPermitted: !config.disableTransactions,
+    });
     const blockProposalHandler = new BlockProposalHandler(
       blockBuilder,
       blockSource,
@@ -189,8 +184,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   // Proxy method for backwards compatibility with tests
-  public reExecuteTransactions(proposal: BlockProposal, txs: any[], l1ToL2Messages: Fr[]): Promise<any> {
-    return this.blockProposalHandler.reexecuteTransactions(proposal, txs, l1ToL2Messages);
+  public reExecuteTransactions(
+    proposal: BlockProposal,
+    blockNumber: number,
+    txs: any[],
+    l1ToL2Messages: Fr[],
+  ): Promise<any> {
+    return this.blockProposalHandler.reexecuteTransactions(proposal, blockNumber, txs, l1ToL2Messages);
   }
 
   public signWithAddress(addr: EthAddress, msg: TypedDataDefinition) {
@@ -273,7 +273,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
-    this.log.info(`Received proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, {
+    this.log.info(`Received proposal for slot ${slotNumber}`, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
@@ -295,24 +295,21 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     if (!validationResult.isValid) {
       this.log.warn(`Proposal validation failed: ${validationResult.reason}`, proposalInfo);
 
-      // Only track attestation failure metrics if we're actually in the committee
-      if (partOfCommittee) {
-        const reason = validationResult.reason || 'unknown';
-        // Classify failure reason: bad proposal vs node issue
-        const badProposalReasons: BlockProposalValidationFailureReason[] = [
-          'invalid_proposal',
-          'state_mismatch',
-          'failed_txs',
-          'in_hash_mismatch',
-          'parent_block_does_not_match',
-        ];
+      const reason = validationResult.reason || 'unknown';
+      // Classify failure reason: bad proposal vs node issue
+      const badProposalReasons: BlockProposalValidationFailureReason[] = [
+        'invalid_proposal',
+        'state_mismatch',
+        'failed_txs',
+        'in_hash_mismatch',
+        'parent_block_wrong_slot',
+      ];
 
-        if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {
-          this.metrics.incFailedAttestationsBadProposal(1, reason);
-        } else {
-          // Node issues: parent_block_not_found, block_number_already_exists, txs_not_available, timeout, unknown_error
-          this.metrics.incFailedAttestationsNodeIssue(1, reason);
-        }
+      if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {
+        this.metrics.incFailedAttestationsBadProposal(1, reason, partOfCommittee);
+      } else {
+        // Node issues so we can't attest
+        this.metrics.incFailedAttestationsNodeIssue(1, reason, partOfCommittee);
       }
 
       // Slash invalid block proposals (can happen even when not in committee)
@@ -334,7 +331,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Provided all of the above checks pass, we can attest to the proposal
-    this.log.info(`Attesting to proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, proposalInfo);
+    this.log.info(`Attesting to proposal for slot ${slotNumber}`, proposalInfo);
     this.metrics.incSuccessfulAttestations(inCommittee.length);
 
     // If the above function does not throw an error, then we can attest to the proposal
@@ -383,7 +380,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     const newProposal = await this.validationService.createBlockProposal(
-      blockNumber,
       header,
       archive,
       stateReference,

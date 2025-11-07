@@ -87,7 +87,7 @@ export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
 export type ProfileInteractionOptions = SimulateInteractionOptions & {
   /** Whether to return gates information or the bytecode/witnesses. */
   profileMode: 'gates' | 'execution-steps' | 'full';
-  /** Whether to generate a ClientIVC proof or not */
+  /** Whether to generate a Chonk proof or not */
   skipProofGeneration?: boolean;
 };
 

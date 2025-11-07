@@ -1,6 +1,6 @@
-use dep::mock_types::{CivcProofData, RollupPublicInputs};
+use dep::mock_types::{ChonkProofData, RollupPublicInputs};
 
-fn main(civc_proof_data: CivcProofData) -> pub RollupPublicInputs {
-    civc_proof_data.verify();
+fn main(chonk_proof_data: ChonkProofData) -> pub RollupPublicInputs {
+    chonk_proof_data.verify();
     RollupPublicInputs::new(1)
 }

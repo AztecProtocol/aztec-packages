@@ -19,7 +19,7 @@ import { trackButtonClick } from '../../../utils/matomo';
 import CloseIcon from '@mui/icons-material/Close';
 import { PlaygroundDB } from '../../../utils/storage';
 import { WebLogger } from '../../../utils/web_logger';
-import { createAztecNodeClient } from '@aztec/aztec.js';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 
 export function NetworkSelector() {
   const {
@@ -53,7 +53,7 @@ export function NetworkSelector() {
       WebLogger.create(setLogs, setTotalLogCount);
       const store = await createStore('playground_data', {
         dataDirectory: 'playground',
-        dataStoreMapSizeKB: 1e6,
+        dataStoreMapSizeKb: 1e6,
       });
       const playgroundDB = PlaygroundDB.getInstance();
       playgroundDB.init(store, WebLogger.getInstance().createLogger('playground_db').info);

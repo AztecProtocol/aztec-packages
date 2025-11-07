@@ -161,5 +161,25 @@ describe('validateBlockAttestations', () => {
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
       expect(result.valid).toBe(true);
     });
+
+    it('fails if attestation ordering does not match committee ordering', async () => {
+      // Create a block with attestations in the correct order
+      const block = await makeBlock(signers.slice(0, 4), committee);
+
+      // Swap two attestations to create incorrect ordering
+      // This simulates an attacker trying to reorder attestations
+      const temp = block.attestations[1];
+      block.attestations[1] = block.attestations[2];
+      block.attestations[2] = temp;
+
+      const result = await validateBlockAttestations(block, epochCache, constants, logger);
+      assert(!result.valid);
+      assert(result.reason === 'invalid-attestation');
+      expect(result.block.blockNumber).toEqual(block.block.number);
+      expect(result.block.archive.toString()).toEqual(block.block.archive.root.toString());
+      expect(result.committee).toEqual(committee);
+      // The first mismatched attestation should be at index 1
+      expect(result.invalidIndex).toBe(1);
+    });
   });
 });

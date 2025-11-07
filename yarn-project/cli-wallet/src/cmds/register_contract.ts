@@ -1,11 +1,9 @@
-import {
-  type AztecAddress,
-  type AztecNode,
-  Fr,
-  PublicKeys,
-  type Wallet,
-  getContractInstanceFromInstantiationParams,
-} from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { PublicKeys } from '@aztec/aztec.js/keys';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
 import type { LogFn } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';

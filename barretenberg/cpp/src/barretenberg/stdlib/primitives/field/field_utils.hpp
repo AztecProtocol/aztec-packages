@@ -49,4 +49,18 @@ void validate_split_in_field(const field_t<Builder>& lo,
                              const size_t lo_bits,
                              const uint256_t& field_modulus);
 
+/**
+ * @brief Mark a field_t witness as used (for UltraBuilder only).
+ *
+ * @details For certain operations like assert_is_not_zero, we create intermediate witnesses
+ * that are not part of the circuit's primary logic but are needed for constraints.
+ * This function marks such witnesses as "used" to prevent them from being incorrectly
+ * identified as unused. Uses raw witness_index to avoid normalization overhead.
+ *
+ * This is a no-op for non-Ultra builders.
+ *
+ * @param field The field element whose witness should be marked as used
+ */
+template <typename Builder> void mark_witness_as_used(const field_t<Builder>& field);
+
 } // namespace bb::stdlib

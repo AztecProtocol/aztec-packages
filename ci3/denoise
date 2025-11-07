@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 source $ci3/source_redis
+source $ci3/source_cache
 
 # Ensure a command is passed
 if [ "$#" != 1 ]; then
@@ -71,6 +72,26 @@ function publish_log {
   } | redis_setexz $key $CI_REDIS_EXPIRE
 }
 
+function _format_log_output {
+  echo "Parent Log: ${PARENT_LOG_URL:-none}"
+  echo "Command: $cmd"
+  echo "Date: $(date)"
+  echo "Status: $status"
+  echo "Took: ${time}"
+  echo
+  cat $outfile
+}
+
+function publish_log {
+  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
+  _format_log_output | redis_setexz $key $CI_REDIS_EXPIRE
+}
+
+function publish_log_final {
+  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
+  _format_log_output | cache_persistent $key $CI_REDIS_EXPIRE
+}
+
 function live_publish_log {
   while [ -f $outfile ]; do
     if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
@@ -90,13 +111,43 @@ fi
 set +e
 echo -e "Executing: $cmd ${log_info:-}"
 echo -n "   0 "
+
 tail --sleep-interval=0.2 -n +1 -f "$outfile" > >(
+  # Initialize variables inside the subshell
+  last_print_time=$SECONDS
+
   while IFS= read -r line; do
     dot_count=$((dot_count+1))
-    [ $realtime -eq 1 ] && printf "."
-    if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
-      [ $realtime -eq 0 ] && printf '%.s.' $(seq 1 "$dots_per_line")
-      printf "\n%4s " "$dot_count"
+
+    if [ $realtime -eq 1 ]; then
+      # REALTIME MODE: Print dots immediately as output arrives
+      printf "."
+      if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
+        printf "\n%4s " "$dot_count"
+      fi
+    else
+      # NON-REALTIME MODE: Print full lines of dots, or partial lines every 10s
+      should_print=0
+      partial=0
+
+      # Case 1: Full line reached
+      if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
+        should_print=1
+        partial=$dots_per_line
+      # Case 2: 10 seconds elapsed since last print
+      elif [ $((SECONDS - last_print_time)) -ge 10 ]; then
+        partial=$((dot_count % dots_per_line))
+        if [ $partial -gt 0 ]; then
+          should_print=1
+        fi
+      fi
+
+      # Print if needed
+      if [ $should_print -eq 1 ]; then
+        printf '%.s.' $(seq 1 "$partial")
+        printf "\n%4s " "$dot_count"
+        last_print_time=$SECONDS
+      fi
     fi
   done
 ) &
@@ -112,7 +163,7 @@ status=$?
 
 time="${SECONDS}s"
 [ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true
-publish_log
+publish_log_final
 
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then

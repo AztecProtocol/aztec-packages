@@ -1,15 +1,14 @@
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
-  AztecAddress,
-  createAztecNodeClient,
-  type DeployAccountOptions,
   DeployMethod,
-  Fr,
   getContractInstanceFromInstantiationParams,
-  PublicKeys,
-  SponsoredFeePaymentMethod,
-  type Wallet,
-} from '@aztec/aztec.js';
-import { type AztecNode } from '@aztec/aztec.js/interfaces';
+} from '@aztec/aztec.js/contracts';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { PublicKeys } from '@aztec/aztec.js/keys';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
+import { type AztecNode } from '@aztec/aztec.js/node';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { createStore } from '@aztec/kv-store/lmdb';
 import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
@@ -32,7 +31,7 @@ async function setupWallet(aztecNode: AztecNode) {
 
   const store = await createStore('pxe', {
     dataDirectory: PXE_STORE_DIR,
-    dataStoreMapSizeKB: 1e6,
+    dataStoreMapSizeKb: 1e6,
   });
 
   const config = getPXEConfig();

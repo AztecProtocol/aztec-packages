@@ -28,7 +28,6 @@ class MockContextProvider : public ContextProviderInterface {
                  MemoryAddress cd_size_addr,
                  bool is_static,
                  Gas gas_limit,
-                 SideEffectStates side_effect_states,
                  TransactionPhase phase),
                 (override));
 
@@ -41,7 +40,6 @@ class MockContextProvider : public ContextProviderInterface {
                  bool is_static,
                  Gas gas_limit,
                  Gas gas_used,
-                 SideEffectStates side_effect_states,
                  TransactionPhase phase),
                 (override));
 

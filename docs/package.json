@@ -3,11 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "HOST=0.0.0.0 ENV=dev yarn preprocess && ENV=dev docusaurus start --host ${HOST:-localhost}",
+    "start": "yarn clean && yarn preprocess && docusaurus start --host ${HOST:-localhost}",
     "dev:netlify": "yarn netlify dev",
     "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && docusaurus build",
-    "clean": "./scripts/clean.sh",
     "serve": "docusaurus serve",
+    "clean": "./scripts/clean.sh",
     "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js",
     "preprocess:move": "sh scripts/move_processed.sh",
     "spellcheck": "yarn cspell",
@@ -37,7 +37,10 @@
     "cspell": "^8.19.4",
     "docusaurus-plugin-llms": "^0.2.0",
     "dotenv": "^16.6.1",
-    "netlify-cli": "^23.7.3"
+    "netlify-cli": "^23.7.3",
+    "typedoc": "^0.28.14",
+    "typedoc-plugin-markdown": "^4.9.0",
+    "typescript": "^5.9.3"
   },
   "cspell": {
     "import": [

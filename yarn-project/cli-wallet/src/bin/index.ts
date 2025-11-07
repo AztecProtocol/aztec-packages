@@ -1,4 +1,7 @@
-import { Fr, ProtocolContractAddress, computeSecretHash, createAztecNodeClient, fileURLToPath } from '@aztec/aztec.js';
+import { computeSecretHash } from '@aztec/aztec.js/crypto';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
@@ -9,6 +12,7 @@ import { Argument, Command, Option } from 'commander';
 import { mkdirSync } from 'fs';
 import { homedir } from 'os';
 import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 import { injectCommands } from '../cmds/index.js';
 import { Aliases, WalletDB } from '../storage/wallet_db.js';
@@ -91,13 +95,19 @@ async function main() {
         .default(`http://${LOCALHOST}:8080`),
     )
     .hook('preSubcommand', async command => {
+      // Skip initialization if user is just requesting help
+      if (command.args.includes('--help') || command.args.includes('-h')) {
+        return;
+      }
+
       const { dataDir, nodeUrl, prover } = command.optsWithGlobals();
 
       const proverEnabled = prover !== 'none';
 
       const bbBinaryPath =
         prover === 'native'
-          ? resolve(dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/cpp/build/bin/bb')
+          ? (process.env.BB_BINARY_PATH ??
+            resolve(dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/cpp/build/bin/bb'))
           : undefined;
       const bbWorkingDirectory = dataDir + '/bb';
       mkdirSync(bbWorkingDirectory, { recursive: true });

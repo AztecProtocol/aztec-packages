@@ -10,7 +10,7 @@ import { type Fieldable, serializeToFields } from '../../serialize/serialize.js'
  */
 export async function poseidon2Hash(input: Fieldable[]): Promise<Fr> {
   const inputFields = serializeToFields(input);
-  await BarretenbergSync.initSingleton();
+  await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
   const api = BarretenbergSync.getSingleton();
   const response = api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),
@@ -27,7 +27,7 @@ export async function poseidon2Hash(input: Fieldable[]): Promise<Fr> {
 export async function poseidon2HashWithSeparator(input: Fieldable[], separator: number): Promise<Fr> {
   const inputFields = serializeToFields(input);
   inputFields.unshift(new Fr(separator));
-  await BarretenbergSync.initSingleton();
+  await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
   const api = BarretenbergSync.getSingleton();
   const response = api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),
@@ -37,7 +37,7 @@ export async function poseidon2HashWithSeparator(input: Fieldable[], separator: 
 
 export async function poseidon2HashAccumulate(input: Fieldable[]): Promise<Fr> {
   const inputFields = serializeToFields(input);
-  await BarretenbergSync.initSingleton();
+  await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
   const api = BarretenbergSync.getSingleton();
   const response = api.poseidon2HashAccumulate({
     inputs: inputFields.map(i => i.toBuffer()),
@@ -54,7 +54,7 @@ export async function poseidon2Permutation(input: Fieldable[]): Promise<Fr[]> {
   const inputFields = serializeToFields(input);
   // We'd like this assertion but it's not possible to use it in the browser.
   // assert(input.length === 4, 'Input state must be of size 4');
-  await BarretenbergSync.initSingleton();
+  await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
   const api = BarretenbergSync.getSingleton();
   const response = api.poseidon2Permutation({
     inputs: inputFields.map(i => i.toBuffer()),
@@ -75,7 +75,7 @@ export async function poseidon2HashBytes(input: Buffer): Promise<Fr> {
     inputFields.push(Fr.fromBuffer(fieldBytes));
   }
 
-  await BarretenbergSync.initSingleton();
+  await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
   const api = BarretenbergSync.getSingleton();
   const response = api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),

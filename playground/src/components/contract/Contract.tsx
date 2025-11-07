@@ -1,15 +1,8 @@
 import { css } from '@mui/styled-engine';
 import { useContext, useEffect, useState } from 'react';
-import {
-  Contract,
-  type ContractInstanceWithAddress,
-  getAllFunctionAbis,
-  type FunctionAbi,
-  FunctionType,
-  DeployMethod,
-  type DeployOptions,
-  TxStatus,
-} from '@aztec/aztec.js';
+import { type ContractInstanceWithAddress, type DeployOptions, Contract, DeployMethod } from '@aztec/aztec.js/contracts';
+import { TxStatus } from '@aztec/aztec.js/tx';
+import { type FunctionAbi, getAllFunctionAbis, FunctionType } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../aztecContext';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';

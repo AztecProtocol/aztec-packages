@@ -168,6 +168,30 @@ namespace tx;
         public_inputs.cols[1]
     };
 
+    // Read reverted from PI
+
+    // Whether this tx reverted
+    pol commit tx_reverted;
+    #[INIT_TX_REVERTED]
+    start_tx * (reverted - tx_reverted) = 0;
+    // If reverted == 1, tx_reverted == 1, otherwise it must be continuous (see #[TX_REVERTED_CONTINUITY])
+    // from the start of the tx (see #[INIT_TX_REVERTED]).
+    #[SET_TX_REVERTED]
+    reverted * (1 - tx_reverted) = 0;
+
+    pol commit reverted_pi_offset;
+    is_cleanup * (constants.AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX - reverted_pi_offset) = 0;
+
+    // We should read whether the tx reverted once per tx, regardless of status:
+    #[PUBLIC_INPUTS_READ_REVERTED]
+    is_cleanup {
+        reverted_pi_offset,
+        tx_reverted
+    } in public_inputs.sel {
+        precomputed.clk,
+        public_inputs.cols[0]
+    };
+
     // Reset side effect states on start
     start_tx * prev_num_unencrypted_log_fields = 0;
     start_tx * prev_num_l2_to_l1_messages = 0;
@@ -232,6 +256,11 @@ namespace tx;
     NOT_LAST_ROW * (1 - reverted) * (next_num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
     #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted) * (next_num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
+
+    // tx_reverted stays the same unless we revert, where it must be 1 (see #[SET_TX_REVERTED]).
+    // This results in a column with 0s until a reverted phase, where it flips once and remains 1.
+    #[TX_REVERTED_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted') * (tx_reverted - tx_reverted') = 0;
 
     pol commit setup_phase_value;
     sel * (4 - setup_phase_value) = 0;

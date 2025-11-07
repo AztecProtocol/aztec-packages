@@ -1,4 +1,3 @@
-import { EthAddress } from '@aztec/aztec.js';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -6,6 +5,7 @@ import {
   getAllFunctionAbis,
   loadContractArtifact,
 } from '@aztec/aztec.js/abi';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import {
   type DeployL1ContractsReturnType,
   type L1ContractsConfig,
@@ -108,6 +108,7 @@ export async function deployNewRollupContracts(
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
   realVerifier: boolean,
+  createVerificationJson: string | false,
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
   const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
@@ -151,6 +152,7 @@ export async function deployNewRollupContracts(
     registryAddress,
     logger,
     config,
+    createVerificationJson,
   );
 
   return { rollup, slashFactoryAddress };

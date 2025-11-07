@@ -1,20 +1,16 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import { type Account, type AccountContract, SignerlessAccount } from '@aztec/aztec.js/account';
 import {
-  type Account,
-  type AccountContract,
-  AccountManager,
-  BaseWallet,
   type CallIntent,
-  type ContractArtifact,
   type ContractFunctionInteractionCallIntent,
   type IntentInnerHash,
-  type SendOptions,
   SetPublicAuthwitContractInteraction,
-  SignerlessAccount,
-  type SimulateOptions,
   getMessageHashFromIntent,
   lookupValidity,
-} from '@aztec/aztec.js';
+} from '@aztec/aztec.js/authorization';
+import { BaseWallet, type SendOptions, type SimulateOptions } from '@aztec/aztec.js/wallet';
+import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';

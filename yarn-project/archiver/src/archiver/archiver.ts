@@ -14,6 +14,7 @@ import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
@@ -116,9 +117,7 @@ function mapArchiverConfig(config: Partial<ArchiverConfig>) {
  * concern themselves with it.
  */
 export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implements ArchiveSource, Traceable {
-  /**
-   * A promise in which we will be continually fetching new L2 blocks.
-   */
+  /** A loop in which we will be continually fetching new L2 blocks. */
   private runningPromise?: RunningPromise;
 
   private rollup: RollupContract;
@@ -129,6 +128,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
   private initialSyncComplete: boolean = false;
+  private initialSyncPromise: PromiseWithResolvers<void>;
 
   public readonly tracer: Tracer;
 
@@ -150,7 +150,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     private readonly blobSinkClient: BlobSinkClientInterface,
     private readonly epochCache: EpochCache,
     private readonly instrumentation: ArchiverInstrumentation,
-    private readonly l1constants: L1RollupConstants & { l1StartBlockHash: Buffer32 },
+    private readonly l1constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
     private readonly log: Logger = createLogger('archiver'),
   ) {
     super();
@@ -160,6 +160,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     this.rollup = new RollupContract(publicClient, l1Addresses.rollupAddress);
     this.inbox = new InboxContract(publicClient, l1Addresses.inboxAddress);
+    this.initialSyncPromise = promiseWithResolvers();
   }
 
   /**
@@ -184,10 +185,11 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
 
-    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs] = await Promise.all([
+    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, genesisArchiveRoot] = await Promise.all([
       rollup.getL1StartBlock(),
       rollup.getL1GenesisTime(),
       rollup.getProofSubmissionEpochs(),
+      rollup.getGenesisArchiveTreeRoot(),
     ] as const);
 
     const l1StartBlockHash = await publicClient
@@ -204,6 +206,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       slotDuration,
       ethereumSlotDuration,
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
+      genesisArchiveRoot: Fr.fromHexString(genesisArchiveRoot),
     };
 
     const opts = merge({ pollingIntervalMs: 10_000, batchSize: 100 }, mapArchiverConfig(config));
@@ -268,6 +271,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       throw new Error('Archiver is not running');
     }
     return this.runningPromise.trigger();
+  }
+
+  public waitForInitialSync() {
+    return this.initialSyncPromise.promise;
   }
 
   private async syncSafe(initialRun: boolean) {
@@ -382,6 +389,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     this.l1Timestamp = currentL1Timestamp;
     this.l1BlockNumber = currentL1BlockNumber;
     this.initialSyncComplete = true;
+    this.initialSyncPromise.resolve();
 
     if (initialRun) {
       this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`, {
@@ -977,6 +985,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return Promise.resolve(this.l1constants);
   }
 
+  public getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
+    return Promise.resolve({ genesisArchiveRoot: this.l1constants.genesisArchiveRoot });
+  }
+
   public getRollupAddress(): Promise<EthAddress> {
     return Promise.resolve(this.l1Addresses.rollupAddress);
   }
@@ -985,28 +997,24 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return Promise.resolve(this.l1Addresses.registryAddress);
   }
 
-  public getL1BlockNumber(): bigint {
-    const l1BlockNumber = this.l1BlockNumber;
-    if (!l1BlockNumber) {
-      throw new Error('L1 block number not yet available. Complete an initial sync first.');
-    }
-    return l1BlockNumber;
+  public getL1BlockNumber(): bigint | undefined {
+    return this.l1BlockNumber;
   }
 
-  public getL1Timestamp(): Promise<bigint> {
-    const l1Timestamp = this.l1Timestamp;
-    if (!l1Timestamp) {
-      throw new Error('L1 timestamp not yet available. Complete an initial sync first.');
-    }
-    return Promise.resolve(l1Timestamp);
+  public getL1Timestamp(): Promise<bigint | undefined> {
+    return Promise.resolve(this.l1Timestamp);
   }
 
-  public async getL2SlotNumber(): Promise<bigint> {
-    return getSlotAtTimestamp(await this.getL1Timestamp(), this.l1constants);
+  public getL2SlotNumber(): Promise<bigint | undefined> {
+    return Promise.resolve(
+      this.l1Timestamp === undefined ? undefined : getSlotAtTimestamp(this.l1Timestamp, this.l1constants),
+    );
   }
 
-  public async getL2EpochNumber(): Promise<bigint> {
-    return getEpochNumberAtTimestamp(await this.getL1Timestamp(), this.l1constants);
+  public getL2EpochNumber(): Promise<bigint | undefined> {
+    return Promise.resolve(
+      this.l1Timestamp === undefined ? undefined : getEpochNumberAtTimestamp(this.l1Timestamp, this.l1constants),
+    );
   }
 
   public async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
@@ -1095,6 +1103,22 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       ? Math.min(limit, Math.max((await this.store.getProvenL2BlockNumber()) - from + 1, 0))
       : limit;
     return limitWithProven === 0 ? [] : await this.store.getPublishedBlocks(from, limitWithProven);
+  }
+
+  public getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByHash(blockHash);
+  }
+
+  public getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByArchive(archive);
+  }
+
+  public getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByHash(blockHash);
+  }
+
+  public getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByArchive(archive);
   }
 
   /**
@@ -1592,8 +1616,20 @@ export class ArchiverStoreHelper
   getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
     return this.store.getPublishedBlock(number);
   }
+  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByHash(blockHash);
+  }
+  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByArchive(archive);
+  }
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
+  }
+  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByHash(blockHash);
+  }
+  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByArchive(archive);
   }
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.store.getTxEffect(txHash);

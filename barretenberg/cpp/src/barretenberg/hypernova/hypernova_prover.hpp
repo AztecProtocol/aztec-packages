@@ -26,6 +26,9 @@ class HypernovaFoldingProver {
     using MegaSumcheckOutput = SumcheckOutput<Flavor>;
     using Transcript = Flavor::Transcript;
 
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
+
     std::shared_ptr<Transcript> transcript;
 
     HypernovaFoldingProver(std::shared_ptr<Transcript>& transcript)
@@ -59,6 +62,9 @@ class HypernovaFoldingProver {
     HonkProof export_proof() { return transcript->export_proof(); };
 
   private:
+    /**
+     * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.
+     */
     Accumulator sumcheck_output_to_accumulator(MegaSumcheckOutput& sumcheck_output,
                                                const std::shared_ptr<ProverInstance>& instance,
                                                const std::shared_ptr<VerificationKey>& honk_vk);
@@ -72,7 +78,17 @@ class HypernovaFoldingProver {
     template <size_t N>
     static Polynomial<FF> batch_polynomials(RefArray<Polynomial<FF>, N> polynomials_to_batch,
                                             const size_t& full_batched_size,
-                                            const std::array<FF, N>& challenges);
+                                            const std::vector<FF>& challenges);
+
+    /**
+     * @brief Generate the challenges required to batch the incoming instance with the accumulator
+     */
+    std::pair<std::vector<FF>, std::vector<FF>> get_batching_challenges();
+
+    /**
+     * @brief Utility to perform batch mul of commitments.
+     */
+    template <size_t N> Commitment batch_mul(const RefArray<Commitment, N>& _points, const std::vector<FF>& scalars);
 };
 
 } // namespace bb

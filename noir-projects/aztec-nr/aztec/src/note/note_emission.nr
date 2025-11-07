@@ -11,23 +11,37 @@ use crate::{
 };
 use protocol_types::{address::AztecAddress, traits::Packable};
 
-/**
- * A note emission struct containing the information required for emitting a note.
- * The exact `emit` logic is passed in by the application code
- */
-pub struct NoteEmission<Note> {
+pub struct NoteEmissionContent<Note> {
     // The struct fields are exposed only because of tests.
     pub note: Note,
     pub storage_slot: Field,
     pub note_hash_counter: u32, // a note_hash_counter of 0 means settled
 }
 
+/**
+ * A note emission struct containing the information required for emitting a note.
+ * The exact `emit` logic is passed in by the application code
+ */
+pub struct NoteEmission<Note> {
+    pub content: NoteEmissionContent<Note>,
+
+    // NoteEmission is expected to be constructed when a note is created, which means that the `context` object will be
+    // in scope. By storing a reference to it inside this object we remove the need for its methods to receive it,
+    // resulting in a cleaner end-user API.
+    context: &mut PrivateContext,
+}
+
 impl<Note> NoteEmission<Note>
 where
     Note: NoteType + Packable,
 {
-    pub fn new(note: Note, storage_slot: Field, note_hash_counter: u32) -> Self {
-        Self { note, storage_slot, note_hash_counter }
+    pub fn new(
+        note: Note,
+        storage_slot: Field,
+        note_hash_counter: u32,
+        context: &mut PrivateContext,
+    ) -> Self {
+        Self { content: NoteEmissionContent { note, storage_slot, note_hash_counter }, context }
     }
 
     /// Emits a note that can be delivered either via private logs or offchain messages, with configurable encryption and
@@ -35,11 +49,10 @@ where
     ///
     /// # Arguments
     /// * `self` - The note emission to emit
-    /// * `context` - The private context to emit the note in
     /// * `recipient` - The address that should receive this note
     /// * `delivery_mode` - Controls encryption, tagging, and delivery constraints. Must be a compile-time constant.
     ///   See `MessageDeliveryEnum` for details on the available modes.
-    pub fn emit(self, context: &mut PrivateContext, recipient: AztecAddress, delivery_mode: u8) {
+    pub fn emit(self, recipient: AztecAddress, delivery_mode: u8) {
         // This function relies on `delivery_mode` being a constant in order to reduce circuit constraints when unconstrained
         // usage is requested. If `delivery_mode` were a runtime value then performance would suffer.
         assert_constant(delivery_mode);
@@ -53,7 +66,7 @@ where
         let ciphertext = remove_constraints_if(
             !constrained_encryption,
             || AES128::encrypt(
-                private_note_to_message_plaintext(self.note, self.storage_slot),
+                private_note_to_message_plaintext(self.content.note, self.content.storage_slot),
                 recipient,
             ),
         );
@@ -68,7 +81,7 @@ where
             // Regardless of the original note size `N`, the log is padded with random bytes up to
             // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
             let length = log_content.len();
-            context.emit_raw_note_log(log_content, length, self.note_hash_counter);
+            self.context.emit_raw_note_log(log_content, length, self.content.note_hash_counter);
         }
     }
 
@@ -84,20 +97,29 @@ where
  * a change note in a token's transfer function only when there is "change" left).
  */
 pub struct OuterNoteEmission<Note> {
-    pub emission: Option<NoteEmission<Note>>,
+    pub content_option: Option<NoteEmissionContent<Note>>,
+
+    // OuterNoteEmission is expected to be constructed when a note is created, which means that the `context` object
+    // will be in scope. By storing a reference to it inside this object we remove the need for its methods to receive
+    // it, resulting in a cleaner end-user API.
+    context: &mut PrivateContext,
 }
 
 impl<Note> OuterNoteEmission<Note>
 where
     Note: NoteType + Packable,
 {
-    pub fn new(emission: Option<NoteEmission<Note>>) -> Self {
-        Self { emission }
+    pub fn new(
+        content_option: Option<NoteEmissionContent<Note>>,
+        context: &mut PrivateContext,
+    ) -> Self {
+        Self { content_option, context }
     }
 
-    pub fn emit(self, context: &mut PrivateContext, recipient: AztecAddress, delivery_mode: u8) {
-        if self.emission.is_some() {
-            self.emission.unwrap_unchecked().emit(context, recipient, delivery_mode);
+    pub fn emit(self, recipient: AztecAddress, delivery_mode: u8) {
+        if self.content_option.is_some() {
+            NoteEmission { content: self.content_option.unwrap_unchecked(), context: self.context }
+                .emit(recipient, delivery_mode);
         }
     }
 

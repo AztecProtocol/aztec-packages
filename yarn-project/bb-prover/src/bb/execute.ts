@@ -120,7 +120,7 @@ export function executeBB(
   }).catch(_ => ({ status: BB_RESULT.FAILURE, exitCode: -1, signal: undefined }));
 }
 
-export async function executeBbClientIvcProof(
+export async function executeBbChonkProof(
   pathToBB: string,
   workingDirectory: string,
   inputsPath: string,
@@ -153,7 +153,7 @@ export async function executeBbClientIvcProof(
       log(`bb - ${message}`);
     };
 
-    const args = ['-o', outputPath, '--ivc_inputs_path', inputsPath, '-v', '--scheme', 'client_ivc'];
+    const args = ['-o', outputPath, '--ivc_inputs_path', inputsPath, '-v', '--scheme', 'chonk'];
     if (writeVk) {
       args.push('--write_vk');
     }
@@ -424,7 +424,7 @@ export async function verifyAvmProof(
 }
 
 /**
- * Verifies a ClientIvcProof
+ * Verifies a ChonkProof
  * TODO(#7370) The verification keys should be supplied separately
  * @param pathToBB - The full path to the bb binary
  * @param targetPath - The path to the folder with the proof, accumulator, and verification keys
@@ -432,7 +432,7 @@ export async function verifyAvmProof(
  * @param concurrency - The number of threads to use for the verification
  * @returns An object containing a result indication and duration taken
  */
-export async function verifyClientIvcProof(
+export async function verifyChonkProof(
   pathToBB: string,
   proofPath: string,
   keyPath: string,
@@ -448,7 +448,7 @@ export async function verifyClientIvcProof(
   }
 
   try {
-    const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath, '-v'];
+    const args = ['--scheme', 'chonk', '-p', proofPath, '-k', keyPath, '-v'];
     const timer = new Timer();
     const command = 'verify';
 
@@ -638,7 +638,7 @@ export async function computeGateCountForCircuit(
     const result = await executeBB(
       pathToBB,
       'gates',
-      ['--scheme', flavor === 'mega_honk' ? 'client_ivc' : 'ultra_honk', '-b', bytecodePath, '-v'],
+      ['--scheme', flavor === 'mega_honk' ? 'chonk' : 'ultra_honk', '-b', bytecodePath, '-v'],
       logHandler,
     );
     const duration = timer.ms();

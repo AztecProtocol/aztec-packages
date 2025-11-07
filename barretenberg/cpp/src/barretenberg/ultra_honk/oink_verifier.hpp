@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
+#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
@@ -37,7 +37,7 @@ template <typename Flavor> class OinkVerifier {
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
 
     // Use appropriate instance type based on whether flavor is recursive
     using Instance = typename OinkVerifierInstanceType<Flavor>::type;
@@ -70,7 +70,7 @@ template <typename Flavor> class OinkVerifier {
 
     void execute_grand_product_computation_round();
 
-    SubrelationSeparators generate_alphas_round();
+    SubrelationSeparator generate_alpha_round();
 
   private:
     /**

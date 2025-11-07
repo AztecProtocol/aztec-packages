@@ -1,4 +1,4 @@
-import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js';
+import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 
 import { execSync } from 'child_process';
 

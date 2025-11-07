@@ -25,20 +25,11 @@ describe('ValidationService', () => {
   it('creates a proposal with txs appended', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const {
-      blockNumber,
       payload: { header, archive, stateReference },
     } = makeBlockProposal({ txs });
-    const proposal = await service.createBlockProposal(
-      blockNumber,
-      header,
-      archive,
-      stateReference,
-      txs,
-      addresses[0],
-      {
-        publishFullTxs: true,
-      },
-    );
+    const proposal = await service.createBlockProposal(header, archive, stateReference, txs, addresses[0], {
+      publishFullTxs: true,
+    });
     expect(proposal.getSender()).toEqual(store.getAddress(0));
     expect(proposal.txs).toBeDefined();
     expect(proposal.txs).toBe(txs);
@@ -47,20 +38,11 @@ describe('ValidationService', () => {
   it('creates a proposal without txs appended', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const {
-      blockNumber,
       payload: { header, archive, stateReference },
     } = makeBlockProposal({ txs });
-    const proposal = await service.createBlockProposal(
-      blockNumber,
-      header,
-      archive,
-      stateReference,
-      txs,
-      addresses[0],
-      {
-        publishFullTxs: false,
-      },
-    );
+    const proposal = await service.createBlockProposal(header, archive, stateReference, txs, addresses[0], {
+      publishFullTxs: false,
+    });
     expect(proposal.getSender()).toEqual(addresses[0]);
     expect(proposal.txs).toBeUndefined();
   });

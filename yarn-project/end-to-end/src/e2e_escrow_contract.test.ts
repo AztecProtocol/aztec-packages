@@ -1,4 +1,8 @@
-import { type AztecAddress, BatchCall, Fr, type Logger, deriveKeys } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { deriveKeys } from '@aztec/aztec.js/keys';
+import type { Logger } from '@aztec/aztec.js/log';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { PublicKeys } from '@aztec/stdlib/keys';

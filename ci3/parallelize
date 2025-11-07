@@ -22,6 +22,10 @@ fi
 
 echo "Starting parallel run with max $jobs jobs..."
 
+# Set up flakes file (gitignored, persists for local inspection)
+export FLAKES_FILE="$root/.logged_test_flakes"
+echo "" > "$FLAKES_FILE"  # Create/clear from previous run
+
 # If we're in a terminal default to a progress bar, and use cache_log to save output to redis.
 # Otherwise use denoise to display dots and save output to redis.
 if [ -t 1 ]; then
@@ -46,3 +50,10 @@ if [ -n "$slow_jobs" ]; then
 fi
 
 echo "Completed run of $(tail -n+2 joblog.txt | wc -l) tests in $SECONDS seconds."
+
+# Process flake log (check thresholds and post PR comment in CI)
+if [ "$CI" -eq 1 ]; then
+  $root/scripts/process_flake_log.py "$FLAKES_FILE" --post-comment
+else
+  $root/scripts/process_flake_log.py "$FLAKES_FILE"
+fi

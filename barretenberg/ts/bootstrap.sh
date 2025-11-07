@@ -3,7 +3,12 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-hash=$(hash_str $(../cpp/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+
+# We mix if we're a release into the hash, as releases have all architectures built.
+hash=$(hash_str \
+  $(../cpp/bootstrap.sh hash) \
+  $(cache_content_hash .rebuild_patterns) \
+  $(semver check $REF_NAME && echo 1 || echo 0))
 
 function build {
   echo_header "bb.js build"
@@ -14,6 +19,7 @@ function build {
     yarn clean
     yarn generate
     yarn build:wasm
+    # yarn build:native
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
     cache_upload bb.js-$hash.tar.gz dest
   fi
@@ -51,6 +57,10 @@ function release {
   retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
+function cross_copy {
+  ./scripts/copy_cross.sh
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -59,7 +69,7 @@ case "$cmd" in
     build
     test
     ;;
-  ""|"fast"|"full")
+  "")
     build
     ;;
   "hash")
@@ -68,7 +78,7 @@ case "$cmd" in
   bench|bench_cmds)
     # Empty handling just to make this command valid.
     ;;
-  test|test_cmds|release)
+  test|test_cmds|release|cross_copy)
     $cmd
     ;;
   *)

@@ -2,18 +2,12 @@ import { DefaultAccountInterface } from '@aztec/accounts/defaults';
 import { EcdsaKAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
-import {
-  type Account,
-  type AccountContract,
-  AztecAddress,
-  type AztecNode,
-  BaseAccount,
-  CompleteAddress,
-  Fr,
-  GrumpkinScalar,
-  type Logger,
-  getAccountContractAddress,
-} from '@aztec/aztec.js';
+import { type Account, type AccountContract, getAccountContractAddress } from '@aztec/aztec.js/account';
+import { BaseAccount } from '@aztec/aztec.js/account';
+import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';

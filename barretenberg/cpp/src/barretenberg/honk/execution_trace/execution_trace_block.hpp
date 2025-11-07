@@ -279,11 +279,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
 #endif
     }
 
-    uint32_t get_fixed_size(bool is_structured = true) const
-    {
-        return is_structured ? fixed_size : static_cast<uint32_t>(size());
-    }
-
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()
     {
@@ -296,7 +291,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         }
     }
 #endif
-    uint32_t fixed_size = 0; // Fixed size for use in structured trace
 
     virtual RefVector<Selector<FF>> get_selectors() = 0;
 

@@ -1,5 +1,5 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
-import { Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js/fields';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';

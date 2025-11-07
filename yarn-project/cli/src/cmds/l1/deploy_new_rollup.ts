@@ -20,6 +20,7 @@ export async function deployNewRollup(
   json: boolean,
   initialValidators: Operator[],
   realVerifier: boolean,
+  createVerificationJson: string | false,
   log: LogFn,
   debugLogger: Logger,
 ) {
@@ -43,6 +44,7 @@ export async function deployNewRollup(
     fundingNeeded,
     config,
     realVerifier,
+    createVerificationJson,
     debugLogger,
   );
 

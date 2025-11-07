@@ -18,6 +18,7 @@
 #include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -38,18 +39,18 @@ class BaseContext : public ContextInterface {
                 HighLevelMerkleDBInterface& merkle_db,
                 WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                 RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
-                SideEffectStates side_effect_states,
+                SideEffectTrackerInterface& side_effect_tracker,
                 TransactionPhase phase)
         : merkle_db(merkle_db)
         , checkpoint_id_at_creation(merkle_db.get_checkpoint_id())
         , written_public_data_slots_tree(written_public_data_slots_tree)
         , retrieved_bytecodes_tree(retrieved_bytecodes_tree)
+        , side_effect_tracker(side_effect_tracker)
         , address(address)
         , msg_sender(msg_sender)
         , transaction_fee(transaction_fee)
         , is_static(is_static)
         , globals(globals)
-        , side_effect_states(side_effect_states)
         , context_id(context_id)
         , gas_used(gas_used)
         , gas_limit(gas_limit)
@@ -84,11 +85,7 @@ class BaseContext : public ContextInterface {
     const AztecAddress& get_msg_sender() const override { return msg_sender; }
     const FF& get_transaction_fee() const override { return transaction_fee; }
     bool get_is_static() const override { return is_static; }
-    SideEffectStates& get_side_effect_states() override { return side_effect_states; }
-    void set_side_effect_states(SideEffectStates side_effect_states) override
-    {
-        this->side_effect_states = side_effect_states;
-    }
+    SideEffectTrackerInterface& get_side_effect_tracker() override { return side_effect_tracker; }
 
     TransactionPhase get_phase() const override { return phase; }
 
@@ -123,13 +120,14 @@ class BaseContext : public ContextInterface {
     uint32_t get_checkpoint_id_at_creation() const override { return checkpoint_id_at_creation; }
 
     // Input / Output
-    std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
+    std::vector<MemoryValue> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
 
   protected:
     HighLevelMerkleDBInterface& merkle_db;
     uint32_t checkpoint_id_at_creation; // DB id when the context was created.
     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree;
     RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree;
+    SideEffectTrackerInterface& side_effect_tracker;
 
   private:
     // Environment.
@@ -138,7 +136,6 @@ class BaseContext : public ContextInterface {
     FF transaction_fee;
     bool is_static;
     GlobalVariables globals;
-    SideEffectStates side_effect_states;
 
     uint32_t context_id;
 
@@ -178,7 +175,7 @@ class EnqueuedCallContext : public BaseContext {
                         HighLevelMerkleDBInterface& merkle_db,
                         WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                         RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
-                        SideEffectStates side_effect_states,
+                        SideEffectTrackerInterface& side_effect_tracker,
                         TransactionPhase phase,
                         std::span<const FF> calldata)
         : BaseContext(context_id,
@@ -195,10 +192,15 @@ class EnqueuedCallContext : public BaseContext {
                       merkle_db,
                       written_public_data_slots_tree,
                       retrieved_bytecodes_tree,
-                      side_effect_states,
+                      side_effect_tracker,
                       phase)
-        , calldata(calldata.begin(), calldata.end())
-    {}
+    {
+        this->calldata.resize(calldata.size());
+        std::ranges::transform(calldata.begin(),
+                               calldata.end(),
+                               this->calldata.begin(),
+                               [](const FF& value) -> MemoryValue { return MemoryValue::from<FF>(value); });
+    }
 
     uint32_t get_parent_id() const override { return 0; } // No parent context for the top-level context.
     bool has_parent() const override { return false; }
@@ -206,7 +208,7 @@ class EnqueuedCallContext : public BaseContext {
     ContextEvent serialize_context_event() override;
 
     // Input / Output
-    std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
+    std::vector<MemoryValue> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
 
     Gas get_parent_gas_used() const override { return Gas{}; }
     Gas get_parent_gas_limit() const override { return Gas{}; }
@@ -215,7 +217,7 @@ class EnqueuedCallContext : public BaseContext {
     uint32_t get_parent_cd_size() const override { return static_cast<uint32_t>(calldata.size()); }
 
   private:
-    std::vector<FF> calldata;
+    std::vector<MemoryValue> calldata;
 };
 
 // Parameters for a nested call need to be changed
@@ -234,7 +236,7 @@ class NestedContext : public BaseContext {
                   HighLevelMerkleDBInterface& merkle_db,
                   WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                   RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
-                  SideEffectStates side_effect_states,
+                  SideEffectTrackerInterface& side_effect_tracker,
                   TransactionPhase phase,
                   ContextInterface& parent_context,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
@@ -253,7 +255,7 @@ class NestedContext : public BaseContext {
                       merkle_db,
                       written_public_data_slots_tree,
                       retrieved_bytecodes_tree,
-                      side_effect_states,
+                      side_effect_tracker,
                       phase)
         , parent_cd_addr(cd_offset_address)
         , parent_cd_size(cd_size)
@@ -270,7 +272,7 @@ class NestedContext : public BaseContext {
     ContextEvent serialize_context_event() override;
 
     // Input / Output
-    std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
+    std::vector<MemoryValue> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
 
     MemoryAddress get_parent_cd_addr() const override { return parent_cd_addr; }
     uint32_t get_parent_cd_size() const override { return parent_cd_size; }

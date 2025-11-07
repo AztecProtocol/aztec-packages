@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -129,7 +129,7 @@ describe('e2e_cheat_codes', () => {
         // done with a try-catch because viem errors are noisy and we need to check just a small portion of the error.
         fail('should not be able to send funds from random address');
       } catch (e: any) {
-        expect(e.message).toContain('tx from field is set');
+        expect(e.message).toContain('No Signer available');
       }
     });
   });

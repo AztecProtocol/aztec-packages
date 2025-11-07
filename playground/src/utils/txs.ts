@@ -1,4 +1,6 @@
-import { TxHash, TxReceipt, TxStatus, AztecAddress, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { TxHash, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 
 export type UserTx = {
   txHash?: TxHash;

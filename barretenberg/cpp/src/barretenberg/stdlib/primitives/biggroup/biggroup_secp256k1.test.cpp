@@ -37,7 +37,7 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
     using bool_ct = stdlib::bool_t<Builder>;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        info("num gates = ", builder.get_num_finalized_gates_inefficient());
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
@@ -138,26 +138,6 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_wnaf_secp256k1_stagger_out_of_range_fails()
-    {
-        Builder builder = Builder();
-
-        // Generate a random even scalar
-        fr scalar_a(fr::random_element());
-        if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
-            scalar_a -= fr(1); // skew bit is 1
-        }
-        scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
-
-        // If we range constrain the wnaf entries, but the stagger is out of range, the circuit should
-        // fail.
-        element_ct::template compute_secp256k1_endo_wnaf</*wnaf_size=*/4, /*lo_stagger=*/10, /*hi_stagger=*/0>(
-            x_a, /*range_constrain_wnaf=*/true);
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder, false);
-        EXPECT_EQ(builder.err(), "biggroup_nafs: stagger fragment is not in range");
     }
 
     static void test_wnaf_secp256k1_scalar_exceeding_modulus_regression_1()
@@ -270,8 +250,8 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
             auto output = element_ct::secp256k1_ecdsa_mul(P_a, u1, u2);
 
             auto expected = affine_element(g1::one * (scalar_c * scalar_b) + g1::one * scalar_a);
-            EXPECT_EQ(output.x.get_value().lo, uint256_t(expected.x));
-            EXPECT_EQ(output.y.get_value().lo, uint256_t(expected.y));
+            EXPECT_EQ(output.x().get_value().lo, uint256_t(expected.x));
+            EXPECT_EQ(output.y().get_value().lo, uint256_t(expected.y));
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
@@ -298,13 +278,13 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         // After adding the u2_low skew (i.e., its base point), we get the point at infinity. Then we handle the
         // u2 high skew as follows:
         // result = acc ± u1_high_base_point
-        // result.x = u2_high_skew ? result.x : acc.x;
-        // result.y = u2_high_skew ? result.y : acc.y;
+        // result.x() = u2_high_skew ? result.x() : acc.x();
+        // result.y() = u2_high_skew ? result.y() : acc.y();
         //
         // However, we did not set the flag _is_point_at_infinity for result. We must copy the flag from the
         // accumulator in this case, i.e., we must do:
-        // result.x = u2_high_skew ? result.x : acc.x;
-        // result.y = u2_high_skew ? result.y : acc.y;
+        // result.x() = u2_high_skew ? result.x() : acc.x();
+        // result.y() = u2_high_skew ? result.y() : acc.y();
         // result._is_point_at_infinity = u2_high_skew ? result._is_point_at_infinity :
         // acc._is_point_at_infinity;
         //
@@ -414,10 +394,6 @@ TYPED_TEST(stdlibBiggroupSecp256k1, GetStaggeredWnafFragmentValue8bit)
 TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1)
 {
     TestFixture::test_wnaf_secp256k1();
-}
-TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1StaggerOutOfRangeFails)
-{
-    TestFixture::test_wnaf_secp256k1_stagger_out_of_range_fails();
 }
 TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1LargeScalarRegression1)
 {

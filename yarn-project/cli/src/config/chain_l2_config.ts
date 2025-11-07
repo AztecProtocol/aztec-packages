@@ -31,6 +31,8 @@ export type L2ChainConfig = L1ContractsConfig &
     publicIncludeMetrics?: string[];
     publicMetricsCollectorUrl?: string;
     publicMetricsCollectFrom?: string[];
+    skipArchiverInitialSync?: boolean;
+    blobAllowEmptySources?: boolean;
 
     // Setting the dbMapSize provides the default for every DB in the node.
     // Then we explicitly override the sizes for the archiver and the larger trees.
@@ -42,6 +44,7 @@ export type L2ChainConfig = L1ContractsConfig &
 
     // Control whether sentinel is enabled or not. Needed for slashing
     sentinelEnabled: boolean;
+    disableTransactions: boolean;
   };
 
 const DefaultSlashConfig = {
@@ -93,6 +96,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: false,
   sponsoredFPC: false,
+  disableTransactions: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
@@ -143,11 +147,10 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   ejectionThreshold: 100_000n * 10n ** 18n,
   activationThreshold: 200_000n * 10n ** 18n,
 
-  governanceProposerRoundSize: 300, // TODO TMNT-322
-  governanceProposerQuorum: 151, // TODO TMNT-322
+  governanceProposerRoundSize: 300,
+  governanceProposerQuorum: 151,
 
   // Node slashing config
-  // TODO TMNT-330
   slashMinPenaltyPercentage: 0.5,
   slashMaxPenaltyPercentage: 2.0,
   slashInactivityTargetPercentage: 0.7,
@@ -173,6 +176,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: false,
   sponsoredFPC: true,
+  disableTransactions: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
@@ -226,6 +230,7 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   testAccounts: true,
   sponsoredFPC: true,
   p2pEnabled: true,
+  disableTransactions: false,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 8,
@@ -278,9 +283,10 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   testAccounts: false,
   sponsoredFPC: true,
   p2pEnabled: true,
+  disableTransactions: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 20,
+  seqMaxTxsPerBlock: 0,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/testnet/`],
   autoUpdate: 'config-and-version',
@@ -289,56 +295,89 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
+  skipArchiverInitialSync: true,
+  blobAllowEmptySources: true,
 
-  // Deployment stuff
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
   /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
-  aztecSlotDuration: 36,
+  aztecSlotDuration: 72,
   /** How many L2 slots an epoch lasts. */
   aztecEpochDuration: 32,
   /** The target validator committee size. */
-  aztecTargetCommitteeSize: 48,
+  aztecTargetCommitteeSize: 24,
   /** The number of epochs to lag behind the current epoch for validator selection. */
   lagInEpochs: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
-  /** The deposit amount for a validator */
-  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
-  /** The minimum stake for a validator. */
-  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
-  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
-  /** The slashing round size */
-  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
-  /** Governance proposing round size */
-  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
-  /** The mana target for the rollup */
-  manaTarget: DefaultL1ContractsConfig.manaTarget,
-  /** The proving cost per mana */
-  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
-  /** Exit delay for stakers */
-  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
 
-  ...DefaultSlashConfig,
-  slashPrunePenalty: 0n,
-  slashDataWithholdingPenalty: 0n,
+  // This is a diff from mainnet: we have 2-strikes you're out, rather than 3 on mainnet.
+  localEjectionThreshold: 198_000n * 10n ** 18n,
+  /** How many sequencers must agree with a slash for it to be executed. */
+  slashingQuorum: 65,
+  slashingRoundSizeInEpochs: 4,
+  slashingExecutionDelayInRounds: 28,
+  slashingLifetimeInRounds: 34,
+  slashingVetoer: EthAddress.fromString('0xBbB4aF368d02827945748b28CD4b2D42e4A37480'),
+  slashingOffsetInRounds: 2,
+
+  slashingDisableDuration: 259_200, // 3 days
+  slasherFlavor: 'tally',
+
+  slashAmountSmall: 2_000n * 10n ** 18n,
+  slashAmountMedium: 2_000n * 10n ** 18n,
+  slashAmountLarge: 2_000n * 10n ** 18n,
+
+  /** The mana target for the rollup */
+  manaTarget: 0n,
+
+  /** The proving cost per mana */
+  provingCostPerMana: 0n,
+
+  exitDelaySeconds: 4 * 24 * 60 * 60, // 4 days
+
+  activationThreshold: 200_000n * 10n ** 18n,
+  ejectionThreshold: 100_000n * 10n ** 18n,
+
+  governanceProposerRoundSize: 300,
+  governanceProposerQuorum: 151,
+
+  // Node slashing config
+  slashInactivityTargetPercentage: 0.8,
+  slashInactivityConsecutiveEpochThreshold: 2,
+  slashInactivityPenalty: 2_000n * 10n ** 18n,
+  slashPrunePenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for prune offenses right now
+  slashDataWithholdingPenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for data withholding offenses right now
+  slashProposeInvalidAttestationsPenalty: 2_000n * 10n ** 18n,
+  slashAttestDescendantOfInvalidPenalty: 2_000n * 10n ** 18n,
+  slashUnknownPenalty: 2_000n * 10n ** 18n,
+  slashBroadcastedInvalidBlockPenalty: 2_000n * 10n ** 18n, // 10_000n * 10n ** 18n, Disabled for now until further testing
+  slashGracePeriodL2Slots: 1_200, // One day from deployment
+  slashOffenseExpirationRounds: 8,
+
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashMaxPayloadSize: 50,
+  slashExecuteRoundsLookBack: 4,
+
+  sentinelEnabled: true,
 
   ...DefaultNetworkDBMapSizeConfig,
 };
 
-export const ignitionL2ChainConfig: L2ChainConfig = {
+export const mainnetL2ChainConfig: L2ChainConfig = {
   l1ChainId: 1,
   testAccounts: false,
   sponsoredFPC: false,
   p2pEnabled: true,
+  disableTransactions: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrls: [`${SNAPSHOTS_URL}/ignition-mainnet/`],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/mainnet/`],
   autoUpdate: 'notify',
-  autoUpdateUrl: 'https://storage.googleapis.com/aztec-mainnet/auto-update/ignition-mainnet.json',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-mainnet/auto-update/mainnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
@@ -352,59 +391,113 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   aztecEpochDuration: 32,
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 24,
-  /** The number of epochs after an epoch ends that proofs are still accepted. */
-  aztecProofSubmissionEpochs: 1,
-  /** How many sequencers must agree with a slash for it to be executed. */
-  slashingQuorum: 65,
-
   /** The number of epochs to lag behind the current epoch for validator selection. */
   lagInEpochs: 2,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
 
   localEjectionThreshold: 196_000n * 10n ** 18n,
-  slashingDisableDuration: 5 * 24 * 60 * 60,
-
+  /** How many sequencers must agree with a slash for it to be executed. */
+  slashingQuorum: 65,
   slashingRoundSizeInEpochs: 4,
-  slashingLifetimeInRounds: 40,
   slashingExecutionDelayInRounds: 28,
-  slashAmountSmall: 2_000n * 10n ** 18n,
-  slashAmountMedium: 10_000n * 10n ** 18n,
-  slashAmountLarge: 50_000n * 10n ** 18n,
-  slashingOffsetInRounds: 2,
-  slasherFlavor: 'tally',
+  slashingLifetimeInRounds: 34,
   slashingVetoer: EthAddress.ZERO, // TODO TMNT-329
+  slashingOffsetInRounds: 2,
+
+  slashingDisableDuration: 259_200, // 3 days
+  slasherFlavor: 'tally',
+
+  slashAmountSmall: 2_000n * 10n ** 18n,
+  slashAmountMedium: 2_000n * 10n ** 18n,
+  slashAmountLarge: 2_000n * 10n ** 18n,
 
   /** The mana target for the rollup */
   manaTarget: 0n,
 
-  exitDelaySeconds: 5 * 24 * 60 * 60,
-
   /** The proving cost per mana */
   provingCostPerMana: 0n,
 
-  ejectionThreshold: 100_000n * 10n ** 18n,
-  activationThreshold: 200_000n * 10n ** 18n,
+  exitDelaySeconds: 4 * 24 * 60 * 60, // 4 days
 
-  governanceProposerRoundSize: 300, // TODO TMNT-322
-  governanceProposerQuorum: 151, // TODO TMNT-322
+  activationThreshold: 200_000n * 10n ** 18n,
+  ejectionThreshold: 100_000n * 10n ** 18n,
+
+  governanceProposerRoundSize: 1000,
+  governanceProposerQuorum: 600,
 
   // Node slashing config
-  // TODO TMNT-330
-  slashMinPenaltyPercentage: 0.5,
-  slashMaxPenaltyPercentage: 2.0,
-  slashInactivityTargetPercentage: 0.7,
+  slashInactivityTargetPercentage: 0.8,
   slashInactivityConsecutiveEpochThreshold: 2,
   slashInactivityPenalty: 2_000n * 10n ** 18n,
   slashPrunePenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for prune offenses right now
   slashDataWithholdingPenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for data withholding offenses right now
-  slashProposeInvalidAttestationsPenalty: 50_000n * 10n ** 18n,
-  slashAttestDescendantOfInvalidPenalty: 50_000n * 10n ** 18n,
+  slashProposeInvalidAttestationsPenalty: 2_000n * 10n ** 18n,
+  slashAttestDescendantOfInvalidPenalty: 2_000n * 10n ** 18n,
   slashUnknownPenalty: 2_000n * 10n ** 18n,
-  slashBroadcastedInvalidBlockPenalty: 0n, // 10_000n * 10n ** 18n, Disabled for now until further testing
-  slashMaxPayloadSize: 50,
-  slashGracePeriodL2Slots: 32 * 4, // One round from genesis
+  slashBroadcastedInvalidBlockPenalty: 2_000n * 10n ** 18n, // 10_000n * 10n ** 18n, Disabled for now until further testing
+  slashGracePeriodL2Slots: 1_200, // One day from deployment
   slashOffenseExpirationRounds: 8,
-  sentinelEnabled: true,
+
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashMaxPayloadSize: 50,
   slashExecuteRoundsLookBack: 4,
+
+  sentinelEnabled: true,
+
+  ...DefaultNetworkDBMapSizeConfig,
+};
+
+export const devnetL2ChainConfig: L2ChainConfig = {
+  l1ChainId: 11155111,
+  testAccounts: true,
+  sponsoredFPC: true,
+  p2pEnabled: true,
+  disableTransactions: false,
+  p2pBootstrapNodes: [],
+  seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 8,
+  realProofs: false,
+  snapshotsUrls: [],
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: '',
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: '',
+  publicMetricsCollectFrom: [''],
+  maxTxPoolSize: 100_000_000, // 100MB
+
+  // Deployment stuff
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 36,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 8,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 1,
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: 1,
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** The deposit amount for a validator */
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  /** The minimum stake for a validator. */
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+  /** The slashing round size */
+  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
+  /** Governance proposing round size */
+  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
+  /** The mana target for the rollup */
+  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  /** The proving cost per mana */
+  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
+  /** Exit delay for stakers */
+  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+
+  ...DefaultSlashConfig,
 
   ...DefaultNetworkDBMapSizeConfig,
 };
@@ -417,10 +510,12 @@ export function getL2ChainConfig(networkName: NetworkNames): L2ChainConfig | und
     config = { ...testnetL2ChainConfig };
   } else if (networkName === 'staging-ignition') {
     config = { ...stagingIgnitionL2ChainConfig };
-  } else if (networkName === 'ignition') {
-    config = { ...ignitionL2ChainConfig };
+  } else if (networkName === 'mainnet') {
+    config = { ...mainnetL2ChainConfig };
   } else if (networkName === 'next-net') {
     config = { ...nextNetL2ChainConfig };
+  } else if (networkName === 'devnet') {
+    config = { ...devnetL2ChainConfig };
   }
   return config;
 }
@@ -458,6 +553,14 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   enrichVar('NOTE_HASH_TREE_MAP_SIZE_KB', config.noteHashTreeMapSizeKb.toString());
   enrichVar('NULLIFIER_TREE_MAP_SIZE_KB', config.nullifierTreeMapSizeKb.toString());
   enrichVar('PUBLIC_DATA_TREE_MAP_SIZE_KB', config.publicDataTreeMapSizeKb.toString());
+
+  if (config.skipArchiverInitialSync !== undefined) {
+    enrichVar('SKIP_ARCHIVER_INITIAL_SYNC', config.skipArchiverInitialSync.toString());
+  }
+
+  if (config.blobAllowEmptySources !== undefined) {
+    enrichVar('BLOB_ALLOW_EMPTY_SOURCES', config.blobAllowEmptySources.toString());
+  }
 
   if (config.autoUpdate) {
     enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());
@@ -520,4 +623,5 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   enrichVar('SLASH_MAX_PAYLOAD_SIZE', config.slashMaxPayloadSize.toString());
 
   enrichVar('SENTINEL_ENABLED', config.sentinelEnabled.toString());
+  enrichVar('TRANSACTIONS_DISABLED', config.disableTransactions.toString());
 }

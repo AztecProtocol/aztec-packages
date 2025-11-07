@@ -6,7 +6,6 @@ use crate::{
                 PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths,
             },
             PrivateAccumulatedData,
-            PrivateAccumulatedDataBuilder,
             PrivateToPublicAccumulatedData,
             PrivateToRollupAccumulatedData,
         },
@@ -70,6 +69,7 @@ use crate::{
     hash::{
         compute_contract_class_log_hash, compute_siloed_note_hash, compute_siloed_nullifier,
         compute_siloed_private_log_field, compute_unique_siloed_note_hash,
+        create_protocol_nullifier,
     },
     merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -521,8 +521,8 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_private_accumulated_data_builder(self) -> PrivateAccumulatedDataBuilder {
-        PrivateAccumulatedDataBuilder {
+    pub fn to_private_accumulated_data(self) -> PrivateAccumulatedData {
+        PrivateAccumulatedData {
             note_hashes: claimed_length_array_from_bounded_vec(self.note_hashes),
             nullifiers: claimed_length_array_from_bounded_vec(self.nullifiers),
             l2_to_l1_msgs: claimed_length_array_from_bounded_vec(self.l2_to_l1_msgs),
@@ -535,10 +535,6 @@ impl FixtureBuilder {
                 self.private_call_requests,
             )),
         }
-    }
-
-    pub fn to_private_accumulated_data(self) -> PrivateAccumulatedData {
-        self.to_private_accumulated_data_builder().finish()
     }
 
     pub fn to_public_call_request(self) -> PublicCallRequest {
@@ -827,11 +823,10 @@ impl FixtureBuilder {
 
     pub fn set_protocol_nullifier(&mut self) {
         assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
-        let value = self.mock_nullifier_value(0);
-        let first_nullifier =
-            Nullifier { value, note_hash: 0 }.count(0).scope(AztecAddress::zero());
-        self.nullifiers.push(first_nullifier);
-        self.claimed_first_nullifier = value;
+        let tx_request = self.build_tx_request();
+        let protocol_nullifier = create_protocol_nullifier(tx_request);
+        self.nullifiers.push(protocol_nullifier);
+        self.claimed_first_nullifier = protocol_nullifier.innermost().value;
     }
 
     pub fn add_nullifier(&mut self, value: Field) {
@@ -1043,22 +1038,27 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_siloed_private_logs_for_note_with_lengths<let NumLogs: u32>(
+    pub fn append_siloed_private_logs(&mut self, num_logs: u32) {
+        self.append_siloed_private_logs_for_note(num_logs, 0 /* note_hash_counter */);
+    }
+
+    pub fn append_siloed_private_logs_with_lengths<let NumLogs: u32>(
         &mut self,
         lengths: [u32; NumLogs],
-        note_hash_counter: u32,
     ) {
         let index_offset = self.private_logs.len();
         for i in 0..lengths.len() {
             let length = lengths[i];
             let mut fields = self.mock_private_log_fields_with_length(index_offset + i, length);
             fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
-            self.add_siloed_private_log(fields, length, note_hash_counter);
+            self.add_siloed_private_log(fields, length, 0);
         }
     }
 
-    pub fn append_siloed_private_logs(&mut self, num_logs: u32) {
-        self.append_siloed_private_logs_for_note(num_logs, 0 /* note_hash_counter */);
+    pub fn append_siloed_private_logs_with_length<let LogFieldsLen: u32>(&mut self, num_logs: u32) {
+        for _i in 0..num_logs {
+            self.append_siloed_private_logs_with_lengths([LogFieldsLen]);
+        }
     }
 
     pub fn append_padded_private_logs(&mut self, num_logs: u32) {
@@ -1210,16 +1210,7 @@ impl FixtureBuilder {
         array: BoundedVec<Counted<T>, N>,
         revertible: bool,
     ) -> [T; N] {
-        let mut requests = BoundedVec::new();
-        for i in 0..array.max_len() {
-            if i < array.len() {
-                let request = array.get(i);
-                if revertible == (request.counter >= self.min_revertible_side_effect_counter) {
-                    requests.push(request);
-                }
-            }
-        }
-        requests.storage().map(|r| r.inner)
+        self.get_split_ordered_side_effects(array, revertible).map(|r| r.inner)
     }
 
     fn get_split_ordered_side_effects<T, let N: u32>(
@@ -1230,18 +1221,15 @@ impl FixtureBuilder {
     where
         T: Ordered,
     {
-        let mut requests = BoundedVec::new();
-        for i in 0..array.max_len() {
-            if i < array.len() {
-                let request = array.get(i);
-                let is_request_revertible = (self.min_revertible_side_effect_counter != 0)
-                    & (request.counter() >= self.min_revertible_side_effect_counter);
-                if is_request_revertible == revertible {
-                    requests.push(request);
-                }
+        let mut result = BoundedVec::new();
+        for i in 0..array.len() {
+            let item = array.get(i);
+            let is_item_revertible = item.counter() >= self.min_revertible_side_effect_counter;
+            if is_item_revertible == revertible {
+                result.push(item);
             }
         }
-        requests.storage()
+        result.storage()
     }
 
     fn mock_note_hash_read_value(self, index: u32) -> Field {

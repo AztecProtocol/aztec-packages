@@ -1,4 +1,5 @@
-import { type AztecAddress, Fr } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
@@ -33,18 +34,6 @@ describe('e2e_nested_contract manual_enqueue', () => {
       .send({ from: defaultAccountAddress })
       .wait();
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(42n));
-  });
-
-  it('fails simulation if calling a public function not allowed to be called externally', async () => {
-    await expect(
-      parentContract.methods
-        .enqueue_call_to_child(
-          childContract.address,
-          await (childContract.methods as any).pub_inc_value_internal.selector(),
-          42n,
-        )
-        .simulate({ from: defaultAccountAddress }),
-    ).rejects.toThrow(/Assertion failed: Function pub_inc_value_internal can only be called internally/);
   });
 
   it('enqueues multiple public calls', async () => {

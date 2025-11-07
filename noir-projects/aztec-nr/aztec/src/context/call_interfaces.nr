@@ -55,8 +55,8 @@ where
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[private] function as `context`, through the
-    ///               #[private] annotation's macro.
+    ///               of every #[external("private")] function as `context`, through the
+    ///               #[external("private")] annotation's macro.
     ///
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
@@ -96,7 +96,7 @@ where
     ///     - Padding the lengths of note & nullifier arrays
     ///     - Padding private logs with random fields, up to some standardised
     ///       size.
-    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Advanced
     /// * The call is added to the private call stack and executed by kernel
@@ -107,8 +107,8 @@ where
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[private] function as `context`, through the
-    ///               #[private] annotation's macro.
+    ///               of every #[external("private")] function as `context`, through the
+    ///               #[external("private")] annotation's macro.
     ///
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
@@ -137,8 +137,8 @@ where
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[private] function as `context`, through the
-    ///               #[private] annotation's macro.
+    ///               of every #[external("private")] function as `context`, through the
+    ///               #[external("private")] annotation's macro.
     ///
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
@@ -218,8 +218,8 @@ impl<let M: u32, T> PrivateStaticCallInterface<M, T> {
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[private] function as `context`, through the
-    ///               #[private] annotation's macro.
+    ///               of every #[external("private")] function as `context`, through the
+    ///               #[external("private")] annotation's macro.
     ///
     pub fn view(self, context: &mut PrivateContext) -> T
     where
@@ -264,6 +264,7 @@ pub struct PublicCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
+    // TODO(F-131): Determine the length at comptime and drop the use of slices.
     args: [Field],
     gas_opts: GasOpts,
     return_type: T,
@@ -303,13 +304,13 @@ where
     ///
     /// # Arguments
     /// * `context` - The PublicContext -- made magically available to the body
-    ///               of every #[public] function as `context`, through the
-    ///               #[public] annotation's macro.
+    ///               of every #[external("public")] function as `context`, through the
+    ///               #[external("public")] annotation's macro.
     ///
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
     ///
-    pub unconstrained fn call(self, context: &mut PublicContext) -> T {
+    pub unconstrained fn call(self, context: PublicContext) -> T {
         let returns = context.call_public_function(
             self.target_contract,
             self.selector,
@@ -331,13 +332,13 @@ where
     ///
     /// # Arguments
     /// * `context` - The PublicContext -- made magically available to the body
-    ///               of every #[public] function as `context`, through the
-    ///               #[public] annotation's macro.
+    ///               of every #[external("public")] function as `context`, through the
+    ///               #[external("public")] annotation's macro.
     ///
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
     ///
-    pub unconstrained fn view(self, context: &mut PublicContext) -> T {
+    pub unconstrained fn view(self, context: PublicContext) -> T {
         let returns = context.static_call_public_function(
             self.target_contract,
             self.selector,
@@ -371,12 +372,12 @@ where
     /// calls sparingly, and carefully.
     /// _Internal_ public function calls are especially leaky, because they
     /// completely leak which private contract made the call.
-    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[private] function as `context`, through the
-    ///               #[private] annotation's macro.
+    ///               of every #[external("private")] function as `context`, through the
+    ///               #[external("private")] annotation's macro.
     ///
     pub fn enqueue(self, context: &mut PrivateContext) {
         self.enqueue_impl(context, false, false)
@@ -410,8 +411,8 @@ where
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[private] function as `context`, through the
-    ///               #[private] annotation's macro.
+    ///               of every #[external("private")] function as `context`, through the
+    ///               #[external("private")] annotation's macro.
     ///
     /// Advanced:
     /// - The kernel circuits will permit _any_ private function to set the
@@ -433,8 +434,8 @@ where
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[private] function as `context`, through the
-    ///               #[private] annotation's macro.
+    ///               of every #[external("private")] function as `context`, through the
+    ///               #[external("private")] annotation's macro.
     ///
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         self.enqueue_impl(context, true, false)
@@ -449,8 +450,8 @@ where
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[private] function as `context`, through the
-    ///               #[private] annotation's macro.
+    ///               of every #[external("private")] function as `context`, through the
+    ///               #[external("private")] annotation's macro.
     ///
     pub fn enqueue_view_incognito(self, context: &mut PrivateContext) {
         self.enqueue_impl(context, true, true)
@@ -501,8 +502,8 @@ where
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[private] function as `context`, through the
-    ///               #[private] annotation's macro.
+    ///               of every #[external("private")] function as `context`, through the
+    ///               #[external("private")] annotation's macro.
     ///
     pub fn set_as_teardown(self, context: &mut PrivateContext) {
         self.set_as_teardown_impl(context, false);
@@ -604,13 +605,13 @@ where
     ///
     /// # Arguments
     /// * `context` - The PublicContext -- made magically available to the body
-    ///               of every #[public] function as `context`, through the
-    ///               #[public] annotation's macro.
+    ///               of every #[external("public")] function as `context`, through the
+    ///               #[external("public")] annotation's macro.
     ///
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
     ///
-    pub unconstrained fn view(self, context: &mut PublicContext) -> T {
+    pub unconstrained fn view(self, context: PublicContext) -> T {
         let returns = context.static_call_public_function(
             self.target_contract,
             self.selector,
@@ -628,8 +629,8 @@ where
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[private] function as `context`, through the
-    ///               #[private] annotation's macro.
+    ///               of every #[external("private")] function as `context`, through the
+    ///               #[external("private")] annotation's macro.
     ///
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let calldata = self.args.push_front(self.selector.to_field());

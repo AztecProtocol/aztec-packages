@@ -45,11 +45,8 @@ fn extra_non_empty_note_hash_in_output() {
 
     // Append an extra item to the output.
     builder.output.append_siloed_note_hashes(3);
-    let mut hints = builder.get_output_hints();
-    // Tweak the hint to point to an empty item.
-    hints.sorted_kept_note_hash_indexes[2] = 3;
 
-    builder.validate_siloing_with_output_hints(hints);
+    builder.validate_siloing();
 }
 
 #[test(should_fail_with = "Note hashes have been siloed in a previous reset")]
@@ -83,7 +80,7 @@ fn with_padded_note_hashes() {
     builder.validate_siloing();
 }
 
-#[test(should_fail_with = "attempt to subtract with overflow")]
+#[test(should_fail_with = "CappedSize not large enough to cover all valid items in original_array")]
 fn more_non_empty_note_hashes_than_capped_size() {
     let mut builder = TestBuilder::new();
 

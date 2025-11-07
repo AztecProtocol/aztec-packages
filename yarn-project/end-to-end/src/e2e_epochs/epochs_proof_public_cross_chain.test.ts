@@ -1,5 +1,9 @@
-import { Fr, type Logger, TxStatus, generateClaimSecret, retryUntil } from '@aztec/aztec.js';
+import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { jest } from '@jest/globals';

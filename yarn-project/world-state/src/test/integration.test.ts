@@ -42,7 +42,7 @@ describe('world-state integration', () => {
   beforeEach(async () => {
     config = {
       dataDirectory: undefined,
-      dataStoreMapSizeKB: 1024 * 1024,
+      dataStoreMapSizeKb: 1024 * 1024,
       l1Contracts: { rollupAddress },
       worldStateBlockCheckIntervalMS: 20,
       worldStateProvenBlocksOnly: false,

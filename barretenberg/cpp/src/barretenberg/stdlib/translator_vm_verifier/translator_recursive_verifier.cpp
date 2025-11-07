@@ -12,6 +12,7 @@
 #include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -114,7 +115,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
     // The point is prime basis limb of accumulated result can be easily recovered from binary basis limbs, so
     // there's no meaning to use it at the circuit next and we can put it in used_witnesses
-    accumulated_result.get_context()->update_used_witnesses(accumulated_result.prime_basis_limb.witness_index);
+    mark_witness_as_used(accumulated_result.prime_basis_limb);
 
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
@@ -182,9 +183,9 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
 
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
 
-    return { pairing_points[0], pairing_points[1] };
+    return pairing_points;
 }
 
 void TranslatorRecursiveVerifier::verify_translation(const TranslationEvaluations_<BF>& translation_evaluations,
@@ -219,8 +220,8 @@ void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
         // These are witness commitments sent as part of the proof, so their coordinates are already in reduced form.
         // This approach is preferred over implementing assert_equal for biggroup, as it avoids the need to handle
         // constants within biggroup logic.
-        bool consistency_check_failed = (merge_commitment.y.get_value() != translator_commitment.y.get_value()) ||
-                                        (merge_commitment.y.get_value() != translator_commitment.y.get_value()) ||
+        bool consistency_check_failed = (merge_commitment.y().get_value() != translator_commitment.y().get_value()) ||
+                                        (merge_commitment.y().get_value() != translator_commitment.y().get_value()) ||
                                         (merge_commitment.is_point_at_infinity().get_value() !=
                                          translator_commitment.is_point_at_infinity().get_value());
 
@@ -228,8 +229,8 @@ void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
             vinfo("translator commitments are inconsistent with the final merge commitments");
         }
 
-        merge_commitment.x.assert_equal(translator_commitment.x);
-        merge_commitment.y.assert_equal(translator_commitment.y);
+        merge_commitment.x().assert_equal(translator_commitment.x());
+        merge_commitment.y().assert_equal(translator_commitment.y());
         merge_commitment.is_point_at_infinity().assert_equal(translator_commitment.is_point_at_infinity());
     }
 }

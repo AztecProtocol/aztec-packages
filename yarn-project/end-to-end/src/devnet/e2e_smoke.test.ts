@@ -1,16 +1,13 @@
-import {
-  AztecAddress,
-  type EthAddress,
-  FeeJuicePaymentMethodWithClaim,
-  Fr,
-  TxStatus,
-  type WaitOpts,
-  createAztecNodeClient,
-  fileURLToPath,
-  retryUntil,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { EthAddress } from '@aztec/aztec.js/addresses';
+import type { WaitOpts } from '@aztec/aztec.js/contracts';
+import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -21,6 +18,7 @@ import { exec } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'url';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';

@@ -27,13 +27,12 @@ export function mockStorageReadWithMap(worldStateDB: PublicTreesDB, mockedStorag
   );
 }
 
-export function mockNoteHashExists(worldStateDB: PublicTreesDB, _leafIndex: bigint, value?: Fr) {
+export function mockGetNoteHash(worldStateDB: PublicTreesDB, _leafIndex: bigint, value?: Fr) {
   (worldStateDB as jest.Mocked<PublicTreesDB>).getNoteHash.mockImplementation((index: bigint) => {
-    if (index == _leafIndex) {
+    if (index == _leafIndex && value) {
       return Promise.resolve(value);
     } else {
-      // This is ok for now since the traceing functions handle it
-      return Promise.resolve(undefined);
+      return Promise.resolve(Fr.ZERO);
     }
   });
 }
@@ -42,19 +41,12 @@ export function mockCheckNullifierExists(worldStateDB: PublicTreesDB, exists: bo
   (worldStateDB as jest.Mocked<PublicTreesDB>).checkNullifierExists.mockResolvedValue(exists);
 }
 
-export function mockL1ToL2MessageExists(
-  worldStateDB: PublicTreesDB,
-  leafIndex: bigint,
-  value: Fr,
-  valueAtOtherIndices?: Fr,
-) {
+export function mockGetL1ToL2LeafValue(worldStateDB: PublicTreesDB, leafIndex: bigint, value?: Fr) {
   (worldStateDB as jest.Mocked<PublicTreesDB>).getL1ToL2LeafValue.mockImplementation((index: bigint) => {
-    if (index == leafIndex) {
+    if (index == leafIndex && value) {
       return Promise.resolve(value);
     } else {
-      // any indices other than mockAtLeafIndex will return a different value
-      // (or undefined if no value is specified for other indices)
-      return Promise.resolve(valueAtOtherIndices!);
+      return Promise.resolve(Fr.ZERO!);
     }
   });
 }

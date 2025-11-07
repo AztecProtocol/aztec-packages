@@ -1,4 +1,5 @@
 use super::TestBuilder;
+use types::abis::sponge_blob::SpongeBlob;
 
 #[test]
 fn correct_default_inputs() {
@@ -8,11 +9,47 @@ fn correct_default_inputs() {
     builder.assert_mock_called(mock);
 }
 
-#[test(should_fail_with = "The start blob sponge was not empty")]
-fn start_sponge_blob_not_empty() {
+#[test(should_fail_with = "The start blob sponge was not initialized with the expected number of fields")]
+fn start_sponge_blob_incorrect_initial_length() {
     let mut builder = TestBuilder::default();
 
-    // Absorb a field to the start sponge blob.
+    let num_expected_fields = builder.hints.blobs_fields[0];
+    // Initialize the start sponge blob with a value that is different from the expected number of fields.
+    let mut start_sponge_blob = SpongeBlob::new(1 + num_expected_fields as u32);
+    start_sponge_blob.absorb([num_expected_fields], 1);
+    builder.left_rollup.start_sponge_blob = start_sponge_blob;
+
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "The start blob sponge was not initialized with the expected number of fields")]
+fn start_sponge_blob_incorrect_prefix_field() {
+    let mut builder = TestBuilder::default();
+
+    let num_expected_fields = builder.hints.blobs_fields[0];
+    let mut start_sponge_blob = SpongeBlob::new(num_expected_fields as u32);
+    // Absorb a value that is different from the expected number of fields.
+    start_sponge_blob.absorb([num_expected_fields + 1], 1);
+    builder.left_rollup.start_sponge_blob = start_sponge_blob;
+
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "The start blob sponge was not initialized with the expected number of fields")]
+fn start_sponge_blob_incorrect_length() {
+    let mut builder = TestBuilder::default();
+
+    // Tweak the length of the absorbed fields of the start sponge blob to be 0.
+    builder.left_rollup.start_sponge_blob.num_absorbed_fields = 0;
+
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "The start blob sponge was not initialized with the expected number of fields")]
+fn start_sponge_blob_with_extra_field() {
+    let mut builder = TestBuilder::default();
+
+    // Absorb another field to the start sponge blob.
     builder.left_rollup.start_sponge_blob.absorb([123], 1);
 
     builder.execute_with_mock_and_fail();

@@ -153,13 +153,15 @@ function test_cmds {
     local cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test)/ ]]; then
+    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts)/ ]]; then
       prefix+=":ISOLATE=1:NAME=$test"
     fi
 
     # Boost some tests resources.
     if [[ "$test" =~ testbench ]]; then
       prefix+=":CPUS=10:MEM=16g"
+    elif [[ "$test" =~ avm_proving_tests || "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
+      prefix+=":CPUS=16:MEM=16g"
     elif [[ "$test" =~ ^ivc-integration/ ]]; then
       prefix+=":CPUS=8"
     fi
@@ -167,6 +169,8 @@ function test_cmds {
     # Add debug logging for tests that require a bit more info
     if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts || "$test" == p2p/src/client/p2p_client.integration.test.ts ]]; then
       cmd_env+=" LOG_LEVEL=debug"
+    elif [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
+      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
     elif [[ "$test" =~ e2e_p2p ]]; then
       cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
     fi
@@ -179,10 +183,6 @@ function test_cmds {
       else
         cmd_env+=" FAKE_PROOFS=1"
       fi
-    fi
-
-    if [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
     fi
 
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
@@ -233,6 +233,10 @@ function release_packages {
   rm -rf "$dir"
 }
 
+function cross_copy {
+  ./native/scripts/copy_cross.sh
+}
+
 function release {
   echo_header "yarn-project release"
   release_packages "$(dist_tag)" "${REF_NAME#v}"
@@ -253,11 +257,8 @@ case "$cmd" in
     build
     test
     ;;
-  ""|"fast")
+  "")
     build
-    ;;
-  "full")
-    TYPECHECK=1 build
     ;;
   "compile")
     if [ -n "${1:-}" ]; then
@@ -295,14 +296,7 @@ case "$cmd" in
     trap cleanup_instrumentation EXIT
     eval "$cmd"
     ;;
-  lint|format)
-    $cmd "$@"
-    ;;
-  test|test_cmds|bench_cmds|hash|release|format)
-    $cmd
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    $cmd "$@"
   ;;
 esac

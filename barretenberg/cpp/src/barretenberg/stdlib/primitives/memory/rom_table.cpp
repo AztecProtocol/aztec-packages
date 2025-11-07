@@ -13,9 +13,12 @@ using namespace bb;
 
 namespace bb::stdlib {
 
-template <typename Builder> rom_table<Builder>::rom_table(const std::vector<field_pt>& table_entries)
+template <typename Builder>
+rom_table<Builder>::rom_table(const std::vector<field_pt>& table_entries)
+    : raw_entries(table_entries)
+    , length(raw_entries.size())
 {
-    static_assert(HasPlookup<Builder>);
+    static_assert(IsUltraOrMegaBuilder<Builder>);
     // get the builder context
     for (const auto& entry : table_entries) {
         if (entry.get_context() != nullptr) {
@@ -23,8 +26,7 @@ template <typename Builder> rom_table<Builder>::rom_table(const std::vector<fiel
             break;
         }
     }
-    raw_entries = table_entries;
-    length = raw_entries.size();
+
     // do not initialize the table yet. The input entries might all be constant,
     // if this is the case we might not have a valid pointer to a Builder
     // We get around this, by initializing the table when `operator[]` is called
@@ -37,10 +39,14 @@ template <typename Builder> rom_table<Builder>::rom_table(const std::vector<fiel
     }
 }
 
-// initialize the table once we perform a read. This ensures we always have a valid
-// pointer to a Builder.
-// (if both the table entries and the index are constant, we don't need a builder as we
-// can directly extract the desired value from `raw_entries`)
+/**
+ * @brief initialize the table once we perform a read. This ensures we always have a valid pointer to a Builder.
+ * @tparam Builder
+ *
+ * @note if both the table entries and the index are constant, we don't need a builder as we can directly extract the
+ * desired value from `raw_entries`. in particular, we simply _don't use_ the ROM table mechanism under the hood.
+ * @note using this API, ROM tables are always fully initialized.
+ */
 template <typename Builder> void rom_table<Builder>::initialize_table() const
 {
     if (initialized) {
@@ -56,7 +62,7 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
             entries.emplace_back(fixed_witness);
 
         } else {
-            entries.emplace_back(entry.normalize());
+            entries.emplace_back(entry);
         }
     }
     rom_id = context->create_ROM_array(length);
@@ -73,51 +79,10 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
     initialized = true;
 }
 
-template <typename Builder>
-rom_table<Builder>::rom_table(const rom_table& other)
-    : raw_entries(other.raw_entries)
-    , entries(other.entries)
-    , _tags(other._tags)
-    , length(other.length)
-    , rom_id(other.rom_id)
-    , initialized(other.initialized)
-    , context(other.context)
-{}
-
-template <typename Builder>
-rom_table<Builder>::rom_table(rom_table&& other)
-    : raw_entries(other.raw_entries)
-    , entries(other.entries)
-    , _tags(other._tags)
-    , length(other.length)
-    , rom_id(other.rom_id)
-    , initialized(other.initialized)
-    , context(other.context)
-{}
-
-template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(const rom_table& other)
-{
-    raw_entries = other.raw_entries;
-    entries = other.entries;
-    _tags = other._tags;
-    length = other.length;
-    rom_id = other.rom_id;
-    initialized = other.initialized;
-    context = other.context;
-    return *this;
-}
-
-template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(rom_table&& other)
-{
-    raw_entries = other.raw_entries;
-    entries = other.entries;
-    _tags = other._tags;
-    length = other.length;
-    rom_id = other.rom_id;
-    initialized = other.initialized;
-    context = other.context;
-    return *this;
-}
+template <typename Builder> rom_table<Builder>::rom_table(const rom_table& other) = default;
+template <typename Builder> rom_table<Builder>::rom_table(rom_table&& other) = default;
+template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(const rom_table& other) = default;
+template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(rom_table&& other) = default;
 
 template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](const size_t index) const
 {
@@ -144,7 +109,7 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
         context->failure("rom_table: ROM array access out of bounds");
     }
 
-    uint32_t output_idx = context->read_ROM_array(rom_id, index.get_normalized_witness_index());
+    uint32_t output_idx = context->read_ROM_array(rom_id, index.get_witness_index());
     auto element = field_pt::from_witness_index(context, output_idx);
 
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));

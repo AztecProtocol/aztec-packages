@@ -70,6 +70,10 @@ class AvmRecursiveTests : public ::testing::Test {
  */
 TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
@@ -123,8 +127,10 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
         return result;
     }();
 
-    verifier_output.points_accumulator.set_public();
-    verifier_output.ipa_claim.set_public();
+    stdlib::recursion::honk::RollupIO inputs;
+    inputs.pairing_inputs = verifier_output.points_accumulator;
+    inputs.ipa_claim = verifier_output.ipa_claim;
+    inputs.set_public();
     outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
@@ -134,7 +140,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
-    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
+    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates());
 
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.
@@ -162,6 +168,10 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 // This is important as long as we use a fallback mechanism for the AVM proofs.
 TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
 {
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
@@ -218,8 +228,10 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
         return result;
     }();
 
-    verifier_output.points_accumulator.set_public();
-    verifier_output.ipa_claim.set_public();
+    stdlib::recursion::honk::RollupIO inputs;
+    inputs.pairing_inputs = verifier_output.points_accumulator;
+    inputs.ipa_claim = verifier_output.ipa_claim;
+    inputs.set_public();
     outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
@@ -229,7 +241,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
-    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
+    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates());
 
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.
@@ -256,6 +268,10 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
 // Ensures that the recursive verifier fails with wrong PIs.
 TEST_F(AvmRecursiveTests, GoblinRecursionFailsWithWrongPIs)
 {
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;

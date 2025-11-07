@@ -15,12 +15,13 @@
  * @return int Status code: 0 for success, non-zero for errors or verification failure
  */
 #include "barretenberg/api/api_avm.hpp"
-#include "barretenberg/api/api_client_ivc.hpp"
+#include "barretenberg/api/api_chonk.hpp"
 #include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/aztec_process.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
+#include "barretenberg/bb/curve_constants.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
@@ -30,6 +31,7 @@
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/vm2/api_avm.hpp"
 #include <fstream>
 #include <iostream>
 
@@ -104,11 +106,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
                        "programming language.";
 
-#ifdef DISABLE_AZTEC_VM
-    name += "\nAztec Virtual Machine (AVM): disabled";
-#else
-    name += "\nAztec Virtual Machine (AVM): enabled";
-#endif
+    // Check AVM support at runtime via global boolean
+    if (avm_enabled) {
+        name += "\nAztec Virtual Machine (AVM): enabled";
+    } else {
+        name += "\nAztec Virtual Machine (AVM): disabled";
+    }
 #ifdef ENABLE_AVM_TRANSPILER
     name += "\nAVM Transpiler: enabled";
 #else
@@ -171,7 +174,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 "particular type of circuit to be constructed and proven for some implicit scheme.")
             ->envname("BB_SCHEME")
             ->default_val("ultra_honk")
-            ->check(CLI::IsMember({ "client_ivc", "avm", "ultra_honk" }).name("is_member"));
+            ->check(CLI::IsMember({ "chonk", "avm", "ultra_honk" }).name("is_member"));
     };
 
     const auto add_crs_path_option = [&](CLI::App* subcommand) {
@@ -203,12 +206,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--disable_zk",
                                     flags.disable_zk,
                                     "Use a non-zk version of --scheme. This flag is set to false by default.");
-    };
-
-    const auto add_use_sumcheck_ivc_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--use-sumcheck-ivc",
-                                    bbapi::USE_SUMCHECK_IVC,
-                                    "Use SumcheckClientIVC instead of ClientIVC for IVC proving.");
     };
 
     const auto add_bytecode_path_option = [&](CLI::App* subcommand) {
@@ -253,7 +250,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
                          "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
                          "the stack of run though a dedicated ivc verifier class (currently the only option is the "
-                         "ClientIVC class)")
+                         "Chonk class)")
             ->check(CLI::IsMember({ "standalone", "standalone_hiding", "ivc" }).name("is_member"));
     };
 
@@ -312,6 +309,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     const auto add_bench_out_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--bench_out", bench_out, "Path to write the op counts in a json.");
     };
+    std::string bench_out_hierarchical;
+    const auto add_bench_out_hierarchical_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--bench_out_hierarchical",
+                                      bench_out_hierarchical,
+                                      "Path to write the hierarchical benchmark data (op counts and timings with "
+                                      "parent-child relationships) as json.");
+    };
 
     /***************************************************************************************************************
      * Top-level flags
@@ -332,7 +336,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         "check",
         "A debugging tool to quickly check whether a witness satisfies a circuit The "
         "function constructs the execution trace and iterates through it row by row, applying the "
-        "polynomial relations defining the gate types. For client IVC, we check the VKs in the folding stack.");
+        "polynomial relations defining the gate types. For Chonk, we check the VKs in the folding stack.");
 
     add_scheme_option(check);
     add_bytecode_path_option(check);
@@ -373,10 +377,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_write_vk_flag(prove);
     add_ipa_accumulation_flag(prove);
     remove_zk_option(prove);
-    add_use_sumcheck_ivc_flag(prove);
     add_slow_low_memory_flag(prove);
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
+    add_bench_out_hierarchical_option(prove);
     add_storage_budget_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
@@ -469,6 +473,17 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_avm_inputs_option(avm_prove_command);
 
     /***************************************************************************************************************
+     * Subcommand: avm_write_vk
+     ***************************************************************************************************************/
+    CLI::App* avm_write_vk_command = app.add_subcommand("avm_write_vk", "");
+    avm_write_vk_command->group(""); // hide from list of subcommands
+    add_verbose_flag(avm_write_vk_command);
+    add_debug_flag(avm_write_vk_command);
+    add_crs_path_option(avm_write_vk_command);
+    std::filesystem::path avm_write_vk_output_path{ "./keys" };
+    add_output_path_option(avm_write_vk_command, avm_write_vk_output_path);
+
+    /***************************************************************************************************************
      * Subcommand: avm_check_circuit
      ***************************************************************************************************************/
     CLI::App* avm_check_circuit_command = app.add_subcommand("avm_check_circuit", "");
@@ -523,6 +538,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
     add_verbose_flag(msgpack_schema_command);
 
+    // Subcommand: msgpack curve_constants
+    CLI::App* msgpack_curve_constants_command =
+        msgpack_command->add_subcommand("curve_constants", "Output curve constants as msgpack to stdout.");
+    add_verbose_flag(msgpack_curve_constants_command);
+
     // Subcommand: msgpack run
     CLI::App* msgpack_run_command =
         msgpack_command->add_subcommand("run", "Execute msgpack API commands from stdin or file.");
@@ -551,12 +571,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
-#ifndef __wasm__
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);
     }
-    if (print_bench || !bench_out.empty()) {
+    if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty()) {
         bb::detail::use_bb_bench = true;
+        vinfo("BB_BENCH enabled via --print_bench or --bench_out");
     }
 #endif
 
@@ -566,7 +587,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         print_subcommand_options(deepest);
     }
 
-    // TODO(AD): it is inflexible that CIVC shares an API command (prove) with UH this way. The base API class is a
+    // TODO(AD): it is inflexible that Chonk shares an API command (prove) with UH this way. The base API class is a
     // poor fit. It would be better to have a separate handling for each scheme with subcommands to prove.
     const auto execute_non_prove_command = [&](API& api) {
         if (check->parsed()) {
@@ -602,6 +623,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
             std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
             return 0;
         }
+        if (msgpack_curve_constants_command->parsed()) {
+            write_curve_constants_msgpack_to_stdout();
+            return 0;
+        }
         if (msgpack_run_command->parsed()) {
             return execute_msgpack_run(msgpack_input_file, max_clients);
         }
@@ -628,8 +653,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return process_aztec_artifact(input, output, force_regenerate) ? 0 : 1;
 #endif
         }
-        // AVM
-#ifndef DISABLE_AZTEC_VM
+        // AVM - functions will throw at runtime if not supported (via stub module)
         else if (avm_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
             avm_prove(avm_inputs_path, avm_prove_output_path);
@@ -639,35 +663,36 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
         } else if (avm_simulate_command->parsed()) {
             avm_simulate(avm_inputs_path);
-        }
-#else
-        else if (avm_prove_command->parsed() || avm_check_circuit_command->parsed() || avm_verify_command->parsed() ||
-                 avm_simulate_command->parsed()) {
-            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
-        }
-#endif
-        else if (flags.scheme == "client_ivc") {
-            ClientIVCAPI api;
+        } else if (avm_write_vk_command->parsed()) {
+            avm_write_verification_key(avm_write_vk_output_path);
+        } else if (flags.scheme == "chonk") {
+            ChonkAPI api;
             if (prove->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort("The prove command for ClientIVC expect a valid file passed with --ivc_inputs_path "
+                    throw_or_abort("The prove command for Chonk expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
-#ifndef __wasm__
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
                 if (print_bench) {
+                    vinfo("Printing BB_BENCH results...");
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
+                    std::cout << std::flush;
                 }
                 if (!bench_out.empty()) {
                     std::ofstream file(bench_out);
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
+                }
+                if (!bench_out_hierarchical.empty()) {
+                    std::ofstream file(bench_out_hierarchical);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
                 }
 #endif
                 return 0;
             }
             if (check->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
+                    throw_or_abort("The check command for Chonk expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
@@ -677,13 +702,17 @@ int parse_and_run_cli_command(int argc, char* argv[])
             UltraHonkAPI api;
             if (prove->parsed()) {
                 api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
-#ifndef __wasm__
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
                 if (print_bench) {
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
                 }
                 if (!bench_out.empty()) {
                     std::ofstream file(bench_out);
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
+                }
+                if (!bench_out_hierarchical.empty()) {
+                    std::ofstream file(bench_out_hierarchical);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
                 }
 #endif
                 return 0;

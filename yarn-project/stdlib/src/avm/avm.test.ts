@@ -4,6 +4,7 @@ import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
 
 import { makeAvmCircuitInputs } from '../tests/factories.js';
 import { AvmCircuitInputs } from './avm.js';
+import { deserializeFromMessagePack } from './message_pack.js';
 
 describe('Avm circuit inputs', () => {
   // This tests that serde with the orchestrator works.
@@ -11,9 +12,10 @@ describe('Avm circuit inputs', () => {
     const avmCircuitInputs = await makeAvmCircuitInputs(randomInt(2000));
     const json = jsonStringify(avmCircuitInputs);
     const res = jsonParseWithSchema(json, AvmCircuitInputs.schema);
-    // Note: ideally we don't want to use toStrictEqual here (see other test),
-    // but I couldn't find an equivalent equality check.
-    expect(res).toStrictEqual(avmCircuitInputs);
+    // Note: using toEqual instead of toStrictEqual to match other serialization tests in the codebase.
+    // toEqual checks deep value equality, while toStrictEqual also checks prototypes and property
+    // descriptors, which can differ for schema-reconstructed objects even when data is identical.
+    expect(res).toEqual(avmCircuitInputs);
   });
 
   // This test makes sure that any TS changes are propagated to the testdata,
@@ -30,5 +32,15 @@ describe('Avm circuit inputs', () => {
     // Note: we use .equals() here to prevent jest from taking forever to
     // generate the diff. This could otherwise take 10m+ and kill CI.
     expect(buffer.equals(expected)).toBe(true);
+  });
+
+  // TODO(fcarreiro): fix this test.
+  it.skip('serializes with MP and deserializes it back', async () => {
+    const avmCircuitInputs = await makeAvmCircuitInputs(/*seed=*/ 0x1234);
+    const buffer = avmCircuitInputs.serializeWithMessagePack();
+    const json = deserializeFromMessagePack(buffer);
+    // Parsing fails.
+    const res = AvmCircuitInputs.schema.parse(json);
+    expect(res).toStrictEqual(avmCircuitInputs);
   });
 });

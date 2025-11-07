@@ -2,7 +2,7 @@ import { TestCircuitProver } from '@aztec/bb-prover';
 import { SpongeBlob } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
-  CIVC_PROOF_LENGTH,
+  CHONK_PROOF_LENGTH,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -20,6 +20,7 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { createBlockEndMarker } from '@aztec/stdlib/block';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import {
@@ -41,7 +42,7 @@ import {
 } from '@aztec/stdlib/rollup';
 import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import { GlobalVariables, type ProcessedTx, toNumBlobFields } from '@aztec/stdlib/tx';
+import { GlobalVariables, type ProcessedTx } from '@aztec/stdlib/tx';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -69,7 +70,7 @@ describe('LightBlockBuilder', () => {
 
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   let emptyRollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>;
-  let emptyCivcProof: RecursiveProof<typeof CIVC_PROOF_LENGTH>;
+  let emptyChonkProof: RecursiveProof<typeof CHONK_PROOF_LENGTH>;
 
   let feePayer: AztecAddress;
   let feePayerSlot: Fr;
@@ -83,7 +84,7 @@ describe('LightBlockBuilder', () => {
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyRollupProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
-    emptyCivcProof = makeEmptyRecursiveProof(CIVC_PROOF_LENGTH);
+    emptyChonkProof = makeEmptyRecursiveProof(CHONK_PROOF_LENGTH);
   });
 
   beforeEach(async () => {
@@ -243,7 +244,9 @@ describe('LightBlockBuilder', () => {
       L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
     );
     const lastL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
-    const startSpongeBlob = SpongeBlob.init(toNumBlobFields(txs) + 1 /* block end marker */);
+
+    const numBlobFields = getCheckpointBlobFields([txs.map(tx => tx.txEffect)]).length;
+    const startSpongeBlob = await SpongeBlob.init(numBlobFields);
 
     const parityOutput = await getParityOutput(l1ToL2Messages);
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
@@ -289,7 +292,7 @@ describe('LightBlockBuilder', () => {
       const vkData = getVkData('HidingKernelToRollup');
       const hidingKernelProofData = new ProofData(
         tx.data.toPrivateToRollupKernelCircuitPublicInputs(),
-        emptyCivcProof,
+        emptyChonkProof,
         vkData,
       );
       const hints = await insertSideEffectsAndBuildBaseRollupHints(
@@ -321,7 +324,7 @@ describe('LightBlockBuilder', () => {
   };
 
   const getParityOutput = async (msgs: Fr[]) => {
-    const l1ToL2Messages = padArrayEnd(msgs, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    const l1ToL2Messages = padArrayEnd<Fr, number>(msgs, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     await expectsFork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
 
     const parityBases: ParityBaseProofData[] = [];

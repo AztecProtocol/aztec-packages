@@ -7,8 +7,12 @@ const sidebar = {
   sidebar: [
     {
       type: "html",
-      value: '<span class="sidebar-title">Getting Started</span>',
+      value: '<span class="sidebar-title">Overview</span>',
       className: "sidebar-title",
+    },
+    {
+      type: "doc",
+      id: "developers/overview",
     },
     {
       type: "doc",
@@ -16,7 +20,7 @@ const sidebar = {
     },
     {
       type: "doc",
-      id: "developers/getting_started_on_testnet",
+      id: "developers/getting_started_on_devnet",
     },
     {
       type: "link",
@@ -33,452 +37,203 @@ const sidebar = {
       dirName: "developers/docs",
     },
     {
-      type: "html",
-      value: '<span class="sidebar-title">Misc</span>',
-      className: "sidebar-title",
-    },
-    {
       type: "link",
       label: "Get Inspired",
       href: "https://github.com/AztecProtocol/horizon",
     },
-    {
-      type: "doc",
-      id: "developers/migration_notes",
-    },
   ],
 
-  "nodesSidebar": [
+  nodesSidebar: [
     {
-      "type": "html",
-      "value": "<span class=\"sidebar-title\">Getting Started</span>",
-      "className": "sidebar-title"
+      type: "html",
+      value: '<span class="sidebar-title">Getting Started</span>',
+      className: "sidebar-title",
     },
     {
-      "type": "doc",
-      "id": "the_aztec_network/index"
-    },
-    {
-      "type": "doc",
-      "id": "the_aztec_network/prerequisites"
-    },
-    {
-      "type": "html",
-      "value": "<span class=\"sidebar-divider\" />"
-    },
-    {
-      "type": "html",
-      "value": "<span class=\"sidebar-title\">Setup</span>",
-      "className": "sidebar-title"
-    },
-    {
-      "type": "doc",
-      "id": "the_aztec_network/setup/running_a_node"
-    },
-    {
-      "type": "category",
-      "label": "Running a Sequencer",
-      "link": {
-        "type": "doc",
-        "id": "the_aztec_network/setup/sequencer_management"
-      },
-      "items": [
-        {
-          "type": "doc",
-          "id": "the_aztec_network/setup/high_availability_sequencers"
-        }
-      ]
-    },
-    {
-      "type": "category",
-      "label": "Running a Prover",
-      "link": {
-        "type": "doc",
-        "id": "the_aztec_network/setup/running_a_prover"
-      },
-      "items": [
-        {
-          "type": "doc",
-          "id": "the_aztec_network/setup/prover_single_machine"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/setup/prover_distributed"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/setup/prover_verification_troubleshooting"
-        }
-      ]
-    },
-    {
-      "type": "doc",
-      "id": "the_aztec_network/setup/bootnode_operation"
-    },
-    {
-      "type": "doc",
-      "id": "the_aztec_network/setup/syncing_best_practices"
-    },
-    {
-      "type": "html",
-      "value": "<span class=\"sidebar-title\">Operation</span>",
-      "className": "sidebar-title"
-    },
-    {
-      "type": "category",
-      "label": "Monitoring",
-      "link": {
-        "type": "doc",
-        "id": "the_aztec_network/operation/monitoring"
-      },
-      "items": [
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/otel_setup"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/prometheus_setup"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/grafana_setup"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/monitoring_example_troubleshooting"
-        }
-      ]
-    },
-    {
-      "type": "category",
-      "label": "Advanced Keystore Usage",
-      "link": {
-        "type": "doc",
-        "id": "the_aztec_network/operation/keystore/advanced_keystore_guide"
-      },
-      "items": [
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/keystore/storage_methods"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/keystore/advanced_patterns"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/keystore/troubleshooting"
-        }
-      ]
-    },
-    {
-      "type": "category",
-      "label": "Sequencer Management",
-      "link": {
-        "type": "doc",
-        "id": "the_aztec_network/operation/sequencer_management/sequencer_management_overview"
-      },
-      "items": [
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/sequencer_management/creating_and_voting_on_proposals"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/sequencer_management/running_delegated_stake"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/sequencer_management/useful_commands"
-        }
-      ]
-    },
-    {
-      "type": "doc",
-      "id": "the_aztec_network/operation/operator_faq"
-    },
-    {
-      "type": "html",
-      "value": "<span class=\"sidebar-divider\" />"
-    },
-    {
-      "type": "html",
-      "value": "<span class=\"sidebar-title\">Reference</span>",
-      "className": "sidebar-title"
-    },
-    {
-      "type": "category",
-      "label": "Changelog",
-      "link": {
-        "type": "doc",
-        "id": "the_aztec_network/reference/changelog/changelog"
-      },
-      "items": [
-        {
-          "type": "doc",
-          "id": "the_aztec_network/reference/changelog/v2.0.2"
-        }
-      ]
-    },
-    {
-      "type": "doc",
-      "id": "the_aztec_network/reference/cli_reference"
-    },
-    {
-      "type": "doc",
-      "id": "the_aztec_network/reference/node_api_reference"
-    },
-    {
-      "type": "doc",
-      "id": "the_aztec_network/reference/ethereum_rpc_reference"
-    },
-    {
-      "type": "doc",
-      "id": "the_aztec_network/reference/glossary"
-    }
-  ]
-};
-
-const protocolSpecSidebar = [
-  "protocol-specs/intro",
-  {
-    label: "Cryptography",
-    type: "category",
-    link: { type: "doc", id: "protocol-specs/cryptography/index" },
-    items: [
-      {
-        label: "Proving System",
-        type: "category",
-        items: [
-          "protocol-specs/cryptography/proving-system/performance-targets",
-          "protocol-specs/cryptography/proving-system/overview",
-          "protocol-specs/cryptography/proving-system/data-bus",
-        ],
-      },
-      {
-        label: "Hashing",
-        type: "category",
-        items: [
-          "protocol-specs/cryptography/hashing/hashing",
-          "protocol-specs/cryptography/hashing/poseidon2",
-          "protocol-specs/cryptography/hashing/pedersen",
-        ],
-      },
-      "protocol-specs/cryptography/merkle-trees",
-    ],
-  },
-  {
-    label: "Addresses & Keys",
-    type: "category",
-    link: {
       type: "doc",
-      id: "protocol-specs/addresses-and-keys/index",
+      id: "the_aztec_network/index",
     },
-    items: [
-      "protocol-specs/addresses-and-keys/address",
-      "protocol-specs/addresses-and-keys/keys-requirements",
-      "protocol-specs/addresses-and-keys/keys",
-      {
-        label: "Example Usage of Keys",
-        type: "category",
-        items: [
-          "protocol-specs/addresses-and-keys/example-usage/nullifier",
-          "protocol-specs/addresses-and-keys/example-usage/diversified-and-stealth-keys",
-          "protocol-specs/addresses-and-keys/example-usage/tag-sequence-derivation",
-          "protocol-specs/addresses-and-keys/example-usage/encrypt-and-tag",
-        ],
+    {
+      type: "doc",
+      id: "the_aztec_network/prerequisites",
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-divider" />',
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-title">Setup</span>',
+      className: "sidebar-title",
+    },
+    {
+      type: "doc",
+      id: "the_aztec_network/setup/running_a_node",
+    },
+    {
+      type: "category",
+      label: "Running a Sequencer",
+      link: {
+        type: "doc",
+        id: "the_aztec_network/setup/sequencer_management",
       },
-      "protocol-specs/addresses-and-keys/precompiles",
-      "protocol-specs/addresses-and-keys/diversified-and-stealth",
-    ],
-  },
-  {
-    label: "State",
-    type: "category",
-    link: { type: "doc", id: "protocol-specs/state/index" },
-    items: [
-      "protocol-specs/state/tree-implementations",
-      "protocol-specs/state/archive",
-      "protocol-specs/state/note-hash-tree",
-      "protocol-specs/state/nullifier-tree",
-      "protocol-specs/state/public-data-tree",
-      "protocol-specs/state/wonky-tree",
-    ],
-  },
-  {
-    label: "Transactions",
-    type: "category",
-    link: { type: "doc", id: "protocol-specs/transactions/index" },
-    items: [
-      "protocol-specs/transactions/local-execution",
-      "protocol-specs/transactions/public-execution",
-      "protocol-specs/transactions/tx-object",
-      "protocol-specs/transactions/validity",
-    ],
-  },
-  {
-    label: "Bytecode",
-    type: "category",
-    link: { type: "doc", id: "protocol-specs/bytecode/index" },
-    items: [],
-  },
-  {
-    label: "Contract Deployment",
-    type: "category",
-    link: {
-      type: "doc",
-      id: "protocol-specs/contract-deployment/index",
-    },
-    items: [
-      "protocol-specs/contract-deployment/classes",
-      "protocol-specs/contract-deployment/instances",
-    ],
-  },
-  {
-    label: "Calls",
-    type: "category",
-    link: { type: "doc", id: "protocol-specs/calls/index" },
-    items: [
-      "protocol-specs/calls/sync-calls",
-      "protocol-specs/calls/enqueued-calls",
-      "protocol-specs/calls/batched-calls",
-      "protocol-specs/calls/static-calls",
-      "protocol-specs/calls/unconstrained-calls",
-      "protocol-specs/calls/public-private-messaging",
-    ],
-  },
-  {
-    label: "L1 smart contracts",
-    type: "category",
-    link: {
-      type: "doc",
-      id: "protocol-specs/l1-smart-contracts/index",
-    },
-    items: ["protocol-specs/l1-smart-contracts/frontier"],
-  },
-  {
-    label: "Data availability",
-    type: "category",
-    link: {
-      type: "doc",
-      id: "protocol-specs/data-publication-and-availability/index",
-    },
-    items: [
-      "protocol-specs/data-publication-and-availability/overview",
-      "protocol-specs/data-publication-and-availability/published-data",
-      "protocol-specs/data-publication-and-availability/blobs",
-    ],
-  },
-  {
-    label: "Logs",
-    type: "category",
-    link: { type: "doc", id: "protocol-specs/logs/index" },
-    items: [],
-  },
-  {
-    label: "Pre-compiled Contracts",
-    type: "category",
-    link: {
-      type: "doc",
-      id: "protocol-specs/pre-compiled-contracts/index",
-    },
-    items: ["protocol-specs/pre-compiled-contracts/registry"],
-  },
-  {
-    label: "Private Message Delivery",
-    type: "category",
-    link: {
-      type: "doc",
-      id: "protocol-specs/private-message-delivery/index",
-    },
-    items: [
-      "protocol-specs/private-message-delivery/private-msg-delivery", // renamed to avoid routing problems
-      "protocol-specs/private-message-delivery/send-note-guidelines",
-    ],
-  },
-  {
-    label: "Gas & Fees",
-    type: "category",
-    link: { type: "doc", id: "protocol-specs/gas-and-fees/index" },
-    items: [
-      "protocol-specs/gas-and-fees/fee-juice",
-      "protocol-specs/gas-and-fees/specifying-gas-fee-info",
-      "protocol-specs/gas-and-fees/tx-setup-and-teardown",
-      "protocol-specs/gas-and-fees/kernel-tracking",
-      "protocol-specs/gas-and-fees/fee-schedule",
-      "protocol-specs/gas-and-fees/published-gas-and-fee-data",
-    ],
-  },
-  {
-    label: "Decentralization",
-    type: "category",
-    items: [
-      "protocol-specs/decentralization/actors",
-      "protocol-specs/decentralization/governance",
-      "protocol-specs/decentralization/block-production",
-      "protocol-specs/decentralization/p2p-network",
-    ],
-  },
-  {
-    label: "Circuits",
-    type: "category",
-    link: {
-      type: "doc",
-      id: "protocol-specs/circuits/high-level-topology",
-    },
-    items: [
-      "protocol-specs/circuits/private-function",
-      "protocol-specs/circuits/private-kernel-initial",
-      "protocol-specs/circuits/private-kernel-inner",
-      "protocol-specs/circuits/private-kernel-reset",
-      "protocol-specs/circuits/private-kernel-tail",
-      "protocol-specs/circuits/public-kernel-initial",
-      "protocol-specs/circuits/public-kernel-inner",
-      "protocol-specs/circuits/public-kernel-tail",
-    ],
-  },
-  {
-    label: "Rollup Circuits",
-    type: "category",
-    link: { type: "doc", id: "protocol-specs/rollup-circuits/index" },
-    items: [
-      "protocol-specs/rollup-circuits/base-rollup",
-      "protocol-specs/rollup-circuits/merge-rollup",
-      "protocol-specs/rollup-circuits/tree-parity",
-      "protocol-specs/rollup-circuits/root-rollup",
-    ],
-  },
-  {
-    label: "Aztec (Public) VM",
-    type: "category",
-    link: { type: "doc", id: "protocol-specs/public-vm/index" },
-    items: [
-      "protocol-specs/public-vm/intro",
-      "protocol-specs/public-vm/state",
-      "protocol-specs/public-vm/memory-model",
-      "protocol-specs/public-vm/context",
-      "protocol-specs/public-vm/execution",
-      "protocol-specs/public-vm/nested-calls",
-      "protocol-specs/public-vm/instruction-set",
-      {
-        label: "AVM Circuit",
-        type: "category",
-        link: {
+      items: [
+        {
           type: "doc",
-          id: "protocol-specs/public-vm/circuit-index",
+          id: "the_aztec_network/setup/high_availability_sequencers",
         },
-        items: [
-          "protocol-specs/public-vm/avm-circuit",
-          "protocol-specs/public-vm/control-flow",
-          "protocol-specs/public-vm/alu",
-          "protocol-specs/public-vm/bytecode-validation-circuit",
-        ],
+      ],
+    },
+    {
+      type: "category",
+      label: "Running a Prover",
+      link: {
+        type: "doc",
+        id: "the_aztec_network/setup/running_a_prover",
       },
-      "protocol-specs/public-vm/type-structs",
-    ],
-  },
-];
+      items: [
+        {
+          type: "doc",
+          id: "the_aztec_network/setup/prover_single_machine",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/setup/prover_distributed",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/setup/prover_verification_troubleshooting",
+        },
+      ],
+    },
+    {
+      type: "doc",
+      id: "the_aztec_network/setup/bootnode_operation",
+    },
+    {
+      type: "doc",
+      id: "the_aztec_network/setup/syncing_best_practices",
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-title">Operation</span>',
+      className: "sidebar-title",
+    },
+    {
+      type: "category",
+      label: "Monitoring",
+      link: {
+        type: "doc",
+        id: "the_aztec_network/operation/monitoring",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/otel_setup",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/prometheus_setup",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/grafana_setup",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/monitoring_example_troubleshooting",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Advanced Keystore Usage",
+      link: {
+        type: "doc",
+        id: "the_aztec_network/operation/keystore/advanced_keystore_guide",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/keystore/storage_methods",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/keystore/advanced_patterns",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/keystore/troubleshooting",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Sequencer Management",
+      link: {
+        type: "doc",
+        id: "the_aztec_network/operation/sequencer_management/sequencer_management_overview",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/sequencer_management/creating_and_voting_on_proposals",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/sequencer_management/running_delegated_stake",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/sequencer_management/useful_commands",
+        },
+      ],
+    },
+    {
+      type: "doc",
+      id: "the_aztec_network/operation/operator_faq",
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-divider" />',
+    },
+    {
+      type: "html",
+      value: '<span class="sidebar-title">Reference</span>',
+      className: "sidebar-title",
+    },
+    {
+      type: "category",
+      label: "Changelog",
+      link: {
+        type: "doc",
+        id: "the_aztec_network/reference/changelog/changelog",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "the_aztec_network/reference/changelog/v2.0.2",
+        },
+      ],
+    },
+    {
+      type: "doc",
+      id: "the_aztec_network/reference/cli_reference",
+    },
+    {
+      type: "doc",
+      id: "the_aztec_network/reference/node_api_reference",
+    },
+    {
+      type: "doc",
+      id: "the_aztec_network/reference/ethereum_rpc_reference",
+    },
+    {
+      type: "doc",
+      id: "the_aztec_network/reference/glossary",
+    },
+  ],
+};
 
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 module.exports = sidebar;

@@ -9,10 +9,10 @@ pub contract DocsExample {
     // how to import dependencies defined in your workspace
     use aztec::{
         context::PrivateContext,
-        macros::{functions::{private, public, utility}, storage::{storage, storage_no_init}},
+        macros::{functions::external, storage::{storage, storage_no_init}},
         messages::message_delivery::MessageDelivery,
         note::{note_interface::NoteProperties, note_viewer_options::NoteViewerOptions},
-        protocol_types::{address::AztecAddress, traits::Hash},
+        protocol_types::address::AztecAddress,
         state_vars::{
             Map, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, PublicMutable,
         },
@@ -59,65 +59,69 @@ pub contract DocsExample {
         }
     }
 
-    #[public]
+    #[external("public")]
     fn initialize_public_immutable(points: u8) {
-        let mut new_leader = Leader { account: context.msg_sender().unwrap(), points };
-        storage.public_immutable.initialize(new_leader);
+        let mut new_leader = Leader { account: self.msg_sender().unwrap(), points };
+        self.storage.public_immutable.initialize(new_leader);
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_public_immutable() -> Leader {
-        storage.public_immutable.read()
+        self.storage.public_immutable.read()
     }
 
-    #[private]
+    #[external("private")]
     fn initialize_private_immutable(points: u8) {
-        let new_card = CardNote::new(points, context.msg_sender().unwrap());
+        let new_card = CardNote::new(points, self.msg_sender().unwrap());
 
-        storage.private_immutable.initialize(new_card).emit(
-            &mut context,
-            context.msg_sender().unwrap(),
+        self.storage.private_immutable.initialize(new_card).emit(
+            self.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn read_note(comparator: u8, amount: Field) -> BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
-        storage.set.view_notes(options.select(CardNote::properties().points, comparator, amount))
+        self.storage.set.view_notes(options.select(
+            CardNote::properties().points,
+            comparator,
+            amount,
+        ))
     }
 
-    #[private]
+    #[external("private")]
     fn read_legendary_points() {
-        storage.legendary_card.get_note()
+        self.storage.legendary_card.get_note()
     }
 
-    #[private]
+    #[external("private")]
     fn increase_legendary_points() {
-        storage
+        self
+            .storage
             .legendary_card
             .replace(|old_card| {
                 let points = old_card.get_points() + 1;
-                CardNote::new(points, context.msg_sender().unwrap())
+                CardNote::new(points, self.msg_sender().unwrap())
             })
-            .emit(&mut context, context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(self.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn is_legendary_initialized() -> bool {
-        storage.legendary_card.is_initialized()
+        self.storage.legendary_card.is_initialized()
     }
 
-    #[private]
+    #[external("private")]
     fn get_imm_card() -> CardNote {
-        storage.private_immutable.get_note()
+        self.storage.private_immutable.get_note()
     }
 
     /// Macro equivalence section
     use dep::aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
     use dep::aztec::context::inputs::PrivateContextInputs;
     // docs:start:simple_macro_example
-    #[private]
+    #[external("private")]
     fn simple_macro_example(a: Field, b: Field) -> Field {
         a + b
     }
@@ -143,33 +147,46 @@ pub contract DocsExample {
     ) -> PrivateCircuitPublicInputs {
         // docs:end:context-example-return
         // ************************************************************
-        // The hasher is a structure used to generate a hash of the circuits inputs.
-        // docs:start:context-example-hasher
-        let mut args_hasher = dep::aztec::hash::ArgsHasher::new();
-        args_hasher.add(a);
-        args_hasher.add(b);
-        // docs:end:context-example-hasher
-        // The context object is created with the inputs and the hash of the inputs
-        // docs:start:context-example-context
-        let mut context = PrivateContext::new(inputs, args_hasher.hash());
-        // docs:end:context-example-context
-        // docs:start:storage-example-context
-        #[allow(unused_variables)]
-        let mut storage = Storage::init(&mut context);
-        // docs:end:storage-example-context
+        // Oracle version compatibility check
+        dep::aztec::oracle::version::assert_compatible_oracle_version();
+
+        // Create ContractSelf instance with storage initialization
+        // docs:start:contract_self_creation
+        let mut self = {
+            let serialized_args = [a, b];
+            let args_hash = dep::aztec::hash::hash_args_array(serialized_args);
+            let mut context = PrivateContext::new(inputs, args_hash);
+            let storage = Storage::init(&mut context);
+            // The call_self, enqueue_self, call_self_static and enqueue_self_static are structs generated by the
+            // #[aztec] macro. It's impractical to show define them in this example, so we just use unit types here.
+            let call_self = ();
+            let enqueue_self = ();
+            let call_self_static = ();
+            let enqueue_self_static = ();
+            aztec::contract_self::ContractSelf::new_private(
+                &mut context,
+                storage,
+                call_self,
+                enqueue_self,
+                call_self_static,
+                enqueue_self_static,
+            )
+        };
+        // docs:end:contract_self_creation
+
         // ************************************************************
         // Our actual program
         let result = a + b;
         // ************************************************************
-        // Return values are pushed into the context
+        // Return values are serialized and passed to the context
         // docs:start:context-example-context-return
-        let mut return_hasher = dep::aztec::hash::ArgsHasher::new();
-        return_hasher.add(result);
-        context.set_return_hash(return_hasher);
+        let macro__returned__values: Field = result;
+        let serialized_return = [macro__returned__values];
+        self.context.set_return_hash(serialized_return);
         // docs:end:context-example-context-return
         // The context is returned to be consumed by the kernel circuit!
         // docs:start:context-example-finish
-        context.finish()
+        self.context.finish()
         // docs:end:context-example-finish
         // ************************************************************
     }

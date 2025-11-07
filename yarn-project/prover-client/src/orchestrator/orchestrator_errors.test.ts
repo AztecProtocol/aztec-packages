@@ -1,7 +1,8 @@
 import { FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { createBlockEndMarker } from '@aztec/stdlib/block';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 
 import { TestContext } from '../mocks/test_context.js';
 import { buildBlobDataFromTxs, buildFinalBlobChallenges } from './block-building-helpers.js';
@@ -18,7 +19,7 @@ describe('prover/orchestrator/errors', () => {
   beforeEach(async () => {
     context = await TestContext.new(logger);
     orchestrator = context.orchestrator;
-    emptyBlockBlobFields = [createBlockEndMarker(0)];
+    emptyBlockBlobFields = getCheckpointBlobFields([[]]);
     emptyChallenges = await buildFinalBlobChallenges([emptyBlockBlobFields]);
   });
 
@@ -134,7 +135,7 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('rejects if too many l1 to l2 messages are provided', async () => {
-      const l1ToL2Messages = new Array(100).fill(new Fr(0n));
+      const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 1).fill(new Fr(0n));
       orchestrator.startNewEpoch(1, 1, emptyChallenges);
       await expect(
         async () =>

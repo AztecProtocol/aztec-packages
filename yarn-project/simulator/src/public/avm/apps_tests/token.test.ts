@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { AvmSimulationTester } from '../fixtures/avm_simulation_tester.js';
 
@@ -11,10 +12,12 @@ describe('AVM simulator apps tests: TokenContract', () => {
   const receiver = AztecAddress.fromNumber(222);
 
   let token: ContractInstanceWithAddress;
+  let worldStateService: NativeWorldStateService;
   let simTester: AvmSimulationTester;
 
   beforeEach(async () => {
-    simTester = await AvmSimulationTester.create();
+    worldStateService = await NativeWorldStateService.tmp();
+    simTester = await AvmSimulationTester.create(worldStateService);
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
     token = await simTester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
 
@@ -25,6 +28,10 @@ describe('AVM simulator apps tests: TokenContract', () => {
       constructorArgs,
     );
     expect(constructorResult.reverted).toBe(false);
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it('token mint, transfer, burn (and check balances)', async () => {

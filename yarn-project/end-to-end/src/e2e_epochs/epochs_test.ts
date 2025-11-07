@@ -1,14 +1,10 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import {
-  Fr,
-  type Logger,
-  MerkleTreeId,
-  type Wallet,
-  getContractInstanceFromInstantiationParams,
-  getTimestampRangeForEpoch,
-  retryUntil,
-  sleep,
-} from '@aztec/aztec.js';
+import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { MerkleTreeId } from '@aztec/aztec.js/trees';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { EpochCache } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
@@ -16,6 +12,8 @@ import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withD
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { ProverNode, type ProverNodeConfig, ProverNodePublisher } from '@aztec/prover-node';

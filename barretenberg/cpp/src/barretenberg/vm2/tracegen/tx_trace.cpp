@@ -4,7 +4,6 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx.hpp"
-// #include "barretenberg/vm2/generated/relations/lookups_tx_context.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx_context.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
@@ -166,38 +165,26 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
           next_state.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
 
         // Prev sideffect state
-        { Column::tx_prev_num_unencrypted_log_fields, prev_state.side_effect_states.numUnencryptedLogFields },
-        { Column::tx_prev_num_l2_to_l1_messages, prev_state.side_effect_states.numL2ToL1Messages },
+        { Column::tx_prev_num_unencrypted_log_fields, prev_state.numUnencryptedLogFields },
+        { Column::tx_prev_num_l2_to_l1_messages, prev_state.numL2ToL1Messages },
 
         // Next sideffect state
-        { Column::tx_next_num_unencrypted_log_fields, next_state.side_effect_states.numUnencryptedLogFields },
-        { Column::tx_next_num_l2_to_l1_messages, next_state.side_effect_states.numL2ToL1Messages },
+        { Column::tx_next_num_unencrypted_log_fields, next_state.numUnencryptedLogFields },
+        { Column::tx_next_num_l2_to_l1_messages, next_state.numL2ToL1Messages },
 
         // Execution context
         { Column::tx_next_context_id, prev_state.next_context_id },
     };
 }
 
-std::vector<std::pair<Column, FF>> insert_side_effect_states(const SideEffectStates& prev_side_effect_states,
-                                                             const SideEffectStates& next_side_effect_states)
+std::vector<std::pair<Column, FF>> insert_side_effect_states(const TxContextEvent& prev_state,
+                                                             const TxContextEvent& next_state)
 {
     return {
-        {
-            Column::tx_prev_num_unencrypted_log_fields,
-            prev_side_effect_states.numUnencryptedLogFields,
-        },
-        {
-            Column::tx_prev_num_l2_to_l1_messages,
-            prev_side_effect_states.numL2ToL1Messages,
-        },
-        {
-            Column::tx_next_num_unencrypted_log_fields,
-            next_side_effect_states.numUnencryptedLogFields,
-        },
-        {
-            Column::tx_next_num_l2_to_l1_messages,
-            next_side_effect_states.numL2ToL1Messages,
-        },
+        { Column::tx_prev_num_unencrypted_log_fields, prev_state.numUnencryptedLogFields },
+        { Column::tx_prev_num_l2_to_l1_messages, prev_state.numL2ToL1Messages },
+        { Column::tx_next_num_unencrypted_log_fields, next_state.numUnencryptedLogFields },
+        { Column::tx_next_num_l2_to_l1_messages, next_state.numL2ToL1Messages },
     };
 }
 
@@ -322,7 +309,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
                                                           const TxContextEvent& state_before,
                                                           bool reverted)
 {
-    uint32_t remaining_l2_to_l1_msgs = MAX_L2_TO_L1_MSGS_PER_TX - state_before.side_effect_states.numL2ToL1Messages;
+    uint32_t remaining_l2_to_l1_msgs = MAX_L2_TO_L1_MSGS_PER_TX - state_before.numL2ToL1Messages;
     return {
         { Column::tx_sel_revertible_append_l2_l1_msg, phase == TransactionPhase::R_L2_TO_L1_MESSAGE },
         { Column::tx_sel_non_revertible_append_l2_l1_msg, phase == TransactionPhase::NR_L2_TO_L1_MESSAGE },
@@ -333,8 +320,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
         { Column::tx_l2_l1_msg_recipient, event.scoped_msg.message.recipient },
         { Column::tx_l2_l1_msg_content, event.scoped_msg.message.content },
         { Column::tx_write_pi_offset,
-          AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
-              state_before.side_effect_states.numL2ToL1Messages },
+          AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + state_before.numL2ToL1Messages },
         // Selectors
         { Column::tx_reverted, reverted ? 1 : 0 },
     };
@@ -399,6 +385,7 @@ std::vector<std::pair<Column, FF>> handle_cleanup()
         { Column::tx_should_read_l1_l2_tree, 1 },
         { Column::tx_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX },
         { Column::tx_should_read_gas_used, 1 },
+        { Column::tx_reverted_pi_offset, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX },
         { Column::tx_array_length_note_hashes_pi_offset,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
         { Column::tx_array_length_nullifiers_pi_offset,
@@ -569,6 +556,8 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     Gas current_gas_limit = startup_event_data.gas_limit;
     Gas teardown_gas_limit = startup_event_data.teardown_gas_limit;
     Gas gas_used = startup_event_data.state.gas_used;
+    // Track whether this tx reverted
+    bool tx_reverted = false;
 
     // Go through each phase except startup and process the events in the phase
     for (uint32_t i = 0; i < NUM_PHASES; i++) {
@@ -605,16 +594,18 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
         // We have events to process in this phase
         for (const auto& tx_phase_event : phase_events) {
+            // If this phase is the first revert, set tx_reverted:
+            tx_reverted = tx_reverted || tx_phase_event->reverted;
+
             // We always set the tree state
             trace.set(row, insert_state(tx_phase_event->state_before, tx_phase_event->state_after));
-            trace.set(row,
-                      insert_side_effect_states(tx_phase_event->state_before.side_effect_states,
-                                                tx_phase_event->state_after.side_effect_states));
+            trace.set(row, insert_side_effect_states(tx_phase_event->state_before, tx_phase_event->state_after));
             trace.set(
                 row,
                 { {
                     { C::tx_sel, 1 },
                     { C::tx_discard, discard ? 1 : 0 },
+                    { C::tx_tx_reverted, tx_reverted ? 1 : 0 },
                     { C::tx_phase_value, static_cast<uint8_t>(tx_phase_event->phase) },
                     { Column::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
                     { C::tx_is_padded, 0 }, // overidden below if this is a skipped phase event
@@ -717,6 +708,7 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_context_public_inputs_l1_l2_tree_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_gas_used_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_read_gas_limit_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_context_public_inputs_read_reverted_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_write_note_hash_count_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_write_nullifier_count_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,

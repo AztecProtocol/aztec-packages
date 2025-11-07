@@ -14,7 +14,7 @@ This tutorial is compatible with the Aztec version `#include_aztec_version`. Ins
 
 - You have followed the [quickstart](../../../getting_started_on_sandbox.md)
 - Running Aztec Sandbox
-- Installed [Noir LSP](../../guides/local_env/installing_noir_lsp.md) (optional)
+- Installed [Noir LSP](../../aztec-nr/installation.md) (optional)
 
 ## Set up a project
 
@@ -70,8 +70,8 @@ pub contract Counter {
 
 #include_code imports /docs/examples/contracts/counter_contract/src/main.nr rust
 
-- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage},`
-  Imports the macros needed to define function types (`initializer`, `private`, and `utility`) and the `storage` macro for declaring contract storage structures.
+- `use aztec::macros::{functions::{external, initializer}, storage::storage},`
+  Imports the macros needed to define function types (`external`, `initializer`) and the `storage` macro for declaring contract storage structures.
 
 - `protocol_types::{address::AztecAddress, traits::ToField},`
   Brings in `AztecAddress` (used to identify accounts/contracts) and traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
@@ -98,7 +98,7 @@ Let’s create a constructor method to run on deployment that assigns an initial
 
 This function accesses the counts from storage. Then it assigns the passed initial counter to the `owner`'s counter privately using `at().add()`.
 
-We have annotated this and other functions with `#[private]` which are ABI macros so the compiler understands it will handle private inputs.
+We have annotated this and other functions with `#[external("private")]` which are ABI macros so the compiler understands it will handle private inputs.
 
 ## Incrementing our counter
 
@@ -145,4 +145,4 @@ You can now use the artifact and/or the TS class in your Aztec.js!
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Functions and annotations like `#[private]`](../../concepts/smart_contracts/functions/function_transforms.md#private-functions)
+- [Functions and annotations like `#[external("private")]`](../../aztec-nr/framework-description/functions/function_transforms.md#private-functions)

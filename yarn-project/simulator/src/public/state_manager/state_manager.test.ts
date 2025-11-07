@@ -1,3 +1,4 @@
+import { NOTE_HASH_TREE_LEAF_COUNT } from '@aztec/constants';
 import { randomBigInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -5,6 +6,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { makeContractClassPublic } from '@aztec/stdlib/testing';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 
 import { mock } from 'jest-mock-extended';
 
@@ -14,19 +16,20 @@ import {
   mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
-  mockL1ToL2MessageExists,
+  mockGetL1ToL2LeafValue,
+  mockGetNoteHash,
   mockNoteHashCount,
-  mockNoteHashExists,
   mockStorageRead,
 } from '../avm/test_utils.js';
-import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { type PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { NoteHashIndexOutOfRangeError } from '../side_effect_errors.js';
 import type { PublicSideEffectTraceInterface } from '../side_effect_trace_interface.js';
 import type { PublicPersistableStateManager } from './state_manager.js';
 
 describe('state_manager', () => {
   let address: AztecAddress;
   const utxo = Fr.random();
-  const leafIndex = randomBigInt(2n << 64n);
+  const leafIndex = randomBigInt(2n << 36n);
   const firstNullifier = new Fr(4200);
 
   let treesDB: PublicTreesDB;
@@ -66,14 +69,24 @@ describe('state_manager', () => {
 
   describe('UTXOs & messages', () => {
     it('checkNoteHashExists works for missing note hashes', async () => {
+      mockGetNoteHash(treesDB, leafIndex);
       const exists = await persistableState.checkNoteHashExists(address, utxo, leafIndex);
       expect(exists).toEqual(false);
     });
 
     it('checkNoteHashExists works for existing note hashes', async () => {
-      mockNoteHashExists(treesDB, leafIndex, utxo);
+      mockGetNoteHash(treesDB, leafIndex, utxo);
       const exists = await persistableState.checkNoteHashExists(address, utxo, leafIndex);
       expect(exists).toEqual(true);
+    });
+
+    it('checkNoteHashExists works for index out of range', async () => {
+      treesDB = new PublicTreesDB(mock<MerkleTreeWriteOperations>());
+      persistableState = initPersistableStateManager({ treesDB, contractsDB, trace, firstNullifier });
+      const invalidIndex = BigInt(NOTE_HASH_TREE_LEAF_COUNT + 1);
+      await expect(treesDB.getNoteHash(invalidIndex)).rejects.toThrow(NoteHashIndexOutOfRangeError);
+      const exists = await persistableState.checkNoteHashExists(address, utxo, invalidIndex);
+      expect(exists).toEqual(false);
     });
 
     it('writeNoteHash works', async () => {
@@ -106,12 +119,13 @@ describe('state_manager', () => {
     });
 
     it('checkL1ToL2MessageExists works for missing message', async () => {
+      mockGetL1ToL2LeafValue(treesDB, leafIndex);
       const exists = await persistableState.checkL1ToL2MessageExists(utxo, new Fr(leafIndex));
       expect(exists).toEqual(false);
     });
 
     it('checkL1ToL2MessageExists works for existing message', async () => {
-      mockL1ToL2MessageExists(treesDB, leafIndex, utxo);
+      mockGetL1ToL2LeafValue(treesDB, leafIndex, utxo);
       const exists = await persistableState.checkL1ToL2MessageExists(utxo, new Fr(leafIndex));
       expect(exists).toEqual(true);
     });

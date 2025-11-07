@@ -132,7 +132,7 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      const blobFieldsPerCheckpoint = this.blocks.map(block => block.body.toBlobFields());
+      const blobFieldsPerCheckpoint = this.blocks.map(block => block.getCheckpointBlobFields());
       const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
 
       // TODO(#17027): Enable multiple blocks per checkpoint.
@@ -140,7 +140,7 @@ export class EpochProvingJob implements Traceable {
       const totalNumCheckpoints = epochSizeBlocks;
 
       this.prover.startNewEpoch(epochNumber, totalNumCheckpoints, finalBlobBatchingChallenges);
-      await this.prover.startTubeCircuits(Array.from(this.txs.values()));
+      await this.prover.startChonkVerifierCircuits(Array.from(this.txs.values()));
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
         this.checkState();
@@ -274,7 +274,7 @@ export class EpochProvingJob implements Traceable {
    */
   private async createFork(blockNumber: number, l1ToL2Messages: Fr[]) {
     const db = await this.dbProvider.fork(blockNumber);
-    const l1ToL2MessagesPadded = padArrayEnd(
+    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
       l1ToL2Messages,
       Fr.ZERO,
       NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,

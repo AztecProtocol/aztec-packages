@@ -1,8 +1,9 @@
-import { EthAddress, retryUntil } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import { type SlasherConfig, type TallySlasherSettings, getTallySlasherSettings } from '@aztec/slasher';
 import { type L1RollupConstants, getSlotRangeForEpoch, getStartTimestampForEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -164,12 +165,22 @@ describe('slash inactivity test', () => {
     // Now we wait for the slash
     const beforeSlash = await rollup.getAttesterView(offlineValidator);
     const timeout = getTotalSlashDelayInSeconds() + 60;
-    await waitForSlash(offlineValidator, timeout);
+    const slashEvent = await waitForSlash(offlineValidator, timeout);
+    expect(slashEvent.attester.equals(offlineValidator)).toBe(true);
+    const localThreshold = await rollup.getLocalEjectionThreshold();
+
+    const expectedBurnAmount =
+      beforeSlash.effectiveBalance < inactivityPenalty ? beforeSlash.effectiveBalance : inactivityPenalty;
+    expect(slashEvent.amount).toEqual(expectedBurnAmount);
     const afterSlash = await rollup.getAttesterView(offlineValidator);
 
     // The validator should have been slashed for their inactivity during the epoch it was disabled
-    logger.warn(`Verifying slash for ${slashSettings.slashingAmounts[0]}`, { beforeSlash, afterSlash });
+    logger.info(`Verifying slash for ${slashSettings.slashingAmounts[0]}`, { beforeSlash, afterSlash });
     const slashed = beforeSlash.effectiveBalance - afterSlash.effectiveBalance;
-    expect(slashed).toEqual(inactivityPenalty);
+    const expectedBalanceDrop =
+      beforeSlash.effectiveBalance - inactivityPenalty < localThreshold
+        ? beforeSlash.effectiveBalance // If validator falls below threshold, this test does not add the validator back into the rollup
+        : inactivityPenalty;
+    expect(slashed).toEqual(expectedBalanceDrop);
   });
 });

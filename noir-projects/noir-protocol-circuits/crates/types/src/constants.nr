@@ -51,7 +51,7 @@ pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as
 pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
 pub global NULLIFIER_SUBTREE_HEIGHT: u32 = 6;
 pub global PUBLIC_DATA_SUBTREE_HEIGHT: u32 = 6;
-pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 4; // TODO: Update this to publish 1024 messages per checkpoint
+pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 10;
 pub global NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
 pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
@@ -102,7 +102,7 @@ pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
 pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
 pub comptime global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
 pub comptime global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
-pub comptime global PUBLIC_TUBE_VK_INDEX: u32 = 6;
+pub comptime global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
 pub comptime global AVM_VK_INDEX: u32 = 7;
 pub comptime global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
 pub comptime global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 9;
@@ -127,7 +127,7 @@ pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 24;
 pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
-pub global BLOBS_PER_BLOCK: u32 = 3;
+pub global BLOBS_PER_BLOCK: u32 = 6;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
@@ -400,7 +400,7 @@ pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 // TODO: Leila's considering moving this into a noir file within bb
 // The hiding kernel IO public inputs consist of pairing_inputs and table_commitments.
 // They are independent of the circuit's custom public inputs.
-pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 48;
+pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 56;
 pub global PAIRING_POINTS_SIZE: u32 = 16;
 pub global IPA_CLAIM_SIZE: u32 = 10;
 
@@ -555,9 +555,8 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
     + FINAL_BLOB_ACCUMULATOR_LENGTH /* blob_public_inputs */;
 
-// TODO: measure whether "4" is a good choice.
 // Depends on the final number of messages per checkpoint.
-pub global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
+pub global NUM_MSGS_PER_BASE_PARITY: u32 = 256;
 // pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP / NUM_MSGS_PER_BASE_PARITY;
 // FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
@@ -570,11 +569,12 @@ pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 350; // See UltraKeccakFlavor for fo
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CIVC_PROOF_LENGTH: u32 = 2076;
+pub global CHONK_PROOF_LENGTH: u32 = 2077;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
-pub global CIVC_VK_LENGTH_IN_FIELDS: u32 = MEGA_VK_LENGTH_IN_FIELDS; // size of a client ivc verification key
+// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
+pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
@@ -661,6 +661,7 @@ pub global MEM_TAG_U128: Field = 6;
 // AVM memory related constants
 pub global AVM_HIGHEST_MEM_ADDRESS: u32 = MAX_U32_VALUE;
 pub global AVM_MEMORY_NUM_BITS: u8 = 32;
+pub global AVM_MEMORY_SIZE: u64 = 0x100000000;
 
 // AVM bitwise operation IDs
 pub global AVM_BITWISE_AND_OP_ID: u8 = 0;
@@ -993,13 +994,6 @@ pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_BLOCK; // Arbi
 // the new database entry to be stored by all network participants.
 pub global L2_GAS_DISTRIBUTED_STORAGE_PREMIUM: u32 = 1024;
 
-// Zero gas because we don't have to hash and validate the private logs
-pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
-pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0; // TODO: this should be nonzero, because the sequencer is doing work to hash this, as part of tx validation
-
-// Gas for writing message to L1 portal
-pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200; // TODO: Update and explain this.
-
 // AVM - misc constants
 pub global AVM_PC_SIZE_IN_BITS: u32 = 32;
 pub global AVM_MAX_OPERANDS: u32 = 7;
@@ -1016,6 +1010,14 @@ pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
 pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Base L2 GAS
+// TODO: Decide what the following constants should be.
+pub global L2_GAS_PER_NOTE_HASH: u32 = 0;
+pub global L2_GAS_PER_NULLIFIER: u32 = 0;
+// Gas for writing message to L1 portal
+pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200; // TODO: Update and explain this.
+// Zero gas because we don't have to hash and validate the private logs
+pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
+pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0; // TODO: this should be nonzero, because the sequencer is doing work to hash this, as part of tx validation
 // Note: magic numbers here are derived from each op's AVM circuit trace area
 // https://docs.google.com/spreadsheets/d/1FPyLfJFPOfZTmZC-T6b_4yB5dSrOAofz3dufte23_TA/edit?usp=sharing
 pub global AVM_ADD_BASE_L2_GAS: u32 = 12;
@@ -1097,14 +1099,14 @@ pub global BLOCK_END_PREFIX: Field = 0x626c6f636b5f656e64; // = "block_end".to_f
 pub global PROOF_TYPE_PLONK: u32 = 0;
 pub global PROOF_TYPE_HONK: u32 = 1;
 pub global PROOF_TYPE_OINK: u32 = 2;
-pub global PROOF_TYPE_PG: u32 = 3;
+pub global PROOF_TYPE_HN: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 // worktodo comment here where 7 is
-pub global PROOF_TYPE_PG_FINAL: u32 = 8;
-pub global PROOF_TYPE_PG_TAIL: u32 = 9;
-pub global PROOF_TYPE_CIVC: u32 = 10;
+pub global PROOF_TYPE_HN_FINAL: u32 = 8;
+pub global PROOF_TYPE_HN_TAIL: u32 = 9;
+pub global PROOF_TYPE_CHONK: u32 = 10;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator
 pub global TWO_POW_64: Field = 18446744073709551616;

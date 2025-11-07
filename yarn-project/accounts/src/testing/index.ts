@@ -3,7 +3,7 @@
  *
  * @packageDocumentation
  */
-import { Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js/fields';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { getSchnorrAccountContractAddress } from '../schnorr/index.js';
@@ -44,7 +44,7 @@ export function getInitialTestAccountsData(): Promise<InitialAccountData[]> {
 /**
  * Generate a fixed amount of random schnorr account contract instance.
  */
-export async function generateSchnorrAccounts(numberOfAccounts: number) {
+export async function generateSchnorrAccounts(numberOfAccounts: number): Promise<Promise<InitialAccountData[]>> {
   const secrets = Array.from({ length: numberOfAccounts }, () => Fr.random());
   return await Promise.all(
     secrets.map(async secret => {

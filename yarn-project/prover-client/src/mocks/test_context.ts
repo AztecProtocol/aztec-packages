@@ -1,4 +1,5 @@
 import type { BBProverConfig } from '@aztec/bb-prover';
+import { TestCircuitProver } from '@aztec/bb-prover';
 import { SpongeBlob } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
@@ -13,7 +14,8 @@ import { SimpleContractDataSource } from '@aztec/simulator/public/fixtures';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { EthAddress, getBlockBlobFields } from '@aztec/stdlib/block';
+import { EthAddress } from '@aztec/stdlib/block';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
@@ -24,9 +26,6 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { promises as fs } from 'fs';
 
-// TODO(#12613) This means of sharing test code is not ideal.
-// eslint-disable-next-line import/no-relative-packages
-import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { buildBlockWithCleanDB } from '../block-factory/light.js';
 import { getTreeSnapshot } from '../orchestrator/block-building-helpers.js';
 import type { BlockProvingState } from '../orchestrator/block-proving-state.js';
@@ -213,7 +212,7 @@ export class TestContext {
     const merkleTrees = await this.worldState.fork();
     await merkleTrees.appendLeaves(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
     );
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, merkleTrees);
     const txs = await timesParallel(numTxs, i =>
@@ -261,7 +260,7 @@ export class TestContext {
     const merkleTrees = await this.worldState.fork();
     await merkleTrees.appendLeaves(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
     );
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, merkleTrees);
 
@@ -284,9 +283,8 @@ export class TestContext {
       );
     });
 
-    const blockBlobFields = blockTxs.map(txs => getBlockBlobFields(txs.map(tx => tx.txEffect)));
-    const totalNumBlobFields = blockBlobFields.reduce((acc, curr) => acc + curr.length, 0);
-    const spongeBlobState = SpongeBlob.init(totalNumBlobFields);
+    const blobFields = getCheckpointBlobFields(blockTxs.map(txs => txs.map(tx => tx.txEffect)));
+    const spongeBlobState = await SpongeBlob.init(blobFields.length);
 
     const blocks: { header: BlockHeader; txs: ProcessedTx[] }[] = [];
     for (let i = 0; i < numBlocks; i++) {
@@ -306,12 +304,13 @@ export class TestContext {
 
       await this.worldState.handleL2BlockAndMessages(block, blockMsgs, isFirstBlock);
 
-      await spongeBlobState.absorb(blockBlobFields[i]);
+      const blockBlobFields = block.body.toBlobFields();
+      await spongeBlobState.absorb(blockBlobFields);
 
       blocks.push({ header, txs });
     }
 
-    return { blocks, l1ToL2Messages, blobFields: blockBlobFields.flat() };
+    return { blocks, l1ToL2Messages, blobFields };
   }
 
   public async processPublicFunctions(
@@ -330,7 +329,7 @@ export class TestContext {
     const merkleTrees = await this.worldState.fork();
     await merkleTrees.appendLeaves(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
     );
 
     const processorFactory = new PublicProcessorFactory(

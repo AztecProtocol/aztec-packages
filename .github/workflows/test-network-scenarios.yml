@@ -51,7 +51,7 @@ jobs:
         run: |
           git fetch --tags --force
           tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
-          if echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+          if echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+' && ! echo "$tag" | grep -q 'commit'; then
             echo "should_run=true" >> $GITHUB_OUTPUT
             echo "Found semver tag: $tag"
           else
@@ -114,7 +114,7 @@ jobs:
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
-          sudo apt install -y --no-install-recommends redis-tools parallel
+          sudo apt update && sudo apt install -y --no-install-recommends redis-tools parallel
 
       - name: Store the GCP key in a file
         if: env.SEMVER != '' || env.DOCKER_IMAGE != ''

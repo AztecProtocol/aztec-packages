@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { deployerEnv } from "../config";
 
-import { Contract, Fr } from "@aztec/aztec.js";
+import { Contract } from "@aztec/aztec.js/contracts";
+import { Fr } from "@aztec/aztec.js/fields";
 import { toast } from "react-toastify";
 
 export function useContract() {

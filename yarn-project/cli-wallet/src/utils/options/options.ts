@@ -1,3 +1,4 @@
+import { TxHash } from '@aztec/aztec.js/tx';
 import { parseAztecAddress, parseSecretKey, parseTxHash } from '@aztec/cli/utils';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -29,7 +30,7 @@ export function integerArgParser(
   return parsed;
 }
 
-export function aliasedTxHashParser(txHash: string, db?: WalletDB) {
+export function aliasedTxHashParser(txHash: string, db?: WalletDB): TxHash {
   try {
     return parseTxHash(txHash);
   } catch {

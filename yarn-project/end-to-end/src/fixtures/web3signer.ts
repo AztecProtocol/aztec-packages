@@ -1,5 +1,6 @@
-import { retryUntil, sleep } from '@aztec/aztec.js';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { RemoteSigner } from '@aztec/node-keystore';
 
 import { mkdirSync } from 'node:fs';

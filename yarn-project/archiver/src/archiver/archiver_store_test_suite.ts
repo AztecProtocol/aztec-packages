@@ -142,6 +142,28 @@ export function describeArchiverDataStore(
         await store.addBlocks(blocks);
         await expect(store.unwindBlocks(5, 1)).rejects.toThrow(/can only unwind blocks from the tip/i);
       });
+
+      it('unwound blocks and headers cannot be retrieved by hash or archive', async () => {
+        await store.addBlocks(blocks);
+        const lastBlock = blocks[blocks.length - 1];
+        const blockHash = await lastBlock.block.hash();
+        const archive = lastBlock.block.archive.root;
+
+        // Verify block and header exist before unwinding
+        expect(await store.getPublishedBlockByHash(blockHash)).toBeDefined();
+        expect(await store.getPublishedBlockByArchive(archive)).toBeDefined();
+        expect(await store.getBlockHeaderByHash(blockHash)).toBeDefined();
+        expect(await store.getBlockHeaderByArchive(archive)).toBeDefined();
+
+        // Unwind the block
+        await store.unwindBlocks(lastBlock.block.number, 1);
+
+        // Verify neither block nor header can be retrieved after unwinding
+        expect(await store.getPublishedBlockByHash(blockHash)).toBeUndefined();
+        expect(await store.getPublishedBlockByArchive(archive)).toBeUndefined();
+        expect(await store.getBlockHeaderByHash(blockHash)).toBeUndefined();
+        expect(await store.getBlockHeaderByArchive(archive)).toBeUndefined();
+      });
     });
 
     describe('getBlocks', () => {
@@ -176,6 +198,86 @@ export function describeArchiverDataStore(
           { force: true },
         );
         await expect(store.getPublishedBlocks(20, 2)).rejects.toThrow(`mismatch`);
+      });
+    });
+
+    describe('getPublishedBlockByHash', () => {
+      beforeEach(async () => {
+        await store.addBlocks(blocks);
+      });
+
+      it('retrieves a block by its hash', async () => {
+        const expectedBlock = blocks[5];
+        const blockHash = await expectedBlock.block.hash();
+        const retrievedBlock = await store.getPublishedBlockByHash(blockHash);
+
+        expect(retrievedBlock).toBeDefined();
+        expectBlocksEqual([retrievedBlock!], [expectedBlock]);
+      });
+
+      it('returns undefined for non-existent block hash', async () => {
+        const nonExistentHash = Fr.random();
+        await expect(store.getPublishedBlockByHash(nonExistentHash)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('getPublishedBlockByArchive', () => {
+      beforeEach(async () => {
+        await store.addBlocks(blocks);
+      });
+
+      it('retrieves a block by its archive root', async () => {
+        const expectedBlock = blocks[3];
+        const archive = expectedBlock.block.archive.root;
+        const retrievedBlock = await store.getPublishedBlockByArchive(archive);
+
+        expect(retrievedBlock).toBeDefined();
+        expectBlocksEqual([retrievedBlock!], [expectedBlock]);
+      });
+
+      it('returns undefined for non-existent archive root', async () => {
+        const nonExistentArchive = Fr.random();
+        await expect(store.getPublishedBlockByArchive(nonExistentArchive)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('getBlockHeaderByHash', () => {
+      beforeEach(async () => {
+        await store.addBlocks(blocks);
+      });
+
+      it('retrieves a block header by its hash', async () => {
+        const expectedBlock = blocks[7];
+        const blockHash = await expectedBlock.block.hash();
+        const retrievedHeader = await store.getBlockHeaderByHash(blockHash);
+
+        expect(retrievedHeader).toBeDefined();
+        expect(retrievedHeader!.equals(expectedBlock.block.getBlockHeader())).toBe(true);
+      });
+
+      it('returns undefined for non-existent block hash', async () => {
+        const nonExistentHash = Fr.random();
+        await expect(store.getBlockHeaderByHash(nonExistentHash)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('getBlockHeaderByArchive', () => {
+      beforeEach(async () => {
+        await store.addBlocks(blocks);
+      });
+
+      it('retrieves a block header by its archive root', async () => {
+        const expectedBlock = blocks[2];
+        const archive = expectedBlock.block.archive.root;
+        const retrievedHeader = await store.getBlockHeaderByArchive(archive);
+
+        expect(retrievedHeader).toBeDefined();
+        expect(retrievedHeader!.equals(expectedBlock.block.getBlockHeader())).toBe(true);
+      });
+
+      it('returns undefined for non-existent archive root', async () => {
+        const nonExistentArchive = Fr.random();
+        await expect(store.getBlockHeaderByArchive(nonExistentArchive)).resolves.toBeUndefined();
       });
     });
 

@@ -28,15 +28,37 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
 
 std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassId& class_id) const
 {
-    std::optional<ContractClass> klass = raw_contract_db.get_contract_class(class_id);
-    // If we didn't get a contract class, we don't prove anything.
-    // It is the responsibility of the caller to prove what the protocol expects.
-    if (!klass.has_value()) {
+    // Get the contract class from the raw DB.
+    std::optional<ContractClass> maybe_klass = raw_contract_db.get_contract_class(class_id);
+    if (!maybe_klass.has_value()) {
         return std::nullopt;
     }
-    // If we did get a contract class, we need to prove that the class_id is derived from the class.
-    class_id_derivation.assert_derivation(class_id, klass.value());
-    return klass;
+
+    // Get the bytecode commitment for this class.
+    std::optional<FF> maybe_bytecode_commitment = raw_contract_db.get_bytecode_commitment(class_id);
+    // If the class exists, the bytecode commitment must also exist.
+    assert(maybe_bytecode_commitment.has_value());
+
+    // Perform class ID derivation to verify the class ID is correctly derived from the class data.
+    class_id_derivation.assert_derivation(maybe_klass->with_commitment(maybe_bytecode_commitment.value()));
+
+    return maybe_klass;
+}
+
+std::optional<FF> ContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+{
+    return raw_contract_db.get_bytecode_commitment(class_id);
+}
+
+std::optional<std::string> ContractDB::get_debug_function_name(const AztecAddress& address,
+                                                               const FunctionSelector& selector) const
+{
+    return raw_contract_db.get_debug_function_name(address, selector);
+}
+
+void ContractDB::add_contracts(const ContractDeploymentData& contract_deployment_data)
+{
+    raw_contract_db.add_contracts(contract_deployment_data);
 }
 
 // Merkle DB starts.

@@ -8,7 +8,7 @@ import {
   type TestPrivateInsertions,
 } from '@aztec/simulator/public/fixtures';
 import type { PublicTxResult } from '@aztec/simulator/server';
-import { type AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
@@ -27,7 +27,7 @@ import {
   verifyAvmProof,
 } from '../bb/execute.js';
 
-const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb');
+const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
 
 // An InterceptingLogger that records all log messages and forwards them to a wrapped logger.
 class InterceptingLogger implements Logger {
@@ -101,9 +101,14 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     super(merkleTrees, contractDataSource, globals, metrics);
   }
 
-  static async new(checkCircuitOnly: boolean = false, globals?: GlobalVariables, metrics?: TestExecutorMetrics) {
+  static async new(
+    worldStateService: NativeWorldStateService, // make sure to close this later
+    checkCircuitOnly: boolean = false,
+    globals?: GlobalVariables,
+    metrics?: TestExecutorMetrics,
+  ) {
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    const merkleTrees = await worldStateService.fork();
     return new AvmProvingTester(checkCircuitOnly, contractDataSource, merkleTrees, globals, metrics);
   }
 
@@ -222,7 +227,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 
     const opString = this.checkCircuitOnly ? 'Check circuit' : 'Proving and verification';
 
-    const avmCircuitInputs = simRes.avmProvingRequest.inputs;
+    const avmCircuitInputs = new AvmCircuitInputs(simRes.hints!, simRes.publicInputs);
     const timer = new Timer();
     await this.proveVerify(avmCircuitInputs, txLabel);
     this.logger.info(`${opString} took ${timer.ms()} ms for tx ${txLabel}`);

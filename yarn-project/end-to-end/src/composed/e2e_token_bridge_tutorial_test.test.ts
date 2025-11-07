@@ -1,14 +1,10 @@
 // This test should only use packages that are published to npm
 // docs:start:imports
-import {
-  EthAddress,
-  Fr,
-  L1TokenManager,
-  L1TokenPortalManager,
-  createAztecNodeClient,
-  createLogger,
-  waitForNode,
-} from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { L1TokenManager, L1TokenPortalManager } from '@aztec/aztec.js/ethereum';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createLogger } from '@aztec/aztec.js/log';
+import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import { createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
 import {
   FeeAssetHandlerAbi,

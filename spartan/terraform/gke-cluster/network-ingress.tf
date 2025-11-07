@@ -41,3 +41,25 @@ resource "google_compute_managed_ssl_certificate" "testnet_rpc_cert" {
     prevent_destroy = true
   }
 }
+
+resource "google_compute_global_address" "devnet_rpc_ip" {
+  name        = "devnet-rpc-ip"
+  description = "Static IP for devnet network RPC ingress"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "google_compute_managed_ssl_certificate" "devnet_rpc_cert" {
+  name        = "devnet-rpc-cert"
+  description = "Managed SSL certificate for devnet RPC ingress"
+
+  managed {
+    domains = ["devnet.aztec-labs.com"]
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
