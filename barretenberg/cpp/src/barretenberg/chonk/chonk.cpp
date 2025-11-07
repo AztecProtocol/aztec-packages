@@ -725,20 +725,40 @@ Chonk::VerificationKey Chonk::get_vk() const
 void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                                const std::shared_ptr<Transcript>& verifier_transcript)
 {
+    info("-------- DEBUGGING INFO FOR NATIVE FOLDING STEP --------");
+
     auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
 
     FoldingVerifier native_verifier(verifier_transcript);
     if (queue_entry.type == QUEUE_TYPE::OINK) {
-        auto [_, new_accumulator] = native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
+        auto [_first_verified, new_accumulator] =
+            native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
         native_verifier_accum = std::move(new_accumulator);
+
+        info("Was the Sumcheck turning an instance into an accumulator verified? ", _first_verified ? "true" : "false");
     } else {
         auto [_first_verified, _second_verified, new_accumulator] =
             native_verifier.verify_folding_proof(verifier_inst, queue_entry.proof);
         native_verifier_accum = std::move(new_accumulator);
+
+        info("Was the Sumcheck turning an instance into an accumulator verified? ", _first_verified ? "true" : "false");
+        info("Was the Sumcheck to batch two accumulators verified? ", _second_verified ? "true" : "false");
+
+        if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
+            HypernovaDeciderVerifier<MegaFlavor> decider_verifier(verifier_transcript);
+            bb::PairingPoints<curve::BN254> pairing_points =
+                decider_verifier.verify_proof(native_verifier_accum, decider_proof);
+
+            info("Were the pairing points from the decider verified? ", pairing_points.check() ? "true" : "false");
+        }
     }
 
-    info("DEBUG: Hash of verifier accumulator computed natively ",
+    info("Do the prover and verifier accumulators match? ",
+         prover_accumulator.compare_with_verifier_claim(native_verifier_accum) ? "true" : "false");
+    info("Hash of verifier accumulator computed natively ",
          native_verifier_accum.hash_through_transcript("", *verifier_transcript));
+
+    info("-------- END OF DEBUGGING INFO FOR NATIVE FOLDING STEP --------");
 }
 
 void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
@@ -746,6 +766,7 @@ void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
                                    const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
     info("-------- DEBUGGING INFO FOR INCOMING CIRCUIT --------");
+
     info("Accumulating circuit ", num_circuits_accumulated + 1, " of ", num_circuits);
     info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
     info("Did we find a failure? ", circuit.failed() ? "true" : "false");
