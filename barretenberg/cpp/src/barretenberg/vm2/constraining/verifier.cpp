@@ -5,6 +5,7 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include <numeric>
 
 namespace bb::avm2 {
 
@@ -127,14 +128,49 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         }
     }
 
-    ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_unshifted()),
-                                 .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_unshifted()) },
-        .shifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_to_be_shifted()),
-                               .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_shifted()) }
-    };
+    // Batch commitments and evaluations using short scalars to reduce ECCVM circuit size
+    std::span<const Commitment> unshifted_comms = commitments.get_unshifted();
+    std::span<const FF> unshifted_evals = output.claimed_evaluations.get_unshifted();
+    std::span<const Commitment> shifted_comms = commitments.get_to_be_shifted();
+    std::span<const FF> shifted_evals = output.claimed_evaluations.get_shifted();
+
+    // Generate batching challenge labels
+    // Note: We get N-1 challenges for N unshifted commitments (first commitment has implicit coefficient 1)
+    std::vector<std::string> unshifted_batching_challenge_labels;
+    unshifted_batching_challenge_labels.reserve(unshifted_comms.size() - 1);
+    for (size_t idx = 0; idx < unshifted_comms.size() - 1; idx++) {
+        unshifted_batching_challenge_labels.push_back("rho_" + std::to_string(idx));
+    }
+    std::vector<std::string> shifted_batching_challenge_labels;
+    shifted_batching_challenge_labels.reserve(shifted_comms.size());
+    for (size_t idx = 0; idx < shifted_comms.size(); idx++) {
+        shifted_batching_challenge_labels.push_back("rho_" + std::to_string(unshifted_comms.size() - 1 + idx));
+    }
+
+    // Get short batching challenges from transcript
+    auto unshifted_challenges = transcript->template get_challenges<FF>(unshifted_batching_challenge_labels);
+    auto shifted_challenges = transcript->template get_challenges<FF>(shifted_batching_challenge_labels);
+
+    // Batch commitments: first commitment has coefficient 1, rest are batched with challenges
+    Commitment squashed_unshifted =
+        unshifted_comms[0] + batch_mul_native(unshifted_comms.subspan(1), unshifted_challenges);
+
+    Commitment squashed_shifted = batch_mul_native(shifted_comms, shifted_challenges);
+
+    // Batch evaluations: compute inner product with first eval as initial value for unshifted
+    FF squashed_unshifted_eval = std::inner_product(
+        unshifted_challenges.begin(), unshifted_challenges.end(), unshifted_evals.begin() + 1, unshifted_evals[0]);
+
+    FF squashed_shifted_eval =
+        std::inner_product(shifted_challenges.begin(), shifted_challenges.end(), shifted_evals.begin(), FF(0));
+
+    // Execute Shplemini rounds with squashed claims
+    ClaimBatcher squashed_claim_batcher{ .unshifted = ClaimBatch{ .commitments = RefVector(squashed_unshifted),
+                                                                  .evaluations = RefVector(squashed_unshifted_eval) },
+                                         .shifted = ClaimBatch{ .commitments = RefVector(squashed_shifted),
+                                                                .evaluations = RefVector(squashed_shifted_eval) } };
     const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
-        padding_indicator_array, claim_batcher, output.challenge, Commitment::one(), transcript);
+        padding_indicator_array, squashed_claim_batcher, output.challenge, Commitment::one(), transcript);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     VerifierCommitmentKey pcs_vkey{};

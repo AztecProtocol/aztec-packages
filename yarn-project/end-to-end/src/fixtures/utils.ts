@@ -893,7 +893,11 @@ export function createAndSyncProverNode(
 
     // Creating temp store and archiver for simulated prover node
     const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
-    const archiver = await createArchiver(archiverConfig, { blobSinkClient }, { blockUntilSync: true });
+    const archiver = await createArchiver(
+      archiverConfig,
+      { blobSinkClient, dateProvider: proverNodeDeps.dateProvider },
+      { blockUntilSync: true },
+    );
 
     // Prover node config is for simulated proofs
     const proverConfig: ProverNodeConfig = {

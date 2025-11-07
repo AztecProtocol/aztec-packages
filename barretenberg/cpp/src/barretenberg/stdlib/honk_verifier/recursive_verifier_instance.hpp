@@ -44,7 +44,6 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
     SubrelationSeparator alpha;
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    FF target_sum{ 0 };
 
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
@@ -84,7 +83,6 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
                 comm = Commitment::from_witness(builder, other_comms[comm_idx]);
                 comm_idx++;
             }
-            target_sum = FF::from_witness(builder, verification_key->target_sum);
             size_t challenge_idx = 0;
             gate_challenges = std::vector<FF>(verification_key->gate_challenges.size());
             for (auto& challenge : gate_challenges) {
@@ -129,7 +127,6 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
              zip_view(witness_commitments.get_all(), verifier_inst.witness_commitments.get_all())) {
             inst_comm = comm.get_value();
         }
-        verifier_inst.target_sum = target_sum.get_value();
 
         verifier_inst.gate_challenges = std::vector<NativeFF>(gate_challenges.size());
         for (auto [challenge, inst_challenge] : zip_view(gate_challenges, verifier_inst.gate_challenges)) {
@@ -174,7 +171,6 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
                                                   this->relation_parameters.gamma);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_public_input_delta",
                                                   this->relation_parameters.public_input_delta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_target_sum", this->target_sum);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_gate_challenges",
                                                   this->gate_challenges);
 

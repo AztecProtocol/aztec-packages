@@ -17,11 +17,9 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
     using byte_array_ct = bb::stdlib::byte_array<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
 
-    // Create byte array struct
-    byte_array_ct arr(&builder);
+    // Build input byte array by appending constrained byte_arrays
+    byte_array_ct arr = byte_array_ct::constant_padding(&builder, 0); // Start with empty array
 
-    // Get the witness assignment for each witness index
-    // Write the witness assignment to the byte_array
     for (const auto& witness_index_num_bits : constraint.inputs) {
         auto witness_index = witness_index_num_bits.blackbox_input;
         auto num_bits = witness_index_num_bits.num_bits;
@@ -30,8 +28,11 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
         auto num_bytes = round_to_nearest_byte(num_bits);
         BB_ASSERT_LTE(num_bytes, 1024U, "barretenberg does not support blake3 inputs with more than 1024 bytes");
         field_ct element = to_field_ct(witness_index, builder);
+
+        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
         byte_array_ct element_bytes(element, num_bytes);
 
+        // Safe write: both arr and element_bytes are constrained
         arr.write(element_bytes);
     }
 

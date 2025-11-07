@@ -86,30 +86,35 @@ Never transmit private keys over unencrypted channels or store them in version c
 
 ### Step 1: Generate Keys
 
-Generate your keys using Foundry's `cast` tool:
+Generate keystores for your high availability setup using the Aztec CLI. You'll create one keystore per node, each with the same attester but different publishers.
+
+Use a mnemonic to generate keystores with the same attester (derived from address index 0) but different publishers (derived from different address indices):
 
 ```bash
-# Generate the shared attester key (your sequencer identity)
-cast wallet new-mnemonic --words 24
+# Node 1
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --mnemonic "your shared mnemonic..." \
+  --address-index 0 \
+  --data-dir ~/node1/keys
 
-# Save this output securely:
-# - The private key will be your SHARED_ATTESTER_KEY
-# - The address is your sequencer's identity
-# - Keep the mnemonic in a secure backup
+# Node 2 (same attester, different publisher)
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --mnemonic "your shared mnemonic..." \
+  --address-index 1 \
+  --data-dir ~/node2/keys
 
-# Generate publisher key for Node 1
-cast wallet new-mnemonic --words 24
-# Save the private key as PUBLISHER_1_KEY
-
-# Generate publisher key for Node 2
-cast wallet new-mnemonic --words 24
-# Save the private key as PUBLISHER_2_KEY
-
-# Generate additional publisher keys for additional nodes...
+# Node 3 (same attester, another different publisher)
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --mnemonic "your shared mnemonic..." \
+  --address-index 2 \
+  --data-dir ~/node3/keys
 ```
 
 :::tip
-Consider using a dedicated mnemonic for publisher keys and deriving multiple addresses from it using different address indices. This simplifies key management while maintaining unique publishers per node.
+You can manually edit each keystore afterward to add the appropriate fee recipient address for your sequencer.
 :::
 
 ### Step 2: Fund Publisher Accounts

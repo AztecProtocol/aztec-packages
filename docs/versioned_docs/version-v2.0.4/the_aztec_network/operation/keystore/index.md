@@ -82,6 +82,8 @@ See [Troubleshooting](./troubleshooting.md) for solutions.
 
 ## Getting Started
 
-Start with the [Key Storage Methods](./storage_methods.md) guide to understand your options for storing keys securely. Once you're comfortable with the basics, explore the [Advanced Configuration Patterns](./advanced_patterns.md) guide for more complex scenarios.
+**First time creating a keystore?** Start with the [Creating Validator Keystores guide](./creating_keystores.md) to learn how to use the Aztec CLI to generate keystores for sequencers and provers.
+
+Once you have a basic keystore, explore the [Key Storage Methods](./storage_methods.md) guide to understand advanced options like remote signers and encrypted keystores. Then check out [Advanced Configuration Patterns](./advanced_patterns.md) for complex deployment scenarios.
 
 For production deployments, we strongly recommend using remote signers or encrypted keystores instead of inline private keys.

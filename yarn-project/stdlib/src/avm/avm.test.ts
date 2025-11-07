@@ -4,6 +4,7 @@ import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
 
 import { makeAvmCircuitInputs } from '../tests/factories.js';
 import { AvmCircuitInputs } from './avm.js';
+import { deserializeFromMessagePack } from './message_pack.js';
 
 describe('Avm circuit inputs', () => {
   // This tests that serde with the orchestrator works.
@@ -31,5 +32,15 @@ describe('Avm circuit inputs', () => {
     // Note: we use .equals() here to prevent jest from taking forever to
     // generate the diff. This could otherwise take 10m+ and kill CI.
     expect(buffer.equals(expected)).toBe(true);
+  });
+
+  // TODO(fcarreiro): fix this test.
+  it.skip('serializes with MP and deserializes it back', async () => {
+    const avmCircuitInputs = await makeAvmCircuitInputs(/*seed=*/ 0x1234);
+    const buffer = avmCircuitInputs.serializeWithMessagePack();
+    const json = deserializeFromMessagePack(buffer);
+    // Parsing fails.
+    const res = AvmCircuitInputs.schema.parse(json);
+    expect(res).toStrictEqual(avmCircuitInputs);
   });
 });

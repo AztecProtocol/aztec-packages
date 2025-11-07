@@ -13,6 +13,8 @@ export DENOISE=${DENOISE:-1}
 # Number of TXE servers to run when testing.
 export NUM_TXES=8
 
+export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
+
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
@@ -20,6 +22,14 @@ if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
   export NOIR_HASH=$(./noir/bootstrap.sh hash)
   [ -n "$NOIR_HASH" ]
 fi
+
+# Cleanup function. Called on script exit.
+function cleanup {
+  if [ -n "${txe_pids:-}" ]; then
+    kill -SIGTERM $txe_pids &>/dev/null || true
+  fi
+}
+trap cleanup EXIT
 
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
@@ -147,41 +157,10 @@ EOF
   chmod +x $hooks_dir/post-checkout
 }
 
-function sort_by_cpus {
-  awk '
-    {
-      cpus = 0;  # Default value
-      # Split line on space, take first field ($1)
-      split($1, subfields, ":");  # Split first field on :
-      for (i in subfields) {
-        split(subfields[i], arr, "=");
-        if (arr[1] == "CPUS") {
-          cpus = arr[2];
-          break;
-        }
-      }
-      # Print padded CPUS value followed by original line
-      printf "%010d %s\n", cpus, $0
-    }
-  ' | sort -s -r -n -k1,1 | cut -d' ' -f2-
-}
+export test_cmds_file="/tmp/test_cmds"
 
-function test_cmds {
-  if [ "$#" -eq 0 ]; then
-    # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir docs
-  fi
-  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
-}
-
-function start_test_env {
+function start_txes {
   # Starting txe servers with incrementing port numbers.
-  trap '(kill -SIGTERM $txe_pids &>/dev/null || true) && ./spartan/bootstrap.sh stop_env' EXIT
-
-  # Start env for spartan tests in the background
-  dump_fail "spartan/bootstrap.sh start_env" &
-  spartan_pid=$!
-
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
     existing_pid=$(lsof -ti :$port || true)
@@ -203,35 +182,23 @@ function start_test_env {
         j=$((j+1))
       done
   done
+}
 
-  echo "Waiting for spartan environment to complete setup..."
-  if wait $spartan_pid; then
-    echo "Spartan environment setup completed successfully."
-  else
-    echo_stderr "Spartan environment setup failed. Exiting."
+function test_engine_start {
+  set -euo pipefail
+  rm -f $test_cmds_file
+  touch $test_cmds_file
+  DENOISE=0 parallelize "$@" < <(awk '/^$/{exit} {print}' < <(tail -f $test_cmds_file))
+  local ret=$?
+  # If a test failed, kill the build.
+  if [ "$ret" -ne 0 ]; then
+    pkill make &>/dev/null
   fi
+  return $ret
 }
+export -f test_engine_start
 
-function test {
-  echo_header "test all"
-
-  start_test_env
-
-  # We will start half as many jobs as we have cpu's.
-  # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
-  # and also that half the cpus are logical, not physical.
-  echo "Gathering tests to run..."
-  tests=$(test_cmds $@)
-
-  # Note: Capturing strips last newline. The echo re-adds it.
-  local num
-  [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
-  echo "Gathered $num tests."
-
-  echo "$tests" | parallelize
-}
-
-function build {
+function prep {
   echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
 
@@ -240,50 +207,33 @@ function build {
   # Ensure we have yarn set up.
   corepack enable
 
-  # These projects are dependent on each other and must be built linearly.
-  serial_projects=(
-    noir
-    avm-transpiler
-    barretenberg
-    noir-projects
-    l1-contracts
-    yarn-project
-    release-image
-  )
-  # These projects can be built in parallel.
-  parallel_cmds=(
-    boxes/bootstrap.sh
-    playground/bootstrap.sh
-    docs/bootstrap.sh
-    spartan/bootstrap.sh
-    aztec-up/bootstrap.sh
-  )
+  rm -f $test_cmds_file
+}
 
-  local start_building=false
-  for project in "${serial_projects[@]}"; do
-    # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
-    # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
-    # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
+function build_and_test {
+  prep
+  echo_header "build and test"
 
-    # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
-    if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
-      start_building=true
-      continue
-    fi
+  # Start the test engine.
+  color_prefix "test-engine" "denoise test_engine_start" &
+  test_engine_pid=$!
 
-    # Build the project if we should be building
-    if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
-      $project/bootstrap.sh ${1:-}
-    fi
+  make "$@"
 
-    # Stop the build if we've reached BOOTSTRAP_TO
-    # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
-    if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
-      return
-    fi
-  done
+  # TODO: Handle this better to they can be run as part of the Makefile dependency tree.
+  start_txes
+  make noir-projects-txe-tests
 
-  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
+  # Signal complete with empty line.
+  # Will wait for any tests in the test engine to complete.
+  echo >> $test_cmds_file
+  wait $test_engine_pid
+}
+
+function build {
+  prep
+  echo_header "build"
+  make "$@"
 }
 
 function bench_cmds {
@@ -291,19 +241,8 @@ function bench_cmds {
     # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/sol barretenberg/acir_tests noir-projects/noir-protocol-circuits l1-contracts
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
+  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
-
-function build_bench {
-  # TODO bench for arm64.
-  if [ $(arch) == arm64 ]; then
-    return
-  fi
-  parallel --line-buffer --tag --halt now,fail=1 'denoise "{}/bootstrap.sh build_bench"' ::: \
-    barretenberg/cpp \
-    yarn-project/end-to-end
-}
-export -f build_bench
 
 function bench_merge {
   find . -path "*/bench-out/*.bench.json" -type f -print0 | \
@@ -321,7 +260,6 @@ function bench {
     return
   fi
   echo_header "bench all"
-  build_bench
   find . -type d -iname bench-out | xargs rm -rf
   bench_cmds | STRICT_SCHEDULING=1 parallelize
   rm -rf bench-out
@@ -381,16 +319,8 @@ function release {
     boxes
     aztec-up
     playground
-    # docs # released as part of ci
     release-image
   )
-  if [ $(arch) == arm64 ]; then
-    echo "Only releasing packages with platform-specific binaries on arm64."
-    projects=(
-      barretenberg/cpp
-      release-image
-    )
-  fi
 
   for project in "${projects[@]}"; do
     $project/bootstrap.sh release
@@ -425,34 +355,27 @@ case "$cmd" in
     check_toolchains
     echo "Toolchains look good! 🎉"
   ;;
-  ""|"fast"|"full")
+  ""|"fast")
     install_hooks
     build
+  ;;
+  "full")
+    export CI_FULL=1
+    install_hooks
+    build full
   ;;
   "ci-fast")
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=0
-    build
-    test
+    build_and_test
     ;;
   "ci-full")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    build
-    test
+    build_and_test full
     bench
-    ;;
-  "ci-nightly")
-    export CI=1
-    export USE_TEST_CACHE=1
-    export CI_NIGHTLY=1
-    build
-    release-image/bootstrap.sh push
-    # TODO this should become a ci-nightly-tests ran in parallel with a normal ci-release
-    # test
-    release
     ;;
   "ci-network-deploy")
     export CI=1
@@ -466,12 +389,18 @@ case "$cmd" in
     ;;
   "ci-release")
     export CI=1
-    export USE_TEST_CACHE=1
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    build
-    release
+    # We perform most of the release from the amd build (which does cross-compiles etc).
+    # The arm build just needs to build and push the release-image.
+    if [ "$(arch)" == "amd64" ]; then
+      build release
+      release
+    else
+      build
+      ./release-image/bootstrap.sh release
+    fi
     ;;
   "ci-docs")
     export CI=1
@@ -486,7 +415,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
-  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)
+  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun|build|build_and_test|prep)
     $cmd "$@"
     ;;
   *)

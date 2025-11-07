@@ -17,6 +17,9 @@ add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal
 # Needed until https://github.com/codeinred/tuplet/issues/37 is solved.
 add_compile_options(-Wno-missing-braces)
 
+# For MessagePack.
+add_definitions(-DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR)
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics -fconstexpr-steps=100000000)
 
@@ -181,8 +184,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_honk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_goblin_verifier_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
-    $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
-    $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>

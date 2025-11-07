@@ -29,22 +29,21 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
     using GrumpkinPoint = G1::affine_element;
     using FF = bb::fr;
 
-    class Tampering {
+    class InvalidWitness {
       public:
-        enum class Mode : uint8_t { None, Result };
+        enum class Target : uint8_t {
+            None,
+            Points,  // Invalidate point inputs
+            Scalars, // Invalidate scalar inputs
+            Result   // Invalidate result output
+        };
 
-        static std::vector<Mode> get_all() { return { Mode::None, Mode::Result }; }
+        static std::vector<Target> get_all()
+        {
+            return { Target::None, Target::Points, Target::Scalars, Target::Result };
+        }
 
-        static std::vector<std::string> get_labels() { return { "None", "Result" }; }
-    };
-
-    class WitnessOverride {
-      public:
-        enum class Case : uint8_t { None, Points, Scalars };
-
-        static std::vector<Case> get_all() { return { Case::None, Case::Points, Case::Scalars }; }
-
-        static std::vector<std::string> get_labels() { return { "None", "Points", "Scalars" }; }
+        static std::vector<std::string> get_labels() { return { "None", "Points", "Scalars", "Result" }; }
     };
 
     static void generate_constraints(AcirConstraint& msm_constraint, WitnessVector& witness_values)
@@ -116,12 +115,12 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         };
     }
 
-    static void override_witness(AcirConstraint& constraint,
-                                 WitnessVector& witness_values,
-                                 const WitnessOverride::Case& witness_override)
+    static void invalidate_witness(AcirConstraint& constraint,
+                                   WitnessVector& witness_values,
+                                   const InvalidWitness::Target& invalid_witness_target)
     {
-        switch (witness_override) {
-        case WitnessOverride::Case::Points: {
+        switch (invalid_witness_target) {
+        case InvalidWitness::Target::Points: {
             // Invalidate the point by adding 1 to x coordinate
             if constexpr (Constancy == InputConstancy::None || Constancy == InputConstancy::Scalars) {
                 witness_values[constraint.points[0].index] += bb::fr(1);
@@ -130,7 +129,7 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
             }
             break;
         }
-        case WitnessOverride::Case::Scalars: {
+        case InvalidWitness::Target::Scalars: {
             // Invalidate the scalar by adding 1 to the low limb
             if constexpr (Constancy == InputConstancy::None || Constancy == InputConstancy::Points) {
                 witness_values[constraint.scalars[0].index] += bb::fr(1);
@@ -139,25 +138,14 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
             }
             break;
         }
-        case WitnessOverride::Case::None:
-        default:
-            break;
-        }
-    }
-
-    static void tampering(AcirConstraint& constraint,
-                          WitnessVector& witness_values,
-                          const Tampering::Mode& tampering_mode)
-    {
-        switch (tampering_mode) {
-        case Tampering::Mode::Result: {
+        case InvalidWitness::Target::Result: {
             // Tamper with the result by setting it to the generator point
             witness_values[constraint.out_point_x] = GrumpkinPoint::one().x;
             witness_values[constraint.out_point_y] = GrumpkinPoint::one().y;
             witness_values[constraint.out_point_is_infinite] = FF::zero();
             break;
         }
-        case Tampering::Mode::None:
+        case InvalidWitness::Target::None:
         default:
             break;
         }
@@ -212,25 +200,25 @@ TYPED_TEST(MultiScalarMulTestsNoneConstant, GenerateVKFromConstraints)
 TYPED_TEST(MultiScalarMulTestsNoneConstant, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::TamperingMode::Result);
+    TestFixture::test_constant_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(MultiScalarMulTestsNoneConstant, WitnessTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::TamperingMode::Result);
+    TestFixture::test_witness_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(MultiScalarMulTestsNoneConstant, WitnessFalseSlow)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
+    TestFixture::test_witness_false_slow();
 }
 
-TYPED_TEST(MultiScalarMulTestsNoneConstant, Tampering)
+TYPED_TEST(MultiScalarMulTestsNoneConstant, InvalidWitnesses)
 {
     BB_DISABLE_ASSERTS();
-    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_invalid_witnesses();
 }
 
 TYPED_TEST(MultiScalarMulTestsPointsConstant, GenerateVKFromConstraints)
@@ -242,25 +230,25 @@ TYPED_TEST(MultiScalarMulTestsPointsConstant, GenerateVKFromConstraints)
 TYPED_TEST(MultiScalarMulTestsPointsConstant, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::TamperingMode::Result);
+    TestFixture::test_constant_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(MultiScalarMulTestsPointsConstant, WitnessTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::TamperingMode::Result);
+    TestFixture::test_witness_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(MultiScalarMulTestsPointsConstant, WitnessFalseSlow)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
+    TestFixture::test_witness_false_slow();
 }
 
-TYPED_TEST(MultiScalarMulTestsPointsConstant, Tampering)
+TYPED_TEST(MultiScalarMulTestsPointsConstant, InvalidWitnesses)
 {
     BB_DISABLE_ASSERTS();
-    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_invalid_witnesses();
 }
 
 TYPED_TEST(MultiScalarMulTestsScalarsConstant, GenerateVKFromConstraints)
@@ -272,25 +260,25 @@ TYPED_TEST(MultiScalarMulTestsScalarsConstant, GenerateVKFromConstraints)
 TYPED_TEST(MultiScalarMulTestsScalarsConstant, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::TamperingMode::Result);
+    TestFixture::test_constant_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(MultiScalarMulTestsScalarsConstant, WitnessTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::TamperingMode::Result);
+    TestFixture::test_witness_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(MultiScalarMulTestsScalarsConstant, WitnessFalseSlow)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
+    TestFixture::test_witness_false_slow();
 }
 
-TYPED_TEST(MultiScalarMulTestsScalarsConstant, Tampering)
+TYPED_TEST(MultiScalarMulTestsScalarsConstant, InvalidWitnesses)
 {
     BB_DISABLE_ASSERTS();
-    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_invalid_witnesses();
 }
 
 TYPED_TEST(MultiScalarMulTestsBothConstant, GenerateVKFromConstraints)
@@ -302,23 +290,23 @@ TYPED_TEST(MultiScalarMulTestsBothConstant, GenerateVKFromConstraints)
 TYPED_TEST(MultiScalarMulTestsBothConstant, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::TamperingMode::Result);
+    TestFixture::test_constant_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(MultiScalarMulTestsBothConstant, WitnessTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::TamperingMode::Result);
+    TestFixture::test_witness_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(MultiScalarMulTestsBothConstant, WitnessFalseSlow)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
+    TestFixture::test_witness_false_slow();
 }
 
-TYPED_TEST(MultiScalarMulTestsBothConstant, Tampering)
+TYPED_TEST(MultiScalarMulTestsBothConstant, InvalidWitnesses)
 {
     BB_DISABLE_ASSERTS();
-    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_invalid_witnesses();
 }

@@ -221,7 +221,43 @@ Both sequencers share publishers while maintaining separate identities and fee r
 
 The `id` receives prover rewards while `publisher` accounts submit proofs.
 
+## Complete Configuration Examples
+
+### High Availability Sequencer Setup
+
+Creating keystores for running the same sequencer across multiple nodes:
+
+```bash
+# Node 1: Create initial keystore with first publisher
+aztec validator-keys new \
+  --fee-recipient [YOUR_FEE_RECIPIENT] \
+  --mnemonic "your shared mnemonic..." \
+  --address-index 0 \
+  --data-dir ~/node1/keys
+
+# Node 2: Same attester, different publisher
+aztec validator-keys new \
+  --fee-recipient [YOUR_FEE_RECIPIENT] \
+  --mnemonic "your shared mnemonic..." \
+  --address-index 1 \
+  --data-dir ~/node2/keys
+
+# Node 3: Same attester, another different publisher
+aztec validator-keys new \
+  --fee-recipient [YOUR_FEE_RECIPIENT] \
+  --mnemonic "your shared mnemonic..." \
+  --address-index 2 \
+  --data-dir ~/node3/keys
+```
+
+Each node has:
+- The **same attester address** (from index 0 of the mnemonic)
+- A **different publisher address** (from different address indices)
+
+For detailed HA setup instructions, see the [High Availability Sequencers guide](../../setup/high_availability_sequencers.md).
+
 ## Next steps
 
 - See [Troubleshooting](./troubleshooting.md) for common issues
 - Return to [Key Storage Methods](./storage_methods.md) for more options
+- Start with basics at [Creating Keystores](./creating_keystores.md)

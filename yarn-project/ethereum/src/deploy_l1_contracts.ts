@@ -285,6 +285,7 @@ export const deploySharedContracts = async (
         args: [l1Client.account.address, 1n * 10n ** 18n],
       }),
     });
+    await l1Client.waitForTransactionReceipt({ hash: txHash });
     logger.verbose(`Minted tiny bit of tokens to satisfy coin-issuer constraints in ${txHash}`);
 
     const deployedStaking = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
@@ -362,12 +363,19 @@ export const deploySharedContracts = async (
     txHashes.push(txHash);
   }
 
+  logger.verbose(`Waiting for deployments to complete`);
+  await deployer.waitForDeployments();
+
   const coinIssuerAddress = (
-    await deployer.deploy(CoinIssuerArtifact, [
-      feeAssetAddress.toString(),
-      2n * 10n ** 17n, // hard cap of 20% per year
-      l1Client.account.address,
-    ])
+    await deployer.deploy(
+      CoinIssuerArtifact,
+      [
+        feeAssetAddress.toString(),
+        2n * 10n ** 17n, // hard cap of 20% per year
+        l1Client.account.address,
+      ],
+      { gasLimit: 1_000_000n, noSimulation: true },
+    )
   ).address;
   logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
@@ -1561,7 +1569,7 @@ export class L1Deployer {
   async deploy<const TAbi extends Abi>(
     params: ContractArtifacts<TAbi>,
     args?: ContractConstructorArgs<TAbi>,
-    opts: { gasLimit?: bigint } = {},
+    opts: { gasLimit?: bigint; noSimulation?: boolean } = {},
   ): Promise<{ address: EthAddress; existed: boolean }> {
     this.logger.debug(`Deploying ${params.name} contract`, { args });
     try {
@@ -1577,6 +1585,7 @@ export class L1Deployer {
           l1TxUtils: this.l1TxUtils,
           acceleratedTestDeployments: this.acceleratedTestDeployments,
           gasLimit: opts.gasLimit,
+          noSimulation: opts.noSimulation,
         },
       );
       if (txHash) {
@@ -1666,6 +1675,7 @@ export async function deployL1Contract(
     l1TxUtils?: L1TxUtils;
     gasLimit?: bigint;
     acceleratedTestDeployments?: boolean;
+    noSimulation?: boolean;
   } = {},
 ): Promise<{
   address: EthAddress;
@@ -1677,7 +1687,7 @@ export async function deployL1Contract(
   let resultingAddress: Hex | null | undefined = undefined;
   const deployedLibraries: VerificationLibraryEntry[] = [];
 
-  const { salt: saltFromOpts, libraries, logger, gasLimit, acceleratedTestDeployments } = opts;
+  const { salt: saltFromOpts, libraries, logger, gasLimit, acceleratedTestDeployments, noSimulation } = opts;
   let { l1TxUtils } = opts;
 
   if (!l1TxUtils) {
@@ -1786,11 +1796,13 @@ export async function deployL1Contract(
     resultingAddress = address;
     const existing = await extendedClient.getCode({ address: resultingAddress });
     if (existing === undefined || existing === '0x') {
-      try {
-        await l1TxUtils.simulate({ to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]), gas: gasLimit });
-      } catch (err) {
-        logger?.error(`Failed to simulate deployment tx using universal deployer`, err);
-        await l1TxUtils.simulate({ to: null, data: encodeDeployData({ abi, bytecode, args }), gas: gasLimit });
+      if (!noSimulation) {
+        try {
+          await l1TxUtils.simulate({ to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]), gas: gasLimit });
+        } catch (err) {
+          logger?.error(`Failed to simulate deployment tx using universal deployer`, err);
+          await l1TxUtils.simulate({ to: null, data: encodeDeployData({ abi, bytecode, args }), gas: gasLimit });
+        }
       }
       const res = await l1TxUtils.sendTransaction(
         { to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) },

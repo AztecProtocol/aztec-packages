@@ -105,6 +105,7 @@ function run_ci_with_cache {
   # Upload success marker
   echo "success" > success.txt
   cache_upload "$cache_key" success.txt
+  rm success.txt
 }
 
 case "$cmd" in
@@ -152,18 +153,6 @@ case "$cmd" in
     export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
     bootstrap_ec2 "./bootstrap.sh ci-network-tests"
     ;;
-  "nightly")
-    prep_vars
-    # Spin up ec2 instance and run the nightly flow.
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-nightly'"
-    }
-    export -f run
-    # We need to run the release flow on both x86 and arm64.
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-nightly amd64' \
-      'run a-nightly arm64' | DUP=1 cache_log "Nightly CI run" $RUN_ID
-    ;;
   "release")
     prep_vars
     # Spin up ec2 instance and run the release flow.
@@ -175,6 +164,10 @@ case "$cmd" in
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x-release amd64' \
       'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
+    # If we were triggered by a PR with ci-release-pr label, remove the label now we've succeeded.
+    if [ -n "${PR_NUMBER:-}" ]; then
+      gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
+    fi
     ;;
   "shell-new")
     # Spin up ec2 instance, clone, and drop into shell.

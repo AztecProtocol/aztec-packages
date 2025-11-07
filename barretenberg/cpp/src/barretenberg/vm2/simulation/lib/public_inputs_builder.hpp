@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"

@@ -9,9 +9,9 @@ set(AVM_TRANSPILER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../avm-transpiler")
 set(AVM_TRANSPILER_INCLUDE "${AVM_TRANSPILER_DIR}")
 
 # Check if the library exists
-if(NOT EXISTS ${AVM_TRANSPILER_LIB})
-    message(FATAL_ERROR "avm-transpiler library not found at ${AVM_TRANSPILER_LIB}\nPlease run './bootstrap.sh' in ${AVM_TRANSPILER_DIR} to build libraries")
-endif()
+# if(NOT EXISTS ${AVM_TRANSPILER_LIB})
+#     message(FATAL_ERROR "avm-transpiler library not found at ${AVM_TRANSPILER_LIB}\nPlease run './bootstrap.sh' in ${AVM_TRANSPILER_DIR} to build libraries")
+# endif()
 
 # Create imported library target
 add_library(avm_transpiler STATIC IMPORTED)

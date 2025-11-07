@@ -17,13 +17,13 @@ namespace bb {
  * @note This is used only for native verification and is not optimized for efficiency
  */
 template <typename Commitment, typename FF>
-static Commitment batch_mul_native(const std::vector<Commitment>& _points, const std::vector<FF>& _scalars)
+static Commitment batch_mul_native(std::span<const Commitment> _points, std::span<const FF> _scalars)
 {
     std::vector<Commitment> points;
     std::vector<FF> scalars;
     for (size_t i = 0; i < _points.size(); ++i) {
-        const auto& point = _points[i];
-        const auto& scalar = _scalars[i];
+        auto point = _points[i];
+        auto scalar = _scalars[i];
 
         // TODO: Special handling of point at infinity here due to incorrect serialization.
         if (!scalar.is_zero() && !point.is_point_at_infinity() && !point.y.is_zero()) {
@@ -41,6 +41,24 @@ static Commitment batch_mul_native(const std::vector<Commitment>& _points, const
         result = result + points[idx] * scalars[idx];
     }
     return result;
+}
+
+/**
+ * @brief Wrapper for batch_mul_native that accepts vectors for backward compatibility
+ */
+template <typename Commitment, typename FF>
+static Commitment batch_mul_native(const std::vector<Commitment>& _points, const std::vector<FF>& _scalars)
+{
+    return batch_mul_native<Commitment, FF>(std::span<const Commitment>(_points), std::span<const FF>(_scalars));
+}
+
+/**
+ * @brief Wrapper for batch_mul_native that accepts span + vector (common pattern)
+ */
+template <typename Commitment, typename FF>
+static Commitment batch_mul_native(std::span<const Commitment> _points, const std::vector<FF>& _scalars)
+{
+    return batch_mul_native<Commitment, FF>(_points, std::span<const FF>(_scalars));
 }
 
 } // namespace bb

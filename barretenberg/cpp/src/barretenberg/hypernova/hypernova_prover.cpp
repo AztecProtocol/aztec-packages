@@ -44,7 +44,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance,
     const std::shared_ptr<typename HypernovaFoldingProver::VerificationKey>& honk_vk)
 {
-    BB_BENCH();
+    BB_BENCH_NAME("HypernovaFoldingProver::sumcheck_output_to_accumulator");
 
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
     auto [unshifted_challenges, shifted_challenges] = get_batching_challenges();
@@ -91,7 +91,7 @@ Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::batch_polynomials
     const size_t& full_batched_size,
     const std::vector<FF>& challenges)
 {
-    BB_BENCH();
+    BB_BENCH_NAME("HypernovaFoldingProver::batch_polynomials");
     BB_ASSERT_EQ(full_batched_size,
                  polynomials_to_batch[0].virtual_size(),
                  "The virtual size of the first polynomial is different from the full batched size.");
@@ -116,7 +116,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
     const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance,
     const std::shared_ptr<VerificationKey>& honk_vk)
 {
-    BB_BENCH();
+    BB_BENCH_NAME("HypernovaFoldingProver::instance_to_accumulator");
 
     vinfo("HypernovaFoldingProver: converting instance to accumulator...");
 

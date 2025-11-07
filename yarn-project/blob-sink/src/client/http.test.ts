@@ -1,5 +1,5 @@
-import { Blob, type BlobJson, FIELDS_PER_BLOB } from '@aztec/blob-lib';
-import { makeEncodedBlob, makeEncodedBlobs, makeRandomBlob } from '@aztec/blob-lib/testing';
+import { Blob, type BlobJson } from '@aztec/blob-lib';
+import { makeRandomBlob } from '@aztec/blob-lib/testing';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
@@ -45,19 +45,9 @@ describe('HttpBlobSinkClient', () => {
   describe('Mock Ethereum Clients', () => {
     let blobSinkServer: TestBlobSinkServer;
 
-    let testEncodedBlob: Blob;
-    let testEncodedBlobHash: Buffer;
-    let testEncodedBlobWithIndex: BlobWithIndex;
-
-    let testNonEncodedBlob: Blob;
-    let testNonEncodedBlobHash: Buffer;
-
-    let testEncodedBlob2: Blob;
-    let testEncodedBlob2Hash: Buffer;
-
-    let testEncodedConsecutiveBlobs: Blob[];
-    let testEncodedConsecutiveBlobHashes: Buffer[];
-    let testEncodedConsecutiveBlobsWithIndex: BlobWithIndex[];
+    let testBlobs: Blob[];
+    let testBlobsHashes: Buffer[];
+    let testBlobsWithIndex: BlobWithIndex[];
 
     let executionHostServer: http.Server | undefined = undefined;
     let executionHostPort: number | undefined = undefined;
@@ -74,31 +64,11 @@ describe('HttpBlobSinkClient', () => {
       latestSlotNumber = 1;
       missedSlots = [];
 
-      testEncodedBlob = makeEncodedBlob(7);
-      testEncodedBlobHash = testEncodedBlob.getEthVersionedBlobHash();
-      testEncodedBlobWithIndex = new BlobWithIndex(testEncodedBlob, 0);
+      testBlobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
+      testBlobsHashes = testBlobs.map(b => b.getEthVersionedBlobHash());
+      testBlobsWithIndex = testBlobs.map((b, index) => new BlobWithIndex(b, index));
 
-      testNonEncodedBlob = makeRandomBlob(7);
-      testNonEncodedBlobHash = testNonEncodedBlob.getEthVersionedBlobHash();
-
-      testEncodedBlob2 = makeEncodedBlob(7);
-      testEncodedBlob2Hash = testEncodedBlob2.getEthVersionedBlobHash();
-
-      // 2 blobs are created to encode a total of `FIELDS_PER_BLOB + 1` fields.
-      testEncodedConsecutiveBlobs = makeEncodedBlobs(FIELDS_PER_BLOB + 1);
-      testEncodedConsecutiveBlobHashes = testEncodedConsecutiveBlobs.map(b => b.getEthVersionedBlobHash());
-      testEncodedConsecutiveBlobsWithIndex = testEncodedConsecutiveBlobs.map(
-        (b, offset) => new BlobWithIndex(b, 3 + offset),
-      );
-
-      blobData = [testEncodedBlob, testNonEncodedBlob, testEncodedBlob2, ...testEncodedConsecutiveBlobs].map(
-        (b, index) => ({
-          index: `${index}`,
-          blob: `0x${Buffer.from(b.data).toString('hex')}`,
-          // eslint-disable-next-line camelcase
-          kzg_commitment: `0x${b.commitment.toString('hex')}`,
-        }),
-      );
+      blobData = testBlobsWithIndex.map(b => b.toJSON());
     });
 
     const startExecutionHostServer = (): Promise<void> => {
@@ -184,14 +154,14 @@ describe('HttpBlobSinkClient', () => {
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
       });
 
-      const success = await client.sendBlobsToBlobSink([testEncodedBlob]);
+      const success = await client.sendBlobsToBlobSink(testBlobs);
       expect(success).toBe(true);
 
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
 
       // Check that the blob sink was called with the correct blob hash
-      expect(blobSinkSpy).toHaveBeenCalledWith([testEncodedBlobHash]);
+      expect(blobSinkSpy).toHaveBeenCalledWith(testBlobsHashes);
     });
 
     // When the consensus host is responding, we should request blobs from the consensus host
@@ -205,8 +175,8 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
 
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
     });
 
     it('should handle when multiple consensus hosts are provided', async () => {
@@ -218,8 +188,8 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostUrls: ['invalidURL', `http://localhost:${consensusHostPort}`, 'invalidURL'],
       });
 
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
     });
 
     it('should handle API keys without headers', async () => {
@@ -232,8 +202,8 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostApiKeys: ['test-api-key'].map(k => new SecretValue(k)),
       });
 
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
 
       const clientWithNoKey = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
@@ -241,7 +211,7 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostApiKeys: [].map(k => new SecretValue(k)),
       });
 
-      const retrievedBlobsWithNoKey = await clientWithNoKey.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      const retrievedBlobsWithNoKey = await clientWithNoKey.getBlobSidecar('0x1234', testBlobsHashes);
       expect(retrievedBlobsWithNoKey).toEqual([]);
 
       const clientWithInvalidKey = new HttpBlobSinkClient({
@@ -250,7 +220,7 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostApiKeys: ['invalid-key'].map(k => new SecretValue(k)),
       });
 
-      const retrievedBlobsWithInvalidKey = await clientWithInvalidKey.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      const retrievedBlobsWithInvalidKey = await clientWithInvalidKey.getBlobSidecar('0x1234', testBlobsHashes);
       expect(retrievedBlobsWithInvalidKey).toEqual([]);
     });
 
@@ -265,8 +235,8 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostApiKeyHeaders: ['X-API-KEY'],
       });
 
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
 
       const clientWithWrongHeader = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
@@ -275,7 +245,7 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostApiKeyHeaders: ['WRONG-HEADER'],
       });
 
-      const retrievedBlobsWithWrongHeader = await clientWithWrongHeader.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      const retrievedBlobsWithWrongHeader = await clientWithWrongHeader.getBlobSidecar('0x1234', testBlobsHashes);
       expect(retrievedBlobsWithWrongHeader).toEqual([]);
 
       const clientWithWrongKey = new HttpBlobSinkClient({
@@ -285,7 +255,7 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostApiKeyHeaders: ['X-API-KEY'],
       });
 
-      const retrievedBlobsWithWrongKey = await clientWithWrongKey.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      const retrievedBlobsWithWrongKey = await clientWithWrongKey.getBlobSidecar('0x1234', testBlobsHashes);
       expect(retrievedBlobsWithWrongKey).toEqual([]);
     });
 
@@ -314,8 +284,8 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostApiKeyHeaders: ['', '', 'X-API-KEY'],
       });
 
-      let retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      let retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
 
       // Verify that the second consensus host works when the first host fails
       consensusServer1?.close();
@@ -330,8 +300,8 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostApiKeyHeaders: ['', '', 'X-API-KEY'],
       });
 
-      retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
 
       // Verify that the third consensus host works when the first and second hosts fail
       consensusServer2?.close();
@@ -346,11 +316,11 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostApiKeyHeaders: ['', '', 'X-API-KEY'],
       });
 
-      retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
     });
 
-    it('even if we ask for non-encoded blobs, we should only get encoded blobs', async () => {
+    it('accumulates successfully retrieved blobs even if some fail', async () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
@@ -359,13 +329,95 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
 
-      // Request the encoded blob first, then the non-encoded blob.
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash, testNonEncodedBlobHash]);
-      // We should only get the correctly encoded blob
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      // Create a blob that has mismatch data and commitment.
+      const randomBlobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
+      const incorrectBlob = new Blob(randomBlobs[0].data, randomBlobs[1].commitment);
+      const incorrectBlobHash = incorrectBlob.getEthVersionedBlobHash();
+      const incorrectBlobWithIndex = new BlobWithIndex(incorrectBlob, 2);
+      // Update blobData to include the incorrect blob
+      blobData.push(incorrectBlobWithIndex.toJSON());
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [
+        testBlobsHashes[0],
+        incorrectBlobHash,
+        testBlobsHashes[1],
+      ]);
+
+      // Should return the successfully retrieved blob, discarding the one that has mismatch data and commitment.
+      expect(retrievedBlobs.length).toEqual(2);
+      expect(retrievedBlobs).toEqual([testBlobsWithIndex[0], testBlobsWithIndex[1]]);
     });
 
-    it('returns empty array if the combined blob data is not encoded', async () => {
+    it('should retrieve blobs from blob sink when it only has a partial set', async () => {
+      blobSinkServer = new TestBlobSinkServer({ port: 0 });
+      await blobSinkServer.start();
+
+      const blobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
+      const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
+      const blobsWithIndex = blobs.map((b, index) => new BlobWithIndex(b, index));
+
+      // Only send the first blob to blob sink
+      await blobSinkServer.blobStore.addBlobs([blobsWithIndex[0]]);
+
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobSinkClient({
+        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+      });
+
+      // The second blob will be available from consensus
+      // Update blobData to include the second blob
+      blobData.push(blobsWithIndex[1].toJSON());
+
+      // Request both blobs - blobsWithIndex[0] should come from blob sink, blobsWithIndex[1] from consensus
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', blobHashes);
+
+      // Should accumulate both blobs from different sources
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs).toEqual(blobsWithIndex);
+    });
+
+    it('should accumulate blobs across all three sources (blob sink, consensus, archive)', async () => {
+      blobSinkServer = new TestBlobSinkServer({ port: 0 });
+      await blobSinkServer.start();
+
+      // Create three blobs for testing
+      const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
+      const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
+      const blobsWithIndex = blobs.map((b, index) => new BlobWithIndex(b, index));
+
+      // Blob 0 only in blob sink
+      await blobSinkServer.blobStore.addBlobs([blobsWithIndex[0]]);
+
+      // Blob 1 only in consensus host
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+      blobData.push(blobsWithIndex[1].toJSON());
+
+      const client = new TestHttpBlobSinkClient({
+        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        archiveApiUrl: `https://api.blobscan.com`,
+      });
+
+      // Blob 2 only in archive
+      const blob3Json = blobsWithIndex[2].toJSON();
+      const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue([blob3Json]);
+
+      // Request all three blobs
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', blobHashes);
+
+      // Should accumulate all three blobs from different sources
+      expect(retrievedBlobs).toHaveLength(3);
+      expect(retrievedBlobs).toEqual(blobsWithIndex);
+      expect(archiveSpy).toHaveBeenCalledWith('0x1234');
+    });
+
+    it('should return duplicate blobs when same hash is requested multiple times', async () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
@@ -374,37 +426,41 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
 
-      // Request the non-encoded blob first, then the encoded blob.
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testNonEncodedBlobHash, testEncodedBlob2Hash]);
-      expect(retrievedBlobs).toEqual([]);
+      // Request the same blob hash twice
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testBlobsHashes[0], testBlobsHashes[0]]);
+
+      // Should return two blobs with the same content
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs).toEqual([testBlobsWithIndex[0], testBlobsWithIndex[0]]);
     });
 
-    it('returns empty array if only one out of many blobs for a larger encoded data is requested', async () => {
-      await startExecutionHostServer();
-      await startConsensusHostServer();
+    it('should preserve blob order when requesting multiple blobs', async () => {
+      blobSinkServer = new TestBlobSinkServer({ port: 0 });
+      await blobSinkServer.start();
+
+      // Create three distinct blobs
+      const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
+      const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
+      const blobsWithIndex = blobs.map((b, index) => new BlobWithIndex(b, index));
+
+      // Add all blobs to blob sink
+      await blobSinkServer.blobStore.addBlobs(blobsWithIndex);
 
       const client = new HttpBlobSinkClient({
-        l1RpcUrls: [`http://localhost:${executionHostPort}`],
-        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
       });
 
-      // Request the first of the consecutive encoded blobs.
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedConsecutiveBlobHashes[0]]);
-      expect(retrievedBlobs).toEqual([]);
-    });
+      // Request blobs in a specific order: blob3, blob1, blob2, blob1 (with duplicate)
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [
+        blobHashes[2],
+        blobHashes[0],
+        blobHashes[1],
+        blobHashes[0],
+      ]);
 
-    it('returns all blobs for a larger encoded data', async () => {
-      await startExecutionHostServer();
-      await startConsensusHostServer();
-
-      const client = new HttpBlobSinkClient({
-        l1RpcUrls: [`http://localhost:${executionHostPort}`],
-        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
-      });
-
-      // Request all the consecutive encoded blobs.
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', testEncodedConsecutiveBlobHashes);
-      expect(retrievedBlobs).toEqual(testEncodedConsecutiveBlobsWithIndex);
+      // Should return blobs in the exact order requested
+      expect(retrievedBlobs).toHaveLength(4);
+      expect(retrievedBlobs).toEqual([blobsWithIndex[2], blobsWithIndex[0], blobsWithIndex[1], blobsWithIndex[0]]);
     });
 
     it('should handle L1 missed slots', async () => {
@@ -427,12 +483,12 @@ describe('HttpBlobSinkClient', () => {
       const retrievedBlobs = await client.getBlobSidecarFrom(
         `http://localhost:${consensusHostPort}`,
         33,
-        [testEncodedBlobHash],
+        testBlobsHashes,
         [],
         0,
       );
 
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
 
       // Verify we hit the 404 for slot 33 before trying slot 34, and that we use the api key header
       // (see issue https://github.com/AztecProtocol/aztec-packages/issues/13415)
@@ -464,7 +520,7 @@ describe('HttpBlobSinkClient', () => {
       const retrievedBlobs = await client.getBlobSidecarFrom(
         `http://localhost:${consensusHostPort}`,
         33,
-        [testEncodedBlobHash],
+        testBlobsHashes,
         [],
         0,
       );
@@ -484,9 +540,80 @@ describe('HttpBlobSinkClient', () => {
       const client = new TestHttpBlobSinkClient({ archiveApiUrl: `https://api.blobscan.com` });
       const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue(blobData);
 
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+      expect(retrievedBlobs).toEqual(testBlobsWithIndex);
       expect(archiveSpy).toHaveBeenCalledWith('0x1234');
+    });
+
+    it('should return only one blob when multiple blobs with the same blobHash exist on a block', async () => {
+      // Create a blob data array with two blobs that have the same commitment (thus same blobHash)
+      const blob = makeRandomBlob(3);
+      const blobHash = blob.getEthVersionedBlobHash();
+      const duplicateBlobData = [new BlobWithIndex(blob, 0), new BlobWithIndex(blob, 1)];
+
+      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `https://api.blobscan.com` });
+      const archiveSpy = jest
+        .spyOn(client.getArchiveClient(), 'getBlobsFromBlock')
+        .mockResolvedValue(duplicateBlobData.map(b => b.toJSON()));
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [blobHash]);
+
+      // Should only return one blob despite two blobs with the same hash existing
+      expect(retrievedBlobs).toHaveLength(1);
+      expect(retrievedBlobs[0].blob).toEqual(blob);
+      expect(archiveSpy).toHaveBeenCalledWith('0x1234');
+    });
+
+    it('should return empty array from consensus host if it returns blob json with incorrect format', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new TestHttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+      });
+
+      const blob = makeRandomBlob(3);
+      const blobHash = blob.getEthVersionedBlobHash();
+      const blobWithIndex = new BlobWithIndex(blob, 0);
+      const blobJson = blobWithIndex.toJSON();
+
+      const originalBlobData = blobData;
+
+      // Incorrect bytes for the data.
+      blobData = [
+        ...originalBlobData,
+        {
+          ...blobJson,
+          blob: 'abcdefghijk',
+        },
+      ];
+      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
+
+      // Incorrect bytes for the commitment.
+      blobData = [
+        ...originalBlobData,
+        {
+          ...blobJson,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: 'abcdefghijk',
+        },
+      ];
+      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
+
+      // Commitment does not exist.
+      blobData = [
+        ...originalBlobData,
+        {
+          blob: blobJson.blob,
+          index: blobJson.index,
+        } as BlobJson,
+      ];
+      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
+
+      // Correct blob json.
+      blobData = [...originalBlobData, blobJson];
+      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([blobWithIndex]);
     });
   });
 });

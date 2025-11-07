@@ -9,7 +9,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl/msgpack_impl.hpp"
 #include "barretenberg/vm2/avm_sim_api.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 
 namespace bb::nodejs {
 
@@ -195,13 +195,10 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
             // Create AVM API and run simulation with the callback-based contracts DB and
             // WorldState reference
             avm2::AvmSimAPI avm;
-            avm.simulate(inputs, contract_db, *ws_ptr);
-            // TODO(dbanks12): return PublicTxResult as the TS PublicTxSimulator returns.
-            // For now just a bool true.
-            bool success = true;
+            avm2::TxSimulationResult result = avm.simulate(inputs, contract_db, *ws_ptr);
 
             // Serialize the simulation result with msgpack into the return buffer to TS.
-            msgpack::pack(result_buffer, success);
+            msgpack::pack(result_buffer, result);
         } catch (const std::exception& e) {
             // Rethrow with context (RAII wrappers will clean up automatically)
             throw std::runtime_error(std::string("AVM simulation failed: ") + e.what());
@@ -259,13 +256,10 @@ Napi::Value AvmSimulateNapi::simulateWithHintedDbs(const Napi::CallbackInfo& cb_
             // Create AVM Sim API and run simulation with the hinted DBs
             // All hints are already in the inputs, so no runtime contract DB callbacks needed
             avm2::AvmSimAPI avm;
-            avm.simulate_with_hinted_dbs(inputs);
-            // TODO(dbanks12): return PublicTxResult as the TS PublicTxSimulator returns.
-            // For now just a bool true.
-            bool success = true;
+            avm2::TxSimulationResult result = avm.simulate_with_hinted_dbs(inputs);
 
             // Serialize the simulation result with msgpack into the return buffer to TS.
-            msgpack::pack(result_buffer, success);
+            msgpack::pack(result_buffer, result);
         } catch (const std::exception& e) {
             // Rethrow with context
             throw std::runtime_error(std::string("AVM simulation with hinted DBs failed: ") + e.what());
