@@ -146,12 +146,16 @@
     },
     {
       "type": "category",
-      "label": "Advanced Keystore Usage",
+      "label": "Keystore Usage",
       "link": {
         "type": "doc",
         "id": "the_aztec_network/operation/keystore/advanced_keystore_guide"
       },
       "items": [
+        {
+          "type": "doc",
+          "id": "the_aztec_network/operation/keystore/creating_keystores"
+        },
         {
           "type": "doc",
           "id": "the_aztec_network/operation/keystore/storage_methods"

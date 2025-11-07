@@ -10,16 +10,18 @@ For production deployments, you can distribute the prover components across mult
 ## Architecture
 
 In a distributed setup:
+
 - **Prover Node**: Runs on a machine with network access and L1 connectivity
 - **Prover Broker**: Can run on the same machine as the prover node or separately (must be accessible from prover agents)
 - **Prover Agents**: Run on separate high-performance machines (32+ cores each, scalable with `PROVER_AGENT_COUNT`)
 
 :::warning Network Requirements
 Prover agents must communicate with the prover broker over the network. Ensure that:
+
 - The broker machine's port 8080 is accessible from all agent machines
 - Firewall rules allow traffic between agents and broker
 - Network connectivity is stable and low-latency between components
-:::
+  :::
 
 ## Prerequisites
 
@@ -72,7 +74,7 @@ Create `docker-compose.yml`:
 name: aztec-prover-node
 services:
   prover-node:
-    image: aztecprotocol/aztec:#include_testnet_version
+    image: aztecprotocol/aztec:2.0.4
     entrypoint: >-
       node
       --no-warnings
@@ -106,7 +108,7 @@ services:
     restart: unless-stopped
 
   prover-broker:
-    image: aztecprotocol/aztec:#include_testnet_version
+    image: aztecprotocol/aztec:2.0.4
     entrypoint: >-
       node
       --no-warnings
@@ -162,6 +164,7 @@ PROVER_ID=[address corresponding to PROVER_PUBLISHER_PRIVATE_KEY]
 Replace `[BROKER_MACHINE_IP]` with the IP address of the machine running the prover broker.
 
 **Agent configuration tips:**
+
 - Set `PROVER_AGENT_COUNT` based on your machine's hardware (e.g., 64 cores/256 GB RAM = 2 agents, 96 cores/384 GB RAM = 3 agents, 128 cores/512 GB RAM = 4 agents)
 - Test connectivity before starting: `curl http://[BROKER_MACHINE_IP]:8080`
 - If the curl test fails, check your network configuration, firewall rules, and ensure the broker is running
@@ -174,7 +177,7 @@ Create `docker-compose.yml`:
 name: aztec-prover-agent
 services:
   prover-agent:
-    image: aztecprotocol/aztec:#include_testnet_version
+    image: aztecprotocol/aztec:2.0.4
     entrypoint: >-
       node
       --no-warnings
@@ -197,6 +200,7 @@ docker compose up -d
 ```
 
 **Scaling your prover capacity:**
+
 - **Horizontal scaling**: Add more agent machines by repeating the agent setup on additional high-performance machines
 - **Vertical scaling**: Increase `PROVER_AGENT_COUNT` on existing machines (ensure adequate hardware)
 
