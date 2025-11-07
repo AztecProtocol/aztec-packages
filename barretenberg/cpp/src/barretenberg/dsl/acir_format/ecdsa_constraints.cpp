@@ -25,7 +25,7 @@ using namespace bb;
  *     coordinates.
  *  3. Conditionally select the public key, the signature, and the hash of the message when the predicate is witness
  *     false. This ensures that the circuit is satisfied when the predicate is false. We set:
- *      - The r = s = 1
+ *      - r = s = H(m) = 1 (the hash is set to 1 to avoid failures in the byte_array constructor)
  *      - The public key to 2 times the generator of the curve (this is to avoid problems with lookup tables in
  *        secp265r1)
  *  4. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
@@ -68,13 +68,13 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     }
 
     // Step 1: Conditionally assign field values when predicate is false
-    // If H(m) = -2 mod n, the constraints will fail even when the predicate is false, see
-    // https://github.com/AztecProtocol/barretenberg/issues/1570
     if (!predicate.is_constant()) {
-        // Set r = s = 1 when the predicate is false
+        // Set r = s = H(m) = 1 when the predicate is false
         for (size_t idx = 0; idx < 32; idx++) {
             r_fields[idx] = field_ct::conditional_assign(predicate, r_fields[idx], field_ct(idx == 0 ? 1 : 0));
             s_fields[idx] = field_ct::conditional_assign(predicate, s_fields[idx], field_ct(idx == 0 ? 1 : 0));
+            hashed_message_fields[idx] =
+                field_ct::conditional_assign(predicate, hashed_message_fields[idx], field_ct(idx == 0 ? 1 : 0));
         }
 
         // Set public key to 2*generator when predicate is false

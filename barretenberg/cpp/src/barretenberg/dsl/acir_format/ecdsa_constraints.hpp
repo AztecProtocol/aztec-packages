@@ -34,10 +34,8 @@ using namespace bb;
  *     predicate is witness false, then the constraint is disabled, i.e it must not fail and can return whatever. When
  *     `predicate` is set to witness false, we override some values to ensure that all the circuit constraints are
  *     satisfied:
- *      - We set each component of the signature to 1
+ *      - We set - r = s = H(m) = 1 (the hash is set to 1 to avoid failures in the byte_array constructor)
  *      - We set the public key to be 2 times the generator of the curve.
- *
- * @note If H(m) = - 2 mod n, the constraints will fail even when the predicate is witness false.
  */
 struct EcdsaConstraint {
     bb::CurveType type;
