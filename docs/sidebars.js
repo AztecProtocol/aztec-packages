@@ -188,10 +188,14 @@ const sidebar = {
           "id": "the_aztec_network/operation/sequencer_management/running_delegated_stake"
         },
         {
-          "type": "doc",
-          "id": "the_aztec_network/operation/sequencer_management/useful_commands"
-        }
-      ]
+          type: "doc",
+          id: "the_aztec_network/operation/sequencer_management/claiming_rewards",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/sequencer_management/useful_commands",
+        },
+      ],
     },
     {
       "type": "doc",
