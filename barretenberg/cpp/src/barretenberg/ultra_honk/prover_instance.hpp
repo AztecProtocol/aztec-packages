@@ -27,7 +27,7 @@ namespace bb {
 
 /**
  * @brief A ProverInstance is normally constructed from a finalized circuit and it contains all the information
-Ist * required by a Mega Honk prover to create a proof.
+ * required by a Mega Honk prover to create a proof.
  */
 
 template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {

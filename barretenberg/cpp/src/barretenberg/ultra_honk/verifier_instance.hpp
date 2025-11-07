@@ -12,7 +12,7 @@
 namespace bb {
 /**
  * @brief The VerifierInstance encapsulates all the necessary information for a Mega Honk Verifier to verify a
- * proof (sumcheck + Shplemini). In the context of folding, this is provided to the Hypernova verifier as an incoming
+l * proof (sumcheck + Shplemini). In the context of folding, this is provided to the Hypernova verifier as an incoming
  * instance.
  *
  * @details This is the committed version of a ProverInstance_. With the notation used in ProverInstance_, a prover
