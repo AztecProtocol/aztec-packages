@@ -361,6 +361,10 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     // Construct the prover instance for circuit
     std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
 
+#ifndef NDEBUG
+    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
+#endif
+
     // If the current circuit exceeds the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
     if (prover_instance->dyadic_size() > bn254_commitment_key.dyadic_size) {
@@ -735,6 +739,26 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
 
     info("DEBUG: Hash of verifier accumulator computed natively ",
          native_verifier_accum.hash_through_transcript("", *verifier_transcript));
+}
+
+void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
+                                   const std::shared_ptr<ProverInstance>& prover_instance,
+                                   const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+{
+    info("-------- DEBUGGING INFO FOR INCOMING CIRCUIT --------");
+    info("Accumulating circuit ", num_circuits_accumulated + 1, " of ", num_circuits);
+    info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
+    info("Did we find a failure? ", circuit.failed() ? "true" : "false");
+    if (circuit.failed()) {
+        info("\t\t\tError message? ", circuit.err());
+    }
+
+    // Compare precomputed VK with the one generated during accumulation
+    auto vk = std::make_shared<MegaVerificationKey>(prover_instance->get_precomputed());
+    info("Does the precomputed vk match with the one generated during accumulation? ",
+         *vk == *precomputed_vk ? "true" : "false");
+
+    info("-------- END OF DEBUGGING INFO FOR INCOMING CIRCUIT --------");
 }
 #endif
 

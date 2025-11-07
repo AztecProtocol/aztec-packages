@@ -19,6 +19,9 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#ifndef NDEBUG
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
+#endif
 #include <algorithm>
 
 namespace bb {
@@ -328,6 +331,10 @@ class Chonk : public IVCBase {
      */
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
+
+    void debug_incoming_circuit(ClientCircuit& circuit,
+                                const std::shared_ptr<ProverInstance>& prover_instance,
+                                const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 #endif
 
     HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
