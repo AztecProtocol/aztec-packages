@@ -28,21 +28,23 @@ template <class Curve> class EcdsaTestingFunctions {
       public:
         enum class Target : uint8_t {
             None,
-            R,     // Invalidate R component of signature
-            ZeroS, // Set S=0 (tests ECDSA validation)
-            HighS, // Set S=high (tests malleability protection)
-            P,     // Invalidate public key
-            Result // Invalid signature with claimed valid result
+            HashIsNotAByteArray, // Set one element of the hash > 255
+            ZeroR,               // Set R=0 (tests ECDSA validation)
+            ZeroS,               // Set S=0 (tests ECDSA validation)
+            HighS,               // Set S=high (tests malleability protection)
+            P,                   // Invalidate public key
+            Result               // Invalid signature with claimed valid result
         };
 
         static std::vector<Target> get_all()
         {
-            return { Target::None, Target::R, Target::ZeroS, Target::HighS, Target::P, Target::Result };
+            return { Target::None,  Target::HashIsNotAByteArray, Target::ZeroR, Target::ZeroS, Target::HighS, Target::P,
+                     Target::Result };
         }
 
         static std::vector<std::string> get_labels()
         {
-            return { "None", "R", "Zero S", "High S", "Public key", "Result" };
+            return { "None", "Hash is not a byte array", "Zero R", "Zero S", "High S", "Public key", "Result" };
         }
     };
 
@@ -63,7 +65,11 @@ template <class Curve> class EcdsaTestingFunctions {
         }
 
         switch (invalid_witness_target) {
-        case InvalidWitness::Target::R:
+        case InvalidWitness::Target::HashIsNotAByteArray:
+            // Set first byte of hash to 256 (invalid byte)
+            witness_values[ecdsa_constraints.hashed_message[0]] = bb::fr(256);
+            break;
+        case InvalidWitness::Target::ZeroR:
             // Set r = 0 (invalid ECDSA signature component)
             for (size_t idx = 0; idx < 32; idx++) {
                 witness_values[ecdsa_constraints.signature[idx]] = bb::fr(0);
@@ -179,13 +185,13 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
 TYPED_TEST(EcdsaConstraintsTest, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::InvalidWitnessTarget::R);
+    TestFixture::test_constant_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::InvalidWitnessTarget::R);
+    TestFixture::test_witness_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessFalse)
@@ -198,7 +204,6 @@ TYPED_TEST(EcdsaConstraintsTest, WitnessFalseSlow)
 {
     // This test is equal to WitnessFalse but also checks that each configuration would have failed if the
     // predicate were witness true. It can be useful for debugging.
-    GTEST_SKIP();
     BB_DISABLE_ASSERTS();
     TestFixture::test_witness_false_slow();
 }

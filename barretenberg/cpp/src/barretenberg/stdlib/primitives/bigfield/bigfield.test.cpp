@@ -1469,26 +1469,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_to_byte_array()
-    {
-        auto builder = Builder();
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            auto [a_native, a_ct] = get_random_witness(&builder, true); // fq_native, fq_ct
-            byte_array_ct a_bytes_ct = a_ct.to_byte_array();
-
-            std::vector<fr_ct> actual_bytes = a_bytes_ct.bytes();
-            EXPECT_EQ(actual_bytes.size(), 32);
-
-            for (size_t j = 0; j < actual_bytes.size(); ++j) {
-                const uint256_t expected = (uint256_t(a_native) >> (8 * j)).slice(0, 8);
-                EXPECT_EQ(actual_bytes[32 - 1 - j].get_value(), expected);
-            }
-        }
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
     // This check tests if elements are reduced to fit quotient into range proof
     static void test_quotient_completeness()
     {
@@ -2446,10 +2426,6 @@ TYPED_TEST(stdlib_bigfield, reduce_mod_target_modulus)
 TYPED_TEST(stdlib_bigfield, byte_array_constructors)
 {
     TestFixture::test_byte_array_constructors();
-}
-TYPED_TEST(stdlib_bigfield, to_byte_array)
-{
-    TestFixture::test_to_byte_array();
 }
 TYPED_TEST(stdlib_bigfield, quotient_completeness_regression)
 {

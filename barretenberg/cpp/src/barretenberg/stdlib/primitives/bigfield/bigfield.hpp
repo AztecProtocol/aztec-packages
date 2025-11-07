@@ -353,35 +353,6 @@ template <typename Builder, typename T> class bigfield {
         bb::fr(negative_prime_modulus_mod_binary_basis.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
     };
 
-    /**
-     * @brief Convert the bigfield element to a byte array. Concatenates byte arrays of the high (2L bits) and low (2L
-     * bits) parts of the bigfield element.
-     *
-     * @details Assumes that 2L is divisible by 8, i.e. (NUM_LIMB_BITS * 2) % 8 == 0. Also we check that the bigfield
-     * element is in the target field.
-     *
-     * @return byte_array<Builder>
-     */
-    byte_array<Builder> to_byte_array() const
-    {
-        byte_array<Builder> result(get_context());
-        // Prevents aliases
-        assert_is_in_field();
-        field_t<Builder> lo = binary_basis_limbs[0].element + (binary_basis_limbs[1].element * shift_1);
-        field_t<Builder> hi = binary_basis_limbs[2].element + (binary_basis_limbs[3].element * shift_1);
-        // n.b. this only works if NUM_LIMB_BITS * 2 is divisible by 8
-        //
-        // We are packing two bigfield limbs each into the field elements `lo` and `hi`.
-        // Thus, each of `lo` and `hi` will contain (NUM_LIMB_BITS * 2) bits. We then convert
-        // `lo` and `hi` to `byte_array` each containing ((NUM_LIMB_BITS * 2) / 8) bytes.
-        // Therefore, it is necessary for (NUM_LIMB_BITS * 2) to be divisible by 8 for correctly
-        // converting `lo` and `hi` to `byte_array`s.
-        BB_ASSERT_EQ((NUM_LIMB_BITS * 2 / 8) * 8, NUM_LIMB_BITS * 2);
-        result.write(byte_array<Builder>(hi, 32 - (NUM_LIMB_BITS / 4)));
-        result.write(byte_array<Builder>(lo, (NUM_LIMB_BITS / 4)));
-        return result;
-    }
-
     // Gets the integer (uint512_t) value of the bigfield element by combining the binary basis limbs.
     uint512_t get_value() const;
 
