@@ -560,7 +560,7 @@ template <typename Flavor> class SumcheckProver {
         // Wave 0: pep[0] alone (reads poly[0,1])
         // Wave 1: pep[1] alone (reads poly[2,3])
         // Wave 2: pep[2,3] in parallel (read poly[4-7])
-        // Wave k: pep[2^k ... 2^(k+1)-1] in parallel
+        // Wave k: pep[2^(k-1) ... 2^k-1] in parallel
         for (size_t j = 0; j < poly_view.size(); j++) {
             const auto& poly = poly_view[j];
             size_t limit = (poly.end_index() + 1) / 2;
@@ -577,11 +577,8 @@ template <typename Flavor> class SumcheckProver {
                     size_t actual_size = wave_end - wave_start;
 
                     parallel_for([&](const ThreadChunk& chunk) {
-                        for (size_t i : chunk.range(actual_size)) {
-                            // for (size_t i = 0; i < actual_size; i++) {
-                            size_t idx = wave_start + i;
-                            pep_view[j].at(idx) =
-                                poly[2 * idx] + round_challenge * (poly[(2 * idx) + 1] - poly[2 * idx]);
+                        for (size_t i : chunk.range(actual_size, wave_start)) {
+                            pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
                         }
                     });
 
