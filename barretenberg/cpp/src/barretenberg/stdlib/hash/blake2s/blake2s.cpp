@@ -141,7 +141,7 @@ template <typename Builder> byte_array<Builder> Blake2s<Builder>::hash(const byt
     blake2s(S, input);
 
     // Build result from state values
-    byte_array_ct result(input.get_context(), std::vector<uint8_t>()); // Start with empty constrained array
+    byte_array_ct result = byte_array_ct::constant_padding(input.get_context(), 0);
     for (const auto& h : S.h) {
         // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
         byte_array_ct v(h, 4);

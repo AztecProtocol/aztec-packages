@@ -360,7 +360,7 @@ template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte
     }
 
     // Build result by writing constrained byte_arrays
-    byte_array_ct result(ctx, std::vector<uint8_t>());
+    byte_array_ct result = byte_array_ct::constant_padding(ctx, 0);
     // Each element of rolling_hash is a 4-byte field_t, decompose rolling hash into bytes.
     for (const auto& word : rolling_hash) {
         // This constructor constrains
