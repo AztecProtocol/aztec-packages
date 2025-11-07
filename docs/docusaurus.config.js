@@ -85,11 +85,6 @@ const config = {
             [versions[2]]: {
               label: "RC (v2.1.2)",
             },
-            "v2.0.4": {
-              label: "Testnet (v2.0.4)",
-              path: "testnet",
-              banner: "none",
-            },
             ...(process.env.CONTEXT !== "production" && {
               current: {
                 label: "dev",
