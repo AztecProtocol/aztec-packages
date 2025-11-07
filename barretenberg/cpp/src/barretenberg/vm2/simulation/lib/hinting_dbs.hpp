@@ -36,13 +36,15 @@ class HintingContractsDB final : public ContractDBInterface {
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
-    uint32_t get_checkpoint_id() const override { return db.get_checkpoint_id(); }
 
     void dump_hints(ExecutionHints& hints);
 
   private:
     ContractDBInterface& db;
     uint32_t checkpoint_action_counter = 0;
+    // Mirrors current ts checkpoint stack logic:
+    std::stack<uint32_t> checkpoint_stack{ { 0 } };
+    uint32_t get_checkpoint_id() const;
 
     mutable MappedContractHints contract_hints;
     unordered_flat_map</*action_counter*/ uint32_t, ContractDBCreateCheckpointHint> create_checkpoint_hints;

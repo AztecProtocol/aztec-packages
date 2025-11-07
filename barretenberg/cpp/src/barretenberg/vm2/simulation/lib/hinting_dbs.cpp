@@ -15,27 +15,6 @@
 
 namespace bb::avm2::simulation {
 
-namespace {
-
-// We need this helper to avoid having const and non-const versions methods in the class.
-auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, const auto& tree_roots)
-{
-    switch (tree_id) {
-    case world_state::MerkleTreeId::NULLIFIER_TREE:
-        return tree_roots.nullifierTree;
-    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
-        return tree_roots.publicDataTree;
-    case world_state::MerkleTreeId::NOTE_HASH_TREE:
-        return tree_roots.noteHashTree;
-    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
-        return tree_roots.l1ToL2MessageTree;
-    default:
-        throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
-    }
-}
-
-} // namespace
-
 // HintingContractsDB starts.
 std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const AztecAddress& address) const
 {
@@ -116,15 +95,16 @@ void HintingContractsDB::add_contracts(const ContractDeploymentData& contract_de
 
 void HintingContractsDB::create_checkpoint()
 {
-    auto old_checkpoint_id = db.get_checkpoint_id();
+    auto old_checkpoint_id = get_checkpoint_id();
     // Update underlying db:
     db.create_checkpoint();
-
+    // Update this db:
+    checkpoint_stack.push(old_checkpoint_id + 1);
     // Store hint:
     create_checkpoint_hints[checkpoint_action_counter] = {
         .actionCounter = checkpoint_action_counter,
         .oldCheckpointId = old_checkpoint_id,
-        .newCheckpointId = db.get_checkpoint_id(),
+        .newCheckpointId = get_checkpoint_id(),
     };
 
     // Update this db:
@@ -133,14 +113,16 @@ void HintingContractsDB::create_checkpoint()
 
 void HintingContractsDB::commit_checkpoint()
 {
-    auto old_checkpoint_id = db.get_checkpoint_id();
+    auto old_checkpoint_id = get_checkpoint_id();
     // Update underlying db:
     db.commit_checkpoint();
+    // Update this db:
+    checkpoint_stack.pop();
     // Store hint:
     commit_checkpoint_hints[checkpoint_action_counter] = {
         .actionCounter = checkpoint_action_counter,
         .oldCheckpointId = old_checkpoint_id,
-        .newCheckpointId = db.get_checkpoint_id(),
+        .newCheckpointId = get_checkpoint_id(),
     };
 
     // Update this db:
@@ -149,18 +131,25 @@ void HintingContractsDB::commit_checkpoint()
 
 void HintingContractsDB::revert_checkpoint()
 {
-    auto old_checkpoint_id = db.get_checkpoint_id();
+    auto old_checkpoint_id = get_checkpoint_id();
     // Update underlying db:
     db.revert_checkpoint();
+    // Update this db:
+    checkpoint_stack.pop();
     // Store hint:
     revert_checkpoint_hints[checkpoint_action_counter] = {
         .actionCounter = checkpoint_action_counter,
         .oldCheckpointId = old_checkpoint_id,
-        .newCheckpointId = db.get_checkpoint_id(),
+        .newCheckpointId = get_checkpoint_id(),
     };
 
     // Update this db:
     checkpoint_action_counter++;
+}
+
+uint32_t HintingContractsDB::get_checkpoint_id() const
+{
+    return checkpoint_stack.top();
 }
 
 void HintingContractsDB::dump_hints(ExecutionHints& hints)
@@ -200,7 +189,8 @@ void HintingContractsDB::dump_hints(ExecutionHints& hints)
 // Hinting MerkleDB starts.
 const AppendOnlyTreeSnapshot& HintingRawDB::get_tree_info(world_state::MerkleTreeId tree_id) const
 {
-    return get_tree_info_helper(tree_id, db.get_tree_roots());
+    auto roots = db.get_tree_roots();
+    return get_tree_info_helper(tree_id, roots);
 }
 
 SiblingPath HintingRawDB::get_sibling_path(world_state::MerkleTreeId tree_id, index_t leaf_index) const

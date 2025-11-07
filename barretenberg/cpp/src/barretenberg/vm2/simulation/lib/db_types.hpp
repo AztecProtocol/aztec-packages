@@ -62,6 +62,23 @@ struct TreeCounters {
 
 } // namespace bb::avm2::simulation
 
+// We need this helper to avoid having const and non-const versions methods in db classes.
+auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
+{
+    switch (tree_id) {
+    case world_state::MerkleTreeId::NULLIFIER_TREE:
+        return tree_roots.nullifierTree;
+    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
+        return tree_roots.publicDataTree;
+    case world_state::MerkleTreeId::NOTE_HASH_TREE:
+        return tree_roots.noteHashTree;
+    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+        return tree_roots.l1ToL2MessageTree;
+    default:
+        throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
+    }
+}
+
 // Specialization of std::hash for std::vector<FF> to be used as a key in unordered_flat_map.
 // Used in raw_data_dbs and hinting_dbs
 namespace std {

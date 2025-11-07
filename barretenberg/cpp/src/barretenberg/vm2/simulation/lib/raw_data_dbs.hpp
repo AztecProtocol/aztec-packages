@@ -37,9 +37,9 @@ class HintedRawContractDB final : public ContractDBInterface {
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
-    uint32_t get_checkpoint_id() const override;
 
   private:
+    uint32_t get_checkpoint_id() const;
     unordered_flat_map<GetContractInstanceKey, ContractInstanceHint> contract_instances;
     unordered_flat_map<GetContractClassKey, ContractClassHint> contract_classes;
     unordered_flat_map<GetBytecodeCommitmentKey, FF> bytecode_commitments;
