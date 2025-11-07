@@ -214,7 +214,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     BB_ASSERT_GT(NUM_LIMB_BITS * 2, LO_BITS);
     BB_ASSERT_LT(NUM_LIMB_BITS, LO_BITS);
 
-    // Step 3: limb1 contributes to both *this.lo and *this._hi. Compute the values of the two limb1 slices
+    // Step 3: limb1 contributes to both *this._lo and *this._hi. Compute the values of the two limb1 slices
     const size_t lo_bits_in_limb_1 = LO_BITS - NUM_LIMB_BITS;
     const auto limb1_max_bits = static_cast<size_t>(limb1_max.get_msb() + 1);
     auto [limb1_lo, limb1_hi] = limb1.no_wrap_split_at(lo_bits_in_limb_1, limb1_max_bits);
