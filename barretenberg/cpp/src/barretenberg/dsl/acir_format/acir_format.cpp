@@ -274,7 +274,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     bool has_chonk_recursion_constraints = !constraint_system.chonk_recursion_constraints.empty();
 
     if constexpr (IsMegaBuilder<Builder>) {
-        // We shouldn't have both honk recursion constraints and pg recursion constraints.
+        // We shouldn't have both honk recursion constraints and HN recursion constraints.
         BB_ASSERT_EQ(!has_honk_recursion_constraints || !has_hn_recursion_constraints,
                      true,
                      "Invalid circuit: both honk and ivc recursion constraints present.");
@@ -312,7 +312,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // we return a vinfo for the case of Chonk + AVM
         BB_ASSERT_EQ(has_hn_recursion_constraints,
                      false,
-                     "Invalid circuit: pg recursion constraints are present with UltraBuilder.");
+                     "Invalid circuit: HN recursion constraints are present with UltraBuilder.");
         BB_ASSERT_EQ(!(has_chonk_recursion_constraints && has_honk_recursion_constraints),
                      true,
                      "Invalid circuit: both honk and chonk recursion constraints are present.");
