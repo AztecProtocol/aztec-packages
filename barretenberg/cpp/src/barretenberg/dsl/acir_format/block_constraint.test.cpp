@@ -39,16 +39,16 @@ template <typename Builder_, size_t table_size, size_t num_reads> class ROMTesti
   public:
     using AcirConstraint = BlockConstraint;
     using Builder = Builder_;
-    struct Tampering {
+    class InvalidWitness {
       public:
-        enum class Mode : uint8_t { None, ReadValueIncremented };
-        static std::vector<Mode> get_all()
+        enum class Target : uint8_t { None, ReadValueIncremented };
+        static std::vector<Target> get_all()
         {
-            std::vector<Mode> modes = { Mode::None };
+            std::vector<Target> targets = { Target::None };
             if constexpr (num_reads > 0 && table_size > 0) {
-                modes.push_back(Mode::ReadValueIncremented);
+                targets.push_back(Target::ReadValueIncremented);
             }
-            return modes;
+            return targets;
         };
         static std::vector<std::string> get_labels()
         {
@@ -101,14 +101,14 @@ template <typename Builder_, size_t table_size, size_t num_reads> class ROMTesti
         // Create the MemoryConstraint
         memory_constraint = AcirConstraint{ .init = init_polys, .trace = trace, .type = BlockType::ROM };
     }
-    static void tampering([[maybe_unused]] AcirConstraint& memory_constraint,
-                          WitnessVector& witness_values,
-                          const Tampering::Mode& tampering_mode)
+    static void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
+                                   WitnessVector& witness_values,
+                                   const InvalidWitness::Target& invalid_witness_target)
     {
-        switch (tampering_mode) {
-        case Tampering::Mode::None:
+        switch (invalid_witness_target) {
+        case InvalidWitness::Target::None:
             break;
-        case Tampering::Mode::ReadValueIncremented:
+        case InvalidWitness::Target::ReadValueIncremented:
             if constexpr (num_reads > 0 && table_size > 0) {
                 // Tamper with a random read value
                 const size_t random_read = static_cast<size_t>(engine.get_random_uint32() % num_reads);
@@ -166,19 +166,19 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
         uint32_t witness_index;
     };
 
-    // Instance member to track reads for tampering.
+    // Instance member to track reads for invalidating witnesses.
     std::vector<WitnessValue> read_values;
 
-    struct Tampering {
+    class InvalidWitness {
       public:
-        enum class Mode : uint8_t { None, ReadValueIncremented };
-        static std::vector<Mode> get_all()
+        enum class Target : uint8_t { None, ReadValueIncremented };
+        static std::vector<Target> get_all()
         {
-            std::vector<Mode> modes = { Mode::None };
+            std::vector<Target> targets = { Target::None };
             if constexpr (num_reads > 0 && table_size > 0) {
-                modes.push_back(Mode::ReadValueIncremented);
+                targets.push_back(Target::ReadValueIncremented);
             }
-            return modes;
+            return targets;
         };
         static std::vector<std::string> get_labels()
         {
@@ -283,14 +283,14 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
         memory_constraint = AcirConstraint{ .init = init_polys, .trace = trace, .type = BlockType::RAM };
     }
 
-    void tampering([[maybe_unused]] AcirConstraint& memory_constraint,
-                   WitnessVector& witness_values,
-                   const Tampering::Mode& tampering_mode)
+    void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
+                            WitnessVector& witness_values,
+                            const InvalidWitness::Target& invalid_witness_target)
     {
-        switch (tampering_mode) {
-        case Tampering::Mode::None:
+        switch (invalid_witness_target) {
+        case InvalidWitness::Target::None:
             break;
-        case Tampering::Mode::ReadValueIncremented:
+        case InvalidWitness::Target::ReadValueIncremented:
             if constexpr (num_reads > 0 && table_size > 0) {
                 // Tamper with a random read value using the recorded witness index
                 if (!read_values.empty()) {
