@@ -555,24 +555,44 @@ template <typename Flavor> class SumcheckProver {
 
         auto pep_view = partially_evaluated_polynomials.get_all();
         auto poly_view = polynomials.get_all();
-        // after the first round, operate in place on partially_evaluated_polynomials
-        parallel_for([&](const ThreadChunk& chunk) {
-            for (size_t j = 0; j < poly_view.size(); j++) {
-                const auto& poly = poly_view[j];
-                // The polynomial is shorter than the round size.
-                for (size_t i : chunk.range(poly.end_index() / 2)) {
-                    pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
-                }
-            }
-        });
 
+        // Parallelize in exponentially growing waves to avoid read-write conflicts when source == destination
+        // Wave 0: pep[0] alone (reads poly[0,1])
+        // Wave 1: pep[1] alone (reads poly[2,3])
+        // Wave 2: pep[2,3] in parallel (read poly[4-7])
+        // Wave k: pep[2^k ... 2^(k+1)-1] in parallel
         for (size_t j = 0; j < poly_view.size(); j++) {
-            // We resize pep_view[j] to have the exact size required for the next round which is
-            // CEIL(limit/2). This has the effect to reduce the limit in next round and also to
-            // virtually zeroize any leftover values beyond the limit (in-place computation).
-            // This is important to zeroize leftover values to not mess up with compute_univariate().
-            // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index(poly_view[j].end_index() / 2 + poly_view[j].end_index() % 2);
+            const auto& poly = poly_view[j];
+            size_t limit = (poly.end_index() + 1) / 2;
+
+            if (limit == 0) {
+                pep_view[j].shrink_end_index(poly.end_index() % 2);
+                continue;
+            }
+
+            // Start with pep[0]
+            pep_view[j].at(0) = poly[0] + round_challenge * (poly[1] - poly[0]);
+
+            // Process remaining indices in exponentially growing waves
+            size_t processed = 1;
+            for (size_t wave_size = 1; processed < limit; wave_size *= 2) {
+                size_t wave_start = processed;
+                size_t wave_end = std::min(wave_start + wave_size, limit);
+                size_t actual_size = wave_end - wave_start;
+
+                // parallel_for([&](const ThreadChunk& chunk) {
+                // for (size_t i : chunk.range(actual_size)) {
+                for (size_t i = 0; i < actual_size; i++) {
+                    size_t idx = wave_start + i;
+                    pep_view[j].at(idx) = poly[2 * idx] + round_challenge * (poly[(2 * idx) + 1] - poly[2 * idx]);
+                }
+                // });
+
+                processed = wave_end;
+            }
+
+            // Resize after all waves complete for this polynomial
+            pep_view[j].shrink_end_index(limit);
         }
     };
     /**
@@ -585,24 +605,44 @@ template <typename Flavor> class SumcheckProver {
         BB_BENCH_NAME("SumcheckProver::partially_evaluate array");
 
         auto pep_view = partially_evaluated_polynomials.get_all();
-        // after the first round, operate in place on partially_evaluated_polynomials
-        parallel_for([&](const ThreadChunk& chunk) {
-            for (size_t j = 0; j < polynomials.size(); j++) {
-                const auto& poly = polynomials[j];
-                // The polynomial is shorter than the round size.
-                for (size_t i : chunk.range(poly.end_index() / 2)) {
-                    pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
-                }
-            }
-        });
 
+        // Parallelize in exponentially growing waves to avoid read-write conflicts when source == destination
+        // Wave 0: pep[0] alone (reads poly[0,1])
+        // Wave 1: pep[1] alone (reads poly[2,3])
+        // Wave 2: pep[2,3] in parallel (read poly[4-7])
+        // Wave k: pep[2^k ... 2^(k+1)-1] in parallel
         for (size_t j = 0; j < polynomials.size(); j++) {
-            // We resize pep_view[j] to have the exact size required for the next round which is
-            // CEIL(limit/2). This has the effect to reduce the limit in next round and also to
-            // virtually zeroize any leftover values beyond the limit (in-place computation).
-            // This is important to zeroize leftover values to not mess up with compute_univariate().
-            // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index(polynomials[j].end_index() / 2 + polynomials[j].end_index() % 2);
+            const auto& poly = polynomials[j];
+            size_t limit = (poly.end_index() + 1) / 2;
+
+            if (limit == 0) {
+                pep_view[j].shrink_end_index(poly.end_index() % 2);
+                continue;
+            }
+
+            // Start with pep[0]
+            pep_view[j].at(0) = poly[0] + round_challenge * (poly[1] - poly[0]);
+
+            // Process remaining indices in exponentially growing waves
+            size_t processed = 1;
+            for (size_t wave_size = 1; processed < limit; wave_size *= 2) {
+                size_t wave_start = processed;
+                size_t wave_end = std::min(wave_start + wave_size, limit);
+                size_t actual_size = wave_end - wave_start;
+
+                // parallel_for([&](const ThreadChunk& chunk) {
+                //     for (size_t i : chunk.range(actual_size)) {
+                for (size_t i = 0; i < actual_size; i++) {
+                    size_t idx = wave_start + i;
+                    pep_view[j].at(idx) = poly[2 * idx] + round_challenge * (poly[(2 * idx) + 1] - poly[2 * idx]);
+                }
+                // });
+
+                processed = wave_end;
+            }
+
+            // Resize after all waves complete for this polynomial
+            pep_view[j].shrink_end_index(limit + (poly.end_index() % 2));
         }
     };
 
