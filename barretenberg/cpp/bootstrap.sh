@@ -11,13 +11,6 @@ else
 fi
 export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
-# Mix whether we're building multi-arch or single-arch into the hash
-if semver check "$REF_NAME"; then
-  export hash="$hash-multiarch"
-else
-  export hash="$hash-singlearch"
-fi
-
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
@@ -49,12 +42,20 @@ function build_preset() {
   if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
     cmake_args+=(-DAVM_TRANSPILER_LIB=)
   fi
-  # Auto-enable ENABLE_WASM_BENCH for wasm-threads preset on non-semver builds
-  if [[ "$preset" == "wasm-threads" ]] && ! semver check "$REF_NAME"; then
-    cmake_args+=(-DENABLE_WASM_BENCH=ON)
-  fi
-  cmake --fresh --preset "$preset" "${cmake_args[@]}"
+  cmake --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
+}
+
+# Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
+# Allow the build system to get a head start on compilation while building dependencies.
+# This is a noop if the final artifacts exist in the cache.
+function build_native_objects {
+  set -eu
+  if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+    cmake --preset "$native_preset"
+    targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
+    cmake --build --preset "$native_preset" --target $targets nodejs_module
+  fi
 }
 
 # Build all native binaries, including bb, bb-avm, tests, benches and napi lib.
@@ -64,6 +65,18 @@ function build_native {
     ./format.sh check
     build_preset $native_preset
     cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
+  fi
+}
+
+# Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
+# Allow the build system to get a head start on compilation while building dependencies.
+# For cross compilation we're only building bb and napi module.
+# This is a noop if the final artifacts exist in the cache.
+function build_cross_objects {
+  set -eu
+  target=$1
+  if ! cache_exists barretenberg-$target-$hash.zst; then
+    build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
   fi
 }
 
@@ -103,8 +116,16 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
+    build_preset wasm-threads
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
+  fi
+}
+
+function build_wasm_threads_benches {
+  set -eu
+  if ! cache_download barretenberg-wasm-threads-benches-$hash.zst; then
+    build_preset wasm-threads --target ultra_honk_bench chonk_bench bb
+    cache_upload barretenberg-wasm-threads-benches-$hash.zst build-wasm-threads/bin/{ultra_honk_bench,chonk_bench,bb}
   fi
 }
 
@@ -197,37 +218,15 @@ function build_release_dir {
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
 }
 
-export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f build_preset build_native_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
-  echo_header "bb cpp build"
-
-  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
-
-  if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
-    # Perform release builds of bb and napi module, for all architectures.
-    parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
-      "build_native" \
-      "build_wasm" \
-      "build_wasm_threads" \
-      "build_cross arm64-linux" \
-      "build_cross amd64-macos" \
-      "build_cross arm64-macos"
-    build_release_dir
-  else
-    builds=(
-      build_native
-      build_wasm
-      build_wasm_threads
-    )
-    if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-      builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
-    fi
-    if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      builds+=("build_cross arm64-macos" build_smt_verification)
-    fi
-    parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
+  if [ "$CI_FULL" -eq 1 ]; then
+    # Deletes all build dirs and build bb and wasms from scratch.
+    rm -rf build*
   fi
+
+  (cd $root && make bb-cpp)
 }
 
 # Print every individual test command. Can be fed into gnu parallel.
@@ -236,6 +235,7 @@ function build {
 function test_cmds {
   # E.g. build, build-debug or build-coverage
   cd $(scripts/native-preset-build-dir)
+
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
 
@@ -253,30 +253,25 @@ function test_cmds {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
+  if [ "$CI_FULL" -eq 1 ]; then
     # We only want to sanity check that we haven't broken wasm ecc in merge queue.
     echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
 
-    # only run ASAN tests if not building a release
-    if ! semver check "$REF_NAME"; then
-      # Mostly arbitrary set that touches lots of the code.
-      declare -A asan_tests=(
-        ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-        ["chonk_tests"]="ChonkTests.Basic"
-        ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
-        ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
-      )
-      # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
-      for bin_name in "${!asan_tests[@]}"; do
-        local filter=${asan_tests[$bin_name]}
-        local prefix="$hash:CPUS=4:MEM=8g"
-        echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
-      done
-    fi
-  fi
+    # Mostly arbitrary set that touches lots of the code.
+    declare -A asan_tests=(
+      ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+      ["chonk_tests"]="ChonkTests.Basic"
+      ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
+      ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+    )
+    # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
+    for bin_name in "${!asan_tests[@]}"; do
+      local filter=${asan_tests[$bin_name]}
+      local prefix="$hash:CPUS=4:MEM=8g"
+      echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+    done
 
-  # Run the SMT compatibility tests
-  if [ "$(arch)" == "amd64" ] &&  [ "$CI_FULL" -eq 1 ]; then
+    # Run the SMT compatibility tests
     local prefix="$hash:CPUS=4:MEM=8g"
     echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
   fi
@@ -288,18 +283,6 @@ function test_cmds {
 function test {
   echo_header "bb test"
   test_cmds | filter_test_cmds | parallelize
-}
-
-function build_bench {
-  set -eu
-  if ! cache_download barretenberg-benchmarks-$hash.zst; then
-    # Run builds in parallel with different targets per preset
-    parallel --line-buffered denoise ::: \
-      "build_preset $native_preset --target ultra_honk_bench --target chonk_bench --target bb --target honk_solidity_proof_gen" \
-      "build_preset wasm-threads --target ultra_honk_bench --target chonk_bench --target bb"
-    cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads}/bin/{ultra_honk_bench,chonk_bench,bb}
-  fi
 }
 
 function bench_cmds {
@@ -323,25 +306,15 @@ function bench {
 
 # Upload assets to release.
 function release {
-  # ARM64 doesn't contribute to the build at all anymore.
-  if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
-    echo_header "bb cpp release"
-    do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
-  else
-    echo "bb/cpp/bootstraps.sh release - WARNING: Doing nothing. we only build on amd64, and if tagged as a release."
-  fi
+  echo_header "bb cpp release"
+  do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast")
-    build
-    ;;
-  "full")
-    # Deletes all build dirs and build bb and wasms from scratch.
-    rm -rf build*
+  "")
     build
     ;;
   "ci")
@@ -396,10 +369,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_native|build_cross|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_smt_verification|inject_version)
+  *)
     $cmd "$@"
     ;;
-  *)
-    echo "Unknown command: $cmd"
-    exit 1
 esac

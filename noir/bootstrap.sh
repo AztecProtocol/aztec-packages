@@ -258,7 +258,7 @@ case "$cmd" in
     build
     test
     ;;
-  ""|"fast"|"full")
+  "")
     build
     ;;
   test_cmds|build_native|build_packages|format|test|release)
@@ -275,6 +275,9 @@ case "$cmd" in
     ;;
   "bump-noir-repo-ref")
     bump_noir_repo_ref $@
+    ;;
+  "noir-sync")
+    # Noop, we synced above.
     ;;
   *)
     echo "Unknown command: $cmd"
