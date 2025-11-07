@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx_context.hpp"
+#include "barretenberg/vm2/generated/relations/perms_tx.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -649,8 +650,8 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_calldata_hash_settings, InteractionType::LookupSequential>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_dispatch_exec_end_settings, InteractionType::LookupGeneric>()
+        .add<perm_tx_dispatch_exec_start_settings, InteractionType::Permutation>()
+        .add<perm_tx_dispatch_exec_end_settings, InteractionType::Permutation>()
         .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupGeneric>()

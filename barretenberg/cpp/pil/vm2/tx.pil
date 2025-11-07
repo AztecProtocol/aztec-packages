@@ -271,7 +271,7 @@ namespace tx;
         prev_da_gas_used_sent_to_enqueued_call,
         l2_gas_limit,
         da_gas_limit
-    } in
+    } is
     execution.enqueued_call_start {
         execution.context_id, // next_context_id must be constrained in the execution trace on enqueued_call_start
         execution.discard,
@@ -331,7 +331,7 @@ namespace tx;
        // Gas Info
        next_l2_gas_used_sent_to_enqueued_call,
        next_da_gas_used_sent_to_enqueued_call
-    } in
+    } is
     execution.enqueued_call_end {
        execution.context_id,
        execution.next_context_id,
