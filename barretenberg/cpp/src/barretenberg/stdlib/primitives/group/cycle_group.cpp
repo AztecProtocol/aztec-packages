@@ -64,6 +64,13 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
     // This simplifies circuit operations and prevents edge cases in conditional assignment and arithmetic operations.
     BB_ASSERT(_x.is_constant() == _y.is_constant(), "cycle_group: Inconsistent constancy of coordinates");
 
+    // Ensure that if both coordinates are constant, is_infinity is also constant. This state is not necessarily
+    // invalid, but there is no genuine use case and therefore it likely indicates a mistake.
+    if (_x.is_constant() && _y.is_constant()) {
+        BB_ASSERT(_is_infinity.is_constant(),
+                  "cycle_group: constructing point with constant coordinates but non-constant is_infinity");
+    }
+
     // Elements are always expected to be on the curve but may or may not be constrained as such.
     BB_ASSERT(get_value().on_curve(), "cycle_group: Point is not on curve");
     if (assert_on_curve) {
