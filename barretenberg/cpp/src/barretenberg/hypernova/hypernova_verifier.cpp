@@ -90,11 +90,6 @@ SumcheckOutput<Flavor> HypernovaFoldingVerifier<Flavor>::sumcheck_on_incoming_in
     transcript->load_proof(proof);
     verifier.verify();
 
-    if constexpr (IsRecursiveFlavor<Flavor>) {
-        instance->target_sum = FF::from_witness_index(instance->builder, instance->builder->zero_idx());
-    } else {
-        instance->target_sum = FF::zero();
-    }
     instance->gate_challenges = transcript->template get_powers_of_challenge<FF>(
         "HypernovaFoldingProver:gate_challenge", Flavor::VIRTUAL_LOG_N);
 
@@ -102,7 +97,7 @@ SumcheckOutput<Flavor> HypernovaFoldingVerifier<Flavor>::sumcheck_on_incoming_in
     vinfo("HypernovaFoldingVerifier: verifying Sumcheck to turn instance into an accumulator...");
 
     std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, 1);
-    SumcheckVerifier sumcheck(transcript, instance->alpha, Flavor::VIRTUAL_LOG_N, instance->target_sum);
+    SumcheckVerifier sumcheck(transcript, instance->alpha, Flavor::VIRTUAL_LOG_N);
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(instance->relation_parameters, instance->gate_challenges, padding_indicator_array);
 

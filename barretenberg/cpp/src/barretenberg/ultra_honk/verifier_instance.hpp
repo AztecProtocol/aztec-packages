@@ -42,8 +42,6 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
     SubrelationSeparator alpha; // a challenge whose powers are used to batch subrelation contributions during Sumcheck
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    // The target sum, which is typically nonzero for a ProtogalaxyProver's accumulator
-    FF target_sum{ 0 };
 
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
@@ -89,14 +87,13 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
                                                   this->relation_parameters.gamma);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_public_input_delta",
                                                   this->relation_parameters.public_input_delta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_target_sum", this->target_sum);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_gate_challenges",
                                                   this->gate_challenges);
 
         return transcript.hash_independent_buffer();
     }
 
-    MSGPACK_FIELDS(vk, relation_parameters, alpha, is_complete, gate_challenges, target_sum, witness_commitments);
+    MSGPACK_FIELDS(vk, relation_parameters, alpha, is_complete, gate_challenges, witness_commitments);
 };
 
 } // namespace bb
