@@ -942,8 +942,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         std::array<MultiTableId, 2> table_id = table::get_lookup_table_ids_for_point(point);
         multitable_ids.push_back(table_id[0]);
         multitable_ids.push_back(table_id[1]);
-        scalar_limbs.push_back(scalar.lo);
-        scalar_limbs.push_back(scalar.hi);
+        scalar_limbs.push_back(scalar.lo());
+        scalar_limbs.push_back(scalar.hi());
     }
 
     // Look up the multiples of each slice of each lo/hi scalar limb in the corresponding plookup table.

@@ -84,8 +84,8 @@ straus_scalar_slices<Builder>::straus_scalar_slices(Builder* context,
     constexpr size_t LO_BITS = cycle_scalar<Builder>::LO_BITS;
     const size_t lo_bits = scalar.num_bits() > LO_BITS ? LO_BITS : scalar.num_bits();
     const size_t hi_bits = scalar.num_bits() > LO_BITS ? scalar.num_bits() - LO_BITS : 0;
-    auto hi_slices = compute_scalar_slices(context, scalar.hi, hi_bits, table_bits);
-    auto lo_slices = compute_scalar_slices(context, scalar.lo, lo_bits, table_bits);
+    auto hi_slices = compute_scalar_slices(context, scalar.hi(), hi_bits, table_bits);
+    auto lo_slices = compute_scalar_slices(context, scalar.lo(), lo_bits, table_bits);
 
     std::copy(lo_slices.first.begin(), lo_slices.first.end(), std::back_inserter(slices));
     std::copy(hi_slices.first.begin(), hi_slices.first.end(), std::back_inserter(slices));
