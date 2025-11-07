@@ -100,7 +100,6 @@ template <typename Builder> class cycle_group {
     void set_point_at_infinity(const bool_t& is_infinity);
 #endif
     void standardize();
-    bool is_standard() const { return this->_is_standard; };
     void validate_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
@@ -222,14 +221,6 @@ template <typename Builder> class cycle_group {
     field_t _x;
     field_t _y;
     bool_t _is_infinity;
-    // The point is considered to be `standard` or in `standard form` when:
-    // - It's not a point at infinity, and the coordinates belong to the curve
-    // - It's a point at infinity and both of the coordinates are set to be 0. (0, 0)
-    // Most of the time it is true, so we won't need to do extra conditional_assign
-    // during `standardize`, `assert_equal` or `==` calls
-    // However sometimes it won't be the case(due to some previous design choices),
-    // so we can handle these cases using this flag
-    bool _is_standard;
     Builder* context;
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,

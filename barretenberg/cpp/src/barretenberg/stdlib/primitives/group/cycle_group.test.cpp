@@ -388,7 +388,7 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(standard_f_x, 0);
     EXPECT_EQ(standard_f_y, 0);
 
-    check_circuit_and_gate_count(builder, 20);
+    check_circuit_and_gate_count(builder, 24);
 }
 TYPED_TEST(CycleGroupTest, TestDbl)
 {

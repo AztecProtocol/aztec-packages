@@ -19,7 +19,6 @@
 #include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib {
 
-#ifdef FUZZING
 /**
  * @brief Construct a new constant point at infinity cycle group object.
  *
@@ -29,7 +28,6 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
 {
     *this = constant_infinity(_context);
 }
-#endif
 
 /**
  * @brief Construct a new cycle group<Builder>::cycle group object
@@ -46,7 +44,6 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
     : _x(_x)
     , _y(_y)
     , _is_infinity(is_infinity)
-    , _is_standard(is_infinity.is_constant())
 {
     if (_x.get_context() != nullptr) {
         context = _x.get_context();
@@ -95,7 +92,6 @@ cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_in
     : _x(is_infinity ? 0 : _x)
     , _y(is_infinity ? 0 : _y)
     , _is_infinity(is_infinity)
-    , _is_standard(true)
     , context(nullptr)
 {
     BB_ASSERT(get_value().on_curve());
@@ -115,7 +111,6 @@ cycle_group<Builder>::cycle_group(const AffineElement& _in)
     : _x(_in.is_point_at_infinity() ? 0 : _in.x)
     , _y(_in.is_point_at_infinity() ? 0 : _in.y)
     , _is_infinity(_in.is_point_at_infinity())
-    , _is_standard(true)
     , context(nullptr)
 {}
 
@@ -180,7 +175,6 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
         result._y = field_t::from_witness(_context, _in.y);
     }
     result._is_infinity = bool_t(witness_t(_context, _in.is_point_at_infinity()));
-    result._is_standard = true;
     result.validate_on_curve();
     result.set_free_witness_tag();
     return result;
@@ -213,7 +207,6 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     }
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
-    result._is_standard = true;
     result.unset_free_witness_tag();
     return result;
 }
@@ -261,8 +254,6 @@ template <typename Builder> void cycle_group<Builder>::validate_on_curve() const
  */
 template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
 {
-    this->_is_standard = true;
-
     if (is_infinity.is_constant() && this->_is_infinity.is_constant()) {
         // Check that it's not possible to enter the case when
         // The point is already infinity, but `is_infinity` = false
@@ -313,22 +304,11 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
 
 /**
  * @brief Convert the point to standard form.
- * @details If the point is a point at infinity, ensure the coordinates are (0,0). If the point is already standard
- * nothing changes.
+ * @details If the point is a point at infinity, ensure the coordinates are (0,0).
  *
  */
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
-    if (this->is_constant_point_at_infinity()) {
-        BB_ASSERT(this->is_constant());
-        BB_ASSERT(this->_is_standard);
-    }
-
-    if (this->_is_standard) {
-        return;
-    }
-    this->_is_standard = true;
-
     this->_x = field_t::conditional_assign(this->_is_infinity, 0, this->_x);
     this->_y = field_t::conditional_assign(this->_is_infinity, 0, this->_y);
 }
@@ -1215,11 +1195,6 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
     auto _is_infinity_res =
         bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity());
 
-    bool _is_standard_res = lhs._is_standard && rhs._is_standard;
-    if (predicate.is_constant()) {
-        _is_standard_res = predicate.get_value() ? lhs._is_standard : rhs._is_standard;
-    }
-
     // Handle case where x_res is constant but y_res is not:
     // Due to the nature of field_t::conditional_assign, if the inputs to this method are such that predicate is a
     // witness and lhs = -rhs and both are constants, x_res will be constant equal to lhs.x and y_res will be witness
@@ -1231,7 +1206,6 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
     }
 
     cycle_group<Builder> result(x_res, y_res, _is_infinity_res, /*assert_on_curve=*/false);
-    result._is_standard = _is_standard_res;
     return result;
 };
 
