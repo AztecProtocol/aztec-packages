@@ -72,9 +72,7 @@ template <typename Builder_, size_t table_size, size_t num_reads> class ROMTesti
         // `init_poly` represents the _initial values_ of the circuit.
         std::vector<poly_triple> init_polys;
         for (const auto& val : table_values) {
-            uint32_t value_index = static_cast<uint32_t>(witness_values.size());
-            witness_values.emplace_back(val); // Add actual value to witness
-
+            uint32_t value_index = add_to_witness_and_track_indices(witness_values, val);
             // push the circuit incarnation of the value in `init_polys`
             init_polys.push_back(poly_triple_from_witness(value_index));
         }
@@ -88,13 +86,11 @@ template <typename Builder_, size_t table_size, size_t num_reads> class ROMTesti
                 const size_t rom_index_to_read = static_cast<size_t>(engine.get_random_uint32() % table_size);
 
                 // Add index witness
-                const uint32_t index_for_read = static_cast<uint32_t>(witness_values.size());
-                witness_values.emplace_back(bb::fr(rom_index_to_read));
-
+                const uint32_t index_for_read =
+                    add_to_witness_and_track_indices(witness_values, bb::fr(rom_index_to_read));
                 // Add value witness
-                const uint32_t value_for_read = static_cast<uint32_t>(witness_values.size());
                 bb::fr read_value = table_values[rom_index_to_read];
-                witness_values.emplace_back(read_value);
+                const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
                 const MemOp read_op = { .access_type = 0, // READ
                                         .index = poly_triple_from_witness(index_for_read),
@@ -212,8 +208,7 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
         for (size_t i = 0; i < table_size; ++i) {
             const auto val = table_values[i];
             if (i % 2 == 0) {
-                uint32_t value_index = static_cast<uint32_t>(witness_values.size());
-                witness_values.emplace_back(val);
+                uint32_t value_index = add_to_witness_and_track_indices(witness_values, val);
                 init_polys.push_back(poly_triple_from_witness(value_index));
             } else {
                 init_polys.push_back(poly_triple_from_constant(val));
@@ -250,11 +245,10 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
                 switch (access_type) {
                 case AccessType::READ: {
                     const size_t ram_index_to_read = static_cast<size_t>(engine.get_random_uint32() % table_size);
-                    const uint32_t index_for_read = static_cast<uint32_t>(witness_values.size());
-                    witness_values.emplace_back(bb::fr(ram_index_to_read));
-                    const uint32_t value_for_read = static_cast<uint32_t>(witness_values.size());
+                    const uint32_t index_for_read =
+                        add_to_witness_and_track_indices(witness_values, bb::fr(ram_index_to_read));
                     bb::fr read_value = table_values[ram_index_to_read];
-                    witness_values.emplace_back(read_value);
+                    const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
                     // Record this read value and its witness index
                     read_values.push_back({ .value = read_value, .witness_index = value_for_read });
@@ -267,11 +261,10 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
                 }
                 case AccessType::WRITE: {
                     const size_t ram_index_to_write = static_cast<size_t>(engine.get_random_uint32() % table_size);
-                    const uint32_t index_to_write = static_cast<uint32_t>(witness_values.size());
-                    witness_values.emplace_back(bb::fr(ram_index_to_write));
-                    const uint32_t value_to_write = static_cast<uint32_t>(witness_values.size());
+                    const uint32_t index_to_write =
+                        add_to_witness_and_track_indices(witness_values, bb::fr(ram_index_to_write));
                     bb::fr write_value = bb::fr::random_element();
-                    witness_values.emplace_back(write_value);
+                    const uint32_t value_to_write = add_to_witness_and_track_indices(witness_values, write_value);
 
                     // Update the table_values to reflect this write
                     table_values[ram_index_to_write] = write_value;
