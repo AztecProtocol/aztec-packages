@@ -12,14 +12,8 @@
 namespace bb {
 /**
  * @brief The VerifierInstance encapsulates all the necessary information for a Mega Honk Verifier to verify a
-l * proof (sumcheck + Shplemini). In the context of folding, this is provided to the Hypernova verifier as an incoming
+ * proof (sumcheck + Shplemini). In the context of folding, this is provided to the Hypernova verifier as an incoming
  * instance.
- *
- * @details This is the committed version of a ProverInstance_. With the notation used in ProverInstance_, a prover
- * instance is \f$\omega = (p_1, \dots, p_M, \theta_1, \dots, \theta_6, \alpha)\f$ where the \f$p_i\f$'s are the
- * prover polynomials, the \f$\theta_i\f$'s are the relation parameters, and \f$\alpha\f$ is the challenge whose powers
- * are used for batching subrelations. The committed version contains \f$([p_1], \dots, [p_M], \theta_1, \dots,
- * \theta_6, \alpha)\f$ where [p_i] denotes the commitment to the i-th prover polynomial.
  */
 template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
   public:
