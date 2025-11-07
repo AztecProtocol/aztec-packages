@@ -49,7 +49,7 @@ ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip '
 '
 
 # Download crs onto machine.
-ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/crs/bootstrap.sh
+ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/scripts/download_bb_crs.sh
 
 # Pull devbox onto host, and build into docker-in-docker volume.
 ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip "

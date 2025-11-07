@@ -3,7 +3,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
-export RAYON_NUM_THREADS=1
 
 tests_tar=barretenberg-acir-tests-$(hash_str \
   $(../../noir/bootstrap.sh hash-tests) \
@@ -230,7 +229,7 @@ case "$cmd" in
     build
     test
     ;;
-  "")
+  ""|"fast"|"full")
     build
     ;;
   "hash")

@@ -99,10 +99,6 @@ tests:
     skip: true
     owners:
       - *charlie
-  - regex: "noir-protocol-circuits blob blob_batching::tests::test_max_blobs_batched"
-    error_regex: "core dumped"
-    owners:
-      - *tom
 
   # AD: hit this flake
   # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
@@ -194,10 +190,6 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
-  - regex: "slasher/src/tally_slasher_client.test.ts"
-    error_regex: "Expected length: 1"
-    owners:
-      - *palla
   - regex: "archiver/src/archiver/archiver.test.ts"
     error_regex: "Received number of calls: 1"
     owners:

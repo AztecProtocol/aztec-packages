@@ -33,7 +33,7 @@ RUN git clone https://github.com/AztecProtocol/aztec-packages.git && \
 
 # Download crs
 WORKDIR /home/fuzzer/aztec-packages/barretenberg
-RUN ./crs/bootstrap.sh
+RUN ./scripts/download_bb_crs.sh
 
 WORKDIR /home/fuzzer/aztec-packages/barretenberg/cpp
 
