@@ -14,6 +14,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "sumcheck_round.hpp"
+#include <algorithm>
 #include <cstddef>
 
 namespace bb {
@@ -556,11 +557,13 @@ template <typename Flavor> class SumcheckProver {
         auto pep_view = partially_evaluated_polynomials.get_all();
         auto poly_view = polynomials.get_all();
 
-        size_t max_poly_end_index = 0;
+        std::vector<size_t> limits;
+        limits.reserve(poly_view.size());
+
         for (const auto& poly : poly_view) {
-            max_poly_end_index = std::max(max_poly_end_index, poly.end_index());
+            limits.emplace_back((poly.end_index() + 1) / 2);
         }
-        const size_t max_limit = (max_poly_end_index + 1) / 2;
+        const size_t max_limit = *std::ranges::max_element(limits);
 
         // // Start with pep[0]
         for (size_t j = 0; j < poly_view.size(); j++) {
@@ -575,16 +578,16 @@ template <typename Flavor> class SumcheckProver {
         // Wave 1: pep[2,3] in parallel (read poly[4-7])
         // Wave k: pep[2^k ... 2^(k+1)-1] in parallel
         size_t processed = 1;
-        for (size_t wave_size = 1; processed < max_limit; wave_size *= 2) {
+        size_t wave_size = 1;
+        while (processed < max_limit) {
             parallel_for([&](const ThreadChunk& chunk) {
                 for (size_t j = 0; j < poly_view.size(); j++) {
                     const auto& poly = poly_view[j];
-                    const size_t limit = (poly.end_index() + 1) / 2;
-                    if (processed >= limit) {
+                    if (processed >= limits[j]) {
                         continue;
                     }
                     const size_t wave_start = processed;
-                    const size_t wave_end = std::min(wave_start + wave_size, limit);
+                    const size_t wave_end = std::min(wave_start + wave_size, limits[j]);
                     const size_t actual_size = wave_end - wave_start;
 
                     for (size_t i : chunk.range(actual_size, wave_start)) {
@@ -594,11 +597,12 @@ template <typename Flavor> class SumcheckProver {
             });
 
             processed += wave_size;
+            wave_size *= 2;
         }
 
         // Resize after all waves complete
         for (size_t j = 0; j < poly_view.size(); j++) {
-            pep_view[j].shrink_end_index((poly_view[j].end_index() + 1) / 2);
+            pep_view[j].shrink_end_index(limits[j]);
         }
     };
 
