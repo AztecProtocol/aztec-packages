@@ -124,6 +124,8 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
   benchmark_breakdown_file="bench-out/app-proving/$flow_name/$runtime/benchmark_breakdown.json"
 
   if [[ -f "$benchmark_breakdown_file" ]]; then
+    # TODO(AD): make this robust. not erroring if this breaks is not great.
+    set +e
     current_sha=$(git rev-parse HEAD)
 
     # Copy to /tmp with unique name to avoid race conditions with concurrent flows
