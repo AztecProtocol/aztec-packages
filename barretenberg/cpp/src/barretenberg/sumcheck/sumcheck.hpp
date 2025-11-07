@@ -579,7 +579,7 @@ template <typename Flavor> class SumcheckProver {
             // Wave 1: pep[1] alone (reads poly[2,3])
             // Wave 2: pep[2,3] in parallel (read poly[4-7])
             // Wave k: pep[2^(k-1) ... 2^k-1] in parallel
-            constexpr size_t PARALLEL_THRESHOLD = 64;
+            constexpr size_t PARALLEL_THRESHOLD = 32;
             size_t processed = 0;
             size_t wave_size = 1;
             while (processed < max_limit) {
