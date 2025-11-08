@@ -76,15 +76,18 @@ function test_cmds {
   done
 
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
-  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
+  # echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/e2e_multi_validator/e2e_multi_validator_node_key_store.test.ts"
 
-  # compose-based tests with custom scripts
-  for flow in ../cli-wallet/test/flows/*.sh; do
-    # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
-    # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
-    echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
-  done
+  # TODO(AD): figure out workaround for mainframe subnet exhaustion
+  if [ "$CI" -eq 1 ]; then
+    # compose-based tests with custom scripts
+    for flow in ../cli-wallet/test/flows/*.sh; do
+      # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
+      # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
+      echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
+    done
+  fi
 }
 
 function test {
