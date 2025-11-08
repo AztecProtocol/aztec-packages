@@ -30,6 +30,7 @@ export type L2ChainConfig = L1ContractsConfig &
     autoUpdate: SharedNodeConfig['autoUpdate'];
     autoUpdateUrl?: string;
     maxTxPoolSize: number;
+    publicMetricsOptOut: boolean;
     publicIncludeMetrics?: string[];
     publicMetricsCollectorUrl?: string;
     publicMetricsCollectFrom?: string[];
@@ -107,7 +108,8 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
-  maxTxPoolSize: 100_000_000, // 100MB
+  maxTxPoolSize: 0,
+  publicMetricsOptOut: false,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
@@ -189,11 +191,67 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-public/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
+  publicMetricsOptOut: false,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
   maxTxPoolSize: 100_000_000, // 100MB
   txPoolDeleteTxsAfterReorg: true,
+
+  // Deployment stuff
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 36,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 32,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 48,
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: DefaultL1ContractsConfig.lagInEpochs,
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** The deposit amount for a validator */
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  /** The minimum stake for a validator. */
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+  /** The slashing round size */
+  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
+  /** Governance proposing round size */
+  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
+  /** The mana target for the rollup */
+  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  /** The proving cost per mana */
+  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
+  /** Exit delay for stakers */
+  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+
+  ...DefaultSlashConfig,
+
+  ...DefaultNetworkDBMapSizeConfig,
+};
+
+export const nextNetL2ChainConfig: L2ChainConfig = {
+  l1ChainId: 11155111,
+  testAccounts: true,
+  sponsoredFPC: true,
+  p2pEnabled: true,
+  disableTransactions: false,
+  p2pBootstrapNodes: [],
+  seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 8,
+  realProofs: true,
+  snapshotsUrls: [],
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: '',
+  publicMetricsOptOut: true,
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: '',
+  publicMetricsCollectFrom: [''],
+  maxTxPoolSize: 100_000_000, // 100MB
+  txPoolDeleteTxsAfterReorg: false,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -244,6 +302,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
+  publicMetricsOptOut: false,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
@@ -333,10 +392,12 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [`${SNAPSHOTS_URL}/mainnet/`],
   autoUpdate: 'notify',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-mainnet/auto-update/mainnet.json',
-  maxTxPoolSize: 100_000_000, // 100MB
+  maxTxPoolSize: 0,
+  publicMetricsOptOut: true,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
+  blobAllowEmptySources: true,
 
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
@@ -400,6 +461,61 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   slashExecuteRoundsLookBack: 4,
 
   sentinelEnabled: true,
+
+  ...DefaultNetworkDBMapSizeConfig,
+};
+
+export const devnetL2ChainConfig: L2ChainConfig = {
+  l1ChainId: 11155111,
+  testAccounts: true,
+  sponsoredFPC: true,
+  p2pEnabled: true,
+  disableTransactions: false,
+  p2pBootstrapNodes: [],
+  seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 8,
+  realProofs: false,
+  snapshotsUrls: [],
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: '',
+  publicMetricsOptOut: true,
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: '',
+  publicMetricsCollectFrom: [''],
+  maxTxPoolSize: 100_000_000, // 100MB
+  txPoolDeleteTxsAfterReorg: true,
+
+  // Deployment stuff
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 36,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 8,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 1,
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: 1,
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** The deposit amount for a validator */
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  /** The minimum stake for a validator. */
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+  /** The slashing round size */
+  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
+  /** Governance proposing round size */
+  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
+  /** The mana target for the rollup */
+  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  /** The proving cost per mana */
+  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
+  /** Exit delay for stakers */
+  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+
+  ...DefaultSlashConfig,
 
   ...DefaultNetworkDBMapSizeConfig,
 };
@@ -479,6 +595,8 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   if (config.publicMetricsCollectFrom) {
     enrichVar('PUBLIC_OTEL_COLLECT_FROM', config.publicMetricsCollectFrom.join(','));
   }
+
+  enrichVar('PUBLIC_OTEL_OPT_OUT', config.publicMetricsOptOut.toString());
 
   // Deployment stuff
   enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());
