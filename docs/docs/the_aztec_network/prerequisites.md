@@ -167,7 +167,7 @@ Verify installation:
 
 ```bash
 ls ~/.aztec/bin
-# Should show: aztec, aztec-up, aztec-nargo, and aztec-wallet
+# Should show: aztec, aztec-up, and aztec-wallet
 ```
 
 Add Aztec to your PATH:

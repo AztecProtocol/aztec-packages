@@ -1,7 +1,6 @@
 *
 !/.release-please-manifest.json
 !/avm-transpiler/target/release/avm-transpiler
-!/aztec-postprocess-contract/transpile_contract_and_gen_vks.sh
 !/barretenberg/cpp/build/bin/bb-avm
 !/barretenberg/ts/dest/
 !/barretenberg/ts/package.json

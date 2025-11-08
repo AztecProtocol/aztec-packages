@@ -5,8 +5,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "compile": "cd src && ${AZTEC_NARGO:-aztec-nargo} compile && ${AZTEC_POSTPROCESS_CONTRACT:-aztec-postprocess-contract}",
-    "codegen": "${AZTEC_BUILDER:-aztec-builder} codegen target -o artifacts",
+    "compile": "cd src && ${AZTEC:-aztec} compile",
+    "codegen": "${AZTEC:-aztec} codegen target -o artifacts",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./target",
     "prep": "yarn clean && yarn compile && yarn codegen && tsc -b",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand",

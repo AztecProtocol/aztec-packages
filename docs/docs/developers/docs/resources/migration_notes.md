@@ -170,6 +170,32 @@ fn withdraw(amount: u128, recipient: AztecAddress) {
 }
 ```
 
+## [`aztec` command] Moving functionality of `aztec-nargo` to `aztec` command
+
+`aztec-nargo` has been deprecated and all workflows should now migrate to the `aztec` command that fully replaces `aztec-nargo`:
+
+- **For contract initialization:**
+
+  ```bash
+  aztec init
+  ```
+
+  (Behaves like `nargo init`, but defaults to a contract project.)
+
+- **For testing:**
+
+  ```bash
+  aztec test
+  ```
+
+  (Starts the Aztec TXE and runs your tests.)
+
+- **For compiling contracts:**
+  ```bash
+  aztec compile
+  ```
+  (Transpiles your contracts and generates verification keys.)
+
 ## 3.0.0-devnet.4
 
 ## [aztec.js] Removal of barrel export

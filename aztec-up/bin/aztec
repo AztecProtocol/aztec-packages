@@ -54,11 +54,205 @@ function get_env_vars {
     awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
 }
 
+function validate_working_directory {
+  # Validate working directory is under $HOME for Docker containerization
+  if [[ $PWD != ${HOME}* ]]; then
+    >&2 echo "Due to how we containerize our applications, we require your working directory to be somewhere within $HOME."
+    exit 1
+  fi
+}
+
+function run_nargo {
+  # Helper function to run nargo commands with proper Docker setup
+  # Usage: run_nargo <command> [args...]
+
+  # Determine if we need interactive/tty flags
+  if [ -t 0 ]; then
+    if [ -t 1 ]; then
+      TTY_FLAGS="-ti"
+    else
+      TTY_FLAGS="-i"
+    fi
+  fi
+
+  # Run nargo via docker
+  docker run ${TTY_FLAGS:-} \
+    --user $(id -u):$(id -g) \
+    -v $HOME:$HOME \
+    -e HOME=$HOME \
+    --workdir="$PWD" \
+    --entrypoint=/usr/src/noir/noir-repo/target/release/nargo \
+    $DOCKER_REPO:$VERSION "$@"
+}
+
+function setup_aztec_contract_project {
+  # Setup an Aztec contract project by adding dependencies and creating the main.nr template
+  # Usage: setup_aztec_contract_project <project_path>
+  # If project_path is ".", operates in current directory
+  local PROJECT_DIR="$1"
+
+  # Get the actual aztec version for the git tag
+  AZTEC_VERSION=$(docker run --rm --entrypoint=node $DOCKER_REPO:$VERSION --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js --version 2>/dev/null | tr -d '\n\r')
+
+  # Determine file paths based on whether we're in current dir or a subdirectory
+  if [ "$PROJECT_DIR" = "." ]; then
+    NARGO_TOML_PATH="Nargo.toml"
+    MAIN_NR_PATH="src/main.nr"
+  else
+    NARGO_TOML_PATH="$PROJECT_DIR/Nargo.toml"
+    MAIN_NR_PATH="$PROJECT_DIR/src/main.nr"
+  fi
+
+  # Add aztec dependency to Nargo.toml
+  if [ -f "$NARGO_TOML_PATH" ]; then
+    echo "" >> "$NARGO_TOML_PATH"
+    echo "aztec = { git=\"https://github.com/AztecProtocol/aztec-nr\", tag=\"v${AZTEC_VERSION}\", directory=\"aztec\" }" >> "$NARGO_TOML_PATH"
+    echo "Added aztec dependency (v${AZTEC_VERSION}) to Nargo.toml"
+  else
+    >&2 echo "Warning: Could not find Nargo.toml at $NARGO_TOML_PATH to add aztec dependency"
+  fi
+
+  # Replace the contents of main.nr with the Aztec contract template
+  if [ -f "$MAIN_NR_PATH" ]; then
+    cat > "$MAIN_NR_PATH" << 'EOF'
+use aztec::macros::aztec;
+
+#[aztec]
+contract Main {}
+EOF
+    echo "Created main.nr with Aztec contract template"
+  else
+    >&2 echo "Warning: Could not find main.nr at $MAIN_NR_PATH"
+  fi
+}
+
+function parse_project_flags_and_build_nargo_args {
+  # Parse project type flags and build nargo arguments
+  # Usage: Call this function and it will populate NARGO_ARGS, HAS_TYPE_FLAG, IS_CONTRACT
+  # For 'new' command: pass "new" as first arg and handle PATH specially
+  # For 'init' command: pass "init" as first arg
+  local COMMAND="$1"
+  shift
+
+  NARGO_ARGS=("$COMMAND")
+  HAS_TYPE_FLAG=false
+  IS_CONTRACT=false
+  PROJECT_PATH=""
+
+  while [ "$#" -gt 0 ]; do
+    case $1 in
+      --name)
+        NARGO_ARGS+=("--name" "$2")
+        shift 2
+        ;;
+      --lib)
+        NARGO_ARGS+=("--lib")
+        HAS_TYPE_FLAG=true
+        shift
+        ;;
+      --bin)
+        NARGO_ARGS+=("--bin")
+        HAS_TYPE_FLAG=true
+        shift
+        ;;
+      --contract)
+        NARGO_ARGS+=("--contract")
+        HAS_TYPE_FLAG=true
+        IS_CONTRACT=true
+        shift
+        ;;
+      --help|-h)
+        return 2  # Special return code to indicate help was requested
+        ;;
+      -*)
+        echo "Unknown option: $1"
+        echo "Run 'aztec $COMMAND --help' for usage information"
+        exit 1
+        ;;
+      *)
+        # For 'new' command, this is the PATH argument
+        if [ "$COMMAND" = "new" ]; then
+          PROJECT_PATH="$1"
+        fi
+        NARGO_ARGS+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  # Default to --contract if no type flag was provided
+  if [ "$HAS_TYPE_FLAG" = false ]; then
+    NARGO_ARGS+=("--contract")
+    IS_CONTRACT=true
+  fi
+
+  return 0
+}
+
 case ${1:-} in
+  compile)
+    shift
+
+    # If help is requested, show Aztec-specific info then run nargo compile help and then exit in order to not trigger
+    # transpilation
+    for arg in "$@"; do
+      if [ "$arg" == "--help" ] || [ "$arg" == "-h" ]; then
+        cat << 'EOF'
+Aztec Compile - Compile Aztec Noir contracts
+
+This command compiles Aztec Noir contracts using nargo and then automatically
+postprocesses them to generate Aztec-specific artifacts including:
+  - Transpiled contract artifacts
+  - Verification keys
+
+The compiled contracts will be placed in the target/ directory by default.
+
+AZTEC-SPECIFIC NOTES:
+  - Working directory must be under $HOME due to Docker containerization
+  - Compilation automatically includes contract postprocessing
+  - Use standard nargo compile options (see below)
+
+ENVIRONMENT VARIABLES:
+  AZTEC_PATH    Path to Aztec installation (default: $HOME/.aztec)
+  VERSION       Aztec version to use (default: from $AZTEC_PATH/default_version)
+  DOCKER_REPO   Docker repository (default: aztecprotocol/aztec)
+
+---
+Underlying nargo compile options:
+
+EOF
+        # Run nargo compile help
+        run_nargo compile $arg
+        exit 0
+      fi
+    done
+
+    # We didn't need to perform this check for help because there we don't need to access any files.
+    validate_working_directory
+
+    # Run nargo compile
+    run_nargo compile "$@"
+
+    # Check if nargo compile succeeded
+    if [ $? -ne 0 ]; then
+      >&2 echo "Compilation failed!"
+      exit 1
+    fi
+
+    echo "Postprocessing contract..."
+
+    docker run ${TTY_FLAGS:-} \
+      --user $(id -u):$(id -g) \
+      -v $HOME:$HOME \
+      -e HOME=$HOME \
+      --workdir="$PWD" \
+      --entrypoint=/usr/src/barretenberg/cpp/build/bin/bb-avm \
+      $DOCKER_REPO:$VERSION aztec_process
+
+    echo "Compilation complete!"
+    ;;
   test)
     shift
-    # Should this just be aztec-test? It's like, a new command that doesn't exist on aztec cli.
-    # Or just make this a first class command on aztec cli?
 
     export ENV_VARS_TO_INJECT="LOG_LEVEL"
     export LOG_LEVEL="${LOG_LEVEL:-info}"
@@ -207,6 +401,151 @@ case ${1:-} in
       $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
       -v $(realpath $(dirname $2))/:/tmp \
       $DOCKER_REPO:$VERSION /tmp/$(basename $2) $3
+    ;;
+  new)
+    shift
+
+    # Parse arguments
+    parse_project_flags_and_build_nargo_args "new" "$@"
+    PARSE_RESULT=$?
+
+    # Handle help request
+    if [ $PARSE_RESULT -eq 2 ]; then
+      cat << 'EOF'
+Aztec New - Create a new Aztec Noir project in a new directory
+
+Usage: aztec new [OPTIONS] <PATH>
+
+Arguments:
+  <PATH>  The path to save the new project
+
+Options:
+  --name <NAME>  Name of the package [default: package directory name]
+  --lib          Use a library template
+  --bin          Use a binary template
+  --contract     Use a contract template [default]
+  -h, --help     Print help
+
+This command creates a new Aztec Noir project using nargo and automatically
+adds the Aztec.nr dependency to your Nargo.toml file.
+
+ENVIRONMENT VARIABLES:
+  AZTEC_PATH    Path to Aztec installation (default: $HOME/.aztec)
+  VERSION       Aztec version to use (default: from $AZTEC_PATH/default_version)
+  DOCKER_REPO   Docker repository (default: aztecprotocol/aztec)
+
+EOF
+      exit 0
+    fi
+
+    # Check if PATH was provided
+    if [ -z "$PROJECT_PATH" ]; then
+      echo "Error: PATH argument is required"
+      echo "Usage: aztec new [OPTIONS] <PATH>"
+      echo "Run 'aztec new --help' for more information"
+      exit 1
+    fi
+
+    validate_working_directory
+
+    echo "Creating new Noir project at $PROJECT_PATH..."
+
+    # Run nargo new via docker
+    run_nargo "${NARGO_ARGS[@]}"
+
+    # Check if nargo new succeeded
+    if [ $? -ne 0 ]; then
+      >&2 echo "Project creation failed!"
+      exit 1
+    fi
+
+    # Setup Aztec contract project (add dependency and create template)
+    if [ "$IS_CONTRACT" = true ]; then
+      setup_aztec_contract_project "$PROJECT_PATH"
+    fi
+    ;;
+  init)
+    shift
+
+    # Parse arguments
+    parse_project_flags_and_build_nargo_args "init" "$@"
+    PARSE_RESULT=$?
+
+    # Handle help request
+    if [ $PARSE_RESULT -eq 2 ]; then
+      cat << 'EOF'
+Aztec Init - Create a new Aztec Noir project in the current directory
+
+Usage: aztec init [OPTIONS]
+
+Options:
+  --name <NAME>  Name of the package [default: current directory name]
+  --lib          Use a library template
+  --bin          Use a binary template
+  --contract     Use a contract template [default]
+  -h, --help     Print help
+
+This command creates a new Aztec Noir project in the current directory using nargo
+and automatically adds the Aztec.nr dependency to your Nargo.toml file.
+
+ENVIRONMENT VARIABLES:
+  AZTEC_PATH    Path to Aztec installation (default: $HOME/.aztec)
+  VERSION       Aztec version to use (default: from $AZTEC_PATH/default_version)
+  DOCKER_REPO   Docker repository (default: aztecprotocol/aztec)
+
+EOF
+      exit 0
+    fi
+
+    validate_working_directory
+
+    echo "Initializing Noir project..."
+
+    # Run nargo init via docker
+    run_nargo "${NARGO_ARGS[@]}"
+
+    # Check if nargo init succeeded
+    if [ $? -ne 0 ]; then
+      >&2 echo "Initialization failed!"
+      exit 1
+    fi
+
+    # Setup Aztec contract project (add dependency and create template)
+    if [ "$IS_CONTRACT" = true ]; then
+      setup_aztec_contract_project "."
+    fi
+    ;;
+  fmt)
+    shift
+
+    validate_working_directory
+
+    # Run nargo fmt
+    run_nargo fmt "$@"
+    ;;
+  check)
+    shift
+
+    validate_working_directory
+
+    # Run nargo check
+    run_nargo check "$@"
+    ;;
+  lsp)
+    # TODO: Drop this (and the corresponding docs in cli.ts) in case `nargo` is to be used natively (not containerized).
+
+    # Special-case nargo's LSP command:
+    # 1. include --rm for cleanup
+    # 2. don't specify a user (run as root)
+    # 3. don't specify a workdir
+    validate_working_directory
+
+    docker run --rm -i \
+      --name aztec-nargo-lsp \
+      -v $HOME:$HOME \
+      -e HOME=$HOME \
+      --entrypoint=/usr/src/noir/noir-repo/target/release/nargo \
+      $DOCKER_REPO:$VERSION lsp
     ;;
   *)
     export ENV_VARS_TO_INJECT="SECRET_KEY"
