@@ -16,8 +16,9 @@ export class AttestationValidator implements P2PValidator<BlockAttestation> {
     const slotNumberBigInt = message.payload.header.slotNumber.toBigInt();
 
     try {
-      const { currentProposer, nextProposer, currentSlot, nextSlot } =
-        await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+      const currentEpochandslot = this.epochCache.getEpochAndSlotNow();
+      const currentSlot = currentEpochandslot.slot;
+      const nextSlot = currentSlot + 1n;
 
       if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
         this.logger.warn(
@@ -25,6 +26,8 @@ export class AttestationValidator implements P2PValidator<BlockAttestation> {
         );
         return PeerErrorSeverity.HighToleranceError;
       }
+
+      const { currentProposer, nextProposer } = await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
 
       // Verify the signature is valid
       const attester = message.getSender();
