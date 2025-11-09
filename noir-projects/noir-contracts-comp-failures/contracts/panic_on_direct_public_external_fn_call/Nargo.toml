@@ -1,0 +1,8 @@
+[package]
+name = "panic_on_direct_public_external_fn_call"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../aztec-nr/aztec" }

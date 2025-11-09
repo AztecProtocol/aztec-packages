@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 namespace bb::avm2 {

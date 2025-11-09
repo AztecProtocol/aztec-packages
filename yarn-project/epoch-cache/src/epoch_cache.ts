@@ -204,7 +204,7 @@ export class EpochCache implements EpochCacheInterface {
     const sub = BigInt(lagInEpochs) * BigInt(epochDuration) * BigInt(slotDuration);
     if (ts - sub > l1Timestamp) {
       throw new Error(
-        `Cannot query committee for future epoch ${epoch} with timestamp ${ts} (current L1 time is ${l1Timestamp})`,
+        `Cannot query committee for future epoch ${epoch} with timestamp ${ts} (current L1 time is ${l1Timestamp}). Check your Ethereum node is synced.`,
       );
     }
     const committee = committeeHex?.map((v: `0x${string}`) => EthAddress.fromString(v));

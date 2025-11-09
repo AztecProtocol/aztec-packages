@@ -369,7 +369,7 @@ struct lookup_execution_dispatch_to_bitwise_settings_ {
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_bitwise;
-    static constexpr Column DST_SELECTOR = Column::bitwise_sel;
+    static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_execution_dispatch_to_bitwise_counts;
     static constexpr Column INVERSES = Column::lookup_execution_dispatch_to_bitwise_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

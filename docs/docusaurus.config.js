@@ -72,14 +72,18 @@ const config = {
           lastVersion: versions[2],
           versions: {
             [versions[0]]: {
-              ...(versions[0].includes("nightly") && { path: "nightly" }),
+              ...(versions[0].includes("nightly") && {
+                path: "nightly",
+                banner: "unreleased",
+              }),
             },
             [versions[1]]: {
               label: "Devnet (v3.0.0-devnet.4)",
               path: "devnet",
+              banner: "none",
             },
-            "v2.0.4": {
-              label: "Testnet (v2.0.4)",
+            "v2.1.2": {
+              label: "RC (v2.1.2)",
             },
             ...(process.env.CONTEXT !== "production" && {
               current: {

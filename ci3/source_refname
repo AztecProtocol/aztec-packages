@@ -36,7 +36,6 @@ if [ -z "${CI_FULL:-}" ]; then
     export CI_FULL=1
   fi
 fi
-export CI_NIGHTLY="${CI_NIGHTLY:-0}"
 export CI_SCENARIO_TEST="${CI_SCENARIO_TEST:-0}"
 
 if [ -z "${COMMIT_HASH:-}" ]; then

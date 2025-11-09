@@ -7,7 +7,13 @@ import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { PublicDataWrite } from '@aztec/stdlib/avm';
+import {
+  AvmCircuitInputs,
+  AvmCircuitPublicInputs,
+  AvmExecutionHints,
+  type AvmProvingRequest,
+  PublicDataWrite,
+} from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
@@ -18,6 +24,7 @@ import type {
   PublicProcessorValidator,
   SequencerConfig,
 } from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type FailedTx,
@@ -524,15 +531,15 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
+    const { hints, publicInputs, gasUsed, revertCode, revertReason, processedPhases } =
       await this.publicTxSimulator.simulate(tx);
 
-    if (!avmProvingRequest) {
+    if (!hints) {
       this.metrics.recordFailedTx();
       throw new Error('Avm proving result was not generated.');
     }
 
-    processedPhases.forEach(phase => {
+    processedPhases?.forEach(phase => {
       if (phase.reverted) {
         this.metrics.recordRevertedPhase(phase.phase);
       } else {
@@ -549,14 +556,33 @@ export class PublicProcessor implements Traceable {
         .map(log => ContractClassPublishedEvent.fromLog(log)),
     );
 
-    const phaseCount = processedPhases.length;
+    const phaseCount = processedPhases?.length ?? 0;
     const durationMs = timer.ms();
     this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
 
-    const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
+    const processedTx = makeProcessedTxFromTxWithPublicCalls(
+      tx,
+      PublicProcessor.generateProvingRequest(publicInputs, hints),
+      gasUsed,
+      revertCode,
+      revertReason,
+    );
 
-    const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
+    const returnValues = processedPhases?.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 
     return [processedTx, returnValues];
+  }
+
+  /**
+   * Generate the proving request for the AVM circuit.
+   */
+  private static generateProvingRequest(
+    publicInputs: AvmCircuitPublicInputs,
+    hints: AvmExecutionHints,
+  ): AvmProvingRequest {
+    return {
+      type: ProvingRequestType.PUBLIC_VM,
+      inputs: new AvmCircuitInputs(hints, publicInputs),
+    };
   }
 }

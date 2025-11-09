@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 

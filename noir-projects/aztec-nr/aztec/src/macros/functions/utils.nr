@@ -1,3 +1,5 @@
+// TODO(benesjan): Move this whole file to `noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation`.
+// Not done yet in order to not murder the PR diff.
 use crate::macros::{
     functions::{
         auth_registry::AUTHORIZE_ONCE_REGISTRY,
@@ -8,14 +10,37 @@ use crate::macros::{
     notes::NOTES,
     utils::{
         fn_has_authorize_once, fn_has_noinitcheck, is_fn_contract_library_method, is_fn_external,
-        is_fn_initializer, is_fn_only_self, is_fn_test, is_fn_view, modify_fn_body,
-        module_has_initializer, module_has_storage,
+        is_fn_initializer, is_fn_only_self, is_fn_test, is_fn_view, module_has_initializer,
+        module_has_storage,
     },
 };
 use dep::protocol_types::meta::utils::derive_serialization_quotes;
 use std::meta::{ctstring::AsCtString, type_of};
 
-pub(crate) comptime fn transform_private(f: FunctionDefinition) {
+/// Gathers all attributes relevant to the function's ABI and returns a quote that can be applied to the newly generated
+/// function. We apply the abi marker attributes instead of the original ones (e.g. abi_view instead of view) to avoid
+/// the relevant attribute's functionality from getting triggered.
+comptime fn get_abi_relevant_attributes(f: FunctionDefinition) -> Quoted {
+    let mut attributes = quote {};
+
+    if is_fn_view(f) {
+        attributes = quote { $attributes #[aztec::macros::internals_functions_generation::abi_attributes::abi_view] };
+    }
+
+    if is_fn_only_self(f) {
+        attributes = quote { $attributes #[aztec::macros::internals_functions_generation::abi_attributes::abi_only_self] };
+    }
+
+    if is_fn_initializer(f) {
+        attributes = quote { $attributes #[aztec::macros::internals_functions_generation::abi_attributes::abi_initializer] };
+    }
+
+    attributes
+}
+
+pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
+    // TODO(benesjan): This function should only generate the new function's quote. Move the following to a different
+    // place.
     register_private_fn_stubs(f);
 
     let module_has_initializer = module_has_initializer(f.module());
@@ -26,11 +51,12 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     // First we change the function signature so that it also receives `PrivateContextInputs`, which contain information
     // about the execution context (e.g. the caller).
     let original_params = f.parameters();
-    f.set_parameters(&[(
-        quote { inputs },
-        quote { crate::context::inputs::private_context_inputs::PrivateContextInputs }.as_type(),
-    )]
-        .append(original_params));
+
+    let original_params_quotes = original_params
+        .map(|(param_name, param_type)| quote { $param_name: $param_type })
+        .join(quote {, });
+
+    let params = quote { inputs: aztec::context::inputs::private_context_inputs::PrivateContextInputs, $original_params_quotes };
 
     let mut body = f.body().as_block().unwrap();
 
@@ -69,19 +95,21 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
         };
     };
 
-    let function_name = f.name();
+    let original_function_name = f.name();
 
     // Modifications introduced by the different marker attributes.
     let internal_check = if is_fn_only_self(f) {
-        let assertion_message = f"Function {function_name} can only be called by the same contract";
+        let assertion_message =
+            f"Function {original_function_name} can only be called by the same contract";
         quote { assert(self.msg_sender().unwrap() == self.address, $assertion_message); }
     } else {
         quote {}
     };
 
     let view_check = if is_fn_view(f) {
-        let assertion_message =
-            f"Function {function_name} can only be called statically".as_ctstring().as_quoted_str();
+        let assertion_message = f"Function {original_function_name} can only be called statically"
+            .as_ctstring()
+            .as_quoted_str();
         quote { assert(self.context.inputs.call_context.is_static_call, $assertion_message); }
     } else {
         quote {}
@@ -162,7 +190,11 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
 
     let context_finish = quote { self.context.finish() };
 
-    // A quote to be injected at the beginning of the function body.
+    // Preserve all attributes that are relevant to the function's ABI.
+    let abi_relevant_attributes = get_abi_relevant_attributes(f);
+
+    let fn_name = f"__aztec_nr_internals__{original_function_name}".quoted_contents();
+
     let to_prepend = quote {
         dep::aztec::oracle::version::assert_compatible_oracle_version();
         $contract_self_creation
@@ -174,21 +206,28 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
         $authorize_once_check
     };
 
+    let body_quote = body.map(|expr| expr.quoted()).join(quote { });
+
     let to_append = quote {
         $return_value
         $mark_as_initialized
         $context_finish
     };
-    let modified_body = modify_fn_body(body, to_prepend, to_append);
-    f.set_body(modified_body);
-    f.set_return_type(
-        quote { dep::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }
-            .as_type(),
-    );
-    f.set_return_data();
+
+    quote {
+        #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
+        $abi_relevant_attributes
+        fn $fn_name($params) -> return_data aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
+            $to_prepend
+            $body_quote
+            $to_append
+        }
+    }
 }
 
-pub(crate) comptime fn transform_public(f: FunctionDefinition) {
+pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
+    // TODO(benesjan): This function should only generate the new function's quote. Move the following to a different
+    // place.
     register_public_fn_stubs(f);
 
     let module_has_initializer = module_has_initializer(f.module());
@@ -241,19 +280,21 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
         };
     };
 
-    let function_name = f.name();
+    let original_function_name = f.name();
 
     // Modifications introduced by the different marker attributes.
     let internal_check = if is_fn_only_self(f) {
-        let assertion_message = f"Function {function_name} can only be called by the same contract";
+        let assertion_message =
+            f"Function {original_function_name} can only be called by the same contract";
         quote { assert(self.msg_sender().unwrap() == self.address, $assertion_message); }
     } else {
         quote {}
     };
 
     let view_check = if is_fn_view(f) {
-        let assertion_message =
-            f"Function {function_name} can only be called statically".as_ctstring().as_quoted_str();
+        let assertion_message = f"Function {original_function_name} can only be called statically"
+            .as_ctstring()
+            .as_quoted_str();
         quote { assert(self.context.is_static_call(), $assertion_message); }
     } else {
         quote {}
@@ -295,18 +336,35 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
         $mark_as_initialized
     };
 
-    let body = f.body().as_block().unwrap();
-    let modified_body = modify_fn_body(body, to_prepend, to_append);
-    f.set_body(modified_body);
+    let fn_name = f"__aztec_nr_internals__{original_function_name}".quoted_contents();
+    let body = f.body();
+    let return_type = f.return_type();
+
+    // New function parameters are the same as the original function's ones.
+    let params = original_params
+        .map(|(param_name, param_type)| quote { $param_name: $param_type })
+        .join(quote {, });
+
+    // Preserve all attributes that are relevant to the function's ABI.
+    let abi_relevant_attributes = get_abi_relevant_attributes(f);
 
     // All public functions are automatically made unconstrained, even if they were not marked as such. This is because
     // instead of compiling into a circuit, they will compile to bytecode that will be later transpiled into AVM
     // bytecode.
-    f.set_unconstrained(true);
-    f.set_return_public(true);
+    quote {
+        #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
+        $abi_relevant_attributes
+        unconstrained fn $fn_name($params) -> pub $return_type {
+            $to_prepend
+            $body
+            $to_append
+        }
+    }
 }
 
-pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
+pub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {
+    // TODO(benesjan): This function should only generate the new function's quote. Move the following to a different
+    // place.
     register_utility_fn_stub(f);
 
     // Initialize Storage if module has storage
@@ -344,11 +402,23 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
         $contract_self_creation
         $message_discovery_call
     };
-    let body = f.body().as_block().unwrap();
-    let modified_body = modify_fn_body(body, to_prepend, quote {});
-    f.set_body(modified_body);
 
-    f.set_return_public(true);
+    let original_function_name = f.name();
+    let fn_name = f"__aztec_nr_internals__{original_function_name}".quoted_contents();
+    let body = f.body();
+    let params = f
+        .parameters()
+        .map(|(param_name, param_type)| quote { $param_name: $param_type })
+        .join(quote {, });
+    let return_type = f.return_type();
+
+    quote {
+        #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
+        unconstrained fn $fn_name($params) -> pub $return_type {
+            $to_prepend
+            $body
+        }
+    }
 }
 
 /// Injects a call to `aztec::messages::discovery::discover_new_messages`, causing for new notes to be added to PXE and made
@@ -436,9 +506,7 @@ pub(crate) comptime fn create_authorize_once_check(
     let nonce_check_quote = f"{nonce_arg_name_quoted} == 0".quoted_contents();
 
     let fn_call = if is_private {
-        // At this point, the original args of the fn have already been altered by the macro
-        // to include PrivateContextInputs, so we need to adjust the args_len accordingly.
-        let args_len = f.parameters().len() - 1;
+        let args_len = f.parameters().len();
         quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit::<$args_len> }
     } else {
         quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit_public }

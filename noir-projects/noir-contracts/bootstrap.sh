@@ -30,6 +30,7 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
+export STRIP_AZTEC_NR_PREFIX=${STRIP_AZTEC_NR_PREFIX:-./scripts/strip_aztec_nr_prefix.sh}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
@@ -170,6 +171,7 @@ function compile {
   if ! cache_download contract-$contract_hash.tar.gz; then
     $NARGO compile --package $contract --inliner-aggressiveness 0 --pedantic-solving --deny-warnings
     $TRANSPILER $json_path $json_path
+    $STRIP_AZTEC_NR_PREFIX $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
 

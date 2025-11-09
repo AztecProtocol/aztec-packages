@@ -6,8 +6,8 @@
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
-    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --silence-warnings && ${AZTEC_POSTPROCESS_CONTRACT:-aztec-postprocess-contract}",
-    "codegen": "${AZTEC_BUILDER:-aztec} codegen src/contracts/target -o artifacts",
+    "compile": "cd src/contracts && CONTAINER_NAME=\"aztec-react-box\" ${AZTEC:-aztec} compile --silence-warnings",
+    "codegen": "CONTAINER_NAME=\"aztec-react-box\" ${AZTEC:-aztec} codegen src/contracts/target -o artifacts",
     "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target",
     "prep": "yarn clean && yarn compile && yarn codegen",
     "dev": "yarn prep && webpack serve --mode development",

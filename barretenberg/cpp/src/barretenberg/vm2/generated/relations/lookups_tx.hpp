@@ -11,16 +11,16 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_tx_read_phase_table ///////////////////
+/////////////////// lookup_tx_read_phase_spec ///////////////////
 
-struct lookup_tx_read_phase_table_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_TABLE";
+struct lookup_tx_read_phase_spec_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_SPEC";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 19;
-    static constexpr Column SRC_SELECTOR = Column::tx_start_phase;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 20;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
-    static constexpr Column COUNTS = Column::lookup_tx_read_phase_table_counts;
-    static constexpr Column INVERSES = Column::lookup_tx_read_phase_table_inv;
+    static constexpr Column COUNTS = Column::lookup_tx_read_phase_spec_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_read_phase_spec_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::tx_phase_value,
         ColumnAndShifts::tx_is_public_call_request,
@@ -28,7 +28,7 @@ struct lookup_tx_read_phase_table_settings_ {
         ColumnAndShifts::tx_is_tree_padding,
         ColumnAndShifts::tx_is_cleanup,
         ColumnAndShifts::tx_is_revertible,
-        ColumnAndShifts::tx_read_pi_offset,
+        ColumnAndShifts::tx_read_pi_start_offset,
         ColumnAndShifts::tx_read_pi_length_offset,
         ColumnAndShifts::tx_sel_non_revertible_append_note_hash,
         ColumnAndShifts::tx_sel_non_revertible_append_nullifier,
@@ -40,17 +40,18 @@ struct lookup_tx_read_phase_table_settings_ {
         ColumnAndShifts::tx_sel_can_emit_nullifier,
         ColumnAndShifts::tx_sel_can_write_public_data,
         ColumnAndShifts::tx_sel_can_emit_unencrypted_log,
-        ColumnAndShifts::tx_sel_can_emit_l2_l1_msg
+        ColumnAndShifts::tx_sel_can_emit_l2_l1_msg,
+        ColumnAndShifts::tx_next_phase_on_revert
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_phase_value,
-        ColumnAndShifts::precomputed_is_public_call_request_phase,
-        ColumnAndShifts::precomputed_sel_collect_fee,
-        ColumnAndShifts::precomputed_sel_tree_padding,
-        ColumnAndShifts::precomputed_sel_cleanup,
+        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_is_public_call_request,
+        ColumnAndShifts::precomputed_is_collect_fee,
+        ColumnAndShifts::precomputed_is_tree_padding,
+        ColumnAndShifts::precomputed_is_cleanup,
         ColumnAndShifts::precomputed_is_revertible,
-        ColumnAndShifts::precomputed_read_public_input_offset,
-        ColumnAndShifts::precomputed_read_public_input_length_offset,
+        ColumnAndShifts::precomputed_read_pi_start_offset,
+        ColumnAndShifts::precomputed_read_pi_length_offset,
         ColumnAndShifts::precomputed_sel_non_revertible_append_note_hash,
         ColumnAndShifts::precomputed_sel_non_revertible_append_nullifier,
         ColumnAndShifts::precomputed_sel_non_revertible_append_l2_l1_msg,
@@ -61,35 +62,14 @@ struct lookup_tx_read_phase_table_settings_ {
         ColumnAndShifts::precomputed_sel_can_emit_nullifier,
         ColumnAndShifts::precomputed_sel_can_write_public_data,
         ColumnAndShifts::precomputed_sel_can_emit_unencrypted_log,
-        ColumnAndShifts::precomputed_sel_can_emit_l2_l1_msg
+        ColumnAndShifts::precomputed_sel_can_emit_l2_l1_msg,
+        ColumnAndShifts::precomputed_next_phase_on_revert
     };
 };
 
-using lookup_tx_read_phase_table_settings = lookup_settings<lookup_tx_read_phase_table_settings_>;
+using lookup_tx_read_phase_spec_settings = lookup_settings<lookup_tx_read_phase_spec_settings_>;
 template <typename FF_>
-using lookup_tx_read_phase_table_relation = lookup_relation_base<FF_, lookup_tx_read_phase_table_settings>;
-
-/////////////////// lookup_tx_phase_jump_on_revert ///////////////////
-
-struct lookup_tx_phase_jump_on_revert_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_TX_PHASE_JUMP_ON_REVERT";
-    static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_reverted;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
-    static constexpr Column COUNTS = Column::lookup_tx_phase_jump_on_revert_counts;
-    static constexpr Column INVERSES = Column::lookup_tx_phase_jump_on_revert_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_phase_value, ColumnAndShifts::tx_phase_value_shift
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_phase_value, ColumnAndShifts::precomputed_next_phase_on_revert
-    };
-};
-
-using lookup_tx_phase_jump_on_revert_settings = lookup_settings<lookup_tx_phase_jump_on_revert_settings_>;
-template <typename FF_>
-using lookup_tx_phase_jump_on_revert_relation = lookup_relation_base<FF_, lookup_tx_phase_jump_on_revert_settings>;
+using lookup_tx_read_phase_spec_relation = lookup_relation_base<FF_, lookup_tx_read_phase_spec_settings>;
 
 /////////////////// lookup_tx_read_phase_length ///////////////////
 

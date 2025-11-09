@@ -50,6 +50,11 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description: 'Whether to skip validating block attestations (use only for testing).',
     ...booleanConfigHelper(false),
   },
+  maxAllowedEthClientDriftSeconds: {
+    env: 'MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS',
+    description: 'Maximum allowed drift in seconds between the Ethereum client and current time.',
+    ...numberConfigHelper(300),
+  },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,
   viemPollingIntervalMS: {

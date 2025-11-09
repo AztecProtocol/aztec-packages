@@ -45,6 +45,7 @@ pub contract AvmTest {
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
 
     use dep::auth_contract::AuthRegistry;
+    use dep::aztec::context::public_context::PublicContext;
     use dep::fee_juice::FeeJuice;
     use dep::instance_contract::ContractInstanceRegistry;
     use std::ops::Add;
@@ -61,12 +62,22 @@ pub contract AvmTest {
      ************************************************************************/
     #[external("public")]
     fn set_storage_single(a: Field) {
-        self.storage.single.write(a);
+        _set_storage_single(self.storage, a);
+    }
+
+    #[contract_library_method]
+    fn _set_storage_single(storage: Storage<PublicContext>, a: Field) {
+        storage.single.write(a);
     }
 
     #[external("public")]
     fn read_storage_single() -> Field {
-        self.storage.single.read()
+        _read_storage_single(self.storage)
+    }
+
+    #[contract_library_method]
+    fn _read_storage_single(storage: Storage<PublicContext>) -> Field {
+        storage.single.read()
     }
 
     #[external("public")]
@@ -83,33 +94,58 @@ pub contract AvmTest {
 
     #[external("public")]
     fn set_storage_list(a: Field, b: Field) {
-        self.storage.list.write(Note { a, b });
+        _set_storage_list(self.storage, a, b);
+    }
+
+    #[contract_library_method]
+    fn _set_storage_list(storage: Storage<PublicContext>, a: Field, b: Field) {
+        storage.list.write(Note { a, b });
     }
 
     #[external("public")]
     fn read_storage_list() -> [Field; 2] {
-        let note: Note = self.storage.list.read();
+        _read_storage_list(self.storage)
+    }
+
+    #[contract_library_method]
+    fn _read_storage_list(storage: Storage<PublicContext>) -> [Field; 2] {
+        let note: Note = storage.list.read();
         note.serialize()
     }
 
     #[external("public")]
     fn set_storage_map(to: AztecAddress, amount: u32) -> Field {
-        self.storage.map.at(to).write(amount);
+        _set_storage_map(self.storage, to, amount)
+    }
+
+    #[contract_library_method]
+    fn _set_storage_map(storage: Storage<PublicContext>, to: AztecAddress, amount: u32) -> Field {
+        storage.map.at(to).write(amount);
         // returns storage slot for key
-        derive_storage_slot_in_map(self.storage.map.get_storage_slot(), to)
+        derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
     }
 
     #[external("public")]
     fn add_storage_map(to: AztecAddress, amount: u32) -> Field {
-        let new_balance = self.storage.map.at(to).read().add(amount);
-        self.storage.map.at(to).write(new_balance);
+        _add_storage_map(self.storage, to, amount)
+    }
+
+    #[contract_library_method]
+    fn _add_storage_map(storage: Storage<PublicContext>, to: AztecAddress, amount: u32) -> Field {
+        let new_balance = storage.map.at(to).read().add(amount);
+        storage.map.at(to).write(new_balance);
         // returns storage slot for key
-        derive_storage_slot_in_map(self.storage.map.get_storage_slot(), to)
+        derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
     }
 
     #[external("public")]
     fn read_storage_map(address: AztecAddress) -> u32 {
-        self.storage.map.at(address).read()
+        _read_storage_map(self.storage, address)
+    }
+
+    #[contract_library_method]
+    fn _read_storage_map(storage: Storage<PublicContext>, address: AztecAddress) -> u32 {
+        storage.map.at(address).read()
     }
 
     #[external("public")]
@@ -211,7 +247,7 @@ pub contract AvmTest {
         }
     }
 
-    #[external("public")]
+    #[contract_library_method]
     fn bitwise_ops(x: u32, y: u32) -> u32 {
         let mut result = x & y;
         result = result | x;
@@ -231,23 +267,33 @@ pub contract AvmTest {
         max_u128 + one
     }
 
-    #[external("public")]
+    #[contract_library_method]
     fn integer_division(x: u8, y: u8) -> u8 {
         x / y
     }
 
-    #[external("public")]
+    #[contract_library_method]
     fn field_division(x: Field, y: Field) -> Field {
         x / y
     }
 
     #[external("public")]
     fn to_le_bytes(input: Field) -> [u8; 10] {
+        _to_le_bytes(input)
+    }
+
+    #[contract_library_method]
+    fn _to_le_bytes(input: Field) -> [u8; 10] {
         input.to_le_bytes()
     }
 
     #[external("public")]
     fn to_le_bits(input: Field) -> [u1; 16] {
+        _to_le_bits(input)
+    }
+
+    #[contract_library_method]
+    fn _to_le_bits(input: Field) -> [u1; 16] {
         input.to_le_bits()
     }
 
@@ -399,6 +445,21 @@ pub contract AvmTest {
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
     ) {
+        _test_get_contract_instance_matches(
+            address,
+            expected_deployer,
+            expected_class_id,
+            expected_initialization_hash,
+        );
+    }
+
+    #[contract_library_method]
+    fn _test_get_contract_instance_matches(
+        address: AztecAddress,
+        expected_deployer: AztecAddress,
+        expected_class_id: ContractClassId,
+        expected_initialization_hash: Field,
+    ) {
         let deployer = get_contract_instance_deployer_avm(address);
         let class_id = get_contract_instance_class_id_avm(address);
         let initialization_hash = get_contract_instance_initialization_hash_avm(address);
@@ -431,57 +492,112 @@ pub contract AvmTest {
      ************************************************************************/
     #[external("public")]
     fn get_address() -> AztecAddress {
-        self.address
+        _get_address(self.address)
+    }
+
+    #[contract_library_method]
+    fn _get_address(address: AztecAddress) -> AztecAddress {
+        address
     }
 
     #[external("public")]
     fn get_sender() -> AztecAddress {
-        self.context.msg_sender_unsafe()
+        _get_sender(self.context)
+    }
+
+    #[contract_library_method]
+    fn _get_sender(context: PublicContext) -> AztecAddress {
+        context.msg_sender_unsafe()
     }
 
     #[external("public")]
     fn get_transaction_fee() -> Field {
-        self.context.transaction_fee()
+        _get_transaction_fee(self.context)
+    }
+
+    #[contract_library_method]
+    fn _get_transaction_fee(context: PublicContext) -> Field {
+        context.transaction_fee()
     }
 
     #[external("public")]
     fn get_chain_id() -> Field {
-        self.context.chain_id()
+        _get_chain_id(self.context)
+    }
+
+    #[contract_library_method]
+    fn _get_chain_id(context: PublicContext) -> Field {
+        context.chain_id()
     }
 
     #[external("public")]
     fn get_version() -> Field {
-        self.context.version()
+        _get_version(self.context)
+    }
+
+    #[contract_library_method]
+    fn _get_version(context: PublicContext) -> Field {
+        context.version()
     }
 
     #[external("public")]
     fn get_block_number() -> u32 {
-        self.context.block_number()
+        _get_block_number(self.context)
+    }
+
+    #[contract_library_method]
+    fn _get_block_number(context: PublicContext) -> u32 {
+        context.block_number()
     }
 
     #[external("public")]
     fn get_timestamp() -> u64 {
-        self.context.timestamp()
+        _get_timestamp(self.context)
+    }
+
+    #[contract_library_method]
+    fn _get_timestamp(context: PublicContext) -> u64 {
+        context.timestamp()
     }
 
     #[external("public")]
     fn get_fee_per_l2_gas() -> u128 {
-        self.context.base_fee_per_l2_gas()
+        _get_fee_per_l2_gas(self.context)
+    }
+
+    #[contract_library_method]
+    fn _get_fee_per_l2_gas(context: PublicContext) -> u128 {
+        context.base_fee_per_l2_gas()
     }
 
     #[external("public")]
     fn get_fee_per_da_gas() -> u128 {
-        self.context.base_fee_per_da_gas()
+        _get_fee_per_da_gas(self.context)
+    }
+
+    #[contract_library_method]
+    fn _get_fee_per_da_gas(context: PublicContext) -> u128 {
+        context.base_fee_per_da_gas()
     }
 
     #[external("public")]
     fn get_l2_gas_left() -> u32 {
-        self.context.l2_gas_left()
+        _get_l2_gas_left(self.context)
+    }
+
+    #[contract_library_method]
+    fn _get_l2_gas_left(context: PublicContext) -> u32 {
+        context.l2_gas_left()
     }
 
     #[external("public")]
     fn get_da_gas_left() -> u32 {
-        self.context.da_gas_left()
+        _get_da_gas_left(self.context)
+    }
+
+    #[contract_library_method]
+    fn _get_da_gas_left(context: PublicContext) -> u32 {
+        context.da_gas_left()
     }
 
     #[external("public")]
@@ -491,12 +607,17 @@ pub contract AvmTest {
 
     #[external("public")]
     fn emit_public_log() {
-        self.context.emit_public_log(/*message=*/ [10, 20, 30]);
-        self.context.emit_public_log(/*message=*/ "Hello, world!");
+        _emit_public_log(self.context);
+    }
+
+    #[contract_library_method]
+    fn _emit_public_log(context: PublicContext) {
+        context.emit_public_log(/*message=*/ [10, 20, 30]);
+        context.emit_public_log(/*message=*/ "Hello, world!");
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        self.context.emit_public_log(/*message=*/ s);
-        self.context.emit_public_log(/*message=*/ [
+        context.emit_public_log(/*message=*/ s);
+        context.emit_public_log(/*message=*/ [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
             25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
         ]); // Large log
@@ -504,19 +625,34 @@ pub contract AvmTest {
 
     #[external("public")]
     fn note_hash_exists(note_hash: Field, leaf_index: u64) -> bool {
-        self.context.note_hash_exists(note_hash, leaf_index)
+        _note_hash_exists(self.context, note_hash, leaf_index)
+    }
+
+    #[contract_library_method]
+    fn _note_hash_exists(context: PublicContext, note_hash: Field, leaf_index: u64) -> bool {
+        context.note_hash_exists(note_hash, leaf_index)
     }
 
     // Use the standard context interface to emit a new note hash
     #[external("public")]
     fn new_note_hash(note_hash: Field) {
-        self.context.push_note_hash(note_hash);
+        _new_note_hash(self.context, note_hash);
+    }
+
+    #[contract_library_method]
+    fn _new_note_hash(context: PublicContext, note_hash: Field) {
+        context.push_note_hash(note_hash);
     }
 
     // Use the standard context interface to emit a new nullifier
     #[external("public")]
     fn new_nullifier(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        _new_nullifier(self.context, nullifier);
+    }
+
+    #[contract_library_method]
+    fn _new_nullifier(context: PublicContext, nullifier: Field) {
+        context.push_nullifier(nullifier);
     }
 
     #[external("public")]
@@ -557,7 +693,12 @@ pub contract AvmTest {
     // Use the standard context interface to check for a nullifier
     #[external("public")]
     fn nullifier_exists(nullifier: Field) -> bool {
-        self.context.nullifier_exists(nullifier, self.address)
+        _nullifier_exists(self.context, self.address, nullifier)
+    }
+
+    #[contract_library_method]
+    fn _nullifier_exists(context: PublicContext, address: AztecAddress, nullifier: Field) -> bool {
+        context.nullifier_exists(nullifier, address)
     }
 
     #[external("public")]
@@ -583,12 +724,26 @@ pub contract AvmTest {
 
     #[external("public")]
     fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> bool {
-        self.context.l1_to_l2_msg_exists(msg_hash, msg_leaf_index)
+        _l1_to_l2_msg_exists(self.context, msg_hash, msg_leaf_index)
+    }
+
+    #[contract_library_method]
+    fn _l1_to_l2_msg_exists(
+        context: PublicContext,
+        msg_hash: Field,
+        msg_leaf_index: Field,
+    ) -> bool {
+        context.l1_to_l2_msg_exists(msg_hash, msg_leaf_index)
     }
 
     #[external("public")]
     fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
-        self.context.message_portal(recipient, content)
+        _send_l2_to_l1_msg(self.context, recipient, content);
+    }
+
+    #[contract_library_method]
+    fn _send_l2_to_l1_msg(context: PublicContext, recipient: EthAddress, content: Field) {
+        context.message_portal(recipient, content)
     }
 
     /************************************************************************
@@ -628,7 +783,17 @@ pub contract AvmTest {
     // Use the `call_public_function` wrapper to initiate a nested call to the add function
     #[external("public")]
     fn nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
-        self.call_self.add_args_return(arg_a, arg_b)
+        _nested_call_to_add(self.context, self.address, arg_a, arg_b)
+    }
+
+    #[contract_library_method]
+    unconstrained fn _nested_call_to_add(
+        context: PublicContext,
+        address: AztecAddress,
+        arg_a: Field,
+        arg_b: Field,
+    ) -> Field {
+        AvmTest::at(address).add_args_return(arg_a, arg_b).call(context)
     }
 
     #[external("public")]
@@ -646,7 +811,17 @@ pub contract AvmTest {
     // Indirectly call_static the external call opcode to initiate a nested call to the add function
     #[external("public")]
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
-        AvmTest::at(self.address).add_args_return(arg_a, arg_b).view(self.context)
+        _nested_static_call_to_add(self.context, self.address, arg_a, arg_b)
+    }
+
+    #[contract_library_method]
+    unconstrained fn _nested_static_call_to_add(
+        context: PublicContext,
+        address: AztecAddress,
+        arg_a: Field,
+        arg_b: Field,
+    ) -> Field {
+        AvmTest::at(address).add_args_return(arg_a, arg_b).view(context)
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing self.storage.
@@ -697,7 +872,12 @@ pub contract AvmTest {
      ************************************************************************/
     #[external("public")]
     fn call_fee_juice() {
-        let _ = FeeJuice::at(FEE_JUICE_ADDRESS).balance_of_public(self.address).view(self.context);
+        _call_fee_juice(self.context, self.address);
+    }
+
+    #[contract_library_method]
+    unconstrained fn _call_fee_juice(context: PublicContext, address: AztecAddress) {
+        let _ = FeeJuice::at(FEE_JUICE_ADDRESS).balance_of_public(address).view(context);
     }
 
     #[external("public")]
@@ -731,18 +911,18 @@ pub contract AvmTest {
         skip_strictly_limited_side_effects: bool,
     ) {
         dep::aztec::oracle::debug_log::debug_log("biwise_ops");
-        let num = get_block_number();
+        let num = self.context.block_number();
         let _ = bitwise_ops(num, num);
         dep::aztec::oracle::debug_log::debug_log("set_storage_single");
-        set_storage_single(30);
+        _set_storage_single(self.storage, 30);
         dep::aztec::oracle::debug_log::debug_log("set_storage_list");
-        set_storage_list(40, 50);
+        _set_storage_list(self.storage, 40, 50);
         dep::aztec::oracle::debug_log::debug_log("read_storage_list");
-        let _ = set_storage_map(self.address, 60);
+        let _ = _set_storage_map(self.storage, self.address, 60);
         dep::aztec::oracle::debug_log::debug_log("add_storage_map");
-        let _ = add_storage_map(self.address, 10);
+        let _ = _add_storage_map(self.storage, self.address, 10);
         dep::aztec::oracle::debug_log::debug_log("read_storage_map");
-        let _ = read_storage_map(self.address);
+        let _ = _read_storage_map(self.storage, self.address);
         dep::aztec::oracle::debug_log::debug_log("keccak_hash");
         let _ = keccak256::keccak256(args_u8, args_u8.len());
         dep::aztec::oracle::debug_log::debug_log("sha256_hash");
@@ -758,65 +938,65 @@ pub contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("field_division");
         let _ = field_division(args_field[0], args_field[1]);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
-        test_get_contract_instance_matches(
+        _test_get_contract_instance_matches(
             get_instance_for_address,
             expected_deployer,
             expected_class_id,
             expected_initialization_hash,
         );
         dep::aztec::oracle::debug_log::debug_log("get_address");
-        let _ = get_address();
+        let _ = _get_address(self.address);
         dep::aztec::oracle::debug_log::debug_log("get_sender");
-        let _ = get_sender();
+        let _ = _get_sender(self.context);
         dep::aztec::oracle::debug_log::debug_log("get_transaction_fee");
-        let _ = get_transaction_fee();
+        let _ = _get_transaction_fee(self.context);
         dep::aztec::oracle::debug_log::debug_log("get_chain_id");
-        let _ = get_chain_id();
+        let _ = _get_chain_id(self.context);
         dep::aztec::oracle::debug_log::debug_log("get_version");
-        let _ = get_version();
+        let _ = _get_version(self.context);
         dep::aztec::oracle::debug_log::debug_log("get_block_number");
-        let _ = get_block_number();
+        let _ = _get_block_number(self.context);
         dep::aztec::oracle::debug_log::debug_log("get_timestamp");
-        let _ = get_timestamp();
+        let _ = _get_timestamp(self.context);
         dep::aztec::oracle::debug_log::debug_log("get_fee_per_l2_gas");
-        let _ = get_fee_per_l2_gas();
+        let _ = _get_fee_per_l2_gas(self.context);
         dep::aztec::oracle::debug_log::debug_log("get_fee_per_da_gas");
-        let _ = get_fee_per_da_gas();
+        let _ = _get_fee_per_da_gas(self.context);
         dep::aztec::oracle::debug_log::debug_log("get_l2_gas_left");
-        let _ = get_l2_gas_left();
+        let _ = _get_l2_gas_left(self.context);
         dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
-        let _ = get_da_gas_left();
+        let _ = _get_da_gas_left(self.context);
         if !skip_strictly_limited_side_effects {
             dep::aztec::oracle::debug_log::debug_log("emit_public_log");
-            let _ = emit_public_log();
+            _emit_public_log(self.context);
         }
         dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
-        let _ = note_hash_exists(1, 2);
+        let _ = _note_hash_exists(self.context, 1, 2);
         dep::aztec::oracle::debug_log::debug_log("new_note_hash");
-        let _ = new_note_hash(1);
+        _new_note_hash(self.context, 1);
         dep::aztec::oracle::debug_log::debug_log("new_nullifier");
-        let _ = new_nullifier(args_field[0]);
+        _new_nullifier(self.context, args_field[0]);
         dep::aztec::oracle::debug_log::debug_log("nullifier_exists");
-        let _ = nullifier_exists(1);
+        let _ = _nullifier_exists(self.context, self.address, 1);
         dep::aztec::oracle::debug_log::debug_log("l1_to_l2_msg_exists");
-        let _ = l1_to_l2_msg_exists(1, 2);
+        let _ = _l1_to_l2_msg_exists(self.context, 1, 2);
         if !skip_strictly_limited_side_effects {
             dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
-            let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
+            _send_l2_to_l1_msg(self.context, EthAddress::from_field(0x2020), 1);
         }
         dep::aztec::oracle::debug_log::debug_log("storage_read_and_write");
-        set_storage_single(read_storage_single());
+        _set_storage_single(self.storage, _read_storage_single(self.storage));
         dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
-        let _ = nested_call_to_add(1, 2);
+        let _ = _nested_call_to_add(self.context, self.address, 1, 2);
         dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
-        let _ = nested_static_call_to_add(1, 2);
+        let _ = _nested_static_call_to_add(self.context, self.address, 1, 2);
         dep::aztec::oracle::debug_log::debug_log("nested_call_to_protocol_contract");
-        let _ = call_fee_juice();
+        _call_fee_juice(self.context, self.address);
         dep::aztec::oracle::debug_log::debug_log("to_le_bytes");
-        let first_byte = to_le_bytes(args_field[0])[0];
+        let first_byte = _to_le_bytes(args_field[0])[0];
         assert(first_byte != 0);
         dep::aztec::oracle::debug_log::debug_log("to_le_bits");
-        let first_bit = to_le_bits(args_field[0])[0];
+        let first_bit = _to_le_bits(args_field[0])[0];
         assert(first_bit != 0);
         //let _ = nested_call_to_nothing_recovers();
     }

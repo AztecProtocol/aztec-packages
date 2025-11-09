@@ -23,6 +23,7 @@ test('create account and cast vote', async ({ page }, testInfo) => {
       // distinguished from timeouts, then it worked.
       // Fail immediately on JavaScript errors to avoid timeout
       if (
+        (text.includes("Error: ") && !text.includes("Error: Timed out ")) ||
         text.includes('Uncaught') ||
         text.includes('TypeError') ||
         text.includes('ReferenceError') ||
