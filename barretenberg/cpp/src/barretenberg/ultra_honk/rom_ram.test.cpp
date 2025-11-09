@@ -406,12 +406,12 @@ TYPED_TEST(UltraHonkTests, RomFailureSingleReadAtPair)
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
 }
 
-// Tests using the FaultInjector utility for witness-level fault injection
+// Test malicious initialization value in ROM
 TYPED_TEST(UltraHonkTests, RomMaliciousInitValue)
 {
     using Flavor = TypeParam;
     using FF = typename Flavor::FF;
-    FaultInjector<Flavor> injector;
+    MaliciousWitnessInjector<Flavor> injector;
 
     // Create a simple ROM with one malicious initialization value
     size_t rom_id = injector.builder.create_ROM_array(5);
@@ -422,9 +422,9 @@ TYPED_TEST(UltraHonkTests, RomMaliciousInitValue)
     // Initialize ROM with the malicious witness
     injector.builder.set_ROM_element(rom_id, 0, malicious_witness);
 
-    // Initialize remaining elements with valid values
+    // Initialize remaining elements with arbitrary values
     for (size_t i = 1; i < 5; ++i) {
-        auto good_witness = injector.builder.add_variable(FF(i));
+        auto good_witness = injector.builder.add_variable(FF::random_element());
         injector.builder.set_ROM_element(rom_id, i, good_witness);
     }
 
@@ -434,45 +434,40 @@ TYPED_TEST(UltraHonkTests, RomMaliciousInitValue)
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(injector.builder);
 
-    // Test 1: CircuitChecker - identifies exact relation failure
+    // Run CircuitChecker; expect failure in Memory relation for malicious witness
     EXPECT_TRUE(CircuitChecker::check(injector.builder)); // good builder passes
-    auto bad_builder = injector.create_faulty_builder();
+    auto bad_builder = injector.create_builder_with_malicious_witnesses();
     EXPECT_FALSE(CircuitChecker::check(bad_builder)); // bad builder fails (will print "Failed Memory relation")
 
-    // Test 2: Full proof system - end-to-end verification
+    // Run full protocol
     auto [good_instance, bad_instance] = injector.create_instances();
     TestFixture::prove_and_verify(good_instance, /*expected_result=*/true);
     TestFixture::prove_and_verify(bad_instance, /*expected_result=*/false);
 }
 
-// Test out-of-bounds RAM access
-// NOTE: This failure is caught by the tag/permutation check, not the Memory relation!
-// Out-of-bounds reads reference non-existent memory locations, which breaks the
-// generalized permutation argument that ensures consistency between wire values.
+// Test malicious witness "out-of-bounds" RAM access
 TYPED_TEST(UltraHonkTests, RamOutOfBoundsRead)
 {
     using Flavor = TypeParam;
     using FF = typename Flavor::FF;
-    FaultInjector<Flavor> injector;
+    MaliciousWitnessInjector<Flavor> injector;
 
-    // Create a RAM array of size 5 (valid indices: 0-4)
+    // Create a RAM array of size 5
     const size_t ram_size = 5;
     size_t ram_id = injector.builder.create_RAM_array(ram_size);
 
     // Initialize all elements
     for (size_t i = 0; i < ram_size; ++i) {
-        auto init_val = injector.builder.add_variable(FF(100 + i));
+        auto init_val = injector.builder.add_variable(FF::random_element());
         injector.builder.init_RAM_element(ram_id, i, init_val);
     }
 
-    // Create a malicious index witness:
-    // - Good proof: reads from index 2 (valid, within bounds)
-    // - Bad proof: reads from index 99 (invalid, out of bounds!)
-    auto malicious_index = injector.add_malicious_variable(FF(2), FF(99));
+    // Create a malicious/invalid index witness:
+    FF good_index = FF(2);
+    FF bad_index = FF(99);
+    auto malicious_index = injector.add_malicious_variable(good_index, bad_index);
 
-    // Attempt to read using the malicious index
-    // In good proof: reads from RAM[2] = 102 ✓
-    // In bad proof: tries to read from RAM[99] (doesn't exist!) ✗
+    // Create a read using the malicious index
     auto read_result = injector.builder.read_RAM_array(ram_id, malicious_index);
 
     // Use the read result in a constraint to ensure it's checked
@@ -481,13 +476,13 @@ TYPED_TEST(UltraHonkTests, RamOutOfBoundsRead)
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(injector.builder);
 
-    // Test with CircuitChecker
-    // Expected error: "Failed tag check." (not Memory relation!)
-    EXPECT_TRUE(CircuitChecker::check(injector.builder)); // good: reads RAM[2] ✓
-    auto bad_builder = injector.create_faulty_builder();
-    EXPECT_FALSE(CircuitChecker::check(bad_builder)); // bad: reads RAM[99] ✗ → tag check fails
+    // Run CircuitChecker
+    // Expected error: "Failed tag check."
+    EXPECT_TRUE(CircuitChecker::check(injector.builder));
+    auto bad_builder = injector.create_builder_with_malicious_witnesses();
+    EXPECT_FALSE(CircuitChecker::check(bad_builder));
 
-    // Test with full proof system
+    // Run full protocol
     auto [good_instance, bad_instance] = injector.create_instances();
     TestFixture::prove_and_verify(good_instance, /*expected_result=*/true);
     TestFixture::prove_and_verify(bad_instance, /*expected_result=*/false);
