@@ -9,6 +9,7 @@
 !/noir/noir-repo/target/release/noir-profiler
 !/noir-projects/noir-contracts/scripts/flamegraph.sh
 !/noir-projects/noir-contracts/scripts/extractFunctionAsNoirArtifact.js
+!/noir-projects/noir-contracts/scripts/strip_aztec_nr_prefix.sh
 !/noir/packages/
 !/yarn-project/package.json
 !/yarn-project/yarn.lock

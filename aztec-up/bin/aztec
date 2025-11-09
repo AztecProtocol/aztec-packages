@@ -249,6 +249,15 @@ EOF
       --entrypoint=/usr/src/barretenberg/cpp/build/bin/bb-avm \
       $DOCKER_REPO:$VERSION aztec_process
 
+    # Strip internal prefixes from all compiled contract JSONs in target directory
+    docker run ${TTY_FLAGS:-} \
+      --user $(id -u):$(id -g) \
+      -v $HOME:$HOME \
+      -e HOME=$HOME \
+      --workdir="$PWD" \
+      --entrypoint=/bin/bash \
+      $DOCKER_REPO:$VERSION -c 'for json in target/*.json; do [ -f "$json" ] && /usr/src/noir-projects/noir-contracts/scripts/strip_aztec_nr_prefix.sh "$json"; done'
+
     echo "Compilation complete!"
     ;;
   test)
