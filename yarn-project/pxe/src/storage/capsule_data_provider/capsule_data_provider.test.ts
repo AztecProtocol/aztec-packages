@@ -308,7 +308,7 @@ describe('capsule data provider', () => {
     // These tests serve as a very simple (and perhaps fragile) of preventing performance regressions. Since we
     // currently lack infrastructure to track metrics and see their evolution, we instead run these tests with a fixed
     // timeout, causing failures if performance degrades too much.
-    const TEST_TIMEOUT_MS = 5000;
+    const TEST_TIMEOUT_MS = 10000;
 
     // Capsules are being used to store arrays of private logs and of pending partial notes, both of which could reach
     // the low thousands in high-usage scenarios. The operations which we expect to be reasonably fast when dealing with

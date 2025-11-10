@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Runs a command and prefixes each output line with a colored job name.
+# Replicates the Makefile's run_command color prefixing functionality.
+#
+# Usage: color_prefix <job_name> <command>
+#
+# Example:
+#   color_prefix "test-foo" "echo hello world"
+#   color_prefix "build-bar" "./build.sh"
+
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "Usage: color_prefix <job_name> <command>" >&2
+  exit 1
+fi
+
+job_name="$1"
+shift
+command="$@"
+
+# Compute color from job name hash (same algorithm as Makefile)
+# Picks a color between 20 and 231 (avoiding very dark/light colors)
+compute_color() {
+  local name="$1"
+  local hash=$(printf '%s' "$name" | cksum | cut -d' ' -f1)
+  echo $(( (hash % 212) + 20 ))
+}
+
+color=$(compute_color "$job_name")
+
+# Execute command with line buffering and prefix each line with colored job name
+# stdbuf ensures immediate output without buffering
+# Merge stderr to stdout, then prefix each line
+set -o pipefail
+stdbuf -oL -eL bash -c "$command" 2>&1 | \
+  while IFS= read -r line; do
+    printf '\033[38;5;%sm[%s]\033[0m %s\n' "$color" "$job_name" "$line"
+  done
+
+# Preserve the command's exit code
+exit ${PIPESTATUS[0]}

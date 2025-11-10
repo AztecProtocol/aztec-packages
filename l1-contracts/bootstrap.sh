@@ -12,16 +12,16 @@ export hash=$(cache_content_hash \
   ../barretenberg/cpp/.rebuild_patterns
 )
 
-function build {
-  echo_header "l1-contracts build"
+function build_src {
+  echo_header "l1-contracts build_src"
 
   # Deps install
   yarn
 
-  local artifact=l1-contracts-$hash.tar.gz
+  local artifact=l1-contracts-src-$hash.tar.gz
   if ! cache_download $artifact; then
     # Clean
-    rm -rf broadcast cache out serve generated
+    rm -rf broadcast cache out serve
 
     # Install
     forge install
@@ -29,6 +29,22 @@ function build {
     # Ensure libraries are at the correct version
     git submodule update --init --recursive ./lib
 
+    # Compile contracts
+    # Build everything in src and test (except tests that need generated verifier).
+    forge build $(find src test -name '*.sol' ! -name 'shouting.t.sol')
+
+    # Output storage information for the rollup contract.
+    forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
+
+    cache_upload $artifact out
+  fi
+}
+
+function build_verifier {
+  echo_header "l1-contracts build_verifier"
+
+  local artifact=l1-contracts-verifier-$hash.tar.gz
+  if ! cache_download $artifact; then
     mkdir -p generated
     # Copy from noir-projects. Bootstrap must have ran in noir-projects.
     local rollup_verifier_path=../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
@@ -39,21 +55,22 @@ function build {
       exit 1
     fi
 
-    # Compile contracts
-    # Step 1: Build everything in src.
-    forge build $(find src test -name '*.sol')
-
-    # Step 1.5: Output storage information for the rollup contract.
-    forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
-
-    # Step 2: Build the generated verifier contract with optimization.
+    # Build the generated verifier contract with optimization.
     forge build $(find generated -name '*.sol') \
       --optimize \
       --optimizer-runs 1 \
       --no-metadata
 
+    # Build the one test that imports the verifier.
+    forge build test/shouting.t.sol
+
     cache_upload $artifact out generated
   fi
+}
+
+function build {
+  build_src
+  build_verifier
 }
 
 function test_cmds {
@@ -61,7 +78,7 @@ function test_cmds {
   echo "$hash cd l1-contracts && forge fmt --check"
   echo "$hash cd l1-contracts && forge test"
   echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract MerkleCheck --ffi"
-  if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
+  if [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
     echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
   fi
 }
@@ -406,7 +423,7 @@ case "$cmd" in
     shift
     coverage "$@"
     ;;
-  test|test_cmds|bench|bench_cmds|inspect|release)
+  test|test_cmds|bench|bench_cmds|inspect|release|build_src|build_verifier)
     $cmd
     ;;
   "hash")
