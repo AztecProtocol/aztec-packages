@@ -21,6 +21,26 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to UltraKeccakZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
+    // Override WitnessEntities to use ZK version (includes gemini_masking_poly)
+    template <typename DataType> using WitnessEntities = UltraFlavor::WitnessEntities_<DataType, HasZK>;
+
+    // Override AllEntities to use ZK version (this automatically updates ProverPolynomials and AllValues)
+    template <typename DataType> using AllEntities = UltraFlavor::AllEntities_<DataType, HasZK>;
+
+    // NUM_WITNESS_ENTITIES includes gemini_masking_poly
+    static constexpr size_t NUM_WITNESS_ENTITIES = UltraKeccakFlavor::NUM_WITNESS_ENTITIES + 1;
+    // NUM_ALL_ENTITIES includes gemini_masking_poly
+    static constexpr size_t NUM_ALL_ENTITIES = UltraKeccakFlavor::NUM_ALL_ENTITIES + 1;
+
+    using AllValues = UltraFlavor::AllValues_<HasZK>;
+    using ProverPolynomials = UltraFlavor::ProverPolynomials_<HasZK>;
+    using PartiallyEvaluatedMultivariates = UltraFlavor::PartiallyEvaluatedMultivariates_<HasZK>;
+    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
+
+    // Override ProverUnivariates and ExtendedEdges to include gemini_masking_poly
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+
     // Proof length formula method
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
     {
@@ -52,6 +72,8 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     class Transcript : public UltraKeccakFlavor::Transcript {
       public:
         using Base = UltraKeccakFlavor::Transcript::Base;
+        // Override sumcheck_evaluations to use the correct size for ZK flavor
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         // Note: we have a different vector of univariates because the degree for ZK flavors differs
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
         Commitment libra_concatenation_commitment;
@@ -149,6 +171,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             for (const auto& public_input : this->public_inputs) {
                 Base::serialize_to_buffer(public_input, proof_data);
             }
+            Base::serialize_to_buffer(hiding_polynomial_commitment, proof_data);
             Base::serialize_to_buffer(this->w_l_comm, proof_data);
             Base::serialize_to_buffer(this->w_r_comm, proof_data);
             Base::serialize_to_buffer(this->w_o_comm, proof_data);
@@ -168,8 +191,6 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             Base::serialize_to_buffer(this->sumcheck_evaluations, proof_data);
             Base::serialize_to_buffer(libra_grand_sum_commitment, proof_data);
             Base::serialize_to_buffer(libra_quotient_commitment, proof_data);
-            Base::serialize_to_buffer(hiding_polynomial_commitment, proof_data);
-            Base::serialize_to_buffer(hiding_polynomial_eval, proof_data);
             for (size_t i = 0; i < virtual_log_n - 1; ++i) {
                 Base::serialize_to_buffer(this->gemini_fold_comms[i], proof_data);
             }

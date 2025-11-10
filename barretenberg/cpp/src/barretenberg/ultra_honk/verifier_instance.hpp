@@ -39,6 +39,9 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
+    // For ZK flavors: store Gemini masking polynomial commitment
+    Commitment gemini_masking_commitment;
+
     VerifierInstance_() = default;
     VerifierInstance_(std::shared_ptr<VerificationKey> vk)
         : vk(vk)

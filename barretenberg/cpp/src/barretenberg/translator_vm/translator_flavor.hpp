@@ -120,7 +120,8 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 187;
+    // Includes gemini_masking_poly for ZK
+    static constexpr size_t NUM_ALL_ENTITIES = 188;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
@@ -183,7 +184,7 @@ class TranslatorFlavor {
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. accumulated_result */ (num_frs_fq) +
-        /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES - 4) * num_frs_comm) +
+        /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES - 3) * num_frs_comm) +
         /* 2. Libra concatenation commitment*/ (num_frs_comm) +
         /* 3. Libra sum */ (num_frs_fr) +
         /* 4. CONST_TRANSLATOR_LOG_N sumcheck univariates */
@@ -192,17 +193,15 @@ class TranslatorFlavor {
         /* 6. Libra claimed evaluation */ (num_frs_fr) +
         /* 7. Libra grand sum commitment */ (num_frs_comm) +
         /* 8. Libra quotient commitment */ (num_frs_comm) +
-        /* 9. Gemini masking commitment */ (num_frs_comm) +
-        /* 10. Gemini masking evaluation */ (num_frs_fr) +
-        /* 11. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
+        /* 9. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
         ((CONST_TRANSLATOR_LOG_N - 1) * num_frs_comm) +
-        /* 12. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
+        /* 10. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
         (CONST_TRANSLATOR_LOG_N * num_frs_fr) +
-        /* 13. Gemini P pos evaluation */ (num_frs_fr) +
-        /* 14. Gemini P neg evaluation */ (num_frs_fr) +
-        /* 15. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-        /* 16. Shplonk Q commitment */ (num_frs_comm) +
-        /* 17. KZG W commitment */ (num_frs_comm);
+        /* 11. Gemini P pos evaluation */ (num_frs_fr) +
+        /* 12. Gemini P neg evaluation */ (num_frs_fr) +
+        /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+        /* 14. Shplonk Q commitment */ (num_frs_comm) +
+        /* 15. KZG W commitment */ (num_frs_comm);
 
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
@@ -589,19 +588,32 @@ class TranslatorFlavor {
     };
 
     /**
+     * @brief Container for ZK entities (gemini masking polynomial for ZK-PCS)
+     * @details Translator is always ZK, so this always contains the masking polynomial
+     */
+    template <typename DataType> class ZKEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType, gemini_masking_poly)
+    };
+
+    /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest.
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
      * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
      *
-     * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + ShiftedEntities.
+     * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + ShiftedEntities + ZKEntities.
      */
     template <typename DataType>
-    class AllEntities : public PrecomputedEntities<DataType>,
+    class AllEntities : public ZKEntities<DataType>,
+                        public PrecomputedEntities<DataType>,
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
+        DEFINE_COMPOUND_GET_ALL(ZKEntities<DataType>,
+                                PrecomputedEntities<DataType>,
+                                WitnessEntities<DataType>,
+                                ShiftedEntities<DataType>)
 
         auto get_precomputed() const { return PrecomputedEntities<DataType>::get_all(); };
 
@@ -618,12 +630,15 @@ class TranslatorFlavor {
 
         auto get_unshifted() const
         {
-            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
+            return concatenate(ZKEntities<DataType>::get_all(),
+                               PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities<DataType>::get_unshifted());
         }
 
         auto get_unshifted_without_interleaved()
         {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
+            return concatenate(ZKEntities<DataType>::get_all(),
+                               PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities<DataType>::get_unshifted_without_interleaved());
         }
 
