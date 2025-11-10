@@ -62,9 +62,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
-    Fr running_scalar = 1; // ρ⁰ is used to batch the hiding polynomial
-
-    Polynomial A_0 = polynomial_batcher.compute_batched(rho, running_scalar);
+    Polynomial A_0 = polynomial_batcher.compute_batched(rho);
 
     // Construct the d-1 Gemini foldings of A₀(X)
     std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0, has_zk);

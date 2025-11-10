@@ -299,8 +299,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
 
-        Fr gemini_batching_challenge_power = Fr(1);
-
         // Compute the Shplonk batching power for the interleaved claims. This is \nu^{d+1} where d = log_n as the
         // interleaved claims are sent after the rest of Gemini fold claims. Add the evaluations of (P₊(rˢ) ⋅ ν^{d+1}) /
         // (z − r^s) and (P₋(rˢ) ⋅ ν^{d+2})/(z − r^s) to the constant term accumulator
@@ -321,7 +319,6 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                                      scalars,
                                                                      batched_evaluation,
                                                                      gemini_batching_challenge,
-                                                                     gemini_batching_challenge_power,
                                                                      shplonk_batching_pos,
                                                                      shplonk_batching_neg);
 
