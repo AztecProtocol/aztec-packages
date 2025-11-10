@@ -52,6 +52,9 @@ class TranslatorFlavor {
     // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
     // they become too small.
 
+    // The number of entities added for ZK (gemini_masking_poly)
+    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
+
     // None of this parameters can be changed
     // Number of wires representing the op queue whose commitments are going to be checked against those from the
     // final round of merge
@@ -120,12 +123,13 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    // Includes gemini_masking_poly for ZK
+    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 187 + NUM_MASKING_POLYNOMIALS)
     static constexpr size_t NUM_ALL_ENTITIES = 188;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
     // The total number of witness entities not including shifts.
+    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 90 + NUM_MASKING_POLYNOMIALS)
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 86;

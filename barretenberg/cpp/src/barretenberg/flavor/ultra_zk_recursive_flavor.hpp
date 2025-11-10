@@ -34,8 +34,12 @@ template <typename BuilderType> class UltraZKRecursiveFlavor_ : public UltraRecu
 
     static constexpr bool HasZK = true;
 
+    // The number of entities added for ZK (gemini_masking_poly)
+    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
+
     // NUM_ALL_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_ALL_ENTITIES = UltraRecursiveFlavor_<BuilderType>::NUM_ALL_ENTITIES + 1;
+    static constexpr size_t NUM_ALL_ENTITIES =
+        UltraRecursiveFlavor_<BuilderType>::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
 

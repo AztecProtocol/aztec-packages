@@ -24,6 +24,10 @@ class UltraZKFlavor : public UltraFlavor {
   public:
     // This flavor runs with ZK Sumcheck
     static constexpr bool HasZK = true;
+
+    // The number of entities added for ZK (gemini_masking_poly)
+    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
+
     // Determine the number of evaluations of Prover and Libra Polynomials that the Prover sends to the Verifier in
     // the rounds of ZK Sumcheck.
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
@@ -39,9 +43,9 @@ class UltraZKFlavor : public UltraFlavor {
     template <typename DataType> using AllEntities = UltraFlavor::AllEntities_<DataType, HasZK>;
 
     // NUM_WITNESS_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES + 1;
+    static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS;
     // NUM_ALL_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_ALL_ENTITIES = UltraFlavor::NUM_ALL_ENTITIES + 1;
+    static constexpr size_t NUM_ALL_ENTITIES = UltraFlavor::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
 
     // Override OINK_PROOF_LENGTH to include gemini_masking_poly commitment (sent via commit_to_masking_poly)
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =

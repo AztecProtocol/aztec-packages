@@ -59,8 +59,10 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     uint256 constant NUM_ELEMENTS_COMM = 2; // uint256 elements for curve points
     uint256 constant NUM_ELEMENTS_FR = 1; // uint256 elements for field elements
     uint256 constant NUM_LIBRA_EVALUATIONS = 4; // libra evaluations
+    // The number of entities added for ZK (gemini_masking_poly)
+    uint256 constant NUM_MASKING_POLYNOMIALS = 1;
     // Override NUMBER_OF_ENTITIES for ZK flavor (base is 41, ZK is 42 due to gemini_masking_poly)
-    uint256 constant NUMBER_OF_ENTITIES_ZK = 42;
+    uint256 constant NUMBER_OF_ENTITIES_ZK = NUMBER_OF_ENTITIES + NUM_MASKING_POLYNOMIALS;
 
     // Calculate proof size based on log_n (matching UltraKeccakZKFlavor formula)
     function calculateProofSize(uint256 logN) internal pure returns (uint256) {

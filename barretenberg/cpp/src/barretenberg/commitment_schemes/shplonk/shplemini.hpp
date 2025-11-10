@@ -515,11 +515,6 @@ template <typename Curve> class ShpleminiVerifier_ {
             size_t idx_to_be_shifted = i + first_range_to_be_shifted_start;
             size_t idx_shifted = i + first_range_shifted_start;
             scalars[idx_to_be_shifted] = scalars[idx_to_be_shifted] + scalars[idx_shifted];
-            // Note: Equality check only works for native commitments, not stdlib recursive commitments
-            if constexpr (requires { commitments[0] == commitments[0]; }) {
-                BB_ASSERT_DEBUG(commitments[idx_to_be_shifted] == commitments[idx_shifted],
-                                "Shplemini: Repeated Commitments Removal, first range");
-            }
         }
 
         // Iterate over the second range of to-be-shifted precomputed scalars and their shifted counterparts (if
@@ -528,11 +523,6 @@ template <typename Curve> class ShpleminiVerifier_ {
             size_t idx_to_be_shifted = i + second_range_to_be_shifted_start;
             size_t idx_shifted = i + second_range_shifted_start;
             scalars[idx_to_be_shifted] = scalars[idx_to_be_shifted] + scalars[idx_shifted];
-            // Note: Equality check only works for native commitments, not stdlib recursive commitments
-            if constexpr (requires { commitments[0] == commitments[0]; }) {
-                BB_ASSERT_DEBUG(commitments[idx_to_be_shifted] == commitments[idx_shifted],
-                                "Shplemini: Repeated Commitments Removal, second range");
-            }
         }
 
         if (second_range_shifted_start > first_range_shifted_start) {

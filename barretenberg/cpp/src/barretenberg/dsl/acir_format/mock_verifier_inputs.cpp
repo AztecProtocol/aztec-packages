@@ -80,8 +80,6 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
     }
 
     // Populate mock witness polynomial commitments
-    // Note: For ZK flavors, NUM_WITNESS_ENTITIES includes gemini_masking_poly which is sent via
-    // commit_to_masking_poly() OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS is overridden in ZK flavors to account for this
     populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
 
     return proof;

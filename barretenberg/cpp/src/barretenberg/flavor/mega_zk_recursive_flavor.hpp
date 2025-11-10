@@ -44,8 +44,12 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
 
     static constexpr bool HasZK = true;
 
+    // The number of entities added for ZK (gemini_masking_poly)
+    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
+
     // NUM_ALL_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_ALL_ENTITIES = MegaRecursiveFlavor_<BuilderType>::NUM_ALL_ENTITIES + 1;
+    static constexpr size_t NUM_ALL_ENTITIES =
+        MegaRecursiveFlavor_<BuilderType>::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
