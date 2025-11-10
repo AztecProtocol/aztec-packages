@@ -353,34 +353,34 @@ namespace tx;
 
     // Padded rows are not allowed to change the state
     #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
+    is_padded * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
     #[NOTE_HASH_SIZE_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
+    is_padded * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
     #[NOTE_HASH_COUNT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
+    is_padded * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
 
     #[NULLIFIER_ROOT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
+    is_padded * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
     #[NULLIFIER_SIZE_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
+    is_padded * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
     #[NULLIFIER_COUNT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
+    is_padded * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
 
     #[PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
+    is_padded * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
     #[PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
+    is_padded * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
+    is_padded * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
+    is_padded * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
 
     // The retrieved bytecodes tree is already immutable except for nonpadded call request rows
 
     #[UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
+    is_padded * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
     #[L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
+    is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[L2_GAS_USED_IMMUTABILITY]
     sel * (1 - should_process_call_request) * (prev_l2_gas_used - next_l2_gas_used) = 0;

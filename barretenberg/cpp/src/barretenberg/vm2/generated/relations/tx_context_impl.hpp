@@ -483,86 +483,86 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // NOTE_HASH_ROOT_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<64, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
-                   (static_cast<View>(in.get(C::tx_prev_note_hash_tree_root)) -
-                    static_cast<View>(in.get(C::tx_next_note_hash_tree_root)));
+        auto tmp =
+            static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_note_hash_tree_root)) -
+                                                          static_cast<View>(in.get(C::tx_next_note_hash_tree_root)));
         std::get<64>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_SIZE_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<65, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
-                   (static_cast<View>(in.get(C::tx_prev_note_hash_tree_size)) -
-                    static_cast<View>(in.get(C::tx_next_note_hash_tree_size)));
+        auto tmp =
+            static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_note_hash_tree_size)) -
+                                                          static_cast<View>(in.get(C::tx_next_note_hash_tree_size)));
         std::get<65>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_COUNT_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<66, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
+        auto tmp = static_cast<View>(in.get(C::tx_is_padded)) *
                    (static_cast<View>(in.get(C::tx_prev_num_note_hashes_emitted)) -
                     static_cast<View>(in.get(C::tx_next_num_note_hashes_emitted)));
         std::get<66>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_ROOT_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<67, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
-                   (static_cast<View>(in.get(C::tx_prev_nullifier_tree_root)) -
-                    static_cast<View>(in.get(C::tx_next_nullifier_tree_root)));
+        auto tmp =
+            static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_nullifier_tree_root)) -
+                                                          static_cast<View>(in.get(C::tx_next_nullifier_tree_root)));
         std::get<67>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_SIZE_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<68, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
-                   (static_cast<View>(in.get(C::tx_prev_nullifier_tree_size)) -
-                    static_cast<View>(in.get(C::tx_next_nullifier_tree_size)));
+        auto tmp =
+            static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_nullifier_tree_size)) -
+                                                          static_cast<View>(in.get(C::tx_next_nullifier_tree_size)));
         std::get<68>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_COUNT_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<69, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
-                   (static_cast<View>(in.get(C::tx_prev_num_nullifiers_emitted)) -
-                    static_cast<View>(in.get(C::tx_next_num_nullifiers_emitted)));
+        auto tmp =
+            static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_num_nullifiers_emitted)) -
+                                                          static_cast<View>(in.get(C::tx_next_num_nullifiers_emitted)));
         std::get<69>(evals) += (tmp * scaling_factor);
     }
     { // PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<70, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
-                   (static_cast<View>(in.get(C::tx_prev_public_data_tree_root)) -
-                    static_cast<View>(in.get(C::tx_next_public_data_tree_root)));
+        auto tmp =
+            static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_public_data_tree_root)) -
+                                                          static_cast<View>(in.get(C::tx_next_public_data_tree_root)));
         std::get<70>(evals) += (tmp * scaling_factor);
     }
     { // PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<71, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
-                   (static_cast<View>(in.get(C::tx_prev_public_data_tree_size)) -
-                    static_cast<View>(in.get(C::tx_next_public_data_tree_size)));
+        auto tmp =
+            static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_public_data_tree_size)) -
+                                                          static_cast<View>(in.get(C::tx_next_public_data_tree_size)));
         std::get<71>(evals) += (tmp * scaling_factor);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<72, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
+        auto tmp = static_cast<View>(in.get(C::tx_is_padded)) *
                    (static_cast<View>(in.get(C::tx_prev_written_public_data_slots_tree_root)) -
                     static_cast<View>(in.get(C::tx_next_written_public_data_slots_tree_root)));
         std::get<72>(evals) += (tmp * scaling_factor);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<73, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
+        auto tmp = static_cast<View>(in.get(C::tx_is_padded)) *
                    (static_cast<View>(in.get(C::tx_prev_written_public_data_slots_tree_size)) -
                     static_cast<View>(in.get(C::tx_next_written_public_data_slots_tree_size)));
         std::get<73>(evals) += (tmp * scaling_factor);
     }
     { // UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<74, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
+        auto tmp = static_cast<View>(in.get(C::tx_is_padded)) *
                    (static_cast<View>(in.get(C::tx_prev_num_unencrypted_log_fields)) -
                     static_cast<View>(in.get(C::tx_next_num_unencrypted_log_fields)));
         std::get<74>(evals) += (tmp * scaling_factor);
     }
     { // L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<75, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
-                   (static_cast<View>(in.get(C::tx_prev_num_l2_to_l1_messages)) -
-                    static_cast<View>(in.get(C::tx_next_num_l2_to_l1_messages)));
+        auto tmp =
+            static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_num_l2_to_l1_messages)) -
+                                                          static_cast<View>(in.get(C::tx_next_num_l2_to_l1_messages)));
         std::get<75>(evals) += (tmp * scaling_factor);
     }
     { // L2_GAS_USED_IMMUTABILITY
