@@ -43,10 +43,10 @@ void ControlFlow::process_jump_to_new_block(JumpToNewBlock instruction)
     auto target_instruction_block =
         instruction_blocks->at(instruction.target_program_block_instruction_block_idx % instruction_blocks->size());
     ProgramBlock* target_block = new ProgramBlock();
+    current_block->finalize_with_jump(target_block);
     for (const auto& instr : target_instruction_block) {
         target_block->process_instruction(instr);
     }
-    current_block->finalize_with_jump(target_block);
     current_block = target_block;
 }
 
