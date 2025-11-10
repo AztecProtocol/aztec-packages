@@ -573,7 +573,16 @@ template <typename Flavor> class SumcheckProver {
         }
         const size_t max_limit = *std::ranges::max_element(limits);
 
-        if (use_wave_parallelization) {
+        // AVM uses a different parallelization strategy (by polynomials) due to its unique polynomial structure
+        if constexpr (isAvmFlavor<Flavor>) {
+            // Parallelize by polynomials (old strategy that works better for AVM)
+            parallel_for(poly_view.size(), [&](size_t j) {
+                const auto& poly = poly_view[j];
+                for (size_t i = 0; i < limits[j]; i++) {
+                    pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
+                }
+            });
+        } else if (use_wave_parallelization) {
             // Parallelize in exponentially growing waves to avoid read-write conflicts when source == destination
             // Wave 0: pep[0] alone (reads poly[0,1])
             // Wave 1: pep[1] alone (reads poly[2,3])
