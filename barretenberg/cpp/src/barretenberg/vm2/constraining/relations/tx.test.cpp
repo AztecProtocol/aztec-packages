@@ -292,7 +292,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                   { {
                       { C::tx_sel, 1 },
                       { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
-                      { C::tx_is_teardown_phase, 1 },
+                      { C::tx_is_teardown, 1 },
                       { C::tx_sel_read_phase_length, 1 },
                       { C::tx_read_pi_start_offset, AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX },
                       { C::tx_read_pi_length_offset,

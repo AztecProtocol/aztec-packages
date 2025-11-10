@@ -190,7 +190,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_is_teardown_phase)) *
+        auto tmp = static_cast<View>(in.get(C::tx_is_teardown)) *
                    (CView(constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX) -
                     static_cast<View>(in.get(C::tx_gas_limit_pi_offset)));
         std::get<22>(evals) += (tmp * scaling_factor);
@@ -198,7 +198,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::tx_should_read_gas_limit)) -
-                    (static_cast<View>(in.get(C::tx_start_tx)) + static_cast<View>(in.get(C::tx_is_teardown_phase))));
+                    (static_cast<View>(in.get(C::tx_start_tx)) + static_cast<View>(in.get(C::tx_is_teardown))));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
     { // INIT_TX_REVERTED
@@ -358,14 +358,14 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // PROPAGATE_L2_GAS_LIMIT
         using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
         auto tmp =
-            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_is_teardown_phase_shift))) *
+            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_is_teardown_shift))) *
             (static_cast<View>(in.get(C::tx_l2_gas_limit)) - static_cast<View>(in.get(C::tx_l2_gas_limit_shift)));
         std::get<48>(evals) += (tmp * scaling_factor);
     }
     { // PROPAGATE_DA_GAS_LIMIT
         using View = typename std::tuple_element_t<49, ContainerOverSubrelations>::View;
         auto tmp =
-            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_is_teardown_phase_shift))) *
+            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_is_teardown_shift))) *
             (static_cast<View>(in.get(C::tx_da_gas_limit)) - static_cast<View>(in.get(C::tx_da_gas_limit_shift)));
         std::get<49>(evals) += (tmp * scaling_factor);
     }
