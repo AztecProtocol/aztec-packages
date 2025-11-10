@@ -159,6 +159,9 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void print_delta_range_gate_info(size_t gate_idx, auto& block);
     void print_variable_info(const uint32_t real_idx);
 
+    void initialize_uniqueness();
+    bool propagate_linear_constraints(size_t gate_idx, auto& block);
+
     bool check_variable_unconstrained();
     ~StaticAnalyzer_() = default;
 
@@ -183,6 +186,10 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::unordered_set<uint32_t> constant_variable_indices_set;
 
     std::vector<ConnectedComponent> connected_components;
+
+    std::unordered_set<uint32_t> unique_variables;
+    std::unordered_set<uint32_t> non_unique_variables;
+    std::unordered_set<uint32_t> unknown_variables;
 };
 
 // Type aliases for convenience

@@ -53,10 +53,9 @@ std::unordered_set<uint32_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::get_uncons
     for (const auto& elem : constraint_system.constrained_witness) {
         if (variable_gate_count.find(elem) == variable_gate_count.end()) {
             unconstrained_vars.insert(elem);
-        }
-        else {
+        } else {
             if (variable_gate_count.at(elem) == 0) {
-            unconstrained_vars.insert(elem);
+                unconstrained_vars.insert(elem);
             }
         }
     }
@@ -65,12 +64,18 @@ std::unordered_set<uint32_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::get_uncons
 
 template <typename FF, typename CircuitBuilder>
 std::pair<std::unordered_set<uint32_t>, std::unordered_set<uint32_t>> StaticAnalyzerAcir_<FF, CircuitBuilder>::
-    analyze_acir()
+    analyze_acir(bool debug_info)
 {
     std::unordered_set<uint32_t> variables_in_one_gate = analyzer.analyze_circuit().second;
     filter_false_positives(variables_in_one_gate);
     std::unordered_set<uint32_t> unconstrained_vars = get_unconstrained_variables();
-    return std::make_pair(variables_in_one_gate, std::move(unconstrained_vars));
+    auto result = std::make_pair(variables_in_one_gate, std::move(unconstrained_vars));
+    if (debug_info && result.first.size() > 0) {
+        for (const auto& elem : result.first) {
+            analyzer.print_variable_info(elem);
+        }
+    }
+    return result;
 }
 
 template class StaticAnalyzerAcir_<fr, UltraCircuitBuilder>;
