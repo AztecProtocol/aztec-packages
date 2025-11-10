@@ -547,7 +547,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::unordered_set<uint32_t> finalize_witnesses;
 
   public:
-    std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
+    const std::vector<uint32_t>& get_used_witnesses() const { return used_witnesses; }
+    const std::unordered_set<uint32_t>& get_finalize_witnesses() const { return finalize_witnesses; }
 
     /**
      * @brief Add a witness index to the boomerang exclusion list
