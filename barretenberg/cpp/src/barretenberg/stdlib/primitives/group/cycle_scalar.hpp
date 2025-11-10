@@ -26,6 +26,10 @@ template <typename Builder> class cycle_group;
  * @note The reason for not using `bigfield` to represent cycle scalars is that `bigfield` is inefficient in this
  * context. All required range checks for `cycle_scalar` can be obtained for free from the `batch_mul` algorithm, making
  * the range checks performed by `bigfield` largely redundant.
+ *
+ * @warning: The field validation performed by cycle_scalar constructors assumes that the lo/hi limbs will
+ * be range-constrained during scalar multiplication. The validation is ONLY sound when the cycle_scalar is used in a
+ * batch_mul operation (which applies range constraints as part of the MSM algorithm).
  */
 template <typename Builder> class cycle_scalar {
   public:
@@ -38,10 +42,11 @@ template <typename Builder> class cycle_scalar {
     static constexpr size_t LO_BITS = field_t::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
     static constexpr size_t HI_BITS = NUM_BITS - LO_BITS;
 
-    field_t lo; // LO_BITS of the scalar
-    field_t hi; // Remaining HI_BITS of the scalar
+    enum class SkipValidation { FLAG };
 
   private:
+    field_t _lo; // LO_BITS of the scalar
+    field_t _hi; // Remaining HI_BITS of the scalar
     size_t _num_bits = NUM_BITS;
 
     /**
@@ -55,58 +60,60 @@ template <typename Builder> class cycle_scalar {
         return { value.slice(0, LO_BITS), value.slice(LO_BITS, NUM_BITS) };
     }
 
-  public:
-    // AUDITTODO: this is used only in the fuzzer.
-    cycle_scalar(const ScalarField& _in = 0);
-    cycle_scalar(const field_t& _lo, const field_t& _hi, bool skip_validation = false);
-    // AUDITTODO: this is used only in the fuzzer. Its not inherently problematic, but perhaps the fuzzer should use a
-    // production entrypoint.
-    static cycle_scalar from_witness(Builder* context, const ScalarField& value);
-    static cycle_scalar from_u256_witness(Builder* context, const uint256_t& bitstring);
-    static cycle_scalar create_from_bn254_scalar(const field_t& _in);
-    explicit cycle_scalar(BigScalarField& scalar);
-
-    [[nodiscard]] bool is_constant() const;
-    ScalarField get_value() const;
-    Builder* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
-    [[nodiscard]] size_t num_bits() const { return _num_bits; }
+    cycle_scalar(const field_t& lo, const field_t& hi, SkipValidation flag);
 
     /**
      * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field modulus
      */
     void validate_scalar_is_in_field() const;
 
+  public:
+    cycle_scalar(const ScalarField& in = 0);
+    cycle_scalar(const field_t& lo, const field_t& hi);
+    static cycle_scalar from_witness(Builder* context, const ScalarField& value);
+    static cycle_scalar from_u256_witness(Builder* context, const uint256_t& bitstring);
+    static cycle_scalar create_from_bn254_scalar(const field_t& in);
+    explicit cycle_scalar(BigScalarField& scalar);
+
+    [[nodiscard]] bool is_constant() const;
+    ScalarField get_value() const;
+    Builder* get_context() const { return _lo.get_context() != nullptr ? _lo.get_context() : _hi.get_context(); }
+    [[nodiscard]] size_t num_bits() const { return _num_bits; }
+
+    const field_t& lo() const { return _lo; }
+    const field_t& hi() const { return _hi; }
+
     /**
      * @brief Get the origin tag of the cycle_scalar (a merge of the lo and hi tags)
      *
      * @return OriginTag
      */
-    OriginTag get_origin_tag() const { return OriginTag(lo.get_origin_tag(), hi.get_origin_tag()); }
+    OriginTag get_origin_tag() const { return OriginTag(_lo.get_origin_tag(), _hi.get_origin_tag()); }
     /**
      * @brief Set the origin tag of lo and hi members of cycle scalar
      *
      * @param tag
      */
-    void set_origin_tag(const OriginTag& tag) const
+    void set_origin_tag(const OriginTag& tag)
     {
-        lo.set_origin_tag(tag);
-        hi.set_origin_tag(tag);
+        _lo.set_origin_tag(tag);
+        _hi.set_origin_tag(tag);
     }
     /**
      * @brief Set the free witness flag for the cycle scalar's tags
      */
     void set_free_witness_tag()
     {
-        lo.set_free_witness_tag();
-        hi.set_free_witness_tag();
+        _lo.set_free_witness_tag();
+        _hi.set_free_witness_tag();
     }
     /**
      * @brief Unset the free witness flag for the cycle scalar's tags
      */
     void unset_free_witness_tag()
     {
-        lo.unset_free_witness_tag();
-        hi.unset_free_witness_tag();
+        _lo.unset_free_witness_tag();
+        _hi.unset_free_witness_tag();
     }
 };
 

@@ -76,27 +76,26 @@ TEST(stdlib_blake2s, test_witness_and_constant)
     // create a byte array that is a circuit witness
     std::string witness_str = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz";
     std::vector<uint8_t> witness_str_vec(witness_str.begin(), witness_str.end());
-    byte_array_ct witness_str_ct(&builder, witness_str_vec);
-
-    // create a byte array that is a circuit constant
-    std::vector<uint8_t> constant_vec = { '0', '1' };
-    std::vector<field_ct> constant_vec_field_ct;
-    for (auto b : constant_vec) {
-        constant_vec_field_ct.emplace_back(field_ct(bb::fr(b)));
-    }
-    byte_array_ct constant_vec_ct(&builder, constant_vec_field_ct);
 
     // create a byte array that is part circuit witness and part circuit constant
-    byte_array_ct input_arr(&builder);
-    input_arr.write(witness_str_ct).write(constant_vec_ct);
+    // start with the witness part, then append constant padding
+    byte_array_ct input_arr(&builder, witness_str_vec);
+    input_arr.write(byte_array_ct::constant_padding(&builder, 1, '0'))
+        .write(byte_array_ct::constant_padding(&builder, 1, '1'));
 
-    // hash the combined byte array
-    byte_array_ct output = stdlib::Blake2s<Builder>::hash(input_arr);
+    // for expected value calculation
+    std::vector<uint8_t> constant_vec = { '0', '1' };
 
     // create expected input vector by concatenating witness and constant parts
     std::vector<uint8_t> input_v;
     input_v.insert(input_v.end(), witness_str_vec.begin(), witness_str_vec.end());
     input_v.insert(input_v.end(), constant_vec.begin(), constant_vec.end());
+
+    // Verify the circuit input matches the expected input
+    EXPECT_EQ(input_arr.get_value(), input_v);
+
+    // hash the combined byte array
+    byte_array_ct output = stdlib::Blake2s<Builder>::hash(input_arr);
 
     // compute expected hash
     auto expected = crypto::blake2s(input_v);

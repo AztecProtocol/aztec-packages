@@ -93,8 +93,9 @@ pol commit tag_a;
 pol commit tag_b;
 pol commit tag_c; // This is the tag of the result
 // Sufficient to set tag_c == tag_a because we check that tag_a == tag_b
+// If there is an error, we relax this constraint as we want the flexibility to set the register in execution to FF(0)
 #[RES_TAG_SHOULD_MATCH_INPUT]
-start * (tag_c - tag_a) = 0;
+(1 - err) * start * (tag_c - tag_a) = 0;
 
 // Check that tag_a is not FF
 pol commit tag_a_inv;

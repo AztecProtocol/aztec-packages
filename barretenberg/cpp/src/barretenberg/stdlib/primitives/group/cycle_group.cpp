@@ -41,9 +41,9 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bool assert_on_curve)
-    : _x(_x)
-    , _y(_y)
+cycle_group<Builder>::cycle_group(const field_t& x, const field_t& y, bool_t is_infinity, bool assert_on_curve)
+    : _x(x)
+    , _y(y)
     , _is_infinity(is_infinity)
     , _is_standard(is_infinity.is_constant())
 {
@@ -59,9 +59,15 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
         *this = constant_infinity(this->context);
     }
 
-    // We don't support points with only one constant coordinate since valid use-cases are limited and it complicates
-    // the logic
-    BB_ASSERT(_x.is_constant() == _y.is_constant(), "cycle_group: Inconsistent constancy of coordinates");
+    // For the simplicity of methods in this class, we ensure that the coordinates of a point always have the same
+    // constancy. If they don't, we convert the non-constant coordinate to a fixed witness.
+    if (_x.is_constant() != _y.is_constant()) {
+        if (_x.is_constant()) {
+            _x.convert_constant_to_fixed_witness(context);
+        } else {
+            _y.convert_constant_to_fixed_witness(context);
+        }
+    }
 
     // Elements are always expected to be on the curve but may or may not be constrained as such.
     BB_ASSERT(get_value().on_curve(), "cycle_group: Point is not on curve");
@@ -83,9 +89,9 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_infinity)
-    : _x(is_infinity ? 0 : _x)
-    , _y(is_infinity ? 0 : _y)
+cycle_group<Builder>::cycle_group(const bb::fr& x, const bb::fr& y, bool is_infinity)
+    : _x(is_infinity ? 0 : x)
+    , _y(is_infinity ? 0 : y)
     , _is_infinity(is_infinity)
     , _is_standard(true)
     , context(nullptr)
@@ -942,8 +948,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         std::array<MultiTableId, 2> table_id = table::get_lookup_table_ids_for_point(point);
         multitable_ids.push_back(table_id[0]);
         multitable_ids.push_back(table_id[1]);
-        scalar_limbs.push_back(scalar.lo);
-        scalar_limbs.push_back(scalar.hi);
+        scalar_limbs.push_back(scalar.lo());
+        scalar_limbs.push_back(scalar.hi());
     }
 
     // Look up the multiples of each slice of each lo/hi scalar limb in the corresponding plookup table.
@@ -1221,13 +1227,6 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
     bool _is_standard_res = lhs._is_standard && rhs._is_standard;
     if (predicate.is_constant()) {
         _is_standard_res = predicate.get_value() ? lhs._is_standard : rhs._is_standard;
-    }
-
-    // AUDITTODO: Talk to Sasha. Comment seems to be unrelated and its not clear why the logic is needed.
-    // Rare case when we bump into two constants, s.t. lhs = -rhs
-    if (x_res.is_constant() && !y_res.is_constant()) {
-        auto ctx = predicate.get_context();
-        x_res = field_t::from_witness_index(ctx, ctx->put_constant_variable(x_res.get_value()));
     }
 
     cycle_group<Builder> result(x_res, y_res, _is_infinity_res, /*assert_on_curve=*/false);

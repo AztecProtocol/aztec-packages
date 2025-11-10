@@ -18,7 +18,10 @@ export function serializeWithMessagePack(obj: any): Buffer {
   return encoder.encode(obj);
 }
 
-export function deserializeFromMessagePack<T>(buffer: Buffer): T {
+// This deserializes into a JS object. If you want a specific
+// class, you need to use zod to parse it into the specific class.
+// You can use T.schema.parse() for that.
+export function deserializeFromMessagePack(buffer: Buffer): any {
   setUpMessagePackExtensions();
   const decoder = new Decoder({
     useRecords: false,

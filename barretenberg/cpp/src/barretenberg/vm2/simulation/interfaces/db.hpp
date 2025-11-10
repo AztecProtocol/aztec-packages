@@ -7,7 +7,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"

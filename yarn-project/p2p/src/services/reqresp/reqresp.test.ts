@@ -182,13 +182,41 @@ describe('ReqResp', () => {
       resTx.forEach((tx, i) => expect(tx).toEqual(txs[i]));
     });
 
-    it('Requesting batch of txs should handle empty buffer', async () => {
+    it('Requesting batch of txs should throw on empty response buffer', async () => {
       const txs = [await mockTx(), await mockTx(), await mockTx()];
       const txHashes = new TxHashArray(...(await Promise.all(txs.map(t => t.getTxHash()))));
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, _message: Buffer): Promise<Buffer> => {
         return Promise.resolve(Buffer.alloc(0));
+      };
+
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes, protocolHandlers);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const resp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.TX,
+        txHashes.toBuffer(),
+      );
+      expectSuccess(resp);
+
+      expect(() => {
+        TxArray.fromBuffer(resp.data);
+      }).toThrow('Failed to deserialize TxArray from buffer');
+    });
+
+    it('Requesting batch of txs should handle empty response', async () => {
+      const txs = [await mockTx(), await mockTx(), await mockTx()];
+      const txHashes = new TxHashArray(...(await Promise.all(txs.map(t => t.getTxHash()))));
+
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
+      protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, _message: Buffer): Promise<Buffer> => {
+        return Promise.resolve(new TxArray().toBuffer());
       };
 
       nodes = await createNodes(peerScoring, 2);

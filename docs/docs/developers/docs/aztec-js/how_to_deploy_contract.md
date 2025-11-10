@@ -20,8 +20,7 @@ This guide shows you how to deploy compiled contracts to Aztec using the generat
 
 ```bash
 # Compile the contract
-aztec-nargo compile
-aztec-postprocess-contract
+aztec compile
 
 # Generate TypeScript interface
 aztec codegen ./target/my_contract-MyContract.json -o src/artifacts

@@ -259,7 +259,7 @@ fn set_protocol_contracts_in_cols(
 impl AvmCircuitPublicInputs {
 
     // WARNING: If updating this columns conversion, you must also update columns serialization
-    // in the Cpp `PublicInputs` struct in avm_inputs.hpp
+    // in the Cpp `PublicInputs` struct in avm_io.hpp
     pub fn to_columns(
         self,
     ) -> [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS] {

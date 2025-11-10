@@ -339,7 +339,9 @@ TEST(fuzz, NOT16)
     auto result = cpp_simulator.simulate(bytecode, {});
     EXPECT_EQ(result.output.at(0), 255);
 }
+} // namespace arithmetic
 
+namespace type_conversion {
 // set(10, 1, U16) set(0, 2, U8) cast_8(U8, 0, 1, U16) return(1)
 // if cast worked, should return 2 (the U8 value cast to U16)
 // if cast failed, should return 1 (the original U16 value)
@@ -385,5 +387,145 @@ TEST(fuzz, CAST16)
     auto result = cpp_simulator.simulate(bytecode, {});
     EXPECT_EQ(result.output.at(0), 2);
 }
+} // namespace type_conversion
 
-} // namespace arithmetic
+namespace machine_memory {
+// set(0, 0xabcd, U16) return(0)
+TEST(fuzz, SET16)
+{
+    const uint16_t test_value = 0xABCD;
+    auto set_instruction =
+        SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U16, .offset = 0, .value = test_value };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U16, .return_value_offset_index = 0 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+// set(0, 0x12345678, U32) return(0)
+TEST(fuzz, SET32)
+{
+    const uint32_t test_value = 0x12345678UL;
+    auto set_instruction =
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32, .offset = 0, .value = test_value };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U32, .return_value_offset_index = 0 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
+// set(0, 0xabcdef0123456789, U64) return(0)
+TEST(fuzz, SET64)
+{
+    const uint64_t test_value = 0xABCDEF0123456789ULL;
+    auto set_instruction =
+        SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64, .offset = 0, .value = test_value };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U64, .return_value_offset_index = 0 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
+// set(0, something, U128) return(0)
+TEST(fuzz, SET128)
+{
+    const uint64_t test_value_low = 0xFEDCBA9876543210ULL;
+    const uint64_t test_value_high = 0x123456789ABCDEF0ULL;
+    const uint128_t test_value =
+        (static_cast<uint128_t>(test_value_high) << 64) | static_cast<uint128_t>(test_value_low);
+    auto set_instruction = SET_128_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U128, .offset = 0, .value_low = test_value_low, .value_high = test_value_high
+    };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction };
+    auto return_options = ReturnOptions{ .return_size = 1,
+                                         .return_value_tag = bb::avm2::MemoryTag::U128,
+                                         .return_value_offset_index = 0 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
+// set(0, 123456789, FF) return(0)
+TEST(fuzz, SETFF)
+{
+    const bb::avm2::FF test_value = bb::avm2::FF(123456789);
+    auto set_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = test_value };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
+// set(0, 0x42, U8) set(1, 0x43, U8) mov_8(U8, 0, 1) return(1)
+TEST(fuzz, MOV8)
+{
+    const uint8_t test_value = 0x42;
+    const uint8_t test_value2 = 0x43;
+    auto set_instruction = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8, .offset = 0, .value = test_value };
+    auto set_instruction2 =
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8, .offset = 1, .value = test_value2 };
+    auto mov_instruction =
+        MOV_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8, .src_offset_index = 0, .dst_offset = 1 };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction, set_instruction2, mov_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U8, .return_value_offset_index = 1 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
+// set(0, 0xbabe, U16) set(1, 0xc0fe, U16) mov_16(U16, 0, 1) return(1)
+TEST(fuzz, MOV16)
+{
+    const uint16_t test_value = 0xbabe;
+    const uint16_t test_value2 = 0xc0fe;
+    auto set_instruction =
+        SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U16, .offset = 0, .value = test_value };
+    auto set_instruction2 =
+        SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U16, .offset = 1, .value = test_value2 };
+    auto mov_instruction =
+        MOV_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U16, .src_offset_index = 0, .dst_offset = 1 };
+    auto instructions = std::vector<FuzzInstruction>{ set_instruction, set_instruction2, mov_instruction };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U16, .return_value_offset_index = 1 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), test_value);
+}
+
+} // namespace machine_memory

@@ -42,7 +42,7 @@ yarn init
 # This is to ensure yarn uses node_modules instead of pnp for dependency installation
 yarn config set nodeLinker node-modules
 yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_version @aztec/test-wallet@#include_aztec_version @aztec/kv-store@#include_aztec_version
-aztec-nargo init --contract
+aztec init
 ```
 
 ## Contract structure
@@ -171,8 +171,7 @@ In case Giggle's mental health program administration changes:
 You've written enough code to have a working token! Let's compile and test it:
 
 ```bash
-aztec-nargo compile
-aztec-postprocess-contract
+aztec compile
 ```
 
 ### Generate TypeScript Interface
@@ -361,8 +360,7 @@ Now you've made changes to your contract, you need to recompile your contract.
 Here are the steps from above, for reference:
 
 ```bash
-aztec-nargo compile
-aztec-postprocess-contract
+aztec compile
 aztec codegen target --outdir artifacts
 ```
 
