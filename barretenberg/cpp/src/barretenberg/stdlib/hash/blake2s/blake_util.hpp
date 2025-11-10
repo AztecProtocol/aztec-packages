@@ -96,8 +96,8 @@ template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder
  *      This cost would be negligible as compared to the above gate counts.
  *
  *
- * TODO: Idea for getting rid of extra addition and multiplication gates by tweaking gate structure.
- *       To be implemented later.
+ * NOTE: As a future optimization, the following idea can be used for getting rid of extra addition and multiplication
+ * gates by tweaking gate structure. To be implemented later.
  *
  *   q_plookup = 1        | d0 | a0 | d'0 | --  |
  *   q_plookup = 1        | d1 | a1 | d'1 | d2  | <--- set q_arith = 1 and validate d2 - d'5 * scale_factor = 0
@@ -126,17 +126,37 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
     state[a] = state[a].add_two(state[b], x);
 
     // d = (d ^ a).ror(16)
+    // Get the lookup accumulator where `lookup_1[ColumnIdx::C3][0]` contains the
+    // XORed and rotated (by 16) value scaled by 2^{-16}.
     const auto lookup_1 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR_ROTATE_16, state[d], state[a], true);
+    // Compute the scaling factor 2^{32-16} = 2^{16} to get the correct rotated value.
     field_pt scaling_factor_1 = (1 << (32 - 16));
+    // Multiply by the scaling factor to get the final rotated value.
     state[d] = lookup_1[ColumnIdx::C3][0] * scaling_factor_1;
 
     // c = c + d
     state[c] = state[c] + state[d];
 
     // b = (b ^ c).ror(12)
+    // Does not require a special XOR_ROTATE_12 table since we can get the correct value
+    // by combining values from BLAKE_XOR table itself.
+    // Let u = s_0 + 2^6 * s_1 + 2^{12} * s_2 + 2^{18} * s_3 + 2^{24} * s_4 + 2^{30} * s_5
+    // be a 32-bit output of XOR, split into slices s_0, s_1, s_2, s_3, s_4 (6-bits each) and s_5 (5-bit).
+    // We want to compute ROTATE_12(u) = s_2 + 2^6 * s_3 + 2^{12} * s_4 + 2^{18} * s_5 + 2^{20} * s_0 + 2^{26} * s_1.
+    // The BLAKE_XOR table gives:
+    // lookup_2[ColumnIdx::C3][0] = s_0 + 2^6 * s_1 + 2^{12} * s_2 + 2^{18} * s_3 + 2^{24} * s_4 + 2^{30} * s_5 = u.
+    // lookup_2[ColumnIdx::C3][2] = s_2 + 2^6 * s_3 + 2^{12} * s_4 + 2^{18} * s_5 (i.e., u without s_0 and s_1).
+    // Thus, we can compute ROTATE_12(u) as:
+    // ROTATE_12(u) = lookup_2[ColumnIdx::C3][2] + (lookup_2[ColumnIdx::C3][0] - 2^{12} * lookup_2[ColumnIdx::C3][2]) *
+    // 2^{20}.
+
+    // Get the lookup accumulator for BLAKE_XOR table where lookup_2[ColumnIdx::C3][0] = u.
     const auto lookup_2 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR, state[b], state[c], true);
+    // lookup_2[ColumnIdx::C3][2] = s_2 + 2^6 * s_3 + 2^{12} * s_4 + 2^{18} * s_5 (i.e., u without s_0 and s_1).
     field_pt lookup_output = lookup_2[ColumnIdx::C3][2];
+    // Compute 2^{12} * lookup_2[ColumnIdx::C3][2].
     field_pt t2_term = field_pt(1 << 12) * lookup_2[ColumnIdx::C3][2];
+    // Compute the final rotated value as described for ROTATE_12(u) above.
     lookup_output += (lookup_2[ColumnIdx::C3][0] - t2_term) * field_pt(1 << 20);
     state[b] = lookup_output;
 
@@ -148,8 +168,12 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
     }
 
     // d = (d ^ a).ror(8)
+    // Get the lookup accumulator where `lookup_3[ColumnIdx::C3][0]` contains the
+    // XORed and rotated (by 8) value scaled by 2^{-24}.
     const auto lookup_3 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR_ROTATE_8, state[d], state[a], true);
+    // Compute the scaling factor 2^{32-8} = 2^{24} to get the correct rotated value.
     field_pt scaling_factor_3 = (1 << (32 - 8));
+    // Multiply by the scaling factor to get the final rotated value.
     state[d] = lookup_3[ColumnIdx::C3][0] * scaling_factor_3;
 
     // c = c + d
@@ -160,8 +184,12 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
     }
 
     // b = (b ^ c).ror(7)
+    // Get the lookup accumulator where `lookup_4[ColumnIdx::C3][0]` contains the
+    // XORed and rotated (by 7) value scaled by 2^{-25}.
     const auto lookup_4 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR_ROTATE_7, state[b], state[c], true);
+    // Compute the scaling factor 2^{32-7} = 2^{25} to get the correct rotated value.
     field_pt scaling_factor_4 = (1 << (32 - 7));
+    // Multiply by the scaling factor to get the final rotated value.
     state[b] = lookup_4[ColumnIdx::C3][0] * scaling_factor_4;
 }
 
