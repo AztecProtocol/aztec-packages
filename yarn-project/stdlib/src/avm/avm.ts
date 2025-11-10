@@ -5,16 +5,16 @@ import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { AllContractDeploymentData, ContractDeploymentData } from '../contract/index.js';
-import type { SimulationError } from '../errors/simulation_error.js';
+import { SimulationError } from '../errors/simulation_error.js';
 import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import type { DebugLog } from '../logs/debug_log.js';
+import { DebugLog } from '../logs/debug_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
-import { schemas } from '../schemas/schemas.js';
+import { NullishToUndefined, type ZodFor, schemas } from '../schemas/schemas.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
@@ -746,48 +746,31 @@ export class PublicTxResult {
     );
   }
 
-  /*
   static get schema(): ZodFor<PublicTxResult> {
     return z
       .object({
         gasUsed: schemas.GasUsed,
         revertCode: RevertCode.schema,
-        revertReason: SimulationError.schema.optional(),
-        appLogicReturnValue: Fr.schema.array().optional(),
-        logs: DebugLog.schema.array(),
-        hints: AvmExecutionHints.schema.optional(),
+        revertReason: NullishToUndefined(SimulationError.schema),
+        // TODO(fcarreiro): Use actual Phases type schema.
+        processedPhases: NullishToUndefined(z.any().array()),
+        logs: NullishToUndefined(DebugLog.schema.array()),
+        // For the proving request.
         publicInputs: AvmCircuitPublicInputs.schema,
+        hints: NullishToUndefined(AvmExecutionHints.schema),
       })
       .transform(
-        ({ gasUsed, revertCode, revertReason, appLogicReturnValue, logs, hints, publicInputs }) =>
+        ({ gasUsed, revertCode, revertReason, processedPhases, logs, hints, publicInputs }) =>
           new PublicTxResult(
             gasUsed,
             revertCode as RevertCode,
             revertReason,
-            appLogicReturnValue,
+            processedPhases,
             logs,
             hints,
             publicInputs,
           ),
       );
-  }*/
-
-  // TODO(fcarreiro): complete this.
-  static get partialSchema() {
-    return z.object({
-      gasUsed: schemas.GasUsed,
-      revertCode: RevertCode.schema,
-    });
-  }
-  static fromJSON(json: any) {
-    // console.log('json', json);
-    // console.log('PI.globalVariables.gasFees', json.publicInputs.globalVariables.gasFees);
-    const r = PublicTxResult.partialSchema.parse(json);
-    // console.log('after parse', r);
-    return r as {
-      gasUsed: GasUsed;
-      revertCode: RevertCode;
-    };
   }
 }
 
