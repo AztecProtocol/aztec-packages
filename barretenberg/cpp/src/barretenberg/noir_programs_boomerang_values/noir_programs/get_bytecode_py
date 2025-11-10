@@ -1,0 +1,15 @@
+import sys
+import json
+from base64 import b64decode
+from gzip import decompress
+
+dir_name = sys.argv[1]
+print(f"{dir_name = }")
+init_json = f"{dir_name}/target/{dir_name}.json"
+with open(init_json, "r") as f:
+    data = json.loads(f.read())
+
+vector_bytecode = list(decompress(b64decode(data['bytecode'])))
+with open("bytecode.txt", "w") as f:
+    f.write(json.dumps(vector_bytecode))
+

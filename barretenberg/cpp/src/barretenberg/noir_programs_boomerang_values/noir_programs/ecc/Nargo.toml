@@ -1,0 +1,6 @@
+[package]
+name = "ecc"
+type = "bin"
+authors = [""]
+
+[dependencies]

@@ -1,0 +1,6 @@
+[package]
+name = "fields_tutorial"
+type = "bin"
+authors = [""]
+
+[dependencies]

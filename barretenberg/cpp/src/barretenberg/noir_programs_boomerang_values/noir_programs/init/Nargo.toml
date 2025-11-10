@@ -1,0 +1,6 @@
+[package]
+name = "init"
+type = "bin"
+authors = [""]
+
+[dependencies]

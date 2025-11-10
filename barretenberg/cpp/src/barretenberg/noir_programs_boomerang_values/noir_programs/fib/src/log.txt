@@ -1,0 +1,29 @@
+warning: unused variable i
+   ┌─ main.nr:17:9
+   │
+17 │     for i in 2..n {
+   │         - unused variable
+   │
+
+error: The type Field cannot be used in a for loop
+   ┌─ main.nr:17:14
+   │
+17 │     for i in 2..n {
+   │              -
+   │
+
+error: Early 'return' is unsupported
+  ┌─ main.nr:8:9
+  │
+8 │         return 0;
+  │         --------
+  │
+
+error: Early 'return' is unsupported
+   ┌─ main.nr:11:9
+   │
+11 │         return 1;
+   │         --------
+   │
+
+Aborting due to 3 previous errors
