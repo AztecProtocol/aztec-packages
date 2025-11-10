@@ -334,9 +334,9 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   autoUpdate: 'notify',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-mainnet/auto-update/mainnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
-  publicIncludeMetrics,
-  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
-  publicMetricsCollectFrom: ['sequencer'],
+  publicIncludeMetrics: undefined,
+  publicMetricsCollectorUrl: undefined,
+  publicMetricsCollectFrom: undefined,
 
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
