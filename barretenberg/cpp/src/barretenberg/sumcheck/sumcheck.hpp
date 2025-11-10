@@ -267,7 +267,7 @@ template <typename Flavor> class SumcheckProver {
             // Prepare sumcheck book-keeping table for the next round
             // First round: source (full_polynomials) and destination (partially_evaluated_polynomials) are different,
             // so we can use simple parallelization without waves
-            partially_evaluate(full_polynomials, round_challenge, /*use_wave_parallelization=*/false);
+            partially_evaluate</*disjoint_src_dst=*/true>(full_polynomials, round_challenge);
 
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
@@ -426,7 +426,7 @@ template <typename Flavor> class SumcheckProver {
             // Prepare sumcheck book-keeping table for the next round
             // First round: source (full_polynomials) and destination (partially_evaluated_polynomials) are different,
             // so we can use simple parallelization without waves
-            partially_evaluate(full_polynomials, round_challenge, /*use_wave_parallelization=*/false);
+            partially_evaluate</*disjoint_src_dst=*/true>(full_polynomials, round_challenge);
             // Prepare ZK Sumcheck data for the next round
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -553,12 +553,12 @@ template <typename Flavor> class SumcheckProver {
      * @param polynomials Honk polynomials at initialization; partially evaluated polynomials in subsequent rounds
      * @param round_size \f$2^{d-i}\f$
      * @param round_challenge \f$u_i\f$
-     * @param use_wave_parallelization Whether to use wave-based parallelization (true) or simple parallelization
-    (false).
-     *        Set to false when source and destination are different (first round), true when updating in place
-    (subsequent rounds).
+     * @tparam disjoint_src_dst Set to true ONLY when source and destination buffers are guaranteed
+     *         to be completely disjoint (e.g., first round). Enables simple parallelization for better performance.
+     *         WARNING: Setting to true when buffers overlap causes data races. Defaults to false for safety (wave-based
+    parallelization).
      */
-    void partially_evaluate(auto& polynomials, const FF& round_challenge, bool use_wave_parallelization = true)
+    template <bool disjoint_src_dst = false> void partially_evaluate(auto& polynomials, const FF& round_challenge)
     {
         BB_BENCH_NAME("SumcheckProver::partially_evaluate");
 
@@ -582,7 +582,17 @@ template <typename Flavor> class SumcheckProver {
                     pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
                 }
             });
-        } else if (use_wave_parallelization) {
+        } else if constexpr (disjoint_src_dst) {
+            // Source and destination are different, so we can parallelize all indices at once
+            parallel_for([&](const ThreadChunk& chunk) {
+                for (size_t j = 0; j < poly_view.size(); j++) {
+                    const auto& poly = poly_view[j];
+                    for (size_t i : chunk.range(limits[j])) {
+                        pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
+                    }
+                }
+            });
+        } else {
             // Parallelize in exponentially growing waves to avoid read-write conflicts when source == destination
             // Wave 0: pep[0] alone (reads poly[0,1])
             // Wave 1: pep[1] alone (reads poly[2,3])
@@ -635,16 +645,6 @@ template <typename Flavor> class SumcheckProver {
                     wave_size *= 2;
                 }
             }
-        } else {
-            // Source and destination are different, so we can parallelize all indices at once
-            parallel_for([&](const ThreadChunk& chunk) {
-                for (size_t j = 0; j < poly_view.size(); j++) {
-                    const auto& poly = poly_view[j];
-                    for (size_t i : chunk.range(limits[j])) {
-                        pep_view[j].at(i) = poly[2 * i] + round_challenge * (poly[(2 * i) + 1] - poly[2 * i]);
-                    }
-                }
-            });
         }
 
         // Resize after all waves complete
