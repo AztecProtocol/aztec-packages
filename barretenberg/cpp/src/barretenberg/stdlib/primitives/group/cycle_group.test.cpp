@@ -1978,4 +1978,121 @@ TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
 
     check_circuit_and_gate_count(builder, 2908);
 }
+
+TYPED_TEST(CycleGroupTest, TestDblWithMixedConstancyIssue)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    // Create a point with CONSTANT x, y coordinates
+    auto point_value = TestFixture::generators[0];
+    auto x_constant = stdlib::field_t<Builder>(&builder, point_value.x); // constant field_t
+    auto y_constant = stdlib::field_t<Builder>(&builder, point_value.y); // constant field_t
+
+    // But create a WITNESS _is_infinity flag
+    // This mixed constancy is allowed during construction of cycle_group_ct
+    auto is_infinity_witness = bool_ct(witness_ct(&builder, false)); // witness bool_t
+
+    EXPECT_TRUE(x_constant.is_constant());
+    EXPECT_TRUE(y_constant.is_constant());
+    EXPECT_FALSE(is_infinity_witness.is_constant());
+
+    // Create the problematic cycle_group_ct point
+    cycle_group_ct point(x_constant, y_constant, is_infinity_witness, /*assert_on_curve=*/true);
+    EXPECT_FALSE(point.is_constant()); // Returns false due to witness _is_infinity
+
+    // dbl() will call get_witness_index() on CONSTANT x, y coordinates
+    auto doubled = point.dbl();
+
+    // Verify correctness of result
+    AffineElement expected = Element(point_value).dbl();
+    EXPECT_EQ(doubled.get_value(), expected);
+
+    // NOTE: CircuitChecker::check() would crash when it encounters UINT32_MAX
+    // This itself demonstrates the severity of the bug - the circuit checker cannot
+    // handle invalid witness indices and segfaults.
+    // std::cout << "Checking circuit validity..." << std::endl;
+    // bool circuit_check = CircuitChecker::check(builder);
+    // std::cout << "Circuit check passed: " << circuit_check << "\n";
+
+    // Now inspect the circuit trace to find UINT32_MAX
+    constexpr uint32_t UINT32_MAX_VAL = UINT32_MAX;
+    bool found_invalid_index = false;
+    size_t invalid_gate_count = 0;
+
+    std::cout << "\nScanning circuit trace for invalid witness index " << UINT32_MAX_VAL << "..." << std::endl;
+
+    // Check elliptic curve gates (where the bug manifests)
+    auto& elliptic_block = builder.blocks.elliptic;
+    for (size_t i = 0; i < elliptic_block.size(); ++i) {
+        uint32_t w_l = elliptic_block.w_l()[i];
+        uint32_t w_r = elliptic_block.w_r()[i];
+        uint32_t w_o = elliptic_block.w_o()[i];
+        uint32_t w_4 = elliptic_block.w_4()[i];
+
+        if (w_l == UINT32_MAX_VAL || w_r == UINT32_MAX_VAL || w_o == UINT32_MAX_VAL || w_4 == UINT32_MAX_VAL) {
+            found_invalid_index = true;
+            invalid_gate_count++;
+            std::cout << "FOUND! Gate " << i << " in elliptic block contains UINT32_MAX:" << std::endl;
+            std::cout << "  w_l: " << w_l << (w_l == UINT32_MAX_VAL ? " <- INVALID!" : "") << std::endl;
+            std::cout << "  w_r: " << w_r << (w_r == UINT32_MAX_VAL ? " <- INVALID!" : "") << std::endl;
+            std::cout << "  w_o: " << w_o << (w_o == UINT32_MAX_VAL ? " <- INVALID!" : "") << std::endl;
+            std::cout << "  w_4: " << w_4 << (w_4 == UINT32_MAX_VAL ? " <- INVALID!" : "") << std::endl;
+        }
+    }
+
+    if (found_invalid_index) {
+        std::cout << "\nSUMMARY: Found " << invalid_gate_count
+                  << " gates with invalid witness index UINT32_MAX due to mixed constancy in dbl().\n"
+                  << std::endl;
+    } else {
+        std::cout << "No invalid witness indices found in elliptic gates." << std::endl;
+    }
+}
+
+TYPED_TEST(CycleGroupTest, TestOperatorPlusWithMixedConstancyIssue)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    // Create Point 1: CONSTANT x, y but WITNESS _is_infinity
+    auto point1_value = TestFixture::generators[0];
+    auto x1_constant = stdlib::field_t<Builder>(&builder, point1_value.x); // constant
+    auto y1_constant = stdlib::field_t<Builder>(&builder, point1_value.y); // constant
+    auto is_inf1_witness = bool_ct(witness_ct(&builder, false));           // witness!
+
+    cycle_group_ct point1(x1_constant, y1_constant, is_inf1_witness, /*assert_on_curve=*/true);
+
+    // Verify mixed constancy
+    EXPECT_TRUE(x1_constant.is_constant());
+    EXPECT_TRUE(y1_constant.is_constant());
+    EXPECT_FALSE(is_inf1_witness.is_constant());
+    EXPECT_FALSE(point1.is_constant());
+
+    // Create Point 2: Fully constant point (for simplicity, just double point1's value)
+    auto point2_value = Element(point1_value).dbl();
+    cycle_group_ct point2(point2_value); // Fully constant constructor
+    EXPECT_TRUE(point2.is_constant());
+
+    // TRIGGER: operator+ will internally call dbl() when points match
+    // For non-matching points, it will still use conditional_assign which creates witnesses
+    // and the mixed constancy will propagate through the computation
+    std::cout << "\nPerforming: point1 + point2" << std::endl;
+    auto result = point1 + point2;
+
+    // Verify correctness
+    AffineElement expected = Element(point1_value) + point2_value;
+    EXPECT_EQ(result.get_value(), expected);
+
+    // Now test the case where operator+ triggers dbl() by adding a point to itself
+    std::cout << "\n--- Testing point1 + point1 (triggers dbl internally) ---" << std::endl;
+
+    // This will detect x_coordinates_match && y_coordinates_match and call dbl()
+    auto doubled_via_add = point1 + point1;
+
+    // Verify correctness
+    AffineElement expected_dbl = Element(point1_value).dbl();
+    EXPECT_EQ(doubled_via_add.get_value(), expected_dbl);
+}
+
 #pragma GCC diagnostic pop

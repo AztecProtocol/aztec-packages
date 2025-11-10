@@ -394,6 +394,11 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         result = cycle_group(
             witness_t(context, x3), witness_t(context, y3), is_point_at_infinity(), /*assert_on_curve=*/false);
 
+        std::cout << "wit idx of x1: " << _x.get_witness_index() << "\n";
+        std::cout << "wit idx of y1: " << modified_y.get_witness_index() << "\n";
+        std::cout << "wit idx of x3: " << result._x.get_witness_index() << "\n";
+        std::cout << "wit idx of y3: " << result._y.get_witness_index() << "\n";
+
         context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
             .x1 = _x.get_witness_index(),
             .y1 = modified_y.get_witness_index(),
