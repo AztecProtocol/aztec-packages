@@ -119,6 +119,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             for (size_t i = 0; i < public_input_size; ++i) {
                 this->public_inputs.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
+            hiding_polynomial_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             this->w_l_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             this->w_r_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             this->w_o_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -142,8 +143,6 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
                 Base::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
             libra_grand_sum_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_quotient_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            hiding_polynomial_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            hiding_polynomial_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
             for (size_t i = 0; i < virtual_log_n - 1; ++i) {
                 this->gemini_fold_comms.push_back(
                     Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
