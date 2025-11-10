@@ -11,9 +11,8 @@ pub contract NFT {
     use crate::types::nft_note::{NFTNote, PartialNFTNote};
     use aztec::{
         authwit::auth::compute_authwit_nullifier,
-        context::{PrivateContext, PublicContext},
         macros::{
-            functions::{authorize_once, external, initializer, only_self, view},
+            functions::{authorize_once, external, initializer, internal, only_self, view},
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
@@ -154,7 +153,7 @@ pub contract NFT {
         let from = self.msg_sender().unwrap();
 
         // We prepare the private balance increase.
-        let partial_note = _prepare_private_balance_increase(to, self.context, self.storage);
+        let partial_note = self.internal._prepare_private_balance_increase(to);
 
         // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
@@ -165,27 +164,18 @@ pub contract NFT {
     /// `finalize_transfer_to_private` with the returned partial note.
     #[external("private")]
     fn prepare_private_balance_increase(to: AztecAddress) -> PartialNFTNote {
-        _prepare_private_balance_increase(to, self.context, self.storage)
+        self.internal._prepare_private_balance_increase(to)
     }
 
-    /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
-    /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
-    ///
-    /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
-    /// function.
-    #[contract_library_method]
-    fn _prepare_private_balance_increase(
-        to: AztecAddress,
-        context: &mut PrivateContext,
-        storage: Storage<&mut PrivateContext>,
-    ) -> PartialNFTNote {
+    #[internal("private")]
+    fn _prepare_private_balance_increase(to: AztecAddress) -> PartialNFTNote {
         // We setup a partial note with unpopulated/zero token id for 'to'.
         let partial_note = NFTNote::partial(
             to,
-            storage.private_nfts.at(to).storage_slot,
-            context,
+            self.storage.private_nfts.at(to).storage_slot,
+            self.context,
             to,
-            context.msg_sender().unwrap(),
+            self.msg_sender().unwrap(),
         );
 
         partial_note
@@ -204,13 +194,7 @@ pub contract NFT {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the account
         // `from` from whose account the token is being transferred.
         let from_and_completer = self.msg_sender().unwrap();
-        _finalize_transfer_to_private(
-            from_and_completer,
-            token_id,
-            partial_note,
-            self.context,
-            self.storage,
-        );
+        self.internal._finalize_transfer_to_private(from_and_completer, token_id, partial_note);
     }
 
     /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
@@ -223,33 +207,25 @@ pub contract NFT {
         token_id: Field,
         partial_note: PartialNFTNote,
     ) {
-        _finalize_transfer_to_private(
-            from_and_completer,
-            token_id,
-            partial_note,
-            self.context,
-            self.storage,
-        );
+        self.internal._finalize_transfer_to_private(from_and_completer, token_id, partial_note);
     }
 
     // In all the flows in this contract, `from` (the account from which we're transferring the NFT) and `completer`
     // (the entity that can complete the partial note) are the same so we represent them with a single argument.
-    #[contract_library_method]
+    #[internal("public")]
     fn _finalize_transfer_to_private(
         from_and_completer: AztecAddress,
         token_id: Field,
         partial_note: PartialNFTNote,
-        context: PublicContext,
-        storage: Storage<PublicContext>,
     ) {
-        let public_owners_storage = storage.public_owners.at(token_id);
+        let public_owners_storage = self.storage.public_owners.at(token_id);
         assert(public_owners_storage.read().eq(from_and_completer), "invalid NFT owner");
 
         // Set the public NFT owner to zero
         public_owners_storage.write(AztecAddress::zero());
 
         // We finalize the transfer by completing the partial note.
-        partial_note.complete(context, from_and_completer, token_id);
+        partial_note.complete(self.context, from_and_completer, token_id);
     }
 
     /**

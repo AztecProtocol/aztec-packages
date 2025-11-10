@@ -46,7 +46,7 @@ use protocol_types::{
 /// - `EnqueueSelf`: Macro-generated type for enqueuing calls to the contract's own non-view functions
 /// - `CallSelfStatic`: Macro-generated type for calling contract's own view functions
 /// - `EnqueueSelfStatic`: Macro-generated type for enqueuing calls to the contract's own view functions
-pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic> {
+pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> {
     /// The address of this contract
     pub address: AztecAddress,
     /// The contract's storage instance, representing the struct to which the `#[storage]` macro was applied in your
@@ -107,13 +107,23 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     /// self.enqueue_self_static.some_public_view_function(args)
     /// ```
     pub enqueue_self_static: EnqueueSelfStatic,
+    /// Provides type-safe methods for calling internal functions.
+    ///
+    /// In private and public contexts this will be a struct with appropriate methods;
+    /// in utility context it will be the unit type `()`.
+    ///
+    /// Example API:
+    /// ```noir
+    /// self.internal.some_internal_function(args)
+    /// ```
+    pub internal: CallInternal,
 }
 
 /// Implementation for `ContractSelf` in private execution contexts.
 ///
 /// This implementation is used when a contract function is marked with `#[external("private")]`.
 /// Private functions execute client-side and generate zero-knowledge proofs of their execution.
-impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic> ContractSelf<&mut PrivateContext, Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic> {
+impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> ContractSelf<&mut PrivateContext, Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> {
     /// Creates a new `ContractSelf` instance for a private function.
     ///
     /// This constructor is called automatically by the macro system and should not be called directly.
@@ -124,6 +134,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic> Contract
         enqueue_self: EnqueueSelf,
         call_self_static: CallSelfStatic,
         enqueue_self_static: EnqueueSelfStatic,
+        internal: CallInternal,
     ) -> Self {
         Self {
             context,
@@ -133,6 +144,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic> Contract
             enqueue_self,
             call_self_static,
             enqueue_self_static,
+            internal,
         }
     }
 
@@ -193,7 +205,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic> Contract
 /// This implementation is used when a contract function is marked with `#[external("public")]`.
 /// Public functions are executed by the sequencer in the Aztec Virtual Machine (AVM) and can work only with public
 /// state.
-impl<Storage, CallSelf, CallSelfStatic> ContractSelf<PublicContext, Storage, CallSelf, (), CallSelfStatic, ()> {
+impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext, Storage, CallSelf, (), CallSelfStatic, (), CallInternal> {
     /// Creates a new `ContractSelf` instance for a public function.
     ///
     /// This constructor is called automatically by the macro system and should not be called directly.
@@ -202,6 +214,7 @@ impl<Storage, CallSelf, CallSelfStatic> ContractSelf<PublicContext, Storage, Cal
         storage: Storage,
         call_self: CallSelf,
         call_self_static: CallSelfStatic,
+        internal: CallInternal,
     ) -> Self {
         Self {
             context,
@@ -211,6 +224,7 @@ impl<Storage, CallSelf, CallSelfStatic> ContractSelf<PublicContext, Storage, Cal
             enqueue_self: (),
             call_self_static,
             enqueue_self_static: (),
+            internal,
         }
     }
 
@@ -270,7 +284,7 @@ impl<Storage, CallSelf, CallSelfStatic> ContractSelf<PublicContext, Storage, Cal
 /// This implementation is used when a contract function is marked with `#[external("utility")]`.
 /// Utility functions are unconstrained functions that can read private state for offchain queries.
 /// They are typically used for view functions that need to access private notes (e.g. a Token's balance_of function).
-impl<Storage> ContractSelf<UtilityContext, Storage, (), (), (), ()> {
+impl<Storage> ContractSelf<UtilityContext, Storage, (), (), (), (), ()> {
     /// Creates a new `ContractSelf` instance for a utility function.
     ///
     /// This constructor is called automatically by the macro system and should not be called directly.
@@ -283,6 +297,7 @@ impl<Storage> ContractSelf<UtilityContext, Storage, (), (), (), ()> {
             enqueue_self: (),
             call_self_static: (),
             enqueue_self_static: (),
+            internal: (),
         }
     }
 }

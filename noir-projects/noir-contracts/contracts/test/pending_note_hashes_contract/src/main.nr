@@ -8,8 +8,7 @@ use aztec::macros::aztec;
 pub contract PendingNoteHashes {
     // Libs
     use aztec::{
-        context::PrivateContext,
-        macros::{functions::external, storage::storage},
+        macros::{functions::{external, internal}, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::{note_emission::NoteEmission, note_getter_options::NoteGetterOptions},
         protocol_types::{
@@ -298,7 +297,7 @@ pub contract PendingNoteHashes {
         sender: AztecAddress,
         how_many_recursions: u64,
     ) {
-        create_max_notes(owner, self.storage);
+        self.internal.create_max_notes(owner);
 
         self.call_self.recursively_destroy_and_create_notes(owner, sender, how_many_recursions);
     }
@@ -311,8 +310,8 @@ pub contract PendingNoteHashes {
     ) {
         assert(executions_left > 0);
 
-        destroy_max_notes(owner, self.storage);
-        create_max_notes(owner, self.storage);
+        self.internal.destroy_max_notes(owner);
+        self.internal.create_max_notes(owner);
 
         let executions_left = executions_left - 1;
 
@@ -346,9 +345,9 @@ pub contract PendingNoteHashes {
         bad_note_emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
-    #[contract_library_method]
-    fn create_max_notes(owner: AztecAddress, storage: Storage<&mut PrivateContext>) {
-        let owner_balance = storage.balances.at(owner);
+    #[internal("private")]
+    fn create_max_notes(owner: AztecAddress) {
+        let owner_balance = self.storage.balances.at(owner);
 
         for i in 0..max_notes_per_call() {
             let note = ValueNote::new(i as Field, owner);
@@ -356,9 +355,9 @@ pub contract PendingNoteHashes {
         }
     }
 
-    #[contract_library_method]
-    fn destroy_max_notes(owner: AztecAddress, storage: Storage<&mut PrivateContext>) {
-        let owner_balance = storage.balances.at(owner);
+    #[internal("private")]
+    fn destroy_max_notes(owner: AztecAddress) {
+        let owner_balance = self.storage.balances.at(owner);
         // Note that we're relying on PXE actually returning the notes, we're not constraining that any specific
         // number of notes are deleted.
         let _ = owner_balance.pop_notes(NoteGetterOptions::new());

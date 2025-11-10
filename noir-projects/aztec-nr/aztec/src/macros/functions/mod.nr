@@ -8,7 +8,7 @@ pub(crate) mod auth_registry;
 pub(crate) mod utils;
 
 use crate::macros::{
-    internals_functions_generation::external_functions_registry,
+    internals_functions_generation::{external_functions_registry, internal_functions_registry},
     utils::{is_fn_external, module_has_initializer},
 };
 use super::utils::{fn_has_noinitcheck, is_fn_initializer, is_fn_only_self, is_fn_view};
@@ -159,19 +159,51 @@ pub comptime fn external(f: FunctionDefinition, f_type: CtString) {
     }
 }
 
+/// Same as in Solidity internal functions are functions that are callable from inside the contract. Unlike #[only_self]
+/// functions, internal functions are inlined (e.g. akin to EVM's JUMP and not EVM's CALL).
+///
+/// Internal function can be called using the following API:
+/// ```noir
+/// self.internal.my_internal_function(...)
+/// ```
+///
+/// Private internal functions can only be called from other private external or internal functions.
+/// Public internal functions can only be called from other public external or internal functions.
+pub comptime fn internal(f: FunctionDefinition, f_type: CtString) {
+    let function_name = f.name();
+    if is_fn_external(f) {
+        panic(
+            f"The #[internal] attribute cannot be applied to external functions - {function_name} is marked as both #[external] and #[internal(\"{f_type}\")]",
+        );
+    }
+
+    if f_type.eq("private") {
+        assert_valid_private(f);
+        internal_functions_registry::add_private(f);
+    } else if f_type.eq("public") {
+        assert_valid_public(f);
+        internal_functions_registry::add_public(f);
+    } else {
+        let function_name = f.name();
+        panic(
+            f"Function '{function_name}' is marked as #[internal(\"{f_type}\")], but '{f_type}' is not a valid internal function type. Internal functions must be one of 'private', 'public'",
+        );
+    }
+}
+
 comptime fn assert_valid_private(f: FunctionDefinition) {
     let visibility = f.visibility();
     if visibility != quote {} {
         let name = f.name();
         panic(
-            f"A function marked as #[external(\"private\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+            f"A function marked as #[external(\"private\")] or #[internal(\"private\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
         );
     }
 
     if f.is_unconstrained() {
         let name = f.name();
         panic(
-            f"#[external(\"private\")] functions must not be unconstrained - {name} is",
+            f"#[external(\"private\")] or #[internal(\"private\")] functions must not be unconstrained - {name} is",
         );
     }
 }
@@ -181,14 +213,14 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
     if visibility != quote {} {
         let name = f.name();
         panic(
-            f"A function marked as #[external(\"public\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+            f"A function marked as #[external(\"public\")] or #[internal(\"public\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
         );
     }
 
     if f.is_unconstrained() {
         let name = f.name();
         panic(
-            f"#[external(\"public\")] functions must not be unconstrained - {name} is",
+            f"#[external(\"public\")] or #[internal(\"public\")] functions must not be unconstrained - {name} is",
         );
     }
 }

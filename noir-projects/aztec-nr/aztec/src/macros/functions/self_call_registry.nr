@@ -1,3 +1,6 @@
+// TODO(F-131): Drop all this and instead just iterate over the functions directly in the `#[aztec]` macro. This
+// approach was already implemented for `#[internal(...)]` functions.
+
 //! Registry of self-call function stubs (CallSelf, CallSelfStatic, EnqueueSelf and EnqueueSelfStatic) that allow for
 //! the following API:
 //!   self.call_self.some_private_function(args)
