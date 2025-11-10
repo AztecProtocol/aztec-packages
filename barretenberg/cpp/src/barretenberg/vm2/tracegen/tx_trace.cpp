@@ -371,16 +371,12 @@ std::vector<std::pair<Column, FF>> handle_cleanup()
 {
     return {
         // End state
+        { Column::tx_sel_read_trees_and_gas_used, 1 },
         { Column::tx_note_hash_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX },
-        { Column::tx_should_read_note_hash_tree, 1 },
         { Column::tx_nullifier_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX },
-        { Column::tx_should_read_nullifier_tree, 1 },
         { Column::tx_public_data_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX },
-        { Column::tx_should_read_public_data_tree, 1 },
         { Column::tx_l1_l2_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX },
-        { Column::tx_should_read_l1_l2_tree, 1 },
         { Column::tx_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX },
-        { Column::tx_should_read_gas_used, 1 },
         { Column::tx_reverted_pi_offset, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX },
         { Column::tx_array_length_note_hashes_pi_offset,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
@@ -398,16 +394,12 @@ std::vector<std::pair<Column, FF>> handle_first_row()
 {
     std::vector<std::pair<Column, FF>> columns = {
         { Column::tx_start_tx, 1 },
+        { Column::tx_sel_read_trees_and_gas_used, 1 },
         { Column::tx_note_hash_pi_offset, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX },
-        { Column::tx_should_read_note_hash_tree, 1 },
         { Column::tx_nullifier_pi_offset, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX },
-        { Column::tx_should_read_nullifier_tree, 1 },
         { Column::tx_public_data_pi_offset, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX },
-        { Column::tx_should_read_public_data_tree, 1 },
         { Column::tx_l1_l2_pi_offset, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX },
-        { Column::tx_should_read_l1_l2_tree, 1 },
         { Column::tx_gas_used_pi_offset, AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX },
-        { Column::tx_should_read_gas_used, 1 },
         { Column::tx_gas_limit_pi_offset, AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX },
         { Column::tx_should_read_gas_limit, 1 },
     };
