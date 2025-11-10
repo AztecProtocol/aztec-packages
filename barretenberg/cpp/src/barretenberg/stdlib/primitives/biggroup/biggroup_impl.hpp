@@ -34,16 +34,8 @@ template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in)
     : _x(x_in)
     , _y(y_in)
-{
-    auto* ctx = _x.get_context() ? _x.get_context() : _y.get_context();
-    if (_x.is_constant() && _y.is_constant()) {
-        // If both coordinates are constant, make infinity constant too
-        _is_infinity = bool_ct(ctx, false);
-    } else {
-        // If either coordinate is a witness, make infinity a witness too
-        _is_infinity = bool_ct(witness_ct(ctx, false));
-    }
-}
+    , _is_infinity(_x.get_context() ? _x.get_context() : _y.get_context(), false)
+{}
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool_ct& is_infinity)
