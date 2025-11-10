@@ -661,12 +661,36 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
+   * Safely deserializes a P2PMessage from raw message data.
+   * @param msgId - The message ID.
+   * @param source - The peer ID of the message source.
+   * @param data - The raw message data.
+   * @returns The deserialized P2PMessage or undefined if deserialization fails.
+   */
+  private safelyDeserializeP2PMessage(msgId: string, source: PeerId, data: Uint8Array): P2PMessage | undefined {
+    try {
+      return P2PMessage.fromMessageData(Buffer.from(data));
+    } catch (err) {
+      this.logger.error(`Error deserializing P2PMessage`, err, {
+        msgId,
+        source: source.toString(),
+      });
+      this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Reject);
+      this.peerManager.penalizePeer(source, PeerErrorSeverity.LowToleranceError);
+      return undefined;
+    }
+  }
+
+  /**
    * Handles a new gossip message that was received by the client.
    * @param topic - The message's topic.
    * @param data - The message data
    */
   protected async handleNewGossipMessage(msg: Message, msgId: string, source: PeerId) {
-    const p2pMessage = P2PMessage.fromMessageData(Buffer.from(msg.data));
+    const p2pMessage = this.safelyDeserializeP2PMessage(msgId, source, msg.data);
+    if (!p2pMessage) {
+      return;
+    }
 
     const preValidationResult = this.preValidateReceivedMessage(msg, msgId, source);
 
@@ -698,6 +722,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     try {
       resultAndObj = await validationFunc();
     } catch (err) {
+      this.peerManager.penalizePeer(source, PeerErrorSeverity.LowToleranceError);
       this.logger.error(`Error deserializing and validating gossipsub message`, err, {
         msgId,
         source: source.toString(),
