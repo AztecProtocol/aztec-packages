@@ -118,7 +118,7 @@ void process_ROM_operations(Builder& builder,
         // For a ROM table, constant read should be already optimized out by the Noir compiler. Note that the
         // `rom_table` indeed can perform constant reads, so this assert is present just to make sure the Noir compiler
         // is acting as-it-should.
-        BB_ASSERT(op.index.q_l != 0);
+        BB_ASSERT(op.index.q_l != 0, "witness index should be non-constant.");
 
         // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
         // ROM table
