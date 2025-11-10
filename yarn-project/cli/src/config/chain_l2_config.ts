@@ -28,6 +28,7 @@ export type L2ChainConfig = L1ContractsConfig &
     autoUpdate: SharedNodeConfig['autoUpdate'];
     autoUpdateUrl?: string;
     maxTxPoolSize: number;
+    publicMetricsOptOut: boolean;
     publicIncludeMetrics?: string[];
     publicMetricsCollectorUrl?: string;
     publicMetricsCollectFrom?: string[];
@@ -105,7 +106,8 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
-  maxTxPoolSize: 100_000_000, // 100MB
+  maxTxPoolSize: 0,
+  publicMetricsOptOut: false,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
@@ -185,6 +187,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-public/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
+  publicMetricsOptOut: false,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
@@ -238,6 +241,7 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: '',
+  publicMetricsOptOut: true,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: '',
   publicMetricsCollectFrom: [''],
@@ -292,6 +296,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
+  publicMetricsOptOut: false,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
@@ -378,10 +383,12 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [`${SNAPSHOTS_URL}/mainnet/`],
   autoUpdate: 'notify',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-mainnet/auto-update/mainnet.json',
-  maxTxPoolSize: 100_000_000, // 100MB
+  maxTxPoolSize: 0,
+  publicMetricsOptOut: true,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
+  blobAllowEmptySources: true,
 
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
@@ -462,6 +469,7 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   snapshotsUrls: [],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: '',
+  publicMetricsOptOut: true,
   publicIncludeMetrics,
   publicMetricsCollectorUrl: '',
   publicMetricsCollectFrom: [''],
@@ -581,6 +589,8 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   if (config.publicMetricsCollectFrom) {
     enrichVar('PUBLIC_OTEL_COLLECT_FROM', config.publicMetricsCollectFrom.join(','));
   }
+
+  enrichVar('PUBLIC_OTEL_OPT_OUT', config.publicMetricsOptOut.toString());
 
   // Deployment stuff
   enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());
