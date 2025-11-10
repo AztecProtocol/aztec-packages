@@ -193,15 +193,15 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_is_teardown_phase)) *
-                   (FF(1) - static_cast<View>(in.get(C::tx_is_teardown_phase)));
+        auto tmp =
+            static_cast<View>(in.get(C::tx_is_teardown)) * (FF(1) - static_cast<View>(in.get(C::tx_is_teardown)));
         std::get<24>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_should_process_call_request)) *
                    (((FF(0) - static_cast<View>(in.get(C::tx_prev_l2_gas_used))) *
-                         static_cast<View>(in.get(C::tx_is_teardown_phase)) +
+                         static_cast<View>(in.get(C::tx_is_teardown)) +
                      static_cast<View>(in.get(C::tx_prev_l2_gas_used))) -
                     static_cast<View>(in.get(C::tx_prev_l2_gas_used_sent_to_enqueued_call)));
         std::get<25>(evals) += (tmp * scaling_factor);
@@ -210,7 +210,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_should_process_call_request)) *
                    (((FF(0) - static_cast<View>(in.get(C::tx_prev_da_gas_used))) *
-                         static_cast<View>(in.get(C::tx_is_teardown_phase)) +
+                         static_cast<View>(in.get(C::tx_is_teardown)) +
                      static_cast<View>(in.get(C::tx_prev_da_gas_used))) -
                     static_cast<View>(in.get(C::tx_prev_da_gas_used_sent_to_enqueued_call)));
         std::get<26>(evals) += (tmp * scaling_factor);
@@ -220,7 +220,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = static_cast<View>(in.get(C::tx_should_process_call_request)) *
                    (((static_cast<View>(in.get(C::tx_prev_l2_gas_used)) -
                       static_cast<View>(in.get(C::tx_next_l2_gas_used_sent_to_enqueued_call))) *
-                         static_cast<View>(in.get(C::tx_is_teardown_phase)) +
+                         static_cast<View>(in.get(C::tx_is_teardown)) +
                      static_cast<View>(in.get(C::tx_next_l2_gas_used_sent_to_enqueued_call))) -
                     static_cast<View>(in.get(C::tx_next_l2_gas_used)));
         std::get<27>(evals) += (tmp * scaling_factor);
@@ -230,7 +230,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = static_cast<View>(in.get(C::tx_should_process_call_request)) *
                    (((static_cast<View>(in.get(C::tx_prev_da_gas_used)) -
                       static_cast<View>(in.get(C::tx_next_da_gas_used_sent_to_enqueued_call))) *
-                         static_cast<View>(in.get(C::tx_is_teardown_phase)) +
+                         static_cast<View>(in.get(C::tx_is_teardown)) +
                      static_cast<View>(in.get(C::tx_next_da_gas_used_sent_to_enqueued_call))) -
                     static_cast<View>(in.get(C::tx_next_da_gas_used)));
         std::get<28>(evals) += (tmp * scaling_factor);
@@ -388,15 +388,14 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // TEARDOWN_GETS_FEE
         using View = typename std::tuple_element_t<47, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_is_teardown_phase)) *
-                   (FF(1) - static_cast<View>(in.get(C::tx_is_padded))) *
+        auto tmp = static_cast<View>(in.get(C::tx_is_teardown)) * (FF(1) - static_cast<View>(in.get(C::tx_is_padded))) *
                    (static_cast<View>(in.get(C::tx_fee_shift)) - static_cast<View>(in.get(C::tx_fee)));
         std::get<47>(evals) += (tmp * scaling_factor);
     }
     { // FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN
         using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_is_collect_fee))) *
-                   (FF(1) - static_cast<View>(in.get(C::tx_is_teardown_phase))) * static_cast<View>(in.get(C::tx_fee));
+                   (FF(1) - static_cast<View>(in.get(C::tx_is_teardown))) * static_cast<View>(in.get(C::tx_fee));
         std::get<48>(evals) += (tmp * scaling_factor);
     }
     {

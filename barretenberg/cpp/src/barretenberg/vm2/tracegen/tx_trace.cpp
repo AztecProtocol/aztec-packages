@@ -99,7 +99,7 @@ bool is_one_shot_phase(TransactionPhase phase)
     return is_collect_fee_phase(phase) || is_tree_padding_phase(phase) || is_cleanup_phase(phase);
 }
 
-bool is_teardown_phase(TransactionPhase phase)
+bool is_teardown(TransactionPhase phase)
 {
     return phase == TransactionPhase::TEARDOWN;
 }
@@ -199,6 +199,7 @@ std::vector<std::pair<Column, FF>> handle_phase_spec(TransactionPhase phase)
     return {
         { Column::tx_phase_value, phase_spec.phase_value },
         { Column::tx_is_public_call_request, phase_spec.is_public_call_request },
+        { Column::tx_is_teardown, phase_spec.is_teardown },
         { Column::tx_is_collect_fee, phase_spec.is_collect_fee },
         { Column::tx_is_tree_padding, phase_spec.is_tree_padding },
         { Column::tx_is_cleanup, phase_spec.is_cleanup },
@@ -248,7 +249,6 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
                                                               const simulation::EnqueuedCallEvent& event)
 {
     return { { Column::tx_should_process_call_request, 1 },
-             { Column::tx_is_teardown_phase, is_teardown_phase(phase) },
              { Column::tx_msg_sender, event.msg_sender },
              { Column::tx_contract_addr, event.contract_address },
              { Column::tx_fee, event.transaction_fee },
@@ -261,8 +261,8 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
              { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.end_gas.daGas },
              { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2Gas },
              { Column::tx_gas_limit_pi_offset,
-               is_teardown_phase(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
-             { Column::tx_should_read_gas_limit, is_teardown_phase(phase) } };
+               is_teardown(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
+             { Column::tx_should_read_gas_limit, is_teardown(phase) } };
 };
 
 std::vector<std::pair<Column, FF>> handle_note_hash_append(const simulation::PrivateAppendTreeEvent& event,
@@ -433,10 +433,9 @@ std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, Gas
         // Selector specific
         { Column::tx_is_tree_insert_phase, is_tree_insert_phase(phase) ? 1 : 0 },
         // Public call request specific
-        { Column::tx_is_teardown_phase, is_teardown_phase(phase) },
         { Column::tx_gas_limit_pi_offset,
-          is_teardown_phase(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
-        { Column::tx_should_read_gas_limit, is_teardown_phase(phase) },
+          is_teardown(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
+        { Column::tx_should_read_gas_limit, is_teardown(phase) },
         // Gas used does not change in padding rows
         { Column::tx_prev_da_gas_used_sent_to_enqueued_call,
           (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.daGas : 0 },
@@ -547,7 +546,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             }
         }
 
-        if (is_teardown_phase(phase)) {
+        if (is_teardown(phase)) {
             current_gas_limit = teardown_gas_limit;
         }
 
