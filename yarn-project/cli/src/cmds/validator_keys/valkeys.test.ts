@@ -1,9 +1,11 @@
+import { GSEContract } from '@aztec/ethereum';
 import { deriveBlsPrivateKey } from '@aztec/foundation/crypto';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { loadKeystoreFile } from '@aztec/node-keystore/loader';
 import type { KeyStore } from '@aztec/node-keystore/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import { jest } from '@jest/globals';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -417,6 +419,243 @@ describe('validator keys utilities', () => {
       const parsed = JSON.parse(logs[0]);
       expect(parsed).toHaveProperty('privateKey');
       expect(parsed).toHaveProperty('publicKey');
+    });
+  });
+
+  describe('stakerCommand (integration test)', () => {
+    // Mock GSEContract to avoid requiring L1 connection
+    const mockRegistrationTuple = {
+      publicKeyInG1: {
+        x: BigInt('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'),
+        y: BigInt('0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321'),
+      },
+      publicKeyInG2: {
+        x0: BigInt('0x1111111111111111111111111111111111111111111111111111111111111111'),
+        x1: BigInt('0x2222222222222222222222222222222222222222222222222222222222222222'),
+        y0: BigInt('0x3333333333333333333333333333333333333333333333333333333333333333'),
+        y1: BigInt('0x4444444444444444444444444444444444444444444444444444444444444444'),
+      },
+      proofOfPossession: {
+        x: BigInt('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
+        y: BigInt('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'),
+      },
+    };
+
+    beforeAll(() => {
+      // Mock GSEContract.makeRegistrationTuple
+      jest.spyOn(GSEContract.prototype, 'makeRegistrationTuple').mockResolvedValue(mockRegistrationTuple);
+    });
+
+    afterAll(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('generates registration tuples from simple BLS keypair file', async () => {
+      const { stakerCommand } = await import('./staker.js');
+      const blsKeypairFile = join(tmp, 'test-bls-keypair.json');
+
+      // Generate a BLS keypair
+      await generateBlsKeypair({ mnemonic: TEST_MNEMONIC, out: blsKeypairFile }, () => {});
+
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await stakerCommand(
+        {
+          from: blsKeypairFile,
+          gseAddress: '0x1234567890123456789012345678901234567890' as any,
+          l1RpcUrls: ['http://localhost:8545'],
+          chainId: 31337,
+        },
+        log,
+      );
+
+      expect(logs.length).toBe(1);
+      const result = JSON.parse(logs[0]);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(1);
+      expect(result[0]).toHaveProperty('publicKeyInG1');
+      expect(result[0]).toHaveProperty('publicKeyInG2');
+      expect(result[0]).toHaveProperty('proofOfPossession');
+      expect(result[0]).not.toHaveProperty('attester'); // No attester in simple keypair
+    });
+
+    it('generates registration tuples from full validator keystore with attester addresses', async () => {
+      const { stakerCommand } = await import('./staker.js');
+      const keystorePath = join(tmp, 'test-validator-keystore.json');
+
+      // Create a validator keystore with 2 validators
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'test-validator-keystore.json',
+          count: 2,
+          publisherCount: 0,
+          mnemonic: TEST_MNEMONIC,
+          feeRecipient: ('0x' + '99'.repeat(32)) as unknown as AztecAddress,
+        },
+        () => {},
+      );
+
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await stakerCommand(
+        {
+          from: keystorePath,
+          gseAddress: '0x1234567890123456789012345678901234567890' as any,
+          l1RpcUrls: ['http://localhost:8545'],
+          chainId: 31337,
+        },
+        log,
+      );
+
+      expect(logs.length).toBe(1);
+      const result = JSON.parse(logs[0]);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(2); // Two validators
+
+      for (const entry of result) {
+        expect(entry).toHaveProperty('publicKeyInG1');
+        expect(entry).toHaveProperty('publicKeyInG2');
+        expect(entry).toHaveProperty('proofOfPossession');
+        // attester should NOT be present because ETH addresses are stored as private keys, not addresses
+        // in the default keystore format (no remote signer)
+      }
+    });
+
+    it('generates registration tuples from encrypted BN254 keystore', async () => {
+      const { stakerCommand } = await import('./staker.js');
+      const password = 'test-password-456';
+
+      // Create a validator keystore with encrypted BLS keys
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'test-encrypted-keystore.json',
+          count: 1,
+          publisherCount: 0,
+          mnemonic: TEST_MNEMONIC,
+          password,
+          outDir: tmp,
+          feeRecipient: ('0x' + 'aa'.repeat(32)) as unknown as AztecAddress,
+        },
+        () => {},
+      );
+
+      // Load the created keystore to find the BLS keystore path
+      const mainKeystore: KeyStore = loadKeystoreFile(join(tmp, 'test-encrypted-keystore.json'));
+      const validator = mainKeystore.validators![0];
+      const att = typeof validator.attester === 'object' && 'bls' in validator.attester ? validator.attester : null;
+      expect(att).not.toBeNull();
+      const blsKeystorePath = (att!.bls as any).path;
+
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await stakerCommand(
+        {
+          from: blsKeystorePath,
+          password,
+          gseAddress: '0x1234567890123456789012345678901234567890' as any,
+          l1RpcUrls: ['http://localhost:8545'],
+          chainId: 31337,
+        },
+        log,
+      );
+
+      expect(logs.length).toBe(1);
+      const result = JSON.parse(logs[0]);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(1);
+      expect(result[0]).toHaveProperty('publicKeyInG1');
+      expect(result[0]).toHaveProperty('publicKeyInG2');
+      expect(result[0]).toHaveProperty('proofOfPossession');
+    });
+
+    it('generates registration tuples from BLS-only keystore', async () => {
+      const { stakerCommand } = await import('./staker.js');
+      const keystorePath = join(tmp, 'test-bls-only-keystore.json');
+
+      // Create a BLS-only validator keystore
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'test-bls-only-keystore.json',
+          count: 1,
+          publisherCount: 0,
+          mnemonic: TEST_MNEMONIC,
+          blsOnly: true,
+          feeRecipient: ('0x' + 'bb'.repeat(32)) as unknown as AztecAddress,
+        },
+        () => {},
+      );
+
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await stakerCommand(
+        {
+          from: keystorePath,
+          gseAddress: '0x1234567890123456789012345678901234567890' as any,
+          l1RpcUrls: ['http://localhost:8545'],
+          chainId: 31337,
+        },
+        log,
+      );
+
+      expect(logs.length).toBe(1);
+      const result = JSON.parse(logs[0]);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(1);
+      expect(result[0]).toHaveProperty('publicKeyInG1');
+      expect(result[0]).toHaveProperty('publicKeyInG2');
+      expect(result[0]).toHaveProperty('proofOfPossession');
+      expect(result[0]).not.toHaveProperty('attester'); // BLS-only, no ETH address
+    });
+
+    it('verifies registration tuple structure matches expected format', async () => {
+      const { stakerCommand } = await import('./staker.js');
+      const blsKeypairFile = join(tmp, 'test-structure-keypair.json');
+
+      await generateBlsKeypair({ mnemonic: TEST_MNEMONIC, out: blsKeypairFile }, () => {});
+
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await stakerCommand(
+        {
+          from: blsKeypairFile,
+          gseAddress: '0x1234567890123456789012345678901234567890' as any,
+          l1RpcUrls: ['http://localhost:8545'],
+          chainId: 31337,
+        },
+        log,
+      );
+
+      const result = JSON.parse(logs[0]);
+      const entry = result[0];
+
+      // Verify G1 point structure
+      expect(entry.publicKeyInG1).toHaveProperty('x');
+      expect(entry.publicKeyInG1).toHaveProperty('y');
+      expect(typeof entry.publicKeyInG1.x).toBe('string');
+      expect(typeof entry.publicKeyInG1.y).toBe('string');
+      expect(entry.publicKeyInG1.x.startsWith('0x')).toBe(true);
+
+      // Verify G2 point structure
+      expect(entry.publicKeyInG2).toHaveProperty('x0');
+      expect(entry.publicKeyInG2).toHaveProperty('x1');
+      expect(entry.publicKeyInG2).toHaveProperty('y0');
+      expect(entry.publicKeyInG2).toHaveProperty('y1');
+      expect(typeof entry.publicKeyInG2.x0).toBe('string');
+      expect(entry.publicKeyInG2.x0.startsWith('0x')).toBe(true);
+
+      // Verify proof of possession structure
+      expect(entry.proofOfPossession).toHaveProperty('x');
+      expect(entry.proofOfPossession).toHaveProperty('y');
+      expect(typeof entry.proofOfPossession.x).toBe('string');
+      expect(entry.proofOfPossession.x.startsWith('0x')).toBe(true);
     });
   });
 });

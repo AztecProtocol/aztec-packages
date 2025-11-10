@@ -77,8 +77,8 @@ export type ProverKeyStore = ProverKeyStoreWithId | EthAccount;
 /** A BLS account is either a private key, or an EIP-2335 encrypted keystore file */
 export type BLSAccount = BLSPrivateKey | EncryptedKeyFileConfig;
 
-/** An AttesterAccount is a combined EthAccount and optional BLSAccount */
-export type AttesterAccount = { eth: EthAccount; bls?: BLSAccount } | EthAccount;
+/** An AttesterAccount is a combined EthAccount and optional BLSAccount, or BLS-only */
+export type AttesterAccount = { eth: EthAccount; bls?: BLSAccount } | { bls: BLSAccount } | EthAccount;
 
 /** One or more attester accounts combining ETH and BLS keys */
 export type AttesterAccounts = AttesterAccount | AttesterAccount[] | MnemonicConfig;

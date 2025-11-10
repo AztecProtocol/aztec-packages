@@ -76,6 +76,21 @@ export function injectCommands(program: Command, log: LogFn) {
       await addValidatorKeys(existing, options, log);
     });
 
+  group
+    .command('staker')
+    .description('Print registration tuples for staking deposit')
+    .requiredOption('--from <keystore>', 'Path to keystore file')
+    .option('--password <string>', 'Password for encrypted keystore')
+    .requiredOption('--gse-address <address>', 'GSE contract address', parseEthereumAddress)
+    .option('--l1-rpc-urls <urls>', 'L1 RPC URLs (comma-separated)', value => value.split(','), [
+      'http://localhost:8545',
+    ])
+    .option('-c, --l1-chain-id <number>', 'L1 chain ID', value => parseInt(value), 31337)
+    .action(async options => {
+      const { stakerCommand } = await import('./staker.js');
+      await stakerCommand(options, log);
+    });
+
   // top-level convenience: aztec generate-bls-keypair
   program
     .command('generate-bls-keypair')

@@ -64,12 +64,15 @@ const ethAccountsSchema = z.union([ethAccountSchema, z.array(ethAccountSchema), 
 // BLSAccount schema
 const blsAccountSchema = z.union([blsPrivateKeySchema, encryptedKeyFileSchema]);
 
-// AttesterAccount schema: either EthAccount or { eth: EthAccount, bls?: BLSAccount }
+// AttesterAccount schema: either EthAccount or { eth: EthAccount, bls?: BLSAccount } or { bls: BLSAccount } (BLS-only)
 const attesterAccountSchema = z.union([
   ethAccountSchema,
   z.object({
     eth: ethAccountSchema,
     bls: optional(blsAccountSchema),
+  }),
+  z.object({
+    bls: blsAccountSchema,
   }),
 ]);
 
