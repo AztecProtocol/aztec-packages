@@ -12,6 +12,7 @@ import { createFromPrivKey } from '@libp2p/peer-id-factory';
 import { resolve } from 'dns/promises';
 import { promises as fs } from 'fs';
 import type { Libp2p } from 'libp2p';
+import net from 'net';
 import path from 'path';
 
 import type { P2PConfig } from './config.js';
@@ -56,9 +57,18 @@ export function convertToMultiaddr(address: string, port: number, protocol: 'tcp
  * Queries the public IP address of the machine.
  */
 export async function getPublicIp(): Promise<string> {
-  const resp = await fetch('http://checkip.amazonaws.com/');
+  const resp = await fetch('https://checkip.amazonaws.com/');
   const text = await resp.text();
-  return text.trim();
+  const address = text.trim();
+  if (!isValidIpAddress(address)) {
+    throw new Error(`Received invalid IP address from checkip service: ${address}`);
+  }
+  return address;
+}
+
+export function isValidIpAddress(address: string): boolean {
+  const netType = net.isIP(address);
+  return netType === 4;
 }
 
 export async function resolveAddressIfNecessary(address: string, port: string): Promise<string> {
