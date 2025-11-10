@@ -75,12 +75,18 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints() {
 
 template <typename FF, typename CircuitBuilder>
 std::pair<std::unordered_set<uint32_t>, std::unordered_set<uint32_t>> StaticAnalyzerAcir_<FF, CircuitBuilder>::
-    analyze_acir()
+    analyze_acir(bool debug_info)
 {
     std::unordered_set<uint32_t> variables_in_one_gate = analyzer.analyze_circuit().second;
     filter_false_positives(variables_in_one_gate);
     std::unordered_set<uint32_t> unconstrained_vars = get_unconstrained_variables();
-    return std::make_pair(variables_in_one_gate, std::move(unconstrained_vars));
+    auto result = std::make_pair(variables_in_one_gate, std::move(unconstrained_vars));
+    if (debug_info && result.first.size() > 0) {
+        for (const auto& elem : result.first) {
+            analyzer.print_variable_info(elem);
+        }
+    }
+    return result;
 }
 
 template class StaticAnalyzerAcir_<fr, UltraCircuitBuilder>;

@@ -1441,6 +1441,62 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
     return variables_in_one_gate;
 }
 
+template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, CircuitBuilder>::initialize_uniqueness()
+{
+    for (const auto& input_var : circuit_builder.public_inputs) {
+        unique_variables.insert(input_var);
+    }
+    for (const auto& constant : constant_variable_indices_set) {
+        unique_variables.insert(constant);
+    }
+    for (const auto& var : circuit_builder.real_variable_indices) {
+        if (!unique_variables.contains(var)) {
+            unknown_variables.insert(var);
+        }
+    }
+}
+
+template <typename FF, typename CircuitBuilder> bool StaticAnalyzer_<FF, CircuitBuilder>::propagate_linear_constraint()
+{
+    bool changed = false;
+
+    // For arithmetic gates: q_m·w_l·w_r + q_1·w_l + q_2·w_r + q_3·w_o + q_4·w_4 + q_c = 0
+    if (!block.q_arith()[gate_idx].is_zero()) {
+        auto q_m = block.q_m()[gate_idx];
+
+        if (q_m.is_zero()) { // Linear case
+            std::vector<std::pair<FF, uint32_t>> terms;
+            if (!block.q_1()[gate_idx].is_zero())
+                terms.push_back({ block.q_1()[gate_idx], to_real(block.w_l()[gate_idx]) });
+            if (!block.q_2()[gate_idx].is_zero())
+                terms.push_back({ block.q_2()[gate_idx], to_real(block.w_r()[gate_idx]) });
+            if (!block.q_3()[gate_idx].is_zero())
+                terms.push_back({ block.q_3()[gate_idx], to_real(block.w_o()[gate_idx]) });
+            if (!block.q_4()[gate_idx].is_zero())
+                terms.push_back({ block.q_4()[gate_idx], to_real(block.w_4()[gate_idx]) });
+
+            // Count unique vs unknown variables
+            int unique_count = 0;
+            uint32_t unknown_var = 0;
+            for (const auto& [coeff, var] : terms) {
+                if (unique_signals.contains(var)) {
+                    unique_count++;
+                } else if (unknown_signals.contains(var)) {
+                    unknown_var = var;
+                }
+            }
+
+            // If all but one are unique, the last one is unique
+            if (unique_count == terms.size() - 1 && unknown_var != 0) {
+                unique_signals.insert(unknown_var);
+                unknown_signals.erase(unknown_var);
+                changed = true;
+            }
+        }
+    }
+    return changed;
+}
+
 /**
  * @brief this method prints additional information about connected components that were found in the graph
  * @tparam FF

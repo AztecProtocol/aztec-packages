@@ -18,7 +18,7 @@ static std::string common_preffix =
 void test_acir(std::vector<uint8_t>& bytecode)
 {
     auto tool = StaticAnalyzerAcir(bytecode);
-    auto [variables_in_one_gate, unconstrained_vars] = tool.analyze_acir();
+    auto [variables_in_one_gate, unconstrained_vars] = tool.analyze_acir(/*debug_info=*/true);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
     if (unconstrained_vars.size() > 0) {
         info("print variables that weren't constrained properly");
@@ -37,6 +37,8 @@ void test_acir(std::vector<uint8_t>& bytecode)
         info("print_variables_from_logic_gates");
         for (const auto& elem: logic_gate_witnesses) {
             tool.print_variable_info(elem);
+        for (const auto& elem : unconstrained_vars) {
+            info("elem == ", elem);
         }
     }
 }
