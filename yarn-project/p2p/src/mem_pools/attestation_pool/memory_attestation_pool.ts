@@ -4,6 +4,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import type { AttestationPool } from './attestation_pool.js';
+import { ATTESTATION_CAP_BUFFER, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
@@ -213,6 +214,35 @@ export class InMemoryAttestationPool implements AttestationPool {
   public hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
     const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.payload.archive.toString();
     return Promise.resolve(this.proposals.has(id));
+  }
+
+  public hasReachedProposalCap(slot: bigint): Promise<boolean> {
+    const slotAttestationMap = this.attestations.get(slot);
+    const proposalCount = slotAttestationMap?.size ?? 0;
+    return Promise.resolve(proposalCount >= MAX_PROPOSALS_PER_SLOT);
+  }
+
+  public hasReachedAttestationCap(slot: bigint, proposalId: string, committeeSize: number): Promise<boolean> {
+    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
+    const count = this.attestations.get(slot)?.get(proposalId)?.size ?? 0;
+    return Promise.resolve(limit <= 0 || count >= limit);
+  }
+
+  public async canAddProposal(block: BlockProposal): Promise<boolean> {
+    return (
+      this.proposals.has(block.archive.toString()) || !(await this.hasReachedProposalCap(block.slotNumber.toBigInt()))
+    );
+  }
+
+  public async canAddAttestation(attestation: BlockAttestation, committeeSize: number): Promise<boolean> {
+    const sender = attestation.getSender();
+    const slot = attestation.payload.header.slotNumber.toBigInt();
+    const pid = attestation.archive.toString();
+    return (
+      !!sender &&
+      ((this.attestations.get(slot)?.get(pid)?.has(sender.toString()) ?? false) ||
+        !(await this.hasReachedAttestationCap(slot, pid, committeeSize)))
+    );
   }
 }
 
