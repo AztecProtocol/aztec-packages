@@ -1,9 +1,6 @@
-pub(crate) mod call_interface_stubs;
 // TODO: Move initialization_utils out of this crate
 // See https://github.com/AztecProtocol/aztec-packages/pull/15856#discussion_r2229134689 for more details
 pub mod initialization_utils;
-pub(crate) mod stub_registry;
-pub(crate) mod self_call_registry;
 pub(crate) mod auth_registry;
 pub(crate) mod utils;
 

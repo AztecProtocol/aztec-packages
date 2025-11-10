@@ -1,12 +1,7 @@
 // TODO(benesjan): Move this whole file to `noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation`.
 // Not done yet in order to not murder the PR diff.
 use crate::macros::{
-    functions::{
-        auth_registry::AUTHORIZE_ONCE_REGISTRY,
-        call_interface_stubs::{
-            register_private_fn_stubs, register_public_fn_stubs, register_utility_fn_stub,
-        },
-    },
+    functions::auth_registry::AUTHORIZE_ONCE_REGISTRY,
     notes::NOTES,
     utils::{
         fn_has_authorize_once, fn_has_noinitcheck, is_fn_contract_library_method, is_fn_external,
@@ -39,10 +34,6 @@ comptime fn get_abi_relevant_attributes(f: FunctionDefinition) -> Quoted {
 }
 
 pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
-    // TODO(benesjan): This function should only generate the new function's quote. Move the following to a different
-    // place.
-    register_private_fn_stubs(f);
-
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
 
@@ -227,10 +218,6 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
 }
 
 pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
-    // TODO(benesjan): This function should only generate the new function's quote. Move the following to a different
-    // place.
-    register_public_fn_stubs(f);
-
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
 
@@ -365,10 +352,6 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
 }
 
 pub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {
-    // TODO(benesjan): This function should only generate the new function's quote. Move the following to a different
-    // place.
-    register_utility_fn_stub(f);
-
     // Initialize Storage if module has storage
     let storage_init = if module_has_storage(f.module()) {
         quote {
