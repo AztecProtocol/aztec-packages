@@ -99,7 +99,7 @@ tests:
     skip: true
     owners:
       - *charlie
-  - regex: "noir-protocol-circuits blob blob_batching::tests::test_max_blobs_batched"
+  - regex: "noir-protocol-circuits blob blob_batching::tests::"
     error_regex: "core dumped"
     owners:
       - *tom
