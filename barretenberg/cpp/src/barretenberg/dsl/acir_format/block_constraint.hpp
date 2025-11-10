@@ -12,12 +12,12 @@
 namespace acir_format {
 
 struct MemOp {
-    uint8_t access_type;
+    uint8_t access_type; // always binary: `0` corresponds to a READ and `1` corresponds to a WRITE.
     bb::poly_triple index;
     bb::poly_triple value;
 };
 
-enum BlockType {
+enum BlockType : std::uint8_t {
     ROM = 0,
     RAM = 1,
     CallData = 2,
