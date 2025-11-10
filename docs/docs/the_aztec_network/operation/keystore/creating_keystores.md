@@ -250,6 +250,7 @@ aztec generate-bls-keypair [options]
 | `--count` | Number of sequencers | `1` |
 | `--publisher-count` | Publishers per sequencer | `0` |
 | `--bls-path` | EIP-2334 derivation path for BLS keys | `m/12381/3600/0/0/0` |
+| `--staker-output` | View BLS info needed to register stakers | None |
 
 For the complete list of options, run:
 

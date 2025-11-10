@@ -17,7 +17,7 @@ export type StakerOptions = {
   chainId: number;
 };
 
-type RegistrationData = {
+export type RegistrationData = {
   attester?: string;
   publicKeyInG1: {
     x: string;
@@ -117,6 +117,59 @@ function processValidator(validator: ValidatorKeyStore, providedPassword?: strin
   };
 }
 
+/**
+ * Generate registration data for staking from BLS private keys
+ */
+export async function generateRegistrationData(
+  blsPrivateKeys: Array<{ privateKey: string; attesterAddress?: string }>,
+  gseAddress: EthAddress,
+  l1RpcUrls: string[],
+  chainId: number,
+): Promise<RegistrationData[]> {
+  // Create GSE contract client
+  const chain = createEthereumChain(l1RpcUrls, chainId);
+  const publicClient = createPublicClient({
+    chain: chain.chainInfo,
+    transport: fallback(l1RpcUrls.map(url => http(url))),
+  });
+
+  const gseContract = new GSEContract(publicClient, gseAddress);
+
+  // Generate registration tuples for all validators
+  const registrationData: RegistrationData[] = [];
+
+  for (const entry of blsPrivateKeys) {
+    const bn254SecretKeyFieldElement = Fr.fromString(entry.privateKey);
+    const registrationTuple = await gseContract.makeRegistrationTuple(bn254SecretKeyFieldElement.toBigInt());
+
+    const data: RegistrationData = {
+      publicKeyInG1: {
+        x: '0x' + registrationTuple.publicKeyInG1.x.toString(16),
+        y: '0x' + registrationTuple.publicKeyInG1.y.toString(16),
+      },
+      publicKeyInG2: {
+        x0: '0x' + registrationTuple.publicKeyInG2.x0.toString(16),
+        x1: '0x' + registrationTuple.publicKeyInG2.x1.toString(16),
+        y0: '0x' + registrationTuple.publicKeyInG2.y0.toString(16),
+        y1: '0x' + registrationTuple.publicKeyInG2.y1.toString(16),
+      },
+      proofOfPossession: {
+        x: '0x' + registrationTuple.proofOfPossession.x.toString(16),
+        y: '0x' + registrationTuple.proofOfPossession.y.toString(16),
+      },
+    };
+
+    // Only include attester field if we have an address
+    if (entry.attesterAddress) {
+      data.attester = entry.attesterAddress;
+    }
+
+    registrationData.push(data);
+  }
+
+  return registrationData;
+}
+
 export async function stakerCommand(options: StakerOptions, log: LogFn) {
   const { from, password, gseAddress, l1RpcUrls, chainId } = options;
 
@@ -158,46 +211,16 @@ export async function stakerCommand(options: StakerOptions, log: LogFn) {
     throw new Error('No BLS keys found in keystore');
   }
 
-  // Create GSE contract client
-  const chain = createEthereumChain(l1RpcUrls, chainId);
-  const publicClient = createPublicClient({
-    chain: chain.chainInfo,
-    transport: fallback(l1RpcUrls.map(url => http(url))),
-  });
-
-  const gseContract = new GSEContract(publicClient, gseAddress);
-
-  // Generate registration tuples for all validators
-  const registrationData: RegistrationData[] = [];
-
-  for (const entry of validatorEntries) {
-    const bn254SecretKeyFieldElement = Fr.fromString(entry.blsPrivateKey);
-    const registrationTuple = await gseContract.makeRegistrationTuple(bn254SecretKeyFieldElement.toBigInt());
-
-    const data: RegistrationData = {
-      publicKeyInG1: {
-        x: '0x' + registrationTuple.publicKeyInG1.x.toString(16),
-        y: '0x' + registrationTuple.publicKeyInG1.y.toString(16),
-      },
-      publicKeyInG2: {
-        x0: '0x' + registrationTuple.publicKeyInG2.x0.toString(16),
-        x1: '0x' + registrationTuple.publicKeyInG2.x1.toString(16),
-        y0: '0x' + registrationTuple.publicKeyInG2.y0.toString(16),
-        y1: '0x' + registrationTuple.publicKeyInG2.y1.toString(16),
-      },
-      proofOfPossession: {
-        x: '0x' + registrationTuple.proofOfPossession.x.toString(16),
-        y: '0x' + registrationTuple.proofOfPossession.y.toString(16),
-      },
-    };
-
-    // Only include attester field if we have an address
-    if (entry.attesterAddress) {
-      data.attester = entry.attesterAddress;
-    }
-
-    registrationData.push(data);
-  }
+  // Generate registration data using the shared function
+  const registrationData = await generateRegistrationData(
+    validatorEntries.map(entry => ({
+      privateKey: entry.blsPrivateKey,
+      attesterAddress: entry.attesterAddress,
+    })),
+    gseAddress,
+    l1RpcUrls,
+    chainId,
+  );
 
   // Output as JSON array
   log(JSON.stringify(registrationData, null, 2));

@@ -1,3 +1,4 @@
+import { decryptBn254KeystoreFromObject, loadBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -15,6 +16,7 @@ import {
   writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
+import { generateRegistrationData } from './staker.js';
 
 export type NewValidatorKeystoreOptions = {
   dataDir?: string;
@@ -36,6 +38,10 @@ export type NewValidatorKeystoreOptions = {
   coinbase?: EthAddress;
   remoteSigner?: string;
   fundingAccount?: EthAddress;
+  stakerOutput?: boolean;
+  gseAddress?: EthAddress;
+  l1RpcUrls?: string[];
+  chainId?: number;
 };
 
 export async function newValidatorKeystore(options: NewValidatorKeystoreOptions, log: LogFn) {
@@ -116,5 +122,76 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
       });
       log(`attester address: ${acct.address} remoteSignerUrl: ${remoteSigner}`);
     }
+  }
+
+  // Generate staker output if requested
+  if (options.stakerOutput) {
+    if (!options.gseAddress) {
+      throw new Error('--gse-address is required when --staker-output is used');
+    }
+
+    const l1RpcUrls = options.l1RpcUrls ?? ['http://localhost:8545'];
+    const chainId = options.chainId ?? 31337;
+
+    // Extract BLS private keys from validators
+    const blsPrivateKeys: Array<{ privateKey: string; attesterAddress?: string }> = [];
+
+    for (const validator of validators) {
+      const attester = (validator as any).attester;
+
+      // Handle different attester shapes
+      if (typeof attester === 'object' && 'bls' in attester && attester.bls) {
+        let blsKey: string | undefined;
+
+        // Check if it's a plaintext key (string)
+        if (typeof attester.bls === 'string' && attester.bls.startsWith('0x')) {
+          blsKey = attester.bls;
+        }
+        // Check if it's an encrypted keystore reference
+        else if (typeof attester.bls === 'object' && 'path' in attester.bls) {
+          const keystorePath = attester.bls.path;
+          const keystorePassword = attester.bls.password ?? password ?? '';
+
+          try {
+            // Load and decrypt the BN254 keystore
+            const keystore = loadBn254Keystore(keystorePath);
+            blsKey = decryptBn254KeystoreFromObject(keystore, keystorePassword);
+          } catch (error) {
+            throw new Error(`Failed to decrypt BLS keystore at ${keystorePath}: ${error}`);
+          }
+        }
+
+        if (blsKey) {
+          let attesterAddress: string | undefined;
+
+          // If we have ETH account, try to extract or derive the address
+          if ('eth' in attester && attester.eth) {
+            if (typeof attester.eth === 'object' && 'address' in attester.eth) {
+              // ETH account is an object with address (e.g., remote signer)
+              attesterAddress = (attester.eth as any).address.toString();
+            } else if (!blsOnly && mnemonic) {
+              // Derive address from mnemonic (works for both plaintext and encrypted keys)
+              const acct = mnemonicToAccount(mnemonic, {
+                accountIndex,
+                addressIndex: addressIndex + blsPrivateKeys.length,
+              });
+              attesterAddress = acct.address as unknown as string;
+            }
+          }
+
+          blsPrivateKeys.push({ privateKey: blsKey, attesterAddress });
+        }
+      }
+    }
+
+    if (blsPrivateKeys.length === 0) {
+      throw new Error('No BLS keys found in generated validators. Use --mnemonic or --ikm to generate BLS keys.');
+    }
+
+    // Generate and output registration data
+    const registrationData = await generateRegistrationData(blsPrivateKeys, options.gseAddress, l1RpcUrls, chainId);
+
+    log('\nStaker Registration Data:');
+    log(JSON.stringify(registrationData, null, 2));
   }
 }

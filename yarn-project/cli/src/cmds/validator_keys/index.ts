@@ -36,6 +36,12 @@ export function injectCommands(program: Command, log: LogFn) {
     )
     .option('--out-dir <dir>', 'Output directory for generated keystore file(s)')
     .option('--json', 'Echo resulting JSON to stdout')
+    .option('--staker-output', 'Output staker registration data (G1/G2 pubkeys and proof of possession)')
+    .option('--gse-address <address>', 'GSE contract address (required with --staker-output)', parseEthereumAddress)
+    .option('--l1-rpc-urls <urls>', 'L1 RPC URLs (comma-separated)', value => value.split(','), [
+      'http://localhost:8545',
+    ])
+    .option('-c, --l1-chain-id <number>', 'L1 chain ID', value => parseInt(value), 31337)
     .requiredOption('--fee-recipient <address>', 'Aztec address that will receive fees', parseAztecAddress)
     .action(async options => {
       const { newValidatorKeystore } = await import('./new.js');
