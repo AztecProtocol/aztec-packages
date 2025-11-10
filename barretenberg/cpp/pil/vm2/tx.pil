@@ -487,11 +487,10 @@ namespace tx;
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
     // If we are at the maximum emitted messages, we must revert
-    pol REMAINING_L2_TO_L1_MSG_WRITES = constants.MAX_L2_TO_L1_MSGS_PER_TX -
-        prev_num_l2_to_l1_messages;
+    pol REMAINING_L2_TO_L1_MSG_WRITES = constants.MAX_L2_TO_L1_MSGS_PER_TX - prev_num_l2_to_l1_messages;
     // Revert if REMAINING_L2_TO_L1_MSG_WRITES is 0
     #[MAX_L2_L1_MSG_WRITES_REACHED]
-    should_try_l2_l1_msg_append * (1 - is_padded) * (REMAINING_L2_TO_L1_MSG_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
+    should_try_l2_l1_msg_append * (REMAINING_L2_TO_L1_MSG_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
 
     pol commit should_l2_l1_msg_append;
     // A msg emit must be written to PI if it didn't revert, and is not discard.
