@@ -89,7 +89,8 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
         return transcript.hash_independent_buffer();
     }
 
-    MSGPACK_FIELDS(vk, relation_parameters, alpha, is_complete, gate_challenges, witness_commitments);
+    MSGPACK_FIELDS(
+        vk, relation_parameters, alpha, is_complete, gate_challenges, witness_commitments, gemini_masking_commitment);
 };
 
 } // namespace bb

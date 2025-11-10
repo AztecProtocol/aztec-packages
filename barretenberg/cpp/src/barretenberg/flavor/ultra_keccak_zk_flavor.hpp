@@ -53,15 +53,13 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
                /* 6. Libra claimed evaluation */ (num_elements_fr) +
                /* 7. Libra grand sum commitment */ (num_elements_comm) +
                /* 8. Libra quotient commitment */ (num_elements_comm) +
-               /* 9. Gemini masking commitment */ (num_elements_comm) +
-               /* 10. Gemini masking evaluation */ (num_elements_fr) +
-               /* 11. virtual_log_n - 1 Gemini Fold commitments */
+               /* 9. virtual_log_n - 1 Gemini Fold commitments */
                ((virtual_log_n - 1) * num_elements_comm) +
-               /* 12. virtual_log_n Gemini a evaluations */
+               /* 10. virtual_log_n Gemini a evaluations */
                (virtual_log_n * num_elements_fr) +
-               /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_elements_fr) +
-               /* 14. Shplonk Q commitment */ (num_elements_comm) +
-               /* 15. KZG W commitment */ (num_elements_comm);
+               /* 11. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_elements_fr) +
+               /* 12. Shplonk Q commitment */ (num_elements_comm) +
+               /* 13. KZG W commitment */ (num_elements_comm);
     }
 
     /**

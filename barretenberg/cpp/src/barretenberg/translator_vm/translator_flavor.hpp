@@ -184,24 +184,24 @@ class TranslatorFlavor {
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. accumulated_result */ (num_frs_fq) +
-        /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES - 3) * num_frs_comm) +
-        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
-        /* 3. Libra sum */ (num_frs_fr) +
-        /* 4. CONST_TRANSLATOR_LOG_N sumcheck univariates */
+        /* 2. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES - 3) * num_frs_comm) +
+        /* 3. Libra concatenation commitment*/ (num_frs_comm) +
+        /* 4. Libra sum */ (num_frs_fr) +
+        /* 5. CONST_TRANSLATOR_LOG_N sumcheck univariates */
         (CONST_TRANSLATOR_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
-        /* 6. Libra claimed evaluation */ (num_frs_fr) +
-        /* 7. Libra grand sum commitment */ (num_frs_comm) +
-        /* 8. Libra quotient commitment */ (num_frs_comm) +
-        /* 9. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
+        /* 6. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
+        /* 7. Libra claimed evaluation */ (num_frs_fr) +
+        /* 8. Libra grand sum commitment */ (num_frs_comm) +
+        /* 9. Libra quotient commitment */ (num_frs_comm) +
+        /* 10. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
         ((CONST_TRANSLATOR_LOG_N - 1) * num_frs_comm) +
-        /* 10. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
+        /* 11. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
         (CONST_TRANSLATOR_LOG_N * num_frs_fr) +
-        /* 11. Gemini P pos evaluation */ (num_frs_fr) +
-        /* 12. Gemini P neg evaluation */ (num_frs_fr) +
-        /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-        /* 14. Shplonk Q commitment */ (num_frs_comm) +
-        /* 15. KZG W commitment */ (num_frs_comm);
+        /* 12. Gemini P pos evaluation */ (num_frs_fr) +
+        /* 13. Gemini P neg evaluation */ (num_frs_fr) +
+        /* 14. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+        /* 15. Shplonk Q commitment */ (num_frs_comm) +
+        /* 16. KZG W commitment */ (num_frs_comm);
 
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
