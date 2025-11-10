@@ -73,7 +73,7 @@ import {
   Shl,
   Shr,
 } from './opcodes/index.js';
-import { decodeFromBytecode, encodeToBytecode } from './serialization/bytecode_serialization.js';
+import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 import {
   mockCheckNullifierExists,
@@ -958,16 +958,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([value0.add(value1)]);
-      });
-      it(`Decode bytecode`, async () => {
-        const bytecode = [
-          39, 0, 1, 1, 1, 36, 0, 0, 1, 0, 0, 0, 17, 35, 0, 0, 0, 35, 39, 0, 10, 2, 11, 40, 0, 0, 5, 4, 0, 1, 59, 0, 0,
-          5, 0, 10, 39, 0, 10, 2, 12, 40, 0, 0, 5, 4, 0, 1, 59, 0, 0, 5, 0, 10,
-        ];
-        const instructions = decodeFromBytecode(Buffer.from(bytecode));
-        for (const instruction of instructions) {
-          process.stdout.write(instruction.toString() + '\n');
-        }
       });
 
       it(`Nested static call`, async () => {
