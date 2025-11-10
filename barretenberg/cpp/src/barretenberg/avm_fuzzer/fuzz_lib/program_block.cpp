@@ -637,7 +637,6 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
 {
     auto return_addr = memory_manager.get_memory_offset_16_bit(return_value_tag.value, return_value_offset_index);
     if (!return_addr.has_value()) {
-        std::cout << "Return address not found, setting to 0" << std::endl;
         return_addr = std::optional<uint16_t>(0);
     }
 
