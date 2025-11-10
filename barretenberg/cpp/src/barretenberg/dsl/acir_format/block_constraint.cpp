@@ -50,17 +50,18 @@ void create_block_constraints(UltraCircuitBuilder& builder,
     }
 
     switch (constraint.type) {
+    // Note: CallData/ReturnData require DataBus, which is only available in Mega and in particular is _not_ supported
+    // by Ultra. They are therefore interpreted as ROM calls instead.
+    case BlockType::CallData:
+    case BlockType::ReturnData:
     case BlockType::ROM:
         process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
         break;
     case BlockType::RAM:
         process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
         break;
-    // Note: CallData/ReturnData require DataBus, which is only available in Mega and in particular is _not_ supported
-    // by Ultra.
-    case BlockType::CallData:
-    case BlockType::ReturnData:
-        throw_or_abort("CallData/ReturnData are not supported in the Ultra arithmetization. Use Mega instead.");
+    default:
+        throw_or_abort("Unexpected block constraint type.");
         break;
     }
 }
