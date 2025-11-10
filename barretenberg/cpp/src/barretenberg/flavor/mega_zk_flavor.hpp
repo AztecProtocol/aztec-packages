@@ -34,6 +34,10 @@ class MegaZKFlavor : public bb::MegaFlavor {
     // NUM_ALL_ENTITIES includes gemini_masking_poly
     static constexpr size_t NUM_ALL_ENTITIES = MegaFlavor::NUM_ALL_ENTITIES + 1;
 
+    // Override OINK_PROOF_LENGTH to include gemini_masking_poly commitment (sent via commit_to_masking_poly)
+    static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments (includes gemini_masking_poly) */ (NUM_WITNESS_ENTITIES * num_frs_comm);
+
     using AllValues = MegaFlavor::AllValues_<HasZK>;
     using ProverPolynomials = MegaFlavor::ProverPolynomials_<HasZK>;
     using PartiallyEvaluatedMultivariates = MegaFlavor::PartiallyEvaluatedMultivariates_<HasZK>;

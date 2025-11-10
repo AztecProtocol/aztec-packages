@@ -32,6 +32,11 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     // NUM_ALL_ENTITIES includes gemini_masking_poly
     static constexpr size_t NUM_ALL_ENTITIES = UltraKeccakFlavor::NUM_ALL_ENTITIES + 1;
 
+    // Override OINK_PROOF_LENGTH to include gemini_masking_poly commitment (sent via commit_to_masking_poly)
+    static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments (includes gemini_masking_poly) */ (NUM_WITNESS_ENTITIES *
+                                                                                  num_elements_comm);
+
     using AllValues = UltraFlavor::AllValues_<HasZK>;
     using ProverPolynomials = UltraFlavor::ProverPolynomials_<HasZK>;
     using PartiallyEvaluatedMultivariates = UltraFlavor::PartiallyEvaluatedMultivariates_<HasZK>;

@@ -80,14 +80,9 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
     }
 
     // Populate mock witness polynomial commitments
-    // Note: OINK_PROOF_LENGTH uses base flavor's NUM_WITNESS_ENTITIES (doesn't include gemini_masking_poly)
-    // For ZK flavors, gemini_masking_poly is sent during oink but not counted in OINK_PROOF_LENGTH
-    if constexpr (Flavor::HasZK) {
-        // ZK flavors: send base flavor's witness commitments (gemini_masking_poly sent separately in full proof)
-        populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES - 1);
-    } else {
-        populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
-    }
+    // Note: For ZK flavors, NUM_WITNESS_ENTITIES includes gemini_masking_poly which is sent via
+    // commit_to_masking_poly() OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS is overridden in ZK flavors to account for this
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
 
     return proof;
 }
@@ -259,12 +254,6 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
 {
     // Construct a Honk proof as the concatenation of an Oink proof and a Decider proof
     HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>(inner_public_inputs_size);
-
-    // For ZK flavors: add gemini_masking_poly commitment (sent during oink but not in OINK_PROOF_LENGTH)
-    if constexpr (Flavor::HasZK) {
-        populate_field_elements_for_mock_commitments(oink_proof, /*num_commitments=*/1);
-    }
-
     HonkProof decider_proof = create_mock_decider_proof<Flavor>();
     HonkProof proof;
     proof.reserve(oink_proof.size() + decider_proof.size());
@@ -512,7 +501,6 @@ HonkProof create_mock_ipa_proof()
  */
 HonkProof create_mock_translator_proof()
 {
-    using FF = TranslatorFlavor::FF;
     using BF = TranslatorFlavor::BF;
     using Curve = TranslatorFlavor::Curve;
 
@@ -526,51 +514,9 @@ HonkProof create_mock_translator_proof()
     populate_field_elements_for_mock_commitments<Curve>(proof,
                                                         /*num_commitments=*/TranslatorFlavor::NUM_WITNESS_ENTITIES - 3);
 
-    // 3. Libra concatenation commitment
-    populate_field_elements_for_mock_commitments<Curve>(proof, 1);
-
-    // 4. Libra sum
-    populate_field_elements<FF>(proof, 1);
-
-    // 5. Sumcheck univariates
-    const size_t TOTAL_SIZE_SUMCHECK_UNIVARIATES =
-        TranslatorFlavor::CONST_TRANSLATOR_LOG_N * TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
-    populate_field_elements<FF>(proof, TOTAL_SIZE_SUMCHECK_UNIVARIATES);
-
-    // 6. Sumcheck multilinear evaluations
-    populate_field_elements<FF>(proof, TranslatorFlavor::NUM_ALL_ENTITIES);
-
-    // 7. Libra claimed evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 8. Libra grand sum commitment
-    populate_field_elements_for_mock_commitments<Curve>(proof, 1);
-
-    // 9. Libra quotient commitment
-    populate_field_elements_for_mock_commitments<Curve>(proof, 1);
-
-    // 10. Gemini fold commitments
-    populate_field_elements_for_mock_commitments<Curve>(proof,
-                                                        /*num_commitments=*/TranslatorFlavor::CONST_TRANSLATOR_LOG_N -
-                                                            1);
-
-    // 11. Gemini fold evaluations
-    populate_field_elements<FF>(proof, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
-
-    // 12. Gemini P pos evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 13. Gemini P neg evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 14. NUM_SMALL_IPA_EVALUATIONS libra evals
-    populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
-
-    // 15. Shplonk Q commitment
-    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
-
-    // 16. KZG W commitment
-    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
+    // 3. Decider proof (Libra + sumcheck + Gemini + PCS)
+    HonkProof decider_proof = create_mock_decider_proof<TranslatorFlavor>();
+    proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
 
     BB_ASSERT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 
