@@ -135,7 +135,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   slashAmountLarge: 50_000n * 10n ** 18n,
   slashingOffsetInRounds: 2,
   slasherFlavor: 'tally',
-  slashingVetoer: EthAddress.ZERO, // TODO TMNT-329
+  slashingVetoer: EthAddress.ZERO,
 
   /** The mana target for the rollup */
   manaTarget: 0n,
@@ -409,7 +409,7 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   slashingRoundSizeInEpochs: 4,
   slashingExecutionDelayInRounds: 28,
   slashingLifetimeInRounds: 34,
-  slashingVetoer: EthAddress.ZERO, // TODO TMNT-329
+  slashingVetoer: EthAddress.fromString('0xBbB4aF368d02827945748b28CD4b2D42e4A37480'),
   slashingOffsetInRounds: 2,
 
   slashingDisableDuration: 259_200, // 3 days
