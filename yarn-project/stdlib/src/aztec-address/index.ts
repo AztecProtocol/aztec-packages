@@ -142,7 +142,7 @@ export class AztecAddress {
       // Serialization from hex string.
       hexSchemaFor(AztecAddress, AztecAddress.isAddress),
       // Serialization from buffer.
-      bufferSchemaFor(AztecAddress),
+      bufferSchemaFor(AztecAddress, buf => buf.length === 32),
     ]);
   }
 }

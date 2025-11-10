@@ -100,12 +100,13 @@ export function hexSchemaFor<TClass extends { fromString(str: string): any } | {
  */
 export function bufferSchemaFor<TClass extends { fromBuffer(buf: Buffer): any }>(
   klazz: TClass,
+  refinement?: (buf: Buffer) => boolean,
 ): ZodType<
   TClass extends { fromBuffer(buf: Buffer): infer TInstance } ? ToJsonIs<TInstance, Buffer> : never,
   any,
   string
 > {
-  return bufferSchema.transform(klazz.fromBuffer.bind(klazz));
+  return bufferSchema.refine(refinement ?? (() => true), 'Not a valid buffer').transform(klazz.fromBuffer.bind(klazz));
 }
 
 /** Creates a schema for a js Map type that matches the serialization used in jsonStringify. */

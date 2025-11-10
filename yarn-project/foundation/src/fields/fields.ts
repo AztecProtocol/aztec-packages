@@ -338,10 +338,10 @@ export class Fr extends BaseField {
 
   static get schema() {
     return z.union([
-      // Serialization from MessagePack as a buffer.
-      bufferSchemaFor(Fr),
       // Serialization from hex string.
       hexSchemaFor(Fr),
+      // Serialization from MessagePack as a buffer.
+      bufferSchemaFor(Fr, buf => buf.length === BaseField.SIZE_IN_BYTES),
     ]);
   }
 }
