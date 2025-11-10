@@ -114,6 +114,7 @@ add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/lmdblib)
+add_subdirectory(barretenberg/avm_fuzzer)
 
 if(NOT FUZZING AND NOT WASM)
     # Fuzzing preset cannot be built with world_state as world_state cannot compile with MULTITHREADING=OFF
@@ -127,7 +128,7 @@ endif()
 if(FUZZING_AVM)
     add_subdirectory(barretenberg/world_state)
     add_subdirectory(barretenberg/vm2)
-    add_subdirectory(barretenberg/avm_fuzzer)
+    #add_subdirectory(barretenberg/avm_fuzzer)
 endif()
 
 if(SMT)
