@@ -45,7 +45,6 @@ TYPED_TEST(CycleScalarTest, TestFromWitness)
 
     EXPECT_EQ(scalar.get_value(), scalar_val);
     EXPECT_FALSE(scalar.is_constant());
-    EXPECT_EQ(scalar.num_bits(), cycle_scalar::NUM_BITS);
 
     // Check that lo and hi reconstruct to the original value
     uint256_t lo_val = uint256_t(scalar.lo().get_value());

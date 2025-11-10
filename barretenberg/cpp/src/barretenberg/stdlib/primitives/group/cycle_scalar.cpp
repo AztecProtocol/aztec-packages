@@ -85,7 +85,6 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, cons
     hi.set_free_witness_tag();
 
     cycle_scalar result{ lo, hi };
-    result._num_bits = NUM_BITS;
 
     return result;
 }

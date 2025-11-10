@@ -767,12 +767,10 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
     }
 
-    // Validate all scalars have the same bit length (required for Straus algorithm to process slices)
-    size_t num_bits = scalars[0].num_bits();
-    for (auto& s : scalars) {
-        BB_ASSERT_EQ(s.num_bits(), num_bits, "Scalars of different bit-lengths not supported!");
-    }
-    size_t num_rounds = numeric::ceil_div(num_bits, ROM_TABLE_BITS);
+    // All cycle_scalars are guaranteed to be 254 bits
+    static_assert(cycle_scalar::NUM_BITS == NUM_BITS_FULL_FIELD_SIZE);
+    constexpr size_t num_bits = cycle_scalar::NUM_BITS;
+    constexpr size_t num_rounds = numeric::ceil_div(num_bits, ROM_TABLE_BITS);
 
     // Decompose each scalar into 4-bit slices. Note: This operation enforces range constraints on the lo/hi limbs of
     // each scalar (LO_BITS and (num_bits - LO_BITS) respectively).
@@ -1036,15 +1034,6 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         result_tag = OriginTag(result_tag, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
     }
 
-    // Determine scalar bit length (for simplicity we require all scalars to have the same bit length)
-    size_t num_bits = scalars[0].num_bits();
-    for (auto& s : scalars) {
-        BB_ASSERT_EQ(num_bits, s.num_bits());
-    }
-
-    // If scalars are not full sized, we skip lookup-version of fixed-base scalar mul. too much complexity
-    bool scalars_are_full_sized = (num_bits == NUM_BITS_FULL_FIELD_SIZE);
-
     // We can unconditionally add in the variable-base algorithm iff all of the input points are fixed-base points (i.e.
     // we are doing fixed-base mul over points not present in our plookup tables)
     bool can_unconditional_add = true;
@@ -1062,8 +1051,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
 #endif
                 continue;
             }
-            if (scalars_are_full_sized &&
-                plookup::fixed_base::table::lookup_table_exists_for_point(point.get_value())) {
+            if (plookup::fixed_base::table::lookup_table_exists_for_point(point.get_value())) {
                 // Case 2A: constant point is one of two for which we have plookup tables; use fixed-base Straus
                 fixed_base_scalars.push_back(scalar);
                 fixed_base_points.push_back(point.get_value());
