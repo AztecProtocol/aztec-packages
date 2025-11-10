@@ -347,6 +347,25 @@ mod test {
     }
 
     #[test]
+    fn array_serialization() {
+        let array = [1, 2, 3, 4];
+
+        let serialized: [Field; 4] = array.serialize();
+        let deserialized: [Field; 4] = Deserialize::deserialize(serialized);
+        assert_eq(deserialized, array);
+    }
+
+    #[test]
+    fn nested_array_serialization() {
+        let nested_array = [[1, 2, 3, 4], [5, 6, 7, 8]];
+
+        let serialized: [Field; 8] = nested_array.serialize();
+        let deserialized: [[Field; 4]; 2] = Deserialize::deserialize(serialized);
+
+        assert_eq(deserialized, nested_array);
+    }
+
+    #[test]
     fn option_array_serialization() {
         let opt_some = Option::some([2, 5]);
         assert_eq(Option::<_>::deserialize(opt_some.serialize()), opt_some);
