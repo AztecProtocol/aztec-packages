@@ -20,12 +20,16 @@ namespace bb {
         \left(Z_{\text{perm, shifted}}(\vec X) + L_{2^d-1}(\vec X) \cdot \delta_{\text{pub}} \right)  \cdot
         \left[ (w_1(\vec X) + \sigma_1(\vec X) \cdot \beta + \gamma) \cdot (w_2(\vec X) + \sigma_2(\vec X) \cdot \beta +
  \gamma) \cdot (w_3(\vec X) + \sigma_3 (\vec X) \cdot \beta + \gamma) \cdot (w_4 (\vec X) + \sigma_4(\vec X) \cdot \beta
- + \gamma)\right] &\ = 0 \f} and \f{align}{ L_{2^d-1}(\vec X)\cdot Z_{\text{perm, shifted}}(\vec X)   = 0 \f}
+ + \gamma)\right] &\ = 0 \f} and \f{align}{ L_{\text{last}}(\vec X)\cdot Z_{\text{perm, shifted}}(\vec X)   = 0 \f}
 
-    Here, \f$ \vec X = (X_0,\ldots, X_{d-1})\f$, where \f$ d \f$ is the log of the circuit size.
+    Here, \f$ \vec X = (X_0,\ldots, X_{d-1})\f$, and \f$L_{\text{last}}\f$ is "Lagrange last", i.e., the indicator
+ function on the boolean hypercube which is 1 at the point whose corresponding index is the last active row of the
+ circuit.
 
 
  * @tparam FF_
+ *
+ * @note This is the only relation in Ultra that requires `lagrange_last`.
  */
 template <typename FF_> class UltraPermutationRelationImpl {
   public:
@@ -68,7 +72,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
 
-        // witness degree 4; full degree 8
+        // witness degree 4
         return (w_1 + id_1 * beta + gamma) * (w_2 + id_2 * beta + gamma) * (w_3 + id_3 * beta + gamma) *
                (w_4 + id_4 * beta + gamma);
     }
@@ -92,7 +96,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
 
-        // witness degree 4; full degree 8
+        // witness degree 4
         return (w_1 + sigma_1 * beta + gamma) * (w_2 + sigma_2 * beta + gamma) * (w_3 + sigma_3 * beta + gamma) *
                (w_4 + sigma_4 * beta + gamma);
     }
@@ -186,7 +190,6 @@ template <typename FF_> class UltraPermutationRelationImpl {
         public_input_term_m += z_perm_shift_m;
         const Accumulator public_input_term(public_input_term_m);
         // witness degree: deg 5 - deg 5 = deg 5
-        // total degree: deg 9 - deg 10 = deg 10
         std::get<0>(accumulators) +=
             ((Accumulator(z_perm_m + lagrange_first_m) * numerator) - (public_input_term * denominator));
 
