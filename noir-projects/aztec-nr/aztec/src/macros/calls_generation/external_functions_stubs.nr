@@ -4,10 +4,7 @@
 //!
 //!   ExternalContract.at(address).some_method(arg1, arg2).enqueue()
 
-use crate::macros::{
-    functions::{self_call_registry, stub_registry as call_registry},
-    utils::{AsStrQuote, compute_fn_selector, is_fn_view},
-};
+use crate::macros::utils::{AsStrQuote, compute_fn_selector};
 use protocol_types::meta::utils::derive_serialization_quotes;
 use std::meta::unquote;
 
@@ -20,47 +17,6 @@ comptime global FROM_FIELD: TypedExpr = {
     })[0]
         .as_typed_expr()
 };
-
-// Call registry is used to register calls to the contract from other contracts.
-// Self-call registry is used to register calls to the contract from itself.
-
-pub comptime fn register_private_fn_stubs(f: FunctionDefinition) {
-    if is_fn_view(f) {
-        call_registry::register(f.module(), create_private_static_stub(f));
-        self_call_registry::register_call_self_private_static(
-            f.module(),
-            create_private_self_call_stub(f, true),
-        );
-    } else {
-        call_registry::register(f.module(), create_private_stub(f));
-        self_call_registry::register_call_self_private(
-            f.module(),
-            create_private_self_call_stub(f, false),
-        );
-    };
-}
-
-pub comptime fn register_public_fn_stubs(f: FunctionDefinition) {
-    if is_fn_view(f) {
-        call_registry::register(f.module(), create_public_static_stub(f));
-        self_call_registry::register_call_self_public_static(
-            f.module(),
-            create_public_self_call_static_stub(f),
-        );
-        self_call_registry::register_enqueue_self_static(
-            f.module(),
-            create_public_self_enqueue_static_stub(f),
-        );
-    } else {
-        call_registry::register(f.module(), create_public_stub(f));
-        self_call_registry::register_call_self_public(f.module(), create_public_self_call_stub(f));
-        self_call_registry::register_enqueue_self(f.module(), create_public_self_enqueue_stub(f));
-    };
-}
-
-pub comptime fn register_utility_fn_stub(f: FunctionDefinition) {
-    call_registry::register(f.module(), create_utility_stub(f));
-}
 
 /// Utility function creating stubs used by all the stub functions in this file.
 comptime fn create_stub_base(
@@ -100,7 +56,7 @@ comptime fn create_stub_base(
     )
 }
 
-comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
+pub(crate) comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
@@ -120,7 +76,7 @@ comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
     }
 }
 
-comptime fn create_private_static_stub(f: FunctionDefinition) -> Quoted {
+pub(crate) comptime fn create_private_static_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
@@ -139,7 +95,7 @@ comptime fn create_private_static_stub(f: FunctionDefinition) -> Quoted {
     }
 }
 
-comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
+pub(crate) comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
@@ -159,7 +115,7 @@ comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
     }
 }
 
-comptime fn create_public_static_stub(f: FunctionDefinition) -> Quoted {
+pub(crate) comptime fn create_public_static_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
@@ -178,7 +134,7 @@ comptime fn create_public_static_stub(f: FunctionDefinition) -> Quoted {
     }
 }
 
-comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
+pub(crate) comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();

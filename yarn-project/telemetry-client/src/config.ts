@@ -86,7 +86,7 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   publicMetricsOptOut: {
     env: 'PUBLIC_OTEL_OPT_OUT',
     description: 'Whether to opt out of sharing optional telemetry',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
 };
 

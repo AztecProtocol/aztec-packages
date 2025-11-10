@@ -57,10 +57,6 @@ function release {
   retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
-function cross_copy {
-  ./scripts/copy_cross.sh
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -69,7 +65,7 @@ case "$cmd" in
     build
     test
     ;;
-  "")
+  ""|"fast"|"full")
     build
     ;;
   "hash")
@@ -78,7 +74,7 @@ case "$cmd" in
   bench|bench_cmds)
     # Empty handling just to make this command valid.
     ;;
-  test|test_cmds|release|cross_copy)
+  test|test_cmds|release)
     $cmd
     ;;
   *)

@@ -30,17 +30,15 @@ PS1=" " source ~/.bash_profile
 # Sanity check lsp.
 echo "Checking LSP..."
 echo -ne 'Content-Length: 100\r\n\r\n{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": null, "capabilities": {}}}' \
-  | aztec-nargo lsp \
+  | aztec lsp \
   | grep -q '"jsonrpc":"2.0"'
 echo "LSP check passed."
 
-# aztec-nargo -V
 # aztec -V
 # aztec-wallet -V
 
 # aztec-up
 
-# aztec-nargo -V
 # aztec -V
 # aztec-wallet -V
 

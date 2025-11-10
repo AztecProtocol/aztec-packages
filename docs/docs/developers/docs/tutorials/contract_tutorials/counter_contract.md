@@ -21,7 +21,7 @@ This tutorial is compatible with the Aztec version `#include_aztec_version`. Ins
 Run this to create a new contract project:
 
 ```bash
-aztec-nargo new --contract counter
+aztec new --contract counter
 ```
 
 Your structure should look like this:
@@ -125,8 +125,7 @@ Now we've written a simple Aztec.nr smart contract, we can compile it.
 In `./counter/` directory, run these commands:
 
 ```bash
-aztec-nargo compile # generate contract artifacts
-aztec-postprocess-contract # transpile contracts and generate verification keys
+aztec compile # compiles the contract
 ```
 
 The first command compiles your Noir contract and creates a `target` folder with a `.json` artifact inside. The second command processes these artifacts for use with Aztec (transpiling for the AVM and generating verification keys). Do not worry if you see some warnings - Aztec is in fast development and it is likely you will see some irrelevant warning messages.

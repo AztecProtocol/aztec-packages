@@ -8,6 +8,7 @@ test('test', async ({ page }) => {
       console.error(text);
       // Fail immediately on JavaScript errors to avoid timeout
       if (
+        (text.includes("Error: ") && !text.includes("Error: Timed out ")) ||
         text.includes('Uncaught') ||
         text.includes('TypeError') ||
         text.includes('ReferenceError') ||

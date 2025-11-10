@@ -154,8 +154,8 @@ export class SequencerClient {
     // In theory, the L1 slot has an initial 4s phase where the block is propagated, so we could
     // make it with a propagation time into slot equal to 4s. However, we prefer being conservative.
     // See https://www.blocknative.com/blog/anatomy-of-a-slot#7 for more info.
-    const maxL1TxInclusionTimeIntoSlot =
-      (config.maxL1TxInclusionTimeIntoSlot ?? isAnvilTestChain(config.l1ChainId)) ? ethereumSlotDuration - 1 : 0;
+    const maxInclusionBasedOnChain = isAnvilTestChain(config.l1ChainId) ? ethereumSlotDuration - 1 : 0;
+    const maxL1TxInclusionTimeIntoSlot = config.maxL1TxInclusionTimeIntoSlot ?? maxInclusionBasedOnChain;
 
     const l1Constants = {
       l1GenesisTime,
