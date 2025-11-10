@@ -184,7 +184,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     ExecutionTrace blocks;
 
     // The set of variables which have been constrained to a particular value via an arithmetic gate
-    std::map<FF, uint32_t> constant_variable_indices;
+    std::unordered_map<FF, uint32_t> constant_variable_indices;
 
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
     std::vector<plookup::BasicTable> lookup_tables;
