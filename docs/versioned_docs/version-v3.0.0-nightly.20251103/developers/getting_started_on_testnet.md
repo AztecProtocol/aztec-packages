@@ -7,13 +7,13 @@ description: Guide for developers to get started with the Aztec testnet, includi
 
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
-This guide explains the differences between sandbox and testnet, how to migrate from sandbox to testnet, and how to start developing directly on testnet.
+This guide explains the differences between local network and testnet, how to migrate from local network to testnet, and how to start developing directly on testnet.
 
-## Sandbox vs Testnet: Key Differences
+## Local Network vs Testnet: Key Differences
 
-Before diving into the setup, it's important to understand the differences between sandbox and testnet:
+Before diving into the setup, it's important to understand the differences between local network and testnet:
 
-### Sandbox (Local Development)
+### Local Network (Local Development)
 
 - Runs locally on your machine
 - No proving by default (faster development)
@@ -32,7 +32,7 @@ Before diving into the setup, it's important to understand the differences betwe
 - Ideal for production-like testing
 
 :::info
-If you're new to Aztec and want to understand local development first, check out the [sandbox guide](../developers/docs/tutorials/sandbox.md).
+If you're new to Aztec and want to understand local development first, check out the [local network guide](./docs/tutorials/sandbox.md).
 :::
 
 ## Prerequisites
@@ -69,7 +69,7 @@ export SPONSORED_FPC_ADDRESS=0x299f255076aa461e4e94a843f0275303470a6b8ebe7cb44a4
 
 ### Step 2: Create and deploy an account
 
-Unlike sandbox, testnet has no pre-deployed accounts. You need to create your own:
+Unlike the local network, testnet has no pre-deployed accounts. You need to create your own:
 
 ```bash
 aztec-wallet create-account \
@@ -130,13 +130,13 @@ aztec-wallet send mint_to_private \
     --args accounts:my-wallet 10
 ```
 
-## Migrating from Sandbox to Testnet
+## Migrating from Local Network to Testnet
 
-If you have an existing app running on sandbox, here's how to migrate it to testnet:
+If you have an existing app running on local network, here's how to migrate it to testnet:
 
 ### 1. Connect to Testnet Node
 
-Instead of running a local sandbox, connect to the testnet node:
+Instead of running a local network, connect to the testnet node:
 
 ```sh
 export NODE_URL=https://aztec-testnet-fullnode.zkv.xyz
@@ -187,7 +187,7 @@ const pxe = await createPXE(node, fullConfig, { store });
 
 ### 3. Handle Fees on Testnet
 
-Unlike sandbox, testnet requires fee payment. You have three options:
+Unlike local network, testnet requires fee payment. You have three options:
 
 1. **User pays their own fees** - Send them tokens or direct them to the faucet
 2. **Your contract sponsors fees** - Deploy a fee-paying contract
@@ -209,14 +209,14 @@ const receiptForBob = await bananaCoin
 - **No test accounts**: You'll need to deploy accounts manually
 - **Longer transaction times**: Handle timeouts gracefully - transactions may still succeed
 - **L1-L2 messaging delays**:
-  - L1→L2: Wait ~1.5-2 minutes (vs 2 blocks on sandbox)
-  - L2→L1: Wait ~30 minutes for finalization (vs immediate on sandbox)
+  - L1→L2: Wait ~1.5-2 minutes (vs 2 blocks on local network)
+  - L2→L1: Wait ~30 minutes for finalization (vs immediate on local network)
 
 ## Key Considerations When Using Testnet
 
 ### Handling Transaction Timeouts
 
-Testnet transactions take longer than sandbox. Handle timeouts gracefully:
+Testnet transactions take longer than local network. Handle timeouts gracefully:
 
 ```javascript
 try {
@@ -240,7 +240,7 @@ const nodeUrl = process.env.NODE_URL || "http://localhost:8080";
 
 ## Next Steps
 
-- **New to Aztec?** Start with the [sandbox tutorial](../developers/docs/tutorials/sandbox.md) for faster development
+- **New to Aztec?** Start with the [local network tutorial](./docs/tutorials/sandbox.md) for faster development
 - **Ready for production testing?** Continue using testnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)

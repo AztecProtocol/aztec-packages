@@ -60,10 +60,7 @@ template <typename Curve> struct PairingPoints {
 
 #ifndef NDEBUG
         bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
-        info("Are Pairing Points with tag ",
-             builder->pairing_points_tagging.get_tag(tag_index),
-             " valid? ",
-             native_pp.check() ? "true" : "false");
+        info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
 #endif
     }
 
@@ -181,10 +178,7 @@ template <typename Curve> struct PairingPoints {
 
 #ifndef NDEBUG
         bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
-        info("Are Pairing Points with tag ",
-             builder->pairing_points_tagging.get_tag(this->tag_index),
-             " valid? ",
-             native_pp.check() ? "true" : "false");
+        info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
 #endif
     }
 

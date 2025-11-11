@@ -204,11 +204,6 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/getting_started_on_sandbox",
-            label: "Install Sandbox",
-            position: "right",
-          },
-          {
             to: "/try_testnet",
             label: "Try Testnet",
             position: "right",
@@ -308,10 +303,6 @@ const config = {
               {
                 label: "Introduction",
                 to: "/",
-              },
-              {
-                label: "Developer Getting Started",
-                to: "/developers/getting_started",
               },
               {
                 label: "Aztec.nr",

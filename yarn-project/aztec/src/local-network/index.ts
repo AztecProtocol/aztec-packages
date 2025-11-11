@@ -1,4 +1,4 @@
-export * from './sandbox.js';
+export * from './local-network.js';
 
 export {
   registerDeployedBananaCoinInWalletAndGetAddress,

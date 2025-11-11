@@ -1,7 +1,7 @@
 ---
 title: Noir VSCode Extension
 sidebar_position: 0
-tags: [sandbox]
+tags: [local network, sandbox]
 description: Learn how to install and configure the Noir Language Server for a better development experience.
 ---
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Footer from '@theme-original/Footer';
+import Link from '@docusaurus/Link';
 import styles from './Footer.module.css';
 import { isValidEmail } from '@site/src/utils/emailValidation';
 import { analytics } from '@site/src/utils/analytics';
@@ -144,10 +145,7 @@ export default function FooterWrapper(props) {
                 <div className="footer__title">Docs</div>
                 <ul className="footer__items clean-list">
                   <li className="footer__item">
-                    <a className="footer__link-item" href="/">Introduction</a>
-                  </li>
-                  <li className="footer__item">
-                    <a className="footer__link-item" href="/developers/getting_started">Developer Getting Started</a>
+                    <Link className="footer__link-item" to="/">Introduction</Link>
                   </li>
                   <li className="footer__item">
                     <a className="footer__link-item" href="https://github.com/AztecProtocol/aztec-nr">

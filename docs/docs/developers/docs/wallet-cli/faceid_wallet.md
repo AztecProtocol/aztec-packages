@@ -1,6 +1,6 @@
 ---
 title: Using FaceID to Sign Transactions (Mac Only)
-tags: [sandbox, wallet, cli]
+tags: [local_network, wallet, cli]
 keywords: [wallet, cli wallet, faceid]
 sidebar_position: 5
 description: In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's CLI Wallet. This enables fully private, native, and ...
@@ -15,12 +15,12 @@ Aztec is in active development and this has only been tested on MacOS. Please re
 :::
 
 :::note
-This tutorial is for the sandbox and will need adjustments if you want to use it on testnet. Install the sandbox [here](../../getting_started_on_sandbox.md).
+This tutorial is for the local network and will need adjustments if you want to use it on testnet. Install the local network [here](../../getting_started_on_local_network.md).
 :::
 
 ## Prerequisites
 
-For this tutorial, we will need to have the [Sandbox](../aztec-cli/sandbox-reference.md) installed.
+For this tutorial, we will need to have the [Local Network](../aztec-cli/local-network-reference.md) installed.
 
 We also need to install Secretive, a nice open-source package that allows us to store keys on the Secure Enclave. You can head to the [secretive releases page](https://github.com/maxgoedjen/secretive/releases) and get the last release's `zip`, unzip and move to Applications, or use [Homebrew](https://brew.sh/):
 
@@ -82,7 +82,7 @@ Create a new Aztec app with `npx aztec-app`:
 npx aztec-app new -s -t contract -n token_contract token
 ```
 
-This creates a new project, skips running the sandbox (`-s`), and clones the contract-only box (`-t`) called token_contract (`-n`). You should now have a `token_contract` folder. Let's compile our contract:
+This creates a new project, skips running the local network (`-s`), and clones the contract-only box (`-t`) called token_contract (`-n`). You should now have a `token_contract` folder. Let's compile our contract:
 
 ```bash
 cd token_contract

@@ -10,7 +10,7 @@ Imagine you own a CryptoPunk NFT on Ethereum. You want to use it in games, socia
 
 In this tutorial, you'll build a **private NFT bridge**. By the end, you'll understand how **portals** work and how **cross-chain messages** flow between L1 and L2.
 
-Before starting, make sure you have the Aztec sandbox running at version #include_aztec_version. Check out [the sandbox guide](../../../getting_started_on_sandbox.md) for setup instructions.
+Before starting, make sure you have the Aztec local network running at version #include_aztec_version. Check out [the local network guide](../../../getting_started_on_local_network.md) for setup instructions.
 
 ## What You'll Build
 
@@ -37,10 +37,10 @@ cd hardhat-aztec-example
 yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/stdlib@#include_version_without_prefix @aztec/test-wallet@#include_version_without_prefix tsx
 ```
 
-Now start the sandbox in another terminal:
+Now start the local network in another terminal:
 
 ```bash
-aztec start --sandbox
+aztec start --local-network
 ```
 
 This should start two important services on ports 8080 and 8545, respectively: Aztec and Anvil (an Ethereum development node).
@@ -354,7 +354,7 @@ This script will implement the user flow.
 
 :::warning Testnet
 
-This section assumes you're working locally using Sandbox. For the testnet, you need to account for some things:
+This section assumes you're working locally using the local network. For the testnet, you need to account for some things:
 
 - Your clients need to point to some Sepolia Node and to the public Aztec Full Node
 - You need to [deploy your own Aztec accounts](../../aztec-js/how_to_create_account.md)
