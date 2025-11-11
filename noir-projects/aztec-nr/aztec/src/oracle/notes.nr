@@ -6,6 +6,7 @@ use dep::protocol_types::{address::AztecAddress, traits::Packable};
 /// transaction. This note should only be added to the non-volatile database if found in an actual block.
 pub fn notify_created_note<let N: u32>(
     storage_slot: Field,
+    randomness: Field,
     note_type_id: Field,
     packed_note: [Field; N],
     note_hash: Field,
@@ -16,6 +17,7 @@ pub fn notify_created_note<let N: u32>(
     unsafe {
         notify_created_note_oracle_wrapper(
             storage_slot,
+            randomness,
             note_type_id,
             packed_note,
             note_hash,
@@ -42,17 +44,26 @@ pub fn notify_created_nullifier(nullifier: Field) {
 
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     storage_slot: Field,
+    randomness: Field,
     note_type_id: Field,
     packed_note: [Field; N],
     note_hash: Field,
     counter: u32,
 ) {
-    notify_created_note_oracle(storage_slot, note_type_id, packed_note, note_hash, counter);
+    notify_created_note_oracle(
+        storage_slot,
+        randomness,
+        note_type_id,
+        packed_note,
+        note_hash,
+        counter,
+    );
 }
 
 #[oracle(privateNotifyCreatedNote)]
 unconstrained fn notify_created_note_oracle<let N: u32>(
     _storage_slot: Field,
+    _randomness: Field,
     _note_type_id: Field,
     _packed_note: [Field; N],
     _note_hash: Field,

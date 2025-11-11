@@ -283,6 +283,7 @@ export class Oracle {
 
   privateNotifyCreatedNote(
     [storageSlot]: ACVMField[],
+    [randomness]: ACVMField[],
     [noteTypeId]: ACVMField[],
     note: ACVMField[],
     [noteHash]: ACVMField[],
@@ -290,6 +291,7 @@ export class Oracle {
   ): Promise<ACVMField[]> {
     this.handlerAsPrivate().privateNotifyCreatedNote(
       Fr.fromString(storageSlot),
+      Fr.fromString(randomness),
       NoteSelector.fromField(Fr.fromString(noteTypeId)),
       note.map(Fr.fromString),
       Fr.fromString(noteHash),

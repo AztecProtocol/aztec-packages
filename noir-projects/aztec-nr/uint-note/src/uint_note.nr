@@ -34,14 +34,12 @@ pub struct UintNote {
 
     /// The owner of the note, i.e. the account whose nullifier secret key is required to compute the nullifier.
     owner: AztecAddress,
-    /// Random value, protects against note hash preimage attacks.
-    randomness: Field,
     /// The number stored in the note.
     value: u128,
 }
 
 impl NoteHash for UintNote {
-    fn compute_note_hash(self, storage_slot: Field) -> Field {
+    fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
         // Partial notes can be implemented by having the note hash be either the result of multiscalar multiplication
         // (MSM), or two rounds of poseidon. MSM results in more constraints and is only required when multiple variants
         // of partial notes are supported. Because UintNote has just one variant (where the value is public), we use
@@ -52,10 +50,9 @@ impl NoteHash for UintNote {
         // perform both steps of the partial note computation.
 
         // First we create the partial note from a commitment to the private content (including storage slot).
-        let private_content =
-            UintPartialNotePrivateContent { owner: self.owner, randomness: self.randomness };
+        let private_content = UintPartialNotePrivateContent { owner: self.owner };
         let partial_note = PartialUintNote {
-            commitment: private_content.compute_partial_commitment(storage_slot),
+            commitment: private_content.compute_partial_commitment(storage_slot, randomness),
         };
 
         // Then compute the completion note hash. In a real partial note this step would be performed in public.
@@ -95,12 +92,7 @@ impl NoteHash for UintNote {
 
 impl UintNote {
     pub fn new(value: u128, owner: AztecAddress) -> Self {
-        // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
-        // so a malicious sender could use non-random values to make the note less private. But they already know
-        // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
-        // information. We can therefore assume that the sender will cooperate in the random value generation.
-        let randomness = unsafe { random() };
-        Self { value, owner, randomness }
+        Self { value, owner }
     }
 
     pub fn get_value(self) -> u128 {
@@ -138,8 +130,10 @@ impl UintNote {
         let randomness = unsafe { random() };
 
         // We create a commitment to the private data, which we then use to construct the log we send to the recipient.
-        let commitment = UintPartialNotePrivateContent { owner, randomness }
-            .compute_partial_commitment(storage_slot);
+        let commitment = UintPartialNotePrivateContent { owner }.compute_partial_commitment(
+            storage_slot,
+            randomness,
+        );
 
         // Our partial note log encoding scheme includes a field with the tag of the public completion log, and we use
         // the commitment as the tag. This is good for multiple reasons:
@@ -148,11 +142,12 @@ impl UintNote {
         //  - we don't need to create any additional information, private or public, for the tag
         //  - other contracts cannot impersonate us and emit logs with the same tag due to public log siloing
         let private_log_content =
-            UintPartialNotePrivateLogContent { owner, randomness, public_log_tag: commitment };
+            UintPartialNotePrivateLogContent { owner, public_log_tag: commitment };
 
         let encrypted_log = note::compute_partial_note_private_content_log(
             private_log_content,
             storage_slot,
+            randomness,
             recipient,
         );
         // Regardless of the original content size, the log is padded with random bytes up to
@@ -179,14 +174,13 @@ struct UintPartialNotePrivateContent {
     // The ordering of these fields is important given that it must match that of UintNote.
     // Correct ordering is checked by the tests in this module.
     owner: AztecAddress,
-    randomness: Field,
 }
 
 impl UintPartialNotePrivateContent {
-    fn compute_partial_commitment(self, storage_slot: Field) -> Field {
+    fn compute_partial_commitment(self, storage_slot: Field, randomness: Field) -> Field {
         // Here we commit to all private values, including the storage slot.
         poseidon2_hash_with_separator(
-            self.pack().concat([storage_slot]),
+            self.pack().concat([storage_slot, randomness]),
             GENERATOR_INDEX__NOTE_HASH,
         )
     }
@@ -200,7 +194,6 @@ struct UintPartialNotePrivateLogContent {
     // Correct ordering is checked by the tests in this module.
     public_log_tag: Field,
     owner: AztecAddress,
-    randomness: Field,
 }
 
 impl NoteType for UintPartialNotePrivateLogContent {
@@ -350,13 +343,16 @@ mod test {
         // private values. This requires for the same hash function to be used in both flows, with the fields in the
         // same order.
 
-        let note = UintNote { value, randomness, owner };
-        let note_hash = note.compute_note_hash(storage_slot);
+        let note = UintNote { value, owner };
+        let note_hash = note.compute_note_hash(storage_slot, randomness);
 
-        let partial_note_private_content = UintPartialNotePrivateContent { owner, randomness };
+        let partial_note_private_content = UintPartialNotePrivateContent { owner };
 
         let partial_note = PartialUintNote {
-            commitment: partial_note_private_content.compute_partial_commitment(storage_slot),
+            commitment: partial_note_private_content.compute_partial_commitment(
+                storage_slot,
+                randomness,
+            ),
         };
         let completed_partial_note_hash = partial_note.compute_complete_note_hash(value);
 
@@ -369,13 +365,14 @@ mod test {
         // private fields log and the public completion log, ensuring the recipient will be able to compute the
         // completed note as if it were a regular UintNote.
 
-        let note = UintNote { value, randomness, owner };
+        let note = UintNote { value, owner };
 
-        let partial_note_private_content = UintPartialNotePrivateContent { owner, randomness };
-        let commitment = partial_note_private_content.compute_partial_commitment(storage_slot);
+        let partial_note_private_content = UintPartialNotePrivateContent { owner };
+        let commitment =
+            partial_note_private_content.compute_partial_commitment(storage_slot, randomness);
 
         let private_log_content =
-            UintPartialNotePrivateLogContent { owner, randomness, public_log_tag: commitment };
+            UintPartialNotePrivateLogContent { owner, public_log_tag: commitment };
         // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
         // letting devs manually construct it when they shouldn't be able to.
         let partial_note = PartialUintNote::deserialize([commitment]);
@@ -390,7 +387,7 @@ mod test {
         // Then we extract all fields except the first of both logs (i.e. the public log tag), and combine them to
         // produce the note's packed representation. This requires that the members of the intermediate structs are in
         // the same order as in UintNote.
-        let private_log_without_public_tag: [_; 2] = subarray(private_log_content.pack(), 1);
+        let private_log_without_public_tag: [_; 1] = subarray(private_log_content.pack(), 1);
         let public_log_without_tag: [_; 1] =
             subarray(partial_note.compute_note_completion_log(value), 1);
 

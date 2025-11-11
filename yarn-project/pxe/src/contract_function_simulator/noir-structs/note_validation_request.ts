@@ -14,6 +14,7 @@ export class NoteValidationRequest {
   constructor(
     public contractAddress: AztecAddress,
     public storageSlot: Fr,
+    public randomness: Fr,
     public noteNonce: Fr,
     public content: Fr[],
     public noteHash: Fr,
@@ -27,6 +28,7 @@ export class NoteValidationRequest {
 
     const contractAddress = AztecAddress.fromField(reader.readField());
     const storageSlot = reader.readField();
+    const randomness = reader.readField();
     const noteNonce = reader.readField();
 
     const contentStorage = reader.readFieldArray(MAX_NOTE_PACKED_LEN);
@@ -41,6 +43,7 @@ export class NoteValidationRequest {
     return new NoteValidationRequest(
       contractAddress,
       storageSlot,
+      randomness,
       noteNonce,
       content,
       noteHash,

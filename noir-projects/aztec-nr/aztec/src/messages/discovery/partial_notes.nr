@@ -36,6 +36,7 @@ pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sh
 pub(crate) struct DeliveredPendingPartialNote {
     pub(crate) note_completion_log_tag: Field,
     pub(crate) storage_slot: Field,
+    pub(crate) randomness: Field,
     pub(crate) note_type_id: Field,
     pub(crate) packed_private_note_content: BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>,
     pub(crate) recipient: AztecAddress,
@@ -47,7 +48,7 @@ pub unconstrained fn process_partial_note_private_msg(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) {
-    let (note_type_id, storage_slot, note_completion_log_tag, packed_private_note_content) =
+    let (note_type_id, storage_slot, randomness, note_completion_log_tag, packed_private_note_content) =
         decode_partial_note_private_msg(msg_metadata, msg_content);
 
     // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later search
@@ -55,6 +56,7 @@ pub unconstrained fn process_partial_note_private_msg(
     let pending = DeliveredPendingPartialNote {
         note_completion_log_tag,
         storage_slot,
+        randomness,
         note_type_id,
         packed_private_note_content,
         recipient,
@@ -131,6 +133,7 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
                 compute_note_hash_and_nullifier,
                 contract_address,
                 pending_partial_note.storage_slot,
+                pending_partial_note.randomness,
                 pending_partial_note.note_type_id,
                 complete_packed_note,
             );
@@ -152,6 +155,7 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
                 enqueue_note_for_validation(
                     contract_address,
                     pending_partial_note.storage_slot,
+                    pending_partial_note.randomness,
                     discovered_note.note_nonce,
                     complete_packed_note,
                     discovered_note.note_hash,
@@ -171,7 +175,7 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
 fn decode_partial_note_private_msg(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-) -> (Field, Field, Field, BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>) {
+) -> (Field, Field, Field, Field, BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>) {
     let note_type_id = msg_metadata as Field; // TODO: make note type id not be a full field
 
     assert(
@@ -189,9 +193,10 @@ fn decode_partial_note_private_msg(
     // We currently have two fields that are not the partial note's packed representation, which are the storage slot
     // and the note completion log tag.
     let storage_slot = msg_content.get(0);
-    let note_completion_log_tag = msg_content.get(1);
+    let randomness = msg_content.get(1);
+    let note_completion_log_tag = msg_content.get(2);
 
-    let packed_private_note_content = array::subbvec(msg_content, 2);
+    let packed_private_note_content = array::subbvec(msg_content, 3);
 
-    (note_type_id, storage_slot, note_completion_log_tag, packed_private_note_content)
+    (note_type_id, storage_slot, randomness, note_completion_log_tag, packed_private_note_content)
 }

@@ -15,6 +15,7 @@ use protocol_types::{
 pub fn compute_partial_note_private_content_log<PartialNotePrivateContent>(
     partial_note_private_content: PartialNotePrivateContent,
     storage_slot: Field,
+    randomness: Field,
     recipient: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
@@ -23,6 +24,7 @@ where
     let message_plaintext = partial_note_private_content_to_message_plaintext(
         partial_note_private_content,
         storage_slot,
+        randomness,
     );
     let message_ciphertext = AES128::encrypt(message_plaintext, recipient);
 
@@ -32,17 +34,19 @@ where
 pub fn private_note_to_message_plaintext<Note>(
     note: Note,
     storage_slot: Field,
-) -> [Field; <Note as Packable>::N + 2]
+    randomness: Field,
+) -> [Field; <Note as Packable>::N + 3]
 where
     Note: NoteType + Packable,
 {
     let packed_note = note.pack();
 
     // A note message's content is the storage slot followed by the packed note representation
-    let mut msg_content = [0; 1 + <Note as Packable>::N];
+    let mut msg_content = [0; 2 + <Note as Packable>::N];
     msg_content[0] = storage_slot;
+    msg_content[1] = randomness;
     for i in 0..packed_note.len() {
-        msg_content[1 + i] = packed_note[i];
+        msg_content[2 + i] = packed_note[i];
     }
 
     // Notes use the note type id for metadata
@@ -52,15 +56,17 @@ where
 pub fn partial_note_private_content_to_message_plaintext<PartialNotePrivateContent>(
     partial_note_private_content: PartialNotePrivateContent,
     storage_slot: Field,
-) -> [Field; <PartialNotePrivateContent as Packable>::N + 2]
+    randomness: Field,
+) -> [Field; <PartialNotePrivateContent as Packable>::N + 3]
 where
     PartialNotePrivateContent: NoteType + Packable,
 {
     let packed_private_content = partial_note_private_content.pack();
 
     // A partial note message's content is the storage slot followed by the packed private content representation
-    let mut msg_content = [0; 1 + <PartialNotePrivateContent as Packable>::N];
+    let mut msg_content = [0; 2 + <PartialNotePrivateContent as Packable>::N];
     msg_content[0] = storage_slot;
+    msg_content[1] = randomness;
     for i in 0..packed_private_content.len() {
         msg_content[1 + i] = packed_private_content[i];
     }
