@@ -270,8 +270,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @param transcript Used to extract tag context (transcript_index, round_index)
      * @returns The hash of the verification key
      */
-    virtual typename Transcript::DataType hash_with_origin_tags([[maybe_unused]] const std::string& domain_separator,
-                                                                Transcript& transcript) const
+    virtual typename Transcript::DataType hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                                                   Transcript& transcript) const
     {
         using DataType = typename Transcript::DataType;
         using Codec = typename Transcript::Codec;
@@ -280,19 +280,19 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         const OriginTag tag = bb::extract_transcript_tag(transcript);
 
         // Tag, serialize, and append to vk_elements
-        auto append_tagged = [&]<typename T>(const T& component) {
+        auto tag_and_append = [&]<typename T>(const T& component) {
             auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
             vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
         };
 
         // Tag and serialize VK metadata
-        append_tagged(this->log_circuit_size);
-        append_tagged(this->num_public_inputs);
-        append_tagged(this->pub_inputs_offset);
+        tag_and_append(this->log_circuit_size);
+        tag_and_append(this->num_public_inputs);
+        tag_and_append(this->pub_inputs_offset);
 
         // Tag and serialize VK commitments
         for (const Commitment& commitment : this->get_all()) {
-            append_tagged(commitment);
+            tag_and_append(commitment);
         }
 
         // Sanitize free witness tags before hashing
@@ -382,7 +382,8 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * @param transcript Used to extract tag context (transcript_index, round_index)
      * @returns The hash of the verification key
      */
-    virtual FF hash_with_origin_tags([[maybe_unused]] const std::string& domain_separator, Transcript& transcript) const
+    virtual FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                        Transcript& transcript) const
     {
         using Codec = stdlib::StdlibCodec<FF>;
         std::vector<FF> vk_elements;

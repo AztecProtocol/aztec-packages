@@ -95,7 +95,7 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
      * @brief Tag claim components and hash.
      */
     template <typename T>
-    FF hash_with_origin_tags([[maybe_unused]] const std::string& domain_separator, T& transcript) const
+    FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator, T& transcript) const
     {
         using Codec = typename T::Codec;
         std::vector<FF> claim_elements;

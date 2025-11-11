@@ -69,7 +69,7 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
      * @param transcript Used to extract tag context (transcript_index, round_index)
      * @return FF Hash of the verifier instance
      */
-    FF hash_with_origin_tags([[maybe_unused]] const std::string& domain_separator, Transcript& transcript) const
+    FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator, Transcript& transcript) const
     {
         BB_ASSERT_EQ(is_complete, true, "Trying to hash a verifier instance that has not been completed.");
 

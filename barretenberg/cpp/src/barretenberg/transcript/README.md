@@ -169,7 +169,7 @@ Add element to the Fiat-Shamir transcript (affects challenge generation).
 
 ```cpp
 // Add VK hash to the Fiat-Shamir transcript
-FF vk_hash = vk->hash_with_origin_tags(domain_separator, *transcript);
+FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 
 // Now challenges will depend on the VK hash
@@ -232,12 +232,12 @@ auto [beta, gamma] = transcript->get_challenges<FF>({"beta", "gamma"});
 - Uses iterative duplex hashing for subsequent pairs
 - All challenges from same round get the same origin tag
 
-#### `get_powers_of_challenge<ChallengeType>(const std::string& label, size_t num_challenges) -> std::vector<ChallengeType>`
+#### `get_dyadic_powers_of_challenge<ChallengeType>(const std::string& label, size_t num_challenges) -> std::vector<ChallengeType>`
 Generate a challenge and compute powers `[δ, δ², δ⁴, ..., δ^(2^(num_challenges-1))]`.
 
 ```cpp
 // Used for gate separators in Sumcheck
-auto gate_challenges = transcript->get_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
+auto gate_challenges = transcript->get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 // Returns [δ, δ², δ⁴, δ⁸, ...] (log_n elements)
 ```
 
@@ -479,7 +479,7 @@ ROUND 0 - PREAMBLE (reception_phase=true, round_index=0)
 ** VK hash MUST be the first element added to transcript **
 
 ┌──────────────────────────────────────────────┐
-│ vk->hash_with_origin_tags(...)             │──► Internally:
+│ vk->hash_with_origin_tagging(...)             │──► Internally:
 │                                              │    1. extract_transcript_tag(transcript)
 │ Returns: vk_hash                             │    2. tag_and_serialize() all VK components
 └──────────────────────────────────────────────┘    3. Hash the serialized elements
@@ -619,11 +619,11 @@ VK HASHING WITH ORIGIN TAG ASSIGNMENT
 ═══════════════════════════════════════
 
 ┌────────────────────────────────────────────────────────────────┐
-│ VK Hash Computation (via hash_with_origin_tags())            │
+│ VK Hash Computation (via hash_with_origin_tagging())            │
 └────────────────────────────────────────────────────────────────┘
 
     ┌──────────────────────────────────────────┐
-    │ vk->hash_with_origin_tags(domain, tx)  │
+    │ vk->hash_with_origin_tagging(domain, tx)  │
     └──────────────────────────────────────────┘
                     │
                     ▼
@@ -781,13 +781,13 @@ transcript->add_to_hash_buffer("public_input", input);  // Hash only
 transcript->send_to_verifier("public_input", input);
 ```
 
-### 3. **Use `hash_with_origin_tags()` for VK/Instance Hashing**
+### 3. **Use `hash_with_origin_tagging()` for VK/Instance Hashing**
 
 Always use the dedicated method for hashing verification keys and verifier instances:
 
 ```cpp
 // ✅ CORRECT - proper origin tag assignment
-FF vk_hash = vk->hash_with_origin_tags(domain_separator, *transcript);
+FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 
 // ❌ WRONG - no origin tags in recursive verification
@@ -795,7 +795,7 @@ FF vk_hash = vk->hash();
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 ```
 
-**Why**: `hash_with_origin_tags()` uses `extract_transcript_tag()` and `tag_and_serialize()` to ensure all VK commitments get proper origin tags as a side effect of hashing.
+**Why**: `hash_with_origin_tagging()` uses `extract_transcript_tag()` and `tag_and_serialize()` to ensure all VK commitments get proper origin tags as a side effect of hashing.
 
 ### 4. **Test-Specific Utilities**
 

@@ -85,7 +85,7 @@ std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> Hypernov
     } else {
         instance->target_sum = FF::zero();
     }
-    instance->gate_challenges = transcript->template get_powers_of_challenge<FF>(
+    instance->gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
         "HypernovaFoldingProver:gate_challenge", Flavor::VIRTUAL_LOG_N);
 
     // Sumcheck verification

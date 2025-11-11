@@ -298,7 +298,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
      * @return Vector of num_challenges elements: [δ, δ², δ⁴, δ⁸, ...]
      */
     template <typename ChallengeType>
-    std::vector<ChallengeType> get_powers_of_challenge(const std::string& label, size_t num_challenges)
+    std::vector<ChallengeType> get_dyadic_powers_of_challenge(const std::string& label, size_t num_challenges)
     {
         ChallengeType challenge = get_challenge<ChallengeType>(label);
         std::vector<ChallengeType> pows(num_challenges);
