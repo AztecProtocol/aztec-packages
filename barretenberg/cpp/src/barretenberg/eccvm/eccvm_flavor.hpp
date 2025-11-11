@@ -580,7 +580,6 @@ class ECCVMFlavor {
 
             const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) +
                                     NUM_DISABLED_ROWS_IN_SUMCHECK;
-            info("ECCVM: num rows = ", num_rows);
             vinfo("Num rows in the ECCVM: ", num_rows);
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
