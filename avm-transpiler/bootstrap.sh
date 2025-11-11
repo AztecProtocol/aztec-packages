@@ -11,8 +11,55 @@ export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
+# Generate Cargo.toml from template based on noir-repo-ref
+function generate_cargo_toml {
+  local ref_content=$(head -n 1 ../noir/noir-repo-ref)
+  local noir_git_url
+  local noir_ref_type
+  local noir_ref_value
+
+  # Detect if noir-repo-ref contains a URL (has ://) or is a simple tag/version
+  if [[ "$ref_content" == *"://"* ]]; then
+    # Unhappy path: Custom repository URL
+    if [[ "$ref_content" == *"#"* ]]; then
+      noir_git_url="${ref_content%#*}"
+      noir_ref_value="${ref_content##*#}"
+      # Determine if it's a branch or commit hash
+      if [[ "$noir_ref_value" =~ ^[0-9a-f]{40}$ ]]; then
+        noir_ref_type="rev"
+      else
+        noir_ref_type="branch"
+      fi
+    else
+      noir_git_url="$ref_content"
+      noir_ref_type="branch"
+      noir_ref_value="master"
+    fi
+  else
+    # Happy path: Official release tag
+    noir_git_url="https://github.com/noir-lang/noir"
+    noir_ref_type="tag"
+    noir_ref_value="$ref_content"
+  fi
+
+  echo "Generating Cargo.toml from template..."
+  echo "  Git URL: $noir_git_url"
+  echo "  Ref type: $noir_ref_type"
+  echo "  Ref value: $noir_ref_value"
+
+  # Generate Cargo.toml from template using sed
+  sed -e "s|{{NOIR_GIT_URL}}|$noir_git_url|g" \
+      -e "s|{{NOIR_REF_TYPE}}|$noir_ref_type|g" \
+      -e "s|{{NOIR_REF_VALUE}}|$noir_ref_value|g" \
+      Cargo.toml.template > Cargo.toml
+}
+
 function build_native {
   echo_header "avm-transpiler build_native"
+
+  # Generate Cargo.toml from template before building
+  generate_cargo_toml
+
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
     # Serialize cargo/rustup operations to avoid race conditions when running parallel builds
@@ -32,6 +79,9 @@ function build_native {
 function build_cross {
   local target=$1
   echo_header "avm-transpiler build_cross $target"
+
+  # Generate Cargo.toml from template before building
+  generate_cargo_toml
 
   cross_compile_artifact=avm-transpiler-cross-$target-$hash.tar.gz
   if ! cache_download $cross_compile_artifact; then

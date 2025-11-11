@@ -1,2 +1,5 @@
 /target
 .DS_Store
+
+# Generated Cargo.toml from template
+Cargo.toml
