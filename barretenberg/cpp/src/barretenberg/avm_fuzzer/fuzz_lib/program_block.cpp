@@ -654,6 +654,39 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
                                   .operand(return_addr.value())
                                   .build();
     instructions.push_back(return_instruction);
+
+    terminated = true;
+}
+
+void ProgramBlock::finalize_with_jump(ProgramBlock* target_block)
+{
+    terminated = true;
+    successors.push_back(target_block);
+    target_block->predecessors.push_back(this);
+    target_block->memory_manager = memory_manager;
+}
+
+void ProgramBlock::finalize_with_jump_if(ProgramBlock* target_then_block,
+                                         ProgramBlock* target_else_block,
+                                         uint16_t condition_offset)
+{
+    terminated = true;
+    successors.push_back(target_then_block);
+    successors.push_back(target_else_block);
+    this->condition_offset_index = condition_offset;
+    target_then_block->predecessors.push_back(this);
+    target_else_block->predecessors.push_back(this);
+    target_then_block->memory_manager = memory_manager;
+    target_else_block->memory_manager = memory_manager;
+}
+
+std::optional<uint16_t> ProgramBlock::get_terminating_condition_value()
+{
+    auto condition_addr = memory_manager.get_memory_offset_16_bit(bb::avm2::MemoryTag::U1, condition_offset_index);
+    if (!condition_addr.has_value()) {
+        return std::nullopt;
+    }
+    return condition_addr;
 }
 
 void ProgramBlock::process_instruction(FuzzInstruction instruction)
