@@ -1,6 +1,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
+#include <array>
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -11,7 +12,7 @@ TEST(UltraCircuitBuilder, Rom)
 {
     UltraCircuitBuilder builder;
 
-    uint32_t rom_values[8]{
+    std::array<uint32_t, 8> rom_values{
         builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
         builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
         builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
@@ -25,7 +26,7 @@ TEST(UltraCircuitBuilder, Rom)
     }
 
     uint32_t a_idx = builder.read_ROM_array(rom_id, builder.add_variable(fr(5)));
-    EXPECT_EQ(a_idx != rom_values[5], true);
+    EXPECT_NE(a_idx, rom_values[5]);
     uint32_t b_idx = builder.read_ROM_array(rom_id, builder.add_variable(fr(4)));
     uint32_t c_idx = builder.read_ROM_array(rom_id, builder.add_variable(fr(1)));
 
@@ -85,7 +86,7 @@ TEST(UltraCircuitBuilder, Ram)
 {
     UltraCircuitBuilder builder;
 
-    uint32_t ram_values[8]{
+    std::array<uint32_t, 8> ram_values{
         builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
         builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
         builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
@@ -99,7 +100,7 @@ TEST(UltraCircuitBuilder, Ram)
     }
 
     uint32_t a_idx = builder.read_RAM_array(ram_id, builder.add_variable(fr(5)));
-    EXPECT_EQ(a_idx != ram_values[5], true);
+    EXPECT_NE(a_idx, ram_values[5]);
 
     uint32_t b_idx = builder.read_RAM_array(ram_id, builder.add_variable(fr(4)));
     uint32_t c_idx = builder.read_RAM_array(ram_id, builder.add_variable(fr(1)));

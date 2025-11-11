@@ -25,7 +25,6 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 8);
         }
-        // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         builder.create_sort_constraint(indices);
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
@@ -35,7 +34,6 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 3);
         }
-        // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         builder.create_unconstrained_gates(indices);
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
