@@ -1,9 +1,13 @@
+import { prettyPrintJSON } from '@aztec/cli/utils';
+import { GSEContract, createEthereumChain } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { wordlist } from '@scure/bip39/wordlists/english.js';
-import { dirname } from 'path';
+import { writeFile } from 'fs/promises';
+import { basename, dirname, join } from 'path';
+import { createPublicClient, fallback, http } from 'viem';
 import { generateMnemonic, mnemonicToAccount } from 'viem/accounts';
 
 import {
@@ -15,6 +19,7 @@ import {
   writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
+import { processAttesterAccounts } from './staker.js';
 
 export type NewValidatorKeystoreOptions = {
   dataDir?: string;
@@ -28,7 +33,6 @@ export type NewValidatorKeystoreOptions = {
   separatePublisher?: boolean;
   ikm?: string;
   blsPath?: string;
-  blsOnly?: boolean;
   password?: string;
   outDir?: string;
   json?: boolean;
@@ -36,6 +40,10 @@ export type NewValidatorKeystoreOptions = {
   coinbase?: EthAddress;
   remoteSigner?: string;
   fundingAccount?: EthAddress;
+  stakerOutput?: boolean;
+  gseAddress?: EthAddress;
+  l1RpcUrls?: string[];
+  l1ChainId?: number;
 };
 
 export async function newValidatorKeystore(options: NewValidatorKeystoreOptions, log: LogFn) {
@@ -51,13 +59,29 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     feeRecipient,
     remoteSigner,
     fundingAccount,
-    blsOnly,
     blsPath,
     ikm,
     mnemonic: _mnemonic,
     password,
     outDir,
+    stakerOutput,
+    gseAddress,
+    l1RpcUrls,
+    l1ChainId,
   } = options;
+
+  // Validate staker output requirements
+  if (stakerOutput) {
+    if (!gseAddress) {
+      throw new Error('--gse-address is required when using --staker-output');
+    }
+    if (!l1RpcUrls || l1RpcUrls.length === 0) {
+      throw new Error('--l1-rpc-urls is required when using --staker-output');
+    }
+    if (l1ChainId === undefined) {
+      throw new Error('--l1-chain-id is required when using --staker-output');
+    }
+  }
 
   if (remoteSigner && !_mnemonic) {
     throw new Error(
@@ -86,7 +110,6 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     mnemonic,
     ikm,
     blsPath,
-    blsOnly,
     feeRecipient,
     coinbase,
     remoteSigner,
@@ -107,17 +130,66 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
 
   await writeKeystoreFile(outputPath, keystore);
 
-  const outputData = !_mnemonic ? { ...keystore, generatedMnemonic: mnemonic } : keystore;
+  // Generate staker outputs if requested
+  const allStakerOutputs: any[] = [];
+  if (stakerOutput && gseAddress && l1RpcUrls && l1ChainId !== undefined) {
+    const chain = createEthereumChain(l1RpcUrls, l1ChainId);
+    const publicClient = createPublicClient({
+      chain: chain.chainInfo,
+      transport: fallback(l1RpcUrls.map(url => http(url))),
+    });
+    const gse = new GSEContract(publicClient, gseAddress);
 
-  maybePrintJson(log, json, outputData as unknown as Record<string, any>);
-  if (!json) {
-    log(`Wrote validator keystore to ${outputPath}`);
+    const keystoreOutDir = outDir && outDir.length > 0 ? outDir : dirname(outputPath);
+    // Extract keystore base name without extension for unique staker output filenames
+    const keystoreBaseName = basename(outputPath, '.json');
+
+    // Process each validator
+    for (let i = 0; i < validators.length; i++) {
+      const validator = validators[i];
+      const outputs = await processAttesterAccounts(validator.attester, gse, password);
+
+      // Save each attester's staker output
+      for (let j = 0; j < outputs.length; j++) {
+        const attesterIndex = i + 1;
+        const stakerOutputPath = join(
+          keystoreOutDir,
+          `${keystoreBaseName}_attester${attesterIndex}_staker_output.json`,
+        );
+        await writeFile(stakerOutputPath, prettyPrintJSON(outputs[j]), 'utf-8');
+        allStakerOutputs.push(outputs[j]);
+      }
+    }
   }
 
-  // Always print a concise summary of public keys (addresses and BLS pubkeys)
-  logValidatorSummaries(log, summaries);
+  const outputData = !_mnemonic ? { ...keystore, generatedMnemonic: mnemonic } : keystore;
 
-  if (!blsOnly && mnemonic && remoteSigner) {
+  // Handle JSON output
+  if (json) {
+    if (stakerOutput && allStakerOutputs.length > 0) {
+      const combinedOutput = {
+        keystore: outputData,
+        staker: allStakerOutputs,
+      };
+      maybePrintJson(log, json, combinedOutput as unknown as Record<string, any>);
+    } else {
+      maybePrintJson(log, json, outputData as unknown as Record<string, any>);
+    }
+  } else {
+    log(`Wrote validator keystore to ${outputPath}`);
+    if (stakerOutput && allStakerOutputs.length > 0) {
+      const keystoreOutDir = outDir && outDir.length > 0 ? outDir : dirname(outputPath);
+      log(`Wrote ${allStakerOutputs.length} staker output file(s) to ${keystoreOutDir}`);
+      log('');
+    }
+  }
+
+  // print a concise summary of public keys (addresses and BLS pubkeys) if no --json options was selected
+  if (!json) {
+    logValidatorSummaries(log, summaries);
+  }
+
+  if (mnemonic && remoteSigner && !json) {
     for (let i = 0; i < validatorCount; i++) {
       const addrIdx = addressIndex + i;
       const acct = mnemonicToAccount(mnemonic, {
@@ -126,5 +198,11 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
       });
       log(`attester address: ${acct.address} remoteSignerUrl: ${remoteSigner}`);
     }
+  }
+
+  // Log staker outputs if not in JSON mode
+  if (!json && stakerOutput && allStakerOutputs.length > 0) {
+    log('\nStaker outputs:');
+    log(prettyPrintJSON(allStakerOutputs));
   }
 }
