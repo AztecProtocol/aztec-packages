@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.1.3](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.2...v2.1.3) (2025-11-11)
+
+
+### Features
+
+* Output provider json from keystore ([8e68c0d](https://github.com/AztecProtocol/aztec-packages/commit/8e68c0d27b3fd163cbee7aecd1e599a8088269c0))
+
+
+### Bug Fixes
+
+* **backport-to-v2:** log new mnemonic when not provided by user ([#18319](https://github.com/AztecProtocol/aztec-packages/issues/18319)) ([78f3039](https://github.com/AztecProtocol/aztec-packages/commit/78f3039e30658b472902c27b6f7f64a6d2513a0a)), closes [#18303](https://github.com/AztecProtocol/aztec-packages/issues/18303)
+* log new mnemonic when not provided by user ([98ef430](https://github.com/AztecProtocol/aztec-packages/commit/98ef43097aabccc78636943c156b86b058ac060a))
+* **sync:** Do not crash on snapshot download error ([8ba5acd](https://github.com/AztecProtocol/aztec-packages/commit/8ba5acd56471df4073fa4366d5cc86fdabd6e132))
+
+
+### Miscellaneous
+
+* Accumulated backports to v2 ([#18240](https://github.com/AztecProtocol/aztec-packages/issues/18240)) ([7a510a7](https://github.com/AztecProtocol/aztec-packages/commit/7a510a71e020ac7096e51c84f15c04594208a01a))
+* Accumulated backports to v2 ([#18329](https://github.com/AztecProtocol/aztec-packages/issues/18329)) ([f9ba781](https://github.com/AztecProtocol/aztec-packages/commit/f9ba781f608cfad5bd57e4daad3f768bab02dbe8))
+* Accumulated backports to v2 ([#18344](https://github.com/AztecProtocol/aztec-packages/issues/18344)) ([5600dfd](https://github.com/AztecProtocol/aztec-packages/commit/5600dfdee13d00c760b49604511ec6decccf319d))
+
 ## [2.1.2](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.1...v2.1.2) (2025-11-05)
 
 
