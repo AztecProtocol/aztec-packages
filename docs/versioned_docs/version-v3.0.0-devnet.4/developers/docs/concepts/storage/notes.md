@@ -99,7 +99,7 @@ Only those with appropriate keys/information will be able to successfully read p
 
 When a note is read in a transaction, a subsequent read from another transaction of the same note would reveal a link between the two. So to preserve privacy, notes that are read in a transaction are said to be "consumed" (defined below), and new note(s) are then created with a unique hash.
 
-With type `PrviateSet`, a private variable's value is interpreted as the sum of values of notes with the same logical storage slot.
+With type `PrivateSet`, a private variable's value is interpreted as the sum of values of notes with the same logical storage slot.
 
 Consuming, deleting, or otherwise "nullifying" a note is NOT done by deleting the Note hash; this would leak information. Rather a nullifier is created deterministically linked to the value. This nullifier is inserted into another the nullifier storage tree.
 

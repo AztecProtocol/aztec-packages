@@ -46,7 +46,7 @@ _The sequencer has passed the transaction information – proofs of correct exec
 
 Transactions on Aztec start with a call from Aztec.js, which creates a request containing transaction details. This request moves to the Private Execution Environment (PXE) which simulates and processes it. Then the PXE interacts with the Aztec Node which uses the sequencer to ensure that all the transaction details are enqueued properly. The sequencer then submits the block to the rollup contract, and the transaction is successfully mined.
 
-<Image img={require("@site/static/img/sandbox_sending_a_tx.png")} />
+<Image img={require("@site/static/img/local_network_sending_a_tx.png")} />
 
 See [this diagram](https://raw.githubusercontent.com/AztecProtocol/aztec-packages/2fa143e4d88b3089ebbe2a9e53645edf66157dc8/docs/static/img/sandbox_sending_a_tx.svg) for a more detailed overview of the transaction execution process. It highlights 3 different types of transaction execution: contract deployments, private transactions and public transactions.
 
@@ -58,7 +58,7 @@ Transaction requests are how transactions are constructed and sent to the networ
 
 In Aztec.js:
 
-```javascript title="constructor" showLineNumbers 
+```javascript title="constructor" showLineNumbers
 constructor(
   /** Sender. */
   public origin: AztecAddress,
@@ -98,7 +98,7 @@ Most transaction requests are created as interactions with specific contracts. T
 
 ##### `simulate`
 
-```javascript title="simulate" showLineNumbers 
+```javascript title="simulate" showLineNumbers
 /**
  * Simulate a transaction and get information from its execution.
  * Differs from prove in a few important ways:
@@ -127,7 +127,7 @@ public async simulate(
 
 ##### `send`
 
-```javascript title="send" showLineNumbers 
+```javascript title="send" showLineNumbers
 /**
  * Sends a transaction to the contract function with the specified options.
  * This function throws an error if called on a utility function.

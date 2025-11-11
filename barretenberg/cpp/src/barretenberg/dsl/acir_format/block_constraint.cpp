@@ -15,7 +15,7 @@ namespace acir_format {
 
 using namespace bb;
 
-template <typename Builder> stdlib::field_t<Builder> poly_to_field_ct(const poly_triple poly, Builder& builder)
+template <typename Builder> stdlib::field_t<Builder> poly_triple_to_field_ct(const poly_triple poly, Builder& builder)
 {
     using field_ct = stdlib::field_t<Builder>;
 
@@ -45,20 +45,21 @@ void create_block_constraints(UltraCircuitBuilder& builder,
 
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
-        field_ct value = poly_to_field_ct(i, builder);
+        field_ct value = poly_triple_to_field_ct(i, builder);
         init.push_back(value);
     }
 
     switch (constraint.type) {
-    // Note: CallData/ReturnData not supported by Ultra; interpreted as ROM ops instead
+    // Note: CallData/ReturnData require DataBus, which is only available in Mega and in particular is _not_ supported
+    // by Ultra. They are therefore interpreted as ROM calls instead.
     case BlockType::CallData:
     case BlockType::ReturnData:
-    case BlockType::ROM: {
+    case BlockType::ROM:
         process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
-    } break;
-    case BlockType::RAM: {
+        break;
+    case BlockType::RAM:
         process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
-    } break;
+        break;
     default:
         throw_or_abort("Unexpected block constraint type.");
         break;
@@ -78,7 +79,7 @@ void create_block_constraints(MegaCircuitBuilder& builder,
 
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
-        field_ct value = poly_to_field_ct(i, builder);
+        field_ct value = poly_triple_to_field_ct(i, builder);
         init.push_back(value);
     }
 
@@ -111,13 +112,14 @@ void process_ROM_operations(Builder& builder,
     using rom_table_ct = stdlib::rom_table<Builder>;
 
     rom_table_ct table(init);
-    for (auto& op : constraint.trace) {
+    for (const auto& op : constraint.trace) {
         BB_ASSERT_EQ(op.access_type, 0);
-        field_ct value = poly_to_field_ct(op.value, builder);
-        field_ct index = poly_to_field_ct(op.index, builder);
-        // For a ROM table, constant read should be optimized out:
-        // The rom_table won't work with a constant read because the table may not be initialized
-        BB_ASSERT(op.index.q_l != 0);
+        field_ct value = poly_triple_to_field_ct(op.value, builder);
+        field_ct index = poly_triple_to_field_ct(op.index, builder);
+        // For a ROM table, constant read should be already optimized out by the Noir compiler. Note that the
+        // `rom_table` indeed can perform constant reads, so this assert is present just to make sure the Noir compiler
+        // is acting as-it-should.
+        BB_ASSERT(op.index.q_l != 0, "witness index should be non-constant.");
 
         // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
         // ROM table
@@ -138,11 +140,11 @@ void process_RAM_operations(Builder& builder,
     using ram_table_ct = stdlib::ram_table<Builder>;
 
     ram_table_ct table(init);
-    for (auto& op : constraint.trace) {
-        field_ct value = poly_to_field_ct(op.value, builder);
-        field_ct index = poly_to_field_ct(op.index, builder);
-        // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
-        // RAM table
+    for (const auto& op : constraint.trace) {
+        field_ct value = poly_triple_to_field_ct(op.value, builder);
+        field_ct index = poly_triple_to_field_ct(op.index, builder);
+        // In case of invalid witness assignment, we set the value of index value to zero to not hit an out-of-bounds
+        // index in the RAM table
         if (!has_valid_witness_assignments) {
             builder.set_variable(index.get_witness_index(), 0);
         }
@@ -174,8 +176,8 @@ void process_call_data_operations(Builder& builder,
 
         for (const auto& op : constraint.trace) {
             BB_ASSERT_EQ(op.access_type, 0);
-            field_ct value = poly_to_field_ct(op.value, builder);
-            field_ct index = poly_to_field_ct(op.index, builder);
+            field_ct value = poly_triple_to_field_ct(op.value, builder);
+            field_ct index = poly_triple_to_field_ct(op.index, builder);
             // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
             // calldata-array
             if (!has_valid_witness_assignments) {

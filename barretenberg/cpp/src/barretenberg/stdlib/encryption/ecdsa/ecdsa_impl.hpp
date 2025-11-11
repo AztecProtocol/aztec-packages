@@ -137,7 +137,6 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     // Step 8.
     // We reduce result.x() to 2^s, where s is the smallest s.t. 2^s > q. It is cheap in terms of constraints, and
     // avoids possible edge cases
-    // BIGGROUP_AUDITTODO: mutable accessor needed for self_reduce()
     result.x().reduce_mod_target_modulus();
 
     // Transfer Fq value result.x() to Fr (this is just moving from a C++ class to another)

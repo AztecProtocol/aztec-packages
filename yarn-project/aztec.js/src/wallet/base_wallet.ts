@@ -124,7 +124,7 @@ export abstract class BaseWallet implements Wallet {
 
   public async createAuthWit(
     from: AztecAddress,
-    messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent,
+    messageHashOrIntent: Fr | IntentInnerHash | CallIntent,
   ): Promise<AuthWitness> {
     const account = await this.getAccountFromAddress(from);
     return account.createAuthWit(messageHashOrIntent);

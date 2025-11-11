@@ -38,7 +38,7 @@ Since private functions rely on a UTXO model, the private execution trace of a t
 Finally, the wallet **sends** the resulting _transaction_ object, which includes the proof of execution, to an Aztec Node. The transaction is then broadcasted through the peer-to-peer network, to be eventually picked up by a sequencer and included in a block.
 
 :::warning
-There are no proofs generated as of the Sandbox release. This will be included in a future release before testnet.
+There are no proofs generated as of the Local Network release. This will be included in a future release before testnet.
 :::
 
 ## Authorizing actions

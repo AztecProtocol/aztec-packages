@@ -1,6 +1,12 @@
 use crate::macros::{
+    calls_generation::{
+        external_functions::{
+            generate_external_function_calls, generate_external_function_self_calls_structs,
+        },
+        internal_functions::generate_call_internal_struct,
+    },
     dispatch::generate_public_dispatch,
-    functions::{self_call_registry, stub_registry, utils::check_each_fn_macroified},
+    functions::utils::check_each_fn_macroified,
     internals_functions_generation::{create_fn_abi_exports, process_functions},
     notes::NOTES,
     storage::STORAGE_LAYOUT_NAME,
@@ -18,8 +24,10 @@ pub comptime fn aztec(m: Module) -> Quoted {
     // with `static_assert(false, ...)` to prevent them from being called directly from within the contract.
     let functions = process_functions(m);
 
+    // We generate structs and their implementations necessary for convenient functions calls.
     let interface = generate_contract_interface(m);
-    let self_call_structs = generate_self_call_structs(m);
+    let self_call_structs = generate_external_function_self_calls_structs(m);
+    let call_internal_struct = generate_call_internal_struct(m);
 
     // We generate ABI exports for all the external functions in the contract.
     let fn_abi_exports = create_fn_abi_exports(m);
@@ -54,6 +62,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
     quote {
         $interface
         $self_call_structs
+        $call_internal_struct
         $functions
         $fn_abi_exports
         $contract_library_method_compute_note_hash_and_nullifier
@@ -64,13 +73,9 @@ pub comptime fn aztec(m: Module) -> Quoted {
 }
 
 comptime fn generate_contract_interface(m: Module) -> Quoted {
+    let calls = generate_external_function_calls(m);
+
     let module_name = m.name();
-    let contract_stubs = stub_registry::get(m);
-    let fn_stubs_quote = if contract_stubs.is_some() {
-        contract_stubs.unwrap().join(quote {})
-    } else {
-        quote {}
-    };
 
     let has_storage_layout = module_has_storage(m) & STORAGE_LAYOUT_NAME.get(m).is_some();
     let storage_layout_getter = if has_storage_layout {
@@ -99,7 +104,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
         }
 
         impl $module_name {
-            $fn_stubs_quote
+            $calls
 
             pub fn at(
                 addr: aztec::protocol_types::address::AztecAddress
@@ -307,74 +312,6 @@ comptime fn generate_process_message() -> Quoted {
                 message_ciphertext,
                 message_context,
             );
-        }
-    }
-}
-
-/// Generates helper structs for convenient self-invocation of contract functions:
-///
-/// - `CallSelf`: Call your own private or public functions, e.g.:
-///     `self.call_self.some_private_function(args)`
-/// - `CallSelfStatic`: Call your own view (static) functions, e.g.:
-///     `self.call_self_static.some_view_function(args)`
-/// - `EnqueueSelf`: Enqueue your own (non-view) public functions for deferred execution, e.g.:
-///     `self.enqueue_self.some_public_function(args)`
-/// - `EnqueueSelfStatic`: Enqueue your own view public functions, e.g.:
-///     `self.enqueue_self_static.some_view_function(args)`
-comptime fn generate_self_call_structs(m: Module) -> Quoted {
-    let stubs = self_call_registry::get_all_self_call_stubs(m);
-
-    // We need to destructure the stubs here because accessing struct fields in a quote block is not supported.
-    let call_self_private_methods = stubs.call_self_private_methods;
-    let call_self_public_methods = stubs.call_self_public_methods;
-    let enqueue_self_methods = stubs.enqueue_self_methods;
-    let call_self_private_static_methods = stubs.call_self_private_static_methods;
-    let call_self_public_static_methods = stubs.call_self_public_static_methods;
-    let enqueue_self_static_methods = stubs.enqueue_self_static_methods;
-
-    quote {
-        pub struct CallSelf<Context> {
-            pub address: dep::aztec::protocol_types::address::AztecAddress,
-            pub context: Context,
-        }
-
-        impl CallSelf<&mut dep::aztec::context::private_context::PrivateContext> {
-            $call_self_private_methods
-        }
-
-        impl CallSelf<dep::aztec::context::public_context::PublicContext> {
-            $call_self_public_methods
-        }
-
-        pub struct CallSelfStatic<Context> {
-            pub address: dep::aztec::protocol_types::address::AztecAddress,
-            pub context: Context,
-        }
-
-        impl CallSelfStatic<&mut dep::aztec::context::private_context::PrivateContext> {
-            $call_self_private_static_methods
-        }
-
-        impl CallSelfStatic<dep::aztec::context::public_context::PublicContext> {
-            $call_self_public_static_methods
-        }
-
-        pub struct EnqueueSelf<Context> {
-            pub address: dep::aztec::protocol_types::address::AztecAddress,
-            pub context: Context,
-        }
-
-        impl EnqueueSelf<&mut dep::aztec::context::private_context::PrivateContext> {
-            $enqueue_self_methods
-        }
-
-        pub struct EnqueueSelfStatic<Context> {
-            pub address: dep::aztec::protocol_types::address::AztecAddress,
-            pub context: Context,
-        }
-
-        impl EnqueueSelfStatic<&mut dep::aztec::context::private_context::PrivateContext> {
-            $enqueue_self_static_methods
         }
     }
 }

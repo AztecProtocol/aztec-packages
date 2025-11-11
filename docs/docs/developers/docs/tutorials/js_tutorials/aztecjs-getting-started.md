@@ -1,14 +1,14 @@
 ---
 title: Deploying a Token Contract
 sidebar_position: 0
-description: A tutorial going through how to deploy a token contract to the sandbox using typescript.
+description: A tutorial going through how to deploy a token contract to the local network using typescript.
 ---
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will retrieving the Sandbox and deploy a pre-written token contract to it using Aztec.js. [Check out the source code](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). We will then use Aztec.js to interact with this contract and transfer tokens.
+In this guide, we will retrieving the local network and deploy a pre-written token contract to it using Aztec.js. [Check out the source code](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). We will then use Aztec.js to interact with this contract and transfer tokens.
 
-Before starting, make sure to be running Aztec sandbox at version #include_version_without_prefix. Check out [the guide](../../tutorials/sandbox.md) for info about that.
+Before starting, make sure to be running Aztec local network at version #include_version_without_prefix. Check out [the guide](../../tutorials/local_network.md) for info about that.
 
 ## Set up the project
 
@@ -41,9 +41,9 @@ Aztec.js assumes your project is using ESM, so make sure you add `"type": "modul
 }
 ```
 
-### Connecting to the sandbox
+### Connecting to the local network
 
-We want to [connect to our running sandbox](../../aztec-js/how_to_connect_to_sandbox.md) and import the test accounts into a new wallet. Let's call them Alice and Bob (of course). Create an `index.ts` with it:
+We want to [connect to our running local network](../../aztec-js/how_to_connect_to_local_network.md) and import the test accounts into a new wallet. Let's call them Alice and Bob (of course). Create an `index.ts` with it:
 
 ```typescript
 import { createAztecNodeClient } from "@aztec/aztec.js/node";

@@ -10,7 +10,7 @@ This service will run alongside end to end tests to capture the blob transaction
 
 ### Why?
 
-Once we make the transition to blob transactions, we will need to be able to query for blobs. One way to do this is to run an entire L1 execution layer and consensus layer pair alongside all of our e2e tests and inside the sandbox. But this is a bit much, so instead the blob sink can be used to store and request blobs, without needing to run an entire consensus layer pair client.
+Once we make the transition to blob transactions, we will need to be able to query for blobs. One way to do this is to run an entire L1 execution layer and consensus layer pair alongside all of our e2e tests and inside the local network. But this is a bit much, so instead the blob sink can be used to store and request blobs, without needing to run an entire consensus layer pair client.
 
 ### Other Usecases
 

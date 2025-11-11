@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -56,6 +57,11 @@ template <typename Curve> struct PairingPoints {
         if (builder != nullptr) {
             tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
         }
+
+#ifndef NDEBUG
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
+        info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+#endif
     }
 
     PairingPoints(std::array<Group, 2> const& points)
@@ -169,6 +175,11 @@ template <typename Curve> struct PairingPoints {
         if (builder != nullptr) {
             builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
         }
+
+#ifndef NDEBUG
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
+        info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+#endif
     }
 
     /**

@@ -67,6 +67,14 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
 
   const mnemonic = _mnemonic ?? generateMnemonic(wordlist);
 
+  if (!_mnemonic && !json) {
+    log('No mnemonic provided, generating new one...');
+    log(`Using new mnemonic:`);
+    log('');
+    log(mnemonic);
+    log('');
+  }
+
   const validatorCount = typeof count === 'number' && Number.isFinite(count) && count > 0 ? Math.floor(count) : 1;
   const { outputPath } = await resolveKeystoreOutputPath(dataDir, file);
 
@@ -99,7 +107,9 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
 
   await writeKeystoreFile(outputPath, keystore);
 
-  maybePrintJson(log, json, keystore as unknown as Record<string, any>);
+  const outputData = !_mnemonic ? { ...keystore, generatedMnemonic: mnemonic } : keystore;
+
+  maybePrintJson(log, json, outputData as unknown as Record<string, any>);
   if (!json) {
     log(`Wrote validator keystore to ${outputPath}`);
   }

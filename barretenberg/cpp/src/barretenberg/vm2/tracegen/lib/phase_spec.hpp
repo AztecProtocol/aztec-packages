@@ -11,6 +11,7 @@ namespace bb::avm2::tracegen {
 struct TxPhaseSpec {
     uint8_t phase_value = 0;
     uint8_t is_public_call_request = 0;
+    uint8_t is_teardown = 0;
     uint8_t is_collect_fee = 0;
     uint8_t is_tree_padding = 0;
     uint8_t is_cleanup = 0;

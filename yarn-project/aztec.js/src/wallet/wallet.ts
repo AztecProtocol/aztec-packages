@@ -185,10 +185,7 @@ export type Wallet = {
   ): Promise<UtilitySimulationResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
   sendTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxHash>;
-  createAuthWit(
-    from: AztecAddress,
-    messageHashOrIntent: Fr | Buffer<ArrayBuffer> | IntentInnerHash | CallIntent,
-  ): Promise<AuthWitness>;
+  createAuthWit(from: AztecAddress, messageHashOrIntent: Fr | IntentInnerHash | CallIntent): Promise<AuthWitness>;
   batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>>;
 };
 
@@ -267,8 +264,7 @@ export const InstanceDataSchema = z.union([
 
 export const MessageHashOrIntentSchema = z.union([
   schemas.Fr,
-  schemas.Buffer,
-  z.object({ consumer: schemas.AztecAddress, innerHash: z.union([schemas.Buffer, schemas.Fr]) }),
+  z.object({ consumer: schemas.AztecAddress, innerHash: schemas.Fr }),
   z.object({
     caller: schemas.AztecAddress,
     call: FunctionCallSchema,

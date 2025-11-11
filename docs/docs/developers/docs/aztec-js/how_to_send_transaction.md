@@ -11,7 +11,7 @@ This guide shows you how to send transactions to smart contracts on Aztec.
 
 - Deployed contract with its address and ABI
 - Funded account wallet
-- Running Aztec sandbox or connected to a network
+- Running Aztec local network or connected to a network
 - Understanding of [contract interactions](../aztec-nr/framework-description/how_to_call_contracts.md)
 
 ## Sending a basic transaction

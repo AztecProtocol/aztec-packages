@@ -164,8 +164,40 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     uint64_t log_circuit_size = 0;
     uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
-
     bool operator==(const NativeVerificationKey_&) const = default;
+
+#ifndef NDEBUG
+    template <size_t NUM_PRECOMPUTED_ENTITIES, typename StringType>
+    bool compare(const NativeVerificationKey_& other,
+                 RefArray<StringType, NUM_PRECOMPUTED_ENTITIES> commitment_labels) const
+    {
+        bool is_equal = true;
+
+        if (this->log_circuit_size != other.log_circuit_size) {
+            info("Log circuit size mismatch: ", this->log_circuit_size, " vs ", other.log_circuit_size);
+            is_equal = false;
+        }
+
+        if (this->num_public_inputs != other.num_public_inputs) {
+            info("Num public inputs mismatch: ", this->num_public_inputs, " vs ", other.num_public_inputs);
+            is_equal = false;
+        }
+
+        if (this->pub_inputs_offset != other.pub_inputs_offset) {
+            info("Pub inputs offset mismatch: ", this->pub_inputs_offset, " vs ", other.pub_inputs_offset);
+            is_equal = false;
+        }
+
+        for (auto [this_comm, other_comm, label] : zip_view(this->get_all(), other.get_all(), commitment_labels)) {
+            if (this_comm != other_comm) {
+                info("Commitment mismatch: ", label);
+                is_equal = false;
+            }
+        }
+        return is_equal;
+    }
+#endif
+
     virtual ~NativeVerificationKey_() = default;
     NativeVerificationKey_() = default;
     NativeVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
@@ -182,11 +214,11 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     {
         // Create a temporary instance to get the number of precomputed entities
         size_t commitments_size =
-            PrecomputedCommitments::size() * Transcript::template calc_num_data_types<Commitment>();
+            PrecomputedCommitments::size() * Transcript::Codec::template calc_num_fields<Commitment>();
         size_t metadata_size = 0;
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             // 3 metadata fields + commitments
-            metadata_size = 3 * Transcript::template calc_num_data_types<uint64_t>();
+            metadata_size = 3 * Transcript::Codec::template calc_num_fields<uint64_t>();
         }
         // else NO_METADATA: metadata_size remains 0
         return metadata_size + commitments_size;
@@ -232,7 +264,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
-            size_t size = Transcript::template calc_num_data_types<T>();
+            size_t size = Transcript::Codec::template calc_num_fields<T>();
             target = Transcript::template deserialize<T>(elements.subspan(idx, size));
             idx += size;
         };
@@ -251,41 +283,55 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief A model function to show how to compute the VK hash(without the Transcript abstracting things away)
-     * @details Currently only used in testing.
+     * @brief Compute VK hash
      * @return FF
      */
     fr hash() const
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1498): should hash be dependent on transcript?
-        fr vk_hash = Transcript::hash(this->to_field_elements());
+        fr vk_hash = Transcript::HashFunction::hash(this->to_field_elements());
         return vk_hash;
     }
 
     /**
-     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
-     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
-     * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
-     * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
-     * witnesses because it would be manual, as backpropagation of tags is not generally correct. By doing it like this,
-     * the origin tags of the VK all get set, so our tooling won't complain when we use the VK later on in the protocol.
+     * @brief Tag VK components and hash.
+     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses.
+     * If we instead did the hashing outside and just submitted the hash, only the origin tag of the hash would be set
+     * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags.
      *
-     * @param domain_separator
-     * @param transcript
+     * @param domain_separator (currently unused, kept for API compatibility)
+     * @param transcript Used to extract tag context (transcript_index, round_index)
      * @returns The hash of the verification key
      */
-    virtual typename Transcript::DataType hash_through_transcript(const std::string& domain_separator,
-                                                                  Transcript& transcript) const
+    virtual typename Transcript::DataType hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                                                   Transcript& transcript) const
     {
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
+        using DataType = typename Transcript::DataType;
+        using Codec = typename Transcript::Codec;
+        std::vector<DataType> vk_elements;
 
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
+
+        // Tag, serialize, and append to vk_elements
+        auto tag_and_append = [&]<typename T>(const T& component) {
+            auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
+            vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
+        };
+
+        // Tag and serialize VK metadata
+        tag_and_append(this->log_circuit_size);
+        tag_and_append(this->num_public_inputs);
+        tag_and_append(this->pub_inputs_offset);
+
+        // Tag and serialize VK commitments
         for (const Commitment& commitment : this->get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+            tag_and_append(commitment);
         }
 
-        return transcript.hash_independent_buffer();
+        // Sanitize free witness tags before hashing
+        bb::unset_free_witness_tags<Transcript::in_circuit, DataType>(vk_elements);
+
+        // Hash the tagged elements directly
+        return Transcript::HashFunction::hash(vk_elements);
     }
 };
 
@@ -359,26 +405,44 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
-     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
-     * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
-     * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
-     * witnesses because it would be manual, as backpropagation of tags is not generally correct. By doing it like this,
-     * the origin tags of the VK all get set, so our tooling won't complain when we use the VK later on in the protocol.
+     * @brief Tag VK components and hash.
+     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses.
+     * If we instead did the hashing outside and just submitted the hash, only the origin tag of the hash would be set
+     * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags.
      *
-     * @param domain_separator
-     * @param transcript
+     * @param domain_separator (currently unused, kept for API compatibility)
+     * @param transcript Used to extract tag context (transcript_index, round_index)
      * @returns The hash of the verification key
      */
-    virtual FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
+    virtual FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                        Transcript& transcript) const
     {
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
+        using Codec = stdlib::StdlibCodec<FF>;
+        std::vector<FF> vk_elements;
+
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
+
+        // Tag, serialize, and append to vk_elements
+        auto append_tagged = [&]<typename T>(const T& component) {
+            auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
+            vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
+        };
+
+        // Tag and serialize VK metadata
+        append_tagged(this->log_circuit_size);
+        append_tagged(this->num_public_inputs);
+        append_tagged(this->pub_inputs_offset);
+
+        // Tag and serialize VK commitments
         for (const Commitment& commitment : this->get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+            append_tagged(commitment);
         }
-        return transcript.hash_independent_buffer();
+
+        // Sanitize free witness tags before hashing
+        bb::unset_free_witness_tags<Transcript::in_circuit, FF>(vk_elements);
+
+        // Hash the tagged elements directly
+        return Transcript::HashFunction::hash(vk_elements);
     }
 };
 

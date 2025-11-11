@@ -1,30 +1,30 @@
 ---
-title: Sandbox Reference
-description: Comprehensive reference for the Aztec sandbox development environment.
-tags: [sandbox]
+title: Local Network Reference
+description: Comprehensive reference for the Aztec local network development environment.
+tags: [local_network]
 sidebar_position: 1
 ---
 
 :::tip
 
-For a quick start, follow the [guide](../../getting_started_on_sandbox.md) to install the sandbox.
+For a quick start, follow the [guide](../../getting_started_on_local_network.md) to install the local network.
 
 :::
 
 ## Environment Variables
 
-There are various environment variables you can use when running the whole sandbox or when running on of the available modes.
+There are various environment variables you can use when running the whole local network or when running on of the available modes.
 
-**Sandbox**
+**Local Network**
 
 ```sh
 LOG_LEVEL=debug # Options are 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'
 HOST_WORKDIR='${PWD}' # The location to store log outputs. Will use ~/.aztec where the binaries are stored by default.
-ETHEREUM_HOSTS=http://127.0.0.1:8545 # List of Ethereum JSON RPC URLs. We use an anvil instance that runs in parallel to the sandbox on docker by default.
+ETHEREUM_HOSTS=http://127.0.0.1:8545 # List of Ethereum JSON RPC URLs. We use an anvil instance that runs in parallel to the local network on docker by default.
 ANVIL_PORT=8545 # The port that docker will forward to the anvil instance (default: 8545)
 L1_CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
-TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
-MODE='sandbox' # Option to start the sandbox or a standalone part of the system. (default: sandbox)
+TEST_ACCOUNTS='true' # Option to deploy 3 test account when local network starts. (default: true)
+MODE='local-network' # Option to start the local network or a standalone part of the system. (default: local-network)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
 AZTEC_NODE_PORT=8080 # The port that Aztec Node will be listening to (default: 8080)
 
@@ -77,7 +77,7 @@ Variables like `AZTEC_NODE_URL` and `TEST_ACCOUNTS` are valid here as described 
 
 ```sh
 AZTEC_NODE_URL='http://localhost:8080' # The address of an Aztec Node URL that the wallet will connect to (default: http://localhost:8080)
-TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
+TEST_ACCOUNTS='true' # Option to deploy 3 test account when local network starts. (default: true)
 ```
 
 **P2P Bootstrap Node**
@@ -93,7 +93,7 @@ P2P_PORT=40400 # The Port that will be used for sending & listening p2p messages
 
 ## Contracts
 
-We have shipped a number of example contracts in the `@aztec/noir-contracts.js` [npm package](https://www.npmjs.com/package/@aztec/noir-contracts.js). This is included with the sandbox by default so you are able to use these contracts to test with.
+We have shipped a number of example contracts in the `@aztec/noir-contracts.js` [npm package](https://www.npmjs.com/package/@aztec/noir-contracts.js). This is included with the local network by default so you are able to use these contracts to test with.
 
 ```bash
 AppSubscriptionContractArtifact
@@ -132,7 +132,7 @@ TokenContractArtifact
 UniswapContractArtifact
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master//yarn-project/end-to-end/src/composed/cli_docs_sandbox.test.ts#L95-L118" target="_blank" rel="noopener noreferrer">Source code: /yarn-project/end-to-end/src/composed/cli_docs_sandbox.test.ts#L95-L118</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master//yarn-project/end-to-end/src/composed/cli_docs_local_network.test.ts#L95-L118" target="_blank" rel="noopener noreferrer">Source code: /yarn-project/end-to-end/src/composed/cli_docs_local_network.test.ts#L95-L118</a></sub></sup>
 
 You can see all of our example contracts in the monorepo [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts).
 
@@ -144,11 +144,11 @@ If you wish to run components of the Aztec network stack separately, you can use
 aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] --p2p-bootstrap [p2pOptions]
 ```
 
-Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](../tutorials/sandbox.md#running-multiple-pxes-in-the-sandbox).
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](../tutorials/local_network.md#running-multiple-pxes-in-the-local-network).
 
-## Update the sandbox
+## Update the local network
 
-To update the sandbox, run:
+To update the local network, run:
 
 ```bash
 aztec-up

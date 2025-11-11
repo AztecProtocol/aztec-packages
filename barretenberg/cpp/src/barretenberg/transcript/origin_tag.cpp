@@ -80,9 +80,9 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
         throw_or_abort("Tags from different transcripts were involved in the same computation");
     }
 #endif
-#ifndef DISABLE_CHILD_TAG_CHECKS
+    // Check that submitted values from different rounds don't mix without challenges
     check_child_tags(tag_a.child_tag, tag_b.child_tag);
-#endif
+
     parent_tag = tag_a.parent_tag;
     child_tag = tag_a.child_tag | tag_b.child_tag;
 }

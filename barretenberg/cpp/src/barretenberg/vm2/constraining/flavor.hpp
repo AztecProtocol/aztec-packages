@@ -248,8 +248,8 @@ class AvmFlavor {
          * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
          * the provided VK hash directly to the transcript.
          */
-        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
-                                   [[maybe_unused]] Transcript& transcript) const override
+        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                    [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

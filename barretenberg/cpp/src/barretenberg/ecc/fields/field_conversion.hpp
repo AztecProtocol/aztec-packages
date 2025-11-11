@@ -21,8 +21,8 @@ class FrCodec {
     using DataType = bb::fr;
     using fr = bb::fr;
     using fq = grumpkin::fr;
-    using bn254_point = curve::BN254::AffineElement;
-    using grumpkin_point = curve::Grumpkin::AffineElement;
+    using bn254_commitment = curve::BN254::AffineElement;
+    using grumpkin_commitment = curve::Grumpkin::AffineElement;
 
     // Size calculators
     template <typename T> static constexpr size_t calc_num_fields()
@@ -31,7 +31,7 @@ class FrCodec {
             return 1;
         } else if constexpr (IsAnyOf<T, bb::fr, fq>) {
             return T::Params::NUM_BN254_SCALARS;
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             return 2 * calc_num_fields<typename T::Fq>();
         } else {
             // Array or Univariate
@@ -95,7 +95,7 @@ class FrCodec {
             return static_cast<T>(fr_vec[0]);
         } else if constexpr (IsAnyOf<T, fq>) {
             return convert_grumpkin_fr_from_bn254_frs(fr_vec);
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
             constexpr size_t BASE = calc_num_fields<BaseField>();
             T val;
@@ -128,7 +128,7 @@ class FrCodec {
             return { val };
         } else if constexpr (IsAnyOf<T, fq>) {
             return convert_grumpkin_fr_to_bn254_frs(val);
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
             std::vector<bb::fr> fr_vec_x;
             std::vector<bb::fr> fr_vec_y;
@@ -194,15 +194,15 @@ class U256Codec {
     using DataType = uint256_t;
     using fr = bb::fr;
     using fq = grumpkin::fr;
-    using bn254_point = curve::BN254::AffineElement;
-    using grumpkin_point = curve::Grumpkin::AffineElement;
+    using bn254_commitment = curve::BN254::AffineElement;
+    using grumpkin_commitment = curve::Grumpkin::AffineElement;
 
     // Size calculators
     template <typename T> static constexpr size_t calc_num_fields()
     {
         if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bool, fq, bb::fr>) {
             return 1;
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             // In contrast to bb::fr, bn254 points can be represented by only 2 uint256_t elements
             return 2;
         } else {
@@ -221,7 +221,7 @@ class U256Codec {
             return static_cast<bool>(vec[0]);
         } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
             return static_cast<T>(vec[0]);
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
             constexpr size_t N = calc_num_fields<BaseField>();
             T val;
@@ -252,7 +252,7 @@ class U256Codec {
     {
         if constexpr (IsAnyOf<T, bool, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
             return { val };
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
             std::vector<uint256_t> uint256_vec_x;
             std::vector<uint256_t> uint256_vec_y;

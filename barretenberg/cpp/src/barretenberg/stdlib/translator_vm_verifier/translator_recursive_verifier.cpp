@@ -14,6 +14,7 @@
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
 #include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb {
 
@@ -60,6 +61,12 @@ void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(co
     }
 
     relation_parameters.accumulated_result = compute_four_limbs(accumulated_result);
+
+    // OriginTag false positive: The accumulated result limbs are evaluation claims that will be checked by
+    // `TranslatorAccumulatorTransferRelationImpl`.
+    for (auto& limb : relation_parameters.accumulated_result) {
+        limb.clear_child_tag();
+    }
 };
 
 /**
@@ -217,21 +224,9 @@ void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
 {
     // Check the consistency with final merge
     for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {
-        // These are witness commitments sent as part of the proof, so their coordinates are already in reduced form.
-        // This approach is preferred over implementing assert_equal for biggroup, as it avoids the need to handle
-        // constants within biggroup logic.
-        bool consistency_check_failed = (merge_commitment.y().get_value() != translator_commitment.y().get_value()) ||
-                                        (merge_commitment.y().get_value() != translator_commitment.y().get_value()) ||
-                                        (merge_commitment.is_point_at_infinity().get_value() !=
-                                         translator_commitment.is_point_at_infinity().get_value());
-
-        if (consistency_check_failed) {
-            vinfo("translator commitments are inconsistent with the final merge commitments");
-        }
-
-        merge_commitment.x().assert_equal(translator_commitment.x());
-        merge_commitment.y().assert_equal(translator_commitment.y());
-        merge_commitment.is_point_at_infinity().assert_equal(translator_commitment.is_point_at_infinity());
+        // Use incomplete_assert_equal to verify x, y coordinates and infinity flag match
+        merge_commitment.incomplete_assert_equal(translator_commitment,
+                                                 "translator commitments inconsistent with final merge");
     }
 }
 

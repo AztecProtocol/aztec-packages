@@ -16,7 +16,7 @@ The Aztec Virtual Machine (AVM) executes the public section of a transaction. It
 
 Aztec is a privacy-first Layer 2 rollup on Ethereum. It supports smart contracts with both private & public state and private & public execution.
 
-`aztec` is a CLI tool (with an extensive set of parameters) that enables users to perform a wide range of tasks. It can: compile and test contracts, run a node, run a sandbox, execute tests, generate contract interfaces for javascript and more.
+`aztec` is a CLI tool (with an extensive set of parameters) that enables users to perform a wide range of tasks. It can: compile and test contracts, run a node, run a local network, execute tests, generate contract interfaces for javascript and more.
 
 Full reference [here](../aztec-cli/cli_reference).
 
@@ -129,11 +129,11 @@ The private execution environment is where private computation occurs. This is l
 
 Read more [here](../foundational-topics/pxe/index.md).
 
-### Sandbox
+### Local Network
 
-Sandbox is a local development Aztec network that runs on your machine and interacts with a development Ethereum node. It allows you to develop and deploy Noir smart contracts but without having to interact with testnet or mainnet (when the time comes).
+The local network is a development Aztec network that runs on your machine and interacts with a development Ethereum node. It allows you to develop and deploy Noir smart contracts but without having to interact with testnet or mainnet (when the time comes).
 
-Included in the sandbox:
+Included in the local network:
 
 - Local Ethereum network (Anvil)
 - Deployed Aztec protocol contracts (for L1 and L2)

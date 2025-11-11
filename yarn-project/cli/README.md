@@ -4,7 +4,7 @@ The Aztec CLI `aztec-cli` is a command-line interface (CLI) tool for interacting
 
 ## Installation
 
-1. In your terminal, download the sandbox by running
+1. In your terminal, download the local network by running
 
 ```
 bash -i <(curl -s https://install.aztec.network)
