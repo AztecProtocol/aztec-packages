@@ -1966,7 +1966,7 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
             get_context()->failure(msg);
         }
 
-        // Remove tags, we don't want to cause violations on assert_equal (?)
+        // Remove tags, we don't want to cause violations on assert_equal
         const auto original_tag = get_origin_tag();
         const auto other_original_tag = other.get_origin_tag();
         set_origin_tag(OriginTag());
