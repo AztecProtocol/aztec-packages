@@ -43,13 +43,11 @@ class HintingContractsDB final : public ContractDBInterface {
     ContractDBInterface& db;
     uint32_t checkpoint_action_counter = 0;
     // Mirrors current ts checkpoint stack logic:
+    uint32_t next_checkpoint_id = 1;
     std::stack<uint32_t> checkpoint_stack{ { 0 } };
     uint32_t get_checkpoint_id() const;
 
     mutable MappedContractHints contract_hints;
-    unordered_flat_map</*action_counter*/ uint32_t, ContractDBCreateCheckpointHint> create_checkpoint_hints;
-    unordered_flat_map</*action_counter*/ uint32_t, ContractDBCommitCheckpointHint> commit_checkpoint_hints;
-    unordered_flat_map</*action_counter*/ uint32_t, ContractDBRevertCheckpointHint> revert_checkpoint_hints;
 };
 
 class HintingRawDB final : public LowLevelMerkleDBInterface {
@@ -87,14 +85,11 @@ class HintingRawDB final : public LowLevelMerkleDBInterface {
     uint32_t checkpoint_action_counter = 0;
 
     mutable MappedMerkleHints merkle_hints;
-    unordered_flat_map</*action_counter*/ uint32_t, CreateCheckpointHint> create_checkpoint_hints;
-    unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
-    unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;
 
     // Private helper methods.
-    const AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id) const;
-    AppendOnlyTreeSnapshot appendLeafInternal(AppendOnlyTreeSnapshot state_before,
-                                              SiblingPath& path,
+    AppendOnlyTreeSnapshot get_tree_info(MerkleTreeId tree_id) const;
+    AppendOnlyTreeSnapshot appendLeafInternal(const AppendOnlyTreeSnapshot& state_before,
+                                              const SiblingPath& path,
                                               const FF& root_after,
                                               MerkleTreeId tree_id,
                                               const FF& leaf);

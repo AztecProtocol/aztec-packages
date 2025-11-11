@@ -30,6 +30,9 @@ struct MappedContractHints {
     unordered_flat_map<GetContractClassKey, ContractClassHint> contract_classes;
     unordered_flat_map<GetBytecodeCommitmentKey, BytecodeCommitmentHint> bytecode_commitments;
     unordered_flat_map<GetDebugFunctionNameKey, DebugFunctionNameHint> debug_function_names;
+    unordered_flat_map</*action_counter*/ uint32_t, ContractDBCreateCheckpointHint> create_checkpoint_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, ContractDBCommitCheckpointHint> commit_checkpoint_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, ContractDBRevertCheckpointHint> revert_checkpoint_hints;
 };
 
 // TODO(MW): Temp struct for hints to allow using a ref in the HintingRawDB class constructor
@@ -48,7 +51,9 @@ struct MappedMerkleHints {
     unordered_flat_map<SequentialInsertHintNullifierTreeKey, SequentialInsertHint<NullifierLeafValue>>
         sequential_insert_hints_nullifier_tree;
     unordered_flat_map<AppendLeavesHintKey, AppendLeavesHint> append_leaves_hints;
-    // TODO(MW): Add checkpoint hints here?
+    unordered_flat_map</*action_counter*/ uint32_t, CreateCheckpointHint> create_checkpoint_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;
 };
 
 struct TreeCounters {

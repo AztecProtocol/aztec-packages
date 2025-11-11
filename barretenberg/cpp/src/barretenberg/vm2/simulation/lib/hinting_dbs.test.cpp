@@ -9,10 +9,10 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 
-#include "gmock/gmock.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <vector>
 
@@ -107,7 +107,11 @@ TEST_F(HintingDBsTestInputTest, GetContractClass)
     for (const auto& class_hint : inputs.hints.contractClasses) {
         auto klass = hinting_contract_db.get_contract_class(class_hint.classId);
         EXPECT_TRUE(klass.has_value());
-        EXPECT_EQ(klass.value(), base_contract_db.get_contract_class(class_hint.classId).value());
+        // Omitting bytecode here since we move() it (tested in compare_hints below):
+        EXPECT_THAT(klass.value(),
+                    testing::Eq(ContractClass{ .id = class_hint.classId,
+                                               .artifact_hash = class_hint.artifactHash,
+                                               .private_functions_root = class_hint.privateFunctionsRoot }));
     }
 
     ExecutionHints collected_hints;
