@@ -98,10 +98,17 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     const bool_ct rhs_infinity = other.is_point_at_infinity();
     const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
-    // Compute the gradient λ. If we add, λ = (y₂ - y₁)/(x₂ - x₁), else λ = 3x₁²/(2y₁)
+    // Compute the gradient λ. If we add, λ = (y₂ - y₁)/(x₂ - x₁)
+    // For doubling: λ = (3x₁² + a)/(2y₁) if curve has 'a', else λ = 3x₁²/(2y₁)
     const Fq add_lambda_numerator = other._y - _y;
     const Fq xx = _x * _x;
-    const Fq dbl_lambda_numerator = xx + xx + xx;
+    Fq dbl_lambda_numerator = xx + xx + xx; // 3x²
+    if constexpr (G::has_a) {
+        // Curve equation: y² = x³ + ax + b
+        // Doubling formula numerator: 3x² + a
+        const Fq a(get_context(), uint256_t(G::curve_a));
+        dbl_lambda_numerator = dbl_lambda_numerator + a;
+    }
     const Fq lambda_numerator = Fq::conditional_assign(double_predicate, dbl_lambda_numerator, add_lambda_numerator);
 
     const Fq add_lambda_denominator = other._x - _x;
