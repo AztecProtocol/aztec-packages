@@ -85,12 +85,11 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(element&& other) noexcep
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) const
 {
-
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
-    // Our curve has the form y^2 = x^3 + b.
-    // If (x_1, y_1), (x_2, y_2) have x_1 == x_2, and the generic formula for lambda has a division by 0.
-    // Then y_1 == y_2 (i.e. we are doubling) or y_2 == y_1 (the sum is infinity).
-    // The cases have a special addition formula. The following booleans allow us to handle these cases uniformly.
+    // Our curve has the form y² = x³ + b.
+    // If (x₁, y₁), (x₂, y₂) have x₁ == x₂, the generic formula for lambda has a division by 0.
+    // Then y₁ == y₂ (i.e. we are doubling) or y₂ == -y₁ (the sum is infinity).
+    // These cases have special addition formulae. The following booleans allow us to handle these cases uniformly.
     const bool_ct x_coordinates_match = other._x == _x;
     const bool_ct y_coordinates_match = (_y == other._y);
     const bool_ct infinity_predicate = (x_coordinates_match && !y_coordinates_match);
@@ -99,7 +98,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     const bool_ct rhs_infinity = other.is_point_at_infinity();
     const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
-    // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
+    // Compute the gradient λ. If we add, λ = (y₂ - y₁)/(x₂ - x₁), else λ = 3x₁²/(2y₁)
     const Fq add_lambda_numerator = other._y - _y;
     const Fq xx = _x * _x;
     const Fq dbl_lambda_numerator = xx + xx + xx;
@@ -108,18 +107,17 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     const Fq add_lambda_denominator = other._x - _x;
     const Fq dbl_lambda_denominator = _y + _y;
     Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
-    // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger a
-    // divide by zero error.
-    // Note: if either inputs are points at infinity we will not use the result of this computation.
-    Fq safe_edgecase_denominator = Fq(1);
-    lambda_denominator =
-        Fq::conditional_assign(has_infinity_input || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
+
+    // If either input is a point at infinity, or if the result would be infinity (x₁ == x₂ but y₁ != y₂),
+    // set lambda_denominator to 1 to prevent division by zero. The lambda value won't be used in these cases.
+    lambda_denominator = Fq::conditional_assign(has_infinity_input || infinity_predicate, Fq(1), lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
+    // Compute resulting point coordinates: x₃ = λ² - x₁ - x₂, y₃ = λ(x₁ - x₃) - y₁
     const Fq x3 = lambda.sqradd({ -other._x, -_x });
     const Fq y3 = lambda.madd(_x - x3, { -_y });
-
     element result(x3, y3);
+
     // if lhs infinity, return rhs
     result._x = Fq::conditional_assign(lhs_infinity, other._x, result._x);
     result._y = Fq::conditional_assign(lhs_infinity, other._y, result._y);
@@ -127,10 +125,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     result._x = Fq::conditional_assign(rhs_infinity, _x, result._x);
     result._y = Fq::conditional_assign(rhs_infinity, _y, result._y);
 
-    // is result point at infinity?
-    // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
-    // yes = lhs_infinity && rhs_infinity
-    // n.b. can likely optimize this
+    // Determine if result is point at infinity:
+    // - If x₁ == x₂ and y₁ == -y₂ (i.e., points are inverses), result is ∞
+    // - If both inputs are ∞, result is ∞
     bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
 
