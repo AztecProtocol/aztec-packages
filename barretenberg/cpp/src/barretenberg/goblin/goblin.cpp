@@ -54,7 +54,7 @@ GoblinProof Goblin::prove(const MergeSettings merge_settings)
     BB_BENCH_NAME("Goblin::prove");
 
     prove_merge(transcript, merge_settings); // Use shared transcript for merge proving
-    info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
+    info("Goblin: num ultra ops = ", op_queue->get_ultra_ops_count());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),
                  1U,
@@ -82,7 +82,7 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
     MergeRecursiveVerifier merge_verifier{ merge_settings, transcript };
-    auto [pairing_points, merged_table_commitments, degree_check_passed] =
+    auto [pairing_points, merged_table_commitments, degree_check_passed, concatenation_check_passed] =
         merge_verifier.verify_proof(stdlib_merge_proof, merge_commitments);
 
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
@@ -96,9 +96,9 @@ bool Goblin::verify(const GoblinProof& proof,
                     const MergeSettings merge_settings)
 {
     MergeVerifier merge_verifier(merge_settings, transcript);
-    auto [merge_pairing_points, merged_table_commitments, degree_check_passed] =
+    auto [merge_pairing_points, merged_table_commitments, degree_check_passed, concatenation_check_passed] =
         merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
-    bool merge_verified = merge_pairing_points.check() && degree_check_passed;
+    bool merge_verified = merge_pairing_points.check() && degree_check_passed && concatenation_check_passed;
 
     ECCVMVerifier eccvm_verifier(transcript);
     bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);

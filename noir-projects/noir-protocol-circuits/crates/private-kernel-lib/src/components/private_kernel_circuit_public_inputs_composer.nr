@@ -1,25 +1,22 @@
-pub(crate) mod create_protocol_nullifier;
 pub(crate) mod get_include_by_timestamp_for_contract_updates;
 
-pub(crate) use create_protocol_nullifier::create_protocol_nullifier;
 pub(crate) use get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates;
 
+use crate::accumulated_data::sort_by_counter;
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::{
-            PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder,
-        },
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
-        private_tx_constant_data::PrivateTxConstantData,
-        protocol_contracts::ProtocolContracts,
+        private_tx_constant_data::PrivateTxConstantData, protocol_contracts::ProtocolContracts,
         transaction::tx_request::TxRequest,
     },
     constants::MAX_U64_VALUE,
     debug::no_op,
+    hash::{compute_siloed_nullifier, create_protocol_nullifier},
     side_effect::Ordered,
     traits::Empty,
-    utils::arrays::{ClaimedLengthArray, sort_by_counter_asc},
+    utils::arrays::ClaimedLengthArray,
 };
 
 unconstrained fn transform_array<T, let N: u32, Env>(
@@ -42,7 +39,7 @@ where
 
 // Q: what's the difference between a "Composer" and a "Builder" here?
 pub struct PrivateKernelCircuitPublicInputsComposer {
-    pub public_inputs_builder: PrivateKernelCircuitPublicInputsBuilder,
+    public_inputs: PrivateKernelCircuitPublicInputs,
 }
 
 impl PrivateKernelCircuitPublicInputsComposer {
@@ -54,10 +51,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
         is_private_only: bool,
         first_nullifier_hint: Field,
     ) -> Self {
-        let mut public_inputs_builder = PrivateKernelCircuitPublicInputsBuilder::empty();
-        public_inputs_builder.is_private_only = is_private_only;
+        let mut public_inputs = PrivateKernelCircuitPublicInputs::empty();
+        public_inputs.is_private_only = is_private_only;
 
-        public_inputs_builder.constants = PrivateTxConstantData {
+        public_inputs.constants = PrivateTxConstantData {
             tx_context: private_call_public_inputs.tx_context,
             vk_tree_root,
             protocol_contracts,
@@ -68,69 +65,68 @@ impl PrivateKernelCircuitPublicInputsComposer {
         // The existence of at least 1 non revertible nullifier will be checked in tail.
         if first_nullifier_hint == 0 {
             let scoped_protocol_nullifier = create_protocol_nullifier(tx_request);
-            public_inputs_builder.end.nullifiers.push_hint(scoped_protocol_nullifier);
-            public_inputs_builder.claimed_first_nullifier =
-                scoped_protocol_nullifier.innermost().value;
+            public_inputs.end.nullifiers.push(scoped_protocol_nullifier);
+            public_inputs.claimed_first_nullifier = compute_siloed_nullifier(
+                scoped_protocol_nullifier.contract_address,
+                scoped_protocol_nullifier.innermost().value,
+            );
         } else {
-            public_inputs_builder.claimed_first_nullifier = first_nullifier_hint;
+            public_inputs.claimed_first_nullifier = first_nullifier_hint;
         }
 
         // Set the value to max u64, which is the natural default value as the timestamp can only be decreased.
         // This value will be overridden later when propagating the value from the private call or the previous kernel.
-        public_inputs_builder.include_by_timestamp = MAX_U64_VALUE;
+        public_inputs.include_by_timestamp = MAX_U64_VALUE;
 
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:
         // https://github.com/AztecProtocol/aztec-packages/issues/660
-        PrivateKernelCircuitPublicInputsComposer { public_inputs_builder }
+        PrivateKernelCircuitPublicInputsComposer { public_inputs }
     }
 
     pub unconstrained fn new_from_previous_kernel(
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
     ) -> Self {
-        let mut public_inputs_builder = PrivateKernelCircuitPublicInputsBuilder::empty();
+        let mut public_inputs = PrivateKernelCircuitPublicInputs::empty();
 
-        public_inputs_builder.is_private_only = previous_kernel_public_inputs.is_private_only;
-        public_inputs_builder.claimed_first_nullifier =
+        public_inputs.is_private_only = previous_kernel_public_inputs.is_private_only;
+        public_inputs.claimed_first_nullifier =
             previous_kernel_public_inputs.claimed_first_nullifier;
-        public_inputs_builder.constants = previous_kernel_public_inputs.constants;
-        public_inputs_builder.min_revertible_side_effect_counter =
+        public_inputs.constants = previous_kernel_public_inputs.constants;
+        public_inputs.min_revertible_side_effect_counter =
             previous_kernel_public_inputs.min_revertible_side_effect_counter;
-        public_inputs_builder.fee_payer = previous_kernel_public_inputs.fee_payer;
-        public_inputs_builder.include_by_timestamp =
-            previous_kernel_public_inputs.include_by_timestamp;
-        public_inputs_builder.public_teardown_call_request =
+        public_inputs.fee_payer = previous_kernel_public_inputs.fee_payer;
+        public_inputs.include_by_timestamp = previous_kernel_public_inputs.include_by_timestamp;
+        public_inputs.public_teardown_call_request =
             previous_kernel_public_inputs.public_teardown_call_request;
 
         let start = previous_kernel_public_inputs.validation_requests;
 
-        public_inputs_builder.validation_requests.note_hash_read_requests =
-            start.note_hash_read_requests;
-        public_inputs_builder.validation_requests.nullifier_read_requests =
-            start.nullifier_read_requests;
-        public_inputs_builder.validation_requests.scoped_key_validation_requests_and_generators =
+        public_inputs.validation_requests.note_hash_read_requests = start.note_hash_read_requests;
+        public_inputs.validation_requests.nullifier_read_requests = start.nullifier_read_requests;
+        public_inputs.validation_requests.scoped_key_validation_requests_and_generators =
             start.scoped_key_validation_requests_and_generators;
-        public_inputs_builder.validation_requests.split_counter = start.split_counter;
+        public_inputs.validation_requests.split_counter = start.split_counter;
 
         let start = previous_kernel_public_inputs.end;
 
-        public_inputs_builder.end.note_hashes = start.note_hashes;
-        public_inputs_builder.end.nullifiers = start.nullifiers;
-        public_inputs_builder.end.l2_to_l1_msgs = start.l2_to_l1_msgs;
-        public_inputs_builder.end.private_logs = start.private_logs;
-        public_inputs_builder.end.contract_class_logs_hashes = start.contract_class_logs_hashes;
-        public_inputs_builder.end.public_call_requests = start.public_call_requests;
-        public_inputs_builder.end.private_call_stack = start.private_call_stack;
+        public_inputs.end.note_hashes = start.note_hashes;
+        public_inputs.end.nullifiers = start.nullifiers;
+        public_inputs.end.l2_to_l1_msgs = start.l2_to_l1_msgs;
+        public_inputs.end.private_logs = start.private_logs;
+        public_inputs.end.contract_class_logs_hashes = start.contract_class_logs_hashes;
+        public_inputs.end.public_call_requests = start.public_call_requests;
+        public_inputs.end.private_call_stack = start.private_call_stack;
 
-        PrivateKernelCircuitPublicInputsComposer { public_inputs_builder }
+        PrivateKernelCircuitPublicInputsComposer { public_inputs }
     }
 
     // Note: this is not part of `new_from_previous_kernel`, because the reset and tail circuits also
     // use the constructors of this class, and they don't pop calls!
     pub unconstrained fn pop_top_call_request(&mut self) -> Self {
         // Pop the top item in the call stack, which is the caller of the current call, and shouldn't be propagated to the output.
-        let _ = self.public_inputs_builder.end.private_call_stack.pop_hint();
+        let _ = self.public_inputs.end.private_call_stack.pop();
         *self
     }
 
@@ -141,23 +137,19 @@ impl PrivateKernelCircuitPublicInputsComposer {
 
     pub unconstrained fn sort_ordered_values(&mut self) {
         // Note hashes, nullifiers, and private logs are sorted in the reset circuit.
-        self.public_inputs_builder.end.l2_to_l1_msgs = transform_array(
-            self.public_inputs_builder.end.l2_to_l1_msgs,
-            sort_by_counter_asc,
+        self.public_inputs.end.l2_to_l1_msgs =
+            transform_array(self.public_inputs.end.l2_to_l1_msgs, sort_by_counter);
+        self.public_inputs.end.contract_class_logs_hashes = transform_array(
+            self.public_inputs.end.contract_class_logs_hashes,
+            sort_by_counter,
         );
-        self.public_inputs_builder.end.contract_class_logs_hashes = transform_array(
-            self.public_inputs_builder.end.contract_class_logs_hashes,
-            sort_by_counter_asc,
-        );
-        self.public_inputs_builder.end.public_call_requests = transform_array(
-            self.public_inputs_builder.end.public_call_requests,
-            sort_by_counter_asc,
-        );
+        self.public_inputs.end.public_call_requests =
+            transform_array(self.public_inputs.end.public_call_requests, sort_by_counter);
     }
 
     // TODO: consider whether this `finish` phase can be removed.
     pub unconstrained fn finish(self) -> PrivateKernelCircuitPublicInputs {
-        self.public_inputs_builder.finish()
+        self.public_inputs
     }
 
     unconstrained fn scope_and_propagate_from_private_call(
@@ -183,13 +175,13 @@ impl PrivateKernelCircuitPublicInputsComposer {
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
-        if self.public_inputs_builder.min_revertible_side_effect_counter != 0 {
+        if self.public_inputs.min_revertible_side_effect_counter != 0 {
             assert(
                 private_call_public_inputs.min_revertible_side_effect_counter == 0,
                 "cannot overwrite non-zero min_revertible_side_effect_counter",
             );
         } else {
-            self.public_inputs_builder.min_revertible_side_effect_counter =
+            self.public_inputs.min_revertible_side_effect_counter =
                 private_call_public_inputs.min_revertible_side_effect_counter;
         };
     }
@@ -201,8 +193,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         // - The initial value when this composer is constructed, which is:
         //   - max u64, if this is the first call. Set in `new_from_tx_request`.
         //   - the value from the previous kernel iteration. Set in `new_from_previous_kernel`.
-        self.public_inputs_builder.include_by_timestamp = std::cmp::min(
-            self.public_inputs_builder.include_by_timestamp,
+        self.public_inputs.include_by_timestamp = std::cmp::min(
+            self.public_inputs.include_by_timestamp,
             std::cmp::min(
                 private_call.public_inputs.include_by_timestamp,
                 get_include_by_timestamp_for_contract_updates(private_call),
@@ -218,8 +210,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..read_requests.array.len() {
             let request = read_requests.array[i];
             if !request.is_empty() {
-                self.public_inputs_builder.validation_requests.note_hash_read_requests.push(request
-                    .scope(private_call_public_inputs.call_context.contract_address));
+                self.public_inputs.validation_requests.note_hash_read_requests.push(request.scope(
+                    private_call_public_inputs.call_context.contract_address,
+                ));
             }
         }
     }
@@ -232,8 +225,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifier_read_requests.array.len() {
             let request = nullifier_read_requests.array[i];
             if !request.is_empty() {
-                self.public_inputs_builder.validation_requests.nullifier_read_requests.push(request
-                    .scope(private_call_public_inputs.call_context.contract_address));
+                self.public_inputs.validation_requests.nullifier_read_requests.push(request.scope(
+                    private_call_public_inputs.call_context.contract_address,
+                ));
             }
         }
     }
@@ -248,7 +242,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
             let request = key_validation_requests_and_generators.array[i];
             if !request.is_empty() {
                 self
-                    .public_inputs_builder
+                    .public_inputs
                     .validation_requests
                     .scoped_key_validation_requests_and_generators
                     .push(request.scope(private_call_public_inputs.call_context.contract_address));
@@ -261,12 +255,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         // BUG: If we delete this print, the resoluting note_hashes bounded vec is missing the original items.
-        no_op(self.public_inputs_builder.end.note_hashes);
+        no_op(self.public_inputs.end.note_hashes);
         let note_hashes = private_call_public_inputs.note_hashes;
         for i in 0..note_hashes.array.len() {
             let note_hash = note_hashes.array[i];
             if note_hash.inner != 0 {
-                self.public_inputs_builder.end.note_hashes.push(note_hash.scope(
+                self.public_inputs.end.note_hashes.push(note_hash.scope(
                     private_call_public_inputs.call_context.contract_address,
                 ));
             }
@@ -281,7 +275,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifiers.array.len() {
             let nullifier = nullifiers.array[i];
             if nullifier.inner.value != 0 {
-                self.public_inputs_builder.end.nullifiers.push(nullifier.scope(
+                self.public_inputs.end.nullifiers.push(nullifier.scope(
                     private_call_public_inputs.call_context.contract_address,
                 ));
             }
@@ -296,7 +290,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..l2_to_l1_msgs.array.len() {
             let msg = l2_to_l1_msgs.array[i];
             if !msg.is_empty() {
-                self.public_inputs_builder.end.l2_to_l1_msgs.push(msg.scope(
+                self.public_inputs.end.l2_to_l1_msgs.push(msg.scope(
                     private_call_public_inputs.call_context.contract_address,
                 ));
             }
@@ -311,7 +305,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..private_logs.array.len() {
             let log = private_logs.array[i];
             if !log.is_empty() {
-                self.public_inputs_builder.end.private_logs.push(log.scope(
+                self.public_inputs.end.private_logs.push(log.scope(
                     private_call_public_inputs.call_context.contract_address,
                 ));
             }
@@ -321,7 +315,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..contract_class_logs.array.len() {
             let log = contract_class_logs.array[i];
             if !log.is_empty() {
-                self.public_inputs_builder.end.contract_class_logs_hashes.push(log.scope(
+                self.public_inputs.end.contract_class_logs_hashes.push(log.scope(
                     private_call_public_inputs.call_context.contract_address,
                 ));
             }
@@ -338,7 +332,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
             if i < num_requests {
                 // Push the call requests to the stack in reverse order.
                 let call_request = call_requests.array[num_requests - i - 1];
-                self.public_inputs_builder.end.private_call_stack.push(call_request);
+                self.public_inputs.end.private_call_stack.push(call_request);
             }
         }
     }
@@ -351,7 +345,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..call_requests.array.len() {
             let call_request = call_requests.array[i];
             if !call_request.is_empty() {
-                self.public_inputs_builder.end.public_call_requests.push_hint(call_request);
+                self.public_inputs.end.public_call_requests.push(call_request);
             }
         }
     }
@@ -365,10 +359,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
             // Q: why would it already be set by this point?
             // Q: why assert within this unconstrained function?
             assert(
-                self.public_inputs_builder.public_teardown_call_request.is_empty(),
+                self.public_inputs.public_teardown_call_request.is_empty(),
                 "Public teardown call request already set",
             );
-            self.public_inputs_builder.public_teardown_call_request = call_request;
+            self.public_inputs.public_teardown_call_request = call_request;
         }
     }
 
@@ -379,12 +373,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         if (private_call_public_inputs.is_fee_payer) {
             // Q: why would it already be set by this point?
             // Q: why assert within this unconstrained function?
-            assert(
-                self.public_inputs_builder.fee_payer.is_zero(),
-                "Cannot overwrite non-empty fee_payer",
-            );
-            self.public_inputs_builder.fee_payer =
-                private_call_public_inputs.call_context.contract_address;
+            assert(self.public_inputs.fee_payer.is_zero(), "Cannot overwrite non-empty fee_payer");
+            self.public_inputs.fee_payer = private_call_public_inputs.call_context.contract_address;
         }
     }
 }

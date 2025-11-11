@@ -7,6 +7,7 @@
 #include "bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
 using namespace bb;
@@ -121,15 +122,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bo
 /**
  * @brief Assigns a `bool_t` to a `bool_t` object.
  */
-template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bool_t& other)
-{
-    context = other.context;
-    witness_index = other.witness_index;
-    witness_bool = other.witness_bool;
-    witness_inverted = other.witness_inverted;
-    tag = other.tag;
-    return *this;
-}
+template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bool_t& other) = default;
 
 /**
  * @brief Assigns a `bool_t` to a `bool_t` object.
@@ -165,15 +158,16 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const wi
  */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const bool_t& other) const
 {
-    bool_t<Builder> result(context ? context : other.context);
+    Builder* ctx = validate_context<Builder>(context, other.context);
+    bool_t<Builder> result(ctx);
     bool left = witness_inverted ^ witness_bool;
     bool right = other.witness_inverted ^ other.witness_bool;
     result.witness_bool = left && right;
 
-    BB_ASSERT(result.context || (is_constant() && other.is_constant()));
+    BB_ASSERT(ctx || (is_constant() && other.is_constant()));
     if (!is_constant() && !other.is_constant()) {
         bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
-        result.witness_index = context->add_variable(value);
+        result.witness_index = ctx->add_variable(value);
 
         /**
          * A bool can be represented by a witness value `w` and an 'inverted' flag `i`
@@ -212,8 +206,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
         fr q_o{ -1 };
         fr q_c{ i_a * i_b };
 
-        context->create_poly_gate(
-            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
     } else if (!is_constant() && other.is_constant()) {
         BB_ASSERT(!other.witness_inverted);
         // If rhs is a constant true, the output is determined by the lhs. Otherwise the output is a constant
@@ -236,14 +229,16 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
  */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const bool_t& other) const
 {
-    bool_t<Builder> result(context ? context : other.context);
+    Builder* ctx = validate_context<Builder>(context, other.context);
 
-    BB_ASSERT(result.context || (is_constant() && other.is_constant()));
+    bool_t<Builder> result(ctx);
+
+    BB_ASSERT(ctx || (is_constant() && other.is_constant()));
 
     result.witness_bool = (witness_bool ^ witness_inverted) | (other.witness_bool ^ other.witness_inverted);
     bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
     if (!is_constant() && !other.is_constant()) {
-        result.witness_index = context->add_variable(value);
+        result.witness_index = ctx->add_variable(value);
         // Let
         //      a := lhs = *this;
         //      b := rhs = other;
@@ -264,8 +259,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
         // Let r := a | b;
         // Constrain
         //      q_m * w_a * w_b + q_l * w_a + q_r * w_b + q_o * r + q_c = 0
-        context->create_poly_gate(
-            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
     } else if (!is_constant() && other.is_constant()) {
         BB_ASSERT_EQ(other.witness_inverted, false);
 
@@ -288,15 +282,16 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
  */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const bool_t& other) const
 {
-    bool_t<Builder> result(context == nullptr ? other.context : context);
+    Builder* ctx = validate_context<Builder>(context, other.context);
+    bool_t<Builder> result(ctx);
 
-    BB_ASSERT(result.context || (is_constant() && other.is_constant()));
+    BB_ASSERT(ctx || (is_constant() && other.is_constant()));
 
     result.witness_bool = (witness_bool ^ witness_inverted) ^ (other.witness_bool ^ other.witness_inverted);
     bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
 
     if (!is_constant() && !other.is_constant()) {
-        result.witness_index = context->add_variable(value);
+        result.witness_index = ctx->add_variable(value);
         // Let
         //      a := lhs = *this;
         //      b := rhs = other;
@@ -319,8 +314,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
         // Let r := a ^ b;
         // Constrain
         //      q_m * w_a * w_b + q_l * w_a + q_r * w_b + q_o * r + q_c = 0
-        context->create_poly_gate(
-            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
     } else if (!is_constant() && other.is_constant()) {
         // witness ^ 1 = !witness
         BB_ASSERT_EQ(other.witness_inverted, false);
@@ -355,8 +349,9 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator!() const
  */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bool_t& other) const
 {
-    BB_ASSERT(context || other.context || (is_constant() && other.is_constant()));
-    bool_t<Builder> result(context ? context : other.context);
+    Builder* ctx = validate_context<Builder>(context, other.context);
+    bool_t<Builder> result(ctx);
+    BB_ASSERT(ctx || (is_constant() && other.is_constant()));
 
     result.witness_bool = (witness_bool ^ witness_inverted) == (other.witness_bool ^ other.witness_inverted);
     if (!is_constant() && !other.is_constant()) {
@@ -382,8 +377,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bo
         bb::fr q_o{ bb::fr::neg_one() };
         bb::fr q_c{ 1 - lhs_inverted - rhs_inverted + 2 * rhs_inverted * lhs_inverted };
 
-        context->create_poly_gate(
-            { witness_index, other.witness_index, result.witness_index, q_m, q_r, q_l, q_o, q_c });
+        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
 
     } else if (!is_constant() && (other.is_constant())) {
         // Compare *this with a constant other. If other == true, then we're checking *this == true. In this case we
@@ -423,7 +417,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator||(const bo
 template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs, std::string const& msg) const
 {
     const bool_t lhs = *this;
-    Builder* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
+    Builder* ctx = validate_context<Builder>(rhs.get_context(), lhs.get_context());
     (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
     if (lhs.is_constant() && rhs.is_constant()) {
         BB_ASSERT_EQ(lhs.get_value(), rhs.get_value());
@@ -528,7 +522,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     bb::fr q_o = bb::fr::neg_one();
     bb::fr q_m = bb::fr::zero();
     bb::fr q_r = bb::fr::zero();
-    context->create_poly_gate({ witness_index, witness_index, new_witness, q_m, q_l, q_r, q_o, q_c });
+    context->create_poly_gate({ witness_index, context->zero_idx(), new_witness, q_m, q_l, q_r, q_o, q_c });
 
     witness_index = new_witness;
     witness_bool = value;

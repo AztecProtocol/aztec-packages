@@ -611,7 +611,7 @@ describe('PXEOracleInterface', () => {
       );
 
       expect(result.length).toEqual(1);
-      expect(result[0].msgContent).toEqual(eventContent);
+      expect(result[0].packedEvent).toEqual(eventContent);
     });
   });
 

@@ -83,7 +83,7 @@ pub contract Counter {
         let counters = self.storage.counters;
         counters.at(owner).add(1, owner);
 
-        Counter::at(other_counter).increment(owner).call(self.context);
+        self.call(Counter::at(other_counter).increment(owner));
     }
 
     mod test {

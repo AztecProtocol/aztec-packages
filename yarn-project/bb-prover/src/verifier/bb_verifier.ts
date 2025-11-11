@@ -40,6 +40,9 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   }
 
   public static async new(config: BBConfig, logger = createLogger('bb-prover:verifier')) {
+    if (!config.bbWorkingDirectory) {
+      throw new Error(`Barretenberg working directory (BB_WORKING_DIRECTORY) is not set`);
+    }
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     return new BBCircuitVerifier(config, logger);
   }

@@ -106,14 +106,14 @@ HonkProof create_mock_multilinear_batch_proof()
     using FF = typename Flavor::FF;
     HonkProof proof;
 
-    // Populate mock witness polynomial commitments
-    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
+    // Populate mock witness accumulator commitments
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES / 2);
 
-    // Accumulator and instance multivariate challenges
-    populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N * 2);
+    // Accumulator multivariate challenges
+    populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N);
 
-    // Witness polynomial evaluations
-    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES);
+    // Witness accumulator polynomial evaluations
+    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES / 2);
 
     // Sumcheck proof
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
@@ -340,16 +340,11 @@ Goblin::MergeProof create_mock_merge_proof()
     // Populate mock shift size
     populate_field_elements<fr>(proof, 1, /*value=*/fr{ mock_shift_size });
 
-    // There are 5 entities in the merge protocol (4 columns: T_j, one column g(X) = \sum_i alpha_i X^{l-1} t_j(X))
-    // and 5 evaluations (g(kappa), t_j(1/kappa))
-    const size_t NUM_TRANSCRIPT_ENTITIES = 5;
-    const size_t NUM_TRANSCRIPT_EVALUATIONS = 5;
+    // Populate mock merged table commitments and batched degree check polynomial commitment
+    populate_field_elements_for_mock_commitments(proof, 5);
 
-    // Transcript poly commitments
-    populate_field_elements_for_mock_commitments(proof, NUM_TRANSCRIPT_ENTITIES);
-
-    // Transcript poly evaluations
-    populate_field_elements(proof, NUM_TRANSCRIPT_EVALUATIONS);
+    // Populate evaluations (3 * NUM_WIRES + 1: left, right, and merged tables, plus batched degree check polynomial)
+    populate_field_elements(proof, 13);
 
     // Shplonk proof: commitment to the quotient
     populate_field_elements_for_mock_commitments(proof, 1);

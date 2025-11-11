@@ -70,7 +70,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
         std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
 
-        return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
+        const Fq x = Fq::reconstruct_from_public(x_limbs);
+        const Fq y = Fq::reconstruct_from_public(y_limbs);
+        const element result = element(x, y);
+        result.validate_on_curve();
+        return result;
     }
 
     /**
@@ -133,6 +137,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         }
     }
 
+    [[nodiscard]] bool is_constant() const
+    {
+        const bool x_is_const = _x.is_constant();
+        const bool y_is_const = _y.is_constant();
+        BB_ASSERT_EQ(x_is_const, y_is_const, "biggroup: x and y coordinate constant status mismatch");
+        return x_is_const;
+    }
+
     /**
      * @brief Creates fixed witnesses from a constant element.
      **/
@@ -182,19 +194,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     element& operator=(const element& other);
     element& operator=(element&& other) noexcept;
-
-    /**
-     * @brief Serialize the element to a byte array in form: (yhi || ylo || xhi || xlo).
-     *
-     * @return byte_array<Builder>
-     */
-    byte_array<Builder> to_byte_array() const
-    {
-        byte_array<Builder> result(get_context());
-        result.write(_y.to_byte_array());
-        result.write(_x.to_byte_array());
-        return result;
-    }
 
     element checked_unconditional_add(const element& other) const;
     element checked_unconditional_subtract(const element& other) const;
@@ -393,9 +392,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     // Coordinate accessors (non-owning, const reference)
     const Fq& x() const { return _x; }
     const Fq& y() const { return _y; }
-    // BIGGROUP_AUDITTODO: Remove these non-const accessors by adding explicit methods for mutation where required.
-    Fq& x() { return _x; }
-    Fq& y() { return _y; }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
@@ -949,6 +945,20 @@ class element_test_accessor {
     {
         return element<C, Fq, Fr, G>::template get_staggered_wnaf_fragment_value<wnaf_size>(
             fragment_u64, stagger, is_negative, wnaf_skew);
+    }
+
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto checked_unconditional_add_sub(const element<C, Fq, Fr, G>& elem1, const element<C, Fq, Fr, G>& elem2)
+    {
+        return elem1.checked_unconditional_add_sub(elem2);
+    }
+
+    // Overload for goblin_element
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto checked_unconditional_add_sub(const element_goblin::goblin_element<C, Fq, Fr, G>& elem1,
+                                              const element_goblin::goblin_element<C, Fq, Fr, G>& elem2)
+    {
+        return elem1.checked_unconditional_add_sub(elem2);
     }
 };
 

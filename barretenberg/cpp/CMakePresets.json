@@ -534,6 +534,11 @@
       "configurePreset": "clang20"
     },
     {
+      "name": "clang20-assert",
+      "inherits": "default",
+      "configurePreset": "clang20-assert"
+    },
+    {
       "name": "clang20-no-avm",
       "inherits": "default",
       "configurePreset": "clang20-no-avm"

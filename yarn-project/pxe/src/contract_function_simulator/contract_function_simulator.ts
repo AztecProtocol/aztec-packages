@@ -37,7 +37,13 @@ import { FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas } from '@aztec/stdlib/gas';
-import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import {
+  computeNoteHashNonce,
+  computeProtocolNullifier,
+  computeUniqueNoteHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
@@ -132,8 +138,8 @@ export class ContractFunctionSimulator {
       entryPointArtifact.isStatic,
     );
 
-    const txRequestHash = await request.toTxRequest().hash();
-    const noteCache = new ExecutionNoteCache(txRequestHash);
+    const protocolNullifier = await computeProtocolNullifier(await request.toTxRequest().hash());
+    const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const privateExecutionOracle = new PrivateExecutionOracle(
@@ -170,8 +176,8 @@ export class ContractFunctionSimulator {
         request.functionSelector,
       );
       const simulatorTeardownTimer = new Timer();
-      const { usedTxRequestHashForNonces } = noteCache.finish();
-      const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
+      const { usedProtocolNullifierForNonces } = noteCache.finish();
+      const firstNullifierHint = usedProtocolNullifierForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
 
       const publicCallRequests = collectNested([executionResult], r =>
         r.publicInputs.publicCallRequests

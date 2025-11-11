@@ -44,9 +44,9 @@ export class ExecutionNoteCache {
    * We don't need to use the tx request hash for nonces if another non revertible nullifier is emitted.
    * In that case we disable injecting the tx request hash as a nullifier.
    */
-  private usedTxRequestHashForNonces = true;
+  private usedProtocolNullifierForNonces = true;
 
-  constructor(private readonly txRequestHash: Fr) {}
+  constructor(private readonly protocolNullifier: Fr) {}
 
   /**
    * Enters the revertible phase of the transaction.
@@ -60,12 +60,11 @@ export class ExecutionNoteCache {
     }
     this.inRevertiblePhase = true;
     this.minRevertibleSideEffectCounter = minRevertibleSideEffectCounter;
-
-    let nonceGenerator = this.txRequestHash;
+    let nonceGenerator = this.protocolNullifier;
     const nullifiers = this.getAllNullifiers();
     if (nullifiers.length > 0) {
       nonceGenerator = new Fr(nullifiers[0]);
-      this.usedTxRequestHashForNonces = false;
+      this.usedProtocolNullifierForNonces = false;
     }
 
     // The existing pending notes are all non-revertible.
@@ -93,13 +92,14 @@ export class ExecutionNoteCache {
   }
 
   public finish() {
-    // If we never entered the revertible phase, we need to use the tx request hash as a nonce for the notes if no nullifiers have been emitted.
+    // If we never entered the revertible phase, we need to use the protocol nullifier to compute the nonces for the
+    // notes if no nullifiers have been emitted.
     if (!this.inRevertiblePhase) {
-      this.usedTxRequestHashForNonces = this.getAllNullifiers().length === 0;
+      this.usedProtocolNullifierForNonces = this.getAllNullifiers().length === 0;
     }
     // If we entered the revertible phase, the nonce generator was decided based on wether or not a nullifier was emitted before entering.
     return {
-      usedTxRequestHashForNonces: this.usedTxRequestHashForNonces,
+      usedProtocolNullifierForNonces: this.usedProtocolNullifierForNonces,
     };
   }
 

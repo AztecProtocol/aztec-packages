@@ -23,6 +23,12 @@ class WorldStateWrapper : public Napi::ObjectWrap<WorldStateWrapper> {
     Napi::Value call(const Napi::CallbackInfo&);
 
     /**
+     * @brief Get a NAPI External handle to the underlying WorldState pointer.
+     * This allows other NAPI functions to access the WorldState instance directly.
+     */
+    Napi::Value getHandle(const Napi::CallbackInfo&);
+
+    /**
      * @brief Register the WorldStateAddon class with the JavaScript runtime.
      */
     static Napi::Function get_class(Napi::Env);

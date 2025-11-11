@@ -759,26 +759,3 @@ TYPED_TEST(SafeUintTest, TestDivRemainderConstraint)
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, false);
 }
-
-TYPED_TEST(SafeUintTest, TestByteArrayConversion)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    field_ct elt = witness_ct(&builder, 0x7f6f5f4f00010203);
-    elt.set_origin_tag(next_challenge_tag);
-    suint_ct safe(elt, 63);
-    // safe.value is a uint256_t, so we serialize to a 32-byte array
-    std::string expected = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                             0x00, 0x00, 0x7f, 0x6f, 0x5f, 0x4f, 0x00, 0x01, 0x02, 0x03 };
-
-    byte_array_ct arr(&builder);
-    arr.write(static_cast<byte_array_ct>(safe));
-    EXPECT_EQ(arr.get_string(), expected);
-    // Conversion to byte_array preserves tags
-    for (const auto& single_byte : arr.bytes()) {
-        EXPECT_EQ(single_byte.get_origin_tag(), next_challenge_tag);
-    }
-    EXPECT_EQ(arr.get_origin_tag(), next_challenge_tag);
-}

@@ -1,7 +1,7 @@
 ---
 title: CHONK - Client-side Highly Optimized ploNK
 description: Learn about CHONK, Aztec's specialized proving system designed for client-side proving with low memory requirements and efficient recursion for private smart contract execution.
-keywords: [chonk, plonk, proving system, recursive proofs, protogalaxy, goblin plonk, zero knowledge, aztec, client-side proving, hyperplonk, sumcheck]
+keywords: [chonk, plonk, proving system, recursive proofs, hypernova, goblin plonk, zero knowledge, aztec, client-side proving, hyperplonk, sumcheck]
 image: https://hackmd.io/_uploads/BkpsblXEgg.jpg
 sidebar_position: 1
 ---
@@ -34,13 +34,13 @@ A statement about contract execution will translate to multiple circuits - repre
 
 This eliminates FFT's and reduces prover time and memory at the expense of proof length. This approach is the main theme of the [hyperplonk paper](https://eprint.iacr.org/2022/1355).
 
-### 3. Using the protogalaxy (PG) folding scheme
+### 3. Using the Hypernova (HN) folding scheme
 
-Folding schemes enable cheaper recursion than standard recursive proofs. They work most smoothly with elliptic-curve based proofs systems like CHONK. We specifically work with [protogalaxy](https://eprint.iacr.org/2023/1106) which is convenient and efficient for folding non-uniform PlonK circuits (i.e. not a fixed repeating circuit).
+Folding schemes enable cheaper recursion than standard recursive proofs. They work most smoothly with elliptic-curve based proofs systems like CHONK. We specifically work with [HyperNova](https://eprint.iacr.org/2023/573) which is convenient and efficient for folding non-uniform PlonK circuits (i.e. not a fixed repeating circuit).
 
-### 4. Enhancing PG with "Goblin plonk"
+### 4. Enhancing HN with "Goblin plonk"
 
-Though PG (as do other folding schemes) already facilitates efficient recursion, it can still be a bit heavy client-side due to the non-native elliptic curve scalar multiplications performed by the folding verifier. For this reason, we use a "lazy" version of PG where the verifier doesn't perform these operations, but rather simply adds them to a queue of EC operations that need to be performed at the final proving stage. We call this deferral mechanism [*Goblin Plonk*](https://hackmd.io/@aztec-network/BkGNaHUJn/%2FdUsu57SOTBiQ4tS9KJMkMQ) (GP) (see also [this paper](https://eprint.iacr.org/2024/1651)).
+Though HN (as do other folding schemes) already facilitates efficient recursion, it can still be a bit heavy client-side due to the non-native elliptic curve scalar multiplications performed by the folding verifier. For this reason, we use a "lazy" version of HN where the verifier doesn't perform these operations, but rather simply adds them to a queue of EC operations that need to be performed at the final proving stage. We call this deferral mechanism [*Goblin Plonk*](https://hackmd.io/@aztec-network/BkGNaHUJn/%2FdUsu57SOTBiQ4tS9KJMkMQ) (GP) (see also [this paper](https://eprint.iacr.org/2024/1651)).
 
 The advantage of GP is that at this final stage we transition to another elliptic curve called Grumpkin where these operations are more efficient. This curve-switch approach was initiated by [BCTV](https://eprint.iacr.org/2014/595.pdf), and a good example of it in the modern folding context is [CycleFold](https://eprint.iacr.org/2023/1192). GP is arguably simpler than CycleFold where we switch back and forth between the curves at every iteration of the IVC. The approaches are however incomparable, and for example, CycleFold has the advantage of the final IPA verifier size not growing with the number of iterations. (Although this verifier can be run server-side once for all client proofs using the [Halo](https://eprint.iacr.org/2019/1021)/[BCMS](https://eprint.iacr.org/2020/499) accumulation mechanism.)
 

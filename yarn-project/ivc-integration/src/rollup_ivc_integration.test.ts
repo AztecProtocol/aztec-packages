@@ -10,7 +10,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest } from '@aztec/simulator/public/fixtures';
-import { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -93,7 +93,7 @@ describe('Rollup IVC Integration (suite wrapper)', () => {
       const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
       expect(avmSimulationResult.revertCode.isOK()).toBe(true);
 
-      const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
+      const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs);
       ({
         vk: avmVK,
         proof: avmProof,

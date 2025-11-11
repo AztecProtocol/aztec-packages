@@ -57,6 +57,7 @@ template <typename Curve> class MergeVerifier_ {
         PairingPoints pairing_points;
         TableCommitments merged_commitments;
         bool degree_check_passed;
+        bool concatenation_check_passed;
     };
 
     MergeSettings settings;
@@ -78,6 +79,114 @@ template <typename Curve> class MergeVerifier_ {
      */
     [[nodiscard("Verification result should be checked")]] VerificationResult verify_proof(
         const Proof& proof, const InputCommitments& input_commitments);
+
+  private:
+    std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
+                                                     "LEFT_TABLE_DEGREE_CHECK_1",
+                                                     "LEFT_TABLE_DEGREE_CHECK_2",
+                                                     "LEFT_TABLE_DEGREE_CHECK_3" };
+
+    std::vector<std::string> labels_shplonk_batching_challenges = {
+        "SHPLONK_MERGE_BATCHING_CHALLENGE_0",  "SHPLONK_MERGE_BATCHING_CHALLENGE_1",
+        "SHPLONK_MERGE_BATCHING_CHALLENGE_2",  "SHPLONK_MERGE_BATCHING_CHALLENGE_3",
+        "SHPLONK_MERGE_BATCHING_CHALLENGE_4",  "SHPLONK_MERGE_BATCHING_CHALLENGE_5",
+        "SHPLONK_MERGE_BATCHING_CHALLENGE_6",  "SHPLONK_MERGE_BATCHING_CHALLENGE_7",
+        "SHPLONK_MERGE_BATCHING_CHALLENGE_8",  "SHPLONK_MERGE_BATCHING_CHALLENGE_9",
+        "SHPLONK_MERGE_BATCHING_CHALLENGE_10", "SHPLONK_MERGE_BATCHING_CHALLENGE_11",
+        "SHPLONK_MERGE_BATCHING_CHALLENGE_12"
+    };
+
+    bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const
+    {
+        bool concatenation_verified = true;
+        FF concatenation_diff(0);
+        for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+            concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
+            if constexpr (IsRecursive) {
+                concatenation_verified &= concatenation_diff.get_value() == 0;
+                concatenation_diff.assert_equal(FF(0),
+                                                "assert_equal: merge concatenation identity failed in Merge Verifier");
+            } else {
+                concatenation_verified &= concatenation_diff == 0;
+            }
+        }
+        return concatenation_verified;
+    };
+
+    bool check_degree_identity(std::vector<FF>& evals,
+                               const FF& pow_kappa_minus_one,
+                               const std::vector<FF>& degree_check_challenges) const
+    {
+        bool degree_check_verified = true;
+        FF degree_check_diff(0);
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            degree_check_diff += evals[idx] * degree_check_challenges[idx];
+        }
+        degree_check_diff -= evals.back() * pow_kappa_minus_one;
+        if constexpr (IsRecursive) {
+            degree_check_diff.assert_equal(FF(0), "assert_equal: merge degree identity failed in Merge Verifier");
+            degree_check_verified &= degree_check_diff.get_value() == 0;
+        } else {
+            degree_check_verified &= degree_check_diff == 0;
+        }
+
+        return degree_check_verified;
+    };
+
+    BatchOpeningClaim<Curve> compute_shplonk_opening_claim(const std::vector<Commitment>& table_commitments,
+                                                           const Commitment& shplonk_batched_quotient,
+                                                           const FF& shplonk_opening_challenge,
+                                                           const std::vector<FF>& shplonk_batching_challenges,
+                                                           const FF& kappa,
+                                                           const FF& kappa_inv,
+                                                           const std::vector<FF>& evals) const
+    {
+        // Claim {Q', (z, 0)} expressed as
+        // Q' = -Q * (z - \kappa) +
+        //      + \sum_i \beta_i L_i - \sum_i \beta_i R_i - \sum_i \beta_i M_i
+        //      + (z - \kappa) / (z - \kappa^{-1}) * \beta_i G
+        //      - \sum_i \beta_i l_i - \sum_i \beta_i r_i - \sum_i \beta_i m_i
+        //      - (z - \kappa) / (z - \kappa^{-1}) * \beta_i * g
+        BatchOpeningClaim<Curve> batch_opening_claim;
+
+        // Commitment: [L_1], [L_2], ..., [L_n], [R_1], ..., [R_n], [M_1], ..., [M_n], [G], [1]
+        batch_opening_claim.commitments = { std::move(shplonk_batched_quotient) };
+        for (auto& commitment : table_commitments) {
+            batch_opening_claim.commitments.emplace_back(std::move(commitment));
+        }
+        if constexpr (IsRecursive) {
+            batch_opening_claim.commitments.emplace_back(Commitment::one(kappa.get_context()));
+        } else {
+            batch_opening_claim.commitments.emplace_back(Commitment::one());
+        }
+
+        // Scalars:
+        // -(shplonk_opening_challenge - kappa), \beta_1, ..., \beta_12,
+        // \beta_13 * (z - \kappa) / (z - \kappa^{-1})
+        // - ( \sum_i \beta_i l_i + \sum_i \beta_i r_i + \sum_i \beta_i m_i
+        //          + \beta_13 * (z - \kappa) / (z - \kappa^{-1})* g )
+        batch_opening_claim.scalars = { -(shplonk_opening_challenge - kappa) };
+        for (auto& scalar : shplonk_batching_challenges) {
+            batch_opening_claim.scalars.emplace_back(std::move(scalar));
+        }
+        batch_opening_claim.scalars.back() *=
+            (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_inv).invert();
+
+        batch_opening_claim.scalars.emplace_back(FF(0));
+        for (size_t idx = 0; idx < evals.size(); idx++) {
+            if (idx < evals.size() - 1) {
+                batch_opening_claim.scalars.back() -= evals[idx] * shplonk_batching_challenges[idx];
+            } else {
+                batch_opening_claim.scalars.back() -= shplonk_batching_challenges.back() * evals.back() *
+                                                      (shplonk_opening_challenge - kappa) *
+                                                      (shplonk_opening_challenge - kappa_inv).invert();
+            }
+        }
+
+        batch_opening_claim.evaluation_point = { shplonk_opening_challenge };
+
+        return batch_opening_claim;
+    };
 };
 
 // Type aliases for convenience

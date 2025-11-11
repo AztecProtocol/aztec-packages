@@ -7,7 +7,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
@@ -79,9 +79,9 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
             const std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_flat;
 
             RecursionConstraint avm_recursion_constraint{
-                .key = add_to_witness_and_track_indices<bb::fr>(witness, key_witnesses),
-                .proof = add_to_witness_and_track_indices<bb::fr>(witness, proof_witnesses),
-                .public_inputs = add_to_witness_and_track_indices<bb::fr>(witness, public_inputs_witnesses),
+                .key = add_to_witness_and_track_indices(witness, key_witnesses),
+                .proof = add_to_witness_and_track_indices(witness, proof_witnesses),
+                .public_inputs = add_to_witness_and_track_indices(witness, public_inputs_witnesses),
                 .key_hash = 0, // not used
                 .proof_type = AVM,
             };

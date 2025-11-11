@@ -31,6 +31,7 @@ class ProgramBlock {
   private:
     MemoryManager memory_manager;
     std::vector<bb::avm2::simulation::Instruction> instructions;
+    uint16_t condition_offset_index = 0;
 
     void process_add_8_instruction(ADD_8_Instruction instruction);
     void process_sub_8_instruction(SUB_8_Instruction instruction);
@@ -45,6 +46,13 @@ class ProgramBlock {
     void process_shl_8_instruction(SHL_8_Instruction instruction);
     void process_shr_8_instruction(SHR_8_Instruction instruction);
     void process_set_8_instruction(SET_8_Instruction instruction);
+    void process_set_16_instruction(SET_16_Instruction instruction);
+    void process_set_32_instruction(SET_32_Instruction instruction);
+    void process_set_64_instruction(SET_64_Instruction instruction);
+    void process_set_128_instruction(SET_128_Instruction instruction);
+    void process_set_ff_instruction(SET_FF_Instruction instruction);
+    void process_mov_8_instruction(MOV_8_Instruction instruction);
+    void process_mov_16_instruction(MOV_16_Instruction instruction);
     void process_not_8_instruction(NOT_8_Instruction instruction);
     void process_fdiv_8_instruction(FDIV_8_Instruction instruction);
     void process_add_16_instruction(ADD_16_Instruction instruction);
@@ -65,6 +73,11 @@ class ProgramBlock {
     void process_cast_16_instruction(CAST_16_Instruction instruction);
 
   public:
+    std::vector<ProgramBlock*> successors;
+    std::vector<ProgramBlock*> predecessors;
+    bool terminated = false;
+    int offset = -1;
+
     ProgramBlock() = default;
     /// @brief process the instruction
     /// @param instruction the instruction to process
@@ -80,5 +93,18 @@ class ProgramBlock {
                               MemoryTagWrapper return_value_tag,
                               uint16_t return_value_offset_index);
 
+    /// @brief finalize the block with a jump
+    /// NOTE: this method does not actually insert the jump instruction, it only sets the target block and the
+    /// terminated flag
+    void finalize_with_jump(ProgramBlock* target_block);
+
+    /// @brief finalize the block with a jump if
+    /// NOTE: this method does not actually insert the jump if instruction, it only sets the target blocks and the
+    /// terminated flag
+    void finalize_with_jump_if(ProgramBlock* target_then_block,
+                               ProgramBlock* target_else_block,
+                               uint16_t condition_offset);
+
+    std::optional<uint16_t> get_terminating_condition_value();
     std::vector<bb::avm2::simulation::Instruction> get_instructions();
 };

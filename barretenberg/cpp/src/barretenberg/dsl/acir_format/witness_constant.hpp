@@ -54,4 +54,12 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typen
                                                    const bb::stdlib::bool_t<Builder>& predicate,
                                                    Builder& builder);
 
+template <typename Builder>
+typename bb::stdlib::cycle_group<Builder>::cycle_scalar to_grumpkin_scalar(
+    const WitnessOrConstant<typename Builder::FF>& scalar_lo,
+    const WitnessOrConstant<typename Builder::FF>& scalar_hi,
+    bool has_valid_witness_assignments,
+    const bb::stdlib::bool_t<Builder>& predicate,
+    Builder& builder);
+
 } // namespace acir_format

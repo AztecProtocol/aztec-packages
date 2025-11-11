@@ -99,8 +99,8 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
 }
 
 /**
- * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1 and by modifying the last
- * commitment.
+ * @brief Tamper with a proof by modifying the first pairing point to be P+G (where G is the generator).
+ * This keeps the point on the curve but makes the proof invalid.
  *
  */
 template <typename InnerProver, typename InnerFlavor, typename ProofType>
@@ -108,12 +108,48 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
 {
     using Commitment = typename InnerFlavor::Curve::AffineElement;
     using FF = typename InnerFlavor::FF;
+    using ProofFF = typename ProofType::value_type;
 
     if (!end_of_proof) {
-        for (auto& val : inner_proof) {
-            if (val > 0) {
-                val += 1;
-                break;
+        // Tamper with the first pairing point (P0) by adding the generator
+        // The number of field elements per point depends on the curve:
+        // - BN254: 8 field elements (4 limbs per coordinate)
+        // - Grumpkin: 2 field elements (1 per coordinate)
+        constexpr size_t FRS_PER_POINT = Commitment::PUBLIC_INPUTS_SIZE;
+        constexpr size_t NUM_LIMB_BITS = bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+
+        if (inner_proof.size() >= FRS_PER_POINT) {
+            // Deserialize P0 from proof using the native reconstruct_from_public method
+            std::array<ProofFF, FRS_PER_POINT> p0_limbs;
+            std::copy_n(inner_proof.begin(), FRS_PER_POINT, p0_limbs.begin());
+            Commitment P0 = Commitment::reconstruct_from_public(p0_limbs);
+
+            // Tamper: P0 + G (still on curve, but invalid for verification)
+            Commitment tampered_point = P0 + Commitment::one();
+
+            // Manually serialize tampered point back to proof based on curve type
+            if constexpr (FRS_PER_POINT == 8) {
+                // BN254: Serialize using bigfield representation (4 limbs of 68 bits each per coordinate)
+                constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
+
+                uint256_t x_val = uint256_t(tampered_point.x);
+                inner_proof[0] = ProofFF(x_val & LIMB_MASK);
+                inner_proof[1] = ProofFF((x_val >> NUM_LIMB_BITS) & LIMB_MASK);
+                inner_proof[2] = ProofFF((x_val >> (2 * NUM_LIMB_BITS)) & LIMB_MASK);
+                inner_proof[3] = ProofFF((x_val >> (3 * NUM_LIMB_BITS)) & LIMB_MASK);
+
+                uint256_t y_val = uint256_t(tampered_point.y);
+                inner_proof[4] = ProofFF(y_val & LIMB_MASK);
+                inner_proof[5] = ProofFF((y_val >> NUM_LIMB_BITS) & LIMB_MASK);
+                inner_proof[6] = ProofFF((y_val >> (2 * NUM_LIMB_BITS)) & LIMB_MASK);
+                inner_proof[7] = ProofFF((y_val >> (3 * NUM_LIMB_BITS)) & LIMB_MASK);
+            } else if constexpr (FRS_PER_POINT == 2) {
+                // Grumpkin: Serialize directly (1 field element per coordinate)
+                inner_proof[0] = ProofFF(tampered_point.x);
+                inner_proof[1] = ProofFF(tampered_point.y);
+            } else {
+                static_assert(FRS_PER_POINT == 8 || FRS_PER_POINT == 2,
+                              "Unsupported curve: FRS_PER_POINT must be 8 (BN254) or 2 (Grumpkin)");
             }
         }
     } else {

@@ -40,7 +40,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
     if (hash == 0) {
         // If the delayed public mutable has never been written, then the contract was never updated. We short circuit
         // early.
-        if (instance.original_class_id != instance.current_class_id) {
+        if (instance.original_contract_class_id != instance.current_contract_class_id) {
             throw std::runtime_error("Current class id does not match expected class id");
         }
     } else {
@@ -77,22 +77,24 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         range_check.assert_range(timestamp_of_change, TIMESTAMP_OF_CHANGE_BIT_SIZE);
 
         // pre and post can be zero, if they have never been touched. In that case we need to use the original class id.
-        FF pre_class = update_preimage_pre_class_id == 0 ? instance.original_class_id : update_preimage_pre_class_id;
-        FF post_class = update_preimage_post_class_id == 0 ? instance.original_class_id : update_preimage_post_class_id;
+        FF pre_class =
+            update_preimage_pre_class_id == 0 ? instance.original_contract_class_id : update_preimage_pre_class_id;
+        FF post_class =
+            update_preimage_post_class_id == 0 ? instance.original_contract_class_id : update_preimage_post_class_id;
 
         FF expected_current_class_id = gt.gt(timestamp_of_change, current_timestamp) ? pre_class : post_class;
 
-        if (expected_current_class_id != instance.current_class_id) {
+        if (expected_current_class_id != instance.current_contract_class_id) {
             throw std::runtime_error(
-                "Current class id: " + field_to_string(instance.current_class_id) +
+                "Current class id: " + field_to_string(instance.current_contract_class_id) +
                 " does not match expected class id: " + field_to_string(expected_current_class_id));
         }
     }
 
     update_check_events.emit({
         .address = address,
-        .current_class_id = instance.current_class_id,
-        .original_class_id = instance.original_class_id,
+        .current_class_id = instance.current_contract_class_id,
+        .original_class_id = instance.original_contract_class_id,
         .public_data_tree_root = merkle_db.get_tree_state().publicDataTree.tree.root,
         .current_timestamp = current_timestamp,
         .update_hash = hash,

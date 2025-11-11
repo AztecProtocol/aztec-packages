@@ -80,9 +80,8 @@ impl PublicTxBaseInputsValidator {
 
         assert_eq(self.avm_proof_data.vk_data.leaf_index, AVM_VK_INDEX, "Incorrect avm vk index");
 
-        // TODO(#17162): Add avm vk hash to the tree and uncomment the following.
-        // let vk_tree_root = self.constants.vk_tree_root;
-        // self.avm_proof_data.vk_data.validate_in_vk_tree(vk_tree_root);
+        let vk_tree_root = self.constants.vk_tree_root;
+        self.avm_proof_data.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 
     fn validate_private_tail(self) {

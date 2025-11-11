@@ -1,5 +1,6 @@
 mod reset;
 mod abis;
+mod accumulated_data;
 mod components;
 mod private_kernel_init;
 mod private_kernel_inner;

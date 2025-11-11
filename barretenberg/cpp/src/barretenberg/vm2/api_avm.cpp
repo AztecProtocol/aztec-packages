@@ -90,4 +90,12 @@ void avm_simulate(const std::filesystem::path& inputs_path)
     print_avm_stats();
 }
 
+void avm_write_verification_key(const std::filesystem::path& output_path)
+{
+    avm2::AvmAPI avm;
+    auto vk = avm.get_verification_key();
+    info("Writing AVM verification key to: ", output_path / "vk");
+    write_file(output_path / "vk", vk);
+}
+
 } // namespace bb
