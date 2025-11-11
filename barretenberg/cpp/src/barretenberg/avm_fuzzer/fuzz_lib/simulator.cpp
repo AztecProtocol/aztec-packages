@@ -139,8 +139,7 @@ SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, con
     TestSimulator simulator;
     TxSimulationResult result = simulator.simulate(bytecode, calldata);
     bool reverted = result.revert_code != RevertCode::OK;
-    vinfo(
-        "C++ Simulator result - reverted: ", reverted, ", output size: ", result.app_logic_return_value.value().size());
+    vinfo("C++ Simulator result - reverted: ", reverted, ", output size: ", result.app_logic_return_value->size());
     return { .reverted = reverted, .output = result.app_logic_return_value.value_or(std::vector<FF>{}) };
 }
 

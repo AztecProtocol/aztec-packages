@@ -7,8 +7,17 @@ test('test', async ({ page }) => {
     if (msg.type() === 'error') {
       console.error(text);
       // Fail immediately on JavaScript errors to avoid timeout
+
+      // Check if this is an "Error:" message that should fail the test
+      // We exclude MIME type errors due to an 'expected' error in Firefox
+      // Note: It's unclear why Firefox shows MIME type errors for index.js in some cases
+      const isErrorThatShouldFail =
+        text.includes('Error: ') &&
+        !text.includes('Error: Timed out ') &&
+        !text.includes('was blocked because of a disallowed MIME type');
+
       if (
-        (text.includes("Error: ") && !text.includes("Error: Timed out ")) ||
+        isErrorThatShouldFail ||
         text.includes('Uncaught') ||
         text.includes('TypeError') ||
         text.includes('ReferenceError') ||

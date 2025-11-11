@@ -16,7 +16,7 @@ It is also worth mentioning Noir's `unconstrained` function type [here (Noir doc
 - `#[noinitcheck]` - The function is able to be called before an initializer (if one exists)
 - `#[view]` - Makes calls to the function static
 - `#[only_self]` - Available only for `external` functions - any external caller except the current contract is rejected.
-- `#[internal]` - NOT YET IMPLEMENTED - Function can only be called from within the contract and the call itself is inlined (e.g. akin to EVM's JUMP and not EVM's CALL)
+- `#[internal]` - Function can only be called from within the contract and the call itself is inlined (e.g. akin to EVM's JUMP and not EVM's CALL)
 - `#[note]` - Creates a custom note
 - `#[storage]` - Defines contract storage
 

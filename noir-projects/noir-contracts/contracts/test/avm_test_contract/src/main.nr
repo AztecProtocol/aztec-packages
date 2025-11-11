@@ -16,7 +16,7 @@ pub contract AvmTest {
         avm_return, avm_revert, call, returndata_copy, returndata_size, success_copy,
     };
     use dep::aztec::context::gas::GasOpts;
-    use dep::aztec::macros::{functions::external, storage::storage};
+    use dep::aztec::macros::{functions::{external, view}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_initialization_hash_avm,
@@ -164,6 +164,12 @@ pub contract AvmTest {
      ************************************************************************/
     #[external("public")]
     fn set_opcode_u8() -> u8 {
+        8
+    }
+
+    #[external("public")]
+    #[view]
+    fn set_opcode_u8_view() -> u8 {
         8
     }
 
@@ -752,7 +758,7 @@ pub contract AvmTest {
     #[external("public")]
     fn nested_call_to_nothing() {
         let garbageAddress = AztecAddress::from_field(42);
-        AvmTest::at(garbageAddress).nested_call_to_nothing().call(self.context)
+        self.call(AvmTest::at(garbageAddress).nested_call_to_nothing())
     }
 
     #[external("public")]
@@ -774,10 +780,10 @@ pub contract AvmTest {
         da_gas: u32,
     ) -> pub Field {
         // Note: can't use self.call_self here because we need .with_gas() chaining
-        AvmTest::at(self.address)
-            .add_args_return(arg_a, arg_b)
-            .with_gas(GasOpts::new(l2_gas, da_gas))
-            .call(self.context)
+        self.call(AvmTest::at(self.address).add_args_return(arg_a, arg_b).with_gas(GasOpts::new(
+            l2_gas,
+            da_gas,
+        )))
     }
 
     // Use the `call_public_function` wrapper to initiate a nested call to the add function
@@ -803,7 +809,7 @@ pub contract AvmTest {
         for i in 0..MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2 {
             let addr = addrs[i];
             if addr != AztecAddress::empty() {
-                let _ = AvmTest::at(addr).add_args_return(1, 2).call(self.context);
+                let _ = self.call(AvmTest::at(addr).add_args_return(1, 2));
             }
         }
     }
@@ -833,13 +839,13 @@ pub contract AvmTest {
     #[external("public")]
     fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         self.context.push_nullifier(nullifier);
-        AvmTest::at(nestedAddress).new_nullifier(nullifier).call(self.context);
+        self.call(AvmTest::at(nestedAddress).new_nullifier(nullifier));
     }
 
     #[external("public")]
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         self.context.push_nullifier(nullifier);
-        AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(self.context);
+        self.call(AvmTest::at(nestedAddress).new_nullifier(nullifier + 1));
     }
 
     #[external("public")]
@@ -863,7 +869,7 @@ pub contract AvmTest {
      */
     #[external("private")]
     fn enqueue_public_from_private() {
-        AvmTest::at(self.address).set_opcode_u8().enqueue_view(self.context);
+        self.enqueue_self_static.set_opcode_u8_view();
         self.enqueue_self.set_read_storage_single(5);
     }
 
@@ -889,9 +895,8 @@ pub contract AvmTest {
 
     #[external("public")]
     fn call_instance_registry() {
-        let _ = ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .get_update_delay()
-            .view(self.context);
+        let _ = self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .get_update_delay());
     }
 
     /************************************************************************
