@@ -782,6 +782,25 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         scalars[i].set_origin_tag(empty_tag);
     }
 
+    // Accumulate constant-constant pairs out of circuit
+    bool has_constant_terms = false;
+    typename G::element constant_accumulator = G::element::infinity();
+    std::vector<element> new_points;
+    std::vector<Fr> new_scalars;
+    for (size_t i = 0; i < points.size(); ++i) {
+        if (points[i].is_constant() && scalars[i].is_constant()) {
+            const auto& point_value = typename G::element(points[i].get_value());
+            const auto& scalar_value = typename G::Fr(scalars[i].get_value());
+            constant_accumulator += (point_value * scalar_value);
+            has_constant_terms = true;
+        } else {
+            new_points.emplace_back(points[i]);
+            new_scalars.emplace_back(scalars[i]);
+        }
+    }
+    points = new_points;
+    scalars = new_scalars;
+
     // If with_edgecases is false, masking_scalar must be constant and equal to 1 (as it is unused).
     if (!with_edgecases) {
         BB_ASSERT_EQ(
@@ -835,18 +854,33 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                  "biggroup batch_mul: small points and scalars size mismatch after separating big scalars");
 
     const size_t max_num_bits_in_field = Fr::modulus.get_msb() + 1;
+
     element accumulator;
+    bool accumulator_initialized = false;
+
+    // Check if we'll need to process any witness points
+
+    // Initialize accumulator with constant terms if they exist, OR if there are no remaining points
+    // (to handle the case where all points were filtered out by handle_points_at_infinity)
+    const bool has_no_points = big_points.empty() && small_points.empty();
+    if (has_constant_terms || has_no_points) {
+        accumulator = element(constant_accumulator);
+        accumulator_initialized = true;
+    }
+
     if (!big_points.empty()) {
         // Process big scalars separately
         element big_result = element::process_strauss_msm_rounds(big_points, big_scalars, max_num_bits_in_field);
-        accumulator = big_result;
+        accumulator = accumulator_initialized ? accumulator + big_result : big_result;
+        accumulator_initialized = true;
     }
 
     if (!small_points.empty()) {
         // Process small scalars
         const size_t effective_max_num_bits = (max_num_bits == 0) ? max_num_bits_in_field : max_num_bits;
         element small_result = element::process_strauss_msm_rounds(small_points, small_scalars, effective_max_num_bits);
-        accumulator = (big_points.size() > 0) ? accumulator + small_result : small_result;
+        accumulator = accumulator_initialized ? accumulator + small_result : small_result;
+        accumulator_initialized = true;
     }
 
     accumulator.set_origin_tag(tag);
@@ -867,13 +901,12 @@ template <typename C, class Fq, class Fr, class G>
  * @brief Implements scalar multiplication that supports short scalars.
  * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
  * @param scalar A field element. If `max_num_bits`>0, the length of the scalar must not exceed `max_num_bits`.
- * @param max_num_bits Even integer < 254. Default value 0 corresponds to scalar multiplication by scalars of
+ * @param max_num_bits Positive integer < 254. Default value 0 corresponds to scalar multiplication by scalars of
  * unspecified length.
  * @return element<C, Fq, Fr, G>
  */
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const size_t max_num_bits) const
 {
-    BB_ASSERT_EQ(max_num_bits % 2, 0U);
     /**
      *
      * Let's say we have some curve E defined over a field Fq. The order of E is p, which is prime.
@@ -897,22 +930,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const 
      *the specifics.
      *
      **/
-    OriginTag tag{};
-    tag = OriginTag(tag, OriginTag(this->get_origin_tag(), scalar.get_origin_tag()));
-
-    bool_ct is_point_at_infinity = this->is_point_at_infinity();
-
-    element result = element::batch_mul({ *this }, { scalar }, max_num_bits, /*with_edgecases=*/false);
-
-    // Handle point at infinity
-    result._x = Fq::conditional_assign(is_point_at_infinity, _x, result._x);
-    result._y = Fq::conditional_assign(is_point_at_infinity, _y, result._y);
-
-    result.set_point_at_infinity(is_point_at_infinity);
-
-    // Propagate the origin tag
-    result.set_origin_tag(tag);
-
-    return result;
+    return element::batch_mul({ *this }, { scalar }, max_num_bits, /*with_edgecases=*/false);
 }
 } // namespace bb::stdlib::element_default

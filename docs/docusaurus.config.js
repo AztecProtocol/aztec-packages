@@ -72,14 +72,18 @@ const config = {
           lastVersion: versions[2],
           versions: {
             [versions[0]]: {
-              ...(versions[0].includes("nightly") && { path: "nightly" }),
+              ...(versions[0].includes("nightly") && {
+                path: "nightly",
+                banner: "unreleased",
+              }),
             },
             [versions[1]]: {
               label: "Devnet (v3.0.0-devnet.4)",
               path: "devnet",
+              banner: "none",
             },
-            "v2.0.4": {
-              label: "Testnet (v2.0.4)",
+            "v2.1.2": {
+              label: "RC (v2.1.2)",
             },
             ...(process.env.CONTEXT !== "production" && {
               current: {
@@ -200,11 +204,6 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/getting_started_on_sandbox",
-            label: "Install Sandbox",
-            position: "right",
-          },
-          {
             to: "/try_testnet",
             label: "Try Testnet",
             position: "right",
@@ -304,10 +303,6 @@ const config = {
               {
                 label: "Introduction",
                 to: "/",
-              },
-              {
-                label: "Developer Getting Started",
-                to: "/developers/getting_started",
               },
               {
                 label: "Aztec.nr",

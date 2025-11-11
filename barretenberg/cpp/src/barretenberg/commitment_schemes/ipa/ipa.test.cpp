@@ -59,8 +59,7 @@ class IPATest : public CommitmentTest<Curve> {
         PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
         // initialize verifier transcript from proof data
-        auto verifier_transcript = std::make_shared<NativeTranscript>();
-        verifier_transcript->load_proof(prover_transcript->export_proof());
+        auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->export_proof());
         // the native reduce_verify does a _complete_ IPA proof and returns whether or not the checks pass.
         bool result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
         return { result, prover_transcript, verifier_transcript };

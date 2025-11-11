@@ -10,7 +10,7 @@ This guide shows you how to deploy compiled contracts to Aztec using the generat
 ## Prerequisites
 
 - Compiled contract artifacts (see [How to Compile](../aztec-nr/how_to_compile_contract.md))
-- Running Aztec sandbox
+- Running Aztec local network
 - Funded wallet for deployment fees
 - TypeScript project set up
 
@@ -20,8 +20,7 @@ This guide shows you how to deploy compiled contracts to Aztec using the generat
 
 ```bash
 # Compile the contract
-aztec-nargo compile
-aztec-postprocess-contract
+aztec compile
 
 # Generate TypeScript interface
 aztec codegen ./target/my_contract-MyContract.json -o src/artifacts
@@ -41,7 +40,7 @@ import { MyContract } from "./artifacts/MyContract";
 
 ### Step 2: Deploy the contract
 
-Deploying the contract really depends on how you're paying for it. If paying using an account's fee juice (like a test account on the sandbox):
+Deploying the contract really depends on how you're paying for it. If paying using an account's fee juice (like a test account on the local network):
 
 ```typescript
 // Deploy with constructor arguments

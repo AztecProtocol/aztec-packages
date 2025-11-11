@@ -113,8 +113,8 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
     std::optional<StdlibFF> prev_accum_hash = std::nullopt;
 
     // Update previous accumulator hash so that we can check it against the one extracted from the public inputs
-    if (verifier_inputs.is_kernel && verifier_inputs.type != QUEUE_TYPE::OINK) {
-        prev_accum_hash = input_verifier_accumulator->hash_through_transcript("", *accumulation_recursive_transcript);
+    if (verifier_inputs.is_kernel) {
+        prev_accum_hash = input_verifier_accumulator->hash_with_origin_tagging("", *accumulation_recursive_transcript);
     }
 
     RecursiveFoldingVerifier folding_verifier(accumulation_recursive_transcript);
@@ -307,8 +307,13 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.ecc_op_tables = T_prev_commitments;
         RecursiveTranscript hash_transcript;
         kernel_output.output_hn_accum_hash =
-            current_stdlib_verifier_accumulator->hash_through_transcript("", hash_transcript);
+            current_stdlib_verifier_accumulator->hash_with_origin_tagging("", hash_transcript);
         info("Kernel output accumulator hash: ", kernel_output.output_hn_accum_hash);
+#ifndef NDEBUG
+        info("Chonk recursive verification: accumulator hash set in the public inputs matches the one "
+             "computed natively: ",
+             kernel_output.output_hn_accum_hash.get_value() == native_verifier_accum_hash ? "true" : "false");
+#endif
         kernel_output.set_public();
     }
 }
@@ -360,6 +365,10 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 
     // Construct the prover instance for circuit
     std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
+
+#ifndef NDEBUG
+    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
+#endif
 
     // If the current circuit exceeds the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
@@ -721,20 +730,64 @@ Chonk::VerificationKey Chonk::get_vk() const
 void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                                const std::shared_ptr<Transcript>& verifier_transcript)
 {
+    info("======= DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
+
     auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
 
     FoldingVerifier native_verifier(verifier_transcript);
     if (queue_entry.type == QUEUE_TYPE::OINK) {
-        auto [_, new_accumulator] = native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
+        auto [_first_verified, new_accumulator] =
+            native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
         native_verifier_accum = std::move(new_accumulator);
+
+        info("Sumcheck: instance to accumulator verified: ", _first_verified ? "true" : "false");
     } else {
         auto [_first_verified, _second_verified, new_accumulator] =
             native_verifier.verify_folding_proof(verifier_inst, queue_entry.proof);
         native_verifier_accum = std::move(new_accumulator);
+
+        info("Sumcheck: instance to accumulator verified: ", _first_verified ? "true" : "false");
+        info("Sumcheck: batch two accumulators verified: ", _second_verified ? "true" : "false");
+
+        if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
+            HypernovaDeciderVerifier<MegaFlavor> decider_verifier(verifier_transcript);
+            bb::PairingPoints<curve::BN254> pairing_points =
+                decider_verifier.verify_proof(native_verifier_accum, decider_proof);
+
+            info("Decider: pairing points verified? ", pairing_points.check() ? "true" : "false");
+        }
     }
 
-    info("DEBUG: Hash of verifier accumulator computed natively ",
-         native_verifier_accum.hash_through_transcript("", *verifier_transcript));
+    if (!queue_entry.is_kernel) {
+        native_verifier_accum_hash = native_verifier_accum.hash_with_origin_tagging("", *verifier_transcript);
+    }
+
+    info("Chonk accumulate: prover and verifier accumulators match: ",
+         prover_accumulator.compare_with_verifier_claim(native_verifier_accum) ? "true" : "false");
+    info("Chonk accumulate: hash of verifier accumulator computed natively ", native_verifier_accum_hash);
+
+    info("======= END OF DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
+}
+
+void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
+                                   const std::shared_ptr<ProverInstance>& prover_instance,
+                                   const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+{
+    info("======= DEBUGGING INFO FOR INCOMING CIRCUIT =======");
+
+    info("Accumulating circuit ", num_circuits_accumulated + 1, " of ", num_circuits);
+    info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
+    info("Did we find a failure? ", circuit.failed() ? "true" : "false");
+    if (circuit.failed()) {
+        info("\t\t\tError message? ", circuit.err());
+    }
+
+    // Compare precomputed VK with the one generated during accumulation
+    auto vk = std::make_shared<MegaVerificationKey>(prover_instance->get_precomputed());
+    info("Does the precomputed vk match with the one generated during accumulation? ",
+         vk->compare(*precomputed_vk) ? "true" : "false");
+
+    info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
 }
 #endif
 

@@ -6,7 +6,7 @@ services:
     mem_limit: 2G
     entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
 
-  sandbox:
+  local-network:
     image: aztecprotocol/build:3.0
     cpus: 4
     cpuset: ${CPU_LIST:-}
@@ -15,7 +15,7 @@ services:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
     working_dir: /root/aztec-packages/yarn-project/aztec
-    command: 'node ./dest/bin start --sandbox'
+    command: 'node ./dest/bin start --local-network'
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       ETHEREUM_HOSTS: http://fork:8545
@@ -47,7 +47,7 @@ services:
       ETHEREUM_HOSTS: http://fork:8545
       L1_CHAIN_ID: 31337
       FORCE_COLOR: ${FORCE_COLOR:-1}
-      AZTEC_NODE_URL: http://sandbox:8080
+      AZTEC_NODE_URL: http://local-network:8080
       # Allow git usage despite different ownership. Relevant for script tests.
       GIT_CONFIG_GLOBAL: /root/aztec-packages/build-images/src/home/.gitconfig
       # For debugging scripts that were passed as TEST.
@@ -57,7 +57,7 @@ services:
     # Propagating the signal (e.g. via exec) isn't much use, as jest provides no mechanism for cleanup on signals.
     # Better would be just to have no state...
     #
-    # We wait for the sandbox to become live.
+    # We wait for the local network to become live.
     # We launch the test in the background and capture it's process id.
     # We launch it using setsid, which will ensure the test and all subprocesses have their own process group id.
     # We set a trap to handle SIGTERM (comes from docker-compose when it receives e.g. SIGINT).
@@ -69,7 +69,7 @@ services:
     # There's a lot of doubling of $'s to escape dockers string interpolation.
     entrypoint: >
       bash -c '
-        while ! nc -z sandbox 8080; do sleep 1; done;
+        while ! nc -z local-network 8080; do sleep 1; done;
         setsid ./scripts/test_simple.sh ${TEST:-./src/e2e_deploy_contract.test.ts} &
         pid=$$!
         pgid=$$(($$(ps -o pgid= -p $$pid)))
@@ -78,5 +78,5 @@ services:
         wait $$pid
       '
     depends_on:
-      - sandbox
+      - local-network
       - fork

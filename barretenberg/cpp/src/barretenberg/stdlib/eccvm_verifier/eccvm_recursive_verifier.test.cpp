@@ -202,8 +202,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
                     &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
 
                 // Construct ipa_transcript from proof
-                std::shared_ptr<StdlibTranscript> ipa_transcript = std::make_shared<StdlibTranscript>();
-                ipa_transcript->load_proof(ipa_proof);
+                std::shared_ptr<StdlibTranscript> ipa_transcript = std::make_shared<StdlibTranscript>(ipa_proof);
                 EXPECT_FALSE(
                     IPA<RecursiveFlavor::Curve>::full_verify_recursive(stdlib_pcs_vkey, opening_claim, ipa_transcript));
             }

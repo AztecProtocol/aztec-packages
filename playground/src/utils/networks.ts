@@ -30,8 +30,8 @@ export const NETWORKS: Network[] = [
   },
   {
     nodeURL: 'http://localhost:8080',
-    name: 'Local Sandbox',
-    description: `Run your own sandbox (v${VERSION})`,
+    name: 'Local Network',
+    description: `Run your own local network (v${VERSION})`,
     hasTestAccounts: true,
     hasSponsoredFPC: true,
     version: VERSION,

@@ -83,7 +83,7 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_cha
         Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(prover_instance->log_dyadic_size());
 
     prover_instance->gate_challenges =
-        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 }
 
 template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()

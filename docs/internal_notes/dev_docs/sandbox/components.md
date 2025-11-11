@@ -98,9 +98,9 @@ Design an Aztec.nr contract artifact, similar to a Solidity ABI which is output 
 - Public input/output witness indices?
 - Sourcemap information, allowing building of stack traces in simulator error cases.
 
-### aztec-nargo
+### aztec
 
-Provides the `aztec-nargo` binary for compiling contracts from the command line.
+A tool that allows you to compile Aztec contracts.
 
 ### aztec.js
 

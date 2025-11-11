@@ -35,7 +35,7 @@ export abstract class Gossipable {
    * A digest of the message information **used for logging only**.
    * The identifier used for deduplication is `getMsgIdFn` as defined in `encoding.ts` which is a hash over topic and data.
    */
-  async p2pMessageIdentifier(): Promise<Buffer32> {
+  async p2pMessageLoggingIdentifier(): Promise<Buffer32> {
     if (this.cachedId) {
       return this.cachedId;
     }

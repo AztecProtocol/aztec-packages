@@ -16,7 +16,7 @@ The Aztec Virtual Machine (AVM) executes the public section of a transaction. It
 
 Aztec is a privacy-first Layer 2 rollup on Ethereum. It supports smart contracts with both private & public state and private & public execution.
 
-`aztec` is a CLI tool (with an extensive set of parameters) that enables users to perform a wide range of tasks. It can: run a node, run a sandbox, execute tests, generate contract interfaces for javascript and more.
+`aztec` is a CLI tool (with an extensive set of parameters) that enables users to perform a wide range of tasks. It can: compile and test contracts, run a node, run a local network, execute tests, generate contract interfaces for javascript and more.
 
 Full reference [here](../aztec-cli/cli_reference).
 
@@ -25,12 +25,6 @@ Full reference [here](../aztec-cli/cli_reference).
 The Aztec Wallet is a CLI wallet, `aztec-wallet`, that allows a user to manage accounts and interact with an Aztec network. It includes a PXE.
 
 Full reference [here](../wallet-cli/cli_wallet_reference).
-
-### `aztec-nargo`
-
-The command line tool used to compile Aztec contracts. It is a specific version of `nargo`, with additional transpiler for turning a contract's public function code from Noir brillig bytecode into Aztec Virtual Machine (AVM) bytecode.
-
-You can read more about `nargo` [here](#nargo).
 
 ### `aztec-up`
 
@@ -82,7 +76,7 @@ Noir is a Domain Specific Language (DSL) for SNARK proving systems. It is used f
 
 ### Noir Language Server
 
-The Noir Language Server can be used in vscode to facilitate writing programs in Noir by providing syntax highlighting, circuit introspection and an execution interface. The Noir LSP addon allows the dev to choose their tool, nargo or aztec-nargo, when writing a pure Noir program or an Aztec smart contract.
+The Noir Language Server can be used in vscode to facilitate writing programs in Noir by providing syntax highlighting, circuit introspection and an execution interface. The Noir LSP addon allows the dev to choose their tool, nargo or `aztec`, when writing a pure Noir program or an Aztec smart contract.
 
 You can find more info about the LSP [in the Noir docs](https://noir-lang.org/docs/tooling/language_server).
 
@@ -135,16 +129,16 @@ The private execution environment is where private computation occurs. This is l
 
 Read more [here](../foundational-topics/pxe/index.md).
 
-### Sandbox
+### Local Network
 
-Sandbox is a local development Aztec network that runs on your machine and interacts with a development Ethereum node. It allows you to develop and deploy Noir smart contracts but without having to interact with testnet or mainnet (when the time comes).
+The local network is a development Aztec network that runs on your machine and interacts with a development Ethereum node. It allows you to develop and deploy Noir smart contracts but without having to interact with testnet or mainnet (when the time comes).
 
-Included in the sandbox:
+Included in the local network:
 
 - Local Ethereum network (Anvil)
 - Deployed Aztec protocol contracts (for L1 and L2)
 - A set of test accounts with some test tokens to pay fees
-- Development tools to compile contracts and interact with the network (aztec-nargo and aztec-wallet)
+- Development tools to compile contracts and interact with the network (aztec command and aztec-wallet)
 - All of this comes packaged in a Docker container to make it easy to install and run.
 
 ### Sequencer

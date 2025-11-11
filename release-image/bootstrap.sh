@@ -90,7 +90,7 @@ function push {
 }
 
 case "$cmd" in
-  "")
+  ""|"fast"|"full")
     build
     ;;
   *)

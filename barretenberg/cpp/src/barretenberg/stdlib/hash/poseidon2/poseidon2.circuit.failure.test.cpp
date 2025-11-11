@@ -108,8 +108,7 @@ class Poseidon2FailureTests : public ::testing::Test {
                                        virtual_log_n);
         auto proof = sumcheck_prover.prove();
 
-        auto verifier_transcript = std::make_shared<Transcript>();
-        verifier_transcript->load_proof(prover_transcript->export_proof());
+        auto verifier_transcript = std::make_shared<Transcript>(prover_transcript->export_proof());
 
         SumcheckVerifier verifier(verifier_transcript, subrelation_separator, virtual_log_n);
         auto result = verifier.verify(relation_parameters, gate_challenges, std::vector<FF>(virtual_log_n, 1));

@@ -672,7 +672,7 @@ sel_exec_dispatch_bitwise {
     register[0], mem_tag_reg[0],
     register[1], mem_tag_reg[1],
     register[2], mem_tag_reg[2]
-} in bitwise.sel {
+} in bitwise.start {
     bitwise.op_id, bitwise.err,
     bitwise.acc_ia, bitwise.tag_a,
     bitwise.acc_ib, bitwise.tag_b,

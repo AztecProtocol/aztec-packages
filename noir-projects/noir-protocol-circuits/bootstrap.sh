@@ -271,7 +271,7 @@ case "$cmd" in
     build
     test
     ;;
-  "")
+  ""|"fast"|"full")
     build
     ;;
   "compile")

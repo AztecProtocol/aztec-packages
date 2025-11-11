@@ -408,7 +408,7 @@ case "$cmd" in
     build
     test
     ;;
-  "")
+  ""|"fast"|"full")
     build
     ;;
   "gas_report")

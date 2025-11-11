@@ -31,7 +31,7 @@ async function getBalances(contract: BobTokenContract, aliceAddress: AztecAddres
 
 // docs:start:checkpoint_1
 async function main() {
-    // Connect to sandbox
+    // Connect to local network
     const node = createAztecNodeClient('http://localhost:8080');
 
     const store = await openTmpStore();

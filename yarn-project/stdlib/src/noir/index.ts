@@ -8,12 +8,13 @@ import type {
   DebugInfo,
 } from '../abi/abi.js';
 
-export const AZTEC_PRIVATE_ATTRIBUTE = 'private';
-export const AZTEC_PUBLIC_ATTRIBUTE = 'public';
-export const AZTEC_UTILITY_ATTRIBUTE = 'utility';
-export const AZTEC_INTERNAL_ATTRIBUTE = 'internal';
-export const AZTEC_INITIALIZER_ATTRIBUTE = 'initializer';
-export const AZTEC_VIEW_ATTRIBUTE = 'view';
+export const AZTEC_PRIVATE_ATTRIBUTE = 'abi_private';
+export const AZTEC_PUBLIC_ATTRIBUTE = 'abi_public';
+export const AZTEC_UTILITY_ATTRIBUTE = 'abi_utility';
+// TODO(F-142): Fix the naming here.
+export const AZTEC_INTERNAL_ATTRIBUTE = 'abi_only_self';
+export const AZTEC_INITIALIZER_ATTRIBUTE = 'abi_initializer';
+export const AZTEC_VIEW_ATTRIBUTE = 'abi_view';
 
 /** The ABI of an Aztec.nr function. */
 export interface NoirFunctionAbi {

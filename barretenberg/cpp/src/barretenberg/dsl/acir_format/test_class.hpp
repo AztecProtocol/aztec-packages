@@ -74,75 +74,80 @@ void add_constraint_to_acir_format(AcirFormat& acir_format, const ConstraintType
  * @brief Concept defining the requirements for the Base template parameter of TestClass
  *
  * @details Base must provide:
- * - A struct Tampering, which specifies how to tamper with the witness values so to make the constraints
- *   unsatisfied. Tampering must specify an enum class Mode, which details the different tampering modes, and two
- *   functions get_all() and get_labels() to iterate over all the possible tampering modes.
+ * - A class InvalidWitness, which specifies how to invalidate witness values to make the constraints
+ *   unsatisfied. InvalidWitness must specify an enum class Target, which details the different invalidation targets,
+ *   and two functions get_all() and get_labels() to iterate over all the possible invalidation targets.
  * - Type aliases: Builder and AcirConstraint, specifying the Builder and constraint we are working with.
- * - Static methods: generate_constraints (to generate valid constraints with predicate set to witness true), tampering
- *   (to tamper with the witness values to produce unsatisfied constraints).
+ * - Static methods: generate_constraints (to generate valid constraints), invalidate_witness
+ *   (to invalidate witness values to produce unsatisfied constraints).
  */
 template <typename T>
 concept TestBase = requires {
     // Required type aliases
     typename T::Builder;
     typename T::AcirConstraint;
-    typename T::Tampering;
-    typename T::Tampering::Mode;
+    typename T::InvalidWitness;
+    typename T::InvalidWitness::Target;
 
-    // Ensure Tampering::Mode is enum
-    requires std::is_enum_v<typename T::Tampering::Mode>;
+    // Ensure InvalidWitness::Target is enum
+    requires std::is_enum_v<typename T::InvalidWitness::Target>;
 
-    // Ensure that Tampering::Mode has a None value
-    { T::Tampering::Mode::None };
+    // Ensure that InvalidWitness::Target has a None value
+    { T::InvalidWitness::Target::None };
 
-    // Tampering must provide static methods for test iteration
-    { T::Tampering::get_all() } -> std::same_as<std::vector<typename T::Tampering::Mode>>;
-    { T::Tampering::get_labels() } -> std::same_as<std::vector<std::string>>;
+    // InvalidWitness must provide static methods for test iteration
+    { T::InvalidWitness::get_all() } -> std::same_as<std::vector<typename T::InvalidWitness::Target>>;
+    { T::InvalidWitness::get_labels() } -> std::same_as<std::vector<std::string>>;
 
-    // Required static constraint manipulation methods
-    requires requires(typename T::AcirConstraint& constraint,
+    // Required constraint manipulation methods (can be static or non-static)
+    requires requires(T& instance,
+                      typename T::AcirConstraint& constraint,
                       WitnessVector& witness_values,
-                      const typename T::Tampering::Mode& tampering_mode) {
+                      const typename T::InvalidWitness::Target& invalid_witness_target) {
         /**
-         * @brief Generate valid constraints with predicate set to a witness holding the value true.
+         * @brief Generate valid constraints.
          *
          */
-        { T::generate_constraints(constraint, witness_values) } -> std::same_as<void>;
+        { instance.generate_constraints(constraint, witness_values) } -> std::same_as<void>;
 
         /**
-         * @brief Tamper with the witness values to test that invalid witnesses produce unsatisfied constraints.
+         * @brief Invalidate witness values to test that invalid witnesses produce unsatisfied constraints.
          *
          */
-        { T::tampering(constraint, witness_values, tampering_mode) } -> std::same_as<void>;
+        { instance.invalidate_witness(constraint, witness_values, invalid_witness_target) } -> std::same_as<void>;
     };
 };
 
 template <TestBase Base> class TestClass {
+  public:
     using Builder = Base::Builder;
     using AcirConstraint = Base::AcirConstraint;
-    using Tampering = Base::Tampering;
-    using TamperingMode = Base::Tampering::Mode;
+    using InvalidWitness = Base::InvalidWitness;
+    using InvalidWitnessTarget = Base::InvalidWitness::Target;
 
     /**
-     * @brief Generate constraints and witness values based on the tampering mode.
+     * @brief Generate constraints and witness values based on the invalidation target.
      */
     static std::pair<AcirConstraint, WitnessVector> generate_constraints(
-        const TamperingMode& tampering_mode = TamperingMode::None)
+        const InvalidWitnessTarget& invalid_witness_target = InvalidWitnessTarget::None)
     {
         AcirConstraint constraint;
         WitnessVector witness_values;
-        Base::generate_constraints(constraint, witness_values);
-        Base::tampering(constraint, witness_values, tampering_mode);
+
+        // Create an instance to allow for non-static methods
+        Base base_instance;
+        base_instance.generate_constraints(constraint, witness_values);
+        base_instance.invalidate_witness(constraint, witness_values, invalid_witness_target);
 
         return { constraint, witness_values };
     }
 
     /**
-     * @brief General purpose testing function. It generates the test based on the tampering mode.
+     * @brief General purpose testing function. It generates the test based on the invalidation target.
      */
-    static std::tuple<bool, bool, std::string> test_constraints(const TamperingMode& tampering_mode)
+    static std::tuple<bool, bool, std::string> test_constraints(const InvalidWitnessTarget& invalid_witness_target)
     {
-        auto [constraint, witness_values] = generate_constraints(tampering_mode);
+        auto [constraint, witness_values] = generate_constraints(invalid_witness_target);
 
         AcirFormat constraint_system = {
             .varnum = static_cast<uint32_t>(witness_values.size()),
@@ -215,25 +220,26 @@ template <TestBase Base> class TestClass {
     }
 
     /**
-     * @brief Test all tampering modes.
+     * @brief Test all invalid witness targets.
      *
-     * @return std::vector<std::string> List of error messages from the builder for each tampering mode.
+     * @return std::vector<std::string> List of error messages from the builder for each invalid witness target.
      */
     static std::vector<std::string> test_tampering()
     {
         std::vector<std::string> error_msgs;
-        for (auto [mode, label] : zip_view(Tampering::get_all(), Tampering::get_labels())) {
-            auto [circuit_checker_result, builder_failed, builder_err] = test_constraints(mode);
+        for (auto [target, label] : zip_view(InvalidWitness::get_all(), InvalidWitness::get_labels())) {
+            auto [circuit_checker_result, builder_failed, builder_err] = test_constraints(target);
             error_msgs.emplace_back(builder_err);
 
-            if (mode != Tampering::Mode::None) {
+            if (target != InvalidWitness::Target::None) {
                 EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
-                    << "Circuit checker succeeded unexpectedly and no assert_eq failure for tampering mode " + label;
-                EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly for tampering mode " + label;
+                    << "Circuit checker succeeded unexpectedly and no assert_eq failure for invalid witness target " +
+                           label;
+                EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly for invalid witness target " + label;
             } else {
                 EXPECT_TRUE(circuit_checker_result)
-                    << "Circuit checker failed unexpectedly for tampering mode " + label;
-                EXPECT_FALSE(builder_failed) << "Builder failed unexpectedly for tampering mode " + label;
+                    << "Circuit checker failed unexpectedly for invalid witness target " + label;
+                EXPECT_FALSE(builder_failed) << "Builder failed unexpectedly for invalid witness target " + label;
             }
         }
 

@@ -267,4 +267,4 @@ https://devnet.aztec-labs.com
 
 - [Fee payment guide](./docs/guides/aztec-js/how_to_pay_fees.md)
 - [Running a node](../the_aztec_network/index.md)
-- [Block explorers](https://aztecscan.xyz)
+- [Block explorers](https://devnet.aztecscan.xyz)
