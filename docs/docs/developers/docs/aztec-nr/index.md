@@ -14,7 +14,7 @@ help you write Noir programs to deploy on the Aztec network.
 
 ### Prerequisites
 
-- Install [Aztec Sandbox and tooling](../../getting_started_on_sandbox.md)
+- Install [Aztec Local Network and Tooling](../../getting_started_on_local_network.md)
 - Install the [Noir LSP](../aztec-nr/installation.md) for your editor.
 
 ### Flow

@@ -37,7 +37,7 @@ function test_cmds {
   done
 
   # The vanilla app works with deployed contracts configured during the build.
-  # To avoid building the app three times, we test it with one sandbox and multiple browsers.
+  # To avoid building the app three times, we test it with one local network and multiple browsers.
   echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
 }
 

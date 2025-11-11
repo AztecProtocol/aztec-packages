@@ -18,7 +18,7 @@
     "build": "yarn clean && tsc -b",
     "start": "node --no-warnings ./dest/bin",
     "start:debug": "node --inspect=0.0.0.0:9221 --no-warnings ./dest/bin",
-    "start:sandbox": "ETHEREUM_HOSTS=http://0.0.0.0:8545/ && yarn start start --sandbox",
+    "start:local-network": "ETHEREUM_HOSTS=http://0.0.0.0:8545/ && yarn start start --local-network",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "build:dev": "tsc -b --watch",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",

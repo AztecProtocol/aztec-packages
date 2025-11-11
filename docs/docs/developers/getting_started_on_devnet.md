@@ -7,13 +7,13 @@ description: Guide for developers to get started with the Aztec devnet, includin
 
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
-This guide explains the differences between sandbox and devnet, how to migrate from sandbox to devnet, and how to start developing directly on devnet.
+This guide explains the differences between the local network and devnet, how to migrate from the local network to devnet, and how to start developing directly on devnet.
 
-## Sandbox vs Devnet: Key Differences
+## Local Network vs Devnet: Key Differences
 
-Before diving into the setup, it's important to understand the differences between sandbox and devnet:
+Before diving into the setup, it's important to understand the differences between the local network and devnet:
 
-### Sandbox (Local Development)
+### Local Network (Local Development)
 
 - Runs locally on your machine
 - No proving by default (faster development)
@@ -30,7 +30,7 @@ Before diving into the setup, it's important to understand the differences betwe
 - No automatic test accounts
 
 :::info
-If you're new to Aztec and want to understand local development first, check out the [sandbox guide](../developers/docs/tutorials/sandbox.md).
+If you're new to Aztec and want to understand local development first, check out the [local network guide](../developers/docs/tutorials/local_network.md).
 :::
 
 ## Prerequisites
@@ -68,7 +68,7 @@ export SPONSORED_FPC_ADDRESS=0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b
 
 ### Step 2: Create and deploy an account
 
-Unlike sandbox, devnet has no pre-deployed accounts. You need to create your own, but first you need to register the sponsored FPC to pay transaction fees:
+Unlike the local network, devnet has no pre-deployed accounts. You need to create your own, but first you need to register the sponsored FPC to pay transaction fees:
 
 ```bash
 aztec-wallet register-contract \
@@ -118,13 +118,13 @@ aztec-wallet send mint_to_private \
     --args accounts:my-wallet 10
 ```
 
-## Migrating from Sandbox to Testnet
+## Migrating from the Local Network to Testnet
 
-If you have an existing app running on sandbox, here's how to migrate it to testnet:
+If you have an existing app running on your local network, here's how to migrate it to testnet:
 
 ### 1. Connect to Testnet Node
 
-Instead of running a local sandbox, connect to the testnet node:
+Instead of running a local network, connect to the testnet node:
 
 ```sh
 export NODE_URL=https://aztec-testnet-fullnode.zkv.xyz
@@ -165,7 +165,7 @@ const wallet = await TestWallet.create(node);
 
 ### 3. Handle Fees on Devnet
 
-Unlike sandbox, devnet requires fee payment. You have three options:
+Unlike the local network, devnet requires fee payment. You have three options:
 
 1. **User pays their own fees** - Send them tokens or direct them to the faucet
 2. **Your contract sponsors fees** - Deploy a fee-paying contract
@@ -181,14 +181,14 @@ See the [aztec-starter](https://github.com/AztecProtocol/aztec-starter/blob/1547
 - **No test accounts**: You'll need to deploy accounts manually
 - **Longer transaction times**: Handle timeouts gracefully - transactions may still succeed
 - **L1-L2 messaging delays**:
-  - L1→L2: Wait ~1.5-2 minutes (vs 2 blocks on sandbox)
-  - L2→L1: Wait ~30 minutes for finalization (vs immediate on sandbox)
+  - L1→L2: Wait ~1.5-2 minutes (vs 2 blocks on the local network)
+  - L2→L1: Wait ~30 minutes for finalization (vs immediate on the local network)
 
 ## Key Considerations When Using Devnet
 
 ### Handling Transaction Timeouts
 
-Devnet transactions take longer than sandbox. Handle timeouts gracefully:
+Devnet transactions take longer than on the local network. Handle timeouts gracefully:
 
 ```javascript
 try {
@@ -258,7 +258,7 @@ https://devnet.aztec-labs.com
 
 ## Next Steps
 
-- **New to Aztec?** Start with the [sandbox tutorial](../developers/docs/tutorials/sandbox.md) for faster development
+- **New to Aztec?** Start with the [local network tutorial](../developers/docs/tutorials/local_network.md) for faster development
 - **Ready for production testing?** Continue using devnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)

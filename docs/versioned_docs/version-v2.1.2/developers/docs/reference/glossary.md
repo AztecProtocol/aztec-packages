@@ -86,9 +86,9 @@ How this works will be discussed via a future RFP process on Discourse, similarl
 
 Read more [here](../concepts/pxe/index.md).
 
-### Sandbox
+### Local Network
 
-<Glossary.AztecSandbox />
+<Glossary.AztecLocalNetwork />
 
 ### Sequencer
 
