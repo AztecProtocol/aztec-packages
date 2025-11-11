@@ -439,6 +439,99 @@ describe('L1TxUtils', () => {
       expect(retryGasPrice.maxFeePerGas).toBe(expectedMaxFee);
     });
 
+    it('uses competitive fee from pending txs and fee history on retry attempts', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Mock pending block with transactions having higher fees
+      const originalGetBlock = l1Client.getBlock;
+      const mockPendingFee = WEI_CONST * 3n; // 3 gwei pending txs
+      l1Client.getBlock = ((params: any) => {
+        if (params?.blockTag === 'pending') {
+          return Promise.resolve({
+            transactions: [
+              { maxPriorityFeePerGas: WEI_CONST }, // 1 gwei
+              { maxPriorityFeePerGas: WEI_CONST * 2n }, // 2 gwei
+              { maxPriorityFeePerGas: mockPendingFee }, // 3 gwei
+              { maxPriorityFeePerGas: WEI_CONST * 4n }, // 4 gwei (outlier)
+            ],
+          } as any);
+        }
+        return originalGetBlock(params);
+      }) as any;
+
+      // Mock fee history to return moderate fees
+      const originalGetFeeHistory = l1Client.getFeeHistory;
+      const mockHistoricalFee = WEI_CONST * 2n; // 2 gwei (lower than pending)
+      l1Client.getFeeHistory = () =>
+        Promise.resolve({
+          baseFeePerGas: [WEI_CONST],
+          gasUsedRatio: [0.5],
+          oldestBlock: 1n,
+          reward: [
+            [WEI_CONST / 2n, WEI_CONST, mockHistoricalFee], // 25th, 50th, 75th percentile
+          ],
+        } as any);
+
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(WEI_CONST); // 1 gwei
+
+      try {
+        const initialGasPrice = await gasUtils['getGasPrice']();
+
+        // Get retry gas price - should use competitive fee from pending (3 gwei at 75th percentile)
+        const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
+
+        // Competitive fee should be: max(network=1gwei, historical=2gwei, pending=3gwei) = 3gwei, then bumped by 50%
+        const expectedCompetitiveFee = (mockPendingFee * 150n) / 100n; // 4.5 gwei
+
+        // The minimum bump from initial would be initialPriority * 1.5
+        const minBump = (initialGasPrice.maxPriorityFeePerGas * 150n) / 100n;
+
+        // Final should be max of competitive and minimum bump
+        const expectedPriorityFee = expectedCompetitiveFee > minBump ? expectedCompetitiveFee : minBump;
+
+        expect(retryGasPrice.maxPriorityFeePerGas).toBeGreaterThanOrEqual(expectedPriorityFee);
+      } finally {
+        // Restore original methods
+        l1Client.getBlock = originalGetBlock;
+        l1Client.getFeeHistory = originalGetFeeHistory;
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+      }
+    });
+
+    it('falls back to network estimate when fee history is unavailable', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Mock fee history to throw an error (simulating unsupported RPC method)
+      const originalGetFeeHistory = l1Client.getFeeHistory;
+      l1Client.getFeeHistory = () => Promise.reject(new Error('Method not supported'));
+
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      const mockBasePriorityFee = WEI_CONST * 2n; // 2 gwei
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(mockBasePriorityFee);
+
+      try {
+        const initialGasPrice = await gasUtils['getGasPrice']();
+
+        // Get retry gas price - should fallback to network estimate when fee history fails
+        const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
+
+        // Should still get a valid price using network estimate fallback
+        expect(retryGasPrice.maxPriorityFeePerGas).toBeGreaterThan(0n);
+        expect(retryGasPrice.maxFeePerGas).toBeGreaterThan(0n);
+
+        // Should be at least the minimum bump
+        const minBump = (initialGasPrice.maxPriorityFeePerGas * 150n) / 100n;
+        expect(retryGasPrice.maxPriorityFeePerGas).toBeGreaterThanOrEqual(minBump);
+      } finally {
+        // Restore original methods
+        l1Client.getFeeHistory = originalGetFeeHistory;
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+      }
+    });
+
     it('adds correct buffer to gas estimation', async () => {
       const request = {
         to: '0x1234567890123456789012345678901234567890' as `0x${string}`,

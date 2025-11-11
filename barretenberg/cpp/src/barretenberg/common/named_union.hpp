@@ -1,17 +1,18 @@
 #pragma once
-#include "barretenberg/common/msgpack_to_json.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
-#include <sstream>
-#define MSGPACK_NO_BOOST
-#include "msgpack/object_fwd.hpp"
+
 #include <concepts>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <variant>
+
+#include "barretenberg/common/msgpack_to_json.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+#include "msgpack/object_fwd.hpp"
 
 namespace bb {
 

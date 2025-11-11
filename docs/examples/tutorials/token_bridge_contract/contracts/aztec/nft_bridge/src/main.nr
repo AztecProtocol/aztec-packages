@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract NFTBridge {
     use dep::aztec::{
-        macros::{storage::storage, functions::{public, initializer, private}},
+        macros::{storage::storage, functions::{external, initializer}},
         protocol_types::{address::AztecAddress, address::EthAddress, hash::sha256_to_field},
         state_vars::{PublicImmutable},
     };
@@ -16,20 +16,20 @@ pub contract NFTBridge {
         portal: PublicImmutable<EthAddress, Context>,
     }
     
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(nft: AztecAddress) {
-        storage.nft.initialize(nft);
+        self.storage.nft.initialize(nft);
     }
     
-    #[public]
+    #[external("public")]
     fn set_portal(portal: EthAddress) {
-        storage.portal.initialize(portal);
+        self.storage.portal.initialize(portal);
     }
     // docs:end:bridge_setup
 
     // docs:start:claim
-    #[private]
+    #[external("private")]
     fn claim(to: AztecAddress, token_id: Field, secret: Field, message_leaf_index: Field) {
         // Compute the message hash that was sent from L1
         let token_id_bytes: [u8; 32] = (token_id as Field).to_be_bytes();
@@ -39,18 +39,18 @@ pub contract NFTBridge {
         context.consume_l1_to_l2_message(
             content_hash,
             secret,
-            storage.portal.read(),
+            self.storage.portal.read(),
             message_leaf_index
         );
 
         // Mint the NFT on L2
-        let nft = storage.nft.read();
+        let nft = self.storage.nft.read();
         NFTPunk::at(nft).mint(to, token_id).call(&mut context);
     }
     // docs:end:claim
 
     // docs:start:exit
-    #[private]
+    #[external("private")]
     fn exit(
         token_id: Field,
         recipient: EthAddress
@@ -62,7 +62,7 @@ pub contract NFTBridge {
         context.message_portal(storage.portal.read(), content);
 
         // Burn the NFT on L2
-        let nft = storage.nft.read();
+        let nft = self.storage.nft.read();
         NFTPunk::at(nft).burn(context.msg_sender().unwrap(), token_id).call(&mut context);
     }
     // docs:end:exit

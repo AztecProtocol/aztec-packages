@@ -82,7 +82,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 {
     uint64_t current_timestamp = 100;
     ContractInstance instance = testing::random_contract_instance();
-    instance.current_class_id = instance.original_class_id;
+    instance.current_contract_class_id = instance.original_contract_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
     FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
@@ -131,7 +131,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
         poseidon2, range_check, gt, merkle_db, update_check_event_emitter, { .timestamp = current_timestamp });
 
     uint32_t leaf_index = 27;
-    EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
+    EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
     EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
         .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
@@ -176,7 +176,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     uint64_t update_timestamp_of_change = current_timestamp - 1;
 
     ContractInstance instance = testing::random_contract_instance();
-    instance.current_class_id = update_post_class;
+    instance.current_contract_class_id = update_post_class;
     AztecAddress derived_address = compute_contract_address(instance);
     FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
 
@@ -234,7 +234,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
         update_leaf_slots.push_back(leaf_slot);
     }
 
-    EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
+    EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
     EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
         .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))

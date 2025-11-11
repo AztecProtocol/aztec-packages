@@ -1,3 +1,5 @@
+import z from 'zod';
+
 import { toBigIntBE } from '../bigint-buffer/index.js';
 import { poseidon2Hash } from '../crypto/poseidon/index.js';
 import { randomBoolean } from '../crypto/random/index.js';
@@ -42,7 +44,17 @@ export class Point {
   }
 
   static get schema() {
-    return hexSchemaFor(Point);
+    return z.union([
+      // Serialization from hex string.
+      hexSchemaFor(Point),
+      // Serialization from MessagePack.
+      z
+        .object({
+          x: Fr.schema,
+          y: Fr.schema,
+        })
+        .transform(({ x, y }) => new Point(x, y, false)),
+    ]);
   }
 
   /**

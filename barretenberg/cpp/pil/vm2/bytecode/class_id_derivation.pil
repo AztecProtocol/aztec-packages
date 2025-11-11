@@ -14,10 +14,10 @@ namespace class_id_derivation;
 
     // Members of Contract Class Id, looked up with bc_retrieval
     pol commit artifact_hash;
-    pol commit private_function_root;
+    pol commit private_functions_root;
     pol commit public_bytecode_commitment; // This is constrained via executions's lookup to instr_fetching, which looks up bc_decomposition <-> bc_hashing
     // The result of
-    // H(GENERATOR_INDEX__CONTRACT_LEAF, artifact_hash, private_function_root, public_bytecode_commitment)
+    // H(GENERATOR_INDEX__CONTRACT_LEAF, artifact_hash, private_functions_root, public_bytecode_commitment)
     pol commit class_id;
 
     // TODO: We need these temporarily while we dont allow for aliases in the lookup tuple.
@@ -28,7 +28,7 @@ namespace class_id_derivation;
 
     // Since the inputs to poseidon2 have to be chunks of 3, we need two lookups if we want to do this in a single row
     #[CLASS_ID_POSEIDON2_0]
-    sel { gen_index_contract_leaf, artifact_hash, private_function_root, class_id, const_two }
+    sel { gen_index_contract_leaf, artifact_hash, private_functions_root, class_id, const_two }
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
 
     #[CLASS_ID_POSEIDON2_1]

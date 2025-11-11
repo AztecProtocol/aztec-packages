@@ -162,7 +162,7 @@ export abstract class BaseTestWallet extends BaseWallet {
    */
   public setPublicAuthWit(
     from: AztecAddress,
-    messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+    messageHashOrIntent: Fr | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
     authorized: boolean,
   ): Promise<SetPublicAuthwitContractInteraction> {
     return SetPublicAuthwitContractInteraction.create(this, from, messageHashOrIntent, authorized);
@@ -177,7 +177,7 @@ export abstract class BaseTestWallet extends BaseWallet {
    */
   public override async createAuthWit(
     from: AztecAddress,
-    messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+    messageHashOrIntent: Fr | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
   ): Promise<AuthWitness> {
     const account = await this.getAccountFromAddress(from);
     const chainInfo = await this.getChainInfo();

@@ -426,19 +426,6 @@ template <typename Tuple> constexpr size_t compute_max_partial_relation_length()
 }
 
 /**
- * @brief Utility function to find max TOTAL_RELATION_LENGTH among tuples of Relations.
- * @details The "total length" of a relation is 1 + the degree of the relation, where any challenges used in the
- * relation are regarded as variables.
- */
-template <typename Tuple> constexpr size_t compute_max_total_relation_length()
-{
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
-    return []<std::size_t... Is>(std::index_sequence<Is...>) {
-        return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
-    }(seq);
-}
-
-/**
  * @brief Utility function to find the number of subrelations.
  */
 template <typename Tuple> constexpr size_t compute_number_of_subrelations()
@@ -446,31 +433,6 @@ template <typename Tuple> constexpr size_t compute_number_of_subrelations()
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<std::size_t... I>(std::index_sequence<I...>) {
         return (0 + ... + std::tuple_element_t<I, Tuple>::SUBRELATION_PARTIAL_LENGTHS.size());
-    }(seq);
-}
-
-/**
- * @brief Utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
- * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner
- * tuple of univariates whose size is equal to the number of subrelations of the relation. The length of a
- * univariate in an inner tuple is determined by the corresponding subrelation length and the number of keys to be
- * folded.
- * @tparam optimized Enable optimized version with skipping some of the computation
- */
-template <typename Tuple, size_t NUM_INSTANCES, bool optimized = false>
-constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
-{
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
-    return []<size_t... I>(std::index_sequence<I...>) {
-        if constexpr (optimized) {
-            return flat_tuple::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
-                    NUM_INSTANCES>{}...);
-        } else {
-            return flat_tuple::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::
-                    template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_INSTANCES>{}...);
-        }
     }(seq);
 }
 
@@ -499,7 +461,7 @@ template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuple
  *
  * @example if RelationsTuple = UltraFlavor::Relations_, then the tuple returned by the function is a tuple of length 9,
  * where the first element of the tuple is an array of length 2 (as the first relation in UltraFlavor::Relations_ is the
- * UltraArithmeticRelation, which is made up by two subrelations).
+ * ArithmeticRelation, which is made up by two subrelations).
  *
  * @tparam RelationsTuple
  */

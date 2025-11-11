@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
@@ -576,12 +576,12 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     ASSERT_LE(test_public_inputs.accumulatedDataArrayLengths.publicDataWrites,
               test_public_inputs.accumulatedData.publicDataWrites.size());
 
-    const auto* public_data_writes_start = test_public_inputs.accumulatedData.publicDataWrites.begin();
-    std::vector<PublicDataWrite> public_data_writes(
-        public_data_writes_start,
-        public_data_writes_start + test_public_inputs.accumulatedDataArrayLengths.publicDataWrites);
+    std::vector<FF> written_slots;
+    std::ranges::transform(test_public_inputs.accumulatedData.publicDataWrites,
+                           std::back_inserter(written_slots),
+                           [](const PublicDataWrite& write) { return write.leafSlot; });
 
-    public_data_tree_check_simulator.generate_ff_gt_events_for_squashing(public_data_writes);
+    public_data_tree_check_simulator.generate_ff_gt_events_for_squashing(written_slots);
 
     precomputed_builder.process_misc(trace, 1 << 16);
     precomputed_builder.process_sel_range_16(trace);

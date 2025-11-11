@@ -44,11 +44,16 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   archiverStoreMapSizeKb: {
     env: 'ARCHIVER_STORE_MAP_SIZE_KB',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
-    description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.',
+    description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   skipValidateBlockAttestations: {
     description: 'Whether to skip validating block attestations (use only for testing).',
     ...booleanConfigHelper(false),
+  },
+  maxAllowedEthClientDriftSeconds: {
+    env: 'MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS',
+    description: 'Maximum allowed drift in seconds between the Ethereum client and current time.',
+    ...numberConfigHelper(300),
   },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,

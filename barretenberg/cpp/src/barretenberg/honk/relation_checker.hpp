@@ -93,7 +93,7 @@ template <> class RelationChecker<bb::UltraFlavor> : public RelationChecker<void
         using FF = UltraFlavor::FF;
 
         // Linearly independent relations (must be satisfied at each row)
-        Base::check<UltraArithmeticRelation<FF>>(polynomials, params, "UltraArithmetic");
+        Base::check<ArithmeticRelation<FF>>(polynomials, params, "UltraArithmetic");
         Base::check<UltraPermutationRelation<FF>>(polynomials, params, "UltraPermutation");
         Base::check<DeltaRangeConstraintRelation<FF>>(polynomials, params, "DeltaRangeConstraint");
         Base::check<EllipticRelation<FF>>(polynomials, params, "Elliptic");

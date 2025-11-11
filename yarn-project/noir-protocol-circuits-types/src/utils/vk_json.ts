@@ -4,14 +4,12 @@ import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks'
 
 // Type for VK-only JSON files
 interface VkOnlyJson {
-  verificationKey: {
-    bytes: string;
-    fields: string[];
-    hash: string;
-  };
+  bytes: string;
+  fields: string[];
+  hash: string;
 }
 
-export function abiToVKData(json: NoirCompiledCircuit | VkOnlyJson): VerificationKeyData {
+export function abiToVKData(json: NoirCompiledCircuit): VerificationKeyData {
   const { verificationKey } = json;
   return new VerificationKeyData(
     new VerificationKeyAsFields(
@@ -19,5 +17,15 @@ export function abiToVKData(json: NoirCompiledCircuit | VkOnlyJson): Verificatio
       Fr.fromHexString(verificationKey.hash),
     ),
     Buffer.from(verificationKey.bytes, 'hex'),
+  );
+}
+
+export function jsonToVKData(json: VkOnlyJson): VerificationKeyData {
+  return new VerificationKeyData(
+    new VerificationKeyAsFields(
+      json.fields.map((str: string) => Fr.fromHexString(str)),
+      Fr.fromHexString(json.hash),
+    ),
+    Buffer.from(json.bytes, 'hex'),
   );
 }

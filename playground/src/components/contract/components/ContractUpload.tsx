@@ -62,7 +62,7 @@ export function ContractUpload() {
         >
           <Box>
             <a
-              href="https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/counter_contract"
+              href="https://docs.aztec.network/developers/tutorials/contract_tutorials/counter_contract"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -81,7 +81,7 @@ export function ContractUpload() {
             >
               1. Install Aztec CLI by running `aztec-up {network.version || VERSION}`
               <br />
-              2. Run `aztec-nargo compile` in your project directory
+              2. Run `aztec compile` in your project directory
               <br />
               3. Look for `{'<your-project-name>'}.json` file in the ./target directory
             </Typography>

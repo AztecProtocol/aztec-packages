@@ -17,11 +17,24 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <cstddef>
+#include <iterator>
 #include <ostream>
+#include <type_traits>
+#include <vector>
 
 // Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1532): Re-enable this once we resolve these issues.
 #define DISABLE_CHILD_TAG_CHECKS
+
+// Trait to detect if a type is iterable
+template <typename T, typename = void> struct is_iterable : std::false_type {};
+
+// this gets used only when we can call std::begin() and std::end() on that type
+template <typename T>
+struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T&>())), decltype(std::end(std::declval<T&>()))>>
+    : std::true_type {};
+
+template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
 
 #define STANDARD_TESTING_TAGS /*Tags reused in tests*/                                                                 \
     const size_t parent_id = 0;                                                                                        \
@@ -203,6 +216,66 @@ inline std::ostream& operator<<(std::ostream& os, OriginTag const&)
     return os << "{ Origin Tag tracking is disabled in release builds }";
 }
 #endif
+
+// Helper functions for working with origin tags
+/**
+ * @brief Assigns an origin tag to an element or all elements in an iterable container
+ * @details Only operates when in_circuit is true
+ * @tparam in_circuit Whether the transcript is in-circuit mode
+ * @tparam T The type of the element to tag (can be a single element or container)
+ * @param elem The element or container to assign the tag to
+ * @param tag The origin tag to assign
+ */
+template <bool in_circuit, typename T> inline void assign_origin_tag(T& elem, const OriginTag& tag)
+{
+    if constexpr (in_circuit) {
+        if constexpr (is_iterable_v<T>) {
+            for (auto& e : elem) {
+                e.set_origin_tag(tag);
+            }
+        } else {
+            elem.set_origin_tag(tag);
+        }
+    }
+}
+
+/**
+ * @brief Checks that an element or all elements in an iterable container have the expected origin tag
+ * @details Only operates when in_circuit is true
+ * @tparam in_circuit Whether the transcript is in-circuit mode
+ * @tparam T The type of the element to check (can be a single element or container)
+ * @param elem The element or container to check
+ * @param tag The expected origin tag
+ */
+template <bool in_circuit, typename T> inline void check_origin_tag(T& elem, const OriginTag& tag)
+{
+    if constexpr (in_circuit) {
+        if constexpr (is_iterable_v<T>) {
+            for (auto& e : elem) {
+                BB_ASSERT(e.get_origin_tag() == tag);
+            };
+        } else {
+            BB_ASSERT(elem.get_origin_tag() == tag);
+        }
+    }
+}
+
+/**
+ * @brief Unsets free witness tags on all elements in a vector
+ * @details Only operates when in_circuit is true
+ * @tparam in_circuit Whether the transcript is in-circuit mode
+ * @tparam DataType The type of the elements in the vector
+ * @param input The vector of elements to process
+ */
+template <bool in_circuit, typename DataType> inline void unset_free_witness_tags(std::vector<DataType>& input)
+{
+    if constexpr (in_circuit) {
+        for (auto& entry : input) {
+            entry.unset_free_witness_tag();
+        }
+    }
+}
+
 } // namespace bb
 template <typename T>
 concept usesTag = requires(T x, const bb::OriginTag& tag) { x.set_origin_tag(tag); };

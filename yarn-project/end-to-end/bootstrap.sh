@@ -76,18 +76,15 @@ function test_cmds {
   done
 
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
-  # echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
+  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/e2e_multi_validator/e2e_multi_validator_node_key_store.test.ts"
 
-  # TODO(AD): figure out workaround for mainframe subnet exhaustion
-  if [ "$CI" -eq 1 ]; then
-    # compose-based tests with custom scripts
-    for flow in ../cli-wallet/test/flows/*.sh; do
-      # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
-      # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
-      echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
-    done
-  fi
+  # compose-based tests with custom scripts
+  for flow in ../cli-wallet/test/flows/*.sh; do
+    # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
+    # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
+    echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
+  done
 }
 
 function test {
@@ -119,7 +116,7 @@ function build_bench {
   export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER LOG_LEVEL"
   rm -rf $CAPTURE_IVC_FOLDER && mkdir -p $CAPTURE_IVC_FOLDER
   rm -rf bench-out && mkdir -p bench-out
-  if cache_download bb-client-ivc-captures-$hash.tar.gz; then
+  if cache_download bb-chonk-captures-$hash.tar.gz; then
     return
   fi
   parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
@@ -128,7 +125,7 @@ function build_bench {
     client_flows/bridging \
     client_flows/transfers \
     client_flows/amm
-  cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
+  cache_upload bb-chonk-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }
 
 function bench {

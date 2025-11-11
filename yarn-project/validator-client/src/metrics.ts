@@ -85,15 +85,17 @@ export class ValidatorMetrics {
     this.successfulAttestationsCount.add(num);
   }
 
-  public incFailedAttestationsBadProposal(num: number, reason: string) {
+  public incFailedAttestationsBadProposal(num: number, reason: string, inCommittee: boolean) {
     this.failedAttestationsBadProposalCount.add(num, {
       [Attributes.ERROR_TYPE]: reason,
+      [Attributes.IS_COMMITTEE_MEMBER]: inCommittee,
     });
   }
 
-  public incFailedAttestationsNodeIssue(num: number, reason: string) {
+  public incFailedAttestationsNodeIssue(num: number, reason: string, inCommittee: boolean) {
     this.failedAttestationsNodeIssueCount.add(num, {
       [Attributes.ERROR_TYPE]: reason,
+      [Attributes.IS_COMMITTEE_MEMBER]: inCommittee,
     });
   }
 }

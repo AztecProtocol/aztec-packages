@@ -19,7 +19,8 @@ ethereum:
     apiKeyHeader: ""
 
 validator:
-  l1FixedPriorityFeePerGas: 2
+  l1PriorityFeeBumpPercentage: 30
+  l1PriorityFeeRetryBumpPercentage: 80
   l1GasLimitBufferPercentage: 15
   l1GasPriceMax: 500
   replicas: 48

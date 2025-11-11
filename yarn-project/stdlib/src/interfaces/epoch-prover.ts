@@ -51,10 +51,10 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
   startNewBlock(blockNumber: number, timestamp: UInt64, totalNumTxs: number): Promise<void>;
 
   /**
-   * Kickstarts tube circuits for the specified txs. These will be used during epoch proving.
-   * Note that if the tube circuits are not started this way, they will be started nontheless after processing.
+   * Kickstarts chonk verifier circuits for the specified txs. These will be used during epoch proving.
+   * Note that if the chonk verifier circuits are not started this way, they will be started nonetheless after processing.
    */
-  startTubeCircuits(txs: Tx[]): Promise<void>;
+  startChonkVerifierCircuits(txs: Tx[]): Promise<void>;
 
   /** Returns the block. */
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<BlockHeader>;

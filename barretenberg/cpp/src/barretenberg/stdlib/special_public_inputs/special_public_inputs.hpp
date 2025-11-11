@@ -53,7 +53,7 @@ class KernelIO {
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1490): Make PublicInputComponent work with arrays
     using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
 
@@ -65,7 +65,7 @@ class KernelIO {
     G1 kernel_return_data;          // Commitment to the return data of a kernel circuit
     G1 app_return_data;             // Commitment to the return data of an app circuit
     TableCommitments ecc_op_tables; // commitments to merged tables obtained from recursive Merge verification
-    FF output_pg_accum_hash;        // hash of the output PG verifier accumulator
+    FF output_hn_accum_hash;        // hash of the output HN verifier accumulator
 
     // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
@@ -90,7 +90,7 @@ class KernelIO {
             table_commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
             index += G1::PUBLIC_INPUTS_SIZE;
         }
-        output_pg_accum_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        output_hn_accum_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
         index += FF::PUBLIC_INPUTS_SIZE;
     }
 
@@ -100,16 +100,24 @@ class KernelIO {
      */
     void set_public()
     {
-        pairing_inputs.set_public();
+        Builder* builder = output_hn_accum_hash.get_context();
+
+        if (pairing_inputs.P0.get_context() == nullptr) {
+            // Add the default pairing points to the public inputs
+            PairingInputs::set_default_to_public(builder);
+        } else {
+            pairing_inputs.set_public();
+        }
         kernel_return_data.set_public();
         app_return_data.set_public();
         for (auto& table_commitment : ecc_op_tables) {
             table_commitment.set_public();
         }
-        output_pg_accum_hash.set_public();
+        output_hn_accum_hash.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
 
@@ -119,19 +127,17 @@ class KernelIO {
      */
     static void add_default(Builder& builder)
     {
-        PairingInputs::add_default_to_public_inputs(builder);
-        G1 kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
-        kernel_return_data.set_public();
-        G1 app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
-        app_return_data.set_public();
-        TableCommitments ecc_op_tables;
-        for (auto& table_commitment : ecc_op_tables) {
+        KernelIO inputs;
+
+        inputs.pairing_inputs = PairingInputs::construct_default();
+        inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
+        inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
+        for (auto& table_commitment : inputs.ecc_op_tables) {
             table_commitment = G1(DEFAULT_ECC_COMMITMENT);
             table_commitment.convert_constant_to_fixed_witness(&builder);
-            table_commitment.set_public();
         }
-        FF output_pg_accum_hash = FF::from_witness(&builder, 0);
-        output_pg_accum_hash.set_public();
+        inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
+        inputs.set_public();
     }
 };
 
@@ -144,7 +150,7 @@ template <typename Builder_> class DefaultIO {
     using Builder = Builder_;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using FF = Curve::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
 
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
@@ -171,10 +177,14 @@ template <typename Builder_> class DefaultIO {
      */
     void set_public()
     {
+        Builder* builder = pairing_inputs.P0.get_context();
+        BB_ASSERT_NEQ(builder, nullptr, "Trying to set constant PairingPoints to public.");
+
         pairing_inputs.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
 
@@ -182,7 +192,11 @@ template <typename Builder_> class DefaultIO {
      * @brief Add default public inputs when they are not present
      *
      */
-    static void add_default(Builder& builder) { PairingInputs::add_default_to_public_inputs(builder); };
+    static void add_default(Builder& builder)
+    {
+        PairingInputs::set_default_to_public(&builder);
+        builder.finalize_public_inputs();
+    };
 };
 
 /**
@@ -198,7 +212,7 @@ template <typename Builder_> class GoblinAvmIO {
     using Builder = Builder_;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using FF = Curve::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
 
     using PublicFF = stdlib::PublicInputComponent<FF>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
@@ -229,11 +243,14 @@ template <typename Builder_> class GoblinAvmIO {
      */
     void set_public()
     {
+        Builder* builder = pairing_inputs.P0.get_context();
+
         mega_hash.set_public();
         pairing_inputs.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
 };
@@ -247,13 +264,14 @@ template <class Builder_> class HidingKernelIO {
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
     using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
     PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
+    G1 kernel_return_data;          // Commitment to the return data of the tail kernel circuit
     TableCommitments ecc_op_tables; // commitments to merged tables obtained from final Merge verification
 
     // Total size of the IO public inputs
@@ -270,6 +288,8 @@ template <class Builder_> class HidingKernelIO {
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
+        kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += G1::PUBLIC_INPUTS_SIZE;
         for (auto& commitment : ecc_op_tables) {
             commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
             index += G1::PUBLIC_INPUTS_SIZE;
@@ -282,25 +302,23 @@ template <class Builder_> class HidingKernelIO {
      */
     void set_public()
     {
-        pairing_inputs.set_public();
+        Builder* builder = ecc_op_tables[0].get_context();
+
+        if (pairing_inputs.P0.get_context() == nullptr) {
+            // Add the default pairing points to the public inputs
+            PairingInputs::set_default_to_public(builder);
+        } else {
+            pairing_inputs.set_public();
+        }
+        kernel_return_data.set_public();
         for (auto& commitment : ecc_op_tables) {
             commitment.set_public();
         }
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
-    }
-
-    static TableCommitments default_ecc_op_tables(Builder& builder)
-    {
-        TableCommitments default_tables;
-        for (auto& table_commitment : default_tables) {
-            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
-            table_commitment.convert_constant_to_fixed_witness(&builder);
-        }
-
-        return default_tables;
     }
 
     /**
@@ -309,10 +327,15 @@ template <class Builder_> class HidingKernelIO {
      */
     static void add_default(Builder& builder)
     {
-        PairingInputs::add_default_to_public_inputs(builder);
-        for (auto& table_commitment : default_ecc_op_tables(builder)) {
-            table_commitment.set_public();
+        HidingKernelIO inputs;
+        inputs.pairing_inputs = PairingInputs::construct_default();
+        inputs.kernel_return_data = G1(DEFAULT_ECC_COMMITMENT);
+        inputs.kernel_return_data.convert_constant_to_fixed_witness(&builder);
+        for (auto& table_commitment : inputs.ecc_op_tables) {
+            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
+            table_commitment.convert_constant_to_fixed_witness(&builder);
         }
+        inputs.set_public();
     };
 };
 
@@ -324,7 +347,7 @@ class RollupIO {
     using Builder = UltraCircuitBuilder;  // rollup circuits are always Ultra
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using FF = stdlib::bn254<Builder>::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
     using IpaClaim = OpeningClaim<stdlib::grumpkin<Builder>>;
 
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
@@ -355,11 +378,20 @@ class RollupIO {
      */
     void set_public()
     {
-        pairing_inputs.set_public();
+        Builder* builder = ipa_claim.commitment.get_context();
+
+        if (pairing_inputs.P0.get_context() == nullptr) {
+            // Add the default pairing points to the public inputs
+            PairingInputs::set_default_to_public(builder);
+        } else {
+            BB_ASSERT_EQ(builder, pairing_inputs.P0.get_context());
+            pairing_inputs.set_public();
+        }
         ipa_claim.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
 
@@ -369,10 +401,13 @@ class RollupIO {
      */
     static void add_default(Builder& builder)
     {
-        PairingInputs::add_default_to_public_inputs(builder);
+        RollupIO inputs;
+        inputs.pairing_inputs = PairingInputs::construct_default();
         auto [stdlib_opening_claim, ipa_proof] =
             IPA<grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
-        stdlib_opening_claim.set_public();
+        inputs.ipa_claim = stdlib_opening_claim;
+        inputs.set_public();
+
         builder.ipa_proof = ipa_proof;
     };
 };

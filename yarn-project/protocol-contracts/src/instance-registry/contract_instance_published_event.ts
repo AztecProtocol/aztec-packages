@@ -61,4 +61,10 @@ export class ContractInstancePublishedEvent {
       deployer: this.deployer,
     };
   }
+
+  public static extractContractInstanceEvents(logs: PrivateLog[]): ContractInstancePublishedEvent[] {
+    return logs
+      .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
+      .map(log => ContractInstancePublishedEvent.fromLog(log));
+  }
 }

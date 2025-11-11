@@ -779,7 +779,6 @@ TEST_F(TranslatorRelationConsistency, AccumulatorTransferRelation)
         const auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
         const auto& lagrange_result_row = input_elements.lagrange_result_row;
         const auto& lagrange_last_in_minicircuit = input_elements.lagrange_last_in_minicircuit;
-        const auto& lagrange_mini_masking = input_elements.lagrange_mini_masking;
         const auto& accumulators_binary_limbs_0 = input_elements.accumulators_binary_limbs_0;
         const auto& accumulators_binary_limbs_0_shift = input_elements.accumulators_binary_limbs_0_shift;
         const auto& accumulators_binary_limbs_1 = input_elements.accumulators_binary_limbs_1;
@@ -807,24 +806,16 @@ TEST_F(TranslatorRelationConsistency, AccumulatorTransferRelation)
                              (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
 
         // Check the accumulator starts as zero
-        expected_values[4] =
-            accumulators_binary_limbs_0 * lagrange_last_in_minicircuit * (lagrange_mini_masking - FF(1));
-        expected_values[5] =
-            accumulators_binary_limbs_1 * lagrange_last_in_minicircuit * (lagrange_mini_masking - FF(1));
-        expected_values[6] =
-            accumulators_binary_limbs_2 * lagrange_last_in_minicircuit * (lagrange_mini_masking - FF(1));
-        expected_values[7] =
-            accumulators_binary_limbs_3 * lagrange_last_in_minicircuit * (lagrange_mini_masking - FF(1));
+        expected_values[4] = accumulators_binary_limbs_0 * lagrange_last_in_minicircuit;
+        expected_values[5] = accumulators_binary_limbs_1 * lagrange_last_in_minicircuit;
+        expected_values[6] = accumulators_binary_limbs_2 * lagrange_last_in_minicircuit;
+        expected_values[7] = accumulators_binary_limbs_3 * lagrange_last_in_minicircuit;
 
         // Check the accumulator results in submitted value
-        expected_values[8] = (accumulators_binary_limbs_0 - accumulated_result_0) * (lagrange_mini_masking - FF(1)) *
-                             lagrange_result_row;
-        expected_values[9] = (accumulators_binary_limbs_1 - accumulated_result_1) * (lagrange_mini_masking - FF(1)) *
-                             lagrange_result_row;
-        expected_values[10] = (accumulators_binary_limbs_2 - accumulated_result_2) * (lagrange_mini_masking - FF(1)) *
-                              lagrange_result_row;
-        expected_values[11] = (accumulators_binary_limbs_3 - accumulated_result_3) * (lagrange_mini_masking - FF(1)) *
-                              lagrange_result_row;
+        expected_values[8] = (accumulators_binary_limbs_0 - accumulated_result_0) * lagrange_result_row;
+        expected_values[9] = (accumulators_binary_limbs_1 - accumulated_result_1) * lagrange_result_row;
+        expected_values[10] = (accumulators_binary_limbs_2 - accumulated_result_2) * lagrange_result_row;
+        expected_values[11] = (accumulators_binary_limbs_3 - accumulated_result_3) * lagrange_result_row;
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);

@@ -4,6 +4,7 @@ import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { AvmSimulationTester } from '../fixtures/avm_simulation_tester.js';
 
@@ -12,10 +13,12 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
   const sender = AztecAddress.fromNumber(4200);
   let testContractAddress: AztecAddress;
   let instances: ContractInstanceWithAddress[];
+  let worldStateService: NativeWorldStateService;
   let simTester: AvmSimulationTester;
 
   beforeEach(async () => {
-    simTester = await AvmSimulationTester.create();
+    worldStateService = await NativeWorldStateService.tmp();
+    simTester = await AvmSimulationTester.create(worldStateService);
     // create enough unique contract classes to hit the limit
     instances = [];
     for (let i = 0; i <= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {
@@ -29,6 +32,10 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
       instances.push(instance);
     }
     testContractAddress = instances[0].address;
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it('bulk testing', async () => {

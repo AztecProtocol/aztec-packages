@@ -151,19 +151,23 @@ void PublicDataTreeCheck::on_checkpoint_reverted()
     events.emit(CheckPointEventType::REVERT_CHECKPOINT);
 }
 
-// Leaf slot needs to be casted as uint256_t to compare.
-// Sorting over pointers instead of structs would be faster but probably negligible for such a small vector.
-void PublicDataTreeCheck::generate_ff_gt_events_for_squashing(std::vector<PublicDataWrite>& public_data_writes)
+/**
+ * @brief Generates ff_gt events for squashing.
+ *
+ * @param written_leaf_slots The leaf slots that were written (unique).
+ */
+void PublicDataTreeCheck::generate_ff_gt_events_for_squashing(const std::vector<FF>& written_leaf_slots)
 {
-    std::ranges::sort(public_data_writes, [](const PublicDataWrite& a, const PublicDataWrite& b) {
-        return static_cast<uint256_t>(a.leafSlot) < static_cast<uint256_t>(b.leafSlot);
-    });
+    // We need the sorted leaf slots to generate the ff_gt events in order.
+    std::vector<FF> sorted_written_leaf_slots = written_leaf_slots;
+    // Leaf slot needs to be casted as uint256_t to compare.
+    // Sorting over pointers instead of structs would be faster but probably negligible for such a small vector.
+    std::ranges::sort(sorted_written_leaf_slots,
+                      [](const FF& a, const FF& b) { return static_cast<uint256_t>(a) < static_cast<uint256_t>(b); });
 
-    const size_t public_data_writes_length = public_data_writes.size();
-
-    if (public_data_writes_length > 1) {
-        for (size_t i = 0; i < public_data_writes_length - 1; i++) {
-            field_gt.ff_gt(public_data_writes.at(i + 1).leafSlot, public_data_writes.at(i).leafSlot);
+    if (sorted_written_leaf_slots.size() > 1) {
+        for (size_t i = 0; i < sorted_written_leaf_slots.size() - 1; i++) {
+            field_gt.ff_gt(sorted_written_leaf_slots.at(i + 1), sorted_written_leaf_slots.at(i));
         }
     }
 }

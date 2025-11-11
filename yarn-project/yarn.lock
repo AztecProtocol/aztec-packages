@@ -1000,7 +1000,7 @@ __metadata:
   dependencies:
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@crate-crypto/node-eth-kzg": "npm:^0.9.1"
+    "@crate-crypto/node-eth-kzg": "npm:^0.10.0"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
@@ -1136,15 +1136,18 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/node-keystore": "workspace:^"
     "@aztec/node-lib": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/test-wallet": "workspace:^"
     "@aztec/world-state": "workspace:^"
+    "@ethersproject/wallet": "npm:^5.8.0"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^30.0.0"
     "@libp2p/peer-id-factory": "npm:^3.0.4"
+    "@scure/bip39": "npm:^2.0.1"
     "@types/jest": "npm:^30.0.0"
     "@types/lodash.chunk": "npm:^4.2.9"
     "@types/lodash.groupby": "npm:^4.6.9"
@@ -1366,6 +1369,8 @@ __metadata:
     "@koa/cors": "npm:^5.0.0"
     "@libp2p/interface": "npm:1.3.1"
     "@noble/curves": "npm:=1.7.0"
+    "@noble/hashes": "npm:^1.6.1"
+    "@scure/bip39": "npm:^2.0.1"
     "@types/detect-node": "npm:^2.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/koa": "npm:^2.15.0"
@@ -1614,8 +1619,6 @@ __metadata:
 "@aztec/noir-acvm_js@portal:../noir/packages/acvm_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/noir-acvm_js@portal:../noir/packages/acvm_js::locator=%40aztec%2Faztec3-packages%40workspace%3A."
-  dependencies:
-    "@noir-lang/acvm_js": "npm:1.0.0-beta.14-8989770.nightly"
   languageName: node
   linkType: soft
 
@@ -1638,16 +1641,23 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/noir_codegen": "npm:1.0.0-beta.14-8989770.nightly"
+    "@aztec/noir-types": "npm:1.0.0-beta.15"
+    glob: "npm:^11.0.3"
+    ts-command-line-args: "npm:^2.5.1"
+  bin:
+    noir-codegen: lib/main.js
   languageName: node
   linkType: soft
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.14-8989770.nightly
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=3c03dd&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 1.0.0-beta.15
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=773b99&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/noir_js": "npm:1.0.0-beta.14-8989770.nightly"
-  checksum: 10/c3a6b7e1ce30fd9bb2a314df9876504ef3dfd887de6798bcb5266d32194ceb66e3fd8aadf6475b1a8425a8a06b03e2e27d198092823a79708bd84b7bded0aa68
+    "@aztec/noir-acvm_js": "npm:1.0.0-beta.15"
+    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.15"
+    "@aztec/noir-types": "npm:1.0.0-beta.15"
+    pako: "npm:^2.1.0"
+  checksum: 10/78b2a5f8c1a0107606de76e18363f9a13db49f821ea1fee15d000e94db45bc31f005853eba71778022d20294351f22733f7dddf5b6b144c439fb4c4b2b9360b0
   languageName: node
   linkType: hard
 
@@ -1655,7 +1665,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/noirc_abi": "npm:1.0.0-beta.14-8989770.nightly"
+    "@aztec/noir-types": "npm:1.0.0-beta.15"
   languageName: node
   linkType: soft
 
@@ -1703,8 +1713,6 @@ __metadata:
 "@aztec/noir-types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/noir-types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A."
-  dependencies:
-    "@noir-lang/types": "npm:1.0.0-beta.14-8989770.nightly"
   languageName: node
   linkType: soft
 
@@ -2003,6 +2011,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/native": "workspace:^"
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
@@ -2018,6 +2027,8 @@ __metadata:
     "@types/lodash.clonedeep": "npm:^4.5.7"
     "@types/lodash.merge": "npm:^4.6.9"
     "@types/node": "npm:^22.15.17"
+    istanbul-lib-hook: "npm:^3.0.0"
+    istanbul-lib-instrument: "npm:^6.0.3"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     lodash.clonedeep: "npm:^4.5.0"
@@ -2145,6 +2156,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     jest: "npm:^30.0.0"
+    jest-mock-extended: "npm:^4.0.0"
     resolve-typescript-plugin: "npm:^2.0.1"
     ts-loader: "npm:^9.5.4"
     ts-node: "npm:^10.9.1"
@@ -2709,58 +2721,58 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@crate-crypto/node-eth-kzg-darwin-arm64@npm:0.9.1":
-  version: 0.9.1
-  resolution: "@crate-crypto/node-eth-kzg-darwin-arm64@npm:0.9.1"
+"@crate-crypto/node-eth-kzg-darwin-arm64@npm:0.10.0":
+  version: 0.10.0
+  resolution: "@crate-crypto/node-eth-kzg-darwin-arm64@npm:0.10.0"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@crate-crypto/node-eth-kzg-darwin-x64@npm:0.9.1":
-  version: 0.9.1
-  resolution: "@crate-crypto/node-eth-kzg-darwin-x64@npm:0.9.1"
+"@crate-crypto/node-eth-kzg-darwin-x64@npm:0.10.0":
+  version: 0.10.0
+  resolution: "@crate-crypto/node-eth-kzg-darwin-x64@npm:0.10.0"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@crate-crypto/node-eth-kzg-linux-arm64-gnu@npm:0.9.1":
-  version: 0.9.1
-  resolution: "@crate-crypto/node-eth-kzg-linux-arm64-gnu@npm:0.9.1"
+"@crate-crypto/node-eth-kzg-linux-arm64-gnu@npm:0.10.0":
+  version: 0.10.0
+  resolution: "@crate-crypto/node-eth-kzg-linux-arm64-gnu@npm:0.10.0"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@crate-crypto/node-eth-kzg-linux-x64-gnu@npm:0.9.1":
-  version: 0.9.1
-  resolution: "@crate-crypto/node-eth-kzg-linux-x64-gnu@npm:0.9.1"
+"@crate-crypto/node-eth-kzg-linux-x64-gnu@npm:0.10.0":
+  version: 0.10.0
+  resolution: "@crate-crypto/node-eth-kzg-linux-x64-gnu@npm:0.10.0"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@crate-crypto/node-eth-kzg-win32-arm64-msvc@npm:0.9.1":
-  version: 0.9.1
-  resolution: "@crate-crypto/node-eth-kzg-win32-arm64-msvc@npm:0.9.1"
+"@crate-crypto/node-eth-kzg-win32-arm64-msvc@npm:0.10.0":
+  version: 0.10.0
+  resolution: "@crate-crypto/node-eth-kzg-win32-arm64-msvc@npm:0.10.0"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@crate-crypto/node-eth-kzg-win32-x64-msvc@npm:0.9.1":
-  version: 0.9.1
-  resolution: "@crate-crypto/node-eth-kzg-win32-x64-msvc@npm:0.9.1"
+"@crate-crypto/node-eth-kzg-win32-x64-msvc@npm:0.10.0":
+  version: 0.10.0
+  resolution: "@crate-crypto/node-eth-kzg-win32-x64-msvc@npm:0.10.0"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
 
-"@crate-crypto/node-eth-kzg@npm:^0.9.1":
-  version: 0.9.1
-  resolution: "@crate-crypto/node-eth-kzg@npm:0.9.1"
+"@crate-crypto/node-eth-kzg@npm:^0.10.0":
+  version: 0.10.0
+  resolution: "@crate-crypto/node-eth-kzg@npm:0.10.0"
   dependencies:
-    "@crate-crypto/node-eth-kzg-darwin-arm64": "npm:0.9.1"
-    "@crate-crypto/node-eth-kzg-darwin-x64": "npm:0.9.1"
-    "@crate-crypto/node-eth-kzg-linux-arm64-gnu": "npm:0.9.1"
-    "@crate-crypto/node-eth-kzg-linux-x64-gnu": "npm:0.9.1"
-    "@crate-crypto/node-eth-kzg-win32-arm64-msvc": "npm:0.9.1"
-    "@crate-crypto/node-eth-kzg-win32-x64-msvc": "npm:0.9.1"
+    "@crate-crypto/node-eth-kzg-darwin-arm64": "npm:0.10.0"
+    "@crate-crypto/node-eth-kzg-darwin-x64": "npm:0.10.0"
+    "@crate-crypto/node-eth-kzg-linux-arm64-gnu": "npm:0.10.0"
+    "@crate-crypto/node-eth-kzg-linux-x64-gnu": "npm:0.10.0"
+    "@crate-crypto/node-eth-kzg-win32-arm64-msvc": "npm:0.10.0"
+    "@crate-crypto/node-eth-kzg-win32-x64-msvc": "npm:0.10.0"
   dependenciesMeta:
     "@crate-crypto/node-eth-kzg-darwin-arm64":
       optional: true
@@ -2774,7 +2786,7 @@ __metadata:
       optional: true
     "@crate-crypto/node-eth-kzg-win32-x64-msvc":
       optional: true
-  checksum: 10/b407e0c94608fb0c30741ce3afca4d0d443afa831fc2279b2843cdd4f4a7db92b35bc98548960656a2169c47687335d6f2f8f389e004c8ca7db1134713409ec2
+  checksum: 10/c384ba8a7bbca07c7c12dff7737e49eb1f25b7e33506c4a4bbbc531c68b8dce5645887d8481eeb8bc8fa2e1cddbd220fb18fe3e8372e8851eabff84636eebc48
   languageName: node
   linkType: hard
 
@@ -3534,7 +3546,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ethersproject/wallet@npm:^5.7.0":
+"@ethersproject/wallet@npm:^5.7.0, @ethersproject/wallet@npm:^5.8.0":
   version: 5.8.0
   resolution: "@ethersproject/wallet@npm:5.8.0"
   dependencies:
@@ -5319,10 +5331,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/hashes@npm:1.8.0, @noble/hashes@npm:^1.8.0, @noble/hashes@npm:~1.8.0":
+"@noble/hashes@npm:1.8.0, @noble/hashes@npm:^1.6.1, @noble/hashes@npm:^1.8.0, @noble/hashes@npm:~1.8.0":
   version: 1.8.0
   resolution: "@noble/hashes@npm:1.8.0"
   checksum: 10/474b7f56bc6fb2d5b3a42132561e221b0ea4f91e590f4655312ca13667840896b34195e2b53b7f097ec080a1fdd3b58d902c2a8d0fbdf51d2e238b53808a177e
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:2.0.1":
+  version: 2.0.1
+  resolution: "@noble/hashes@npm:2.0.1"
+  checksum: 10/f4d00e7564eb4ff4e6d16be151dd0e404aede35f91e4372b0a8a6ec888379c1dd1e02c721b480af8e7853bea9637185b5cb9533970c5b77d60c254ead0cfd8f7
   languageName: node
   linkType: hard
 
@@ -5350,54 +5369,6 @@ __metadata:
     "@nodelib/fs.scandir": "npm:2.1.5"
     fastq: "npm:^1.6.0"
   checksum: 10/40033e33e96e97d77fba5a238e4bba4487b8284678906a9f616b5579ddaf868a18874c0054a75402c9fbaaa033a25ceae093af58c9c30278e35c23c9479e79b0
-  languageName: node
-  linkType: hard
-
-"@noir-lang/acvm_js@npm:1.0.0-beta.14-8989770.nightly":
-  version: 1.0.0-beta.14-8989770.nightly
-  resolution: "@noir-lang/acvm_js@npm:1.0.0-beta.14-8989770.nightly"
-  checksum: 10/d9d796698a73a8ab9b0f2b43d0355e4dd65c4c11b32b8ef219889b12289be08cb446b01a92fc1ed88eebfeddcbc7172b9750aac976be895ec29360e093b0ab95
-  languageName: node
-  linkType: hard
-
-"@noir-lang/noir_codegen@npm:1.0.0-beta.14-8989770.nightly":
-  version: 1.0.0-beta.14-8989770.nightly
-  resolution: "@noir-lang/noir_codegen@npm:1.0.0-beta.14-8989770.nightly"
-  dependencies:
-    "@noir-lang/types": "npm:1.0.0-beta.14-8989770.nightly"
-    glob: "npm:^11.0.3"
-    ts-command-line-args: "npm:^2.5.1"
-  bin:
-    noir-codegen: lib/main.js
-  checksum: 10/08f3dc65e12cf2bb200f3567410bda43a8da91ad8a0f65a2595988878bafd065f466a309ee1e8bdb250b04a4dc7eabbfa55acf33d62182341ed1c689a99136b1
-  languageName: node
-  linkType: hard
-
-"@noir-lang/noir_js@npm:1.0.0-beta.14-8989770.nightly":
-  version: 1.0.0-beta.14-8989770.nightly
-  resolution: "@noir-lang/noir_js@npm:1.0.0-beta.14-8989770.nightly"
-  dependencies:
-    "@noir-lang/acvm_js": "npm:1.0.0-beta.14-8989770.nightly"
-    "@noir-lang/noirc_abi": "npm:1.0.0-beta.14-8989770.nightly"
-    "@noir-lang/types": "npm:1.0.0-beta.14-8989770.nightly"
-    pako: "npm:^2.1.0"
-  checksum: 10/6f971fb1ca05423fe299fde2bd9d6189b1b6ba06ac0ba3e7a3c2b81a0b2fb4421683fff5b9a66b52114f4fb1f8dc343953d4bee8d5473120516517fd27eb7d1b
-  languageName: node
-  linkType: hard
-
-"@noir-lang/noirc_abi@npm:1.0.0-beta.14-8989770.nightly":
-  version: 1.0.0-beta.14-8989770.nightly
-  resolution: "@noir-lang/noirc_abi@npm:1.0.0-beta.14-8989770.nightly"
-  dependencies:
-    "@noir-lang/types": "npm:1.0.0-beta.14-8989770.nightly"
-  checksum: 10/bf2fbdd003629360c67267ed532ef4776a2585332988015e22f91824de6b3fa7232ef4a029161c516deff808b6feee8dfb0ac15c726a2ce9621c9c3e1a52a113
-  languageName: node
-  linkType: hard
-
-"@noir-lang/types@npm:1.0.0-beta.14-8989770.nightly":
-  version: 1.0.0-beta.14-8989770.nightly
-  resolution: "@noir-lang/types@npm:1.0.0-beta.14-8989770.nightly"
-  checksum: 10/d2f08719c58d7cf68eea1fadccf743487899bdd22ca444647d0da04edeae79bf4db7073ddb8f2b64a57309fc6adfb2dc6ce298774f6cd9333f8e7f644c1c739a
   languageName: node
   linkType: hard
 
@@ -6081,6 +6052,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@scure/base@npm:2.0.0":
+  version: 2.0.0
+  resolution: "@scure/base@npm:2.0.0"
+  checksum: 10/8fb86024f22e9c532d513b8df8a672252e58bd5695920ce646162287f0accd38e89cab58722a738b3d247b5dcf7760362ae2d82d502be7e62a555f5d98f8a110
+  languageName: node
+  linkType: hard
+
 "@scure/base@npm:~1.1.6":
   version: 1.1.9
   resolution: "@scure/base@npm:1.1.9"
@@ -6134,6 +6112,16 @@ __metadata:
     "@noble/hashes": "npm:~1.8.0"
     "@scure/base": "npm:~1.2.5"
   checksum: 10/63e60c40fa1bda2c1b50351546fee6d7b0947cc814aa7a4209dcedd3693b5053302c8fca28292f5f50735e11c613265359acdc019127393dbab17e53489fc449
+  languageName: node
+  linkType: hard
+
+"@scure/bip39@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "@scure/bip39@npm:2.0.1"
+  dependencies:
+    "@noble/hashes": "npm:2.0.1"
+    "@scure/base": "npm:2.0.0"
+  checksum: 10/d05271c3a339447802e87c921b3630d5477ce1e137340bb31692c2936dea382f2f73ecb60100e22a96632d70b67d32f7e10b7f36e7395c879f7ff0efadcd1ad0
   languageName: node
   linkType: hard
 
@@ -9247,6 +9235,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"append-transform@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "append-transform@npm:2.0.0"
+  dependencies:
+    default-require-extensions: "npm:^3.0.0"
+  checksum: 10/f26f393bf7a428fd1bb18f2758a819830a582243310c5170edb3f98fdc5a535333d02b952f7c2d9b14522bd8ead5b132a0b15000eca18fa9f49172963ebbc231
+  languageName: node
+  linkType: hard
+
 "arch@npm:^2.2.0":
   version: 2.2.0
   resolution: "arch@npm:2.2.0"
@@ -11683,6 +11680,15 @@ __metadata:
   dependencies:
     execa: "npm:^5.0.0"
   checksum: 10/126f8273ecac8ee9ff91ea778e8784f6cd732d77c3157e8c5bdd6ed03651b5291f71446d05bc02d04073b1e67583604db5394ea3cf992ede0088c70ea15b7378
+  languageName: node
+  linkType: hard
+
+"default-require-extensions@npm:^3.0.0":
+  version: 3.0.1
+  resolution: "default-require-extensions@npm:3.0.1"
+  dependencies:
+    strip-bom: "npm:^4.0.0"
+  checksum: 10/45882fc971dd157faf6716ced04c15cf252c0a2d6f5c5844b66ca49f46ed03396a26cd940771aa569927aee22923a961bab789e74b25aabc94d90742c9dd1217
   languageName: node
   linkType: hard
 
@@ -15343,7 +15349,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"istanbul-lib-instrument@npm:^6.0.0, istanbul-lib-instrument@npm:^6.0.2":
+"istanbul-lib-hook@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "istanbul-lib-hook@npm:3.0.0"
+  dependencies:
+    append-transform: "npm:^2.0.0"
+  checksum: 10/512a996cce6b1b9003ba59eab42299dd1527176c01f3ceb7b16bf68f437eeab4958f9df7df0a6b258d45d5f1a2ca2a1bdb915970711e1a5d7b2de911c582f721
+  languageName: node
+  linkType: hard
+
+"istanbul-lib-instrument@npm:^6.0.0, istanbul-lib-instrument@npm:^6.0.2, istanbul-lib-instrument@npm:^6.0.3":
   version: 6.0.3
   resolution: "istanbul-lib-instrument@npm:6.0.3"
   dependencies:

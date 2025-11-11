@@ -887,7 +887,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         transcript.add_to_hash_buffer("U_1", verifier_accumulator_1.comm);
         transcript.add_to_hash_buffer("u_challenges_inv_2", verifier_accumulator_2.u_challenges_inv);
         transcript.add_to_hash_buffer("U_2", verifier_accumulator_2.comm);
-        auto [alpha, r] = transcript.template get_challenges<Fr>("IPA:alpha", "IPA:r");
+        auto [alpha, r] = transcript.template get_challenges<Fr>(std::array<std::string, 2>{ "IPA:alpha", "IPA:r" });
 
         // Step 3: Compute the new accumulator
         OpeningClaim<Curve> output_claim;

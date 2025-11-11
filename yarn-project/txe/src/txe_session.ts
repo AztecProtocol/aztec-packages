@@ -25,6 +25,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block } from '@aztec/stdlib/block';
 import { GasSettings } from '@aztec/stdlib/gas';
+import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/stdlib/testing';
 import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
@@ -60,24 +61,24 @@ type SessionState =
       name: 'TOP_LEVEL';
     }
   /**
-   * The private state is entered via the `private_context` function. In this state the PXE oracles that `#[private]`
+   * The private state is entered via the `private_context` function. In this state the PXE oracles that `#[external("private")]`
    * functions use are available, such as those related to note retrieval, notification of side-effects, capsule access,
    * etc. */
   | {
       name: 'PRIVATE';
       nextBlockGlobalVariables: GlobalVariables;
-      txRequestHash: Fr;
+      protocolNullifier: Fr;
       noteCache: ExecutionNoteCache;
       taggingIndexCache: ExecutionTaggingIndexCache;
     }
   /**
-   * The public state is entered via the `public_context` function. In this state the AVM opcodes that `#[public]`
+   * The public state is entered via the `public_context` function. In this state the AVM opcodes that `#[external("public")]`
    * functions execute are resolved as oracles by TXE, since Noir tests are not transpiled. */
   | {
       name: 'PUBLIC';
     }
   /**
-   * The utility state is entered via the `utility_context` function. In this state the PXE oracles that `#[utility]`
+   * The utility state is entered via the `utility_context` function. In this state the PXE oracles that `#[external("utility")]`
    * functions use are available, such as those related to (unconstrained) note retrieval, capsule access, public
    * storage reads, etc.
    */
@@ -295,7 +296,8 @@ export class TXESession implements TXESessionStateHandler {
     });
 
     const txRequestHash = getSingleTxBlockRequestHash(nextBlockGlobalVariables.blockNumber);
-    const noteCache = new ExecutionNoteCache(txRequestHash);
+    const protocolNullifier = await computeProtocolNullifier(txRequestHash);
+    const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     this.oracleHandler = new PrivateExecutionOracle(
@@ -316,7 +318,7 @@ export class TXESession implements TXESessionStateHandler {
     // difference resides in that the simulator has all information needed in order to run the simulation, while ours
     // will be ongoing as the different oracles will be invoked from the Noir test, until eventually the private
     // execution finishes.
-    this.state = { name: 'PRIVATE', nextBlockGlobalVariables, txRequestHash, noteCache, taggingIndexCache };
+    this.state = { name: 'PRIVATE', nextBlockGlobalVariables, protocolNullifier, noteCache, taggingIndexCache };
     this.logger.debug(`Entered state ${this.state.name}`);
 
     return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
@@ -392,7 +394,7 @@ export class TXESession implements TXESessionStateHandler {
     // logs (other effects like enqueued public calls don't need to be considered since those are not allowed).
     const txEffect = await makeTxEffect(
       this.state.noteCache,
-      this.state.txRequestHash,
+      this.state.protocolNullifier,
       this.state.nextBlockGlobalVariables.blockNumber,
     );
 

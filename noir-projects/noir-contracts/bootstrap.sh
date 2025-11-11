@@ -30,6 +30,7 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
+export STRIP_AZTEC_NR_PREFIX=${STRIP_AZTEC_NR_PREFIX:-./scripts/strip_aztec_nr_prefix.sh}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
@@ -82,7 +83,7 @@ function process_function {
       echo_stderr "Generating vk for function: $name..."
 
       local outdir=$(mktemp -d -p $tmp_dir)
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir -v
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme chonk --verifier_type standalone -b - -o $outdir -v
       mv $outdir/vk $tmp_dir/$contract_hash/$hash
 
       cache_upload vk-$contract_hash-$hash.tar.gz $tmp_dir/$contract_hash/$hash
@@ -170,6 +171,7 @@ function compile {
   if ! cache_download contract-$contract_hash.tar.gz; then
     $NARGO compile --package $contract --inliner-aggressiveness 0 --pedantic-solving --deny-warnings
     $TRANSPILER $json_path $json_path
+    $STRIP_AZTEC_NR_PREFIX $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
 

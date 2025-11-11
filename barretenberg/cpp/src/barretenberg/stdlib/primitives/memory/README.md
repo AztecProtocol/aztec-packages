@@ -5,7 +5,7 @@ $\newcommand{\windex}[1]{\textcolor{grey}{#1}}$
 
 ### ROM Tables in Barretenberg
 
-> Note: This section briefly describes the implementation of ROM tables in Barretenberg. More details on the implementation will be added during the internal audit of the memory primitives.
+> Note: This section briefly describes the implementation of ROM tables in Barretenberg. More details on the implementation may be found in `stdlib_circuit_builders/rom_ram_logic.*pp`.
 
 Suppose we have a ROM table with $n$ entries, where each entry consists of two values: $\rom{A_i}$ and $\rom{B_i}$. The ROM table is represented as follows:
 

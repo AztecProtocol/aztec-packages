@@ -44,7 +44,7 @@ class AvmFlavor {
 
     // To help BB check if a flavor is AVM, even without including this flavor.
     static constexpr bool IS_AVM = true;
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
@@ -82,8 +82,6 @@ class AvmFlavor {
     using Relations = Relations_<FF>;
 
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 

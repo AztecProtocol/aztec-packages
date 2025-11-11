@@ -43,7 +43,7 @@ template <typename FF> struct PolyData {
 // in the structured trace setting, or z_perm if non_zero_complement is set to true).
 template <typename FF> PolyData<FF> structured_random_poly(bool non_zero_complement = false)
 {
-    // An arbitrary but realistic test case taken from the actual structure of a wire in the client_ivc bench
+    // An arbitrary but realistic test case taken from the actual structure of a wire in the chonk bench
     std::vector<uint32_t> fixed_sizes = {
         1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
     };
@@ -214,19 +214,6 @@ template <typename Curve> void bench_commit_structured_random_poly(::benchmark::
     }
 }
 
-// Commit to a polynomial with block structured random entries using commit_structured
-template <typename Curve> void bench_commit_structured_random_poly_preprocessed(::benchmark::State& state)
-{
-    using Fr = typename Curve::ScalarField;
-    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
-
-    auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>();
-
-    for (auto _ : state) {
-        key.commit_structured(polynomial, active_range_endpoints);
-    }
-}
-
 // Commit to a polynomial with block structured random entries and constant valued complement
 template <typename Curve> void bench_commit_mock_z_perm(::benchmark::State& state)
 {
@@ -237,19 +224,6 @@ template <typename Curve> void bench_commit_mock_z_perm(::benchmark::State& stat
 
     for (auto _ : state) {
         key.commit(polynomial);
-    }
-}
-
-// Commit to a polynomial with block structured random entries and constant valued complement using tailored method
-template <typename Curve> void bench_commit_mock_z_perm_preprocessed(::benchmark::State& state)
-{
-    using Fr = typename Curve::ScalarField;
-    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
-
-    auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_complement=*/true);
-
-    for (auto _ : state) {
-        key.commit_structured_with_nonzero_complement(polynomial, active_range_endpoints);
     }
 }
 
@@ -313,9 +287,7 @@ BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_mock_z_perm<curve::BN254>)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_mock_z_perm_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
 
 } // namespace bb
 

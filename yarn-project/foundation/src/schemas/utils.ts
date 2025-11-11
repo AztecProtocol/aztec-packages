@@ -21,13 +21,25 @@ export const hexSchema = z.string().refine(isHex, 'Not a valid hex string').tran
 // Copied from zod internals, which was copied from https://stackoverflow.com/questions/7860392/determine-if-string-is-in-base64-using-javascript
 const base64Regex = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
 
-/** Schema for a buffer represented as a base64 string. */
-export const bufferSchema = z
-  .string()
-  // We only test the str for base64 if it's shorter than 1024 bytes, otherwise we've run into maximum
-  // stack size exceeded errors when trying to validate excessively long strings (such as contract bytecode).
-  .refine(str => str.length > 1024 || base64Regex.test(str), 'Not a valid base64 string')
-  .transform(data => Buffer.from(data, 'base64'));
+/** Schema for a buffer represented as a base64 string or a Buffer object. */
+export const bufferSchema: ZodFor<Buffer> = z.union([
+  // Serialization from base64 string.
+  z
+    .string()
+    // We only test the str for base64 if it's shorter than 1024 bytes, otherwise we've run into maximum
+    // stack size exceeded errors when trying to validate excessively long strings (such as contract bytecode).
+    .refine(str => str.length > 1024 || base64Regex.test(str), 'Not a valid base64 string')
+    .transform(data => Buffer.from(data, 'base64')),
+  // Serialization from Buffer-annotated object.
+  z
+    .object({
+      type: z.literal('Buffer'),
+      data: z.array(z.number().int().min(0).max(255)),
+    })
+    .transform(({ data }) => Buffer.from(data)),
+  // Serialization from Buffer
+  z.instanceof(Buffer),
+]);
 
 export class ZodNullableOptional<T extends ZodTypeAny> extends ZodOptional<T> {
   _isNullableOptional = true;
@@ -88,12 +100,13 @@ export function hexSchemaFor<TClass extends { fromString(str: string): any } | {
  */
 export function bufferSchemaFor<TClass extends { fromBuffer(buf: Buffer): any }>(
   klazz: TClass,
+  refinement?: (buf: Buffer) => boolean,
 ): ZodType<
   TClass extends { fromBuffer(buf: Buffer): infer TInstance } ? ToJsonIs<TInstance, Buffer> : never,
   any,
   string
 > {
-  return bufferSchema.transform(klazz.fromBuffer.bind(klazz));
+  return bufferSchema.refine(refinement ?? (() => true), 'Not a valid buffer').transform(klazz.fromBuffer.bind(klazz));
 }
 
 /** Creates a schema for a js Map type that matches the serialization used in jsonStringify. */

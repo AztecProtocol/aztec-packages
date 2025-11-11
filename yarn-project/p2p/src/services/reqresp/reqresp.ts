@@ -489,7 +489,7 @@ export class ReqResp implements ReqRespInterface {
       }
 
       const messageData = Buffer.concat(chunks);
-      const message: Buffer = this.snappyTransform.inboundTransformNoTopic(messageData);
+      const message: Buffer = this.snappyTransform.inboundTransformData(messageData);
 
       return {
         status: status ?? ReqRespStatus.UNKNOWN,
@@ -618,7 +618,7 @@ export class ReqResp implements ReqRespInterface {
           stream.metadata.written = true; // Mark the stream as written to;
 
           yield SUCCESS;
-          yield snappy.outboundTransformNoTopic(response);
+          yield snappy.outboundTransformData(response);
         }
       },
       stream.sink,

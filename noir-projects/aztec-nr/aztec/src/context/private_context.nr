@@ -50,14 +50,14 @@ use dep::protocol_types::{
 
 /// # PrivateContext
 ///
-/// The **main interface** between a #[private] function and the Aztec blockchain.
+/// The **main interface** between an #[external("private")] function and the Aztec blockchain.
 ///
 /// An instance of the PrivateContext is initialized automatically at the outset
-/// of every private function, within the #[private] macro, so you'll never
+/// of every private function, within the #[external("private")] macro, so you'll never
 /// need to consciously instantiate this yourself.
 ///
 /// The instance is always named `context`, and it is always be available within
-/// the body of every #[private] function in your smart contract.
+/// the body of every #[external("private")] function in your smart contract.
 ///
 /// > For those used to "vanilla" Noir, it might be jarring to have access to
 /// > `context` without seeing a declaration `let context = PrivateContext::new(...)`
@@ -108,9 +108,9 @@ use dep::protocol_types::{
 ///   - New nullifiers
 ///   - Private logs (for sending encrypted note contents or encrypted events)
 ///   - New L2->L1 messages.
-/// - Provides args to the private function (handled by the #[private] macro).
+/// - Provides args to the private function (handled by the #[external("private")] macro).
 /// - Returns the return values of this private function (handled by the
-///   #[private] macro).
+///   #[external("private")] macro).
 /// - Makes Key Validation Requests.
 ///   - Private functions are not allowed to see master secret keys, because we
 ///     do not trust them. They are instead given "app-siloed" secret keys with
@@ -339,7 +339,7 @@ impl PrivateContext {
     /// * `FunctionSelector` - The 4-byte function identifier
     ///
     /// # Advanced
-    /// Only #[private] functions have a function selector as a protocol-
+    /// Only #[external("private")] functions have a function selector as a protocol-
     /// enshrined concept. The function selectors of private functions are
     /// baked into the preimage of the contract address, and are used by the
     /// protocol's kernel circuits to identify each private function and ensure
@@ -353,7 +353,7 @@ impl PrivateContext {
 
     /// Returns the hash of the arguments passed to the current function.
     ///
-    /// Very low-level function: You shouldn't need to call this. The #[private]
+    /// Very low-level function: You shouldn't need to call this. The #[external("private")]
     /// macro calls this, and it makes the arguments neatly available to the
     /// body of your private function.
     ///
@@ -559,7 +559,7 @@ impl PrivateContext {
 
     /// Sets the hash of the return values for this private function.
     ///
-    /// Very low-level function: this is called by the #[private] macro.
+    /// Very low-level function: this is called by the #[external("private")] macro.
     ///
     /// # Arguments
     /// * `serialized_return_values` - The serialized return values as a field array
@@ -574,7 +574,7 @@ impl PrivateContext {
     /// ensure compatibility with the protocol's kernel circuits.
     ///
     /// Very low-level function: This function is automatically called by the
-    /// #[private] macro.
+    /// #[external("private")] macro.
     pub fn finish(self) -> PrivateCircuitPublicInputs {
         PrivateCircuitPublicInputs {
             call_context: self.inputs.call_context,
@@ -1113,7 +1113,7 @@ impl PrivateContext {
             log.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
         // Note: the length is not always N, it is the number of fields we want to broadcast, omitting trailing zeros to save blob space.
         // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond length are zero.
-        // However, it won't be able to check that we didn't add extra padding (trailing zeroes)
+        // However, it won't be able to check that we didn't add extra padding (trailing zeroes) or that we cut trailing zeroes from the end.
         let length = unsafe { trimmed_array_length_hint(log_to_emit) };
         // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter bytecode.
         let log_hash = poseidon2_hash(log_to_emit);
@@ -1175,7 +1175,7 @@ impl PrivateContext {
     ///     - Padding the lengths of note & nullifier arrays
     ///     - Padding private logs with random fields, up to some standardised
     ///       size.
-    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Advanced
     /// * The call is added to the private call stack and executed by kernel
@@ -1369,7 +1369,7 @@ impl PrivateContext {
     /// calls sparingly, and carefully.
     /// _Internal_ public function calls are especially leaky, because they
     /// completely leak which private contract made the call.
-    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Arguments
     /// * `contract_address` - Address of the contract containing the function

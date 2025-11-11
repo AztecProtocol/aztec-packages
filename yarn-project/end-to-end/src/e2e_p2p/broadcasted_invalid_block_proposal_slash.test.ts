@@ -142,6 +142,9 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
 
     nodes = [...invalidProposerNodes, ...honestNodes];
 
+    // Wait for P2P mesh to be fully formed before proceeding
+    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
+
     await awaitCommitteeExists({ rollup, logger: t.logger });
 
     const offenses = await awaitOffenseDetected({

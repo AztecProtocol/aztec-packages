@@ -1,10 +1,11 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
-import { hexSchemaFor } from '../schemas/utils.js';
+import { bufferSchemaFor, hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 
@@ -336,7 +337,12 @@ export class Fr extends BaseField {
   }
 
   static get schema() {
-    return hexSchemaFor(Fr);
+    return z.union([
+      // Serialization from hex string.
+      hexSchemaFor(Fr),
+      // Serialization from MessagePack as a buffer.
+      bufferSchemaFor(Fr, buf => buf.length === BaseField.SIZE_IN_BYTES),
+    ]);
   }
 }
 
@@ -432,6 +438,21 @@ export class Fq extends BaseField {
 
   add(rhs: Fq) {
     return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
+  }
+
+  /**
+   * Computes a square root of the field element.
+   * @returns A square root of the field element (null if it does not exist).
+   */
+  async sqrt(): Promise<Fq | null> {
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.bn254FqSqrt({ input: this.toBuffer() });
+    if (!response.isSquareRoot) {
+      // Field element is not a quadratic residue mod p so it has no square root.
+      return null;
+    }
+    return Fq.fromBuffer(Buffer.from(response.value));
   }
 
   toJSON() {

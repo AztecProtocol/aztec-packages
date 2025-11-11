@@ -92,7 +92,10 @@ class RecursiveCircuit {
 
         StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
         VerifierOutput output = verifier.template verify_proof<OuterIO>(stdlib_inner_proof);
-        output.points_accumulator.set_public();
+
+        stdlib::recursion::honk::DefaultIO<OuterBuilder> public_inputs;
+        public_inputs.pairing_inputs = output.points_accumulator;
+        public_inputs.set_public();
 
         return outer_circuit;
     }

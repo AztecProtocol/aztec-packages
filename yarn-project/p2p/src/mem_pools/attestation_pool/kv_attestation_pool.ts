@@ -213,6 +213,22 @@ export class KvAttestationPool implements AttestationPool {
     });
   }
 
+  public async hasAttestation(attestation: BlockAttestation): Promise<boolean> {
+    const slotNumber = attestation.payload.header.slotNumber;
+    const proposalId = attestation.archive;
+    const sender = attestation.getSender();
+
+    // Attestations with invalid signatures are never in the pool
+    if (!sender) {
+      return false;
+    }
+
+    const address = sender.toString();
+    const key = this.getAttestationKey(slotNumber, proposalId, address);
+
+    return await this.attestations.hasAsync(key);
+  }
+
   public async getBlockProposal(id: string): Promise<BlockProposal | undefined> {
     const buffer = await this.proposals.getAsync(id);
     try {
@@ -224,6 +240,11 @@ export class KvAttestationPool implements AttestationPool {
     }
 
     return Promise.resolve(undefined);
+  }
+
+  public async hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
+    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.payload.archive.toString();
+    return await this.proposals.hasAsync(id);
   }
 
   public async addBlockProposal(blockProposal: BlockProposal): Promise<void> {

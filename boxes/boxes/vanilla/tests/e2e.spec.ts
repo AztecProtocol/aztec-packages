@@ -15,14 +15,35 @@ test.beforeAll(async () => {
 });
 
 test('create account and cast vote', async ({ page }, testInfo) => {
-  await page.goto('/');
   page.on('console', (msg) => {
+    const text = msg.text();
     if (msg.type() === 'error') {
-      console.error(msg.text());
+      console.error(text);
+      // Fail immediately on JavaScript errors to avoid timeout
+
+      // Check if this is an "Error:" message that should fail the test
+      // We exclude MIME type errors due to an 'expected' error in Firefox
+      // Note: It's unclear why Firefox shows MIME type errors for index.js in some cases
+      const isErrorThatShouldFail =
+        text.includes('Error: ') &&
+        !text.includes('Error: Timed out ') &&
+        !text.includes('was blocked because of a disallowed MIME type');
+
+      if (
+        isErrorThatShouldFail ||
+        text.includes('Uncaught') ||
+        text.includes('TypeError') ||
+        text.includes('ReferenceError') ||
+        text.includes('SyntaxError') ||
+        text.includes('RangeError')
+      ) {
+        throw new Error(`JavaScript error detected: ${text}`);
+      }
     } else {
-      console.log(msg.text());
+      console.log(text);
     }
   });
+  await page.goto('/');
   await expect(page).toHaveTitle(/Private Voting/);
 
   const connectTestAccount = await page.locator('#connect-test-account');
@@ -63,7 +84,7 @@ test('create account and cast vote', async ({ page }, testInfo) => {
 
   await voteButton.click();
 
-  // This will take some time to complete (Client IVC proof generation)
+  // This will take some time to complete (chonk proof generation)
   // Button is enabled when the transaction is complete
   await expect(voteButton).toBeEnabled({
     enabled: true,

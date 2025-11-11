@@ -1,9 +1,13 @@
+import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { randomInt } from '@aztec/foundation/crypto';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
 import { Blob } from './blob.js';
-import { BatchedBlobAccumulator, FinalBlobBatchingChallenges } from './blob_batching.js';
-import { encodeTxStartMarker } from './encoding.js';
+import { BatchedBlobAccumulator } from './blob_batching.js';
+import { getBlobsPerL1Block } from './blob_utils.js';
+import { FinalBlobBatchingChallenges } from './circuit_types/index.js';
+import { createBlockEndMarker, encodeTxStartMarker } from './encoding.js';
 import { Poseidon2Sponge, SpongeBlob } from './sponge_blob.js';
 
 /**
@@ -44,18 +48,12 @@ export function makeBatchedBlobAccumulator(seed = 1): BatchedBlobAccumulator {
   );
 }
 
-/**
- * Make an encoded blob with the given length
- *
- * This will deserialise correctly in the archiver
- * @param length
- * @returns
- */
-export function makeEncodedBlob(length: number): Promise<Blob> {
+export function makeEncodedTxBlobFields(length: number): Fr[] {
   const txStartMarker = {
     numBlobFields: length,
-    // The rest of the values don't matter. The test components using it only look at `numBlobFields` to split the blobs
-    // into fields for tx effects.
+    // The rest of the values don't matter. The test components using it do not try to deserialize everything.
+    // Only `checkBlobFieldsEncoding` is used and it only looks at `numBlobFields`. This might change in the future
+    // when we add more thorough checks to `checkBlobFieldsEncoding`.
     revertCode: 0,
     numNoteHashes: 0,
     numNullifiers: 0,
@@ -65,10 +63,49 @@ export function makeEncodedBlob(length: number): Promise<Blob> {
     publicLogsLength: 0,
     contractClassLogLength: 0,
   };
-  return Blob.fromFields([
+
+  return [
     encodeTxStartMarker(txStartMarker),
-    ...Array.from({ length: length - 1 }, () => Fr.random()),
-  ]);
+    ...Array.from({ length: length - 1 }, () => new Fr(randomInt(Number.MAX_SAFE_INTEGER))), // -1 to account for the tx start marker.
+  ];
+}
+
+export function makeEncodedBlockBlobFields(...lengths: number[]): Fr[] {
+  return [
+    ...(lengths.length > 0 ? makeEncodedTxBlobFields(lengths[0] - 1) : []), // -1 to account for the block end marker.
+    ...lengths.slice(1).flatMap(length => makeEncodedTxBlobFields(length)),
+    createBlockEndMarker(lengths.length),
+  ];
+}
+
+// Create blob fields for a checkpoint with a single block.
+export function makeEncodedBlobFields(length: number): Fr[] {
+  if (length <= 2) {
+    throw new Error('Encoded blob fields length must be greater than 2');
+  }
+
+  const checkpointPrefix = new Fr(length);
+  return [checkpointPrefix, ...makeEncodedBlockBlobFields(length - 1)]; // -1 to account for the checkpoint prefix.
+}
+
+/**
+ * Make an encoded blob with the given length
+ *
+ * This will deserialise correctly in the archiver
+ * @param length
+ * @returns
+ */
+export function makeEncodedBlob(length: number): Blob {
+  if (length > FIELDS_PER_BLOB) {
+    throw new Error(`A single encoded blob must be less than ${FIELDS_PER_BLOB} fields`);
+  }
+
+  return Blob.fromFields(makeEncodedBlobFields(length));
+}
+
+export function makeEncodedBlobs(length: number): Blob[] {
+  const fields = makeEncodedBlobFields(length);
+  return getBlobsPerL1Block(fields);
 }
 
 /**
@@ -78,6 +115,6 @@ export function makeEncodedBlob(length: number): Promise<Blob> {
  * @param length
  * @returns
  */
-export function makeRandomBlob(length: number): Promise<Blob> {
+export function makeRandomBlob(length: number): Blob {
   return Blob.fromFields([...Array.from({ length: length }, () => Fr.random())]);
 }

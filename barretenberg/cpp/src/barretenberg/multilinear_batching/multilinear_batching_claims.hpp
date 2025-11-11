@@ -9,8 +9,8 @@ struct MultilinearBatchingProverClaim {
     using Commitment = MultilinearBatchingFlavor::Commitment;
     using Polynomial = MultilinearBatchingFlavor::Polynomial;
     std::vector<FF> challenge;
-    FF shifted_evaluation;
     FF non_shifted_evaluation;
+    FF shifted_evaluation;
     Polynomial non_shifted_polynomial;
     Polynomial shifted_polynomial;
     Commitment non_shifted_commitment;
@@ -22,24 +22,10 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
     using FF = Curve::ScalarField;
     using Commitment = Curve::AffineElement;
     std::vector<FF> challenge;
-    FF shifted_evaluation;
     FF non_shifted_evaluation;
+    FF shifted_evaluation;
     Commitment non_shifted_commitment;
     Commitment shifted_commitment;
-
-    MultilinearBatchingVerifierClaim() = default;
-
-    MultilinearBatchingVerifierClaim(const std::vector<FF>& challenge,
-                                     const FF& shifted_evaluation,
-                                     const FF& non_shifted_evaluation,
-                                     const Commitment& non_shifted_commitment,
-                                     const Commitment& shifted_commitment)
-        : challenge(challenge)
-        , shifted_evaluation(shifted_evaluation)
-        , non_shifted_evaluation(non_shifted_evaluation)
-        , non_shifted_commitment(non_shifted_commitment)
-        , shifted_commitment(shifted_commitment)
-    {}
 
     /**
      * @brief Constructor for instantiating a recursive claim from a native one
@@ -61,8 +47,8 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
             result.challenge.emplace_back(FF::from_witness(builder, element));
         }
 
-        result.shifted_evaluation = FF::from_witness(builder, native_claim.shifted_evaluation);
         result.non_shifted_evaluation = FF::from_witness(builder, native_claim.non_shifted_evaluation);
+        result.shifted_evaluation = FF::from_witness(builder, native_claim.shifted_evaluation);
         result.non_shifted_commitment = Commitment::from_witness(builder, native_claim.non_shifted_commitment);
         result.shifted_commitment = Commitment::from_witness(builder, native_claim.shifted_commitment);
 

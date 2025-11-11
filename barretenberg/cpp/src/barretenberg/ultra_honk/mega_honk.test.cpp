@@ -50,35 +50,12 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     }
 
     /**
-     * @brief Construct and a verify a Honk proof using a specified structured trace
-     *
-     */
-    bool construct_and_verify_honk_proof_with_structured_trace(auto& builder, TraceSettings& trace_settings)
-    {
-        // no ZK flavor for now
-        using Prover = UltraProver_<MegaFlavor>;
-        using Verifier = UltraVerifier_<MegaFlavor>;
-        using VerificationKey = typename MegaFlavor::VerificationKey;
-        using ProverInstance = ProverInstance_<MegaFlavor>;
-        auto prover_instance = std::make_shared<ProverInstance>(builder, trace_settings);
-
-        auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-        Prover prover(prover_instance, verification_key);
-        Verifier verifier(verification_key);
-        auto proof = prover.construct_proof();
-        bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
-
-        return verified;
-    }
-
-    /**
      * @brief Construct and verify a Goblin ECC op queue merge proof
      *
      */
     bool construct_and_verify_merge_proof(auto& op_queue, MergeSettings settings = MergeSettings::PREPEND)
     {
         MergeProver merge_prover{ op_queue, settings };
-        MergeVerifier merge_verifier{ settings };
         auto merge_proof = merge_prover.construct_proof();
 
         // Construct Merge commitments
@@ -90,9 +67,12 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
             merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
         }
 
-        auto [verified, _] = merge_verifier.verify_proof(merge_proof, merge_commitments);
+        auto transcript = std::make_shared<NativeTranscript>();
+        MergeVerifier merge_verifier{ settings, transcript };
+        auto [pairing_points, _, degree_check_passed, concatenation_check_passed] =
+            merge_verifier.verify_proof(merge_proof, merge_commitments);
 
-        return verified;
+        return pairing_points.check() && degree_check_passed && concatenation_check_passed;
     }
 };
 
@@ -161,42 +141,6 @@ TYPED_TEST(MegaHonkTests, Basic)
 }
 
 /**
- * @brief Test proof construction/verification for a structured execution trace
- *
- */
-TYPED_TEST(MegaHonkTests, BasicStructured)
-{
-    using Flavor = TypeParam;
-
-    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
-    // i=1,2,3. This mechanism does not work with structured polynomials yet.
-    if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
-        GTEST_SKIP() << "Skipping 'BasicStructured' test for MegaZKFlavor.";
-    }
-    typename Flavor::CircuitBuilder builder;
-    using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
-
-    GoblinMockCircuits::construct_simple_circuit(builder);
-
-    // Construct and verify Honk proof using a structured trace
-    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
-    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder, trace_settings);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
-    Prover prover(prover_instance, verification_key);
-    Verifier verifier(verification_key);
-    auto proof = prover.construct_proof();
-
-    // Sanity check: ensure z_perm is not zero everywhere
-    EXPECT_TRUE(!prover_instance->polynomials.z_perm.is_zero());
-
-    RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
-
-    bool result = verifier.template verify_proof<DefaultIO>(proof).result;
-    EXPECT_TRUE(result);
-}
-
-/**
  * @brief Test that increasing the virtual size of a valid set of prover polynomials still results in a valid Megahonk
  * proof
  *
@@ -219,9 +163,8 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     auto builder_copy = builder;
 
     // Construct and verify Honk proof using a structured trace
-    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
-    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder, trace_settings);
-    auto prover_instance_copy = std::make_shared<ProverInstance_<Flavor>>(builder_copy, trace_settings);
+    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+    auto prover_instance_copy = std::make_shared<ProverInstance_<Flavor>>(builder_copy);
     auto circuit_size = prover_instance->dyadic_size();
 
     auto doubled_circuit_size = 2 * circuit_size;
@@ -393,72 +336,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
 }
 
 /**
- * @brief Test the structured trace overflow mechanism for various circuits which overflow in different ways
- *
- */
-TYPED_TEST(MegaHonkTests, StructuredTraceOverflow)
-{
-    using Flavor = TypeParam;
-    using Builder = Flavor::CircuitBuilder;
-
-    TraceSettings trace_settings{ TINY_TEST_STRUCTURE };
-
-    { // Overflow in Arithmetic block only
-        Builder builder;
-
-        GoblinMockCircuits::construct_simple_circuit(builder);
-        MockCircuits::add_arithmetic_gates(builder, 1 << 15);
-
-        bool verified = this->construct_and_verify_honk_proof_with_structured_trace(builder, trace_settings);
-        EXPECT_TRUE(verified);
-
-        // We expect that the circuit has overflowed the provided structured trace
-        EXPECT_TRUE(builder.blocks.has_overflow);
-    }
-
-    { // Overflow in Aux block (RAM gates; uses memory records which requires specific logic in overflow mechanism)
-        Builder builder;
-
-        GoblinMockCircuits::construct_simple_circuit(builder);
-        MockCircuits::add_RAM_gates(builder);
-
-        bool verified = this->construct_and_verify_honk_proof_with_structured_trace(builder, trace_settings);
-        EXPECT_TRUE(verified);
-
-        // We expect that the circuit has overflowed the provided structured trace
-        EXPECT_TRUE(builder.blocks.has_overflow);
-    }
-
-    { // Overflow in Lookup block only
-        Builder builder;
-
-        GoblinMockCircuits::construct_simple_circuit(builder);
-        MockCircuits::add_lookup_gates(builder, /*num_iterations=*/8);
-
-        bool verified = this->construct_and_verify_honk_proof_with_structured_trace(builder, trace_settings);
-        EXPECT_TRUE(verified);
-
-        // We expect that the circuit has overflowed the provided structured trace
-        EXPECT_TRUE(builder.blocks.has_overflow);
-    }
-
-    { // Overflow in Multiple blocks simultaneously
-        Builder builder;
-
-        GoblinMockCircuits::construct_simple_circuit(builder);
-        MockCircuits::add_arithmetic_gates(builder, 1 << 15);
-        MockCircuits::add_RAM_gates(builder);
-        MockCircuits::add_lookup_gates(builder, /*num_iterations=*/8);
-
-        bool verified = this->construct_and_verify_honk_proof_with_structured_trace(builder, trace_settings);
-        EXPECT_TRUE(verified);
-
-        // We expect that the circuit has overflowed the provided structured trace
-        EXPECT_TRUE(builder.blocks.has_overflow);
-    }
-}
-
-/**
  * @brief A sanity check that a simple std::swap on a ProverPolynomials object works as expected
  * @details Constuct two valid proving keys. Tamper with the prover_polynomials of one key then swap the
  * prover_polynomials of the two keys. The key who received the tampered polys leads to a failed verification while the
@@ -475,16 +352,14 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     }
     using Builder = Flavor::CircuitBuilder;
 
-    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
-
     // Construct a simple circuit and make a copy of it
     Builder builder;
     GoblinMockCircuits::construct_simple_circuit(builder);
     auto builder_copy = builder;
 
     // Construct two identical proving keys
-    auto prover_instance_1 = std::make_shared<typename TestFixture::ProverInstance>(builder, trace_settings);
-    auto prover_instance_2 = std::make_shared<typename TestFixture::ProverInstance>(builder_copy, trace_settings);
+    auto prover_instance_1 = std::make_shared<typename TestFixture::ProverInstance>(builder);
+    auto prover_instance_2 = std::make_shared<typename TestFixture::ProverInstance>(builder_copy);
 
     // Tamper with the polys of pkey 1 in such a way that verification should fail
     for (size_t i = 0; i < prover_instance_1->dyadic_size(); ++i) {

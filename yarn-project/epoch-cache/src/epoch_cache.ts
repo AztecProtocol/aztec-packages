@@ -3,7 +3,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import {
-  EmptyL1RollupConstants,
   type L1RollupConstants,
   getEpochAtSlot,
   getEpochNumberAtTimestamp,
@@ -65,7 +64,7 @@ export class EpochCache implements EpochCacheInterface {
 
   constructor(
     private rollup: RollupContract,
-    private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
+    private readonly l1constants: L1RollupConstants & { lagInEpochs: number },
     private readonly dateProvider: DateProvider = new DateProvider(),
     protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
   ) {
@@ -95,21 +94,24 @@ export class EpochCache implements EpochCacheInterface {
       rollup = new RollupContract(publicClient, rollupOrAddress.toString());
     }
 
-    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, slotDuration, epochDuration] = await Promise.all([
-      rollup.getL1StartBlock(),
-      rollup.getL1GenesisTime(),
-      rollup.getProofSubmissionEpochs(),
-      rollup.getSlotDuration(),
-      rollup.getEpochDuration(),
-    ] as const);
+    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, slotDuration, epochDuration, lagInEpochs] =
+      await Promise.all([
+        rollup.getL1StartBlock(),
+        rollup.getL1GenesisTime(),
+        rollup.getProofSubmissionEpochs(),
+        rollup.getSlotDuration(),
+        rollup.getEpochDuration(),
+        rollup.getLagInEpochs(),
+      ] as const);
 
-    const l1RollupConstants: L1RollupConstants = {
+    const l1RollupConstants = {
       l1StartBlock,
       l1GenesisTime,
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
       slotDuration: Number(slotDuration),
       epochDuration: Number(epochDuration),
       ethereumSlotDuration: config.ethereumSlotDuration,
+      lagInEpochs: Number(lagInEpochs),
     };
 
     return new EpochCache(rollup, l1RollupConstants, deps.dateProvider);
@@ -193,7 +195,18 @@ export class EpochCache implements EpochCacheInterface {
 
   private async computeCommittee(when: { epoch: bigint; ts: bigint }): Promise<EpochCommitteeInfo> {
     const { ts, epoch } = when;
-    const [committeeHex, seed] = await Promise.all([this.rollup.getCommitteeAt(ts), this.rollup.getSampleSeedAt(ts)]);
+    const [committeeHex, seed, l1Timestamp] = await Promise.all([
+      this.rollup.getCommitteeAt(ts),
+      this.rollup.getSampleSeedAt(ts),
+      this.rollup.client.getBlock({ includeTransactions: false }).then(b => b.timestamp),
+    ]);
+    const { lagInEpochs, epochDuration, slotDuration } = this.l1constants;
+    const sub = BigInt(lagInEpochs) * BigInt(epochDuration) * BigInt(slotDuration);
+    if (ts - sub > l1Timestamp) {
+      throw new Error(
+        `Cannot query committee for future epoch ${epoch} with timestamp ${ts} (current L1 time is ${l1Timestamp}). Check your Ethereum node is synced.`,
+      );
+    }
     const committee = committeeHex?.map((v: `0x${string}`) => EthAddress.fromString(v));
     return { committee, seed, epoch };
   }
@@ -244,7 +257,7 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   /**
-   * Get the proposer attester address in the gien slot
+   * Get the proposer attester address in the given L2 slot
    * @returns The proposer attester address. If the committee does not exist, we throw a NoCommitteeError.
    * If the committee is empty (i.e. target committee size is 0, and anyone can propose), we return undefined.
    */

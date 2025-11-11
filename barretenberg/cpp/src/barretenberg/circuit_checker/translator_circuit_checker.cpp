@@ -98,7 +98,7 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         if (gate % 2 != 1) {
             return report_fail("accumulator transfer should only be checked at odd gates = ", gate);
         }
-        if (gate + 1 < circuit.num_gates - 1) {
+        if (gate + 1 < circuit.num_gates() - 1) {
             // Check that the next gate's current accumulator equals this gate's previous accumulator
             const std::vector next_gate_current_accumulator = {
                 circuit.get_variable(accumulators_binary_limbs_0_wire[gate + 1]),
@@ -145,10 +145,10 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
     // consider making use of relations.
     auto in_random_range = [&](size_t i) {
         return (i >= 2 * Builder::NUM_NO_OPS_START && i < RESULT_ROW) ||
-               (i >= circuit.num_gates - (circuit.avm_mode ? 0 : 2 * Builder::NUM_RANDOM_OPS_END) &&
-                i < circuit.num_gates);
+               (i >= circuit.num_gates() - (circuit.avm_mode ? 0 : 2 * Builder::NUM_RANDOM_OPS_END) &&
+                i < circuit.num_gates());
     };
-    for (size_t i = 2; i < circuit.num_gates - 1; i += 2) {
+    for (size_t i = 2; i < circuit.num_gates() - 1; i += 2) {
 
         // Ensure random op is present  in expected ranges
         Fr op_code = circuit.get_variable(op_wire[i]);

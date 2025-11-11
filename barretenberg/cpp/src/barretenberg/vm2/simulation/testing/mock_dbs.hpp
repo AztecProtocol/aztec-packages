@@ -18,6 +18,15 @@ class MockContractDB : public ContractDBInterface {
                 (const AztecAddress& address),
                 (const, override));
     MOCK_METHOD(std::optional<ContractClass>, get_contract_class, (const ContractClassId& class_id), (const, override));
+    MOCK_METHOD(std::optional<FF>, get_bytecode_commitment, (const ContractClassId& class_id), (const, override));
+    MOCK_METHOD(std::optional<std::string>,
+                get_debug_function_name,
+                (const AztecAddress& address, const FunctionSelector& selector),
+                (const, override));
+    MOCK_METHOD(void, add_contracts, (const ContractDeploymentData& contract_deployment_data), (override));
+    MOCK_METHOD(void, create_checkpoint, (), (override));
+    MOCK_METHOD(void, commit_checkpoint, (), (override));
+    MOCK_METHOD(void, revert_checkpoint, (), (override));
 };
 
 class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
@@ -26,7 +35,7 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
     MockLowLevelMerkleDB();
     ~MockLowLevelMerkleDB() override;
 
-    MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
+    MOCK_METHOD(TreeSnapshots, get_tree_roots, (), (const, override));
     MOCK_METHOD(SiblingPath, get_sibling_path, (MerkleTreeId tree_id, index_t leaf_index), (const, override));
     MOCK_METHOD(GetLowIndexedLeafResponse,
                 get_low_indexed_leaf,

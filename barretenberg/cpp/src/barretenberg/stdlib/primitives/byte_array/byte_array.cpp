@@ -13,17 +13,6 @@ using namespace bb;
 
 namespace bb::stdlib {
 
-template <typename Builder>
-byte_array<Builder>::byte_array(Builder* parent_context)
-    : context(parent_context)
-{}
-
-template <typename Builder>
-byte_array<Builder>::byte_array(Builder* parent_context, const size_t n)
-    : context(parent_context)
-    , values(std::vector<field_t<Builder>>(n))
-{}
-
 /**
  * @brief Create a byte array out of a vector of uint8_t bytes.
  *
@@ -54,6 +43,23 @@ template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context, const std::string& input)
     : byte_array(parent_context, std::vector<uint8_t>(input.begin(), input.end()))
 {}
+
+/**
+ * @brief Create a byte_array from constant values without adding range constraints.
+ * @details This is safe for constant data (like padding) because constants cannot be manipulated by the prover.
+ * Use this for padding, initialization, or other constant data to avoid unnecessary constraints.
+ */
+template <typename Builder>
+byte_array<Builder> byte_array<Builder>::from_constants(Builder* parent_context, std::vector<uint8_t> const& input)
+{
+    bytes_t const_values;
+    const_values.reserve(input.size());
+    for (const auto& byte : input) {
+        // Create constant field elements - no witness, no constraints
+        const_values.push_back(field_t<Builder>(parent_context, byte));
+    }
+    return byte_array(parent_context, const_values);
+}
 
 /**
  * @brief Create a byte_array of length `num_bytes` out of a field element.
@@ -184,6 +190,8 @@ byte_array<Builder>::byte_array(const field_t<Builder>& input,
 
         const field_t overlap = -diff_lo_hi + 1;
         // Ensure that (r - 1).hi  - reconstructed_hi/shift - overlap is positive.
+        // SAFETY: reconstructed_hi is always a multiple of 2^128 by construction
+        // (bytes 0-15 all have scaling factors ≥ 2^128)
         const field_t diff_hi = (-reconstructed_hi / shift).add_two(s_hi, -overlap);
         diff_hi.create_range_constraint(128, "byte_array: y_hi doesn't fit in 128 bits.");
     }
@@ -200,7 +208,7 @@ byte_array<Builder>::byte_array(Builder* parent_context, bytes_t const& input)
 template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context, bytes_t&& input)
     : context(parent_context)
-    , values(input)
+    , values(std::move(input))
 {}
 
 template <typename Builder>
@@ -211,7 +219,7 @@ byte_array<Builder>::byte_array(const byte_array& other)
 }
 
 template <typename Builder>
-byte_array<Builder>::byte_array(byte_array&& other)
+byte_array<Builder>::byte_array(byte_array&& other) noexcept
     : context(other.context)
     , values(std::move(other.values))
 {}
@@ -224,7 +232,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(
     return *this;
 }
 
-template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(byte_array&& other)
+template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(byte_array&& other) noexcept
 {
     context = other.context;
     values = std::move(other.values);
@@ -234,12 +242,10 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(
 /**
  * @brief Convert a byte array into a field element.
  *
- * @details The transformation is injective when the size of the byte array is < 32, which covers all the use cases.
  **/
 template <typename Builder> byte_array<Builder>::operator field_t<Builder>() const
 {
     const size_t bytes = values.size();
-    BB_ASSERT(bytes < 32);
     static constexpr uint256_t one(1);
     std::vector<field_t<Builder>> scaled_values;
 
@@ -250,6 +256,7 @@ template <typename Builder> byte_array<Builder>::operator field_t<Builder>() con
 
     return field_t<Builder>::accumulate(scaled_values);
 }
+
 /**
  * @brief Appends the contents of another `byte_array` (`other`) to the end of this one.
  */
@@ -260,8 +267,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::write(byte
 }
 
 /**
- * @brief Overwrites this byte_array starting at index with the contents of other. Asserts that the write does not
- * exceed the current size.
+ * @brief Overwrites this byte_array starting at index with the contents of other.
  */
 template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(byte_array const& other, size_t index)
 {
@@ -277,7 +283,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(b
  */
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset) const
 {
-    BB_ASSERT_DEBUG(offset < values.size());
+    BB_ASSERT_LTE(offset, values.size());
     return byte_array(context, bytes_t(values.begin() + static_cast<ptrdiff_t>(offset), values.end()));
 }
 
@@ -287,9 +293,9 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_
  **/
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset, size_t length) const
 {
-    BB_ASSERT_DEBUG(offset < values.size());
+    BB_ASSERT_LTE(offset, values.size());
     // it's <= cause vector constructor doesn't include end point
-    BB_ASSERT_DEBUG(length <= values.size() - offset);
+    BB_ASSERT_LTE(length, values.size() - offset);
     auto start = values.begin() + static_cast<ptrdiff_t>(offset);
     auto end = values.begin() + static_cast<ptrdiff_t>((offset + length));
     return byte_array(context, bytes_t(start, end));
@@ -300,6 +306,9 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_
  **/
 template <typename Builder> byte_array<Builder> byte_array<Builder>::reverse() const
 {
+    if (values.empty()) {
+        return *this;
+    }
     bytes_t bytes(values.size());
     size_t offset = bytes.size() - 1;
     for (size_t i = 0; i < bytes.size(); i += 1, offset -= 1) {
@@ -320,16 +329,6 @@ template <typename Builder> std::vector<uint8_t> byte_array<Builder>::get_value(
         bytes[i] = static_cast<uint8_t>(values[i].get_value());
     }
     return bytes;
-}
-
-/**
- * @brief Given a `byte_array`, compute a vector containing the values of its entries and convert it to a string.
- * @note Used only in tests.
- */
-template <typename Builder> std::string byte_array<Builder>::get_string() const
-{
-    auto v = get_value();
-    return std::string(v.begin(), v.end());
 }
 
 template class byte_array<bb::UltraCircuitBuilder>;

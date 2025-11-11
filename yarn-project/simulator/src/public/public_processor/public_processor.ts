@@ -7,7 +7,13 @@ import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { PublicDataWrite } from '@aztec/stdlib/avm';
+import {
+  AvmCircuitInputs,
+  AvmCircuitPublicInputs,
+  AvmExecutionHints,
+  type AvmProvingRequest,
+  PublicDataWrite,
+} from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
@@ -18,6 +24,7 @@ import type {
   PublicProcessorValidator,
   SequencerConfig,
 } from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type FailedTx,
@@ -232,6 +239,7 @@ export class PublicProcessor implements Traceable {
       // Note: We use the underlying fork here not the guarded one, this ensures that it's not impacted by stopping the guarded version
       const checkpoint = await ForkCheckpoint.new(this.guardedMerkleTree.getUnderlyingFork());
       const startStateReference = await this.guardedMerkleTree.getUnderlyingFork().getStateReference();
+      this.contractsDB.createCheckpoint();
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
@@ -247,6 +255,7 @@ export class PublicProcessor implements Traceable {
           });
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
           continue;
         }
 
@@ -264,6 +273,7 @@ export class PublicProcessor implements Traceable {
           );
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
           continue;
         }
 
@@ -298,6 +308,9 @@ export class PublicProcessor implements Traceable {
           // This needs to be done directly on the underlying fork as the guarded fork has been stopped.
           await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
 
+          // Revert any contracts added to the DB for the tx.
+          this.contractsDB.revertCheckpoint();
+
           // Ensure we're at the same state as when we started processing this tx.
           await this.checkWorldStateUnchanged(startStateReference, txHash, err);
 
@@ -308,6 +321,7 @@ export class PublicProcessor implements Traceable {
         // Roll back state to start of TX before proceeding to next TX
         await checkpoint.revert();
         await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
+        this.contractsDB.revertCheckpoint();
         const errorMessage = err instanceof Error || err instanceof AssertionError ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
@@ -318,8 +332,7 @@ export class PublicProcessor implements Traceable {
       } finally {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was previously reverted
         await checkpoint.commit();
-        // The tx-level contracts cache should not live on to the next tx
-        this.contractsDB.clearContractsForTx();
+        this.contractsDB.commitCheckpointOkIfNone();
       }
     }
 
@@ -507,10 +520,7 @@ export class PublicProcessor implements Traceable {
     // Fee payment insertion has already been done. Do the rest.
     await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
 
-    // Add any contracts registered/deployed in this private-only tx to the block-level cache
-    // (add to tx-level cache and then commit to block-level cache)
     await this.contractsDB.addNewContracts(tx);
-    this.contractsDB.commitContractsForTx();
 
     return [processedTx, undefined];
   }
@@ -521,15 +531,15 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
+    const { hints, publicInputs, gasUsed, revertCode, revertReason, processedPhases } =
       await this.publicTxSimulator.simulate(tx);
 
-    if (!avmProvingRequest) {
+    if (!hints) {
       this.metrics.recordFailedTx();
       throw new Error('Avm proving result was not generated.');
     }
 
-    processedPhases.forEach(phase => {
+    processedPhases?.forEach(phase => {
       if (phase.reverted) {
         this.metrics.recordRevertedPhase(phase.phase);
       } else {
@@ -546,14 +556,33 @@ export class PublicProcessor implements Traceable {
         .map(log => ContractClassPublishedEvent.fromLog(log)),
     );
 
-    const phaseCount = processedPhases.length;
+    const phaseCount = processedPhases?.length ?? 0;
     const durationMs = timer.ms();
     this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
 
-    const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
+    const processedTx = makeProcessedTxFromTxWithPublicCalls(
+      tx,
+      PublicProcessor.generateProvingRequest(publicInputs, hints),
+      gasUsed,
+      revertCode,
+      revertReason,
+    );
 
-    const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
+    const returnValues = processedPhases?.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 
     return [processedTx, returnValues];
+  }
+
+  /**
+   * Generate the proving request for the AVM circuit.
+   */
+  private static generateProvingRequest(
+    publicInputs: AvmCircuitPublicInputs,
+    hints: AvmExecutionHints,
+  ): AvmProvingRequest {
+    return {
+      type: ProvingRequestType.PUBLIC_VM,
+      inputs: new AvmCircuitInputs(hints, publicInputs),
+    };
   }
 }

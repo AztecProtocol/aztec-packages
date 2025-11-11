@@ -67,15 +67,6 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         EXPECT_EQ(reversed_arr.bytes()[2].get_origin_tag(), clear_tag);
     }
 
-    void test_from_string_constructor()
-    {
-        Builder builder;
-
-        std::string a = "ascii";
-        byte_array_ct arr(&builder, a);
-        EXPECT_EQ(arr.get_string(), a);
-    }
-
     void test_into_bytes_decomposition_less_than_32_bytes()
     {
         for (size_t num_bytes = 1; num_bytes < 32; num_bytes++) {
@@ -105,7 +96,7 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
     {
         for (size_t num_bytes = 1; num_bytes < 32; num_bytes++) {
             Builder builder;
-            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
 
             uint256_t raw_val = engine.get_random_uint256();
             fr expected_val = slice_to_n_bytes(raw_val, num_bytes);
@@ -124,7 +115,7 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
             EXPECT_EQ(reconstructed_field.get_origin_tag(), submitted_value_origin_tag);
 
             // Make sure no gates are added
-            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_start == 0);
+            EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() - num_gates_start == 0);
         }
     }
 
@@ -172,7 +163,7 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
     {
 
         Builder builder;
-        size_t gates_start = builder.get_estimated_num_finalized_gates();
+        size_t gates_start = builder.get_num_finalized_gates_inefficient();
         field_ct test_val(&builder, fr::random_element());
 
         byte_array_ct arr(test_val, 32);
@@ -196,7 +187,7 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
                                   "byte_array: y_hi doesn't fit in 128 bits");
         }
         // Make sure no gates are added
-        EXPECT_TRUE(gates_start == builder.get_estimated_num_finalized_gates());
+        EXPECT_TRUE(gates_start == builder.get_num_finalized_gates_inefficient());
     }
 
     void test_byte_array_input_output_consistency()
@@ -211,10 +202,14 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         field_ct b = witness_ct(&builder, slice_to_n_bytes(b_expected, 31));
         b.set_origin_tag(challenge_origin_tag);
 
-        byte_array_ct arr(&builder);
+        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
+        byte_array_ct a_bytes(a, 31);
+        byte_array_ct b_bytes(b, 31);
 
-        arr.write(byte_array_ct(a, 31));
-        arr.write(byte_array_ct(b, 31));
+        // Build byte_array by writing constrained byte_arrays
+        byte_array_ct arr(&builder, std::vector<uint8_t>());
+        arr.write(a_bytes);
+        arr.write(b_bytes);
 
         EXPECT_EQ(arr.size(), 62UL);
 
@@ -236,14 +231,15 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         for (size_t arr_length = 1; arr_length < 32; arr_length++) {
 
             Builder builder;
-            byte_array_ct test_array(&builder, arr_length);
 
+            // Generate random bytes
             std::vector<uint8_t> native_bytes(arr_length);
             for (size_t idx = 0; idx < arr_length; idx++) {
-                uint8_t byte = engine.get_random_uint8();
-                native_bytes[idx] = byte;
-                test_array[idx] = witness_ct(&builder, byte);
+                native_bytes[idx] = engine.get_random_uint8();
             }
+
+            // Create byte_array from vector (this creates witnesses for each byte)
+            byte_array_ct test_array(&builder, native_bytes);
 
             // Convert to field_t using the byte_array conversion
             field_ct represented_field_elt = static_cast<field_ct>(test_array);
@@ -282,11 +278,6 @@ TYPED_TEST_SUITE(ByteArrayTest, CircuitTypes);
 TYPED_TEST(ByteArrayTest, Reverse)
 {
     TestFixture::test_reverse();
-}
-
-TYPED_TEST(ByteArrayTest, ConstructFromString)
-{
-    TestFixture::test_from_string_constructor();
 }
 
 TYPED_TEST(ByteArrayTest, ByteDecompositionUnique)

@@ -3,6 +3,7 @@ import type { Tuple } from '@aztec/foundation/serialize';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { StateReference } from '@aztec/stdlib/tx';
 import type { UInt32 } from '@aztec/stdlib/types';
+import type { WorldStateRevision } from '@aztec/stdlib/world-state';
 
 export enum WorldStateMessageType {
   GET_TREE_INFO = 100,
@@ -536,23 +537,6 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.CLOSE]: void;
 };
-
-export type WorldStateRevision = {
-  forkId: number;
-  blockNumber: number;
-  includeUncommitted: boolean;
-};
-export function worldStateRevision(
-  includeUncommitted: boolean,
-  forkId: number | undefined,
-  blockNumber: number | undefined,
-): WorldStateRevision {
-  return {
-    forkId: forkId ?? 0,
-    blockNumber: blockNumber ?? 0,
-    includeUncommitted,
-  };
-}
 
 type TreeStateReference = readonly [Buffer, number | bigint];
 type BlockStateReference = Map<Exclude<MerkleTreeId, MerkleTreeId.ARCHIVE>, TreeStateReference>;

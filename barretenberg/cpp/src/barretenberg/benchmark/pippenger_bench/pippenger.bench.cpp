@@ -30,7 +30,7 @@ using G1 = Curve::AffineElement;
 using Element = Curve::Element;
 namespace {
 /**
- * @brief Benchmark suite for the aztec client PG-Goblin IVC scheme
+ * @brief Benchmark suite for Pippenger scalar multiplication
  */
 class PippengerBench : public benchmark::Fixture {
   public:
@@ -55,7 +55,7 @@ class PippengerBench : public benchmark::Fixture {
 };
 
 /**
- * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
+ * @brief Benchmark the prover work for Pippenger scalar multiplication
  */
 BENCHMARK_DEFINE_F(PippengerBench, Full)(benchmark::State& state)
 {

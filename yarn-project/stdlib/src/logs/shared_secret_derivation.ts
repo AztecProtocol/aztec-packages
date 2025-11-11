@@ -16,13 +16,11 @@ import type { PublicKey } from '../keys/public_key.js';
  * TODO(#12656): This function is kept around because of the utilityGetSharedSecret oracle. Nuke this once returning
  * the app-siloed secret.
  */
-export async function deriveEcdhSharedSecret(secretKey: GrumpkinScalar, publicKey: PublicKey): Promise<Point> {
+export function deriveEcdhSharedSecret(secretKey: GrumpkinScalar, publicKey: PublicKey): Promise<Point> {
   if (publicKey.isZero()) {
     throw new Error(
       `Attempting to derive a shared secret with a zero public key. You have probably passed a zero public key in your Noir code somewhere thinking that the note won't be broadcast... but it was.`,
     );
   }
-  const curve = new Grumpkin();
-  const sharedSecret = await curve.mul(publicKey, secretKey);
-  return sharedSecret;
+  return Grumpkin.mul(publicKey, secretKey);
 }

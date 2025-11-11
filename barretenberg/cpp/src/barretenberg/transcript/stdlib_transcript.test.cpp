@@ -45,11 +45,13 @@ template <class Curve, size_t LENGTH> auto generate_mock_proof_data(auto prover_
     // round 1
     prover_transcript.send_to_verifier("scalar", scalar);
     prover_transcript.send_to_verifier("commitment", commitment);
-    prover_transcript.template get_challenges<FF>("beta, gamma");
+    std::vector<std::string> challenge_labels{ "beta, gamma" };
+    prover_transcript.template get_challenges<FF>(challenge_labels);
 
     // round 2
     prover_transcript.send_to_verifier("univariate", univariate);
-    prover_transcript.template get_challenges<FF>("gamma", "delta");
+    challenge_labels = { "gamma", "delta" };
+    prover_transcript.template get_challenges<FF>(challenge_labels);
 
     return prover_transcript.export_proof();
 }
@@ -76,11 +78,13 @@ template <class Curve, size_t LENGTH> void perform_mock_verifier_transcript_oper
     // round 1
     transcript.template receive_from_prover<FF>("scalar");
     transcript.template receive_from_prover<Commitment>("commitment");
-    transcript.template get_challenges<FF>("beta, gamma");
+    std::array<std::string, 2> challenge_labels{ "beta, gamma" };
+    transcript.template get_challenges<FF>(challenge_labels);
 
     // round 2
+    challenge_labels = { "gamma", "delta" };
     transcript.template receive_from_prover<Univariate>("univariate");
-    transcript.template get_challenges<FF>("gamma", "delta");
+    transcript.template get_challenges<FF>(challenge_labels);
 }
 
 /**
@@ -152,7 +156,8 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     prover_transcript.send_to_verifier("scalar", scalar);
     prover_transcript.send_to_verifier("commitment", commitment);
     prover_transcript.send_to_verifier("evaluations", evaluations);
-    prover_transcript.template get_challenges<FF>("alpha, beta");
+    std::array<std::string, 2> challenge_labels{ "alpha, beta" };
+    prover_transcript.template get_challenges<FF>(challenge_labels);
     auto proof_data = prover_transcript.export_proof();
 
     // Perform the corresponding operations with the native verifier transcript
@@ -161,7 +166,7 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     auto native_scalar = native_transcript.template receive_from_prover<FF>("scalar");
     auto native_commitment = native_transcript.template receive_from_prover<Commitment>("commitment");
     auto native_evaluations = native_transcript.template receive_from_prover<std::array<FF, LENGTH>>("evaluations");
-    auto [native_alpha, native_beta] = native_transcript.template get_challenges<FF>("alpha", "beta");
+    auto [native_alpha, native_beta] = native_transcript.template get_challenges<FF>(challenge_labels);
 
     // Perform the same operations with the stdlib verifier transcript
     stdlib::Proof<Builder> stdlib_proof(builder, proof_data);
@@ -171,7 +176,7 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     auto stdlib_commitment = stdlib_transcript.template receive_from_prover<element_ct>("commitment");
     auto stdlib_evaluations =
         stdlib_transcript.template receive_from_prover<std::array<field_ct, LENGTH>>("evaluations");
-    auto [stdlib_alpha, stdlib_beta] = stdlib_transcript.template get_challenges<field_ct>("alpha", "beta");
+    auto [stdlib_alpha, stdlib_beta] = stdlib_transcript.template get_challenges<field_ct>(challenge_labels);
 
     // Confirm that return values are equivalent
     EXPECT_EQ(native_scalar, stdlib_scalar.get_value());

@@ -9,16 +9,16 @@ import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/pr
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
-  type EventMetadataDefinition,
+  EventSelector,
   FunctionCall,
   FunctionSelector,
   FunctionType,
-  decodeFromAbi,
   decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockHash } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -28,7 +28,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
@@ -46,6 +46,7 @@ import {
   type SimulationTimings,
   Tx,
   TxExecutionRequest,
+  TxHash,
   TxProfileResult,
   TxProvingResult,
   TxSimulationResult,
@@ -77,6 +78,15 @@ import { PrivateEventDataProvider } from './storage/private_event_data_provider/
 import { SyncDataProvider } from './storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from './storage/tagging_data_provider/tagging_data_provider.js';
 import { Synchronizer } from './synchronizer/index.js';
+
+export type PrivateEvent = {
+  packedEvent: Fr[];
+  blockNumber: number;
+  blockHash: L2BlockHash;
+  txHash: TxHash;
+  recipient: AztecAddress;
+  eventSelector: EventSelector;
+};
 
 /**
  * Private eXecution Environment (PXE) is a library used by wallets to simulate private phase of transactions and to
@@ -250,7 +260,7 @@ export class PXE {
     const contract = await this.contractDataProvider.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+        `Unknown contract ${to}: add it to PXE by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -362,7 +372,7 @@ export class PXE {
    * @param proofCreator - The proof creator to use for proving the execution.
    * @param privateExecutionResult - The result of the private execution
    * @param config - The configuration for the kernel execution prover.
-   * @returns An object that contains the output of the kernel execution, including the ClientIvcProof if proving is enabled.
+   * @returns An object that contains the output of the kernel execution, including the ChonkProof if proving is enabled.
    */
   async #prove(
     txExecutionRequest: TxExecutionRequest,
@@ -668,7 +678,7 @@ export class PXE {
 
     const noteDaos = await this.noteDataProvider.getNotes(filter);
 
-    const extendedNotes = noteDaos.map(async dao => {
+    const uniqueNotes = noteDaos.map(async dao => {
       const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
       const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
         completeAddress.address.equals(dao.recipient),
@@ -680,7 +690,7 @@ export class PXE {
       const recipient = completeAddress.address;
       return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.noteNonce);
     });
-    return Promise.all(extendedNotes);
+    return Promise.all(uniqueNotes);
   }
 
   /**
@@ -707,7 +717,7 @@ export class PXE {
 
         const {
           publicInputs,
-          clientIvcProof,
+          chonkProof,
           executionSteps,
           timings: { proving } = {},
         } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
@@ -735,7 +745,7 @@ export class PXE {
 
         this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
 
-        const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
+        const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, chonkProof!, {
           timings,
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
@@ -905,10 +915,9 @@ export class PXE {
 
         if (skipKernels) {
           // According to the protocol rules, the nonce generator for the note hashes
-          // can either be the first nullifier in the tx or the hash of the initial tx request
-          // if there are none.
+          // can either be the first nullifier in the tx or the protocol nullifier if there are none.
           const nonceGenerator = privateExecutionResult.firstNullifier.equals(Fr.ZERO)
-            ? await txRequest.toTxRequest().hash()
+            ? await computeProtocolNullifier(await txRequest.toTxRequest().hash())
             : privateExecutionResult.firstNullifier;
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
@@ -1064,19 +1073,19 @@ export class PXE {
   /**
    * Returns the private events given search parameters.
    * @param contractAddress - The address of the contract to get events from.
-   * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+   * @param eventSelector - Event selector to search for.
    * @param from - The block number to search from.
    * @param numBlocks - The amount of blocks to search.
    * @param recipients - The addresses that decrypted the logs.
-   * @returns - The deserialized events.
+   * @returns - The packed events with block and tx metadata.
    */
-  public async getPrivateEvents<T>(
+  public async getPrivateEvents(
     contractAddress: AztecAddress,
-    eventMetadataDef: EventMetadataDefinition,
+    eventSelector: EventSelector,
     from: number,
     numBlocks: number,
     recipients: AztecAddress[],
-  ): Promise<T[]> {
+  ): Promise<PrivateEvent[]> {
     if (recipients.length === 0) {
       throw new Error('Recipients are required to get private events');
     }
@@ -1086,17 +1095,7 @@ export class PXE {
     // We need to manually trigger private state sync to have a guarantee that all the events are available.
     await this.simulateUtility('sync_private_state', [], contractAddress);
 
-    const events = await this.privateEventDataProvider.getPrivateEvents(
-      contractAddress,
-      from,
-      numBlocks,
-      recipients,
-      eventMetadataDef.eventSelector,
-    );
-
-    const decodedEvents = events.map((event: Fr[]): T => decodeFromAbi([eventMetadataDef.abiType], event) as T);
-
-    return decodedEvents;
+    return this.privateEventDataProvider.getPrivateEvents(contractAddress, from, numBlocks, recipients, eventSelector);
   }
 
   /**

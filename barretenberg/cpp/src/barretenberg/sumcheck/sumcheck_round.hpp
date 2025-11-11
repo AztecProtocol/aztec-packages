@@ -43,13 +43,13 @@ polynomials to \f$ T^i(X_i)\f$
 
 template <typename Flavor> class SumcheckProverRound {
 
+    using FF = typename Flavor::FF;
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
 
   public:
-    using FF = typename Flavor::FF;
     using ExtendedEdges = std::conditional_t<Flavor::USE_SHORT_MONOMIALS,
                                              typename Flavor::template ProverUnivariates<2>,
                                              typename Flavor::ExtendedEdges>;
@@ -739,13 +739,13 @@ template <typename Flavor> class SumcheckProverRound {
  * - \ref compute_full_relation_purported_value method needed at the last verification step.
  */
 template <typename Flavor> class SumcheckVerifierRound {
+    using FF = typename Flavor::FF;
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
 
   public:
-    using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
     using ClaimedLibraEvaluations = typename std::vector<FF>;
 

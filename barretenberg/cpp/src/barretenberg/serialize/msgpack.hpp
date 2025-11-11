@@ -111,6 +111,8 @@ to the object itself, do break up the above to keep a reference to the handle, f
 #include "msgpack_impl/name_value_pair_macro.hpp"
 #include <msgpack/sbuffer_decl.hpp>
 
+#include <string>
+#include <string_view>
 #include <type_traits>
 
 // Helper for above documented syntax
@@ -120,4 +122,39 @@ to the object itself, do break up the above to keep a reference to the handle, f
     void msgpack(auto pack_fn)                                                                                         \
     {                                                                                                                  \
         pack_fn(NVP(__VA_ARGS__));                                                                                     \
+    }
+
+namespace msgpack_detail {
+
+// A constexpr function to convert a snake_case string to a camelCase string.
+inline constexpr std::string camel_case(std::string_view name)
+{
+    std::string result;
+    bool to_upper = false;
+    for (char c : name) {
+        if (c == '_') {
+            to_upper = true;
+        } else {
+            if (to_upper && c >= 'a' && c <= 'z') {
+                result += static_cast<char>(c - 'a' + 'A');
+                to_upper = false;
+            } else {
+                result += c;
+                to_upper = false;
+            }
+        }
+    }
+    return result;
+}
+
+} // namespace msgpack_detail
+
+// Same as MSGPACK_FIELDS but expecting the serialized names to be in camelCase.
+// NOTE: We create an intermediate variable because `pack_fn` requires lvalues, and since `camel_case` returns a
+// std::string things get weird.
+#define MSGPACK_CAMEL_CASE_FIELDS(...)                                                                                 \
+    void msgpack(auto pack_fn)                                                                                         \
+    {                                                                                                                  \
+        auto args = std::make_tuple(NVPFG(::msgpack_detail::camel_case, , __VA_ARGS__));                               \
+        std::apply(pack_fn, args);                                                                                     \
     }

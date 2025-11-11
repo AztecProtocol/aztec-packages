@@ -14,23 +14,23 @@ contract ConstructorTest is StakingAssetHandlerBase {
   Fakerollup public fakeRollup;
 
   function test_WhenDepositsPerMintIs0() external {
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
-      .StakingAssetHandlerArgs({
-      owner: address(this),
-      stakingAsset: address(0),
-      registry: registry,
-      withdrawer: address(0),
-      mintInterval: 0,
-      depositsPerMint: 0,
-      depositMerkleRoot: 0,
-      zkPassportVerifier: zkPassportVerifier,
-      unhinged: new address[](0),
-      domain: CORRECT_DOMAIN,
-      scope: CORRECT_SCOPE,
-      skipBindCheck: false,
-      skipMerkleCheck: false,
-      validatorsToFlush: 48
-    });
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs =
+      StakingAssetHandler.StakingAssetHandlerArgs({
+        owner: address(this),
+        stakingAsset: address(0),
+        registry: registry,
+        withdrawer: address(0),
+        mintInterval: 0,
+        depositsPerMint: 0,
+        depositMerkleRoot: 0,
+        zkPassportVerifier: zkPassportVerifier,
+        unhinged: new address[](0),
+        domain: CORRECT_DOMAIN,
+        scope: CORRECT_SCOPE,
+        skipBindCheck: false,
+        skipMerkleCheck: false,
+        validatorsToFlush: 48
+      });
 
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.CannotMintZeroAmount.selector));
@@ -88,23 +88,23 @@ contract ConstructorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true);
     emit IStakingAssetHandler.DepositMerkleRootUpdated(_depositMerkleRoot);
 
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
-      .StakingAssetHandlerArgs({
-      owner: _owner,
-      stakingAsset: _stakingAsset,
-      registry: registry,
-      withdrawer: _withdrawer,
-      mintInterval: _mintInterval,
-      depositsPerMint: _depositsPerMint,
-      depositMerkleRoot: _depositMerkleRoot,
-      zkPassportVerifier: zkPassportVerifier,
-      unhinged: unhinged,
-      domain: _domain,
-      scope: _scope,
-      skipBindCheck: _skipBindCheck,
-      skipMerkleCheck: _skipMerkleCheck,
-      validatorsToFlush: _validatorsToFlush
-    });
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs =
+      StakingAssetHandler.StakingAssetHandlerArgs({
+        owner: _owner,
+        stakingAsset: _stakingAsset,
+        registry: registry,
+        withdrawer: _withdrawer,
+        mintInterval: _mintInterval,
+        depositsPerMint: _depositsPerMint,
+        depositMerkleRoot: _depositMerkleRoot,
+        zkPassportVerifier: zkPassportVerifier,
+        unhinged: unhinged,
+        domain: _domain,
+        scope: _scope,
+        skipBindCheck: _skipBindCheck,
+        skipMerkleCheck: _skipMerkleCheck,
+        validatorsToFlush: _validatorsToFlush
+      });
 
     vm.prank(_owner);
     stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);

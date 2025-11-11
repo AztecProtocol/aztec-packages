@@ -6,7 +6,7 @@ import { createWriteStream } from 'fs';
 import { mkdir } from 'fs/promises';
 import { dirname } from 'path';
 import { Readable } from 'stream';
-import { finished } from 'stream/promises';
+import { pipeline } from 'stream/promises';
 
 import type { ReadOnlyFileStore } from './interface.js';
 
@@ -43,11 +43,14 @@ export class HttpFileStore implements ReadOnlyFileStore {
   public async download(pathOrUrl: string, destPath: string): Promise<void> {
     const url = this.getUrl(pathOrUrl);
     try {
+      this.log.debug(`Downloading file from ${url} to ${destPath}`);
       const response = await this.fetch<Readable>({ url, method: 'GET', responseType: 'stream' });
+      this.log.debug(`Response ${response.status} (${response.statusText}) from ${url}, writing to ${destPath}`);
       await mkdir(dirname(destPath), { recursive: true });
-      await finished(response.data.pipe(createWriteStream(destPath)));
+      await pipeline(response.data, createWriteStream(destPath));
+      this.log.debug(`Download of ${url} to ${destPath} complete`);
     } catch (error) {
-      throw new Error(`Error fetching file from ${url}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Error fetching file from ${url}`, { cause: error });
     }
   }
 

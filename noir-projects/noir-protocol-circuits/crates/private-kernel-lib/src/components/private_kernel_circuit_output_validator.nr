@@ -1,6 +1,12 @@
-use crate::components::private_kernel_circuit_public_inputs_composer::{
-    create_protocol_nullifier::create_protocol_nullifier,
-    get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates,
+use crate::{
+    accumulated_data::{
+        assert_array_appended, assert_array_appended_and_scoped,
+        assert_array_appended_reversed_to_empty_dest,
+        assert_array_appended_reversed_up_to_some_length, assert_array_appended_to_empty_dest,
+        assert_array_appended_to_empty_dest_and_scoped, assert_array_prepended,
+        assert_array_prepended_up_to_some_length,
+    },
+    components::private_kernel_circuit_public_inputs_composer::get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates,
 };
 use dep::types::{
     abis::{
@@ -9,14 +15,8 @@ use dep::types::{
         transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
+    hash::create_protocol_nullifier,
     traits::Empty,
-    utils::arrays::{
-        assert_array_appended, assert_array_appended_and_scoped,
-        assert_array_appended_reversed_to_empty_dest,
-        assert_array_appended_reversed_up_to_some_length, assert_array_appended_to_empty_dest,
-        assert_array_appended_to_empty_dest_and_scoped, assert_array_prepended,
-        assert_array_prepended_up_to_some_length,
-    },
 };
 
 pub struct PrivateKernelCircuitOutputValidator {

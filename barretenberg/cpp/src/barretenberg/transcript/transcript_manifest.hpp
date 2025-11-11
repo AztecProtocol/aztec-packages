@@ -7,9 +7,12 @@
 #pragma once
 
 #include "barretenberg/common/log.hpp"
+#include <array>
 #include <map>
+#include <span>
 #include <string>
 #include <vector>
+
 namespace bb {
 
 class TranscriptManifest {
@@ -41,21 +44,41 @@ class TranscriptManifest {
         }
     }
 
-    template <typename... Strings> void add_challenge(size_t round, Strings&... labels)
+    /**
+     * @brief Add a single challenge label to the manifest for the given round
+     * @details This appends to any existing challenges in the round
+     */
+    void add_challenge(size_t round, const std::string& label) { manifest[round].challenge_label.push_back(label); }
+
+    /**
+     * @brief Add multiple challenge labels to the manifest for the given round
+     * @details Convenience overload that loops through the span and appends each label
+     */
+    void add_challenge(size_t round, std::span<const std::string> labels)
     {
-        manifest[round].challenge_label = { labels... };
+        for (const auto& label : labels) {
+            add_challenge(round, label);
+        }
     }
-    template <typename String, size_t NumChallenges>
-    void add_challenge(size_t round, std::array<String, NumChallenges> labels)
+
+    /**
+     * @brief Add multiple challenge labels to the manifest for the given round
+     * @details Convenience overload for arrays that delegates to span overload
+     */
+    template <size_t N> void add_challenge(size_t round, const std::array<std::string, N>& labels)
     {
-        auto call_add_challenge = [&] {
-            auto call_fn_with_expanded_parameters =
-                [&]<size_t... Indices>([[maybe_unused]] std::index_sequence<Indices...>) {
-                    return add_challenge(round, std::get<Indices>(labels)...);
-                };
-            return call_fn_with_expanded_parameters(std::make_index_sequence<NumChallenges>());
-        };
-        call_add_challenge();
+        add_challenge(round, std::span<const std::string>{ labels.data(), labels.size() });
+    }
+
+    /**
+     * @brief Add multiple challenge labels to the manifest for the given round
+     * @details Convenience overload for const char* arrays (e.g., from std::array{"a", "b"})
+     */
+    template <size_t N> void add_challenge(size_t round, const std::array<const char*, N>& labels)
+    {
+        for (const auto& label : labels) {
+            add_challenge(round, std::string(label));
+        }
     }
 
     void add_entry(size_t round, const std::string& element_label, size_t element_size)

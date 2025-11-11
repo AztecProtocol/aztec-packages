@@ -12,7 +12,14 @@ source ./scripts/source_network_env.sh
 source ./scripts/gcp_auth.sh
 
 function build {
-  denoise "helm lint ./aztec-network/"
+  denoise "helm lint ./aztec-bot/"
+  denoise "helm lint ./aztec-chaos-scenarios/"
+  denoise "helm lint ./aztec-keystore/"
+  denoise "helm lint ./aztec-node/"
+  denoise "helm lint ./aztec-prover-stack/"
+  denoise "helm lint ./aztec-snapshots/"
+  denoise "helm lint ./aztec-validator/"
+  denoise "helm lint ./eth-devnet/"
   denoise ./spartan/scripts/check_env_vars.sh
 }
 
@@ -79,19 +86,6 @@ function single_test {
   local test_file="$1"
   $root/yarn-project/end-to-end/scripts/run_test.sh simple $test_file
 }
-
-function start_env {
-  if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    echo "Skipping start_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
-  fi
-}
-
-function stop_env {
-  if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    echo "Skipping stop_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
-  fi
-}
-
 
 function test {
   echo_header "spartan test (deprecated)"
@@ -223,7 +217,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|gke|build|start_env|stop_env|gcp_auth)
+  test|test_cmds|gke|build|gcp_auth)
     $cmd
     ;;
   "test-kind-smoke")

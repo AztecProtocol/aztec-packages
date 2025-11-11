@@ -8,29 +8,29 @@ pub contract ImportTest {
 
     use dep::test::Test;
 
-    use dep::aztec::macros::functions::{private, public};
+    use dep::aztec::macros::functions::external;
 
     // Calls the get_this_address on the Test contract at the target address
     // Used for testing calling a function with no arguments
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
-    #[private]
+    #[external("private")]
     fn call_no_args(target: AztecAddress) -> AztecAddress {
-        Test::at(target).get_this_address().call(&mut context)
+        self.call(Test::at(target).get_this_address())
     }
 
     // Calls the emit_nullifier_public on the Test contract at the target address
     // Used for testing calling a public function
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
-    #[private]
+    #[external("private")]
     fn call_public_fn(target: AztecAddress) {
-        Test::at(target).emit_nullifier_public(1).enqueue(&mut context);
+        self.enqueue(Test::at(target).emit_nullifier_public(1));
     }
 
     // Calls the emit_nullifier_public on the Test contract at the target address
     // Used for testing calling a public function from another public function
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
-    #[public]
+    #[external("public")]
     fn pub_call_public_fn(target: AztecAddress) {
-        Test::at(target).emit_nullifier_public(1).call(&mut context);
+        self.call(Test::at(target).emit_nullifier_public(1));
     }
 }

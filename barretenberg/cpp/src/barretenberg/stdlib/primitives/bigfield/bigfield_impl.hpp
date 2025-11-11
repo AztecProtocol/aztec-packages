@@ -62,7 +62,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     if (!low_bits_in.is_constant()) {
         // Decompose the low bits into 2 limbs and range constrain them.
         const auto limb_witnesses =
-            context->decompose_non_native_field_double_width_limb(low_bits_in.get_normalized_witness_index());
+            context->decompose_non_native_field_double_width_limb(low_bits_in.get_witness_index());
         limb_0.witness_index = limb_witnesses[0];
         limb_1.witness_index = limb_witnesses[1];
         field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
@@ -89,7 +89,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     if (!high_bits_in.is_constant()) {
         // Decompose the high bits into 2 limbs and range constrain them.
         const auto limb_witnesses = context->decompose_non_native_field_double_width_limb(
-            high_bits_in.get_normalized_witness_index(), static_cast<size_t>(num_high_limb_bits));
+            high_bits_in.get_witness_index(), static_cast<size_t>(num_high_limb_bits));
         limb_2.witness_index = limb_witnesses[0];
         limb_3.witness_index = limb_witnesses[1];
         field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1, field_t<Builder>(0));
@@ -160,10 +160,10 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
     prime_limb.witness_index = ctx->add_variable(limb_0.get_value() + limb_1.get_value() * shift_1 +
                                                  limb_2.get_value() * shift_2 + limb_3.get_value() * shift_3);
     // evaluate prime basis limb with addition gate that taps into the 4th wire in the next gate
-    ctx->create_big_add_gate({ limb_1.get_normalized_witness_index(),
-                               limb_2.get_normalized_witness_index(),
-                               limb_3.get_normalized_witness_index(),
-                               prime_limb.get_normalized_witness_index(),
+    ctx->create_big_add_gate({ limb_1.get_witness_index(),
+                               limb_2.get_witness_index(),
+                               limb_3.get_witness_index(),
+                               prime_limb.get_witness_index(),
                                shift_1,
                                shift_2,
                                shift_3,
@@ -173,11 +173,8 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
     // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): Optimisation opportunity to use a single gate
     // (and remove dummy gate). Currently, dummy gate is necessary for preceeding big add gate as these gates fall in
     // the arithmetic block. More details on the linked Github issue.
-    ctx->create_unconstrained_gate(ctx->blocks.arithmetic,
-                                   ctx->zero_idx(),
-                                   ctx->zero_idx(),
-                                   ctx->zero_idx(),
-                                   limb_0.get_normalized_witness_index());
+    ctx->create_unconstrained_gate(
+        ctx->blocks.arithmetic, ctx->zero_idx(), ctx->zero_idx(), ctx->zero_idx(), limb_0.get_witness_index());
 
     uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
 
@@ -196,13 +193,13 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
         result.binary_basis_limbs[3].maximum_value = max_limb_value;
     }
     result.prime_basis_limb = prime_limb;
-    ctx->range_constrain_two_limbs(limb_0.get_normalized_witness_index(),
-                                   limb_1.get_normalized_witness_index(),
+    ctx->range_constrain_two_limbs(limb_0.get_witness_index(),
+                                   limb_1.get_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
                                    static_cast<size_t>(NUM_LIMB_BITS),
                                    "bigfield::create_from_u512_as_witness: limb 0 or 1 too large");
-    ctx->range_constrain_two_limbs(limb_2.get_normalized_witness_index(),
-                                   limb_3.get_normalized_witness_index(),
+    ctx->range_constrain_two_limbs(limb_2.get_witness_index(),
+                                   limb_3.get_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
                                    static_cast<size_t>(num_last_limb_bits),
                                    "bigfield::create_from_u512_as_witness: limb 2 or 3 too large");
@@ -398,11 +395,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     bool both_prime_limb_multiplicative_constant_one =
         (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
     if (both_prime_limb_multiplicative_constant_one && both_witness) {
-        bool limbconst =
-            is_constant() || other.is_constant() ||
-            (prime_basis_limb.get_witness_index() ==
-             other.prime_basis_limb.get_witness_index()); // We are comparing if the bigfield elements are exactly the
-                                                          // same object, so we compare the unnormalized witness indices
+        bool limbconst = is_constant() || other.is_constant() ||
+                         field_ct::witness_indices_match(prime_basis_limb, other.prime_basis_limb);
         if (!limbconst) {
             // Extract witness indices and multiplicative constants for binary basis limbs
             std::array<std::pair<uint32_t, bb::fr>, NUM_LIMBS> x_scaled;
@@ -635,11 +629,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     bool both_prime_limb_multiplicative_constant_one =
         (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
     if (both_prime_limb_multiplicative_constant_one && both_witness) {
-        bool limbconst =
-            is_constant() || other.is_constant() ||
-            (prime_basis_limb.get_witness_index() ==
-             other.prime_basis_limb.get_witness_index()); // We are checking if `this` and `other` are identical, so we
-                                                          // need to compare the actual indices, not normalized ones
+        bool limbconst = is_constant() || other.is_constant() ||
+                         field_ct::witness_indices_match(prime_basis_limb, other.prime_basis_limb);
 
         if (!limbconst) {
             // Extract witness indices and multiplicative constants for binary basis limbs
@@ -1633,7 +1624,7 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
 
     // If both elements are the same, we can just return one of them
     auto is_limb_same = [](const field_ct& a, const field_ct& b) {
-        const bool is_witness_index_same = a.get_witness_index() == b.get_witness_index();
+        const bool is_witness_index_same = field_ct::witness_indices_match(a, b);
         const bool is_add_constant_same = a.additive_constant == b.additive_constant;
         const bool is_mul_constant_same = a.multiplicative_constant == b.multiplicative_constant;
         return is_witness_index_same && is_add_constant_same && is_mul_constant_same;
@@ -1744,7 +1735,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
 
     bigfield product = diff * multiplicand;
 
-    field_t result = field_t<Builder>::conditional_assign(is_equal, 0, 1);
+    field_t result = field_t<Builder>::conditional_assign_internal(is_equal, 0, 1);
 
     product.prime_basis_limb.assert_equal(result);
     product.binary_basis_limbs[0].element.assert_equal(result);
@@ -1831,15 +1822,15 @@ void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, std::s
     // This is required because the comparison is done using subtractions, which can result in overflows.
     // Range constrain the first two limbs each to NUM_LIMB_BITS
     auto ctx = get_context();
-    ctx->range_constrain_two_limbs(binary_basis_limbs[0].element.get_normalized_witness_index(),
-                                   binary_basis_limbs[1].element.get_normalized_witness_index(),
+    ctx->range_constrain_two_limbs(binary_basis_limbs[0].element.get_witness_index(),
+                                   binary_basis_limbs[1].element.get_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
                                    static_cast<size_t>(NUM_LIMB_BITS),
                                    is_default_msg ? "bigfield::assert_less_than: limb 0 or 1 too large" : msg);
 
     // Range constrain the last two limbs to NUM_LIMB_BITS and NUM_LAST_LIMB_BITS
-    ctx->range_constrain_two_limbs(binary_basis_limbs[2].element.get_normalized_witness_index(),
-                                   binary_basis_limbs[3].element.get_normalized_witness_index(),
+    ctx->range_constrain_two_limbs(binary_basis_limbs[2].element.get_witness_index(),
+                                   binary_basis_limbs[3].element.get_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
                                    static_cast<size_t>(NUM_LAST_LIMB_BITS),
                                    is_default_msg ? "bigfield::assert_less_than: limb 2 or 3 too large" : msg);
@@ -1918,14 +1909,14 @@ void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit,
 
     // We need to range constrain the r0,r1,r2,r3 values to ensure they are "small enough".
     get_context()->range_constrain_two_limbs(
-        r0.get_normalized_witness_index(),
-        r1.get_normalized_witness_index(),
+        r0.get_witness_index(),
+        r1.get_witness_index(),
         static_cast<size_t>(NUM_LIMB_BITS),
         static_cast<size_t>(NUM_LIMB_BITS),
         msg == "bigfield::unsafe_assert_less_than" ? "bigfield::unsafe_assert_less_than: r0 or r1 too large" : msg);
     get_context()->range_constrain_two_limbs(
-        r2.get_normalized_witness_index(),
-        r3.get_normalized_witness_index(),
+        r2.get_witness_index(),
+        r3.get_witness_index(),
         static_cast<size_t>(NUM_LIMB_BITS),
         static_cast<size_t>(NUM_LIMB_BITS),
         msg == "bigfield::unsafe_assert_less_than" ? "bigfield::unsafe_assert_less_than: r2 or r3 too large" : msg);
@@ -2076,7 +2067,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
     BB_ASSERT_LTE(maximum_quotient_bits, NUM_LIMB_BITS);
     uint32_t quotient_limb_index = context->add_variable(bb::fr(quotient_value.lo));
     field_t<Builder> quotient_limb = field_t<Builder>::from_witness_index(context, quotient_limb_index);
-    context->decompose_into_default_range(quotient_limb.get_normalized_witness_index(),
+    context->decompose_into_default_range(quotient_limb.get_witness_index(),
                                           static_cast<size_t>(maximum_quotient_bits));
 
     BB_ASSERT_LT((uint1024_t(1) << maximum_quotient_bits) * uint1024_t(modulus_u512) + DEFAULT_MAXIMUM_REMAINDER,
@@ -2298,10 +2289,10 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         to_mul.get_binary_basis_limb_witness_indices(),
         quotient.get_binary_basis_limb_witness_indices(),
         {
-            remainder_limbs[0].get_normalized_witness_index(),
-            remainder_limbs[1].get_normalized_witness_index(),
-            remainder_limbs[2].get_normalized_witness_index(),
-            remainder_limbs[3].get_normalized_witness_index(),
+            remainder_limbs[0].get_witness_index(),
+            remainder_limbs[1].get_witness_index(),
+            remainder_limbs[2].get_witness_index(),
+            remainder_limbs[3].get_witness_index(),
         },
         { neg_modulus_mod_binary_basis_limbs[0],
           neg_modulus_mod_binary_basis_limbs[1],
@@ -2324,8 +2315,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     // if both the hi and lo output limbs have less than 70 bits, we can use our custom
     // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
     if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
-        ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
-                                       lo.get_normalized_witness_index(),
+        ctx->range_constrain_two_limbs(hi.get_witness_index(),
+                                       lo.get_witness_index(),
                                        static_cast<size_t>(carry_hi_msb),
                                        static_cast<size_t>(carry_lo_msb),
                                        "bigfield::unsafe_evaluate_multiply_add: carries too large");
@@ -2605,10 +2596,10 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         right[0].get_binary_basis_limb_witness_indices(),
         quotient.get_binary_basis_limb_witness_indices(),
         {
-            remainder_limbs[0].get_normalized_witness_index(),
-            remainder_limbs[1].get_normalized_witness_index(),
-            remainder_limbs[2].get_normalized_witness_index(),
-            remainder_limbs[3].get_normalized_witness_index(),
+            remainder_limbs[0].get_witness_index(),
+            remainder_limbs[1].get_witness_index(),
+            remainder_limbs[2].get_witness_index(),
+            remainder_limbs[3].get_witness_index(),
         },
         { neg_modulus_mod_binary_basis_limbs[0],
           neg_modulus_mod_binary_basis_limbs[1],
@@ -2643,8 +2634,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     // if both the hi and lo output limbs have less than 70 bits, we can use our custom
     // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
     if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
-        ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
-                                       lo.get_normalized_witness_index(),
+        ctx->range_constrain_two_limbs(hi.get_witness_index(),
+                                       lo.get_witness_index(),
                                        static_cast<size_t>(carry_hi_msb),
                                        static_cast<size_t>(carry_lo_msb),
                                        "bigfield::unsafe_evaluate_multiply_add: carries too large");

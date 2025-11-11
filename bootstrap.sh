@@ -32,6 +32,12 @@ function check_toolchains {
       exit 1
     fi
   done
+  if ! command -v ldid > /dev/null; then
+    encourage_dev_container
+    echo "Utility ldid not found."
+    echo "Install from https://github.com/ProcursusTeam/ldid."
+    exit 1
+  fi
   if ! yq --version | grep "version v4" > /dev/null; then
     encourage_dev_container
     echo "yq v4 not installed."
@@ -51,6 +57,13 @@ function check_toolchains {
     encourage_dev_container
     echo "clang 16 not installed."
     echo "Installation: sudo apt install clang-20"
+    exit 1
+  fi
+  # Check zig version.
+  if ! zig version | grep "0.15.1" > /dev/null; then
+    encourage_dev_container
+    echo "zig 0.15.1 not installed."
+    echo "Install in /opt/zig."
     exit 1
   fi
   # Check rustup installed.
@@ -76,7 +89,7 @@ function check_toolchains {
     exit 1
   fi
   # Check foundry version.
-  local foundry_version="v1.3.3"
+  local foundry_version="v1.4.1"
   for tool in forge anvil; do
     if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
       echo "$tool not in PATH or incorrect version (requires $foundry_version)."
@@ -156,11 +169,7 @@ function test_cmds {
 
 function start_test_env {
   # Starting txe servers with incrementing port numbers.
-  trap '(kill -SIGTERM $txe_pids &>/dev/null || true) && ./spartan/bootstrap.sh stop_env' EXIT
-
-  # Start env for spartan tests in the background
-  dump_fail "spartan/bootstrap.sh start_env" &
-  spartan_pid=$!
+  trap 'kill -SIGTERM $txe_pids &>/dev/null || true' EXIT
 
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
@@ -183,13 +192,6 @@ function start_test_env {
         j=$((j+1))
       done
   done
-
-  echo "Waiting for spartan environment to complete setup..."
-  if wait $spartan_pid; then
-    echo "Spartan environment setup completed successfully."
-  else
-    echo_stderr "Spartan environment setup failed. Exiting."
-  fi
 }
 
 function test {
@@ -306,7 +308,7 @@ function bench {
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
-  cache_upload bench-$COMMIT_HASH.tar.gz bench-out/bench.json
+  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
 }
 
 function release_github {
@@ -346,11 +348,9 @@ function release {
   echo_header "release all"
   set -x
 
-  # Ensure we have a github release for our REF_NAME, if not on latest.
-  # On latest we rely on release-please to create this for us.
-  if [ $(dist_tag) != latest ]; then
-    release_github
-  fi
+  # Ensure we have a github release for our REF_NAME.
+  # This is in case were are not going through release-please.
+  release_github
 
   projects=(
     barretenberg/cpp
@@ -423,15 +423,6 @@ case "$cmd" in
     test
     bench
     ;;
-  "ci-nightly")
-    export CI=1
-    export USE_TEST_CACHE=1
-    export CI_NIGHTLY=1
-    build
-    release-image/bootstrap.sh push
-    test
-    release
-    ;;
   "ci-network-deploy")
     export CI=1
     build
@@ -460,7 +451,8 @@ case "$cmd" in
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
-    export DISABLE_AZTEC_VM=1
+    export AVM=0
+    export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
   test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)

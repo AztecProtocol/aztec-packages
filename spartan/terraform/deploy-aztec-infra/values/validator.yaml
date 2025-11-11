@@ -15,7 +15,8 @@ validator:
       fi
 
     env:
-      L1_FIXED_PRIORITY_FEE_PER_GAS: 3
+      L1_PRIORITY_FEE_BUMP_PERCENTAGE: 30
+      L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE: 80
 
   persistence:
     enabled: true

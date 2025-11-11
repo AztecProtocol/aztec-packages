@@ -45,7 +45,7 @@ Each `rc` tag causes ci3.yml to run, and creates releases because it runs `boots
 
 ### master (deprecated)
 
-`master` points at the the version of code which ran the "old" testnet. It should not be updated anymore.
+`master` points at the version of code which ran the "old" testnet. It should not be updated anymore.
 
 Functionally, it is `v1`.
 

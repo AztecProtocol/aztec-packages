@@ -33,7 +33,6 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
     const size_t log_n =
         Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(verifier_instance->vk->log_circuit_size);
-    verifier_instance->target_sum = 0;
     verifier_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
@@ -73,7 +72,8 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
         // Update output
         output.result &= ipa_result;
     } else if constexpr (std::is_same_v<IO, HidingKernelIO>) {
-        // Add ecc op tables if we are verifying a ClientIVC proof
+        // Add kernel return data and ecc op tables if we are verifying a Chonk proof
+        output.kernel_return_data = inputs.kernel_return_data;
         output.ecc_op_tables = inputs.ecc_op_tables;
     }
 
@@ -121,7 +121,7 @@ template UltraVerifier_<MegaFlavor>::UltraVerifierOutput UltraVerifier_<MegaFlav
 template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<DefaultIO>(
     const Proof& proof, const Proof& ipa_proof);
 
-// ClientIVC specialization
+// Chonk specialization
 template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<HidingKernelIO>(
     const Proof& proof, const Proof& ipa_proof);
 

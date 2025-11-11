@@ -185,6 +185,9 @@ case "$cmd" in
   "hash")
     nargo --version | sed -n 's/(git version hash: \([^,]*\).*/\1/p'
     ;;
+  "noir-sync")
+    # Noop, we synced above.
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

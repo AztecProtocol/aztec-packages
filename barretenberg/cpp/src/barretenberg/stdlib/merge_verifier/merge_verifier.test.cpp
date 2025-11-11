@@ -3,7 +3,6 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/stdlib/merge_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -21,9 +20,9 @@ namespace bb::stdlib::recursion::goblin {
 template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public testing::Test {
 
     // Types for recursive verifier circuit
-    using RecursiveMergeVerifier = MergeRecursiveVerifier_<RecursiveBuilder>;
-    using RecursiveTableCommitments = MergeRecursiveVerifier_<RecursiveBuilder>::TableCommitments;
-    using RecursiveMergeCommitments = MergeRecursiveVerifier_<RecursiveBuilder>::InputCommitments;
+    using RecursiveMergeVerifier = MergeRecursiveVerifier<RecursiveBuilder>;
+    using RecursiveTableCommitments = RecursiveMergeVerifier::TableCommitments;
+    using RecursiveMergeCommitments = RecursiveMergeVerifier::InputCommitments;
 
     // Define types relevant for inner circuit
     using InnerFlavor = MegaFlavor;
@@ -38,7 +37,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     using TableCommitments = MergeVerifier::TableCommitments;
     using MergeCommitments = MergeVerifier::InputCommitments;
 
-    enum class TamperProofMode { None, Shift, MCommitment, LEval };
+    enum class TamperProofMode : uint8_t { None, Shift, MCommitment, LEval };
 
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -47,7 +46,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     {
         const size_t shift_idx = 0;        // Index of shift_size in the merge proof
         const size_t m_commitment_idx = 1; // Index of first commitment to merged table in merge proof
-        const size_t l_eval_idx = 34;      // Index of first evaluation of l(1/kappa) in merge proof
+        const size_t l_eval_idx = 22;      // Index of first evaluation of l(1/kappa) in merge proof
 
         switch (tampering_mode) {
         case TamperProofMode::Shift:
@@ -105,30 +104,37 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         }
 
         // Create a recursive merge verification circuit for the merge proof
-        RecursiveMergeVerifier verifier{ &outer_circuit, settings };
-        verifier.transcript->enable_manifest();
+        auto recursive_transcript = std::make_shared<StdlibTranscript<RecursiveBuilder>>();
+        recursive_transcript->enable_manifest();
+        RecursiveMergeVerifier verifier{ settings, recursive_transcript };
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
-        auto [pairing_points, recursive_merged_table_commitments] =
-            verifier.verify_proof(stdlib_merge_proof, recursive_merge_commitments);
+        auto [pairing_points,
+              recursive_merged_table_commitments,
+              recursive_degree_check,
+              recursive_concatenation_check] = verifier.verify_proof(stdlib_merge_proof, recursive_merge_commitments);
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), !expected) << outer_circuit.err();
 
         // Check 1: Perform native merge verification then perform the pairing on the outputs of the recursive merge
         // verifier and check that the result agrees.
-        MergeVerifier native_verifier{ settings };
-        native_verifier.transcript->enable_manifest();
-        auto [verified_native, merged_table_commitments] = native_verifier.verify_proof(merge_proof, merge_commitments);
+        auto native_transcript = std::make_shared<NativeTranscript>();
+        native_transcript->enable_manifest();
+        MergeVerifier native_verifier{ settings, native_transcript };
+        auto [native_pairing_points, merged_table_commitments, native_degree_check, native_concatenation_check] =
+            native_verifier.verify_proof(merge_proof, merge_commitments);
+        bool verified_native = native_pairing_points.check() && native_degree_check && native_concatenation_check;
         VerifierCommitmentKey pcs_verification_key;
         bool verified_recursive =
-            pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+            pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value()) &&
+            recursive_degree_check && recursive_concatenation_check;
         EXPECT_EQ(verified_native, verified_recursive);
         EXPECT_EQ(verified_recursive, expected);
 
         // Check 2: Ensure that the underlying native and recursive merge verification algorithms agree by ensuring
         // the manifests produced by each agree.
-        auto recursive_manifest = verifier.transcript->get_manifest();
-        auto native_manifest = native_verifier.transcript->get_manifest();
+        auto recursive_manifest = recursive_transcript->get_manifest();
+        auto native_manifest = native_transcript->get_manifest();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
             EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
         }

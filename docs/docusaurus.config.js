@@ -45,7 +45,7 @@ const config = {
     mermaid: true,
     hooks: {
       onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
-    }
+    },
   },
   themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
   presets: [
@@ -64,17 +64,28 @@ const config = {
           },
           routeBasePath: "/",
           include: ["**/*.{md,mdx}"],
-          exclude: ["protocol-specs/**"],
           // Don't show latest since nightlies are published
-          includeCurrentVersion: process.env.ENV === "dev",
-          // There should be 2 versions, nightly and stable
-          // The stable version is second in the list
-          lastVersion: versions[1],
+          // Hide current version in Netlify production, show in dev and PR previews
+          // Netlify sets CONTEXT
+          includeCurrentVersion: process.env.CONTEXT !== "production",
+          // Testnet should be the default version
+          lastVersion: versions[2],
           versions: {
             [versions[0]]: {
-              ...(versions[0].includes("nightly") && { path: "nightly" }),
+              ...(versions[0].includes("nightly") && {
+                path: "nightly",
+                banner: "unreleased",
+              }),
             },
-            ...(process.env.ENV === "dev" && {
+            [versions[1]]: {
+              label: "Devnet (v3.0.0-devnet.4)",
+              path: "devnet",
+              banner: "none",
+            },
+            "v2.1.2": {
+              label: "RC (v2.1.2)",
+            },
+            ...(process.env.CONTEXT !== "production" && {
               current: {
                 label: "dev",
                 path: "dev",
@@ -118,7 +129,6 @@ const config = {
         docsDir: `versioned_docs/version-${versions[0]}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
-        ignoreFiles: [`versioned_docs/**/protocol-specs/*`],
         version: versions[0],
         pathTransformation: {
           ignorePaths: ["docs"],

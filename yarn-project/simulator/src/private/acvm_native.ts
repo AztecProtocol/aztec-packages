@@ -103,21 +103,26 @@ export async function executeNativeCircuit(
     logger.debug(`Calling ACVM with ${args.join(' ')}`);
 
     const processPromise = new Promise<string>((resolve, reject) => {
-      let outputWitness = Buffer.alloc(0);
-      let errorBuffer = Buffer.alloc(0);
+      const outChunks: Buffer[] = [];
+      const errChunks: Buffer[] = [];
+      let outLen = 0;
+      let errLen = 0;
       const acvm = proc.spawn(pathToAcvm, args);
-      acvm.stdout.on('data', data => {
-        outputWitness = Buffer.concat([outputWitness, data]);
+      acvm.stdout.on('data', (data: Buffer) => {
+        outChunks.push(data);
+        outLen += data.length;
       });
-      acvm.stderr.on('data', data => {
-        errorBuffer = Buffer.concat([errorBuffer, data]);
+      acvm.stderr.on('data', (data: Buffer) => {
+        errChunks.push(data);
+        errLen += data.length;
       });
       acvm.on('close', code => {
         if (code === 0) {
-          resolve(outputWitness.toString('utf-8'));
+          resolve(Buffer.concat(outChunks, outLen).toString('utf-8'));
         } else {
-          logger.error(`From ACVM: ${errorBuffer.toString('utf-8')}`);
-          reject(errorBuffer.toString('utf-8'));
+          const stderr = Buffer.concat(errChunks, errLen);
+          logger.error(`From ACVM: ${stderr.toString('utf-8')}`);
+          reject(stderr.toString('utf-8'));
         }
       });
     });
@@ -129,6 +134,9 @@ export async function executeNativeCircuit(
       const outputWitnessFileName = `${workingDirectory}/output-witness.gz`;
       await fs.copyFile(outputWitnessFileName, outputFilename);
     }
+    // TODO: We shouldn't be parsing the witness from stdout, it's not very performant, and we end up with two ways of fetching the witness.
+    // We probably should implement the WitnessStack type, run the ACVM with msgpack serialization mode (env variable), and ungzip and parse the witness from
+    // the outputted gz witness file.
     const witness = parseIntoWitnessMap(output);
     return { status: ACVM_RESULT.SUCCESS, witness, duration };
   } catch (error) {
