@@ -550,6 +550,27 @@ TYPED_TEST(CycleGroupTest, TestDblConstantPoints)
     }
 }
 
+TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    // Test doubling where x is constant but y is witness (edge case)
+    auto point = TestFixture::generators[1];
+    auto x = stdlib::field_t<Builder>(&builder, point.x);             // constant
+    auto y = stdlib::field_t<Builder>(witness_ct(&builder, point.y)); // witness
+
+    // Mixed constancy is remedied inside the constructor; x will be converted to a fixed witness
+    cycle_group_ct a(x, y, false, /*assert_on_curve=*/false);
+
+    EXPECT_FALSE(a.x().is_constant());
+    EXPECT_FALSE(a.y().is_constant());
+
+    a.dbl();
+
+    check_circuit_and_gate_count(builder, 3);
+}
+
 TYPED_TEST(CycleGroupTest, TestUnconditionalAddNonConstantPoints)
 {
     STDLIB_TYPE_ALIASES;

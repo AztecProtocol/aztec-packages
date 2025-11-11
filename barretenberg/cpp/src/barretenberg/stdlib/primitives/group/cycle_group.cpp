@@ -769,9 +769,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     }
 
     // All cycle_scalars are guaranteed to be 254 bits
-    static_assert(cycle_scalar::NUM_BITS == NUM_BITS_FULL_FIELD_SIZE);
-    constexpr size_t num_bits = cycle_scalar::NUM_BITS;
-    constexpr size_t num_rounds = numeric::ceil_div(num_bits, ROM_TABLE_BITS);
+    constexpr size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, ROM_TABLE_BITS);
 
     // Decompose each scalar into 4-bit slices. Note: This operation enforces range constraints on the lo/hi limbs of
     // each scalar (LO_BITS and (num_bits - LO_BITS) respectively).
