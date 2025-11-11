@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/written_slots_tree.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
@@ -39,15 +40,10 @@ class HintedRawContractDB final : public ContractDBInterface {
 
   private:
     uint32_t get_checkpoint_id() const;
-
-    using GetContractInstanceKey = std::tuple<uint32_t, AztecAddress>;
-    using GetContractClassKey = std::tuple<uint32_t, ContractClassId>;
-    using GetBytecodeCommitmentKey = std::tuple<uint32_t, ContractClassId>;
-
     unordered_flat_map<GetContractInstanceKey, ContractInstanceHint> contract_instances;
     unordered_flat_map<GetContractClassKey, ContractClassHint> contract_classes;
     unordered_flat_map<GetBytecodeCommitmentKey, FF> bytecode_commitments;
-    unordered_flat_map<std::pair<AztecAddress, FunctionSelector>, std::string> debug_function_names;
+    unordered_flat_map<GetDebugFunctionNameKey, std::string> debug_function_names;
 
     uint32_t action_counter = 0;
     std::stack<uint32_t> checkpoint_stack{ { 0 } };
@@ -91,23 +87,16 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     std::stack<uint32_t> checkpoint_stack{ { 0 } };
 
     // Query hints.
-    using GetSiblingPathKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, index_t>;
     unordered_flat_map<GetSiblingPathKey, SiblingPath> get_sibling_path_hints;
-    using GetPreviousValueIndexKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, FF>;
     unordered_flat_map<GetPreviousValueIndexKey, GetLowIndexedLeafResponse> get_previous_value_index_hints;
-    using GetLeafPreimageKey = std::tuple<AppendOnlyTreeSnapshot, index_t>;
     unordered_flat_map<GetLeafPreimageKey, IndexedLeaf<PublicDataLeafValue>> get_leaf_preimage_hints_public_data_tree;
     unordered_flat_map<GetLeafPreimageKey, IndexedLeaf<NullifierLeafValue>> get_leaf_preimage_hints_nullifier_tree;
-    using GetLeafValueKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, index_t>;
     unordered_flat_map<GetLeafValueKey, FF> get_leaf_value_hints;
     // State modification hints.
-    using SequentialInsertHintPublicDataTreeKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataLeafValue>;
     unordered_flat_map<SequentialInsertHintPublicDataTreeKey, SequentialInsertHint<PublicDataLeafValue>>
         sequential_insert_hints_public_data_tree;
-    using SequentialInsertHintNullifierTreeKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, NullifierLeafValue>;
     unordered_flat_map<SequentialInsertHintNullifierTreeKey, SequentialInsertHint<NullifierLeafValue>>
         sequential_insert_hints_nullifier_tree;
-    using AppendLeavesHintKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, std::vector<FF>>;
     unordered_flat_map<AppendLeavesHintKey, AppendOnlyTreeSnapshot> append_leaves_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CreateCheckpointHint> create_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
@@ -159,17 +148,3 @@ class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
 };
 
 } // namespace bb::avm2::simulation
-
-// Specialization of std::hash for std::vector<FF> to be used as a key in unordered_flat_map.
-namespace std {
-template <> struct hash<std::vector<bb::avm2::FF>> {
-    size_t operator()(const std::vector<bb::avm2::FF>& vec) const
-    {
-        size_t seed = vec.size();
-        for (const auto& item : vec) {
-            seed ^= std::hash<bb::avm2::FF>{}(item) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        }
-        return seed;
-    }
-};
-} // namespace std
