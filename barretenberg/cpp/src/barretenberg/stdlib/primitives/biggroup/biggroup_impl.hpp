@@ -341,22 +341,10 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
 }
 
 /**
- * Evaluate a chain addition!
- *
- * When adding a set of points P_1 + ... + P_N, we do not need to compute the y-coordinate of intermediate
- *addition terms.
- *
- * i.e. we substitute `acc.y` with `acc.y = acc.lambda_prev * (acc.x1_prev - acc.x) - acc.y1_prev`
- *
- * `lambda_prev, x1_prev, y1_prev` are the `lambda, x1, y1` terms from the previous addition operation.
- *
- * `chain_add` requires 1 less non-native field reduction than a regular add operation.
- **/
-
-/**
- * begin a chain of additions
- * input points p1 p2
- * output accumulator = x3_prev (output x coordinate), x1_prev, y1_prev (p1), lambda_prev (y2 - y1) / (x2 - x1)
+ * @brief Begin a chain of additions
+ * @param p1 First point (x₁, y₁)
+ * @param p2 Second point (x₂, y₂)
+ * @return Accumulator containing: x3_prev = λ² - x₁ - x₂, x1_prev = x₁, y1_prev = y₁, lambda_prev = (y₂ - y₁)/(x₂ - x₁)
  **/
 template <typename C, class Fq, class Fr, class G>
 typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::chain_add_start(const element& p1,
@@ -366,52 +354,67 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
     output.x1_prev = p1._x;
     output.y1_prev = p1._y;
 
+    // Require x₁ ≠ x₂ for incomplete addition formula
     p1._x.assert_is_not_equal(p2._x);
+
+    // Compute λ = (y₂ - y₁)/(x₂ - x₁)
     const Fq lambda = Fq::div_without_denominator_check({ p2._y, -p1._y }, (p2._x - p1._x));
 
+    // Compute x₃ = λ² - x₁ - x₂
     const Fq x3 = lambda.sqradd({ -p2._x, -p1._x });
     output.x3_prev = x3;
     output.lambda_prev = lambda;
     return output;
 }
 
+/**
+ * @brief Evaluate a chain addition using incomplete addition formulae
+ * @param p1 Point to add (x₁, y₁)
+ * @param acc Accumulator from previous addition
+ * @return Updated accumulator with new x3_prev, and previous x1_prev, y1_prev, lambda_prev
+ *
+ * @details When adding a set of points P₁ + ... + Pₙ, we can optimize by not computing the y-coordinate
+ * of intermediate addition terms. Instead, we substitute:
+ *     acc.y = acc.lambda_prev * (acc.x1_prev - acc.x) - acc.y1_prev
+ *
+ * The accumulator stores (lambda_prev, x1_prev, y1_prev, x3_prev) from the previous addition operation,
+ * allowing us to defer y-coordinate computation until the end.
+ *
+ * `chain_add` requires 1 less non-native field reduction than a regular add operation.
+ *
+ * @warning: These functions use INCOMPLETE addition formulae and require x₁ ≠ x₂ for all inputs.
+ **/
 template <typename C, class Fq, class Fr, class G>
 typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::chain_add(const element& p1,
                                                                                        const chain_add_accumulator& acc)
 {
-    // use `chain_add_start` to start an addition chain (i.e. if acc has a y-coordinate)
+    // If accumulator has a full y-coordinate, use chain_add_start instead
     if (acc.is_full_element) {
         return chain_add_start(p1, element(acc.x3_prev, acc.y3_prev));
     }
-    // validate we can use incomplete addition formulae
+
+    // Require x₁ ≠ x₂ for incomplete addition formula
     p1._x.assert_is_not_equal(acc.x3_prev);
 
-    // lambda = (y2 - y1) / (x2 - x1)
-    // but we don't have y2!
-    // however, we do know that y2 = lambda_prev * (x1_prev - x2) - y1_prev
-    // => lambda * (x2 - x1) = lambda_prev * (x1_prev - x2) - y1_prev - y1
-    // => lambda * (x2 - x1) + lambda_prev * (x2 - x1_prev) + y1 + y1_pev = 0
-    // => lambda = lambda_prev * (x1_prev - x2) - y1_prev - y1 / (x2 - x1)
-    // => lambda = - (lambda_prev * (x2 - x1_prev) + y1_prev + y1) / (x2 - x1)
-
-    /**
-     *
-     * We compute the following terms:
-     *
-     * lambda = acc.lambda_prev * (acc.x1_prev - acc.x) - acc.y1_prev - p1.y / acc.x - p1.x
-     * x3 = lambda * lambda - acc.x - p1.x
-     *
-     * Requires only 2 non-native field reductions
-     **/
+    // Compute λ = (y₂ - y₁)/(x₂ - x₁), but we don't have y₂!
+    // We know that y₂ = lambda_prev * (x1_prev - x₂) - y1_prev from the previous addition.
+    //
+    // Derivation:
+    //   λ(x₂ - x₁) = y₂ - y₁
+    //   λ(x₂ - x₁) = lambda_prev * (x1_prev - x₂) - y1_prev - y₁
+    //   λ = -(lambda_prev * (x₂ - x1_prev) + y1_prev + y₁) / (x₂ - x₁)
+    //
     auto& x2 = acc.x3_prev;
-    const auto lambda =
-        Fq::msub_div({ acc.lambda_prev },
-                     { (x2 - acc.x1_prev) },
-                     (x2 - p1._x),
-                     { acc.y1_prev, p1._y },
-                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x2 != p1.x is enforced
+    const auto lambda = Fq::msub_div({ acc.lambda_prev },
+                                     { (x2 - acc.x1_prev) },
+                                     (x2 - p1._x),
+                                     { acc.y1_prev, p1._y },
+                                     /*enable_divisor_nz_check*/ false); // Divisor is non-zero as x₂ ≠ x₁ is enforced
+
+    // Compute x₃ = λ² - x₂ - x₁
     const auto x3 = lambda.sqradd({ -x2, -p1._x });
 
+    // Update the accumulator
     chain_add_accumulator output;
     output.x3_prev = x3;
     output.x1_prev = p1._x;
@@ -422,14 +425,20 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
 }
 
 /**
- * End an addition chain. Produces a full output group element with a y-coordinate
+ * @brief End an addition chain and compute the final y-coordinate
+ * @param acc The chain accumulator from the last addition
+ * @return Complete point (x₃, y₃) with both coordinates
  **/
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accumulator& acc)
 {
+    // If accumulator already has a full y-coordinate, return it directly
     if (acc.is_full_element) {
         return element(acc.x3_prev, acc.y3_prev);
     }
+
+    // Compute y₃ = λ(x₁ - x₃) - y₁
+    // where λ, x₁, y₁ are from the previous addition stored in the accumulator
     auto& x3 = acc.x3_prev;
     auto& lambda = acc.lambda_prev;
 
