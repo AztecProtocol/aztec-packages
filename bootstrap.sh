@@ -427,6 +427,14 @@ case "$cmd" in
     ;;
   "ci-full")
     export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=1
+    build
+    test
+    bench
+    ;;
+  "ci-full-no-test-cache")
+    export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
     build

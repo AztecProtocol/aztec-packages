@@ -20,6 +20,7 @@ function print_usage {
   echo
   echo_cmd "fast"           "Spin up an EC2 instance and run bootstrap ci-fast."
   echo_cmd "full"           "Spin up an EC2 instance and run bootstrap ci-full."
+  echo_cmd "full-no-test-cache" "Spin up an EC2 instance and run bootstrap ci-full-no-test-cache."
   echo_cmd "docs"           "Spin up an EC2 instance and run docs-only CI."
   echo_cmd "barretenberg"   "Spin up an EC2 instance and run barretenberg-only CI."
   echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
@@ -80,46 +81,26 @@ function prep_vars {
   export DENOISE_WIDTH=32
 }
 
-# We want to run CI with caching - even though it internally uses caching - to quickly catch no-ops that have the same
-# git contents.
-function run_ci_with_cache {
-  local ci_mode=$1
-  local job_id=$2
-  local bootstrap_cmd=$3
-
-  # Check if CI already succeeded for this content
-  local content_hash=$(git rev-parse HEAD^{tree} | cut -c1-16)
-  local cache_key="ci-success-${ci_mode}-${content_hash}.txt"
-
-  if cache_download "$cache_key" 2>/dev/null; then
-    if [ -f "$cache_key" ] && grep -q "success" "$cache_key"; then
-      echo "Found cached success for ${ci_mode} mode with hash $content_hash"
-      exit 0
-    fi
-  fi
-
-  # Spin up ec2 instance and run the CI flow
-  export JOB_ID="$job_id"
-  bootstrap_ec2 "$bootstrap_cmd"
-
-  # Upload success marker
-  echo "success" > success.txt
-  cache_upload "$cache_key" success.txt
-  rm success.txt
-}
-
 case "$cmd" in
   "fast")
-    run_ci_with_cache "fast" "x1-fast" "./bootstrap.sh ci-fast"
+    export JOB_ID="x1-fast"
+    bootstrap_ec2 "./bootstrap.sh ci-fast"
     ;;
   "full")
-    run_ci_with_cache "full" "x1-full" "./bootstrap.sh ci-full"
+    export JOB_ID="x1-full"
+    bootstrap_ec2 "./bootstrap.sh ci-full"
+    ;;
+  "full-no-test-cache")
+    export JOB_ID="x1-full-no-test-cache"
+    bootstrap_ec2 "./bootstrap.sh ci-full-no-test-cache"
     ;;
   "docs")
-    run_ci_with_cache "docs" "x1-docs" "./bootstrap.sh ci-docs"
+    export JOB_ID="x1-docs"
+    bootstrap_ec2 "./bootstrap.sh ci-docs"
     ;;
   "barretenberg")
-    run_ci_with_cache "barretenberg" "x1-barretenberg" "./bootstrap.sh ci-barretenberg"
+    export JOB_ID="x1-barretenberg"
+    bootstrap_ec2 "./bootstrap.sh ci-barretenberg"
     ;;
   "grind")
     # Spin up ec2 instance and run the merge-queue flow.
@@ -127,7 +108,7 @@ case "$cmd" in
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
-    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --line-buffered --halt now,fail=1  'run $USER-x{}-full amd64 ci-full'
+    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --line-buffered --halt now,fail=1  'run $USER-x{}-full amd64 ci-full-no-test-cache'
     ;;
   "merge-queue")
     prep_vars
@@ -138,10 +119,10 @@ case "$cmd" in
     export -f run
     # We perform two full runs of all tests on x86, and a single fast run on arm64 (allowing use of test cache).
     parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x1-full amd64 ci-full' \
-      'run x2-full amd64 ci-full' \
-      'run x3-full amd64 ci-full' \
-      'run x4-full amd64 ci-full' \
+      'run x1-full amd64 ci-full-no-test-cache' \
+      'run x2-full amd64 ci-full-no-test-cache' \
+      'run x3-full amd64 ci-full-no-test-cache' \
+      'run x4-full amd64 ci-full-no-test-cache' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   "network-deploy")
@@ -330,3 +311,4 @@ case "$cmd" in
     exit 1
     ;;
 esac
+

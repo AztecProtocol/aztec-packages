@@ -48,6 +48,10 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: echo "CI_FULL=1" >> $GITHUB_ENV
 
+      - name: CI Full No Test Cache Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-full-no-test-cache')
+        run: echo "CI_FULL_NO_TEST_CACHE=1" >> $GITHUB_ENV
+
       - name: Cache Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
         run: echo "NO_CACHE=1" >> $GITHUB_ENV
@@ -154,6 +158,8 @@ jobs:
             git push origin ${tag_name}
           elif [ "${CI_FULL:-0}" -eq 1 ]; then
             exec ./ci.sh full
+          elif [ "${CI_FULL_NO_TEST_CACHE:-0}" -eq 1 ]; then
+            exec ./ci.sh full-no-test-cache
           elif [ "${CI_DOCS:-0}" -eq 1 ]; then
             exec ./ci.sh docs
           elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
