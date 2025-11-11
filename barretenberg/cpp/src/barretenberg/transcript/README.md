@@ -314,11 +314,47 @@ A 256-bit value split into two 128-bit halves:
 
 **Construction**:
 ```cpp
+// SINGLE BIT EXAMPLES - Values from one round only
+
 // Submitted value in round 3
-child_tag = (1 << 3);  // Lower 128 bits
+child_tag = (1 << 3);  // 0x0000...0008 (bit 3 in lower 128 bits)
 
 // Challenge from round 5
-child_tag = (1 << (5 + 128));  // Upper 128 bits
+child_tag = (1 << (5 + 128));  // 0x0020...0000 (bit 5 in upper 128 bits)
+
+
+// MULTIPLE BITS EXAMPLES - Values combined from multiple rounds
+
+// Value depending on submitted data from BOTH round 0 AND round 2
+child_tag = (1 << 0) | (1 << 2);  // 0x0000...0005 (bits 0 and 2 in lower 128)
+// Meaning: "This value incorporates data submitted in rounds 0 AND 2"
+
+// Value depending on challenges from BOTH round 1 AND round 3
+child_tag = (1 << (1 + 128)) | (1 << (3 + 128));  // 0x000A...0000 (bits 1 and 3 in upper 128)
+// Meaning: "This value incorporates challenges from rounds 1 AND 3"
+
+// Value depending on submitted data (round 0) AND challenge (round 0)
+child_tag = (1 << 0) | (1 << (0 + 128));  // 0x0001...0001 (bit 0 in both halves)
+// Meaning: "This value uses both the data submitted in round 0 AND the challenge from round 0"
+
+// Complex example: submitted data from rounds 0,1 and challenges from rounds 0,2
+child_tag = (1 << 0) | (1 << 1) | (1 << (0 + 128)) | (1 << (2 + 128));
+//          0x0005...0003
+// Meaning: "This value's computation involved:
+//          - Submitted values from rounds 0 and 1
+//          - Challenges from rounds 0 and 2"
+```
+
+**How multiple bits get set**: When values combine through arithmetic operations (`a + b`, `a * b`), their child_tags merge using **bitwise OR**:
+```cpp
+// Example: combining values from different rounds
+auto a = transcript->receive_from_prover<FF>("a");  // round 0: child_tag = 0x...0001
+auto beta = transcript->get_challenge<FF>("beta");  // round 1: child_tag = 0x0002...0000
+auto c = transcript->receive_from_prover<FF>("c");  // round 2: child_tag = 0x...0004
+
+auto result = a * beta + c;
+// result.child_tag = 0x...0001 | 0x0002...0000 | 0x...0004 = 0x0002...0005
+// → Tracks that result depends on: data from rounds 0,2 and challenge from round 1
 ```
 
 #### Instant Death
@@ -509,7 +545,7 @@ ROUND 0 - PREAMBLE (reception_phase=true, round_index=0)
                                            │ Phase: reception → challenge generation
                                            ▼
 ┌──────────────────────────────────┐
-│ get_challenges("eta", "eta_two", │──► 1. Sanitize origin tags (unset free witness)
+│ get_challenges("eta", "eta_two", │──► 1. Sanitize: FREE_WITNESS → CONSTANT (allow hashing)
 │                "eta_three")      │    2. Hash: c₀ = Poseidon2(current_round_data)
 └──────────────────────────────────┘    3. Split to [128-bit, 126-bit] x3
          │                               4. Clear current_round_data
@@ -640,8 +676,8 @@ VK HASHING WITH ORIGIN TAG ASSIGNMENT
                     │
                     ▼
     ┌──────────────────────────────────────────┐
-    │ unset_free_witness_tags(vk_elements)     │──► Sanitize tags before hashing
-    └──────────────────────────────────────────┘
+    │ unset_free_witness_tags(vk_elements)     │──► Sanitize: FREE_WITNESS → CONSTANT
+    └──────────────────────────────────────────┘    (VK commitments are public, safe to treat as constants)
                     │
                     ▼
     ┌──────────────────────────────────────────┐
@@ -753,6 +789,14 @@ auto decider_proof = transcript->export_proof();  // Extract Decider portion
 
 ### 1. **In-Circuit: Unset Free Witness Tags Carefully**
 
+**What unsetting does**: The `unset_free_witness_tag()` method changes a value's origin tag from `FREE_WITNESS` to `CONSTANT`, allowing it to bypass the free witness security check that normally prevents unconstrained witnesses from mixing with transcript-derived values.
+
+```cpp
+// Before: parent_tag = FREE_WITNESS (triggers security checks)
+// After:  parent_tag = CONSTANT (can mix with any value)
+value.unset_free_witness_tag();
+```
+
 In recursive verification, you may need to bypass free witness checks:
 
 ```cpp
@@ -765,9 +809,18 @@ auto commitment = transcript->receive_from_prover<Commitment>("comm");
 ```
 
 **When unsetting is needed**:
-- VK commitments
-- Fixed constants reconstructed in-circuit
-- Edge-case handling in MSMs
+
+- **VK commitments**: In recursive verification, verification key commitments are provided as circuit witnesses (not from the proof transcript). These are **public constants** known to both prover and verifier, so treating them as constants is safe. However, they must be assigned proper origin tags via `tag_and_serialize()` before hashing to ensure correct provenance tracking. The typical flow is:
+  ```cpp
+  // 1. VK commitments start as FREE_WITNESS (they're circuit witnesses)
+  // 2. tag_and_serialize() assigns proper origin tags for tracking
+  // 3. unset_free_witness_tags() converts to CONSTANT before hashing
+  ```
+  This is safe because VK commitments are public data, not secret prover values that could violate Fiat-Shamir security.
+
+- **Fixed constants reconstructed in-circuit**: Similar to VK commitments, these are publicly known values reconstructed as witnesses in the circuit.
+
+- **Multi-scalar multiplications (e.g. `batch_mul` in biggroup)**: The Strauss MSM algorithm uses windowing and precomputation, which internally computes combinations of input points (e.g., `P_0 + P_1`) to build lookup tables. These intermediate point operations can trigger cross-round tag violations even though the final weighted result is cryptographically secure. To avoid false positives from these algorithmic optimizations, `batch_mul` temporarily clears all tags, computes the MSM, then assigns the correctly merged tag to the final result (biggroup_impl.hpp).
 
 ### 2. **Public Inputs Should Not Be in Proof**
 
