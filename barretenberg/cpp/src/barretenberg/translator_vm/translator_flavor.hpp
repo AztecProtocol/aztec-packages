@@ -811,6 +811,14 @@ class TranslatorFlavor {
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
+
+#ifndef NDEBUG
+        bool compare(const VerificationKey& other)
+        {
+            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
+                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
+        }
+#endif
     };
 
     /**
