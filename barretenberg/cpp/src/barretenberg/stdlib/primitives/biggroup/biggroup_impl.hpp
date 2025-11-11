@@ -86,7 +86,7 @@ template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) const
 {
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
-    // Our curve has the form y² = x³ + b.
+    // Our curve has the form y² = x³ + ax + b (or y² = x³ + b when a = 0).
     // If (x₁, y₁), (x₂, y₂) have x₁ == x₂, the generic formula for lambda has a division by 0.
     // Then y₁ == y₂ (i.e. we are doubling) or y₂ == -y₁ (the sum is infinity).
     // These cases have special addition formulae. The following booleans allow us to handle these cases uniformly.
@@ -97,6 +97,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     const bool_ct lhs_infinity = is_point_at_infinity();
     const bool_ct rhs_infinity = other.is_point_at_infinity();
     const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
+
+    // Check for y = 0 case: if doubling a point with y = 0, the result is infinity (vertical tangent)
+    const Fq zero = Fq(0);
+    const bool_ct y_is_zero = (_y == zero);
+    const bool_ct double_with_y_zero = (double_predicate && y_is_zero);
 
     // Compute the gradient λ. If we add, λ = (y₂ - y₁)/(x₂ - x₁)
     // For doubling: λ = (3x₁² + a)/(2y₁) if curve has 'a', else λ = 3x₁²/(2y₁)
@@ -115,9 +120,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     const Fq dbl_lambda_denominator = _y + _y;
     Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
 
-    // If either input is a point at infinity, or if the result would be infinity (x₁ == x₂ but y₁ != y₂),
-    // set lambda_denominator to 1 to prevent division by zero. The lambda value won't be used in these cases.
-    lambda_denominator = Fq::conditional_assign(has_infinity_input || infinity_predicate, Fq(1), lambda_denominator);
+    // If either input is a point at infinity, or if the result would be infinity, set lambda_denominator to 1
+    // to prevent division by zero. Cases where result is infinity:
+    // - x₁ == x₂ but y₁ != y₂ (points are inverses)
+    // - Doubling a point with y = 0 (vertical tangent line)
+    const bool_ct safe_denominator_needed = has_infinity_input || infinity_predicate || double_with_y_zero;
+    lambda_denominator = Fq::conditional_assign(safe_denominator_needed, Fq(1), lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
     // Compute resulting point coordinates: x₃ = λ² - x₁ - x₂, y₃ = λ(x₁ - x₃) - y₁
@@ -135,7 +143,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // Determine if result is point at infinity:
     // - If x₁ == x₂ and y₁ == -y₂ (i.e., points are inverses), result is ∞
     // - If both inputs are ∞, result is ∞
-    bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
+    // - If doubling a point with y = 0 (vertical tangent), result is ∞
+    bool_ct result_is_infinity =
+        (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity) || double_with_y_zero;
     result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
 
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
@@ -402,6 +412,7 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
     // Derivation:
     //   λ(x₂ - x₁) = y₂ - y₁
     //   λ(x₂ - x₁) = lambda_prev * (x1_prev - x₂) - y1_prev - y₁
+    //   λ(x₂ - x₁) = -lambda_prev * (x₂ - x1_prev) - y1_prev - y₁
     //   λ = -(lambda_prev * (x₂ - x1_prev) + y1_prev + y₁) / (x₂ - x₁)
     //
     auto& x2 = acc.x3_prev;
