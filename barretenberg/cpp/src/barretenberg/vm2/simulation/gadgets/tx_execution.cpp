@@ -10,6 +10,7 @@ namespace {
 
 // A tx-level exception that is expected to be handled.
 // This is in contrast to other runtime exceptions that might happen and should be propagated.
+// Note however that we re-throw unrecoverable errors of this type (exceptions thrown in insert_non_revertibles()).
 class TxExecutionException : public std::runtime_error {
   public:
     TxExecutionException(const std::string& message)
@@ -19,39 +20,45 @@ class TxExecutionException : public std::runtime_error {
 
 } // namespace
 
-void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& call,
-                                           TransactionPhase phase,
-                                           const FF& transaction_fee,
-                                           bool success,
-                                           const Gas& start_gas,
-                                           const Gas& end_gas,
-                                           const TxContextEvent& state_before,
-                                           const TxContextEvent& state_after)
-{
-    events.emit(TxPhaseEvent{ .phase = phase,
-                              .state_before = state_before,
-                              .state_after = state_after,
-                              .reverted = !success,
-                              .event = EnqueuedCallEvent{
-                                  .msg_sender = call.request.msgSender,
-                                  .contract_address = call.request.contractAddress,
-                                  .transaction_fee = transaction_fee,
-                                  .is_static = call.request.isStaticCall,
-                                  .calldata_size = static_cast<uint32_t>(call.calldata.size()),
-                                  .calldata_hash = call.request.calldataHash,
-                                  .start_gas = start_gas,
-                                  .end_gas = end_gas,
-                                  .success = success,
-                              } });
-}
-
-// Simulates the entire transaction execution phases.
-// There are multiple distinct transaction phases that are executed in order:
-// (1) Non-revertible insertions of nullifiers, note hashes, and L2 to L1 messages.
-// (2) Setup phase, where the setup enqueued calls are executed.
-// (3) Revertible insertions of nullifiers, note hashes, and L2 to L1 messages.
-// (4) App logic phase, where the app logic enqueued calls are executed.
-// (5) Collec Gas fee
+/**
+ * @brief Simulates the entire transaction execution phases.
+ *
+ * There are multiple distinct transaction phases that are executed in order:
+ *
+ * - Non-revertible insertions:
+ *   - nullifiers (0)
+ *   - note hashes (1)
+ *   - L2 to L1 messages (2)
+ * - Setup phase (3), where the setup enqueued calls are executed.
+ * - Revertible insertions:
+ *   - nullifiers (4)
+ *   - note hashes (5)
+ *   - L2 to L1 messages (6)
+ * - App logic phase (7), where the app logic enqueued calls are executed.
+ * - Teardown phase (8), where the teardown enqueued call is executed.
+ * - Collect Gas fee (9)
+ * - Tree padding (10)
+ * - Cleanup (11)
+ *
+ * If a an error occurs during non-revertible insertions or a Setup phase enqueued call fails,
+ * the transaction is considered unprovable and an unrecoverable TxExecutionException is thrown.
+ * If an error occurs during revertible insertions or App logic phase, all the state changes are reverted
+ * to the post-setup state and we continue with the Teardown phase.
+ * If an error occurs during Teardown phase, all the state changes are reverted to the post-setup state and
+ * we continue with the Collect Gas fee phase.
+ *
+ * The phase values and their order are reflected in the enum TransactionPhase in aztec_types.hpp.
+ * These values are emitted as part of the TxPhaseEvent.
+ *
+ * @param tx The transaction to simulate.
+ * @return The result of the transaction simulation.
+ * @throws TxExecutionException if
+ *         - there is a nullifier collision or the maximum number of
+ *           nullifiers, note hashes, or l2_to_l1 messages is reached as part of the non-revertible insertions.
+ *         - a Setup phase enqueued call fails.
+ *         - the fee payer does not have enough balance to pay the fee.
+ * Note: Other low-level exceptions of other types are not caught and will be thrown.
+ */
 TxExecutionResult TxExecution::simulate(const Tx& tx)
 {
     const Gas& gas_limit = tx.gasSettings.gasLimits;
@@ -75,7 +82,8 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
           " app logic enqueued calls, and ",
           tx.teardownEnqueuedCall ? "1 teardown enqueued call" : "no teardown enqueued call");
 
-    // Insert non-revertibles. This can throw if there is a nullifier collision.
+    // Insert non-revertibles. This can throw if there is a nullifier collision or the maximum number of
+    // nullifiers, note hashes, or l2_to_l1 messages is reached.
     // That would result in an unprovable tx.
     insert_non_revertibles(tx);
 
@@ -252,6 +260,53 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     };
 }
 
+/**
+ * @brief Handle a public call request and emit an TxPhaseEvent event with
+ *        the embedded event type EnqueuedCallEvent.
+ *
+ * @param call The public call request with calldata.
+ * @param phase The phase in which the call is executed.
+ * @param transaction_fee The transaction fee to be paid.
+ * @param success Whether the call succeeded.
+ * @param start_gas The gas used at the start of the call.
+ * @param end_gas The gas used at the end of the call.
+ * @param state_before The state before the call.
+ * @param state_after The state after the call.
+ */
+void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& call,
+                                           TransactionPhase phase,
+                                           const FF& transaction_fee,
+                                           bool success,
+                                           const Gas& start_gas,
+                                           const Gas& end_gas,
+                                           const TxContextEvent& state_before,
+                                           const TxContextEvent& state_after)
+{
+    events.emit(TxPhaseEvent{ .phase = phase,
+                              .state_before = state_before,
+                              .state_after = state_after,
+                              .reverted = !success,
+                              .event = EnqueuedCallEvent{
+                                  .msg_sender = call.request.msgSender,
+                                  .contract_address = call.request.contractAddress,
+                                  .transaction_fee = transaction_fee,
+                                  .is_static = call.request.isStaticCall,
+                                  .calldata_size = static_cast<uint32_t>(call.calldata.size()),
+                                  .calldata_hash = call.request.calldataHash,
+                                  .start_gas = start_gas,
+                                  .end_gas = end_gas,
+                                  .success = success,
+                              } });
+}
+
+/**
+ * @brief Handle a nullifier insertion and emit a TxPhaseEvent event with
+ *        the embedded event type PrivateAppendTreeEvent.
+ *
+ * @param revertible Whether the nullifier is revertible.
+ * @param nullifier The nullifier to insert.
+ * @throws TxExecutionException if the maximum number of nullifiers is reached or a nullifier collision occurs.
+ */
 void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
 {
     TransactionPhase phase =
@@ -289,6 +344,14 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
     }
 }
 
+/**
+ * @brief Handle a note hash insertion and emit a TxPhaseEvent event with
+ *        the embedded event type PrivateAppendTreeEvent.
+ *
+ * @param revertible Whether the note hash is revertible.
+ * @param note_hash The note hash to insert.
+ * @throws TxExecutionException if the maximum number of note hashes is reached.
+ */
 void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
 {
     TransactionPhase phase = revertible ? TransactionPhase::R_NOTE_INSERTION : TransactionPhase::NR_NOTE_INSERTION;
@@ -323,6 +386,14 @@ void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
     }
 }
 
+/**
+ * @brief Handle a L2 to L1 message insertion and emit a TxPhaseEvent event with the embedded event type
+ * PrivateEmitL2L1MessageEvent. The side effect tracker is used to track the L2 to L1 messages.
+ *
+ * @param revertible Whether the L2 to L1 message is revertible.
+ * @param l2_to_l1_message The L2 to L1 message to insert.
+ * @throws TxExecutionException if the maximum number of L2 to L1 messages is reached.
+ */
 void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Message& l2_to_l1_message)
 {
     TransactionPhase phase = revertible ? TransactionPhase::R_L2_TO_L1_MESSAGE : TransactionPhase::NR_L2_TO_L1_MESSAGE;
@@ -352,8 +423,15 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
     }
 }
 
-// This function inserts the non-revertible accumulated data into the Merkle DB.
-// It might error if the limits for number of allowable inserts are exceeded, but this result in an unprovable tx.
+/**
+ * @brief Insert the non-revertible accumulated data into the Merkle DB and emit corresponding events.
+ *        It might error if the limits for number of allowable inserts are exceeded or a nullifier collision occurs,
+ *        but this results in an unprovable tx.
+ *
+ * @param tx The transaction to insert the non-revertible accumulated data into.
+ * @throws TxExecutionException if the maximum number of nullifiers, note hashes, L2 to L1 messages is reached, or a
+ *         nullifier collision occurs.
+ */
 void TxExecution::insert_non_revertibles(const Tx& tx)
 {
     vinfo("[NON_REVERTIBLE] Inserting ",
@@ -396,6 +474,14 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
     contract_db.add_contracts(tx.nonRevertibleContractDeploymentData);
 }
 
+/**
+ * @brief Insert the revertible accumulated data into the Merkle DB and emit corresponding events.
+ *        It might error if the limits for number of allowable inserts are exceeded or a nullifier collision occurs.
+ *
+ * @param tx The transaction to insert the revertible accumulated data into.
+ * @throws TxExecutionException if the maximum number of nullifiers, note hashes, L2 to L1 messages is reached, or a
+ *         nullifier collision occurs.
+ */
 void TxExecution::insert_revertibles(const Tx& tx)
 {
     vinfo("[REVERTIBLE] Inserting ",
@@ -438,6 +524,16 @@ void TxExecution::insert_revertibles(const Tx& tx)
     contract_db.add_contracts(tx.revertibleContractDeploymentData);
 }
 
+/**
+ * @brief Pay the fee for the transaction and emit a TxPhaseEvent event with
+ *        the embedded event type CollectGasFeeEvent.
+ *
+ * @param fee_payer The address of the fee payer.
+ * @param fee The fee to be paid.
+ * @param fee_per_da_gas The fee per DA gas.
+ * @param fee_per_l2_gas The fee per L2 gas.
+ * @throws TxExecutionException if the fee payer does not have enough balance to pay the fee.
+ */
 void TxExecution::pay_fee(const FF& fee_payer,
                           const FF& fee,
                           const uint128_t& fee_per_da_gas,
@@ -470,6 +566,10 @@ void TxExecution::pay_fee(const FF& fee_payer,
                               } });
 }
 
+/**
+ * @brief Pad the note hash and nullifier trees and emit a TxPhaseEvent event with the embedded event type
+ *        PadTreesEvent.
+ */
 void TxExecution::pad_trees()
 {
     TxContextEvent state_before = tx_context.serialize_tx_context_event();
@@ -481,6 +581,10 @@ void TxExecution::pad_trees()
                               .event = PadTreesEvent{} });
 }
 
+/**
+ * @brief Emit a TxPhaseEvent event with the embedded event type CleanupEvent.
+ *        This is used to finalize the accounting of some state changes and side effects.
+ */
 void TxExecution::cleanup()
 {
     TxContextEvent current_state = tx_context.serialize_tx_context_event();
@@ -491,6 +595,13 @@ void TxExecution::cleanup()
                               .event = CleanupEvent{} });
 }
 
+/**
+ * @brief Emit a TxPhaseEvent event with the embedded event type EmptyPhaseEvent.
+ *        This is used to indicate that a phase has no events but in tracegen we
+ *        use it to populate a so-called padded (placeholder) row.
+ *
+ * @param phase The phase to emit the empty phase event for.
+ */
 void TxExecution::emit_empty_phase(TransactionPhase phase)
 {
     TxContextEvent current_state = tx_context.serialize_tx_context_event();
@@ -501,6 +612,14 @@ void TxExecution::emit_empty_phase(TransactionPhase phase)
                               .event = EmptyPhaseEvent{} });
 }
 
+/**
+ * @brief Get the debug function name for a given contract address and calldata.
+ *        This is used to get the debug function name for a given contract address and calldata.
+ *
+ * @param contract_address The address of the contract.
+ * @param calldata The calldata of the function.
+ * @return The debug function name or a placeholder string if the debug function name is not found.
+ */
 std::string TxExecution::get_debug_function_name(const AztecAddress& contract_address, const std::vector<FF>& calldata)
 {
     // Public function is dispatched and therefore the target function is passed in the first argument.
