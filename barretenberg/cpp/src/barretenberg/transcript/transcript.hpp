@@ -31,32 +31,24 @@ concept InCircuit = !IsAnyOf<T, bb::fr, grumpkin::fr, uint256_t>;
 // A static counter for the number of transcripts created
 // This is used to generate unique labels for the transcript origin tags
 
-// ‘inline’ (since C++17) ensures a single shared definition with external linkage.
+// 'inline' (since C++17) ensures a single shared definition with external linkage.
 inline std::atomic<size_t> unique_transcript_index{ 0 };
+
 /**
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
  */
-template <typename Codec_, typename HashFunction> class BaseTranscript {
+template <typename Codec_, typename HashFunction_> class BaseTranscript {
   public:
     using Codec = Codec_;
+    using HashFunction = HashFunction_;
     using DataType = typename Codec::DataType;
     using Proof = std::vector<DataType>;
 
     // Detects whether the transcript is in-circuit or not
     static constexpr bool in_circuit = InCircuit<DataType>;
-
+    // A `DataType` challenge is split into two limbs that consitute challenge buffer
     static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
-
-    // The unique index of the transcript
-    size_t transcript_index = 0;
-
-    // The index of the current round of the transcript (used for the origin tag, round is only incremented if we switch
-    // from generating to receiving)
-    size_t round_index = 0;
-
-    // Indicates whether the transcript is receiving data from the prover
-    bool reception_phase = true;
 
     BaseTranscript()
     {
@@ -66,23 +58,35 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         }
     }
 
-    std::ptrdiff_t proof_start = 0;
-    size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover
-    size_t num_frs_read = 0;    // the number of bb::frs read from proof_data by the verifier
-    size_t round_number = 0;    // current round for manifest
+    // Verifier-specific constructor.
+    explicit BaseTranscript(const Proof& proof) { load_proof(proof); }
+
+  protected:
+    Proof proof_data; // Contains the raw data sent by the prover.
 
   private:
-    bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
-    DataType previous_challenge{};  // default-initialized to zeros
-    std::vector<DataType>
-        current_round_data; // the data for the current round that will be hashed to generate challenges
-    std::vector<DataType>
-        independent_hash_buffer; // data that will be independently hashed to get the hash of an object
+    // Friend function for secure tag context extraction
+    template <typename T> friend OriginTag bb::extract_transcript_tag(const T& transcript);
 
-    bool use_manifest = false; // indicates whether the manifest is turned on, currently only on for manifest tests.
+    // Fiat-Shamir Round Tracking
+    size_t transcript_index = 0; // Unique transcript ID (PRIVATE - access via extract_transcript_tag)
+    size_t round_index = 0;      // Current FS round (PRIVATE - access via extract_transcript_tag)
+    bool reception_phase = true; // Whether receiving from prover or generating challenges
 
-    // "Manifest" object that records a summary of the transcript interactions
-    TranscriptManifest manifest;
+    // Challenge generatopm state==
+    bool is_first_challenge = true;           // Indicates if this is the first challenge this transcript is generating
+    DataType previous_challenge{};            // Previous challenge buffer (default-initialized to zeros)
+    std::vector<DataType> current_round_data; // Data for the current round that will be hashed to generate challenges
+
+    // Proof parsing state
+    std::ptrdiff_t proof_start = 0;
+    size_t num_frs_written = 0; // Number of frs written to proof_data by the prover
+    size_t num_frs_read = 0;    // Number of frs read from proof_data by the verifier
+    size_t round_number = 0;    // Current round number for manifest
+
+    // Manifest (debugging tool)
+    bool use_manifest = false;   // Indicates whether the manifest is turned on (only for manifest tests)
+    TranscriptManifest manifest; // Records a summary of the transcript interactions
 
     /**
      * @brief Compute next challenge c_next = H( Compress(c_prev || round_buffer) )
@@ -90,7 +94,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      * and the current round data, if they exist. It clears the current_round_data if nonempty after
      * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
-     * @return std::array<DataType, 2>
+     * @return std::array<DataType, CHALLENGE_BUFFER_SIZE>
      */
     [[nodiscard]] std::array<DataType, CHALLENGE_BUFFER_SIZE> get_next_duplex_challenge_buffer()
     {
@@ -124,11 +128,9 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenges;
-    };
+    }
 
   protected:
-    Proof proof_data; // Contains the raw data sent by the prover.
-
     /**
      * @brief Adds challenge elements to the current_round_buffer and updates the manifest.
      *
@@ -197,6 +199,11 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         return result;
     };
 
+    /**
+     * @brief Verifier-specific method. The verifier needs to load a proof or its segment before the verification.
+     *
+     * @param proof
+     */
     void load_proof(const std::vector<DataType>& proof)
     {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
@@ -207,29 +214,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
     // Enables the manifest
     void enable_manifest() { use_manifest = true; }
-
-    /**
-     * @brief Static hash method that forwards to Codec hash.
-     * @details This method allows hash to be called on the Transcript class directly,
-     * which is needed for verification key hashing.
-     *
-     * @param data Vector of field elements to hash
-     * @return Fr Hash result
-     */
-    static DataType hash(const std::vector<DataType>& data) { return HashFunction::hash(data); }
-
-    // Serialize an element of type T to a vector of fields
-    template <typename T> static std::vector<DataType> serialize(const T& element)
-    {
-        return Codec::serialize_to_fields(element);
-    }
-
-    template <typename T> static T deserialize(std::span<const DataType> frs)
-    {
-        return Codec::template deserialize_from_fields<T>(frs);
-    }
-
-    template <typename T> static size_t calc_num_data_types() { return Codec::template calc_num_fields<T>(); }
 
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then
@@ -306,64 +290,23 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     }
 
     /**
-     * @brief Given δ, compute the vector [δ, δ^2,..., δ^2^num_powers].
+     * @brief Get a challenge and compute its dyadic powers [δ, δ², δ⁴, ..., δ^(2^(num_challenges-1))].
+     * @details Generates num_challenges elements where each element is the square of the previous one.
+     * This is Step 2 of the protocol as written in the Protogalaxy paper.
+     * @param label Human-readable name for the challenge
+     * @param num_challenges Number of power-of-2 powers to generate
+     * @return Vector of num_challenges elements: [δ, δ², δ⁴, δ⁸, ...]
      */
     template <typename ChallengeType>
-    std::vector<ChallengeType> compute_round_challenge_pows(const size_t num_powers,
-                                                            const ChallengeType& round_challenge)
+    std::vector<ChallengeType> get_dyadic_powers_of_challenge(const std::string& label, size_t num_challenges)
     {
-        std::vector<ChallengeType> pows(num_powers);
-        pows[0] = round_challenge;
-        for (size_t i = 1; i < num_powers; i++) {
+        ChallengeType challenge = get_challenge<ChallengeType>(label);
+        std::vector<ChallengeType> pows(num_challenges);
+        pows[0] = challenge;
+        for (size_t i = 1; i < num_challenges; i++) {
             pows[i] = pows[i - 1].sqr();
         }
         return pows;
-    }
-
-    template <typename ChallengeType, typename String>
-    std::vector<ChallengeType> get_powers_of_challenge(const String& label, size_t num_challenges)
-    {
-        return compute_round_challenge_pows(num_challenges, get_challenge<ChallengeType>(label));
-    }
-
-    /**
-     * @brief Adds an element to an independent hash buffer.
-     * @details Serializes the element to frs and adds it to the independent hash buffer. Does NOT add the element to
-     * the proof.
-     *
-     * @param label Human-readable name for the challenge.
-     * @param element Element to be added.
-     */
-    template <class T> void add_to_independent_hash_buffer([[maybe_unused]] const std::string& label, const T& element)
-    {
-        DEBUG_LOG(label, element);
-        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-        // then we need to increment the round index
-        if (!reception_phase) {
-            reception_phase = true;
-            round_index++;
-        }
-        // If the element is iterable, then we need to assign origin tags to all the elements
-        bb::assign_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-        auto element_frs = Codec::serialize_to_fields(element);
-
-        independent_hash_buffer.insert(independent_hash_buffer.end(), element_frs.begin(), element_frs.end());
-    }
-
-    /**
-     * @brief Hashes the independent hash buffer and clears it.
-     *
-     * @return Fr The hash of the independent hash buffer.
-     */
-    DataType hash_independent_buffer()
-    {
-        // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
-        // get an origin tag violation inside the hasher
-        bb::unset_free_witness_tags<in_circuit, DataType>(independent_hash_buffer);
-        DataType buffer_hash = HashFunction::hash(independent_hash_buffer);
-        independent_hash_buffer.clear();
-        return buffer_hash;
     }
 
     /**
@@ -450,6 +393,15 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         return element;
     }
 
+    template <typename ChallengeType> ChallengeType get_challenge(const std::string& label)
+    {
+        std::span<const std::string> label_span(&label, 1);
+        auto result = get_challenges<ChallengeType>(label_span);
+
+        DEBUG_LOG(label, result);
+        return result[0];
+    }
+
     /**
      * @brief Convert a prover transcript to a verifier transcript
      *
@@ -465,6 +417,17 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         verifier_transcript->num_frs_read = static_cast<size_t>(verifier_transcript->proof_start);
         verifier_transcript->proof_start = 0;
         return verifier_transcript;
+    }
+
+    // Serialize an element of type T to a vector of fields
+    template <typename T> static std::vector<DataType> serialize(const T& element)
+    {
+        return Codec::serialize_to_fields(element);
+    }
+
+    template <typename T> static T deserialize(std::span<const DataType> frs)
+    {
+        return Codec::template deserialize_from_fields<T>(frs);
     }
     /**
      * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated
@@ -489,21 +452,10 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      */
     static std::shared_ptr<BaseTranscript> verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
     {
-        auto verifier_transcript = std::make_shared<BaseTranscript>();
-        verifier_transcript->load_proof(transcript->proof_data);
+        auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
         return verifier_transcript;
     };
-
-    template <typename ChallengeType> ChallengeType get_challenge(const std::string& label)
-    {
-        std::span<const std::string> label_span(&label, 1);
-        auto result = get_challenges<ChallengeType>(label_span);
-
-        DEBUG_LOG(label, result);
-        return result[0];
-    }
-
     [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
 
     void print()
@@ -513,6 +465,24 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         }
         manifest.print();
     }
+
+    // Test-specific utils
+
+    /**
+     * @brief Test utility: Set proof parsing state for export after deserialization
+     * @details Used by test utilities that need to re-export proofs after tampering
+     */
+    void test_set_proof_parsing_state(std::ptrdiff_t start, size_t written)
+    {
+        this->proof_start = start;
+        this->num_frs_written = written;
+    }
+
+    /**
+     * @brief Test utility: Get proof_start for validation
+     * @details Used by test fixtures to verify transcript conversion
+     */
+    std::ptrdiff_t test_get_proof_start() const { return proof_start; }
 };
 
 using NativeTranscript = BaseTranscript<FrCodec, bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>>;
