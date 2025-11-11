@@ -26,7 +26,7 @@ import type { SharedNodeConfig } from '../config/index.js';
 // Half day worth of L1 blocks
 const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;
 
-type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
+type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode' | 'httpTimeoutSeconds'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
   Required<DataStoreConfig> &
@@ -103,7 +103,10 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   for (const snapshotsUrl of snapshotsUrls) {
     let fileStore: ReadOnlyFileStore;
     try {
-      fileStore = await createReadOnlyFileStore(snapshotsUrl, log);
+      fileStore = await createReadOnlyFileStore(
+        { url: snapshotsUrl, httpTimeoutSeconds: config.httpTimeoutSeconds },
+        log,
+      );
     } catch (err) {
       log.error(`Invalid config for downloading snapshots from ${snapshotsUrl}`, err);
       continue;
@@ -183,6 +186,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
         dataDirectory: config.dataDirectory!,
         rollupAddress: config.l1Contracts.rollupAddress,
         snapshotsUrl: url,
+        httpTimeoutSeconds: config.httpTimeoutSeconds,
       });
       log.info(`Snapshot synced to L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {
         snapshot,
@@ -208,14 +212,22 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 export async function snapshotSync(
   snapshot: Pick<SnapshotMetadata, 'dataUrls'>,
   log: Logger,
-  config: { dataDirectory: string; rollupAddress: EthAddress; snapshotsUrl: string },
+  config: {
+    dataDirectory: string;
+    rollupAddress: EthAddress;
+    snapshotsUrl: string;
+    httpTimeoutSeconds?: number;
+  },
 ) {
   const { dataDirectory, rollupAddress } = config;
   if (!dataDirectory) {
     throw new Error(`No local data directory defined. Cannot sync snapshot.`);
   }
 
-  const fileStore = await createReadOnlyFileStore(config.snapshotsUrl, log);
+  const fileStore = await createReadOnlyFileStore(
+    { url: config.snapshotsUrl, httpTimeoutSeconds: config.httpTimeoutSeconds },
+    log,
+  );
 
   let downloadDir: string | undefined;
 

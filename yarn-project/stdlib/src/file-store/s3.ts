@@ -26,26 +26,22 @@ export class S3FileStore implements FileStore {
   private readonly region: string;
   private readonly endpoint?: string;
   private readonly publicBaseUrl?: string;
+  private readonly timeoutMs?: number;
 
   constructor(
     private readonly bucketName: string,
     private readonly basePath: string,
-    opts: { endpoint?: string; publicBaseUrl?: string },
+    opts: { endpoint?: string; publicBaseUrl?: string; httpTimeoutSeconds?: number } = {},
     private readonly log: Logger = createLogger('stdlib:s3-file-store'),
   ) {
     this.endpoint = opts.endpoint;
     this.region = this.endpoint ? 'auto' : (process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? 'us-east-1');
     this.publicBaseUrl = opts.publicBaseUrl;
+    this.timeoutMs = opts.httpTimeoutSeconds ? opts.httpTimeoutSeconds * 1000 : undefined;
 
-    const clientOptions: any = {};
-    if (this.endpoint) {
-      clientOptions.region = 'auto';
-      clientOptions.endpoint = this.endpoint;
-      clientOptions.forcePathStyle = true;
-    } else {
-      clientOptions.region = this.region;
-    }
-    this.s3 = new S3Client(clientOptions);
+    this.s3 = new S3Client(
+      this.endpoint ? { region: 'auto', endpoint: this.endpoint, forcePathStyle: true } : { region: this.region },
+    );
   }
 
   public async save(path: string, data: Buffer, opts: FileStoreSaveOptions = {}): Promise<string> {
@@ -64,7 +60,7 @@ export class S3FileStore implements FileStore {
       Metadata: this.extractUserMetadata(opts.metadata),
       ContentLength: contentLength,
     });
-    await this.s3.send(put);
+    await this.s3.send(put, { requestTimeout: this.timeoutMs });
     return this.buildReturnedUrl(key, !!opts.public);
   }
 
@@ -117,7 +113,7 @@ export class S3FileStore implements FileStore {
         // Explicitly set ContentLength so R2 can compute x-amz-decoded-content-length correctly
         ContentLength: contentLength,
       } as any);
-      await this.s3.send(put);
+      await this.s3.send(put, { requestTimeout: this.timeoutMs });
     } finally {
       if (shouldCompress && bodyPath !== srcPath) {
         await unlink(bodyPath).catch(() => undefined);
@@ -128,7 +124,9 @@ export class S3FileStore implements FileStore {
 
   public async read(pathOrUrlStr: string): Promise<Buffer> {
     const { bucket, key } = this.getBucketAndKey(pathOrUrlStr);
-    const out: GetObjectCommandOutput = await this.s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const out: GetObjectCommandOutput = await this.s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }), {
+      requestTimeout: this.timeoutMs,
+    });
     const stream = out.Body as Readable;
     const chunks: Buffer[] = [];
     for await (const chunk of stream) {
@@ -139,7 +137,9 @@ export class S3FileStore implements FileStore {
 
   public async download(pathOrUrlStr: string, destPath: string): Promise<void> {
     const { bucket, key } = this.getBucketAndKey(pathOrUrlStr);
-    const out: GetObjectCommandOutput = await this.s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const out: GetObjectCommandOutput = await this.s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }), {
+      requestTimeout: this.timeoutMs,
+    });
     await mkdir(dirname(destPath), { recursive: true });
     await pipeline(out.Body as Readable, createWriteStream(destPath));
   }
@@ -147,7 +147,7 @@ export class S3FileStore implements FileStore {
   public async exists(pathOrUrlStr: string): Promise<boolean> {
     try {
       const { bucket, key } = this.getBucketAndKey(pathOrUrlStr);
-      await this.s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+      await this.s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }), { requestTimeout: this.timeoutMs });
       return true;
     } catch (err: any) {
       const code = err?.$metadata?.httpStatusCode ?? err?.name ?? err?.Code;

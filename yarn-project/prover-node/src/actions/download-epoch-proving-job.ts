@@ -20,10 +20,14 @@ export async function downloadEpochProvingJob(
   config: {
     dataDirectory: string;
     jobDataDownloadPath: string;
+    httpTimeoutSeconds?: number;
   },
 ) {
   log.info(`Downloading epoch proving job data from ${location}`);
-  const fileStore = await createReadOnlyFileStore(location);
+  const fileStore = await createReadOnlyFileStore({
+    url: location,
+    httpTimeoutSeconds: config.httpTimeoutSeconds,
+  });
   const metadataUrl = urlJoin(location, 'metadata.json');
   const metadataRaw = await fileStore.read(metadataUrl);
   const metadata = jsonParseWithSchema(metadataRaw.toString(), UploadSnapshotMetadataSchema);

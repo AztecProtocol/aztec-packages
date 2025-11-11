@@ -1,4 +1,5 @@
 import { type ConfigMappingsType, booleanConfigHelper } from '@aztec/foundation/config';
+import { type HttpFileStoreConfig, httpFileStoreConfigMappings } from '@aztec/stdlib/file-store';
 
 export type SharedNodeConfig = {
   /** Whether to populate the genesis state with initial fee juice for the test accounts */
@@ -17,7 +18,7 @@ export type SharedNodeConfig = {
 
   /** URL of the Web3Signer instance */
   web3SignerUrl?: string;
-};
+} & HttpFileStoreConfig;
 
 export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
   testAccounts: {
@@ -61,4 +62,5 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
     description: 'URL of the Web3Signer instance',
     parseEnv: (val: string) => val.trim(),
   },
+  ...httpFileStoreConfigMappings,
 };

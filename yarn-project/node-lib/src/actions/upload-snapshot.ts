@@ -29,7 +29,7 @@ export async function uploadSnapshot(
   config: UploadSnapshotConfig,
   log: Logger,
 ) {
-  const store = await createFileStore(location);
+  const store = await createFileStore({ url: location });
   if (!store) {
     throw new Error(`Failed to create file store for snapshot upload for location ${location}.`);
   }

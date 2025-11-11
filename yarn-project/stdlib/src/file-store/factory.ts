@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { GoogleCloudFileStore } from './gcs.js';
 import { HttpFileStore } from './http.js';
@@ -13,25 +13,26 @@ const supportedExamples = [
   `https://host/path`,
 ];
 
-export async function createFileStore(config: string, logger?: Logger): Promise<FileStore>;
-export async function createFileStore(config: undefined, logger?: Logger): Promise<undefined>;
+/** Configuration for createFileStore */
+export type FileStoreConfig = { url: string; httpTimeoutSeconds?: number };
+
 export async function createFileStore(
-  config: string | undefined,
+  config: FileStoreConfig,
   logger = createLogger('stdlib:file-store'),
-): Promise<FileStore | undefined> {
-  if (config === undefined) {
-    return undefined;
-  } else if (config.startsWith('file://')) {
-    const url = new URL(config);
+): Promise<FileStore> {
+  const configUrl = config.url;
+
+  if (configUrl.startsWith('file://')) {
+    const url = new URL(configUrl);
     if (url.host) {
-      throw new Error(`File store URL only supports local paths (got host ${url.host} from ${config})`);
+      throw new Error(`File store URL only supports local paths (got host ${url.host} from ${configUrl})`);
     }
     const path = url.pathname;
     logger.info(`Creating local file file store at ${path}`);
     return new LocalFileStore(path);
-  } else if (config.startsWith('gs://')) {
+  } else if (configUrl.startsWith('gs://')) {
     try {
-      const url = new URL(config);
+      const url = new URL(configUrl);
       const bucket = url.host;
       const path = url.pathname.replace(/^\/+/, '');
       logger.info(`Creating google cloud file store at ${bucket} ${path}`);
@@ -39,37 +40,41 @@ export async function createFileStore(
       await store.checkCredentials();
       return store;
     } catch {
-      throw new Error(`Invalid google cloud store definition: '${config}'.`);
+      throw new Error(`Invalid google cloud store definition: '${configUrl}'.`);
     }
-  } else if (config.startsWith('s3://')) {
+  } else if (configUrl.startsWith('s3://')) {
     try {
-      const url = new URL(config);
+      const httpTimeoutSeconds = config.httpTimeoutSeconds;
+      const url = new URL(configUrl);
       const bucket = url.host;
       const path = url.pathname.replace(/^\/+/, '');
       const endpoint = url.searchParams.get('endpoint');
       const publicBaseUrl = url.searchParams.get('publicBaseUrl') ?? undefined;
       logger.info(`Creating S3 file store at ${bucket} ${path}`);
-      const store = new S3FileStore(bucket, path, { endpoint: endpoint ?? undefined, publicBaseUrl });
+      const store = new S3FileStore(bucket, path, {
+        endpoint: endpoint ?? undefined,
+        publicBaseUrl,
+        httpTimeoutSeconds,
+      });
       return store;
     } catch {
-      throw new Error(`Invalid S3 store definition: '${config}'.`);
+      throw new Error(`Invalid S3 store definition: '${configUrl}'.`);
     }
   } else {
-    throw new Error(`Unknown file store config: '${config}'. Supported values are ${supportedExamples.join(', ')}.`);
+    throw new Error(`Unknown file store config: '${configUrl}'. Supported values are ${supportedExamples.join(', ')}.`);
   }
 }
 
-export async function createReadOnlyFileStore(config: string, logger?: Logger): Promise<ReadOnlyFileStore>;
-export async function createReadOnlyFileStore(config: undefined, logger?: Logger): Promise<undefined>;
 export async function createReadOnlyFileStore(
-  config: string | undefined,
+  config: FileStoreConfig,
   logger = createLogger('stdlib:file-store'),
-): Promise<ReadOnlyFileStore | undefined> {
-  if (config === undefined) {
-    return undefined;
-  } else if (config.startsWith('http://') || config.startsWith('https://')) {
-    logger.info(`Creating read-only HTTP file store at ${config}`);
-    return new HttpFileStore(config, logger);
+): Promise<ReadOnlyFileStore> {
+  const configUrl = config.url;
+  const httpTimeout = config.httpTimeoutSeconds;
+
+  if (configUrl.startsWith('http://') || configUrl.startsWith('https://')) {
+    logger.info(`Creating read-only HTTP file store at ${configUrl}`);
+    return new HttpFileStore(configUrl, httpTimeout, logger);
   } else {
     return await createFileStore(config, logger);
   }
