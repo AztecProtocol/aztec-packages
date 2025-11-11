@@ -11,12 +11,13 @@
 namespace bb::mock_circuits {
 
 /**
- * @brief Generate test circuit with basic arithmetic operations
+ * @brief Generate test circuit with basic arithmetic operations, targeting a specific gate count
  *
- * @param composer
- * @param num_iterations
+ * @param builder The circuit builder
+ * @param target_gate_count The target number of gates to create
  */
-template <typename Builder> void generate_basic_arithmetic_circuit(Builder& builder, size_t log2_num_gates)
+template <typename Builder>
+void generate_basic_arithmetic_circuit_with_target_gates(Builder& builder, size_t target_gate_count)
 {
     stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
 
@@ -24,14 +25,14 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     stdlib::field_t b(stdlib::witness_t(&builder, fr::random_element()));
     stdlib::field_t c(&builder);
     // Ensure the circuit is filled but finalisation doesn't make the circuit size go to the next power of two
-    size_t target_gate_count = (1UL << log2_num_gates);
     const size_t GATE_COUNT_BUFFER = 1000; // Since we're using an estimate, let's add an error term in case.
-    size_t passes = (target_gate_count - builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false) -
-                     GATE_COUNT_BUFFER) /
-                    4;
-    if (static_cast<int>(passes) <= 0) {
-        throw_or_abort("We don't support low values of log2_num_gates.");
+    size_t current_gates = builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false);
+
+    if (target_gate_count <= current_gates + GATE_COUNT_BUFFER) {
+        throw_or_abort("Target gate count is too low.");
     }
+
+    size_t passes = (target_gate_count - current_gates - GATE_COUNT_BUFFER) / 4;
 
     for (size_t i = 0; i < passes; ++i) {
         c = a + b;
@@ -42,8 +43,19 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
 
     size_t est_gate_count = builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false);
     BB_ASSERT_LTE(est_gate_count,
-                  (1UL << log2_num_gates) - GATE_COUNT_BUFFER,
+                  target_gate_count - GATE_COUNT_BUFFER,
                   "Check that the finalized gate count won't exceed the desired gate count.");
+}
+
+/**
+ * @brief Generate test circuit with basic arithmetic operations, using log2 of gate count
+ *
+ * @param builder The circuit builder
+ * @param log2_num_gates Log2 of the target number of gates
+ */
+template <typename Builder> void generate_basic_arithmetic_circuit(Builder& builder, size_t log2_num_gates)
+{
+    generate_basic_arithmetic_circuit_with_target_gates(builder, 1UL << log2_num_gates);
 }
 
 template <typename Prover>

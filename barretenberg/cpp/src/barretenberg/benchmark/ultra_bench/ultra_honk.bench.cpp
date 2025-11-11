@@ -8,34 +8,6 @@ using namespace benchmark;
 using namespace bb;
 
 /**
- * @brief Generate test circuit with a specific target gate count (not power of 2)
- */
-static void generate_basic_arithmetic_circuit_with_target_gates(UltraCircuitBuilder& builder, size_t target_gate_count)
-{
-    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
-
-    stdlib::field_t a(stdlib::witness_t(&builder, fr::random_element()));
-    stdlib::field_t b(stdlib::witness_t(&builder, fr::random_element()));
-    stdlib::field_t c(&builder);
-
-    const size_t GATE_COUNT_BUFFER = 1000;
-    size_t current_gates = builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false);
-
-    if (target_gate_count <= current_gates + GATE_COUNT_BUFFER) {
-        throw_or_abort("Target gate count is too low.");
-    }
-
-    size_t passes = (target_gate_count - current_gates - GATE_COUNT_BUFFER) / 4;
-
-    for (size_t i = 0; i < passes; ++i) {
-        c = a + b;
-        c = a * c;
-        a = b * b;
-        b = c * c;
-    }
-}
-
-/**
  * @brief Benchmark: Construction of a Ultra Honk proof for a circuit determined by the provided circuit function
  */
 static void construct_proof_ultrahonk(State& state,
@@ -73,7 +45,7 @@ static void construct_proof_ultrahonk_just_below_2_20(State& state) noexcept
 {
     size_t num_gates = (1 << 20) - 1; // 2^20 - 1 = 1,048,575 gates
     bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraProver>(
-        state, &generate_basic_arithmetic_circuit_with_target_gates, num_gates);
+        state, &bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>, num_gates);
 }
 
 /**
@@ -83,7 +55,7 @@ static void construct_proof_ultrahonk_just_above_2_20(State& state) noexcept
 {
     size_t num_gates = (1 << 20) + 1; // 2^20 + 1 = 1,048,577 gates
     bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraProver>(
-        state, &generate_basic_arithmetic_circuit_with_target_gates, num_gates);
+        state, &bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>, num_gates);
 }
 
 // Define benchmarks
