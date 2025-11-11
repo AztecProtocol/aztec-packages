@@ -39,21 +39,51 @@ static void construct_proof_ultrahonk_zk_power_of_2(State& state) noexcept
 }
 
 /**
- * @brief Benchmark: Construction of a Ultra Honk proof with gates just below 2^20
+ * @brief Benchmark: Construction of a Ultra Honk proof with dyadic size at 2^19
+ * Target gates such that after buffer and rounding, dyadic size = 2^19 = 524,288
  */
-static void construct_proof_ultrahonk_just_below_2_20(State& state) noexcept
+static void construct_proof_ultrahonk_dyadic_2_19(State& state) noexcept
 {
-    size_t num_gates = (1 << 20) - 1; // 2^20 - 1 = 1,048,575 gates
+    // Target slightly below 2^19 so that after finalization it rounds to exactly 2^19
+    size_t num_gates = (1 << 19) - 2000; // ~522,288 gates
+
+    // Verify actual dyadic size
+    UltraCircuitBuilder builder;
+    bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>(builder, num_gates);
+    auto instance = std::make_shared<ProverInstance_<UltraFlavor>>(builder);
+    size_t dyadic_size = instance->dyadic_size();
+    info("construct_proof_ultrahonk_dyadic_2_19: requested=",
+         num_gates,
+         ", actual_gates=",
+         builder.num_gates(),
+         ", dyadic_size=",
+         dyadic_size);
+
     bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraProver>(
         state, &bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>, num_gates);
 }
 
 /**
- * @brief Benchmark: Construction of a Ultra Honk proof with gates just above 2^20
+ * @brief Benchmark: Construction of a Ultra Honk proof with dyadic size at 2^20
+ * Target gates such that after buffer and rounding, dyadic size = 2^20 = 1,048,576
  */
-static void construct_proof_ultrahonk_just_above_2_20(State& state) noexcept
+static void construct_proof_ultrahonk_dyadic_2_20(State& state) noexcept
 {
-    size_t num_gates = (1 << 20) + 1; // 2^20 + 1 = 1,048,577 gates
+    // Target above 2^19 so that after finalization it rounds to 2^20
+    size_t num_gates = (1 << 19) + 2000; // ~526,288 gates
+
+    // Verify actual dyadic size
+    UltraCircuitBuilder builder;
+    bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>(builder, num_gates);
+    auto instance = std::make_shared<ProverInstance_<UltraFlavor>>(builder);
+    size_t dyadic_size = instance->dyadic_size();
+    info("construct_proof_ultrahonk_dyadic_2_20: requested=",
+         num_gates,
+         ", actual_gates=",
+         builder.num_gates(),
+         ", dyadic_size=",
+         dyadic_size);
+
     bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraProver>(
         state, &bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>, num_gates);
 }
@@ -76,8 +106,8 @@ BENCHMARK(construct_proof_ultrahonk_zk_power_of_2)
     ->DenseRange(15, 20)
     ->Unit(kMillisecond);
 
-BENCHMARK(construct_proof_ultrahonk_just_below_2_20)->Unit(kMillisecond);
-BENCHMARK(construct_proof_ultrahonk_just_above_2_20)->Unit(kMillisecond);
+BENCHMARK(construct_proof_ultrahonk_dyadic_2_19)->Unit(kMillisecond);
+BENCHMARK(construct_proof_ultrahonk_dyadic_2_20)->Unit(kMillisecond);
 
 int main(int argc, char** argv)
 {
