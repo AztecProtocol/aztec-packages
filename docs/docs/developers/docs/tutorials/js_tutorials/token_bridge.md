@@ -80,7 +80,7 @@ graph LR
 Let's create that crate in the `contracts` folder so it looks tidy:
 
 ```bash
-aztec-nargo new --contract contracts/aztec/nft
+aztec new contracts/aztec/nft
 cd contracts/aztec/nft
 ```
 
@@ -162,7 +162,7 @@ The bridge will also need to burn NFTs when users withdraw back to L1:
 Let's verify it compiles:
 
 ```bash
-aztec-nargo compile
+aztec compile
 ```
 
 🎉 You should see "Compiled successfully!" This means our private NFT contract is ready. Now let's build the bridge.
@@ -205,7 +205,7 @@ Let's create a new contract in the same tidy `contracts/aztec` folder:
 
 ```bash
 cd ..
-aztec-nargo new --contract nft_bridge
+aztec new --contract nft_bridge
 cd nft_bridge
 ```
 
@@ -265,18 +265,16 @@ Both `claim` and `exit` are `#[private]`, which means the bridging process is pr
 ### Compile the Bridge
 
 ```bash
-aztec-nargo compile
+aztec compile
 ```
 
 Bridge compiled successfully! Now process both contracts and generate TypeScript bindings:
 
 ```bash
 cd ../nft
-aztec-postprocess-contract
 aztec codegen target --outdir ../artifacts
 
 cd ../nft_bridge
-aztec-postprocess-contract
 aztec codegen target --outdir ../artifacts
 ```
 

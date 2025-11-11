@@ -1,12 +1,25 @@
 #pragma once
 
-#define MSGPACK_NO_BOOST
 #include <msgpack.hpp>
 
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 
 namespace msgpack::adaptor {
+
+// Pack function for uint128_t
+template <> struct pack<uint128_t> {
+    template <typename Stream> msgpack::packer<Stream>& operator()(msgpack::packer<Stream>& o, uint128_t const& v) const
+    {
+        // Convert to string and pack as a string.
+        // TODO(fcarreiro): Consider the bin format for 16 bytes of data for speed.
+        std::string str = format(v);
+        o.pack_str(static_cast<uint32_t>(str.size()));
+        o.pack_str_body(str.c_str(), static_cast<uint32_t>(str.size()));
+        return o;
+    }
+};
 
 template <> struct convert<uint128_t> {
     msgpack::object const& operator()(msgpack::object const& o, uint128_t& v) const

@@ -56,6 +56,8 @@ export interface SequencerConfig {
   broadcastInvalidBlockProposal?: boolean;
   /** Inject a fake attestation (for testing only) */
   injectFakeAttestation?: boolean;
+  /** Shuffle attestation ordering to create invalid ordering (for testing only) */
+  shuffleAttestationOrdering?: boolean;
 }
 
 export const SequencerConfigSchema = z.object({
@@ -81,4 +83,5 @@ export const SequencerConfigSchema = z.object({
   secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
   broadcastInvalidBlockProposal: z.boolean().optional(),
   injectFakeAttestation: z.boolean().optional(),
+  shuffleAttestationOrdering: z.boolean().optional(),
 }) satisfies ZodFor<SequencerConfig>;

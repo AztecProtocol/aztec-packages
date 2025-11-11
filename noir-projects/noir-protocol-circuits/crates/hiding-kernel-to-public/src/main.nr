@@ -11,7 +11,7 @@ pub struct HidingKernelToPublicPrivateInputs {
 
 impl HidingKernelToPublicPrivateInputs {
     pub fn execute(self) {
-        // Verify previous kernel, which contains a protogalaxy proof and a decider proof.
+        // Verify previous kernel, which contains a folding proof and a decider proof.
         // The associated public inputs and proofs are linked through the verification queue in the backend.
         // The proof type `PROOF_TYPE_HN_FINAL` designates the final proof in the client IVC sequence.
         if !std::runtime::is_unconstrained() {

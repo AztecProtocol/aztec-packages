@@ -16,6 +16,8 @@ namespace acir_format {
 
 template <typename Flavor, class PublicInputs>
 bb::HonkProof create_mock_oink_proof(const size_t inner_public_inputs_size = 0);
+template <typename Flavor> bb::HonkProof create_mock_sumcheck_proof();
+bb::HonkProof create_mock_multilinear_batch_proof();
 template <typename Flavor> bb::HonkProof create_mock_decider_proof();
 template <typename Flavor, class PublicInputs>
 bb::HonkProof create_mock_honk_proof(const size_t inner_public_inputs_size = 0);

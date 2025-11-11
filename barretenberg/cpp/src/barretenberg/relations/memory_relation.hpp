@@ -65,11 +65,9 @@ template <typename FF_> class MemoryRelationImpl {
         // if there were one that were shorter, we could also profitably use a `ShortAccumulator` type. however,
         // that is not the case here.
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
+        using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
 
         const auto& eta_m = ParameterCoefficientAccumulator(params.eta);
         const auto& eta_two_m = ParameterCoefficientAccumulator(params.eta_two);

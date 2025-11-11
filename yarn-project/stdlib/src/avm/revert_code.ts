@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -64,7 +65,7 @@ export class RevertCode {
     return this.code;
   }
 
-  static get schema() {
+  static get schema(): ZodFor<RevertCode> {
     return z.nativeEnum(RevertCodeEnum).transform(value => new RevertCode(value));
   }
 

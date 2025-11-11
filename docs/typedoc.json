@@ -1,0 +1,33 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "entryPoints": ["../yarn-project/aztec.js/src"],
+  "entryPointStrategy": "expand",
+  "exclude": [
+    "**/*.test.ts",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/node_modules/**",
+    "**/api/**",
+    "**/index.ts"
+  ],
+  "tsconfig": "./typedoc.tsconfig.json",
+  "out": "./typedoc-output-merged",
+  "name": "Aztec.js API Reference",
+  "readme": "none",
+  "hideGenerator": true,
+  "includeVersion": false,
+  "sort": ["source-order"],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeExternals": false,
+  "skipErrorChecking": true,
+  "validation": {
+    "invalidLink": false,
+    "notExported": false,
+    "notDocumented": false
+  },
+  "flattenOutputFiles": true,
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true
+}

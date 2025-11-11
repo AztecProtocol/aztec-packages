@@ -54,6 +54,7 @@ PROVER_ID=[address corresponding to PROVER_PUBLISHER_PRIVATE_KEY]
 ```
 
 **Configuration notes:**
+
 - Find your public IP address with: `curl ipv4.icanhazip.com`
 - Adjust `PROVER_AGENT_COUNT` based on your available hardware (e.g., with 128 cores and 512 GB RAM, you could set `PROVER_AGENT_COUNT=4`)
 
@@ -65,7 +66,7 @@ Create a `docker-compose.yml` file in your `aztec-prover` directory:
 name: aztec-prover
 services:
   prover-node:
-    image: aztecprotocol/aztec:#include_testnet_version
+    image: aztecprotocol/aztec:2.0.4
     entrypoint: >-
       node
       --no-warnings
@@ -99,7 +100,7 @@ services:
     restart: unless-stopped
 
   prover-broker:
-    image: aztecprotocol/aztec:#include_testnet_version
+    image: aztecprotocol/aztec:2.0.4
     entrypoint: >-
       node
       --no-warnings
@@ -117,7 +118,7 @@ services:
     restart: unless-stopped
 
   prover-agent:
-    image: aztecprotocol/aztec:#include_testnet_version
+    image: aztecprotocol/aztec:2.0.4
     entrypoint: >-
       node
       --no-warnings

@@ -70,7 +70,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
         std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
 
-        return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
+        const Fq x = Fq::reconstruct_from_public(x_limbs);
+        const Fq y = Fq::reconstruct_from_public(y_limbs);
+        const element result = element(x, y);
+        result.validate_on_curve();
+        return result;
     }
 
     /**
@@ -182,19 +186,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     element& operator=(const element& other);
     element& operator=(element&& other) noexcept;
-
-    /**
-     * @brief Serialize the element to a byte array in form: (yhi || ylo || xhi || xlo).
-     *
-     * @return byte_array<Builder>
-     */
-    byte_array<Builder> to_byte_array() const
-    {
-        byte_array<Builder> result(get_context());
-        result.write(_y.to_byte_array());
-        result.write(_x.to_byte_array());
-        return result;
-    }
 
     element checked_unconditional_add(const element& other) const;
     element checked_unconditional_subtract(const element& other) const;

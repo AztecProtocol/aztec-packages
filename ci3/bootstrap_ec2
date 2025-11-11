@@ -14,13 +14,10 @@ if [ "$arch" == "arm64" ]; then
   # Allow for 90 minutes as ARM has less cores.
   export AWS_SHUTDOWN_TIME=90
 else
+  cores=192,128,64
   if [ "$CI_FULL" -eq 1 ]; then
-    # cores=192,128,64
-    cores=128,64
     # Allow for 75 minutes as ci-full time has crept up.
     export AWS_SHUTDOWN_TIME=75
-  else
-    cores=128,64
   fi
 fi
 

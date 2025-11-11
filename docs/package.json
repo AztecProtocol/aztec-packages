@@ -37,7 +37,10 @@
     "cspell": "^8.19.4",
     "docusaurus-plugin-llms": "^0.2.0",
     "dotenv": "^16.6.1",
-    "netlify-cli": "^23.7.3"
+    "netlify-cli": "^23.7.3",
+    "typedoc": "^0.28.14",
+    "typedoc-plugin-markdown": "^4.9.0",
+    "typescript": "^5.9.3"
   },
   "cspell": {
     "import": [

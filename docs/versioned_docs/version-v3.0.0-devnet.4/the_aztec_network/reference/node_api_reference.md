@@ -6,13 +6,15 @@ description: Complete reference for the Aztec Node JSON RPC API, including block
 references: ["yarn-project/stdlib/src/interfaces/aztec-node.ts"]
 ---
 
-This document provides a complete reference for the Aztec Node JSON RPC API. All methods are exposed via JSON RPC on the node's configured port (default: 8080).
+This document provides a complete reference for the Aztec Node JSON RPC API. All methods are exposed via JSON RPC on the node's configured ports.
 
 ## API endpoint
 
-**Default URL**: `http://localhost:8080`
+**Public RPC URL**: `http://localhost:8080`
 
-**Admin URL**: `http://localhost:8880` (for admin methods)
+**Admin URL**: `http://localhost:8880`
+
+Note that the above ports are only defaults, and can be modified by setting `--port` and `--admin-port` flags upon startup.
 
 All methods use standard JSON RPC 2.0 format with methods prefixed by `node_` or `nodeAdmin_`.
 
