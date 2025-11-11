@@ -395,7 +395,7 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     Fr reconstructed_scalar = khi_reconstructed.madd(minus_lambda, { klo_reconstructed });
 
     // Constant scalars are always reduced mod n by design (scalar < n), however
-    // the reconstructed_scalar may be larger than n as its a witness. So we need to
+    // the reconstructed_scalar may be larger than n as it's a witness. So we need to
     // reduce the reconstructed_scalar mod n explicitly to match the original scalar.
     // This is necessary for assert_equal to pass.
     if (scalar.is_constant()) {
