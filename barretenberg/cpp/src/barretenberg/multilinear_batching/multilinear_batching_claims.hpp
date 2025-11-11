@@ -91,6 +91,7 @@ struct MultilinearBatchingProverClaim {
     Commitment shifted_commitment;
     size_t dyadic_size;
 
+#ifndef NDEBUG
     bool compare_with_verifier_claim(const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim)
     {
         bool is_a_match = true;
@@ -131,6 +132,7 @@ struct MultilinearBatchingProverClaim {
 
         return is_a_match;
     }
+#endif
 };
 
 } // namespace bb

@@ -164,9 +164,12 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     uint64_t log_circuit_size = 0;
     uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
+    bool operator==(const NativeVerificationKey_&) const = default;
 
 #ifndef NDEBUG
-    bool operator==(const NativeVerificationKey_& other) const
+    template <size_t NUM_PRECOMPUTED_ENTITIES, typename StringType>
+    bool compare(const NativeVerificationKey_& other,
+                 RefArray<StringType, NUM_PRECOMPUTED_ENTITIES> commitment_labels) const
     {
         bool is_equal = true;
 
@@ -185,17 +188,14 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             is_equal = false;
         }
 
-        for (size_t idx = 0; auto [this_comm, other_comm] : zip_view(this->get_all(), other.get_all())) {
+        for (auto [this_comm, other_comm, label] : zip_view(this->get_all(), other.get_all(), commitment_labels)) {
             if (this_comm != other_comm) {
-                info("Commitment mismatch at index ", idx);
+                info("Commitment mismatch: ", label);
                 is_equal = false;
             }
-            ++idx;
         }
         return is_equal;
     }
-#else
-    bool operator==(const NativeVerificationKey_&) const = default;
 #endif
 
     virtual ~NativeVerificationKey_() = default;
