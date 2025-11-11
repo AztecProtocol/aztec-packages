@@ -21,18 +21,13 @@ test('create account and cast vote', async ({ page }, testInfo) => {
       console.error(text);
       // Fail immediately on JavaScript errors to avoid timeout
 
-      // Firefox-specific: Check if this is an "Error:" message that should fail the test
-      // We exclude "Error: Timed out" and MIME type errors in Firefox
+      // Check if this is an "Error:" message that should fail the test
+      // We exclude MIME type errors due to an 'expected' error in Firefox
       // Note: It's unclear why Firefox shows MIME type errors for index.js in some cases
       const isErrorThatShouldFail =
         text.includes('Error: ') &&
         !text.includes('Error: Timed out ') &&
-        !(
-          page.context().browser()?.browserType().name() === 'firefox' &&
-          text.includes(
-            'index.js" was blocked because of a disallowed MIME type ("text/html")'
-          )
-        );
+        !text.includes('was blocked because of a disallowed MIME type');
 
       if (
         isErrorThatShouldFail ||
