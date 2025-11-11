@@ -410,6 +410,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         _is_infinity.set_origin_tag(tag);
     }
 
+    void clear_child_tag() const
+    {
+        _x.clear_child_tag();
+        _y.clear_child_tag();
+        _is_infinity.clear_child_tag();
+    }
+
     OriginTag get_origin_tag() const
     {
         return OriginTag(_x.get_origin_tag(), _y.get_origin_tag(), _is_infinity.get_origin_tag());

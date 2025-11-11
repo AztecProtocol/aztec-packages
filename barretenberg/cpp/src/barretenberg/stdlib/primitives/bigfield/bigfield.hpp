@@ -691,6 +691,13 @@ template <typename Builder, typename T> class bigfield {
         }
         prime_basis_limb.set_origin_tag(tag);
     }
+    void clear_child_tag() const
+    {
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            binary_basis_limbs[i].element.clear_child_tag();
+        }
+        prime_basis_limb.clear_child_tag();
+    }
 
     bb::OriginTag get_origin_tag() const
     {
