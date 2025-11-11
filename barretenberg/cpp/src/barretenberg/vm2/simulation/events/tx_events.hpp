@@ -32,7 +32,7 @@ struct PhaseLengths {
             .r_note_insertion = static_cast<uint32_t>(tx.revertibleAccumulatedData.noteHashes.size()),
             .r_l2_to_l1_message = static_cast<uint32_t>(tx.revertibleAccumulatedData.l2ToL1Messages.size()),
             .app_logic = static_cast<uint32_t>(tx.appLogicEnqueuedCalls.size()),
-            .teardown = tx.teardownEnqueuedCall ? 1U : 0U,
+            .teardown = tx.teardownEnqueuedCall.has_value() ? 1U : 0U,
         };
     }
 };

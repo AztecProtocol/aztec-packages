@@ -80,7 +80,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
           " setup enqueued calls, ",
           tx.appLogicEnqueuedCalls.size(),
           " app logic enqueued calls, and ",
-          tx.teardownEnqueuedCall ? "1 teardown enqueued call" : "no teardown enqueued call");
+          tx.teardownEnqueuedCall.has_value() ? "1 teardown enqueued call" : "no teardown enqueued call");
 
     // Insert non-revertibles. This can throw if there is a nullifier collision or the maximum number of
     // nullifiers, note hashes, or l2_to_l1 messages is reached.
@@ -94,8 +94,9 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         for (const auto& call : tx.setupEnqueuedCalls) {
             std::string fn_name = get_debug_function_name(call.request.contractAddress, call.calldata);
             vinfo("[SETUP] Executing enqueued call to ", call.request.contractAddress, "::", fn_name);
-            TxContextEvent state_before = tx_context.serialize_tx_context_event();
-            Gas start_gas = tx_context.gas_used;
+            const TxContextEvent state_before = tx_context.serialize_tx_context_event();
+            const Gas start_gas =
+                tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
             auto context = context_provider.make_enqueued_context(call.request.contractAddress,
                                                                   call.request.msgSender,
                                                                   /*transaction_fee=*/FF(0),
@@ -139,8 +140,9 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             for (const auto& call : tx.appLogicEnqueuedCalls) {
                 std::string fn_name = get_debug_function_name(call.request.contractAddress, call.calldata);
                 vinfo("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress, "::", fn_name);
-                TxContextEvent state_before = tx_context.serialize_tx_context_event();
-                Gas start_gas = tx_context.gas_used;
+                const TxContextEvent state_before = tx_context.serialize_tx_context_event();
+                const Gas start_gas =
+                    tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
                 auto context = context_provider.make_enqueued_context(call.request.contractAddress,
                                                                       call.request.msgSender,
                                                                       /*transaction_fee=*/FF(0),
@@ -189,30 +191,32 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
 
     // Teardown.
     try {
-        if (!tx.teardownEnqueuedCall) {
+        if (!tx.teardownEnqueuedCall.has_value()) {
             emit_empty_phase(TransactionPhase::TEARDOWN);
         } else {
-            std::string fn_name = get_debug_function_name(tx.teardownEnqueuedCall->request.contractAddress,
-                                                          tx.teardownEnqueuedCall->calldata);
+            const auto& teardown_enqueued_call = tx.teardownEnqueuedCall.value();
+
+            std::string fn_name = get_debug_function_name(teardown_enqueued_call.request.contractAddress,
+                                                          teardown_enqueued_call.calldata);
             vinfo("[TEARDOWN] Executing enqueued call to ",
-                  tx.teardownEnqueuedCall->request.contractAddress,
+                  teardown_enqueued_call.request.contractAddress,
                   "::",
                   fn_name);
             // Teardown has its own gas limit and usage.
-            Gas start_gas = { 0, 0 };
-            TxContextEvent state_before = tx_context.serialize_tx_context_event();
-            auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->request.contractAddress,
-                                                                  tx.teardownEnqueuedCall->request.msgSender,
+            constexpr Gas start_gas = { 0, 0 };
+            const TxContextEvent state_before = tx_context.serialize_tx_context_event();
+            auto context = context_provider.make_enqueued_context(teardown_enqueued_call.request.contractAddress,
+                                                                  teardown_enqueued_call.request.msgSender,
                                                                   fee,
-                                                                  tx.teardownEnqueuedCall->calldata,
-                                                                  tx.teardownEnqueuedCall->request.isStaticCall,
+                                                                  teardown_enqueued_call.calldata,
+                                                                  teardown_enqueued_call.request.isStaticCall,
                                                                   teardown_gas_limit,
                                                                   start_gas,
                                                                   TransactionPhase::TEARDOWN);
             // This call should not throw unless it's an unexpected unrecoverable failure.
             EnqueuedCallResult result = call_execution.execute(std::move(context));
             // Check what to do here for GAS
-            emit_public_call_request(*tx.teardownEnqueuedCall,
+            emit_public_call_request(teardown_enqueued_call,
                                      TransactionPhase::TEARDOWN,
                                      fee,
                                      result.success,
@@ -222,8 +226,8 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                                      tx_context.serialize_tx_context_event());
             if (!result.success) {
                 // This exception should be handled and the tx be provable.
-                throw TxExecutionException(format(
-                    "[TEARDOWN] Enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress, " failed"));
+                throw TxExecutionException(
+                    format("[TEARDOWN] Enqueued call to ", teardown_enqueued_call.request.contractAddress, " failed"));
             }
         }
 
@@ -309,9 +313,9 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
  */
 void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
 {
-    TransactionPhase phase =
+    const TransactionPhase phase =
         revertible ? TransactionPhase::R_NULLIFIER_INSERTION : TransactionPhase::NR_NULLIFIER_INSERTION;
-    TxContextEvent state_before = tx_context.serialize_tx_context_event();
+    const TxContextEvent state_before = tx_context.serialize_tx_context_event();
     try {
         uint32_t prev_nullifier_count = merkle_db.get_tree_state().nullifierTree.counter;
 
@@ -349,13 +353,14 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
  *        the embedded event type PrivateAppendTreeEvent.
  *
  * @param revertible Whether the note hash is revertible.
- * @param note_hash The note hash to insert.
+ * @param note_hash The note hash to insert. If revertible, it is siloed but not unique. Otherwise, it is unique.
  * @throws TxExecutionException if the maximum number of note hashes is reached.
  */
 void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
 {
-    TransactionPhase phase = revertible ? TransactionPhase::R_NOTE_INSERTION : TransactionPhase::NR_NOTE_INSERTION;
-    TxContextEvent state_before = tx_context.serialize_tx_context_event();
+    const TransactionPhase phase =
+        revertible ? TransactionPhase::R_NOTE_INSERTION : TransactionPhase::NR_NOTE_INSERTION;
+    const TxContextEvent state_before = tx_context.serialize_tx_context_event();
 
     try {
         uint32_t prev_note_hash_count = merkle_db.get_tree_state().noteHashTree.counter;
@@ -396,8 +401,9 @@ void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
  */
 void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Message& l2_to_l1_message)
 {
-    TransactionPhase phase = revertible ? TransactionPhase::R_L2_TO_L1_MESSAGE : TransactionPhase::NR_L2_TO_L1_MESSAGE;
-    TxContextEvent state_before = tx_context.serialize_tx_context_event();
+    const TransactionPhase phase =
+        revertible ? TransactionPhase::R_L2_TO_L1_MESSAGE : TransactionPhase::NR_L2_TO_L1_MESSAGE;
+    const TxContextEvent state_before = tx_context.serialize_tx_context_event();
     auto& side_effect_tracker = tx_context.side_effect_tracker;
     const auto& side_effects = side_effect_tracker.get_side_effects();
 
@@ -534,16 +540,14 @@ void TxExecution::insert_revertibles(const Tx& tx)
  * @param fee_per_l2_gas The fee per L2 gas.
  * @throws TxExecutionException if the fee payer does not have enough balance to pay the fee.
  */
-void TxExecution::pay_fee(const FF& fee_payer,
+void TxExecution::pay_fee(const AztecAddress& fee_payer,
                           const FF& fee,
                           const uint128_t& fee_per_da_gas,
                           const uint128_t& fee_per_l2_gas)
 {
-    TxContextEvent state_before = tx_context.serialize_tx_context_event();
-
-    FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
-
-    FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
+    const TxContextEvent state_before = tx_context.serialize_tx_context_event();
+    const FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
+    const FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
 
     if (field_gt.ff_gt(fee, fee_payer_balance)) {
         // Unrecoverable error.
@@ -572,7 +576,7 @@ void TxExecution::pay_fee(const FF& fee_payer,
  */
 void TxExecution::pad_trees()
 {
-    TxContextEvent state_before = tx_context.serialize_tx_context_event();
+    const TxContextEvent state_before = tx_context.serialize_tx_context_event();
     merkle_db.pad_trees();
     events.emit(TxPhaseEvent{ .phase = TransactionPhase::TREE_PADDING,
                               .state_before = state_before,
@@ -587,7 +591,7 @@ void TxExecution::pad_trees()
  */
 void TxExecution::cleanup()
 {
-    TxContextEvent current_state = tx_context.serialize_tx_context_event();
+    const TxContextEvent current_state = tx_context.serialize_tx_context_event();
     events.emit(TxPhaseEvent{ .phase = TransactionPhase::CLEANUP,
                               .state_before = current_state,
                               .state_after = current_state,
@@ -604,7 +608,7 @@ void TxExecution::cleanup()
  */
 void TxExecution::emit_empty_phase(TransactionPhase phase)
 {
-    TxContextEvent current_state = tx_context.serialize_tx_context_event();
+    const TxContextEvent current_state = tx_context.serialize_tx_context_event();
     events.emit(TxPhaseEvent{ .phase = phase,
                               .state_before = current_state,
                               .state_after = current_state,
