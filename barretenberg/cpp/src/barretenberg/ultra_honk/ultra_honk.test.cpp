@@ -1,4 +1,6 @@
 #include "ultra_honk.test.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 
 #include <gtest/gtest.h>
 
@@ -18,9 +20,10 @@ using FlavorTypes = testing::Types<UltraFlavor,
 using FlavorTypes =
     testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraRollupFlavor>;
 #endif
-
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
-
+using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>;
+template <typename T> using UltraHonkNonZKTests = UltraHonkTests<T>;
+TYPED_TEST_SUITE(UltraHonkNonZKTests, NonZKFlavorTypes);
 /**
  * @brief Check that size of a ultra honk proof matches the corresponding constant
  * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
@@ -446,6 +449,64 @@ TYPED_TEST(UltraHonkTests, BadTagPermutation)
 
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
+}
+// This test suite intentionally avoids ZK flavors.
+TYPED_TEST(UltraHonkNonZKTests, ZPermZeroedOutFailure)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+
+    using Prover = TestFixture::Prover;
+
+    Builder builder;
+
+    auto a = fr::random_element();
+    auto b = fr::random_element();
+    auto c = a + b;
+
+    uint32_t a_idx = builder.add_variable(a);
+    uint32_t a_copy_idx = builder.add_variable(a);
+    uint32_t b_idx = builder.add_variable(b);
+    uint32_t c_idx = builder.add_variable(c);
+
+    builder.create_add_gate({ a_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    builder.create_add_gate({ a_copy_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    builder.assert_equal(a_copy_idx, a_idx);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    // First verify relation holds
+    EXPECT_NO_THROW({
+        RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+            prover_instance->polynomials, prover_instance->relation_parameters, "UltraPermutation - Before Tampering");
+    });
+
+    // Tamper: zero-out z_perm
+    for (size_t i = prover_instance->polynomials.z_perm.start_index();
+         i < prover_instance->polynomials.z_perm.end_index();
+         ++i) {
+        prover_instance->polynomials.z_perm.at(i) = fr(0);
+    }
+    prover_instance->polynomials.set_shifted();
+
+    // Verify relation now fails
+    EXPECT_THROW(
+        {
+            RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+                prover_instance->polynomials,
+                prover_instance->relation_parameters,
+                "UltraPermutation - After zeroing out z_perm");
+        },
+        std::exception);
 }
 
 TYPED_TEST(UltraHonkTests, SortWidget)
