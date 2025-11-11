@@ -611,6 +611,50 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_dbl_with_infinity()
+    {
+        Builder builder;
+        {
+            // Case 1: Doubling point at infinity should return point at infinity
+            affine_element input_infinity(element::random_element());
+            input_infinity.self_set_infinity();
+            element_ct a_infinity = element_ct::from_witness(&builder, input_infinity);
+            a_infinity.set_origin_tag(submitted_value_origin_tag);
+
+            element_ct result_infinity = a_infinity.dbl();
+
+            // Check that the tag is preserved
+            EXPECT_EQ(result_infinity.get_origin_tag(), submitted_value_origin_tag);
+
+            // Result should be point at infinity
+            EXPECT_TRUE(result_infinity.is_point_at_infinity().get_value());
+        }
+        {
+            // Case 2: Doubling a normal point should not result in infinity
+            affine_element input_normal(element::random_element());
+            element_ct a_normal = element_ct::from_witness(&builder, input_normal);
+            a_normal.set_origin_tag(submitted_value_origin_tag);
+
+            element_ct result_normal = a_normal.dbl();
+
+            // Check that the tag is preserved
+            EXPECT_EQ(result_normal.get_origin_tag(), submitted_value_origin_tag);
+
+            // Result should not be point at infinity (with overwhelming probability)
+            EXPECT_FALSE(result_normal.is_point_at_infinity().get_value());
+
+            // Verify correctness
+            affine_element expected_normal(element(input_normal).dbl());
+            uint256_t result_x = result_normal.x().get_value().lo;
+            uint256_t result_y = result_normal.y().get_value().lo;
+            fq expected_x(result_x);
+            fq expected_y(result_y);
+            EXPECT_EQ(expected_x, expected_normal.x);
+            EXPECT_EQ(expected_y, expected_normal.y);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_chain_add(InputType a_type = InputType::WITNESS,
                                InputType b_type = InputType::WITNESS,
                                InputType c_type = InputType::WITNESS)
@@ -876,7 +920,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             affine_element input_a(element::random_element());
 
             // Create a point with the same x coordinate but different y
-            // For an elliptic curve y^2 = x^3 + ax + b, if (x, y) is on the curve, then (x, -y) is also on the curve
+            // For an elliptic curve y^2 = x^3 + ax + b, if (x, y) is on the curve, then (x, -y) is also on the
+            // curve
             affine_element input_b = input_a;
             input_b.y = -input_a.y; // Negate y to get a different point with same x
 
@@ -1139,9 +1184,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_short_scalar_mul_infinity()
     {
-        // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against a
-        // short scalar and also check that the number of gates in this case is more than the number of gates spent on a
-        // finite point.
+        // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against
+        // a short scalar and also check that the number of gates in this case is more than the number of gates
+        // spent on a finite point.
 
         // Populate test points.
         std::vector<element> points(2);
@@ -2044,7 +2089,6 @@ TYPED_TEST(stdlib_biggroup, assert_coordinates_in_field)
 // Addition tests
 TYPED_TEST(stdlib_biggroup, add)
 {
-
     TestFixture::test_add();
 }
 TYPED_TEST(stdlib_biggroup, add_with_constants)
@@ -2083,7 +2127,6 @@ TYPED_TEST(stdlib_biggroup, sub_with_constants)
 }
 TYPED_TEST(stdlib_biggroup, sub_points_at_infinity)
 {
-
     TestFixture::test_sub_points_at_infinity();
 }
 TYPED_TEST(stdlib_biggroup, dbl)
@@ -2097,6 +2140,10 @@ TYPED_TEST(stdlib_biggroup, dbl_with_constant)
     } else {
         TestFixture::test_dbl(InputType::CONSTANT); // dbl(c)
     }
+}
+TYPED_TEST(stdlib_biggroup, dbl_with_infinity)
+{
+    TestFixture::test_dbl_with_infinity();
 }
 
 // Test chain_add

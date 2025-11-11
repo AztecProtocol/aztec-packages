@@ -268,22 +268,63 @@ std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditiona
 
 template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl() const
 {
+    // Check if input is already a point at infinity: 2∞ = ∞
+    const bool_ct input_is_infinity = is_point_at_infinity();
+
+    // Check if y = 0: tangent line is vertical, so 2(x,0) = ∞
+    const Fq zero = Fq(0);
+    const bool_ct y_is_zero = (_y == zero);
+
+    // Combined condition: result is at infinity if either edge case holds
+    const bool_ct result_is_infinity = input_is_infinity || y_is_zero;
 
     Fq two_x = _x + _x;
     if constexpr (G::has_a) {
+        // Curve equation: y² = x³ + ax + b
         Fq a(get_context(), uint256_t(G::curve_a));
-        Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, (_y + _y), { a }, /*enable_divisor_nz_check*/ false);
+
+        // Safe denominator: use 1 when result is infinity to avoid division by zero
+        Fq denominator = _y + _y; // 2y
+        Fq safe_denominator = Fq(1);
+        denominator = Fq::conditional_assign(result_is_infinity, safe_denominator, denominator);
+
+        // Compute neg_lambda = -λ = -(3x² + a) / (2y)
+        // msub_div computes: -(Σᵢ aᵢ·bᵢ + Σⱼ cⱼ) / d = -(x·(3x) + a) / (2y) = -(3x² + a) / (2y)
+        Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, denominator, { a }, /*enable_divisor_nz_check*/ false);
+
+        // Compute x₃ = λ² - 2x
+        // Since neg_lambda = -λ, we have: (-λ)² - 2x = λ² - 2x
         Fq x_3 = neg_lambda.sqradd({ -(two_x) });
+
+        // Compute y₃ = λ(x - x₃) - y
+        // Using neg_lambda = -λ: (-λ)(x₃ - x) + (-y) = -λ(x₃ - x) - y = λ(x - x₃) - y
         Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
-        // TODO(suyash): do we handle the point at infinity case here?
-        return element(x_3, y_3);
+
+        element result(x_3, y_3);
+        result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
+        return result;
     }
-    // TODO(): handle y = 0 case.
-    Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, (_y + _y), {}, /*enable_divisor_nz_check*/ false);
+
+    // Curve equation when a = 0: y² = x³ + b
+    // Safe denominator: use 1 when result is infinity to avoid division by zero
+    Fq denominator = _y + _y; // 2y
+    Fq safe_denominator = Fq(1);
+    denominator = Fq::conditional_assign(result_is_infinity, safe_denominator, denominator);
+
+    // Compute neg_lambda = -λ = -3x² / (2y)
+    // msub_div computes: -(Σᵢ aᵢ·bᵢ) / d = -(x·(3x)) / (2y) = -3x² / (2y)
+    Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, denominator, {}, /*enable_divisor_nz_check*/ false);
+
+    // Compute x₃ = λ² - 2x
+    // Since neg_lambda = -λ, we have: (-λ)² - 2x = λ² - 2x
     Fq x_3 = neg_lambda.sqradd({ -(two_x) });
+
+    // Compute y₃ = λ(x - x₃) - y
+    // Using neg_lambda = -λ: (-λ)(x₃ - x) + (-y) = -λ(x₃ - x) - y = λ(x - x₃) - y
     Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
+
     element result = element(x_3, y_3);
-    result.set_point_at_infinity(is_point_at_infinity());
+    result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
     return result;
 }
 
