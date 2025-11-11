@@ -68,6 +68,7 @@ cycle_group<Builder>::cycle_group(const field_t& x, const field_t& y, bool_t is_
     }
 
     // If both coordinates are constant, enforce that is_infinity is also constant.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1584): make this an assertion when possible
     if (_x.is_constant() && _y.is_constant() && !_is_infinity.is_constant()) {
         _is_infinity = bool_t(_is_infinity.get_value());
     }
