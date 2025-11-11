@@ -95,10 +95,17 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return instance;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
+  async getNotes(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    randomness: Fr,
+    status: NoteStatus,
+    scopes?: AztecAddress[],
+  ) {
     const noteDaos = await this.noteDataProvider.getNotes({
       contractAddress,
       storageSlot,
+      randomness,
       status,
       scopes,
     });

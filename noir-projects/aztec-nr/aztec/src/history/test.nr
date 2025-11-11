@@ -6,8 +6,6 @@ use crate::note::retrieved_note::RetrievedNote;
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 
 pub(crate) global NOTE_STORAGE_SLOT: Field = 420;
-// For the purposes of this test we don't mind the "randomness" not being real
-pub(crate) global NOTE_RANDOMNESS: Field = 421;
 pub(crate) global NOTE_CREATED_AT: u32 = 2;
 pub(crate) global NOTE_NULLIFIED_AT: u32 = 3;
 

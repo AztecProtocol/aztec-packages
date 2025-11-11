@@ -90,11 +90,6 @@ impl NoteHash for NFTNote {
 
 impl NFTNote {
     pub fn new(token_id: Field, owner: AztecAddress) -> Self {
-        // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
-        // so a malicious sender could use non-random values to make the note less private. But they already know
-        // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
-        // information. We can therefore assume that the sender will cooperate in the random value generation.
-        let randomness = unsafe { random() };
         Self { token_id, owner }
     }
 
@@ -139,7 +134,7 @@ impl NFTNote {
         //  - we don't need to create any additional information, private or public, for the tag
         //  - other contracts cannot impersonate us and emit logs with the same tag due to public log siloing
         let private_log_content =
-            NFTPartialNotePrivateLogContent { owner, randomness, public_log_tag: commitment };
+            NFTPartialNotePrivateLogContent { owner, public_log_tag: commitment };
 
         let encrypted_log = note::compute_partial_note_private_content_log(
             private_log_content,
