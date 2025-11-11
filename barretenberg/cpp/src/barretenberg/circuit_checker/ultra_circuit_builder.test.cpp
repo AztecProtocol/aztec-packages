@@ -18,7 +18,7 @@ namespace bb {
 
 TEST(UltraCircuitBuilder, CopyConstructor)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
 
     for (size_t i = 0; i < 16; ++i) {
         for (size_t j = 0; j < 16; ++j) {
@@ -34,8 +34,7 @@ TEST(UltraCircuitBuilder, CopyConstructor)
         }
     }
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     UltraCircuitBuilder duplicate_builder{ builder };
 
@@ -46,7 +45,7 @@ TEST(UltraCircuitBuilder, CopyConstructor)
 TEST(UltraCircuitBuilder, CreateGatesFromPlookupAccumulators)
 {
 
-    UltraCircuitBuilder circuit_builder = UltraCircuitBuilder();
+    UltraCircuitBuilder circuit_builder;
 
     fr input_value = fr::random_element();
     const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
@@ -101,8 +100,7 @@ TEST(UltraCircuitBuilder, CreateGatesFromPlookupAccumulators)
         }
     }
 
-    bool result = CircuitChecker::check(circuit_builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
 }
 
 TEST(UltraCircuitBuilder, BadLookupFailure)
@@ -123,15 +121,14 @@ TEST(UltraCircuitBuilder, BadLookupFailure)
 
 TEST(UltraCircuitBuilder, BaseCase)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
     fr a = fr::one();
     builder.add_public_variable(a);
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 TEST(UltraCircuitBuilder, TestNoLookupProof)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
 
     for (size_t i = 0; i < 16; ++i) {
         for (size_t j = 0; j < 16; ++j) {
@@ -147,15 +144,14 @@ TEST(UltraCircuitBuilder, TestNoLookupProof)
         }
     }
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST(UltraCircuitBuilder, TestEllipticGate)
 {
-    typedef grumpkin::g1::affine_element affine_element;
-    typedef grumpkin::g1::element element;
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    using affine_element = grumpkin::g1::affine_element;
+    using element = grumpkin::g1::element;
+    UltraCircuitBuilder builder;
 
     affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 0);
 
@@ -171,19 +167,18 @@ TEST(UltraCircuitBuilder, TestEllipticGate)
 
     builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     builder.create_ecc_add_gate({ x1 + 1, y1, x2, y2, x3, y3, 1 });
 
-    EXPECT_EQ(CircuitChecker::check(builder), false);
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TEST(UltraCircuitBuilder, TestEllipticGateFailure)
 {
-    typedef grumpkin::g1::affine_element affine_element;
-    typedef grumpkin::g1::element element;
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    using affine_element = grumpkin::g1::affine_element;
+    using element = grumpkin::g1::element;
+    UltraCircuitBuilder builder;
 
     // Create two valid points on the curve
     affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 0);
@@ -206,15 +201,14 @@ TEST(UltraCircuitBuilder, TestEllipticGateFailure)
     builder.create_ecc_add_gate({ x1, y1, x2_invalid, y2, x3, y3, 1 });
 
     // CircuitChecker should fail in the elliptic relation
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, false);
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TEST(UltraCircuitBuilder, TestEllipticDoubleGate)
 {
-    typedef grumpkin::g1::affine_element affine_element;
-    typedef grumpkin::g1::element element;
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    using affine_element = grumpkin::g1::affine_element;
+    using element = grumpkin::g1::element;
+    UltraCircuitBuilder builder;
 
     affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 0);
     affine_element p3(element(p1).dbl());
@@ -226,13 +220,12 @@ TEST(UltraCircuitBuilder, TestEllipticDoubleGate)
 
     builder.create_ecc_dbl_gate({ x1, y1, x3, y3 });
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST(UltraCircuitBuilder, NonTrivialTagPermutation)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
     fr a = fr::random_element();
     fr b = -a;
 
@@ -252,17 +245,16 @@ TEST(UltraCircuitBuilder, NonTrivialTagPermutation)
     builder.assign_tag(c_idx, 2);
     builder.assign_tag(d_idx, 2);
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Break the tag
     builder.real_variable_tags[builder.real_variable_index[a_idx]] = 2;
-    EXPECT_EQ(CircuitChecker::check(builder), false);
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TEST(UltraCircuitBuilder, NonTrivialTagPermutationAndCycles)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
     fr a = fr::random_element();
     fr c = -a;
 
@@ -291,16 +283,15 @@ TEST(UltraCircuitBuilder, NonTrivialTagPermutationAndCycles)
     builder.create_add_gate({ c_idx, g_idx, builder.zero_idx(), fr::one(), -fr::one(), fr::zero(), fr::zero() });
     builder.create_add_gate({ e_idx, f_idx, builder.zero_idx(), fr::one(), -fr::one(), fr::zero(), fr::zero() });
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Break the tag
     builder.real_variable_tags[builder.real_variable_index[a_idx]] = 2;
-    EXPECT_EQ(CircuitChecker::check(builder), false);
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 TEST(UltraCircuitBuilder, BadTagPermutation)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
     fr a = fr::random_element();
     fr b = -a;
 
@@ -312,8 +303,7 @@ TEST(UltraCircuitBuilder, BadTagPermutation)
     builder.create_add_gate({ a_idx, b_idx, builder.zero_idx(), 1, 1, 0, 0 });
     builder.create_add_gate({ c_idx, d_idx, builder.zero_idx(), 1, 1, 0, -1 });
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     builder.create_tag(1, 2);
     builder.create_tag(2, 1);
@@ -323,13 +313,12 @@ TEST(UltraCircuitBuilder, BadTagPermutation)
     builder.assign_tag(c_idx, 2);
     builder.assign_tag(d_idx, 2);
 
-    result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, false);
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TEST(UltraCircuitBuilder, SortWidget)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
     fr a = fr::one();
     fr b = fr(2);
     fr c = fr(3);
@@ -341,11 +330,10 @@ TEST(UltraCircuitBuilder, SortWidget)
     auto d_idx = builder.add_variable(d);
     builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-std::vector<uint32_t> add_variables(UltraCircuitBuilder& builder, std::vector<fr> variables)
+std::vector<uint32_t> add_variables(UltraCircuitBuilder& builder, const std::vector<fr>& variables)
 {
     std::vector<uint32_t> res;
     for (size_t i = 0; i < variables.size(); i++) {
@@ -375,8 +363,7 @@ TEST(UltraCircuitBuilder, SortWithEdgesGate)
         auto g_idx = builder.add_variable(g);
         auto h_idx = builder.add_variable(h);
         builder.create_sort_constraint_with_edges({ a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, h);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     {
@@ -391,8 +378,7 @@ TEST(UltraCircuitBuilder, SortWithEdgesGate)
         auto h_idx = builder.add_variable(h);
         builder.create_sort_constraint_with_edges({ a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, g);
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
     {
         UltraCircuitBuilder builder;
@@ -406,8 +392,7 @@ TEST(UltraCircuitBuilder, SortWithEdgesGate)
         auto h_idx = builder.add_variable(h);
         builder.create_sort_constraint_with_edges({ a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
     {
         UltraCircuitBuilder builder;
@@ -420,100 +405,91 @@ TEST(UltraCircuitBuilder, SortWithEdgesGate)
         auto h_idx = builder.add_variable(h);
         auto b2_idx = builder.add_variable(fr(15));
         builder.create_sort_constraint_with_edges({ a_idx, b2_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
     {
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
         auto idx = add_variables(builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
                                             26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
         builder.create_sort_constraint_with_edges(idx, 1, 45);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
     {
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
         auto idx = add_variables(builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
                                             26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
 
         builder.create_sort_constraint_with_edges(idx, 1, 29);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
 
 TEST(UltraCircuitBuilder, RangeConstraint)
 {
     {
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
         auto indices = add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 8);
         }
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         builder.create_sort_constraint(indices);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
     {
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
         auto indices = add_variables(builder, { 3 });
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 3);
         }
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         builder.create_unconstrained_gates(indices);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
     {
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
         auto indices = add_variables(builder, { 1, 2, 3, 4, 5, 6, 8, 25 });
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 8);
         }
         builder.create_sort_constraint(indices);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
     {
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
         auto indices =
             add_variables(builder, { 1, 2, 3, 4, 5, 6, 10, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 19, 51 });
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 128);
         }
         builder.create_unconstrained_gates(indices);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
     {
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
         auto indices =
             add_variables(builder, { 1, 2, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 79);
         }
         builder.create_unconstrained_gates(indices);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
     {
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
         auto indices =
             add_variables(builder, { 1, 0, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 79);
         }
         builder.create_unconstrained_gates(indices);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
 
 TEST(UltraCircuitBuilder, RangeWithGates)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
     auto idx = add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
     for (size_t i = 0; i < idx.size(); i++) {
         builder.create_new_range_constraint(idx[i], 8);
@@ -523,13 +499,12 @@ TEST(UltraCircuitBuilder, RangeWithGates)
     builder.create_add_gate({ idx[2], idx[3], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
     builder.create_add_gate({ idx[4], idx[5], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
     builder.create_add_gate({ idx[6], idx[7], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST(UltraCircuitBuilder, RangeWithGatesWhereRangeIsNotAPowerOfTwo)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
     auto idx = add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
     for (size_t i = 0; i < idx.size(); i++) {
         builder.create_new_range_constraint(idx[i], 12);
@@ -539,40 +514,37 @@ TEST(UltraCircuitBuilder, RangeWithGatesWhereRangeIsNotAPowerOfTwo)
     builder.create_add_gate({ idx[2], idx[3], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
     builder.create_add_gate({ idx[4], idx[5], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
     builder.create_add_gate({ idx[6], idx[7], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST(UltraCircuitBuilder, SortWidgetComplex)
 {
     {
 
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
         std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 11, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
         std::vector<uint32_t> ind;
         for (size_t i = 0; i < a.size(); i++)
             ind.emplace_back(builder.add_variable(a[i]));
         builder.create_sort_constraint(ind);
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
     {
 
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
         std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 16, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
         std::vector<uint32_t> ind;
         for (size_t i = 0; i < a.size(); i++)
             ind.emplace_back(builder.add_variable(a[i]));
         builder.create_sort_constraint(ind);
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
 TEST(UltraCircuitBuilder, SortWidgetNeg)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
     fr a = fr::one();
     fr b = fr(2);
     fr c = fr(3);
@@ -584,14 +556,13 @@ TEST(UltraCircuitBuilder, SortWidgetNeg)
     auto d_idx = builder.add_variable(d);
     builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, false);
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TEST(UltraCircuitBuilder, ComposedRangeConstraint)
 {
     // even num bits - not divisible by 3
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
     auto c = fr::random_element();
     auto d = uint256_t(c).slice(0, 133);
     auto e = fr(d);
@@ -607,8 +578,7 @@ TEST(UltraCircuitBuilder, ComposedRangeConstraint)
     builder.create_add_gate({ a_idx_1, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -fr(e_1) });
     builder.decompose_into_default_range(a_idx_1, 127);
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 static std::array<uint32_t, 2> helper_non_native_multiplication(UltraCircuitBuilder& builder,
@@ -662,7 +632,7 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplication)
 {
     const size_t num_iterations = 50;
     for (size_t i = 0; i < num_iterations; i++) {
-        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        UltraCircuitBuilder builder;
 
         fq a = fq::random_element();
         fq b = fq::random_element();
@@ -692,14 +662,13 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplication)
             builder.decompose_into_default_range(hi_1_idx, 72);
         }
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 }
 
 TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationRegression)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
 
     // Edge case values
     uint256_t a_u256 = uint256_t("0x00ab1504deacff852326adf4a01099e9340f232e2a631042852fce3c4eb8a51b");
@@ -733,13 +702,11 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationRegression)
     // Decompose into default range: these should work even if the limbs are > 2^70
     builder.decompose_into_default_range(lo_1_idx, 72);
     builder.decompose_into_default_range(hi_1_idx, 72);
-    bool result_a = CircuitChecker::check(builder);
-    EXPECT_EQ(result_a, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Using NNF range check should fail here
     builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
-    bool result_b = CircuitChecker::check(builder);
-    EXPECT_EQ(result_b, false);
+    EXPECT_FALSE(CircuitChecker::check(builder));
     EXPECT_EQ(builder.err(), "range_constrain_two_limbs: hi limb.");
 }
 
@@ -749,7 +716,7 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationRegression)
  */
 TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationSortCheck)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
 
     fq a = fq::random_element();
     fq b = fq::random_element();
@@ -779,8 +746,7 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationSortCheck)
         builder.decompose_into_default_range(hi_1_idx, 72);
     }
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Everything above was copied from the previous test.
     // Check that in the nnf blocks, the other selectors besides the nnf selector are zero
@@ -796,7 +762,7 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationSortCheck)
 
 TEST(UltraCircuitBuilder, Rom)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
 
     uint32_t rom_values[8]{
         builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
@@ -831,8 +797,7 @@ TEST(UltraCircuitBuilder, Rom)
         0,
     });
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 /**
@@ -871,7 +836,7 @@ TEST(UltraCircuitBuilder, RamSimple)
 
 TEST(UltraCircuitBuilder, Ram)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
 
     uint32_t ram_values[8]{
         builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
@@ -929,8 +894,7 @@ TEST(UltraCircuitBuilder, Ram)
         },
         false);
 
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Test the builder copy constructor for a circuit with RAM gates
     UltraCircuitBuilder duplicate_builder{ builder };
@@ -941,7 +905,7 @@ TEST(UltraCircuitBuilder, Ram)
 
 TEST(UltraCircuitBuilder, RangeChecksOnDuplicates)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
 
     uint32_t a = builder.add_variable(fr(100));
     uint32_t b = builder.add_variable(fr(100));
@@ -970,13 +934,12 @@ TEST(UltraCircuitBuilder, RangeChecksOnDuplicates)
             0,
         },
         false);
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST(UltraCircuitBuilder, CheckCircuitShowcase)
 {
-    UltraCircuitBuilder builder = UltraCircuitBuilder();
+    UltraCircuitBuilder builder;
     // check_circuit allows us to check correctness on the go
 
     uint32_t a = builder.add_variable(fr(0xdead));
@@ -988,26 +951,26 @@ TEST(UltraCircuitBuilder, CheckCircuitShowcase)
         { b, b, builder.zero_idx(), fr(1), -fr(0xdead) - fr(0xbeef), 0, 0, fr(0xdead) * fr(0xbeef) });
 
     // We can check if this works
-    EXPECT_EQ(CircuitChecker::check(builder), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Now let's create a range constraint for b
     builder.create_new_range_constraint(b, 0xbeef);
 
     // We can check if this works
-    EXPECT_EQ(CircuitChecker::check(builder), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // But what if we now assert b to be equal to a?
     builder.assert_equal(a, b, "Oh no");
 
     // It fails, because a is 0xdead and it can't fit in the range constraint
-    EXPECT_EQ(CircuitChecker::check(builder), false);
+    EXPECT_FALSE(CircuitChecker::check(builder));
 
     // But if we force them both back to be 0xbeef...
     uint32_t c = builder.add_variable(fr(0xbeef));
     builder.assert_equal(c, b);
 
     // The circuit will magically pass again
-    EXPECT_EQ(CircuitChecker::check(builder), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 } // namespace bb
