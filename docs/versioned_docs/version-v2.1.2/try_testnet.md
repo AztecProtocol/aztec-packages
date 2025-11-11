@@ -44,27 +44,20 @@ If you are interested in connecting to the devnet (for app developers), please r
 
 | Contract Name             | Address                                      |
 | ------------------------- | -------------------------------------------- |
-| Rollup                    | `0x29fa27e173f058d0f5f618f5abad2757747f673f` |
-| Registry                  | `0xc2f24280f5c7f4897370dfdeb30f79ded14f1c81` |
-| L1 → L2 Inbox             | `0x8f4d9a05374c1d99825fdb291340021b9a7dc6d2` |
-| L2 → L1 Outbox            | `0x3aebed9bf5f4303401547ae68da04a124c100bc1` |
-| Fee Juice                 | `0xaab785eea290aeae003732e603987979e63955e2` |
-| Staking Asset             | `0x6732cedafcbf85afa9b5c83f0385967840bbce47` |
-| Fee Juice Portal          | `0x96109891056303267969f58e1b5a61b87da47129` |
-| Coin Issuer               | `0x6aa988bd21a8b3be6a57ce89b7fe4de2b0bf2d2c` |
-| Reward Distributor        | `0x2b171f0e4856e32a43fed78691cec79dec2823b3` |
-| Governance Proposer       | `0xb973b3d5884e0b8da179d808308f7702d317b280` |
-| Governance                | `0x6f4f1f5e6d96b08530043830725f3ebcb95908d5` |
-| Slash Factory             | `0x76291684ae928d6e5bcff348e36917f4cc532db8` |
-| Fee Asset Handler         | `0x50513c3713ffd33301e85f30d86ab764df421fe9` |
-| Governance Staking Escrow | `0x67788e5083646ccedeeb07e7bc35ab0d511fc8b9` |
-
-### L2 Contract Addresses
-
-| Contract Name     | Address                                                              |
-| ----------------- | -------------------------------------------------------------------- |
-| Class Registry    | `0x0000000000000000000000000000000000000000000000000000000000000003` |
-| Fee Juice         | `0x0000000000000000000000000000000000000000000000000000000000000005` |
-| Instance Registry | `0x0000000000000000000000000000000000000000000000000000000000000002` |
-| MultiCall         | `0x0000000000000000000000000000000000000000000000000000000000000004` |
-| Sponsored FPC     | `0x299f255076aa461e4e94a843f0275303470a6b8ebe7cb44a471c66711151e529` |
+| Rollup                    | `0xebd99ff0ff6677205509ae73f93d0ca52ac85d67` |
+| Registry                  | `0x459498e6bf7967bad0966353b691ef4395432479` |
+| L1 → L2 Inbox             | `0xd7610c91d5869a40e229719d41de2ac6374789ed` |
+| L2 → L1 Outbox            | `0x062e226f244536f5ab2b875cd28df4f5dbea8266` |
+| Fee Juice                 | `0x31785fdcbc5c5ccfb0726382132bca6343ee8652` |
+| Staking Asset             | `0x139d2a7a0881e16332d7d1f8db383a4507e1ea7a` |
+| Fee Juice Portal          | `0x903bb16320a3ce16a9df880cfb8f2abd74261fa1` |
+| Coin Issuer               | `0xfe3dad94f934d7ec90158e4a378ad552e02e9e63` |
+| Reward Distributor        | `0xa0122560afeec5ef45a950d5c49a3cc5c5549e2b` |
+| Governance Proposer       | `0xef1b0d8aaca52f70323cbb91b0103bce75e9c533` |
+| Governance                | `0x1b5dad737609a548543ce32a71377900b5fd5584` |
+| Slash Factory             | `0xd71673ec4b5d5b468cd48da855a66df0a02cdf3b` |
+| Fee Asset Handler         | `0x36f39b866a2326a94a9ee2961008ea5ee9f04d7f` |
+| Governance Staking Escrow | `0xfb243b9112bb65785a4a8edaf32529accf003614` |
+| Date Gated Relayer        | `0xbd28f1d3ed9f919aa368d33cbf8c18fce3e03509` |
+| Staking Asset Handler     | `0xdafccbe316dee3a05321753f43395388874761fb` |
+| ZK Passport Verifier      | `0x3101bad9ea5facada5554844a1a88f7fe48d4de0` |
