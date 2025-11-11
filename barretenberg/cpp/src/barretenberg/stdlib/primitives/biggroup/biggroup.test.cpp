@@ -655,6 +655,84 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_dbl_with_y_zero()
+    {
+        Builder builder;
+
+        // For bn254 curve: y^2 = x^3 + 3
+        // We need a point where y = 0, which means x^3 = -3
+        // For most curves, there may not be a rational point with y = 0
+        // So we test the logic by creating a witness point with y = 0 explicitly
+        // Even if it's not on the curve, we can test the doubling logic
+        affine_element test_point(element::random_element());
+
+        // Create a point with y = 0 (may not be on curve, but tests the edge case)
+        auto x_coord = element_ct::BaseField::from_witness(&builder, test_point.x);
+        auto y_coord = element_ct::BaseField::from_witness(&builder, fq(0));
+        element_ct a(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+
+        a.set_origin_tag(submitted_value_origin_tag);
+
+        element_ct result = a.dbl();
+
+        // Check that the tag is preserved
+        EXPECT_EQ(result.get_origin_tag(), submitted_value_origin_tag);
+
+        // When doubling a point with y = 0, the result should be infinity
+        // because the tangent line is vertical
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_add_equals_dbl()
+    {
+        // Test that P + P equals P.dbl()
+        Builder builder;
+        size_t num_repetitions = 5;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, InputType::WITNESS);
+
+            element_ct sum = a + a;
+            element_ct doubled = a.dbl();
+
+            // Results should match
+            uint256_t sum_x = sum.x().get_value().lo;
+            uint256_t sum_y = sum.y().get_value().lo;
+            uint256_t dbl_x = doubled.x().get_value().lo;
+            uint256_t dbl_y = doubled.y().get_value().lo;
+
+            EXPECT_EQ(fq(sum_x), fq(dbl_x));
+            EXPECT_EQ(fq(sum_y), fq(dbl_y));
+            EXPECT_EQ(sum.is_point_at_infinity().get_value(), doubled.is_point_at_infinity().get_value());
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_sub_neg_equals_double()
+    {
+        // Test that P - (-P) equals 2P
+        Builder builder;
+        size_t num_repetitions = 5;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, InputType::WITNESS);
+
+            element_ct neg_a = -a;
+            element_ct result = a - neg_a;
+            element_ct expected = a.dbl();
+
+            // P - (-P) = P + P = 2P
+            uint256_t result_x = result.x().get_value().lo;
+            uint256_t result_y = result.y().get_value().lo;
+            uint256_t expected_x = expected.x().get_value().lo;
+            uint256_t expected_y = expected.y().get_value().lo;
+
+            EXPECT_EQ(fq(result_x), fq(expected_x));
+            EXPECT_EQ(fq(result_y), fq(expected_y));
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_chain_add(InputType a_type = InputType::WITNESS,
                                InputType b_type = InputType::WITNESS,
                                InputType c_type = InputType::WITNESS)
@@ -1098,31 +1176,42 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     {
         Builder builder;
 
-        const auto run_mul_and_check = [&](element_ct& P, scalar_ct& x) {
+        const auto run_mul_and_check = [&](element_ct& P, scalar_ct& x, const affine_element& expected) {
             // Set input tags
             x.set_origin_tag(challenge_origin_tag);
             P.set_origin_tag(submitted_value_origin_tag);
 
             // Perform multiplication
-            element_ct c = P * x;
+            element_ct result = P * x;
 
-            // Check the result of the multiplication has a tag that's the union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            fq c_x_result(c.x().get_value().lo);
-            fq c_y_result(c.y().get_value().lo);
+            // Check the result tag
+            EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
 
-            // Result must be a point at infinity
-            EXPECT_EQ(c.is_point_at_infinity().get_value(), true);
+            // Check if result is infinity
+            bool result_is_inf = result.is_point_at_infinity().get_value();
+            bool expected_is_inf = expected.is_point_at_infinity();
+
+            EXPECT_EQ(result_is_inf, expected_is_inf);
+
+            // If not infinity, check if the coordinates match
+            if (!expected_is_inf) {
+                uint256_t result_x = result.x().get_value().lo;
+                uint256_t result_y = result.y().get_value().lo;
+
+                EXPECT_EQ(fq(result_x), expected.x);
+                EXPECT_EQ(fq(result_y), expected.y);
+            }
         };
 
-        // Case 1: P * 0
+        // Case 1: P * 0 = ∞
         {
             auto [input, P] = get_random_point(&builder, point_type);
             scalar_ct x = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, fr(0))
                                                               : scalar_ct(&builder, fr(0));
-            run_mul_and_check(P, x);
+            affine_element expected_infinity = affine_element(element::infinity());
+            run_mul_and_check(P, x, expected_infinity);
         }
-        // Case 2: (∞) * k
+        // Case 2: (∞) * k = ∞
         {
             auto [input, P] = get_random_point(&builder, point_type);
             if (point_type == InputType::CONSTANT) {
@@ -1131,7 +1220,24 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 P.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
             }
             auto [scalar, x] = get_random_scalar(&builder, scalar_type, /*even*/ true);
-            run_mul_and_check(P, x);
+            affine_element expected_infinity = affine_element(element::infinity());
+            run_mul_and_check(P, x, expected_infinity);
+        }
+        // Case 3: P * 1 = P
+        {
+            auto [input, P] = get_random_point(&builder, point_type);
+            scalar_ct one = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, fr(1))
+                                                                : scalar_ct(&builder, fr(1));
+            run_mul_and_check(P, one, input);
+        }
+        // Case 4: P * (-1) = -P
+        {
+            auto [input, P] = get_random_point(&builder, point_type);
+            fr neg_one = -fr(1);
+            scalar_ct neg_one_ct = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, neg_one)
+                                                                       : scalar_ct(&builder, neg_one);
+            affine_element expected = affine_element(-element(input));
+            run_mul_and_check(P, neg_one_ct, expected);
         }
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
@@ -2145,6 +2251,22 @@ TYPED_TEST(stdlib_biggroup, dbl_with_infinity)
 {
     TestFixture::test_dbl_with_infinity();
 }
+TYPED_TEST(stdlib_biggroup, dbl_with_y_zero)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with y = 0";
+    } else {
+        TestFixture::test_dbl_with_y_zero();
+    }
+}
+TYPED_TEST(stdlib_biggroup, add_equals_dbl)
+{
+    TestFixture::test_add_equals_dbl();
+}
+TYPED_TEST(stdlib_biggroup, sub_neg_equals_double)
+{
+    TestFixture::test_sub_neg_equals_double();
+}
 
 // Test chain_add
 HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
@@ -2526,6 +2648,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, one)
 {
     TestFixture::test_one();
 }
+
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul)
 {
     TestFixture::test_batch_mul();
