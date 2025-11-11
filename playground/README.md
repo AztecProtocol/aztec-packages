@@ -3,7 +3,7 @@
 Initial version of an "everything app" that can be used to test and benchmark Aztec.
 
 - Embedded wallet with PXE in the browser and client proofs
-- Connect to local sandbox or any network (scoped data)
+- Connect to local network or any network (scoped data)
 - Lazy loading of most assets (think contract artifacts) and WASM
 - Bundled by vite, 1.6MB compressed
 - Drop any contract artifact, interpret its ABI, simulate and send

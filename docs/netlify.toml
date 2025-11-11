@@ -18,15 +18,15 @@
 
 [[redirects]]
     from = "/getting_started"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/developers/getting_started/main"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "guides/getting_started"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/tutorials/simple_dapp/*"
@@ -74,19 +74,19 @@
 
 [[redirects]]
     from = "/reference/sandbox_reference/sandbox-reference"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/reference/sandbox_reference"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/guides/getting_started/*"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/guides/developer_guides/*"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/aztec/concepts/accounts/authwit"
@@ -132,7 +132,7 @@
 # Redirects for renamed JS app guide pages
 [[redirects]]
     from = "/developers/guides/js_apps/connect_to_sandbox"
-    to = "/developers/docs/guides/js_apps/how_to_connect_to_sandbox"
+    to = "/developers/docs/guides/js_apps/how_to_connect_to_local_network"
 
 [[redirects]]
     from = "/developers/guides/js_apps/create_account"
@@ -215,15 +215,15 @@
 # Redirect getting_started variations
 [[redirects]]
     from = "/developers/getting_started/getting_started"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/getting_started/getting_started"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/developers/getting_started/getting_started.md"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 # Redirects for Refactor (granular)
 
@@ -237,7 +237,7 @@
 
 # [[redirects]]
 #     from = "/guides/local_env/sandbox"
-#     to = "/getting-started"
+#     to = "/getting-started"  # Note: sandbox renamed to local-network
 
 # [[redirects]]
 #     from = "/guides/local_env/installing_noir_lsp"
@@ -249,7 +249,7 @@
 
 # [[redirects]]
 #     from = "/reference/environment_reference/sandbox_reference"
-#     to = "/aztec-cli/sandbox_reference"
+#     to = "/aztec-cli/local-network-reference"  # Updated: sandbox renamed to local-network
 
 # [[redirects]]
 #     from = "/reference/environment_reference/cli_reference"
@@ -261,7 +261,7 @@
 
 # [[redirects]]
 #     from = "/developers/guides/js_apps/connect_to_sandbox"
-#     to = "/developers/docs/guides/aztec-js/how_to_connect_to_sandbox"
+#     to = "/developers/docs/guides/aztec-js/how_to_connect_to_local_network"  # Updated: sandbox renamed to local-network
 
 # [[redirects]]
 #     from = "/developers/guides/js_apps/create_account"
@@ -349,10 +349,10 @@
     from = "/developers/guides/getting_started_on_testnet"
     to = "/developers/getting_started_on_testnet"
 
-# Sandbox reference redirect
+# Local network reference redirect (renamed from sandbox)
 [[redirects]]
     from = "/developers/guides/local_env/sandbox-reference"
-    to = "/developers/docs/reference/environment_reference/sandbox-reference"
+    to = "/developers/docs/reference/environment_reference/local-network-reference"
 
 # FaceID wallet redirect
 [[redirects]]
@@ -439,8 +439,8 @@
 
 [[redirects]]
     from = "/developers/sandbox/*"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/dev_docs/*"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"

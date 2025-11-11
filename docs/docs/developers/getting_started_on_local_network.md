@@ -1,27 +1,27 @@
 ---
-title: Getting Started on Sandbox
-description: Guide for developers to get started with the Aztec sandbox, including account creation and contract deployment.
+title: Getting Started on Local Network
+description: Guide for developers to get started with the Aztec local network, including account creation and contract deployment.
 sidebar_position: 0
-tags: [sandbox, testnet]
+tags: [local_network, testnet]
 ---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Get started on your local environment using the sandbox. If you'd rather jump into devnet, read the [getting started on devnet guide](./getting_started_on_devnet.md).
+Get started on your local environment using a local network. If you'd rather jump into devnet, read the [getting started on devnet guide](./getting_started_on_devnet.md).
 
-The Sandbox is an local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
+The local network is a local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The local network makes it faster and easier to develop and test your Aztec applications.
 
-What's included in the sandbox:
+What's included in the local network:
 
 - Local Ethereum network (Anvil)
 - Deployed Aztec protocol contracts (for L1 and L2)
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
 
-All of this comes packages in a Docker container to make it easy to install and run.
+All of this comes packaged in a Docker container to make it easy to install and run.
 
-This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
+This guide will teach you how to install the Aztec local network, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
 
 ## Prerequisites
 
@@ -32,13 +32,13 @@ You need two global dependencies on your machine:
 - <General.node_ver />
 - Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
 
-## Install and run the sandbox
+## Install and run the local network
 
 ### Start Docker
 
-Docker needs to be running in order to install the sandbox. Find instructions on the [Docker website](https://docs.docker.com/get-started/).
+Docker needs to be running in order to install the local network. Find instructions on the [Docker website](https://docs.docker.com/get-started/).
 
-### Install the sandbox
+### Install the local network
 
 Run:
 
@@ -48,19 +48,19 @@ bash -i <(curl -s https://install.aztec.network)
 
 This will install the following tools:
 
-- **aztec** - compiles and tests aztec contracts and launches various infrastructure subsystems (full sandbox, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
+- **aztec** - compiles and tests aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
 - **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
 - **aztec-wallet** - a tool for interacting with the aztec network
 
-### Start the sandbox
+### Start the local network
 
-Once these have been installed, to start the sandbox, run:
+Once these have been installed, to start the local network, run:
 
 ```bash
-aztec start --sandbox
+aztec start --local-network
 ```
 
-**Congratulations, you have just installed and run the Aztec Sandbox!**
+**Congratulations, you have just installed and run the Aztec local network!**
 
 ```bash
      /\        | |
@@ -73,12 +73,12 @@ aztec start --sandbox
 
 In the terminal, you will see some logs:
 
-1. Sandbox version
+1. Local network version
 2. Contract addresses of rollup contracts
 3. PXE (private execution environment) setup logs
-4. Initial accounts that are shipped with the sandbox and can be used in tests
+4. Initial accounts that are shipped with the local network and can be used in tests
 
-You'll know the sandbox is ready to go when you see something like this:
+You'll know the local network is ready to go when you see something like this:
 
 ```bash
 [INFO] Aztec Server listening on port 8080
@@ -86,7 +86,7 @@ You'll know the sandbox is ready to go when you see something like this:
 
 ### Codespaces
 
-If you do not want to run the sandbox locally, or if your machine is unsupported (eg Windows), it is possible to run it within a GitHub Codespace.
+If you do not want to run the local network locally, or if your machine is unsupported (eg Windows), it is possible to run it within a GitHub Codespace.
 
 [GitHub Codespaces](https://github.com/features/codespaces) are a quick way to develop: they provision a remote machine with all tooling you need for Aztec in just a few minutes. You can use some prebuilt images to make it easier and faster.
 
@@ -94,18 +94,17 @@ Choose a boilerplate and click "create new codespace":
 
 [![One-Click React Starter](/img/codespaces_badges/react_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Freact%2Fdevcontainer.json) [![One-Click HTML/TS Starter](/img/codespaces_badges/vanilla_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Fvanilla%2Fdevcontainer.json) [![One-Click Token Starter](/img/codespaces_badges/token_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Ftoken%2Fdevcontainer.json)
 
-This creates a codespace with a prebuilt image containing one of the "Aztec Boxes" and a development network (sandbox).
-
+This creates a codespace with a prebuilt image containing one of the "Aztec Boxes" and a development network (local network).
 - You can develop directly on the codespace, push it to a repo, make yourself at home.
-- You can also just use the sandbox that comes with it. The URL will be logged, you just need to use it as your `PXE_URL`.
+- You can also just use the local network that comes with it. The URL will be logged, you just need to use it as your `PXE_URL`.
 
-You can then start, stop, or see the logs of your sandbox just by calling `sandbox` or `npx aztec-app sandbox`. Run `sandbox -h` for a list of commands.
+You can then start, stop, or see the logs of your local network just by calling `local-network` or `npx aztec-app local-network`. Run `local-network -h` for a list of commands.
 
 Codespaces are way more powerful than you may initially think. For example, you can connect your local `vscode` to a remote codespace, for a fully contained development environment that doesn't use any of your computer resources!
 
 Visit the [codespaces documentation](https://docs.github.com/en/codespaces/overview) for more specific documentation around codespaces.
 
-## Using the sandbox test accounts
+## Using the local network test accounts
 
 import { CLI_Add_Test_Accounts } from '@site/src/components/Snippets/general_snippets';
 
@@ -119,7 +118,7 @@ aztec-wallet import-test-accounts
 
 We'll use the first test account, `test0`, throughout to pay for transactions.
 
-## Creating an account in the sandbox
+## Creating an account in the local network
 
 ```bash
 aztec-wallet create-account -a my-wallet --payment method=fee_juice,feePayer=test0
@@ -154,7 +153,7 @@ For simplicity we'll keep using the test account, let's deploy our own test toke
 
 ## Deploying a contract
 
-The sandbox comes with some contracts that you can deploy and play with. One of these is an example token contract.
+The local network comes with some contracts that you can deploy and play with. One of these is an example token contract.
 
 Deploy it with this:
 
@@ -269,7 +268,7 @@ This should print
 Simulation result:  25n
 ```
 
-**Congratulations, you now know the fundamentals of working with the Aztec sandbox!** You are ready to move onto the more fun stuff.
+**Congratulations, you now know the fundamentals of working with the Aztec local network!** You are ready to move onto the more fun stuff.
 
 ## What's next?
 

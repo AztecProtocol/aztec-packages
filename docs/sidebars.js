@@ -16,7 +16,7 @@ const sidebar = {
     },
     {
       type: "doc",
-      id: "developers/getting_started_on_sandbox",
+      id: "developers/getting_started_on_local_network",
     },
     {
       type: "doc",
