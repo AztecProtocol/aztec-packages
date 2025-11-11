@@ -105,11 +105,12 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables);
 
     // Serialize to msgpack and call the C++ simulator
-    this.log.debug(`Calling C++ simulator for tx ${txHash}`);
+    this.log.verbose(`Serializing fast simulation inputs to msgpack...`);
     const inputBuffer = fastSimInputs.serializeWithMessagePack();
 
     let resultBuffer: Buffer;
     try {
+      this.log.verbose(`Calling C++ simulator for tx ${txHash}`);
       resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsCppHandle);
     } catch (error: any) {
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
@@ -121,9 +122,12 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     assert(tsStateRef !== undefined, 'TS state reference should have been captured if C++ succeeded');
 
     // Deserialize the msgpack result
-    // TODO(fcarreiro): complete this.
+    this.log.verbose(`Deserializing C++ from buffer (size: ${resultBuffer.length})...`);
     const cppResultJSON: object = deserializeFromMessagePack(resultBuffer);
-    const cppResult = PublicTxResult.fromJSON(cppResultJSON);
+    this.log.verbose(`Deserializing C++ result to PublicTxResult...`);
+    const cppResult = PublicTxResult.schema.parse(cppResultJSON);
+    this.log.verbose(`Done.`);
+    // TODO(fcarreiro): complete this.
     assert(cppResult.revertCode.equals(tsResult.revertCode));
     assert(cppResult.gasUsed.totalGas.equals(tsResult.gasUsed.totalGas));
 
@@ -230,7 +234,7 @@ export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements 
 
     // Deserialize the msgpack result
     const cppResultJSON: object = deserializeFromMessagePack(resultBuffer);
-    const cppResult = PublicTxResult.fromJSON(cppResultJSON);
+    const cppResult = PublicTxResult.schema.parse(cppResultJSON);
 
     assert(cppResult.revertCode.equals(tsResult.revertCode));
     assert(cppResult.gasUsed.totalGas.equals(tsResult.gasUsed.totalGas));

@@ -349,7 +349,7 @@ pub contract PendingNoteHashes {
     fn create_max_notes(owner: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        for i in 0..max_notes_per_call() {
+        for i in 0..self.internal.max_notes_per_call() {
             let note = ValueNote::new(i as Field, owner);
             owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         }
@@ -363,7 +363,7 @@ pub contract PendingNoteHashes {
         let _ = owner_balance.pop_notes(NoteGetterOptions::new());
     }
 
-    #[contract_library_method]
+    #[internal("private")]
     fn max_notes_per_call() -> u32 {
         if MAX_NOTE_HASHES_PER_CALL > MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
             MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
