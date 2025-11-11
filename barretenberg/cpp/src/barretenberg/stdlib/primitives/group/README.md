@@ -21,7 +21,7 @@
 - **`operator+` / `operator-`** - Point addition/subtraction with infinity handling
 - **`dbl()`** - Point doubling
 - **`unconditional_add()` / `unconditional_subtract()`** - Unchecked arithmetic (assumes distinct x-coordinates)
-- **`checked_unconditional_add()` / `checked_unconditional_subtract()`** - Checked versions with explicit validation
+- **`checked_unconditional_add()` / `checked_unconditional_subtract()`** - Versions with explicit validation that no x-coordinate collisions occur
 
 ### Multi-Scalar Multiplication
 - **`batch_mul(base_points, scalars)`** - Multi-scalar multiplication (MSM) using automatic strategy selection (see below)
@@ -33,6 +33,8 @@ The `batch_mul` method uses the Straus MSM algorithm and automatically selects t
 
 ### Fixed-Base MSM (Plookup Tables)
 **When**: Constant base point that is one of two specific generator points, with witness scalar
+
+**Note**: The two generator points are the first two defined in `barretenberg/cpp/src/barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp` based on "DEFAULT_DOMAIN_SEPARATOR".
 
 **Strategy**: Precomputed tables with power-of-2 scaling
 - **Scalar decomposition**: Each scalar is split into two limbs (128-bit lo, 126-bit hi)
@@ -74,30 +76,6 @@ The `batch_mul` method uses the Straus MSM algorithm and automatically selects t
 ### Common Elements
 
 Both strategies share key design patterns:
-- **Offset generators**: Each table includes an offset generator to prevent point-at-infinity edge cases during lookups. The total offset is tracked and subtracted from the final result.
+- **Offset generators**: Each table includes an offset generator to prevent point-at-infinity edge cases during lookups. The total offset is tracked and subtracted from the final result. The algorithm for computing these offset generators is defined and documented in `ecc/groups/group.hpp`, method `derive_generators()`.
 - **Native precomputation**: All intermediate points (table entries and accumulator states) are precomputed natively and provided as hints to reduce witness generation cost
 - **Incomplete addition formula**: Uses `unconditional_add` which assumes distinct x-coordinates (guaranteed by offset generators)
-
-
-## `cycle_scalar`
-
-`cycle_scalar` represents elements of the Grumpkin scalar field (the BN254 base field), are used as multipliers in scalar multiplication operations.
-
-### Internal Representation
-
-Scalars are stored as two limbs for efficient decomposition in `batch_mul`:
-- **`_lo`** (`field_t`) - Low 128 bits
-- **`_hi`** (`field_t`) - High 126 bits (254 - 128 = 126 bits total for Grumpkin scalar field)
-
-### Construction Methods
-
-- **`cycle_scalar(ScalarField)`** - Construct from constant Grumpkin scalar field element
-- **`from_witness(Builder*, ScalarField)`** - Create from witness value with field validation
-- **`cycle_scalar(BigScalarField&)`** - Construct from bigfield representation (used when converting from bn254 field elements in circuits)
-
-### Validation
-
-The standard constructors (`from_witness`, bigfield constructor) perform field validation to ensure the scalar is less than the Grumpkin scalar field modulus. This validation uses `validate_split_in_field_unsafe`, which:
-- Checks that `lo + hi · 2^128 < grumpkin::fr::modulus` using a borrow-subtraction algorithm
-- Relies on `batch_mul` to apply the necessary range constraints (128 bits for `lo`, 126 bits for `hi`)
-- Is sound because the range constraints are guaranteed by the MSM decomposition algorithms
