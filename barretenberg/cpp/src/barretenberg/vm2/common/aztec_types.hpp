@@ -26,21 +26,30 @@ using FunctionSelector = FF; // really a 4-byte BE buffer in TS, but we use FF f
 
 // The Tx phases are executed in increasing order defined by these enum values.
 // Do not change the order of the enum values.
+// pil constraints rely on these constants being in consecutive order (increment by 1).
 enum class TransactionPhase : uint8_t {
-    NR_NULLIFIER_INSERTION = 1,
-    NR_NOTE_INSERTION = 2,
-    NR_L2_TO_L1_MESSAGE = 3,
-    SETUP = 4,
-    R_NULLIFIER_INSERTION = 5,
-    R_NOTE_INSERTION = 6,
-    R_L2_TO_L1_MESSAGE = 7,
-    APP_LOGIC = 8,
-    TEARDOWN = 9,
-    COLLECT_GAS_FEES = 10,
-    TREE_PADDING = 11,
-    CLEANUP = 12,
+    NR_NULLIFIER_INSERTION = 0,
+    NR_NOTE_INSERTION = 1,
+    NR_L2_TO_L1_MESSAGE = 2,
+    SETUP = 3,
+    R_NULLIFIER_INSERTION = 4,
+    R_NOTE_INSERTION = 5,
+    R_L2_TO_L1_MESSAGE = 6,
+    APP_LOGIC = 7,
+    TEARDOWN = 8,
+    COLLECT_GAS_FEES = 9,
+    TREE_PADDING = 10,
+    CLEANUP = 11,
     LAST = CLEANUP,
 };
+
+// The three following constants are used in .pil files and need to match the enum counterpart.
+static_assert(static_cast<uint8_t>(TransactionPhase::SETUP) == AVM_TX_PHASE_VALUE_SETUP,
+              "TransactionPhase::LAST must match AVM_TX_PHASE_VALUE_SETUP");
+static_assert(static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) == AVM_TX_PHASE_VALUE_START,
+              "TransactionPhase::NR_NULLIFIER_INSERTION must match AVM_TX_PHASE_VALUE_START");
+static_assert(static_cast<uint8_t>(TransactionPhase::LAST) == AVM_TX_PHASE_VALUE_LAST,
+              "TransactionPhase::LAST must match AVM_TX_PHASE_VALUE_LAST");
 
 using InternalCallId = uint32_t;
 
@@ -49,18 +58,18 @@ using InternalCallId = uint32_t;
  * that can be accessed by the AVM GETENVVAR opcode.
  */
 enum class EnvironmentVariable : uint8_t {
-    ADDRESS,
-    SENDER,
-    TRANSACTIONFEE,
-    CHAINID,
-    VERSION,
-    BLOCKNUMBER,
-    TIMESTAMP,
-    BASEFEEPERL2GAS,
-    BASEFEEPERDAGAS,
-    ISSTATICCALL,
-    L2GASLEFT,
-    DAGASLEFT,
+    ADDRESS = 0,
+    SENDER = 1,
+    TRANSACTIONFEE = 2,
+    CHAINID = 3,
+    VERSION = 4,
+    BLOCKNUMBER = 5,
+    TIMESTAMP = 6,
+    BASEFEEPERL2GAS = 7,
+    BASEFEEPERDAGAS = 8,
+    ISSTATICCALL = 9,
+    L2GASLEFT = 10,
+    DAGASLEFT = 11,
     MAX = DAGASLEFT,
 };
 
@@ -500,7 +509,7 @@ struct TreeStates {
 // Misc Types
 ////////////////////////////////////////////////////////////////////////////
 
-enum RevertCode {
+enum class RevertCode : uint8_t {
     OK,
     APP_LOGIC_REVERTED,
     TEARDOWN_REVERTED,

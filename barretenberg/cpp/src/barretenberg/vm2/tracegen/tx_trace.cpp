@@ -56,7 +56,7 @@ uint32_t get_phase_length(const PhaseLengths& phase_lengths, TransactionPhase ph
     }
 }
 
-constexpr size_t NUM_PHASES = static_cast<size_t>(TransactionPhase::LAST);
+constexpr size_t NUM_PHASES = static_cast<size_t>(TransactionPhase::LAST) + 1;
 
 bool is_revertible(TransactionPhase phase)
 {
@@ -459,18 +459,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     std::array<std::vector<const simulation::TxPhaseEvent*>, NUM_PHASES> phase_buckets = {};
     // We have the phases in iterable form so that in the main loop when we and empty phase
     // we can map back to this enum
-    std::array<TransactionPhase, NUM_PHASES> phase_array = { TransactionPhase::NR_NULLIFIER_INSERTION,
-                                                             TransactionPhase::NR_NOTE_INSERTION,
-                                                             TransactionPhase::NR_L2_TO_L1_MESSAGE,
-                                                             TransactionPhase::SETUP,
-                                                             TransactionPhase::R_NULLIFIER_INSERTION,
-                                                             TransactionPhase::R_NOTE_INSERTION,
-                                                             TransactionPhase::R_L2_TO_L1_MESSAGE,
-                                                             TransactionPhase::APP_LOGIC,
-                                                             TransactionPhase::TEARDOWN,
-                                                             TransactionPhase::COLLECT_GAS_FEES,
-                                                             TransactionPhase::TREE_PADDING,
-                                                             TransactionPhase::CLEANUP };
 
     std::optional<simulation::TxStartupEvent> startup_event;
     PhaseLengths phase_lengths{}; // Will be populated from startup event
@@ -483,8 +471,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             phase_lengths = startup_event.value().phase_lengths;
         } else {
             const simulation::TxPhaseEvent& tx_phase_event = std::get<simulation::TxPhaseEvent>(tx_event);
-            // Minus 1 since the enum is 1-indexed
-            phase_buckets[static_cast<uint8_t>(tx_phase_event.phase) - 1].push_back(&tx_phase_event);
+            phase_buckets[static_cast<uint8_t>(tx_phase_event.phase)].push_back(&tx_phase_event);
 
             // Set some flags for use when populating the discard column.
             if (tx_phase_event.reverted) {
@@ -527,7 +514,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             continue;
         }
 
-        TransactionPhase phase = phase_array[i];
+        TransactionPhase phase = static_cast<TransactionPhase>(i);
 
         bool discard = false;
         if (is_revertible(phase)) {

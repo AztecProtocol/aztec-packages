@@ -252,7 +252,7 @@ namespace tx;
     NOT_LAST_ROW * (1 - reverted') * (tx_reverted - tx_reverted') = 0;
 
     pol commit setup_phase_value;
-    sel * (4 - setup_phase_value) = 0;
+    sel * (constants.AVM_TX_PHASE_VALUE_SETUP - setup_phase_value) = 0;
 
     #[RESTORE_STATE_ON_REVERT]
     reverted {

@@ -15,6 +15,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
+    const auto constants_AVM_TX_PHASE_VALUE_SETUP = FF(3);
     const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX = FF(19);
     const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX = FF(20);
     const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX = FF(21);
@@ -290,7 +291,8 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) * (FF(4) - static_cast<View>(in.get(C::tx_setup_phase_value)));
+        auto tmp = static_cast<View>(in.get(C::tx_sel)) *
+                   (CView(constants_AVM_TX_PHASE_VALUE_SETUP) - static_cast<View>(in.get(C::tx_setup_phase_value)));
         std::get<36>(evals) += (tmp * scaling_factor);
     }
     { // PROPAGATE_L2_GAS_USED

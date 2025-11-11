@@ -20,6 +20,8 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_MAX_L2_TO_L1_MSGS_PER_TX = FF(8);
     const auto constants_FEE_JUICE_ADDRESS = FF(5);
     const auto constants_FEE_JUICE_BALANCES_SLOT = FF(1);
+    const auto constants_AVM_TX_PHASE_VALUE_START = FF(0);
+    const auto constants_AVM_TX_PHASE_VALUE_LAST = FF(11);
     const auto constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX = FF(29);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(514);
     const auto constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX = FF(4683);
@@ -56,7 +58,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // NO_EARLY_END
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_sel)) * (FF(1) - static_cast<View>(in.get(C::tx_sel_shift))) *
-                   (FF(1) - static_cast<View>(in.get(C::tx_is_cleanup)));
+                   (static_cast<View>(in.get(C::tx_phase_value)) - CView(constants_AVM_TX_PHASE_VALUE_LAST));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     { // START_WITH_SEL
@@ -96,7 +98,8 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // START_PHASE_VALUE_INITIALIZATION
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_start_tx)) * (static_cast<View>(in.get(C::tx_phase_value)) - FF(1));
+        auto tmp = static_cast<View>(in.get(C::tx_start_tx)) *
+                   (static_cast<View>(in.get(C::tx_phase_value)) - CView(constants_AVM_TX_PHASE_VALUE_START));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
     { // START_FOLLOWS_END

@@ -36,7 +36,7 @@ namespace tx;
 
     // Sel can only become off after the last phase (cleanup)
     #[NO_EARLY_END]
-    sel * (1 - sel') * (1 - is_cleanup) = 0;
+    sel * (1 - sel') * (phase_value - constants.AVM_TX_PHASE_VALUE_LAST) = 0;
 
     // Most of transaction initial constraints are in tx_context.pil
     pol commit start_tx; // @boolean
@@ -66,7 +66,7 @@ namespace tx;
     (start_tx + is_padded + reverted + start_phase + end_phase) * (1 - sel) = 0;
 
     #[START_PHASE_VALUE_INITIALIZATION]
-    start_tx * (phase_value - 1) = 0; // TODO(JEAMON): introduce constant
+    start_tx * (phase_value - constants.AVM_TX_PHASE_VALUE_START) = 0;
 
     #[START_FOLLOWS_END]
     sel' * (start_phase' - end_phase - precomputed.first_row) = 0;
