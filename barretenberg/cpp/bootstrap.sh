@@ -9,7 +9,7 @@ if [ "${AVM:-1}" -eq "1" ]; then
 else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
-export hash=$(cache_content_hash .rebuild_patterns)
+export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
 # Mix whether we're building multi-arch or single-arch into the hash
 if semver check "$REF_NAME"; then

@@ -46,8 +46,9 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
     for field in s.fields_as_written() {
         // FIXME: This doesn't handle field types with generics
         let (name, typ, _) = field;
+        let slot_field = slot as Field;
         let (storage_field_constructor, storage_size) =
-            generate_storage_field_constructor(typ, quote { $slot });
+            generate_storage_field_constructor(typ, quote { $slot_field });
         storage_vars_constructors =
             storage_vars_constructors.push_back(quote { $name: $storage_field_constructor });
         // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
@@ -57,7 +58,7 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
             quote { pub $name: dep::aztec::state_vars::storage::Storable },
         );
         storage_layout_constructors = storage_layout_constructors.push_back(
-            quote { $name: dep::aztec::state_vars::storage::Storable { slot: $slot } },
+            quote { $name: dep::aztec::state_vars::storage::Storable { slot: $slot_field } },
         );
         //let with_context_generic = add_context_generic(typ, context_generic);
         //println(with_context_generic);

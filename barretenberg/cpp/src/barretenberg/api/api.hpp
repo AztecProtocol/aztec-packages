@@ -23,7 +23,6 @@ class API {
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
         bool slow_low_memory{ false };          // use file backed memory for polynomials
         std::string storage_budget;             // storage budget for file backed memory (e.g. "500m", "2g")
-        bool update_inputs{ false };            // update inputs when check fails
         std::string vk_policy{ "default" };     // policy for handling VKs during IVC accumulation
 
         bool optimized_solidity_verifier{ false }; // should we use the optimized sol verifier? (temp)

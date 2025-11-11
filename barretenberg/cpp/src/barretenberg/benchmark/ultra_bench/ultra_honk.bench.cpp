@@ -40,8 +40,6 @@ static void construct_proof_ultrahonk_zk_power_of_2(State& state) noexcept
 // Define benchmarks
 BENCHMARK_CAPTURE(construct_proof_ultrahonk, sha256, &generate_sha256_test_circuit<UltraCircuitBuilder>)
     ->Unit(kMillisecond);
-BENCHMARK_CAPTURE(construct_proof_ultrahonk, keccak, &stdlib::generate_keccak_test_circuit<UltraCircuitBuilder>)
-    ->Unit(kMillisecond);
 BENCHMARK_CAPTURE(construct_proof_ultrahonk,
                   ecdsa_verification,
                   &stdlib::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>)

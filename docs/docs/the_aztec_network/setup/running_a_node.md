@@ -193,6 +193,7 @@ If all checks pass, your node should be up, running, and connected to the networ
 **Issue**: Your node cannot connect to peers.
 
 **Solutions**:
+
 - Verify your external IP address matches the `P2P_IP` setting
 - Check firewall rules on your router and local machine
 - Test connectivity using: `nc -zv [your-ip] 40400`
@@ -202,6 +203,7 @@ If all checks pass, your node should be up, running, and connected to the networ
 **Issue**: Your node is not synchronizing with the network.
 
 **Solutions**:
+
 - Check L1 endpoint connectivity
 - Verify both execution and consensus clients are fully synced
 - Review logs for specific error messages
@@ -212,6 +214,7 @@ If all checks pass, your node should be up, running, and connected to the networ
 **Issue**: Container won't start or crashes (Docker Compose method only).
 
 **Solutions**:
+
 - Ensure Docker and Docker Compose are up to date
 - Check disk space availability
 - Verify the `.env` file is properly formatted

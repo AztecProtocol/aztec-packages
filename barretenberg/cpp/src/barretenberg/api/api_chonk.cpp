@@ -151,6 +151,7 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
+    bbapi::VkPolicy vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     bool check_failed = false;
     for (auto& step : raw_steps) {
         if (step.vk.empty()) {
@@ -162,9 +163,12 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
         }.execute();
 
         if (!response.valid) {
-            if (!flags.update_inputs) {
+            info("VK mismatch detected for function ", step.function_name);
+            if (vk_policy != bbapi::VkPolicy::REWRITE) {
+                info("Computed VK differs from precomputed VK in ivc-inputs.msgpack");
                 return false;
             }
+            info("Updating VK in ivc-inputs.msgpack with computed value");
             step.vk = response.actual_vk;
             check_failed = true;
         }

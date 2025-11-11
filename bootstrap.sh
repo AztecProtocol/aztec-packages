@@ -176,11 +176,7 @@ function test_cmds {
 
 function start_test_env {
   # Starting txe servers with incrementing port numbers.
-  trap '(kill -SIGTERM $txe_pids &>/dev/null || true) && ./spartan/bootstrap.sh stop_env' EXIT
-
-  # Start env for spartan tests in the background
-  dump_fail "spartan/bootstrap.sh start_env" &
-  spartan_pid=$!
+  trap 'kill -SIGTERM $txe_pids &>/dev/null || true' EXIT
 
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
@@ -203,13 +199,6 @@ function start_test_env {
         j=$((j+1))
       done
   done
-
-  echo "Waiting for spartan environment to complete setup..."
-  if wait $spartan_pid; then
-    echo "Spartan environment setup completed successfully."
-  else
-    echo_stderr "Spartan environment setup failed. Exiting."
-  fi
 }
 
 function test {
@@ -443,16 +432,6 @@ case "$cmd" in
     build
     test
     bench
-    ;;
-  "ci-nightly")
-    export CI=1
-    export USE_TEST_CACHE=1
-    export CI_NIGHTLY=1
-    build
-    release-image/bootstrap.sh push
-    # TODO this should become a ci-nightly-tests ran in parallel with a normal ci-release
-    # test
-    release
     ;;
   "ci-network-deploy")
     export CI=1

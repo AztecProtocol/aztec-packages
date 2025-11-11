@@ -9,7 +9,7 @@ This guide shows you how to profile your Aztec transactions to identify bottlene
 
 ## Prerequisites
 
-- `aztec-nargo` installed ([see installation](../../../aztec-cli/sandbox-reference.md))
+- `aztec` command installed ([see installation](../../../aztec-cli/sandbox-reference.md))
 - `aztec-wallet` installed (part of Sandbox)
 - Aztec contract deployed and ready to test
 - Basic understanding of proving and gate counts
@@ -111,7 +111,7 @@ Flamegraph generation is experimental and may not be available in all versions.
 
 ```bash
 # Compile first
-aztec-nargo compile
+aztec compile
 
 # Generate flamegraph
 aztec flamegraph target/contract.json function_name

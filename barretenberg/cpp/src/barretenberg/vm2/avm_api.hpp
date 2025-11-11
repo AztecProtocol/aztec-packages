@@ -1,7 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm2/avm_sim_api.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
 
 namespace bb::avm2 {

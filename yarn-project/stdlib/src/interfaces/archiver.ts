@@ -49,6 +49,9 @@ export type ArchiverSpecificConfig = {
 
   /** Whether to skip validating block attestations (use only for testing). */
   skipValidateBlockAttestations?: boolean;
+
+  /** Maximum allowed drift in seconds between the Ethereum client and current time. */
+  maxAllowedEthClientDriftSeconds?: number;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -58,6 +61,7 @@ export const ArchiverSpecificConfigSchema = z.object({
   maxLogs: schemas.Integer.optional(),
   archiverStoreMapSizeKb: schemas.Integer.optional(),
   skipValidateBlockAttestations: z.boolean().optional(),
+  maxAllowedEthClientDriftSeconds: schemas.Integer.optional(),
 });
 
 export type ArchiverApi = Omit<

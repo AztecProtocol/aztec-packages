@@ -39,7 +39,9 @@ MegaCircuitBuilder_<bb::fr> UltraCircuitChecker::prepare_circuit<MegaCircuitBuil
     // Deepcopy the opqueue to avoid modifying the original one
     builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
 
-    builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+    if (!builder.circuit_finalized) { // avoid warnings about finalizing an already finalized circuit
+        builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+    }
 
     return builder;
 }

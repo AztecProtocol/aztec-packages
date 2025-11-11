@@ -53,7 +53,7 @@ export class ContractProviderForCpp implements ContractProvider {
   public addContracts = async (contractDeploymentDataBuffer: Buffer): Promise<void> => {
     this.log.debug(`Contract provider callback: addContracts`);
 
-    const rawData = deserializeFromMessagePack<any>(contractDeploymentDataBuffer);
+    const rawData: any = deserializeFromMessagePack(contractDeploymentDataBuffer);
 
     // Construct class instances using the from method
     const contractDeploymentData = this.reconstructContractDeploymentData(rawData);

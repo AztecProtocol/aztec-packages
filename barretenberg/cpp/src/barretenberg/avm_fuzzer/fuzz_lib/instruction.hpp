@@ -5,8 +5,10 @@
 #include <stdexcept>
 #include <variant>
 
+#include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 
 using MemoryTag = bb::avm2::MemoryTag;
@@ -186,6 +188,63 @@ struct SET_8_Instruction {
     MSGPACK_FIELDS(value_tag, offset, value);
 };
 
+/// @brief SET_16 instruction
+struct SET_16_Instruction {
+    MemoryTagWrapper value_tag;
+    uint16_t offset;
+    uint16_t value;
+    MSGPACK_FIELDS(value_tag, offset, value);
+};
+
+/// @brief SET_32 instruction
+struct SET_32_Instruction {
+    MemoryTagWrapper value_tag;
+    uint16_t offset;
+    uint32_t value;
+    MSGPACK_FIELDS(value_tag, offset, value);
+};
+
+/// @brief SET_64 instruction
+struct SET_64_Instruction {
+    MemoryTagWrapper value_tag;
+    uint16_t offset;
+    uint64_t value;
+    MSGPACK_FIELDS(value_tag, offset, value);
+};
+
+/// @brief SET_128 instruction
+struct SET_128_Instruction {
+    MemoryTagWrapper value_tag;
+    uint16_t offset;
+    uint64_t value_low;
+    uint64_t value_high;
+    MSGPACK_FIELDS(value_tag, offset, value_low, value_high);
+};
+
+/// @brief SET_FF instruction
+struct SET_FF_Instruction {
+    MemoryTagWrapper value_tag;
+    uint16_t offset;
+    bb::avm2::FF value;
+    MSGPACK_FIELDS(value_tag, offset, value);
+};
+
+/// @brief MOV_8 instruction: mem[dst_offset] = mem[src_offset]
+struct MOV_8_Instruction {
+    MemoryTagWrapper value_tag;
+    uint16_t src_offset_index;
+    uint8_t dst_offset;
+    MSGPACK_FIELDS(value_tag, src_offset_index, dst_offset);
+};
+
+/// @brief MOV_16 instruction: mem[dst_offset] = mem[src_offset]
+struct MOV_16_Instruction {
+    MemoryTagWrapper value_tag;
+    uint16_t src_offset_index;
+    uint16_t dst_offset;
+    MSGPACK_FIELDS(value_tag, src_offset_index, dst_offset);
+};
+
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address] (16-bit)
 struct ADD_16_Instruction {
     MemoryTagWrapper argument_tag;
@@ -330,6 +389,13 @@ struct CAST_16_Instruction {
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
+                                     SET_16_Instruction,
+                                     SET_32_Instruction,
+                                     SET_64_Instruction,
+                                     SET_128_Instruction,
+                                     SET_FF_Instruction,
+                                     MOV_8_Instruction,
+                                     MOV_16_Instruction,
                                      SUB_8_Instruction,
                                      MUL_8_Instruction,
                                      DIV_8_Instruction,
@@ -380,6 +446,22 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    [&](SET_8_Instruction arg) {
                        os << "SET_8_Instruction " << arg.value_tag << " " << static_cast<int>(arg.offset) << " "
                           << static_cast<int>(arg.value);
+                   },
+                   [&](SET_16_Instruction arg) {
+                       os << "SET_16_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+                   },
+                   [&](SET_32_Instruction arg) {
+                       os << "SET_32_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+                   },
+                   [&](SET_64_Instruction arg) {
+                       os << "SET_64_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+                   },
+                   [&](SET_128_Instruction arg) {
+                       os << "SET_128_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value_high
+                          << " " << arg.value_low;
+                   },
+                   [&](SET_FF_Instruction arg) {
+                       os << "SET_FF_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
                    },
                    [&](SUB_8_Instruction arg) {
                        os << "SUB_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
@@ -496,6 +578,14 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    [&](CAST_16_Instruction arg) {
                        os << "CAST_16_Instruction " << arg.src_tag << " " << arg.src_offset_index << " "
                           << arg.dst_offset << " " << arg.target_tag;
+                   },
+                   [&](MOV_8_Instruction arg) {
+                       os << "MOV_8_Instruction " << arg.value_tag << " " << arg.src_offset_index << " "
+                          << static_cast<int>(arg.dst_offset);
+                   },
+                   [&](MOV_16_Instruction arg) {
+                       os << "MOV_16_Instruction " << arg.value_tag << " " << arg.src_offset_index << " "
+                          << arg.dst_offset;
                    },
                    [&](auto) { os << "Unknown instruction"; },
                },

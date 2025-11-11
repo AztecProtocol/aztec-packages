@@ -374,7 +374,7 @@ CodeError: stream reset
    - Docker Compose: Ensure `KEY_STORE_DIRECTORY` environment variable is set
    - CLI: Check that `--key-store` flag points to the correct directory
 
-For more information on keystore configuration, see the [advanced keystore guide](./keystore/index.md).
+For more information on keystore configuration and creation, see the [Creating Validator Keystores guide](./keystore/creating_keystores.md) and the [Advanced Keystore Usage guide](./keystore/index.md).
 
 ### Docker Container Won't Start
 

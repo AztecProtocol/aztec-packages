@@ -164,8 +164,40 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     uint64_t log_circuit_size = 0;
     uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
-
     bool operator==(const NativeVerificationKey_&) const = default;
+
+#ifndef NDEBUG
+    template <size_t NUM_PRECOMPUTED_ENTITIES, typename StringType>
+    bool compare(const NativeVerificationKey_& other,
+                 RefArray<StringType, NUM_PRECOMPUTED_ENTITIES> commitment_labels) const
+    {
+        bool is_equal = true;
+
+        if (this->log_circuit_size != other.log_circuit_size) {
+            info("Log circuit size mismatch: ", this->log_circuit_size, " vs ", other.log_circuit_size);
+            is_equal = false;
+        }
+
+        if (this->num_public_inputs != other.num_public_inputs) {
+            info("Num public inputs mismatch: ", this->num_public_inputs, " vs ", other.num_public_inputs);
+            is_equal = false;
+        }
+
+        if (this->pub_inputs_offset != other.pub_inputs_offset) {
+            info("Pub inputs offset mismatch: ", this->pub_inputs_offset, " vs ", other.pub_inputs_offset);
+            is_equal = false;
+        }
+
+        for (auto [this_comm, other_comm, label] : zip_view(this->get_all(), other.get_all(), commitment_labels)) {
+            if (this_comm != other_comm) {
+                info("Commitment mismatch: ", label);
+                is_equal = false;
+            }
+        }
+        return is_equal;
+    }
+#endif
+
     virtual ~NativeVerificationKey_() = default;
     NativeVerificationKey_() = default;
     NativeVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)

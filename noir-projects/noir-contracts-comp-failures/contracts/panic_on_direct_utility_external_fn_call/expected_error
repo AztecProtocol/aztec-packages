@@ -1,0 +1,1 @@
+Calling utility functions directly from within the contract is not supported. You attempted to call arbitrary_external_function. See documentation for instructions on the proper invocation of functions.

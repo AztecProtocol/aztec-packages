@@ -276,6 +276,9 @@ case "$cmd" in
   "bump-noir-repo-ref")
     bump_noir_repo_ref $@
     ;;
+  "noir-sync")
+    # Noop, we synced above.
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

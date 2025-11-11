@@ -448,6 +448,14 @@ class MegaFlavor {
                 commitment = commitment_key.commit(polynomial);
             }
         }
+
+#ifndef NDEBUG
+        bool compare(const VerificationKey& other)
+        {
+            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
+                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
+        }
+#endif
     };
 
     /**

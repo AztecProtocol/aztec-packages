@@ -17,7 +17,7 @@ What's included in the sandbox:
 - Local Ethereum network (Anvil)
 - Deployed Aztec protocol contracts (for L1 and L2)
 - A set of test accounts with some test tokens to pay fees
-- Development tools to compile contracts and interact with the network (`aztec-nargo` and `aztec-wallet`)
+- Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
 
 All of this comes packages in a Docker container to make it easy to install and run.
 
@@ -48,9 +48,7 @@ bash -i <(curl -s https://install.aztec.network)
 
 This will install the following tools:
 
-- **aztec** - launches various infrastructure subsystems (full sandbox, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
-- **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
-- **aztec-postprocess-contract** - postprocessing tool for Aztec contracts (transpilation and VK generation).
+- **aztec** - compiles and tests aztec contracts and launches various infrastructure subsystems (full sandbox, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
 - **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
 - **aztec-wallet** - a tool for interacting with the aztec network
 

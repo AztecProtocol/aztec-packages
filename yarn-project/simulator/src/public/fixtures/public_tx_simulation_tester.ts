@@ -1,6 +1,7 @@
 import { asyncMap } from '@aztec/foundation/async-map';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
+import type { PublicTxResult } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -18,7 +19,6 @@ import {
 import { PublicContractsDB } from '../public_db_sources.js';
 import { MeasuredCppPublicTxSimulator } from '../public_tx_simulator/cpp_public_tx_simulator.js';
 import { MeasuredPublicTxSimulator } from '../public_tx_simulator/measured_public_tx_simulator.js';
-import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
 import type { MeasuredPublicTxSimulatorInterface } from '../public_tx_simulator/public_tx_simulator_interface.js';
 import { TestExecutorMetrics } from '../test_executor_metrics.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';

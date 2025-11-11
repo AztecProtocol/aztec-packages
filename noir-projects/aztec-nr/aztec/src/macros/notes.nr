@@ -147,6 +147,7 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
     let mut properties_list = &[];
     for i in 0..note_fields.len() {
         let (name, _, _) = note_fields[i];
+        let i = i as u8;
         properties_list = properties_list.push_back(
             quote { $name: aztec::note::note_getter_options::PropertySelector { index: $i, offset: 0, length: 32 } },
         );

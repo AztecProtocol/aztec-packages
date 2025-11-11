@@ -125,10 +125,10 @@ struct KeyStore {
 }
 ```
 
-:::tip Keystore Creation Utility
-We will be releasing a utility tool to help you generate properly formatted `KeyStore` structures with correct BLS signatures. This simplifies the process of creating the complex data structures required for this function call.
+:::tip Creating Keystores for Delegated Staking
+Before adding sequencer identities to your provider queue, you need to create keystores with BLS keys. See the [Creating Sequencer Keystores](../keystore/creating_keystores.md) guide for detailed instructions.
 
-In the meantime, contact the Aztec team on [Discord](https://discord.gg/aztec) for assistance with generating keystores.
+To generate the additional BLS data required for the `KeyStore` struct (G2 public keys and proof of possession signatures), see [Preparing BLS Keys for Registration](../../setup/sequencer_management.md#preparing-bls-keys-for-registration) in the Sequencer Management guide.
 :::
 
 **Example with sample data:**
