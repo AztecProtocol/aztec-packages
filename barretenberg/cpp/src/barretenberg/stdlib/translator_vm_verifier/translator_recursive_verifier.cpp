@@ -224,10 +224,6 @@ void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
 {
     // Check the consistency with final merge
     for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {
-        // OriginTag false positive. Clear child tag before asserting
-        merge_commitment.clear_child_tag();
-        translator_commitment.clear_child_tag();
-
         // Use incomplete_assert_equal to verify x, y coordinates and infinity flag match
         merge_commitment.incomplete_assert_equal(translator_commitment,
                                                  "translator commitments inconsistent with final merge");
