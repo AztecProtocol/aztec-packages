@@ -1072,7 +1072,7 @@ groups:
                 type: threshold
           dashboardUid: bexge5lz3e51cd
           panelId: 5
-          noDataState: NoData
+          noDataState: Alerting
           execErrState: Error
           for: 1m
           annotations:
