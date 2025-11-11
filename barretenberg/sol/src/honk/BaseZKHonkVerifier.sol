@@ -201,8 +201,14 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         }
 
         // Last round
+        // For ZK flavors: sumcheckEvaluations has 42 elements
+        // Index 0 is gemini_masking_poly, indices 1-41 are the regular entities used in relations
+        Fr[NUMBER_OF_ENTITIES] memory relationsEvaluations;
+        for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
+            relationsEvaluations[i] = proof.sumcheckEvaluations[i + 1];  // Skip gemini_masking_poly at index 0
+        }
         Fr grandHonkRelationSum = RelationsLib.accumulateRelationEvaluations(
-            proof.sumcheckEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation
+            relationsEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation
         );
 
         Fr evaluation = Fr.wrap(1);
@@ -277,8 +283,8 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
         Fr[] memory powers_of_evaluation_challenge = CommitmentSchemeLib.computeSquares(tp.geminiR, $LOG_N);
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
-        Fr[] memory scalars = new Fr[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 3);
-        Honk.G1Point[] memory commitments = new Honk.G1Point[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 3);
+        Fr[] memory scalars = new Fr[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 1);
+        Honk.G1Point[] memory commitments = new Honk.G1Point[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 1);
 
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
@@ -317,16 +323,18 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         * This approach minimizes the number of iterations over the commitments to multilinear polynomials
         * and eliminates the need to store the powers of \f$ \rho \f$.
         */
-        // Gemini masking evaluation is at index 41 (last position) of sumcheckEvaluations for ZK flavors
-        mem.batchedEvaluation = proof.sumcheckEvaluations[41];
-        mem.batchingChallenge = tp.rho;
+        // For ZK flavors: evaluations array is [gemini_masking_poly, qm, qc, ql, qr, ...]
+        // Start batching challenge at 1, not rho, to match non-ZK pattern
+        mem.batchingChallenge = Fr.wrap(1);
+        mem.batchedEvaluation = Fr.wrap(0);
+
         mem.unshiftedScalarNeg = mem.unshiftedScalar.neg();
         mem.shiftedScalarNeg = mem.shiftedScalar.neg();
 
-        scalars[1] = mem.unshiftedScalarNeg;
-        for (uint256 i = 0; i < NUMBER_UNSHIFTED_ZK; ++i) {
-            scalars[i + 2] = mem.unshiftedScalarNeg * mem.batchingChallenge;
-            mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i] * mem.batchingChallenge);
+        // Process all NUMBER_UNSHIFTED_ZK evaluations (includes gemini_masking_poly at index 0)
+        for (uint256 i = 1; i <= NUMBER_UNSHIFTED_ZK; ++i) {
+            scalars[i] = mem.unshiftedScalarNeg * mem.batchingChallenge;
+            mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
         // g commitments are accumulated at r
@@ -424,7 +432,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.negInvertedDenominator);
 
         mem.batchingChallenge = tp.shplonkNu.sqr();
-        uint256 boundary = NUMBER_UNSHIFTED_ZK + 2;
+        uint256 boundary = NUMBER_UNSHIFTED_ZK + 1;
 
         // Compute Shplonk constant term contributions from Aₗ(± r^{2ˡ}) for l = 1, ..., m-1;
         // Compute scalar multipliers for each fold commitment
@@ -570,7 +578,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         view
         returns (Honk.G1Point memory result)
     {
-        uint256 limit = NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 3;
+        uint256 limit = NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 1;
 
         // Validate all points are on the curve
         for (uint256 i = 0; i < limit; ++i) {
