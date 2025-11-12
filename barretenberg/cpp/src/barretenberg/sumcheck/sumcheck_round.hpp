@@ -96,9 +96,10 @@ template <typename Flavor> class SumcheckProverRound {
      * polynomials.
      * @details When HasZK is false, witness polynomials only contain meaningful data up to final_active_wire_idx, and
      * we can avoid iterating over the zero region beyond that point. We check witness polynomials (wires) specifically,
-     * as precomputed polynomials (selectors) are always full size.
-     * @return The effective iteration size: round_size when HasZK is true, or the maximum witness end_index when HasZK
-     * is false.
+     * as precomputed polynomials (selectors) are always full size. For flavors without standard wire structure
+     * (e.g., MultilinearBatchingFlavor), we fall back to round_size.
+     * @return The effective iteration size: round_size when HasZK is true or wires unavailable, or the maximum witness
+     * end_index when HasZK is false.
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     size_t compute_effective_round_size(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates) const
@@ -107,16 +108,23 @@ template <typename Flavor> class SumcheckProverRound {
             // When ZK is enabled, we must iterate over the full round_size
             return round_size;
         } else {
-            // When ZK is disabled, find the maximum end_index() across witness polynomials only
-            // (precomputed polynomials like selectors are always full size)
-            // We need to round up to the next even number since we process edges in pairs
-            size_t max_end_index = 0;
-            max_end_index = std::max(max_end_index, multivariates.w_l.end_index());
-            max_end_index = std::max(max_end_index, multivariates.w_r.end_index());
-            max_end_index = std::max(max_end_index, multivariates.w_o.end_index());
-            max_end_index = std::max(max_end_index, multivariates.w_4.end_index());
-            // Round up to next even number and ensure we don't exceed round_size
-            return std::min(round_size, max_end_index + (max_end_index % 2));
+            // Check if this flavor has standard wire structure (w_l, w_r, w_o, w_4)
+            // Use a compile-time check to handle flavors like MultilinearBatchingFlavor that don't have these fields
+            if constexpr (requires { multivariates.w_l; }) {
+                // When ZK is disabled, find the maximum end_index() across witness polynomials only
+                // (precomputed polynomials like selectors are always full size)
+                // We need to round up to the next even number since we process edges in pairs
+                size_t max_end_index = 0;
+                max_end_index = std::max(max_end_index, multivariates.w_l.end_index());
+                max_end_index = std::max(max_end_index, multivariates.w_r.end_index());
+                max_end_index = std::max(max_end_index, multivariates.w_o.end_index());
+                max_end_index = std::max(max_end_index, multivariates.w_4.end_index());
+                // Round up to next even number and ensure we don't exceed round_size
+                return std::min(round_size, max_end_index + (max_end_index % 2));
+            } else {
+                // For flavors without standard wire structure, use full round_size
+                return round_size;
+            }
         }
     }
 
