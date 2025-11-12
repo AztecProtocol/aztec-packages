@@ -75,8 +75,15 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @param public_inputs indices of public inputs in witness array
      * @param varnum number of known witness
      *
-     * @note When the witness values are reconstructed from ACIR, they are padded with zeros in those position for which
-     * the value of the witness is not known at compile time. Hence, we always expect varnum == witness_values.size()
+     * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
+     * witness values which are interleaved with zeros when witnesses are optimized away. Not all witness values are
+     * known at the time of acir generation. The number of values that are not known is given by varnum -
+     * witness_values.size(). For each of these witnesses with unknown value, we add to the builder a variable with
+     * value equal to zero.
+     *
+     * @note varnum is in general less than total number of variables/witnesses that might be present for a circuit
+     * generated from acir, since many gates will depend on the details of the bberg implementation (or more generally
+     * on the backend used to process acir).
      */
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
                         SlabVector<FF>& witness_values,
