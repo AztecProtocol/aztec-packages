@@ -1,28 +1,33 @@
 #include "barretenberg/vm2/tracegen/tx_trace.hpp"
 
-#include "barretenberg/numeric/uint256/uint256.hpp"
+#include <array>
+#include <cstdint>
+#include <optional>
+#include <utility>
+#include <variant>
+#include <vector>
+
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx_context.hpp"
 #include "barretenberg/vm2/generated/relations/perms_tx.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/tx_events.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
+#include "barretenberg/vm2/simulation/events/tx_context_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/phase_spec.hpp"
-
-#include <cstdint>
-#include <unordered_map>
-#include <variant>
 
 namespace bb::avm2::tracegen {
 
 namespace {
 
+using simulation::CollectGasFeeEvent;
+using simulation::EnqueuedCallEvent;
 using simulation::PhaseLengths;
+using simulation::PrivateAppendTreeEvent;
+using simulation::PrivateEmitL2L1MessageEvent;
 using simulation::TxContextEvent;
 
-// helper type for the visitor #4
+// helper type for the visitor (See https://en.cppreference.com/w/cpp/utility/variant/visit)
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
 };
@@ -248,8 +253,7 @@ std::vector<std::pair<Column, FF>> handle_gas_limit(Gas gas_limit)
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase phase,
-                                                              const simulation::EnqueuedCallEvent& event)
+std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase phase, const EnqueuedCallEvent& event)
 {
     return { { Column::tx_should_process_call_request, 1 },
              { Column::tx_msg_sender, event.msg_sender },
@@ -268,7 +272,7 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
              { Column::tx_should_read_gas_limit, is_teardown(phase) } };
 };
 
-std::vector<std::pair<Column, FF>> handle_note_hash_append(const simulation::PrivateAppendTreeEvent& event,
+std::vector<std::pair<Column, FF>> handle_note_hash_append(const PrivateAppendTreeEvent& event,
                                                            const TxContextEvent& state_before,
                                                            bool reverted)
 {
@@ -284,7 +288,7 @@ std::vector<std::pair<Column, FF>> handle_note_hash_append(const simulation::Pri
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_nullifier_append(const simulation::PrivateAppendTreeEvent& event,
+std::vector<std::pair<Column, FF>> handle_nullifier_append(const PrivateAppendTreeEvent& event,
                                                            const TxContextEvent& state_before,
                                                            bool reverted)
 {
@@ -300,7 +304,7 @@ std::vector<std::pair<Column, FF>> handle_nullifier_append(const simulation::Pri
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_append_tree_event(const simulation::PrivateAppendTreeEvent& event,
+std::vector<std::pair<Column, FF>> handle_append_tree_event(const PrivateAppendTreeEvent& event,
                                                             TransactionPhase phase,
                                                             const TxContextEvent& state_before,
                                                             bool reverted)
@@ -314,7 +318,7 @@ std::vector<std::pair<Column, FF>> handle_append_tree_event(const simulation::Pr
     throw std::runtime_error("Invalid phase for append tree event");
 }
 
-std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::PrivateEmitL2L1MessageEvent& event,
+std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const PrivateEmitL2L1MessageEvent& event,
                                                           const TxContextEvent& state_before,
                                                           bool reverted)
 {
@@ -333,7 +337,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation::CollectGasFeeEvent& event)
+std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const CollectGasFeeEvent& event)
 {
     return {
         { Column::tx_effective_fee_per_da_gas, FF(event.effective_fee_per_da_gas) },
@@ -450,29 +454,35 @@ std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, Gas
 void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation::TxEvent>::Container& events,
                              TraceContainer& trace)
 {
+    using simulation::CleanupEvent;
+    using simulation::EmptyPhaseEvent;
+    using simulation::PadTreesEvent;
+    using simulation::TxPhaseEvent;
+    using simulation::TxStartupEvent;
+
     using C = Column;
     uint32_t row = 1; // Shifts
 
     // A nuance of the tracegen for the tx trace is that if there are no events in a phase, we still need to emit a
     // row for this "skipped" row. This row is needed to simplify the circuit constraints and ensure that we have
-    // continuity in the tree state propagation
+    // continuity in the tree state propagation.
 
-    // We bucket the events by phase to make it easier to detect phases with no events
-    std::array<std::vector<const simulation::TxPhaseEvent*>, NUM_PHASES> phase_buckets = {};
+    // We bucket the events by phase to make it easier to detect phases with no events.
+    std::array<std::vector<const TxPhaseEvent*>, NUM_PHASES> phase_buckets = {};
     // We have the phases in iterable form so that in the main loop when we and empty phase
     // we can map back to this enum
 
-    std::optional<simulation::TxStartupEvent> startup_event;
+    std::optional<TxStartupEvent> startup_event;
     PhaseLengths phase_lengths{}; // Will be populated from startup event
 
     bool r_insertion_or_app_logic_failure = false;
     bool teardown_failure = false;
     for (const auto& tx_event : events) {
-        if (std::holds_alternative<simulation::TxStartupEvent>(tx_event)) {
-            startup_event = std::get<simulation::TxStartupEvent>(tx_event);
+        if (std::holds_alternative<TxStartupEvent>(tx_event)) {
+            startup_event = std::get<TxStartupEvent>(tx_event);
             phase_lengths = startup_event.value().phase_lengths;
         } else {
-            const simulation::TxPhaseEvent& tx_phase_event = std::get<simulation::TxPhaseEvent>(tx_event);
+            const TxPhaseEvent& tx_phase_event = std::get<TxPhaseEvent>(tx_event);
             phase_buckets[static_cast<uint8_t>(tx_phase_event.phase)].push_back(&tx_phase_event);
 
             // Set some flags for use when populating the discard column.
@@ -570,14 +580,14 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             // Pattern match on the variant event type and call the appropriate handler
             std::visit(
                 overloaded{
-                    [&](const simulation::EnqueuedCallEvent& event) {
+                    [&](const EnqueuedCallEvent& event) {
                         trace.set(row, handle_enqueued_call_event(tx_phase_event->phase, event));
                         // No explicit write counter for this phase
                         trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
 
                         gas_used = tx_phase_event->state_after.gas_used;
                     },
-                    [&](const simulation::PrivateAppendTreeEvent& event) {
+                    [&](const PrivateAppendTreeEvent& event) {
                         trace.set(
                             row,
                             handle_append_tree_event(
@@ -585,23 +595,21 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
                         trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
                     },
-                    [&](const simulation::PrivateEmitL2L1MessageEvent& event) {
+                    [&](const PrivateEmitL2L1MessageEvent& event) {
                         trace.set(
                             row, handle_l2_l1_msg_event(event, tx_phase_event->state_before, tx_phase_event->reverted));
                         trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
                     },
-                    [&](const simulation::CollectGasFeeEvent& event) {
+                    [&](const CollectGasFeeEvent& event) {
                         trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0));
                         trace.set(row, handle_collect_gas_fee_event(event));
                     },
-                    [&](const simulation::PadTreesEvent&) {
-                        trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0));
-                    },
-                    [&](const simulation::CleanupEvent&) {
+                    [&](const PadTreesEvent&) { trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0)); },
+                    [&](const CleanupEvent&) {
                         trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0));
                         trace.set(row, handle_cleanup());
                     },
-                    [&](const simulation::EmptyPhaseEvent&) {
+                    [&](const EmptyPhaseEvent&) {
                         // EmptyPhaseEvent represents a phase that is not explicitly skipped because of a
                         // revert, but just has no contents to process, like when app logic starts but has no
                         // enqueued calls.
