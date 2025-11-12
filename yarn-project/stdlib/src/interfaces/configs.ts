@@ -54,6 +54,8 @@ export interface SequencerConfig {
   skipInvalidateBlockAsProposer?: boolean;
   /** Inject a fake attestation (for testing only) */
   injectFakeAttestation?: boolean;
+  /** Whether to run in fisherman mode: builds blocks on every slot for validation without publishing */
+  fishermanMode?: boolean;
   /** Shuffle attestation ordering to create invalid ordering (for testing only) */
   shuffleAttestationOrdering?: boolean;
 }
@@ -80,5 +82,6 @@ export const SequencerConfigSchema = z.object({
   secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
   secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
   injectFakeAttestation: z.boolean().optional(),
+  fishermanMode: z.boolean().optional(),
   shuffleAttestationOrdering: z.boolean().optional(),
 }) satisfies ZodFor<SequencerConfig>;
