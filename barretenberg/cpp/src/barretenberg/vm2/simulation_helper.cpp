@@ -459,7 +459,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
         .logs = debug_log_component->dump_logs(),
         // Proving request data.
         .public_inputs = public_inputs_builder.build(),
-        .execution_hints = std::nullopt, // TODO: add execution hints, optionally.
+        .hints = std::nullopt, // TODO: add execution hints, optionally.
     };
 }
 
@@ -488,7 +488,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
         hinting_contract_db.dump_hints(collected_hints);
         hinting_merkle_db.dump_hints(collected_hints);
 
-        result.execution_hints = collected_hints;
+        result.hints = collected_hints;
         return result;
     };
 

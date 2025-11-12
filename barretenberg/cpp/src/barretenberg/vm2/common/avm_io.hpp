@@ -461,18 +461,12 @@ struct TxSimulationResult {
     std::optional<std::vector<DebugLog>> logs;
     // Proving request data.
     PublicInputs public_inputs;
-    std::optional<ExecutionHints> execution_hints;
+    std::optional<ExecutionHints> hints;
 
     bool operator==(const TxSimulationResult& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(gas_used,
-                              revert_code,
-                              revert_reason,
-                              processed_phases,
-                              app_logic_return_value,
-                              logs,
-                              public_inputs,
-                              execution_hints);
+    MSGPACK_CAMEL_CASE_FIELDS(
+        gas_used, revert_code, revert_reason, processed_phases, app_logic_return_value, logs, public_inputs, hints);
 };
 
 } // namespace bb::avm2

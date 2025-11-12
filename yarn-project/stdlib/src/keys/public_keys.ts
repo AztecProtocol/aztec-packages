@@ -52,6 +52,25 @@ export class PublicKeys {
     );
   }
 
+  /**
+   * Creates a PublicKeys from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing PublicKeys fields
+   * @returns A PublicKeys instance
+   */
+  static fromPlainObject(obj: any): PublicKeys {
+    if (obj instanceof PublicKeys) {
+      return obj;
+    }
+    return new PublicKeys(
+      Point.fromPlainObject(obj.masterNullifierPublicKey),
+      Point.fromPlainObject(obj.masterIncomingViewingPublicKey),
+      Point.fromPlainObject(obj.masterOutgoingViewingPublicKey),
+      Point.fromPlainObject(obj.masterTaggingPublicKey),
+    );
+  }
+
   hash() {
     return this.isEmpty()
       ? Fr.ZERO
