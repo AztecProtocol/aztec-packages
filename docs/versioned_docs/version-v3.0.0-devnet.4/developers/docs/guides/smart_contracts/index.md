@@ -28,6 +28,40 @@ help you write Noir programs to deploy on the Aztec network.
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0.0-devnet.4", directory="noir-projects/smart-contracts/aztec" }
 ```
 
+Update your `main.nr` contract file to use the Aztec.nr macros for writing contracts.
+
+```rust
+use dep::aztec::macros::aztec;
+
+#[aztec]
+pub contract Counter {
+    // Your contract code here
+}
+```
+
+and import dependencies from the Aztec.nr library.
+
+```rust
+use dep::aztec::macros::aztec;
+
+#[aztec]
+pub contract Counter {
+    use aztec::{
+        macros::{functions::{external, initializer}, storage::storage},
+        oracle::debug_log::debug_log_format, protocol_types::{address::AztecAddress, traits::ToField},
+        state_vars::Map,
+    };
+
+    // your contract code here
+}
+```
+
+:::info
+
+You can see a complete example of a simple counter contract written with Aztec.nr [here](https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.4/docs/examples/contracts/counter_contract/src/main.nr).
+
+:::
+
 2.  [Profile](./advanced/how_to_profile_transactions.md) the private functions in your contract to get
     a sense of how long generating client side proofs will take
 3.  Write unit tests [directly in Noir](how_to_test_contracts.md) and end-to-end

@@ -28,12 +28,26 @@ help you write Noir programs to deploy on the Aztec network.
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/smart-contracts/aztec" }
 ```
 
-2.  [Profile](./framework-description/advanced/how_to_profile_transactions.md) the private functions in your contract to get
-    a sense of how long generating client side proofs will take
-3.  Write unit tests [directly in Noir](how_to_test_contracts.md) and end-to-end
-    tests [with TypeScript](../aztec-js/how_to_test.md)
-4.  [Compile](how_to_compile_contract.md) your contract
-5.  [Deploy](../aztec-js/how_to_deploy_contract.md) your contract with Aztec.js
+Update your `main.nr` contract file to use the Aztec.nr macros for writing contracts.
+
+#include_code setup /docs/examples/contracts/counter_contract/src/main.nr rust
+
+and import dependencies from the Aztec.nr library.
+
+#include_code imports /docs/examples/contracts/counter_contract/src/main.nr rust
+
+:::info
+
+You can see a complete example of a simple counter contract written with Aztec.nr [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/docs/examples/contracts/counter_contract/src/main.nr).
+
+:::
+
+2. [Profile](./framework-description/advanced/how_to_profile_transactions.md) the private functions in your contract to get
+   a sense of how long generating client side proofs will take
+3. Write unit tests [directly in Noir](how_to_test_contracts.md) and end-to-end
+   tests [with TypeScript](../aztec-js/how_to_test.md)
+4. [Compile](how_to_compile_contract.md) your contract
+5. [Deploy](../aztec-js/how_to_deploy_contract.md) your contract with Aztec.js
 
 ## Section Contents
 
