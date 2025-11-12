@@ -33,8 +33,11 @@ cat keystore.json | jq .
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": "REQUIRED",
-      "feeRecipient": "REQUIRED"
+      "attester": {
+        "eth": "REQUIRED - Ethereum private key",
+        "bls": "REQUIRED - BLS private key"
+      },
+      "feeRecipient": "REQUIRED - Aztec address"
     }
   ]
 }

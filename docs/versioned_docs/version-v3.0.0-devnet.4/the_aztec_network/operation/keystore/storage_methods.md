@@ -9,19 +9,24 @@ The keystore supports four methods for storing and accessing private keys. These
 
 ## Private keys (inline)
 
-The simplest method is to include private keys directly in the keystore:
+The simplest method is to include private keys directly in the keystore. The `validator-keys new` command generates keystores in this format by default:
 
 ```json
 {
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": "0x1234567890123456789012345678901234567890123456789012345678901234",
-      "feeRecipient": "0x1234567890123456789012345678901234567890123456789012345678901234"
+      "attester": {
+        "eth": "0xef17bcb86452f3f6a73678c01bee757e9d46d1cd0050f043c10cfc953b17bad2",
+        "bls": "0x20f2f5989b66462b39229900948c7846403768fec5b76d1c2937d64e04aac4b9"
+      },
+      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000"
     }
   ]
 }
 ```
+
+Note that the attester field now contains both Ethereum (`eth`) and BLS (`bls`) private keys. Both are required for sequencer operation.
 
 :::warning Not for Production Use
 Inline private keys are convenient for testing but should be avoided in production. Use remote signers or encrypted keystores for production deployments.
@@ -41,12 +46,17 @@ The keystore supports [Web3Signer](https://docs.web3signer.consensys.io/) endpoi
   "remoteSigner": "https://signer.example.com:8080",
   "validators": [
     {
-      "attester": "0x1234567890123456789012345678901234567890",
+      "attester": {
+        "eth": "0x1234567890123456789012345678901234567890",
+        "bls": "0x2345678901234567890123456789012345678901"
+      },
       "feeRecipient": "0x1234567890123456789012345678901234567890123456789012345678901234"
     }
   ]
 }
 ```
+
+In this example, both the Ethereum and BLS attester addresses are managed by the remote signer.
 
 **Validator (sequencer) block level** (applies to all accounts in a sequencer configuration):
 
@@ -55,7 +65,10 @@ The keystore supports [Web3Signer](https://docs.web3signer.consensys.io/) endpoi
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": "0x1234567890123456789012345678901234567890",
+      "attester": {
+        "eth": "0x1234567890123456789012345678901234567890",
+        "bls": "0x2345678901234567890123456789012345678901"
+      },
       "feeRecipient": "0x1234567890123456789012345678901234567890123456789012345678901234",
       "remoteSigner": "https://signer.example.com:8080"
     }
@@ -124,7 +137,10 @@ JSON V3 keystores provide standard Ethereum-compatible encrypted key storage.
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": "0x1234567890123456789012345678901234567890",
+      "attester": {
+        "eth": "0x1234567890123456789012345678901234567890123456789012345678901234",
+        "bls": "0x2345678901234567890123456789012345678901234567890123456789012345"
+      },
       "publisher": {
         "path": "/path/to/keystores/",
         "password": "shared-password"
@@ -148,7 +164,10 @@ Mnemonics derive multiple keys from a single seed phrase using [BIP44](https://g
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": "0x1234567890123456789012345678901234567890",
+      "attester": {
+        "eth": "0x1234567890123456789012345678901234567890123456789012345678901234",
+        "bls": "0x2345678901234567890123456789012345678901234567890123456789012345"
+      },
       "publisher": {
         "mnemonic": "test test test test test test test test test test test junk"
       },

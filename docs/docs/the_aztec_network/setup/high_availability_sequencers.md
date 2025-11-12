@@ -86,35 +86,32 @@ Never transmit private keys over unencrypted channels or store them in version c
 
 ### Step 1: Generate Keys
 
-Generate keystores for your high availability setup using the Aztec CLI. You'll create one keystore per node, each with the same attester but different publishers.
-
-Use a mnemonic to generate keystores with the same attester (derived from address index 0) but different publishers (derived from different address indices):
+Generate a base keystore with multiple publishers using the Aztec CLI. This will create one attester identity with multiple publisher keys that can be distributed across your nodes.
 
 ```bash
-# Node 1
+# Generate base keystore with one attester and 3 publishers
 aztec validator-keys new \
-  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
-  --mnemonic "your shared mnemonic..." \
+  --fee-recipient [YOUR_AZTEC_FEE_RECIPIENT_ADDRESS] \
+  --mnemonic "your shared mnemonic phrase for key derivation" \
   --address-index 0 \
-  --data-dir ~/node1/keys
-
-# Node 2 (same attester, different publisher)
-aztec validator-keys new \
-  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
-  --mnemonic "your shared mnemonic..." \
-  --address-index 1 \
-  --data-dir ~/node2/keys
-
-# Node 3 (same attester, another different publisher)
-aztec validator-keys new \
-  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
-  --mnemonic "your shared mnemonic..." \
-  --address-index 2 \
-  --data-dir ~/node3/keys
+  --publisher-count 3 \
+  --data-dir ~/ha-keys-temp
 ```
 
-:::tip
-You can manually edit each keystore afterward to add the appropriate fee recipient address for your sequencer.
+This command generates:
+- **One attester** with both ETH and BLS keys (at derivation index 0)
+- **Three publisher keys** (at derivation indices 1, 2, and 3)
+- All keys saved to `~/ha-keys-temp/key1.json`
+
+The output will show the complete keystore JSON with all generated keys. **Save this output securely** as you'll need to extract keys from it for each node.
+
+:::tip Managing Your Mnemonic
+Store your mnemonic phrase securely in a password manager or hardware wallet. You'll need it to:
+- Regenerate keys if lost
+- Add more publishers later
+- Recover your sequencer setup
+
+Never commit mnemonics to version control or share them over insecure channels.
 :::
 
 ### Step 2: Fund Publisher Accounts
@@ -147,61 +144,112 @@ cast balance 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb --rpc-url https://sepolia
 Monitor these balances regularly to ensure they don't drop below 0.1 ETH. Falling below this threshold risks slashing. Consider setting up automated alerts when balances drop below 0.15 ETH.
 :::
 
-### Step 3: Configure Node 1 Keystore
+### Step 3: Extract Keys from Generated Keystore
 
-On your first server, create `keystore.json`:
-
-```json
-{
-  "schemaVersion": 1,
-  "validators": [
-    {
-      "attester": ["SHARED_ATTESTER_KEY"],
-      "publisher": ["PUBLISHER_1_KEY"],
-      "coinbase": "YOUR_COINBASE_ADDRESS",
-      "feeRecipient": "YOUR_AZTEC_FEE_RECIPIENT"
-    }
-  ]
-}
-```
-
-Replace:
-- `SHARED_ATTESTER_KEY` - The shared attester private key (same across all nodes)
-- `PUBLISHER_1_KEY` - Unique publisher private key for Node 1
-- `YOUR_COINBASE_ADDRESS` - Ethereum address receiving L1 rewards
-- `YOUR_AZTEC_FEE_RECIPIENT` - Aztec address receiving L2 fees
-
-### Step 4: Configure Node 2 Keystore
-
-On your second server, create `keystore.json` with the same attester but different publisher:
+Open the generated keystore file (`~/ha-keys-temp/key1.json`) and extract the keys. The file will look something like this:
 
 ```json
 {
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": ["SHARED_ATTESTER_KEY"],
-      "publisher": ["PUBLISHER_2_KEY"],
-      "coinbase": "YOUR_COINBASE_ADDRESS",
-      "feeRecipient": "YOUR_AZTEC_FEE_RECIPIENT"
+      "attester": {
+        "eth": "0xABC...123",  // Shared attester ETH key
+        "bls": "0xDEF...456"   // Shared attester BLS key
+      },
+      "publisher": [
+        "0x111...AAA",  // Publisher 1 (for Node 1)
+        "0x222...BBB",  // Publisher 2 (for Node 2)
+        "0x333...CCC"   // Publisher 3 (for Node 3)
+      ],
+      "feeRecipient": "0xYOUR_FEE_RECIPIENT"
     }
   ]
 }
 ```
 
-**Key differences from Node 1:**
-- `attester` value is **the same** (shared identity)
-- `publisher` value is **different** (unique per node)
-- `coinbase` and `feeRecipient` typically remain the same (but can differ if desired)
+You'll use:
+- The **same attester keys** (both ETH and BLS) on all nodes
+- A **different publisher key** for each node
 
-### Step 5: Repeat for Additional Nodes
+### Step 4: Create Node-Specific Keystores
 
-For each additional node (Node 3, 4, etc.):
+Create a separate keystore file for each node, using the same attester but different publishers:
 
-1. Create a new unique publisher key
-2. Fund the publisher address with ETH
-3. Create a keystore with the shared attester and unique publisher
-4. Deploy to a new server/VM
+**Node 1 Keystore** (`~/node1/keys/keystore.json`):
+
+```json
+{
+  "schemaVersion": 1,
+  "validators": [
+    {
+      "attester": {
+        "eth": "0xABC...123",  // Same attester ETH key
+        "bls": "0xDEF...456"   // Same attester BLS key
+      },
+      "publisher": "0x111...AAA",  // Publisher 1 only
+      "feeRecipient": "0xYOUR_FEE_RECIPIENT"
+    }
+  ]
+}
+```
+
+**Node 2 Keystore** (`~/node2/keys/keystore.json`):
+
+```json
+{
+  "schemaVersion": 1,
+  "validators": [
+    {
+      "attester": {
+        "eth": "0xABC...123",  // Same attester ETH key
+        "bls": "0xDEF...456"   // Same attester BLS key
+      },
+      "publisher": "0x222...BBB",  // Publisher 2 only
+      "feeRecipient": "0xYOUR_FEE_RECIPIENT"
+    }
+  ]
+}
+```
+
+**Node 3 Keystore** (`~/node3/keys/keystore.json`):
+
+```json
+{
+  "schemaVersion": 1,
+  "validators": [
+    {
+      "attester": {
+        "eth": "0xABC...123",  // Same attester ETH key
+        "bls": "0xDEF...456"   // Same attester BLS key
+      },
+      "publisher": "0x333...CCC",  // Publisher 3 only
+      "feeRecipient": "0xYOUR_FEE_RECIPIENT"
+    }
+  ]
+}
+```
+
+:::warning Security Best Practice
+After creating node-specific keystores, **securely delete** the base keystore file (`~/ha-keys-temp/key1.json`) that contains all publishers together. Each node should only have access to its own publisher key.
+:::
+
+### Step 5: Deploy Keystores to Nodes
+
+Securely transfer each keystore to its respective node:
+
+```bash
+# Example: Copy keystores to remote nodes via SCP
+scp ~/node1/keys/keystore.json user@node1-server:~/aztec/keys/
+scp ~/node2/keys/keystore.json user@node2-server:~/aztec/keys/
+scp ~/node3/keys/keystore.json user@node3-server:~/aztec/keys/
+```
+
+Ensure proper file permissions on each node:
+
+```bash
+chmod 600 ~/aztec/keys/keystore.json
+```
 
 ### Step 6: Start All Nodes
 

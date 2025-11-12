@@ -158,11 +158,13 @@ Your keystore will have this structure:
         "eth": "ETH_PRIVATE_KEY",
         "bls": "BLS_PRIVATE_KEY"
       },
-      "coinbase": "ETH_ADDRESS"
+      "feeRecipient": "YOUR_AZTEC_FEE_RECIPIENT"
     }
   ]
 }
 ```
+
+Note: By default, no publisher keys are generated. The attester key will be used for both sequencing and publishing to L1. If you want dedicated publisher keys, add `--publisher-count N` when generating the keystore.
 
 :::warning Manual Keystore Creation Not Recommended
 We strongly recommend using the Aztec CLI to generate keystores. Manual creation requires properly formatted BLS keys and signatures, which is error-prone. Use the CLI utility unless you have specific advanced requirements.
@@ -340,15 +342,15 @@ Your sequencer will be added to the validator set once the transaction is confir
 
 The staking dashboard requires your BLS keys from the keystore you created earlier (in [Step 2](#step-2-move-keystore-to-docker-directory)) to be converted into an expanded JSON format with G1 and G2 public key points.
 
-**What you already have:**
+**What you need:**
 
 From your keystore at `aztec-sequencer/keys/keystore.json`, you have:
 - `attester.eth`: Your Ethereum attester address
-- `attester.bls`: Your BLS private key (32-byte hex string)
+- `attester.bls`: Your BLS private key (64-character hex string)
 
 **What the staking dashboard needs:**
 
-The staking dashboard requires this JSON format with expanded BLS key material (G1 and G2 public key points):
+The staking dashboard requires this JSON format with expanded BLS key material:
 
 ```json
 [
@@ -364,7 +366,7 @@ The staking dashboard requires this JSON format with expanded BLS key material (
       "y0": "FIELD_ELEMENT_AS_DECIMAL_STRING",
       "y1": "FIELD_ELEMENT_AS_DECIMAL_STRING"
     },
-    "signature": {
+    "proofOfPossession": {
       "x": "FIELD_ELEMENT_AS_DECIMAL_STRING",
       "y": "FIELD_ELEMENT_AS_DECIMAL_STRING"
     }
@@ -372,68 +374,64 @@ The staking dashboard requires this JSON format with expanded BLS key material (
 ]
 ```
 
-**Field descriptions:**
-- `attester`: Your Ethereum attester address from `keystore.json` → `validators[0].attester.eth`
-- `publicKeyG1`: Your BLS public key on the G1 curve, derived from `attester.bls` (x, y coordinates as decimal strings)
-- `publicKeyG2`: Your BLS public key on the G2 curve, derived from `attester.bls` (x0, x1, y0, y1 coordinates as decimal strings)
-- `signature`: Proof of possession signature to prevent rogue key attacks (x, y coordinates as decimal strings)
+This includes:
+- **`attester`**: Your Ethereum attester address
+- **`publicKeyG1`**: BLS public key on the G1 curve (x, y coordinates as decimal strings)
+- **`publicKeyG2`**: BLS public key on the G2 curve (x0, x1, y0, y1 coordinates as decimal strings)
+- **`proofOfPossession`**: Proof of possession signature to prevent rogue key attacks (x, y coordinates as decimal strings)
 
-:::info Generating Registration JSON
-Your keystore contains the BLS private key at `attester.bls`. You can derive most of the required registration format using the Aztec CLI and TypeScript utilities.
+### Generating Registration JSON Automatically
 
-**Step 1: Extract your keystore values**
+Use the `aztec validator-keys staker` command to automatically generate the complete registration JSON with all required fields:
 
 ```bash
-# Extract your attester address
-jq -r '.validators[0].attester.eth' aztec-sequencer/keys/keystore.json
-
-# Extract your BLS private key
-jq -r '.validators[0].attester.bls' aztec-sequencer/keys/keystore.json
+aztec validator-keys staker \
+  --from aztec-sequencer/keys/keystore.json \
+  --gse-address [GSE_CONTRACT_ADDRESS] \
+  --l1-rpc-urls [YOUR_L1_RPC_URL] \
+  --l1-chain-id [CHAIN_ID] \
+  --output registration.json
 ```
 
-If the second command returns `null`, regenerate your keystore with `--mnemonic` or `--ikm` (see [Generating Keys](#generating-keys)).
+**Parameters:**
+- `--from`: Path to your keystore file
+- `--gse-address`: The GSE (Governance Staking Escrow) contract address for your network
+- `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint (e.g., `https://sepolia.infura.io/v3/YOUR_API_KEY`)
+- `--l1-chain-id`: The L1 chain ID (e.g., `11155111` for Sepolia)
+- `--output`: (Optional) Output file path. If not specified, JSON is written to stdout
 
-**Step 2: Compute G1 and G2 public keys**
+This command automatically:
+1. Extracts your attester address from the keystore
+2. Computes G1 and G2 public keys from your BLS private key
+3. Generates the proof of possession signature by calling the GSE contract
+4. Outputs the complete registration JSON ready for the staking dashboard
 
-You can use the Aztec foundation library to compute the public keys from your BLS private key. Create a TypeScript file:
+**Example for Sepolia testnet:**
 
-```typescript
-import { computeBn254G1PublicKey, computeBn254G2PublicKey } from '@aztec/foundation/crypto';
-
-const blsPrivateKey = 'YOUR_BLS_PRIVATE_KEY_FROM_KEYSTORE'; // 0x-prefixed hex
-const attesterAddress = 'YOUR_ATTESTER_ETH_ADDRESS'; // from keystore
-
-async function generateRegistrationData() {
-  // Compute G1 public key (uncompressed)
-  const g1 = await computeBn254G1PublicKey(blsPrivateKey);
-
-  // Compute G2 public key
-  const g2 = await computeBn254G2PublicKey(blsPrivateKey);
-
-  const registrationData = {
-    attester: attesterAddress,
-    publicKeyG1: {
-      x: g1.x.toString(),
-      y: g1.y.toString(),
-    },
-    publicKeyG2: {
-      x0: g2.x.c0.toString(),
-      x1: g2.x.c1.toString(),
-      y0: g2.y.c0.toString(),
-      y1: g2.y.c1.toString(),
-    },
-    // signature: { x: "...", y: "..." } // TODO: Proof of possession signature
-  };
-
-  console.log(JSON.stringify([registrationData], null, 2));
-}
-
-generateRegistrationData();
+```bash
+aztec validator-keys staker \
+  --from aztec-sequencer/keys/keystore.json \
+  --gse-address 0x1234567890123456789012345678901234567890 \
+  --l1-rpc-urls https://sepolia.infura.io/v3/YOUR_API_KEY \
+  --l1-chain-id 11155111 \
+  --output registration.json
 ```
 
-**Step 3: Generate proof of possession signature**
+The generated `registration.json` file can be directly uploaded to the staking dashboard for sequencer registration.
 
-The signature prevents rogue key attacks by proving you control the private key corresponding to the public keys. Once available, you'll be able to add the signature field to complete your registration JSON.
+:::tip Password-Protected Keystores
+If your keystore is password-protected, provide the password with the `--password` flag:
+
+```bash
+aztec validator-keys staker \
+  --from aztec-sequencer/keys/keystore.json \
+  --password "your-keystore-password" \
+  --gse-address [GSE_CONTRACT_ADDRESS] \
+  --l1-rpc-urls [YOUR_L1_RPC_URL] \
+  --l1-chain-id [CHAIN_ID]
+```
+
+If the password is stored in the keystore file itself, you don't need to provide it explicitly.
 
 ## Monitoring Sequencer Status
 

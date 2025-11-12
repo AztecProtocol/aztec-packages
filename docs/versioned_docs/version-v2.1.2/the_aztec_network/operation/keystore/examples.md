@@ -17,7 +17,10 @@ This page provides complete, ready-to-use keystore configurations for common dep
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": "0x1234567890123456789012345678901234567890123456789012345678901234",
+      "attester": {
+        "eth": "0xef17bcb86452f3f6a73678c01bee757e9d46d1cd0050f043c10cfc953b17bad2",
+        "bls": "0x20f2f5989b66462b39229900948c7846403768fec5b76d1c2937d64e04aac4b9"
+      },
       "feeRecipient": "0x0987654321098765432109876543210987654321098765432109876543210987"
     }
   ]
@@ -55,9 +58,12 @@ This page provides complete, ready-to-use keystore configurations for common dep
   "remoteSigner": "https://signer.example.com:8080",
   "validators": [
     {
-      "attester": "0x1234567890123456789012345678901234567890",
-      "publisher": "0x2345678901234567890123456789012345678901",
-      "coinbase": "0x3456789012345678901234567890123456789012",
+      "attester": {
+        "eth": "0x1234567890123456789012345678901234567890",
+        "bls": "0x2345678901234567890123456789012345678901"
+      },
+      "publisher": "0x3456789012345678901234567890123456789012",
+      "coinbase": "0x4567890123456789012345678901234567890123",
       "feeRecipient": "0x0987654321098765432109876543210987654321098765432109876543210987"
     }
   ]
@@ -72,13 +78,16 @@ This page provides complete, ready-to-use keystore configurations for common dep
   "remoteSigner": "https://signer.example.com:8080",
   "validators": [
     {
-      "attester": "0x1234567890123456789012345678901234567890",
+      "attester": {
+        "eth": "0x1234567890123456789012345678901234567890",
+        "bls": "0x2345678901234567890123456789012345678901"
+      },
       "publisher": [
-        "0x2345678901234567890123456789012345678901",
         "0x3456789012345678901234567890123456789012",
-        "0x4567890123456789012345678901234567890123"
+        "0x4567890123456789012345678901234567890123",
+        "0x5678901234567890123456789012345678901234"
       ],
-      "coinbase": "0x5678901234567890123456789012345678901234",
+      "coinbase": "0x6789012345678901234567890123456789012345",
       "feeRecipient": "0x0987654321098765432109876543210987654321098765432109876543210987"
     }
   ]
@@ -174,7 +183,10 @@ Directory structure:
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": "0xCLIENT_A_ATTESTER_KEY",
+      "attester": {
+        "eth": "0xCLIENT_A_ATTESTER_ETH_KEY",
+        "bls": "0xCLIENT_A_ATTESTER_BLS_KEY"
+      },
       "publisher": ["0xPUBLISHER_1", "0xPUBLISHER_2"],
       "coinbase": "0xCLIENT_A_COINBASE",
       "feeRecipient": "0xCLIENT_A_FEE_RECIPIENT"
@@ -189,7 +201,10 @@ Directory structure:
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": "0xCLIENT_B_ATTESTER_KEY",
+      "attester": {
+        "eth": "0xCLIENT_B_ATTESTER_ETH_KEY",
+        "bls": "0xCLIENT_B_ATTESTER_BLS_KEY"
+      },
       "publisher": ["0xPUBLISHER_1", "0xPUBLISHER_2"],
       "coinbase": "0xCLIENT_B_COINBASE",
       "feeRecipient": "0xCLIENT_B_FEE_RECIPIENT"
@@ -208,7 +223,10 @@ Set `KEY_STORE_DIRECTORY=/etc/aztec/keystores/` to load all configurations.
   "remoteSigner": "https://signer.example.com:8080",
   "validators": [
     {
-      "attester": "0xSEQUENCER_1",
+      "attester": {
+        "eth": "0xSEQUENCER_1_ETH",
+        "bls": "0xSEQUENCER_1_BLS"
+      },
       "publisher": {
         "mnemonic": "provider mnemonic phrase here...",
         "addressCount": 10
@@ -216,7 +234,10 @@ Set `KEY_STORE_DIRECTORY=/etc/aztec/keystores/` to load all configurations.
       "feeRecipient": "0xSEQUENCER_1_FEE_RECIPIENT"
     },
     {
-      "attester": "0xSEQUENCER_2",
+      "attester": {
+        "eth": "0xSEQUENCER_2_ETH",
+        "bls": "0xSEQUENCER_2_BLS"
+      },
       "publisher": {
         "mnemonic": "provider mnemonic phrase here...",
         "addressCount": 10
@@ -239,12 +260,15 @@ This derives 10 publisher addresses from a mnemonic, shared by all sequencers.
   "remoteSigner": "https://signer.example.com:8080",
   "validators": [
     {
-      "attester": "0x1234567890123456789012345678901234567890",
+      "attester": {
+        "eth": "0x1234567890123456789012345678901234567890",
+        "bls": "0x2345678901234567890123456789012345678901"
+      },
       "publisher": [
-        "0x2345678901234567890123456789012345678901234567890123456789012345",
-        "0x3456789012345678901234567890123456789012345678901234567890123456"
+        "0x3456789012345678901234567890123456789012345678901234567890123456",
+        "0x4567890123456789012345678901234567890123456789012345678901234567"
       ],
-      "coinbase": "0x4567890123456789012345678901234567890123",
+      "coinbase": "0x5678901234567890123456789012345678901234",
       "feeRecipient": "0x0987654321098765432109876543210987654321098765432109876543210987"
     }
   ]

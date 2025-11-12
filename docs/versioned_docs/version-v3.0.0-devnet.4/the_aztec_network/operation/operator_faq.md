@@ -345,7 +345,10 @@ CodeError: stream reset
      "schemaVersion": 1,
      "validators": [
        {
-         "attester": ["0xYOUR_PRIVATE_KEY_HERE"],
+         "attester": {
+           "eth": "0xYOUR_ETH_PRIVATE_KEY_HERE",
+           "bls": "0xYOUR_BLS_PRIVATE_KEY_HERE"
+         },
          "publisher": ["0xYOUR_PUBLISHER_KEY_HERE"],
          "coinbase": "0xYOUR_COINBASE_ADDRESS",
          "feeRecipient": "0xYOUR_AZTEC_ADDRESS"
@@ -359,6 +362,7 @@ CodeError: stream reset
    - Keys should start with `0x`
    - Keys should be 64 hexadecimal characters (plus the `0x` prefix)
    - No spaces or extra characters
+   - The attester must contain both `eth` and `bls` keys
 
 3. **Check file permissions**:
 

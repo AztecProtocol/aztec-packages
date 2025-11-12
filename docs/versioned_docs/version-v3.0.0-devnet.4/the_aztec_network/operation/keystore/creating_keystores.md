@@ -17,7 +17,7 @@ A sequencer keystore is a JSON file (typically named `keystore.json`) that conta
 
 - **Attester keys**: Your sequencer's identity used to sign block proposals and attestations (includes both Ethereum and BLS keys)
 - **Publisher keys**: Keys used to submit blocks to L1 (requires ETH for gas)
-- **Coinbase address**: Ethereum address that receives L1 block rewards
+- **Coinbase address**: Ethereum address that receives L2 block rewards on L1
 - **Fee recipient**: Aztec address that receives L2 transaction fees
 
 ## Prerequisites
@@ -57,10 +57,10 @@ aztec validator-keys new \
 
 This command:
 - Automatically generates a mnemonic for key derivation
-- Generates Ethereum keys for your sequencer (attester and publisher)
-- Generates BLS keys required for staking
+- Generates Ethereum attester keys (eth) for signing blocks and attestations
+- Generates BLS attester keys (bls) required for staking
 - Creates a keystore at `~/.aztec/keystore/key1.json`
-- Outputs your sequencer's attester addresses and BLS public keys
+- Outputs the complete keystore JSON including the generated mnemonic
 
 :::tip Provide Your Own Mnemonic
 For deterministic key generation or to regenerate keys later, provide your own mnemonic:
@@ -77,11 +77,25 @@ Save your mnemonic securely - you'll need it to regenerate keys or add more vali
 ```text
 Wrote sequencer keystore to /Users/your-name/.aztec/keystore/key1.json
 
-acc1:
-  attester:
-    eth: 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb
-    bls: 0x1a2b3c4d5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890
+{
+  "schemaVersion": 1,
+  "validators": [
+    {
+      "attester": {
+        "eth": "0xef17bcb86452f3f6a73678c01bee757e9d46d1cd0050f043c10cfc953b17bad2",
+        "bls": "0x20f2f5989b66462b39229900948c7846403768fec5b76d1c2937d64e04aac4b9"
+      },
+      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "generatedMnemonic": "hub planet because false spoon expire name dinner brush tattoo paper dawn"
+}
 ```
+
+The output shows:
+- The attester keys (both Ethereum `eth` and BLS `bls` private keys)
+- The fee recipient address
+- The auto-generated mnemonic phrase (save this securely if you need to regenerate keys later)
 
 :::tip Save Your Keys
 The keystore file contains private keys. Back it up securely and never commit it to version control.
@@ -97,10 +111,9 @@ After creation, you'll have a `keystore.json` file with this structure:
   "validators": [
     {
       "attester": {
-        "eth": "0x1234567890123456789012345678901234567890123456789012345678901234",
-        "bls": "0x2345678901234567890123456789012345678901234567890123456789012345"
+        "eth": "0xef17bcb86452f3f6a73678c01bee757e9d46d1cd0050f043c10cfc953b17bad2",
+        "bls": "0x20f2f5989b66462b39229900948c7846403768fec5b76d1c2937d64e04aac4b9"
       },
-      "coinbase": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
       "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000"
     }
   ]
@@ -110,13 +123,26 @@ After creation, you'll have a `keystore.json` file with this structure:
 **Key fields:**
 
 - **`attester`**: Object containing both Ethereum (eth) and BLS keys for your sequencer identity
-  - **`eth`**: Ethereum private key for signing blocks and attestations
-  - **`bls`**: BLS private key required for staking (automatically generated)
-- **`coinbase`**: Ethereum address receiving L1 rewards (defaults to attester eth address)
-- **`feeRecipient`**: Aztec address receiving L2 fees
+  - **`eth`**: Ethereum private key (64-character hex string) for signing blocks and attestations
+  - **`bls`**: BLS private key (64-character hex string) required for staking (automatically generated)
+- **`feeRecipient`**: Aztec address (64-character hex string) receiving L2 fees
+
+:::note Coinbase Address
+The coinbase address (which receives L1 block rewards) is automatically derived from the Ethereum attester address and doesn't need to be specified in the keystore. If you need a different coinbase address, you can add a `coinbase` field to the validator configuration.
+:::
 
 :::note Publishers
-By default, no publisher accounts are generated (`--publisher-count` defaults to 0). The attester key is used for both sequencing and publishing. To add dedicated publisher accounts, use `--publisher-count N` when creating the keystore.
+By default, no publisher accounts are generated in the keystore (`--publisher-count` defaults to 0 when not specified). When no publisher is specified, the attester key is used for both sequencing and publishing blocks to L1.
+
+To generate dedicated publisher accounts, use `--publisher-count N` when creating the keystore. For example:
+
+```bash
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --publisher-count 1
+```
+
+This will generate one publisher key that will be used for L1 transactions, keeping your attester key separate.
 :::
 
 ## Specifying Output Location
@@ -234,8 +260,8 @@ aztec validator-keys new [options]
 # Add to existing keystore
 aztec validator-keys add <existing-keystore-path> [options]
 
-# Generate BLS keypair only
-aztec generate-bls-keypair [options]
+# Generate staker output from keystore
+aztec validator-keys staker [options]
 ```
 
 ### Common Options

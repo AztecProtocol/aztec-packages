@@ -181,9 +181,18 @@ Update the `coinbase` field in your sequencer node's keystore configuration to t
 
 ```json
 {
-  "attester": "0x...",  // Your sequencer's address / identity (from Step 2)
-  "publisher": "0x...",  // Address that submits blocks to L1
-  "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]"  // Split contract for this delegation
+  "schemaVersion": 1,
+  "validators": [
+    {
+      "attester": {
+        "eth": "0x...",  // Your Ethereum attester private key
+        "bls": "0x..."   // Your BLS attester private key
+      },
+      "publisher": ["0x..."],  // Address that submits blocks to L1
+      "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]",  // Split contract for this delegation
+      "feeRecipient": "0x..."  // Your Aztec address for L2 fees
+    }
+  ]
 }
 ```
 
