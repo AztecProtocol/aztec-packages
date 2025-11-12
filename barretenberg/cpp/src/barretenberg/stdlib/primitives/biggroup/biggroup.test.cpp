@@ -73,10 +73,14 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     }
 
     // Create a random point as a constant
-    static std::pair<affine_element, element_ct> get_random_constant_point([[maybe_unused]] Builder* builder)
+    static std::pair<affine_element, element_ct> get_random_constant_point(Builder* builder)
     {
         affine_element point_native(element::random_element());
-        element_ct point_ct(point_native);
+        // Create constant coordinates with builder context
+        using Fq = typename element_ct::BaseField;
+        Fq x_const(builder, uint256_t(point_native.x));
+        Fq y_const(builder, uint256_t(point_native.y));
+        element_ct point_ct(x_const, y_const);
         return std::make_pair(point_native, point_ct);
     }
 
@@ -1219,6 +1223,12 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             } else {
                 P.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
             }
+
+            // For mega circuit builder, we need to ensure the point at infinity is (0, 0)
+            if constexpr (IsMegaBuilder<Builder>) {
+                P = P.get_standard_form();
+            }
+
             auto [scalar, x] = get_random_scalar(&builder, scalar_type, /*even*/ true);
             affine_element expected_infinity = affine_element(element::infinity());
             run_mul_and_check(P, x, expected_infinity);
@@ -2199,13 +2209,9 @@ TYPED_TEST(stdlib_biggroup, add)
 }
 TYPED_TEST(stdlib_biggroup, add_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_add(InputType::WITNESS, InputType::CONSTANT);  // w + c
-        TestFixture::test_add(InputType::CONSTANT, InputType::WITNESS);  // c + w
-        TestFixture::test_add(InputType::CONSTANT, InputType::CONSTANT); // c + c
-    }
+    TestFixture::test_add(InputType::WITNESS, InputType::CONSTANT);  // w + c
+    TestFixture::test_add(InputType::CONSTANT, InputType::WITNESS);  // c + w
+    TestFixture::test_add(InputType::CONSTANT, InputType::CONSTANT); // c + c
 }
 TYPED_TEST(stdlib_biggroup, add_points_at_infinity)
 {
@@ -2223,13 +2229,9 @@ TYPED_TEST(stdlib_biggroup, sub)
 }
 TYPED_TEST(stdlib_biggroup, sub_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_sub(InputType::WITNESS, InputType::CONSTANT);  // w - c
-        TestFixture::test_sub(InputType::CONSTANT, InputType::WITNESS);  // c - w
-        TestFixture::test_sub(InputType::CONSTANT, InputType::CONSTANT); // c - c
-    }
+    TestFixture::test_sub(InputType::WITNESS, InputType::CONSTANT);  // w - c
+    TestFixture::test_sub(InputType::CONSTANT, InputType::WITNESS);  // c - w
+    TestFixture::test_sub(InputType::CONSTANT, InputType::CONSTANT); // c - c
 }
 TYPED_TEST(stdlib_biggroup, sub_points_at_infinity)
 {
@@ -2241,11 +2243,7 @@ TYPED_TEST(stdlib_biggroup, dbl)
 }
 TYPED_TEST(stdlib_biggroup, dbl_with_constant)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_dbl(InputType::CONSTANT); // dbl(c)
-    }
+    TestFixture::test_dbl(InputType::CONSTANT); // dbl(c)
 }
 TYPED_TEST(stdlib_biggroup, dbl_with_infinity)
 {
@@ -2310,11 +2308,7 @@ TYPED_TEST(stdlib_biggroup, normalize)
 }
 TYPED_TEST(stdlib_biggroup, normalize_constant)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_normalize(InputType::CONSTANT);
-    }
+    TestFixture::test_normalize(InputType::CONSTANT);
 }
 
 // Test reduce
@@ -2324,11 +2318,7 @@ TYPED_TEST(stdlib_biggroup, reduce)
 }
 TYPED_TEST(stdlib_biggroup, reduce_constant)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_reduce(InputType::CONSTANT);
-    }
+    TestFixture::test_reduce(InputType::CONSTANT);
 }
 
 // Test unary negation
@@ -2339,11 +2329,7 @@ TYPED_TEST(stdlib_biggroup, unary_negate)
 
 TYPED_TEST(stdlib_biggroup, unary_negate_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_unary_negate(InputType::CONSTANT);
-    }
+    TestFixture::test_unary_negate(InputType::CONSTANT);
 }
 
 // Test operator+=
@@ -2354,12 +2340,8 @@ TYPED_TEST(stdlib_biggroup, add_assign)
 
 TYPED_TEST(stdlib_biggroup, add_assign_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_add_assign(InputType::WITNESS, InputType::CONSTANT); // w += c
-        TestFixture::test_add_assign(InputType::CONSTANT, InputType::WITNESS); // c += w
-    }
+    TestFixture::test_add_assign(InputType::WITNESS, InputType::CONSTANT); // w += c
+    TestFixture::test_add_assign(InputType::CONSTANT, InputType::WITNESS); // c += w
 }
 
 // Test operator-=
@@ -2369,12 +2351,8 @@ TYPED_TEST(stdlib_biggroup, sub_assign)
 }
 TYPED_TEST(stdlib_biggroup, sub_assign_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_sub_assign(InputType::WITNESS, InputType::CONSTANT); // w -= c
-        TestFixture::test_sub_assign(InputType::CONSTANT, InputType::WITNESS); // c -= w
-    }
+    TestFixture::test_sub_assign(InputType::WITNESS, InputType::CONSTANT); // w -= c
+    TestFixture::test_sub_assign(InputType::CONSTANT, InputType::WITNESS); // c -= w
 }
 // Test checked_unconditional_add
 TYPED_TEST(stdlib_biggroup, checked_unconditional_add)
@@ -2383,13 +2361,9 @@ TYPED_TEST(stdlib_biggroup, checked_unconditional_add)
 }
 TYPED_TEST(stdlib_biggroup, checked_unconditional_add_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_checked_unconditional_add(InputType::WITNESS, InputType::CONSTANT);  // w + c
-        TestFixture::test_checked_unconditional_add(InputType::CONSTANT, InputType::WITNESS);  // c + w
-        TestFixture::test_checked_unconditional_add(InputType::CONSTANT, InputType::CONSTANT); // c + c
-    }
+    TestFixture::test_checked_unconditional_add(InputType::WITNESS, InputType::CONSTANT);  // w + c
+    TestFixture::test_checked_unconditional_add(InputType::CONSTANT, InputType::WITNESS);  // c + w
+    TestFixture::test_checked_unconditional_add(InputType::CONSTANT, InputType::CONSTANT); // c + c
 }
 // Test checked_unconditional_subtract
 TYPED_TEST(stdlib_biggroup, checked_unconditional_subtract)
@@ -2398,14 +2372,9 @@ TYPED_TEST(stdlib_biggroup, checked_unconditional_subtract)
 }
 TYPED_TEST(stdlib_biggroup, checked_unconditional_subtract_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_checked_unconditional_subtract(InputType::WITNESS, InputType::CONSTANT); // w - c
-        TestFixture::test_checked_unconditional_subtract(InputType::CONSTANT, InputType::WITNESS); // c - w
-        TestFixture::test_checked_unconditional_subtract(InputType::CONSTANT,
-                                                         InputType::CONSTANT); // c - c
-    }
+    TestFixture::test_checked_unconditional_subtract(InputType::WITNESS, InputType::CONSTANT);  // w - c
+    TestFixture::test_checked_unconditional_subtract(InputType::CONSTANT, InputType::WITNESS);  // c - w
+    TestFixture::test_checked_unconditional_subtract(InputType::CONSTANT, InputType::CONSTANT); // c - c
 }
 // Test checked_unconditional_add_sub
 TYPED_TEST(stdlib_biggroup, checked_unconditional_add_sub)
@@ -2414,13 +2383,9 @@ TYPED_TEST(stdlib_biggroup, checked_unconditional_add_sub)
 }
 TYPED_TEST(stdlib_biggroup, checked_unconditional_add_sub_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_checked_unconditional_add_sub(InputType::WITNESS, InputType::CONSTANT);  // w, c
-        TestFixture::test_checked_unconditional_add_sub(InputType::CONSTANT, InputType::WITNESS);  // c, w
-        TestFixture::test_checked_unconditional_add_sub(InputType::CONSTANT, InputType::CONSTANT); // c, c
-    }
+    TestFixture::test_checked_unconditional_add_sub(InputType::WITNESS, InputType::CONSTANT);  // w, c
+    TestFixture::test_checked_unconditional_add_sub(InputType::CONSTANT, InputType::WITNESS);  // c, w
+    TestFixture::test_checked_unconditional_add_sub(InputType::CONSTANT, InputType::CONSTANT); // c, c
 }
 // Test conditional_negate
 TYPED_TEST(stdlib_biggroup, conditional_negate)
@@ -2429,13 +2394,9 @@ TYPED_TEST(stdlib_biggroup, conditional_negate)
 }
 TYPED_TEST(stdlib_biggroup, conditional_negate_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_conditional_negate(InputType::WITNESS, InputType::CONSTANT);  // w, c
-        TestFixture::test_conditional_negate(InputType::CONSTANT, InputType::WITNESS);  // c, w
-        TestFixture::test_conditional_negate(InputType::CONSTANT, InputType::CONSTANT); // c, c
-    }
+    TestFixture::test_conditional_negate(InputType::WITNESS, InputType::CONSTANT);  // w, c
+    TestFixture::test_conditional_negate(InputType::CONSTANT, InputType::WITNESS);  // c, w
+    TestFixture::test_conditional_negate(InputType::CONSTANT, InputType::CONSTANT); // c, c
 }
 // Test conditional_select
 TYPED_TEST(stdlib_biggroup, conditional_select)
@@ -2444,17 +2405,13 @@ TYPED_TEST(stdlib_biggroup, conditional_select)
 }
 TYPED_TEST(stdlib_biggroup, conditional_select_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_conditional_select(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w, w, c
-        TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w, c, w
-        TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::CONSTANT);  // w, c, c
-        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);   // c, w, w
-        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::WITNESS);  // c, c, w
-        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);  // c, w, c
-        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT); // c, c, c
-    }
+    TestFixture::test_conditional_select(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w, w, c
+    TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w, c, w
+    TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::CONSTANT);  // w, c, c
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);   // c, w, w
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::WITNESS);  // c, c, w
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);  // c, w, c
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT); // c, c, c
 }
 TYPED_TEST(stdlib_biggroup, incomplete_assert_equal)
 {
@@ -2496,13 +2453,9 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, mul_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_mul(InputType::WITNESS, InputType::CONSTANT);  // w * c
-        TestFixture::test_mul(InputType::CONSTANT, InputType::WITNESS);  // c * w
-        TestFixture::test_mul(InputType::CONSTANT, InputType::CONSTANT); // c * c
-    }
+    TestFixture::test_mul(InputType::WITNESS, InputType::CONSTANT);  // w * c
+    TestFixture::test_mul(InputType::CONSTANT, InputType::WITNESS);  // c * w
+    TestFixture::test_mul(InputType::CONSTANT, InputType::CONSTANT); // c * c
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases)
 {
@@ -2510,13 +2463,9 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_mul_edge_cases(InputType::WITNESS, InputType::CONSTANT);  // w * c
-        TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::WITNESS);  // c * w
-        TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::CONSTANT); // c * c
-    }
+    TestFixture::test_mul_edge_cases(InputType::WITNESS, InputType::CONSTANT);  // w * c
+    TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::WITNESS);  // c * w
+    TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::CONSTANT); // c * c
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_with_bit_lengths)
@@ -2563,12 +2512,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_short_scalars_with_edgecases)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_mixed_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_helper_batch_mul({ InputType::WITNESS, InputType::CONSTANT },
-                                           { InputType::CONSTANT, InputType::WITNESS });
-    }
+    TestFixture::test_helper_batch_mul({ InputType::WITNESS, InputType::CONSTANT },
+                                       { InputType::CONSTANT, InputType::WITNESS });
 }
 
 // 3 points - Base case only
@@ -2602,13 +2547,9 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_short_scalars_with_edgecases)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_mixed_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_helper_batch_mul(
-            { InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT },
-            { InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT });
-    }
+    TestFixture::test_helper_batch_mul(
+        { InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT },
+        { InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT });
 }
 
 // 6 points - Base case only
