@@ -93,7 +93,7 @@ export async function startNode(
     ...config,
   };
 
-  if (!options.sequencer) {
+  if (!options.sequencer && !nodeConfig.fishermanMode) {
     nodeConfig.disableValidator = true;
   } else {
     const sequencerConfig = {

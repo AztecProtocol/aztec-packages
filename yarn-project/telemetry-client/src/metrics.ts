@@ -79,6 +79,13 @@ export const SEQUENCER_REQUIRED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestatio
 export const SEQUENCER_COLLECT_ATTESTATIONS_DURATION = 'aztec.sequencer.attestations.collect_duration';
 export const SEQUENCER_COLLECT_ATTESTATIONS_TIME_ALLOWANCE = 'aztec.sequencer.attestations.collect_allowance';
 
+export const SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT = 'aztec.sequencer.block.proposal_failed_count';
+export const SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT = 'aztec.sequencer.block.proposal_success_count';
+export const SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT = 'aztec.sequencer.block.proposal_precheck_failed_count';
+export const SEQUENCER_SLASHING_ATTEMPTS_COUNT = 'aztec.sequencer.slashing.attempts_count';
+
+export const VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT = 'aztec.validator.invalid_attestation_received_count';
+
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
 export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
 export const L1_PUBLISHER_TX_DURATION = 'aztec.l1_publisher.tx_duration';

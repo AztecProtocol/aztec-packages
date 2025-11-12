@@ -102,6 +102,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** The last slot for which we attempted to vote when sync failed, to prevent duplicate attempts. */
   private lastSlotForVoteWhenSyncFailed: bigint | undefined;
 
+  /** The last slot for which we built a validation block in fisherman mode, to prevent duplicate attempts. */
+  private lastSlotForValidationBlock: bigint | undefined;
+
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
   protected enforceTimeTable: boolean = false;
@@ -132,6 +135,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected log = createLogger('sequencer'),
   ) {
     super();
+
+    // Add [FISHERMAN] prefix to logger if in fisherman mode
+    if (this.config.fishermanMode) {
+      this.log = log.createChild('[FISHERMAN]');
+    }
 
     this.metrics = new SequencerMetrics(telemetry, this.rollupContract, 'Sequencer');
     // Initialize config
@@ -289,10 +297,24 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.PROPOSER_CHECK, slot);
     const [canPropose, proposer] = await this.checkCanPropose(slot);
 
-    // If we are not a proposer, check if we should invalidate a invalid block, and bail
+    // If we are not a proposer check if we should invalidate a invalid block, and bail
     if (!canPropose) {
       await this.considerInvalidatingBlock(syncedTo, slot);
       return;
+    }
+
+    // In fisherman mode, check if we've already validated this slot to prevent duplicate attempts
+    if (this.config.fishermanMode) {
+      if (this.lastSlotForValidationBlock === slot) {
+        this.log.trace(`Already validated block building for slot ${slot} (skipping)`, { slot });
+        return;
+      }
+      this.log.debug(
+        `Building validation block for slot ${slot} (actual proposer: ${proposer?.toString() ?? 'none'})`,
+        { slot, proposer: proposer?.toString() },
+      );
+      // Mark this slot as being validated
+      this.lastSlotForValidationBlock = slot;
     }
 
     // Check that the slot is not taken by a block already (should never happen, since only us can propose for this slot)
@@ -301,16 +323,29 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         `Cannot propose block at next L2 slot ${slot} since that slot was taken by block ${syncedTo.blockNumber}`,
         { ...syncLogData, block: syncedTo.block.header.toInspect() },
       );
+      this.metrics.recordBlockProposalPrecheckFailed('slot_already_taken');
       return;
     }
 
     // We now need to get ourselves a publisher.
     // The returned attestor will be the one we provided if we provided one.
     // Otherwise it will be a valid attestor for the returned publisher.
-    const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
+    // In fisherman mode, pass undefined to use the fisherman's own keystore instead of the actual proposer's
+    const { attestorAddress, publisher } = await this.publisherFactory.create(
+      this.config.fishermanMode ? undefined : proposer,
+    );
     this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
     this.publisher = publisher;
 
+    // In fisherman mode, set the actual proposer's address for simulations
+    if (this.config.fishermanMode) {
+      if (proposer) {
+        publisher.setProposerAddressForSimulation(proposer);
+        this.log.debug(`Set proposer address ${proposer} for simulation in fisherman mode`);
+      }
+    }
+
+    // Get proposer credentials
     const coinbase = this.validatorClient!.getCoinbaseForAttestor(attestorAddress);
     const feeRecipient = this.validatorClient!.getFeeRecipientForAttestor(attestorAddress);
 
@@ -331,6 +366,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         syncLogData,
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed' });
+      this.metrics.recordBlockProposalPrecheckFailed('rollup_contract_check_failed');
       return;
     } else if (canProposeCheck.slot !== slot) {
       this.log.warn(
@@ -338,6 +374,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch' });
+      this.metrics.recordBlockProposalPrecheckFailed('slot_mismatch');
       return;
     } else if (canProposeCheck.blockNumber !== BigInt(newBlockNumber)) {
       this.log.warn(
@@ -345,6 +382,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch' });
+      this.metrics.recordBlockProposalPrecheckFailed('block_number_mismatch');
       return;
     }
 
@@ -358,6 +396,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
 
     // Enqueue governance and slashing votes (returns promises that will be awaited later)
+    // In fisherman mode, we simulate slashing but don't actually publish to L1
     const votesPromises = this.enqueueGovernanceAndSlashingVotes(
       publisher,
       attestorAddress,
@@ -385,15 +424,39 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Wait until the voting promises have resolved, so all requests are enqueued
     await Promise.all(votesPromises);
 
-    // And send the tx to L1
-    const l1Response = await publisher.sendRequests();
-    const proposedBlock = l1Response?.successfulActions.find(a => a === 'propose');
-    if (proposedBlock) {
-      this.lastBlockPublished = block;
-      this.emit('block-published', { blockNumber: newBlockNumber, slot: Number(slot) });
-      await this.metrics.incFilledSlot(publisher.getSenderAddress().toString(), coinbase);
-    } else if (block) {
-      this.emit('block-publish-failed', l1Response ?? {});
+    // In fisherman mode, we don't publish to L1
+    if (this.config.fishermanMode) {
+      // Clear pending requests
+      publisher.clearPendingRequests();
+
+      if (block) {
+        this.log.info(`Validation block building SUCCEEDED for slot ${slot}`, {
+          blockNumber: newBlockNumber,
+          slot: Number(slot),
+          archive: block.archive.toString(),
+          txCount: block.body.txEffects.length,
+        });
+        this.lastBlockPublished = block;
+        this.metrics.recordBlockProposalSuccess();
+      } else {
+        // Block building failed in fisherman mode
+        this.log.warn(`Validation block building FAILED for slot ${slot}`, {
+          blockNumber: newBlockNumber,
+          slot: Number(slot),
+        });
+        this.metrics.recordBlockProposalFailed('block_build_failed');
+      }
+    } else {
+      // Normal mode: send the tx to L1
+      const l1Response = await publisher.sendRequests();
+      const proposedBlock = l1Response?.successfulActions.find(a => a === 'propose');
+      if (proposedBlock) {
+        this.lastBlockPublished = block;
+        this.emit('block-published', { blockNumber: newBlockNumber, slot: Number(slot) });
+        await this.metrics.incFilledSlot(publisher.getSenderAddress().toString(), coinbase);
+      } else if (block) {
+        this.emit('block-publish-failed', l1Response ?? {});
+      }
     }
 
     this.setState(SequencerState.IDLE, undefined);
@@ -449,6 +512,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         } else {
           this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
         }
+        this.metrics.recordBlockProposalFailed(err.name || 'unknown_error');
       }
     } else {
       this.log.verbose(
@@ -456,6 +520,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         { chainTipArchive, blockNumber: newBlockNumber, slot },
       );
       this.emit('tx-count-check-failed', { minTxs: this.minTxsPerBlock, availableTxs: pendingTxCount });
+      this.metrics.recordBlockProposalFailed('insufficient_txs');
     }
     return block;
   }
@@ -631,18 +696,28 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         },
       );
 
-      this.log.debug('Collecting attestations');
-      const attestationsAndSigners = await this.collectAttestations(block, usedTxs, proposerAddress);
-      this.log.verbose(
-        `Collected ${attestationsAndSigners.attestations.length} attestations for block ${blockNumber} at slot ${slot}`,
-        { blockHash, blockNumber, slot },
-      );
+      // In fisherman mode, skip attestation collection
+      let attestationsAndSigners: CommitteeAttestationsAndSigners;
+      if (this.config.fishermanMode) {
+        this.log.debug('Skipping attestation collection');
+        attestationsAndSigners = CommitteeAttestationsAndSigners.empty();
+      } else {
+        this.log.debug('Collecting attestations');
+        attestationsAndSigners = await this.collectAttestations(block, usedTxs, proposerAddress);
+        this.log.verbose(
+          `Collected ${attestationsAndSigners.attestations.length} attestations for block ${blockNumber} at slot ${slot}`,
+          { blockHash, blockNumber, slot },
+        );
+      }
 
+      // In fisherman mode, skip attestation signing
       const attestationsAndSignersSignature =
-        (await this.validatorClient?.signAttestationsAndSigners(
-          attestationsAndSigners,
-          proposerAddress ?? publisher.getSenderAddress(),
-        )) ?? Signature.empty();
+        this.config.fishermanMode || !this.validatorClient
+          ? Signature.empty()
+          : await this.validatorClient.signAttestationsAndSigners(
+              attestationsAndSigners,
+              proposerAddress ?? publisher.getSenderAddress(),
+            );
 
       await this.enqueuePublishL2Block(
         block,
@@ -950,7 +1025,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       const enqueueSlashingPromise = this.slasherClient
         ? this.slasherClient
             .getProposerActions(slot)
-            .then(actions => publisher.enqueueSlashingActions(actions, slot, timestamp, attestorAddress, signerFn))
+            .then(actions => {
+              // Record metrics for fisherman mode
+              if (this.config.fishermanMode && actions.length > 0) {
+                this.log.debug(`Fisherman mode: simulating ${actions.length} slashing action(s) for slot ${slot}`, {
+                  slot,
+                  actionCount: actions.length,
+                });
+                this.metrics.recordSlashingAttempt(actions.length);
+              }
+              // Enqueue the actions to fully simulate L1 tx building (they won't be sent in fisherman mode)
+              return publisher.enqueueSlashingActions(actions, slot, timestamp, attestorAddress, signerFn);
+            })
             .catch(err => {
               this.log.error(`Error enqueuing slashing actions`, err, { slot });
               return false;
@@ -970,6 +1056,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   protected async checkCanPropose(slot: bigint): Promise<[boolean, EthAddress | undefined]> {
     let proposer: EthAddress | undefined;
+
     try {
       proposer = await this.epochCache.getProposerAttesterAddressInSlot(slot);
     } catch (e) {
@@ -984,6 +1071,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // If proposer is undefined, then the committee is empty and anyone may propose
     if (proposer === undefined) {
       return [true, undefined];
+    }
+    // In fisherman mode, just return the current proposer
+    if (this.config.fishermanMode) {
+      return [true, proposer];
     }
 
     const validatorAddresses = this.validatorClient!.getValidatorAddresses();
@@ -1129,7 +1220,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
 
     publisher.enqueueInvalidateBlock(invalidateBlock);
-    await publisher.sendRequests();
+
+    if (!this.config.fishermanMode) {
+      await publisher.sendRequests();
+    } else {
+      this.log.info('Invalidating block in fisherman mode, clearing pending requests');
+      publisher.clearPendingRequests();
+    }
   }
 
   private getSlotStartBuildTimestamp(slotNumber: number | bigint): number {

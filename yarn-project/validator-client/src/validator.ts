@@ -45,6 +45,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   public readonly tracer: Tracer;
   private validationService: ValidationService;
   private metrics: ValidatorMetrics;
+  private log: Logger;
 
   // Whether it has already registered handlers on the p2p client
   private hasRegisteredHandlers = false;
@@ -65,16 +66,20 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private config: ValidatorClientFullConfig,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('validator'),
+    log = createLogger('validator'),
   ) {
     super();
+
+    // Create child logger with fisherman prefix if in fisherman mode
+    this.log = config.fishermanMode ? log.createChild('[FISHERMAN]') : log;
+
     this.tracer = telemetry.getTracer('Validator');
     this.metrics = new ValidatorMetrics(telemetry);
 
-    this.validationService = new ValidationService(keyStore, log.createChild('validation-service'));
+    this.validationService = new ValidationService(keyStore, this.log.createChild('validation-service'));
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
-    this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommitteeUpdate.bind(this), log, 1000);
+    this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommitteeUpdate.bind(this), this.log, 1000);
 
     const myAddresses = this.getValidatorAddresses();
     this.log.verbose(`Initialized validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
@@ -276,12 +281,16 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.log.info(`Received proposal for slot ${slotNumber}`, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
+      fishermanMode: this.config.fishermanMode || false,
     });
 
     // Reexecute txs if we are part of the committee so we can attest, or if slashing is enabled so we can slash
     // invalid proposals even when not in the committee, or if we are configured to always reexecute for monitoring purposes.
-    const { validatorReexecute, slashBroadcastedInvalidBlockPenalty, alwaysReexecuteBlockProposals } = this.config;
+    // In fisherman mode, we always reexecute to validate proposals.
+    const { validatorReexecute, slashBroadcastedInvalidBlockPenalty, alwaysReexecuteBlockProposals, fishermanMode } =
+      this.config;
     const shouldReexecute =
+      fishermanMode ||
       (slashBroadcastedInvalidBlockPenalty > 0n && validatorReexecute) ||
       (partOfCommittee && validatorReexecute) ||
       alwaysReexecuteBlockProposals;
@@ -325,17 +334,47 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Check that I have any address in current committee before attesting
-    if (!partOfCommittee) {
+    // In fisherman mode, we still create attestations for validation even if not in committee
+    if (!partOfCommittee && !this.config.fishermanMode) {
       this.log.verbose(`No validator in the current committee, skipping attestation`, proposalInfo);
       return undefined;
     }
 
     // Provided all of the above checks pass, we can attest to the proposal
-    this.log.info(`Attesting to proposal for slot ${slotNumber}`, proposalInfo);
+    this.log.info(`${partOfCommittee ? 'Attesting to' : 'Validated'} proposal for slot ${slotNumber}`, {
+      ...proposalInfo,
+      inCommittee: partOfCommittee,
+      fishermanMode: this.config.fishermanMode || false,
+    });
+
     this.metrics.incSuccessfulAttestations(inCommittee.length);
 
     // If the above function does not throw an error, then we can attest to the proposal
-    return this.createBlockAttestationsFromProposal(proposal, inCommittee);
+    // Determine which validators should attest
+    let attestors: EthAddress[];
+    if (partOfCommittee) {
+      attestors = inCommittee;
+    } else if (this.config.fishermanMode) {
+      // In fisherman mode, create attestations for validation purposes even if not in committee. These won't be broadcast.
+      attestors = this.getValidatorAddresses();
+    } else {
+      attestors = [];
+    }
+
+    // Only create attestations if we have attestors
+    if (attestors.length === 0) {
+      return undefined;
+    }
+
+    if (this.config.fishermanMode) {
+      // bail out early and don't save attestations to the pool in fisherman mode
+      this.log.info(`Creating attestations for proposal for slot ${slotNumber}`, {
+        ...proposalInfo,
+        attestors: attestors.map(a => a.toString()),
+      });
+      return undefined;
+    }
+    return this.createBlockAttestationsFromProposal(proposal, attestors);
   }
 
   private slashInvalidBlock(proposal: BlockProposal) {

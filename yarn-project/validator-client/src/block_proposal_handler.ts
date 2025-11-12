@@ -73,6 +73,9 @@ export class BlockProposalHandler {
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('validator:block-proposal-handler'),
   ) {
+    if (config.fishermanMode) {
+      this.log = this.log.createChild('[FISHERMAN]');
+    }
     this.tracer = telemetry.getTracer('BlockProposalHandler');
   }
 

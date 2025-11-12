@@ -51,7 +51,11 @@ import { createLibp2p } from 'libp2p';
 
 import type { P2PConfig } from '../../config.js';
 import type { MemPools } from '../../mem_pools/interface.js';
-import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
+import {
+  AttestationValidator,
+  BlockProposalValidator,
+  FishermanAttestationValidator,
+} from '../../msg_validators/index.js';
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
 import { type MessageValidator, createTxMessageValidators } from '../../msg_validators/tx_validator/factory.js';
@@ -140,6 +144,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   private instrumentation: P2PInstrumentation;
 
+  protected logger: Logger;
+
   constructor(
     private clientType: T,
     private config: P2PConfig,
@@ -153,9 +159,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
-    protected logger = createLogger('p2p:libp2p_service'),
+    logger: Logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
+
+    // Create child logger with fisherman prefix if in fisherman mode
+    this.logger = config.fishermanMode ? logger.createChild('[FISHERMAN]') : logger;
 
     this.instrumentation = new P2PInstrumentation(telemetry, 'LibP2PService');
 
@@ -174,7 +183,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.protocolVersion,
     );
 
-    this.attestationValidator = new AttestationValidator(epochCache);
+    // Use FishermanAttestationValidator in fisherman mode to validate attestation payloads against proposals
+    this.attestationValidator = config.fishermanMode
+      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool!, telemetry)
+      : new AttestationValidator(epochCache);
     this.blockProposalValidator = new BlockProposalValidator(epochCache, { txsPermitted: !config.disableTransactions });
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
@@ -896,7 +908,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const attestations = await this.blockReceivedCallback(block, sender);
 
     // TODO: fix up this pattern - the abstraction is not nice
-    // The attestation can be undefined if no handler is registered / the validator deems the block invalid
+    // The attestation can be undefined if no handler is registered / the validator deems the block invalid / in fisherman mode
     if (attestations?.length) {
       for (const attestation of attestations) {
         this.logger.verbose(`Broadcasting attestation for slot ${attestation.slotNumber.toNumber()}`, {
@@ -1021,19 +1033,21 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   private async validateRequestedTx(tx: Tx, peerId: PeerId, txValidator: TxValidator, requested?: Set<`0x${string}`>) {
+    const penalize = (severity: PeerErrorSeverity) => this.peerManager.penalizePeer(peerId, severity);
+
     if (!(await tx.validateTxHash())) {
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+      penalize(PeerErrorSeverity.MidToleranceError);
       throw new ValidationError(`Received tx with invalid hash ${tx.getTxHash().toString()}.`);
     }
 
     if (requested && !requested.has(tx.getTxHash().toString())) {
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+      penalize(PeerErrorSeverity.MidToleranceError);
       throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that was not requested.`);
     }
 
     const { result } = await txValidator.validateTx(tx);
     if (result === 'invalid') {
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      penalize(PeerErrorSeverity.LowToleranceError);
       throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that is invalid.`);
     }
   }

@@ -4,8 +4,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type BlockAttestation, type P2PValidator, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 export class AttestationValidator implements P2PValidator<BlockAttestation> {
-  private epochCache: EpochCacheInterface;
-  private logger: Logger;
+  protected epochCache: EpochCacheInterface;
+  protected logger: Logger;
 
   constructor(epochCache: EpochCacheInterface) {
     this.epochCache = epochCache;

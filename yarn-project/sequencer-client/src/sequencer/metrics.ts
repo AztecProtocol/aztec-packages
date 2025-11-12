@@ -36,6 +36,11 @@ export class SequencerMetrics {
   private slots: UpDownCounter;
   private filledSlots: UpDownCounter;
 
+  private blockProposalFailed: UpDownCounter;
+  private blockProposalSuccess: UpDownCounter;
+  private blockProposalPrecheckFailed: UpDownCounter;
+  private slashingAttempts: UpDownCounter;
+
   private lastSeenSlot?: bigint;
 
   constructor(
@@ -121,6 +126,29 @@ export class SequencerMetrics {
       valueType: ValueType.INT,
       description: 'The minimum number of attestations required to publish a block',
     });
+
+    this.blockProposalFailed = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The number of times block proposal failed (including validation builds)',
+    });
+
+    this.blockProposalSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The number of times block proposal succeeded (including validation builds)',
+    });
+
+    this.blockProposalPrecheckFailed = this.meter.createUpDownCounter(
+      Metrics.SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT,
+      {
+        valueType: ValueType.INT,
+        description: 'The number of times block proposal pre-build checks failed',
+      },
+    );
+
+    this.slashingAttempts = this.meter.createUpDownCounter(Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The number of slashing action attempts',
+    });
   }
 
   public recordRequiredAttestations(requiredAttestationsCount: number, allowanceMs: number) {
@@ -187,5 +215,25 @@ export class SequencerMetrics {
         // no-op
       }
     }
+  }
+
+  recordBlockProposalFailed(reason?: string) {
+    this.blockProposalFailed.add(1, {
+      ...(reason && { [Attributes.ERROR_TYPE]: reason }),
+    });
+  }
+
+  recordBlockProposalSuccess() {
+    this.blockProposalSuccess.add(1);
+  }
+
+  recordBlockProposalPrecheckFailed(checkType: string) {
+    this.blockProposalPrecheckFailed.add(1, {
+      [Attributes.ERROR_TYPE]: checkType,
+    });
+  }
+
+  recordSlashingAttempt(actionCount: number) {
+    this.slashingAttempts.add(actionCount);
   }
 }

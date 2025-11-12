@@ -17,6 +17,8 @@ export type SharedNodeConfig = {
 
   /** URL of the Web3Signer instance */
   web3SignerUrl?: string;
+  /** Whether to run in fisherman mode */
+  fishermanMode?: boolean;
 };
 
 export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
@@ -60,5 +62,10 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
     env: 'WEB3_SIGNER_URL',
     description: 'URL of the Web3Signer instance',
     parseEnv: (val: string) => val.trim(),
+  },
+  fishermanMode: {
+    env: 'FISHERMAN_MODE',
+    description: 'Whether to run in fisherman mode.',
+    ...booleanConfigHelper(false),
   },
 };

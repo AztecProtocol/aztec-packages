@@ -64,6 +64,12 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
       'Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).',
     ...booleanConfigHelper(false),
   },
+  fishermanMode: {
+    env: 'FISHERMAN_MODE',
+    description:
+      'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
+    ...booleanConfigHelper(false),
+  },
 };
 
 /**

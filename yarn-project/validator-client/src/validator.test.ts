@@ -464,6 +464,28 @@ describe('ValidatorClient', () => {
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeUndefined();
     });
+
+    it('should validate proposals in fisherman mode but not create or broadcast attestations', async () => {
+      // Enable fisherman mode (which also triggers re-execution)
+      validatorClient.updateConfig({ fishermanMode: true });
+
+      // Enable re-execution (required in fisherman mode)
+      enableReexecution();
+
+      // Set up so validator is NOT in the committee
+      epochCache.filterInCommittee.mockResolvedValueOnce([]);
+
+      // Spy on addAttestations to verify attestations are NOT added to the pool
+      const addAttestationsSpy = jest.spyOn(p2pClient, 'addAttestations');
+
+      const attestations = await validatorClient.attestToProposal(proposal, sender);
+
+      // In fisherman mode, no attestations should be created or returned
+      expect(attestations).toBeUndefined();
+
+      // Attestations should NOT be added to the p2p pool
+      expect(addAttestationsSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe('handling auth requests', () => {
