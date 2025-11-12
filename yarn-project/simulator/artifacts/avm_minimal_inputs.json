@@ -98,6 +98,9 @@
         "name": "0x0d6ab3ae"
       }
     ],
+    "contractDBCreateCheckpointHints": [{ "actionCounter": 0, "oldCheckpointId": 0, "newCheckpointId": 1 }],
+    "contractDBCommitCheckpointHints": [{ "actionCounter": 1, "oldCheckpointId": 1, "newCheckpointId": 0 }],
+    "contractDBRevertCheckpointHints": [],
     "startingTreeRoots": {
       "l1ToL2MessageTree": {
         "root": "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5",
@@ -892,10 +895,7 @@
     "appendLeavesHints": [],
     "createCheckpointHints": [{ "actionCounter": 0, "oldCheckpointId": 0, "newCheckpointId": 1 }],
     "commitCheckpointHints": [{ "actionCounter": 1, "oldCheckpointId": 1, "newCheckpointId": 0 }],
-    "revertCheckpointHints": [],
-    "contractDBCreateCheckpointHints": [{ "actionCounter": 0, "oldCheckpointId": 0, "newCheckpointId": 1 }],
-    "contractDBCommitCheckpointHints": [{ "actionCounter": 1, "oldCheckpointId": 1, "newCheckpointId": 0 }],
-    "contractDBRevertCheckpointHints": []
+    "revertCheckpointHints": []
   },
   "publicInputs": {
     "globalVariables": {

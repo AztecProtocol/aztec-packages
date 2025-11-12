@@ -59,6 +59,9 @@ import {
   AvmCircuitPublicInputs,
   AvmCommitCheckpointHint,
   AvmContractClassHint,
+  AvmContractDBCommitCheckpointHint,
+  AvmContractDBCreateCheckpointHint,
+  AvmContractDBRevertCheckpointHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
   AvmDebugFunctionNameHint,
@@ -1364,6 +1367,30 @@ export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevert
   );
 }
 
+export function makeAvmContractDBCheckpointActionCreateCheckpointHint(seed = 0): AvmContractDBCreateCheckpointHint {
+  return new AvmContractDBCreateCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmContractDBCheckpointActionCommitCheckpointHint(seed = 0): AvmContractDBCommitCheckpointHint {
+  return new AvmContractDBCommitCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmContractDBCheckpointActionRevertCheckpointHint(seed = 0): AvmContractDBRevertCheckpointHint {
+  return new AvmContractDBRevertCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1479,6 +1506,21 @@ export async function makeAvmExecutionHints(
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
     debugFunctionNames: makeArray(baseLength + 5, makeAvmDebugFunctionNameHint, seed + 0x4a00),
+    contractDBCreateCheckpointHints: makeArray(
+      baseLength + 5,
+      makeAvmContractDBCheckpointActionCreateCheckpointHint,
+      seed + 0x5900,
+    ),
+    contractDBCommitCheckpointHints: makeArray(
+      baseLength + 5,
+      makeAvmContractDBCheckpointActionCommitCheckpointHint,
+      seed + 0x5b00,
+    ),
+    contractDBRevertCheckpointHints: makeArray(
+      baseLength + 5,
+      makeAvmContractDBCheckpointActionRevertCheckpointHint,
+      seed + 0x5d00,
+    ),
     startingTreeRoots: makeTreeSnapshots(seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
     getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
@@ -1514,6 +1556,9 @@ export async function makeAvmExecutionHints(
     fields.contractClasses,
     fields.bytecodeCommitments,
     fields.debugFunctionNames,
+    fields.contractDBCreateCheckpointHints,
+    fields.contractDBCommitCheckpointHints,
+    fields.contractDBRevertCheckpointHints,
     fields.startingTreeRoots,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,
