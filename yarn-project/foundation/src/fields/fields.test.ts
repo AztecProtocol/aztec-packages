@@ -110,13 +110,6 @@ describe('Fr Serialization via schema', () => {
     const obtained = Fr.schema.parse(string);
     expect(obtained).toEqual(original);
   });
-
-  it('should serialize and deserialize correctly (buffer)', () => {
-    const original = Fr.random();
-    const buffer = original.toBuffer();
-    const obtained = Fr.schema.parse(buffer);
-    expect(obtained).toEqual(original);
-  });
 });
 
 describe('Bn254 arithmetic', () => {

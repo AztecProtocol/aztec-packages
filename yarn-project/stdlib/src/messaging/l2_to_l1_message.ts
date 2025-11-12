@@ -31,6 +31,17 @@ export class L2ToL1Message {
   }
 
   /**
+   * Creates an L2ToL1Message instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing L2ToL1Message fields
+   * @returns An L2ToL1Message instance
+   */
+  static fromPlainObject(obj: any): L2ToL1Message {
+    return new L2ToL1Message(EthAddress.fromPlainObject(obj.recipient), Fr.fromPlainObject(obj.content));
+  }
+
+  /**
    * Checks if another L2ToL1Message is equal to this instance.
    * @param other Another L2ToL1Message instance to compare with.
    * @returns True if both recipient and content are equal.
@@ -147,6 +158,20 @@ export class ScopedL2ToL1Message {
 
   static empty() {
     return new ScopedL2ToL1Message(L2ToL1Message.empty(), AztecAddress.ZERO);
+  }
+
+  /**
+   * Creates a ScopedL2ToL1Message instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing ScopedL2ToL1Message fields
+   * @returns A ScopedL2ToL1Message instance
+   */
+  static fromPlainObject(obj: any): ScopedL2ToL1Message {
+    return new ScopedL2ToL1Message(
+      L2ToL1Message.fromPlainObject(obj.message),
+      AztecAddress.fromPlainObject(obj.contractAddress),
+    );
   }
 
   isEmpty(): boolean {

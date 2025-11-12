@@ -149,6 +149,35 @@ export class AvmAccumulatedData {
     );
   }
 
+  /**
+   * Creates an AvmAccumulatedData instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmAccumulatedData fields
+   * @returns An AvmAccumulatedData instance
+   */
+  static fromPlainObject(obj: any): AvmAccumulatedData {
+    return new AvmAccumulatedData(
+      assertLength(
+        obj.noteHashes.map((h: any) => Fr.fromPlainObject(h)),
+        MAX_NOTE_HASHES_PER_TX,
+      ),
+      assertLength(
+        obj.nullifiers.map((n: any) => Fr.fromPlainObject(n)),
+        MAX_NULLIFIERS_PER_TX,
+      ),
+      assertLength(
+        obj.l2ToL1Msgs.map((m: any) => ScopedL2ToL1Message.fromPlainObject(m)),
+        MAX_L2_TO_L1_MSGS_PER_TX,
+      ),
+      FlatPublicLogs.fromPlainObject(obj.publicLogs),
+      assertLength(
+        obj.publicDataWrites.map((w: any) => PublicDataWrite.fromPlainObject(w)),
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      ),
+    );
+  }
+
   isEmpty(): boolean {
     return (
       this.noteHashes.every(x => x.isZero()) &&
@@ -263,6 +292,17 @@ export class AvmAccumulatedDataArrayLengths {
 
   static empty() {
     return new AvmAccumulatedDataArrayLengths(0, 0, 0, 0);
+  }
+
+  /**
+   * Creates an AvmAccumulatedDataArrayLengths instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmAccumulatedDataArrayLengths fields
+   * @returns An AvmAccumulatedDataArrayLengths instance
+   */
+  static fromPlainObject(obj: any): AvmAccumulatedDataArrayLengths {
+    return new AvmAccumulatedDataArrayLengths(obj.noteHashes, obj.nullifiers, obj.l2ToL1Msgs, obj.publicDataWrites);
   }
 
   [inspect.custom]() {

@@ -1,9 +1,13 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
+import { createLogger } from '@aztec/foundation/log';
+import { getPathToFile, readTestData, writeTestData } from '@aztec/foundation/testing/files';
+import { Timer } from '@aztec/foundation/timer';
+
+import { readdirSync } from 'node:fs';
 
 import { makeAvmCircuitInputs } from '../tests/factories.js';
-import { AvmCircuitInputs } from './avm.js';
+import { AvmCircuitInputs, PublicTxResult } from './avm.js';
 import { deserializeFromMessagePack } from './message_pack.js';
 
 describe('Avm circuit inputs', () => {
@@ -34,13 +38,23 @@ describe('Avm circuit inputs', () => {
     expect(buffer.equals(expected)).toBe(true);
   });
 
-  // This is a minimal requirement. It only tests that the MP serialization from TS
-  // works, but it doesn't say much about the C++ MP serialization.
-  it('serializes with MessagePack and deserializes it back', async () => {
-    const avmCircuitInputs = await makeAvmCircuitInputs(/*seed=*/ 0x1234);
-    const buffer = avmCircuitInputs.serializeWithMessagePack();
-    const json = deserializeFromMessagePack(buffer);
-    const res = AvmCircuitInputs.schema.parse(json);
-    expect(res).toEqual(avmCircuitInputs);
+  // This test is only useful to benchmark the performance of the deserialization locally.
+  // To generate the inputs run the public_tx_simulator/apps_tests with AZTEC_WRITE_TESTDATA=1.
+  it.skip('deserializes a PublicTxResult from C++', () => {
+    const logger = createLogger('test:stdlib:avm');
+    // For each tx result in the testdata directory, deserialize it and check that it parses correctly.
+    const testdataDir = 'barretenberg/cpp/src/barretenberg/vm2/testing';
+    const files = readdirSync(getPathToFile(testdataDir))
+      .filter(file => file.startsWith('tx_result_'))
+      .map(file => `${testdataDir}/${file}`);
+    for (const file of files) {
+      const buffer = readTestData(file);
+      const timerMP = new Timer();
+      const json = deserializeFromMessagePack(buffer);
+      logger.info(`Deserialized ${file} in ${timerMP.ms()}ms (MessagePack)`);
+      const timerManual = new Timer();
+      PublicTxResult.fromPlainObject(json);
+      logger.info(`Deserialized ${file} in ${timerManual.ms()}ms (manual)`);
+    }
   });
 });

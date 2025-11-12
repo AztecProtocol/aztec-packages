@@ -65,6 +65,20 @@ export class GasFees {
     return new GasFees(fields.feePerDaGas, fields.feePerL2Gas);
   }
 
+  /**
+   * Creates a GasFees instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing GasFees fields
+   * @returns A GasFees instance
+   */
+  static fromPlainObject(obj: any): GasFees {
+    if (obj instanceof GasFees) {
+      return obj;
+    }
+    return GasFees.from(obj);
+  }
+
   static random() {
     return new GasFees(Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9));
   }

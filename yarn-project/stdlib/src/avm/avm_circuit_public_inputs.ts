@@ -276,6 +276,46 @@ export class AvmCircuitPublicInputs {
     );
   }
 
+  /**
+   * Creates an AvmCircuitPublicInputs instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmCircuitPublicInputs fields
+   * @returns An AvmCircuitPublicInputs instance
+   */
+  static fromPlainObject(obj: any): AvmCircuitPublicInputs {
+    return new AvmCircuitPublicInputs(
+      GlobalVariables.fromPlainObject(obj.globalVariables),
+      ProtocolContracts.fromPlainObject(obj.protocolContracts),
+      TreeSnapshots.fromPlainObject(obj.startTreeSnapshots),
+      Gas.fromPlainObject(obj.startGasUsed),
+      GasSettings.fromPlainObject(obj.gasSettings),
+      GasFees.fromPlainObject(obj.effectiveGasFees),
+      AztecAddress.fromPlainObject(obj.feePayer),
+      Fr.fromPlainObject(obj.proverId),
+      PublicCallRequestArrayLengths.fromPlainObject(obj.publicCallRequestArrayLengths),
+      assertLength(
+        obj.publicSetupCallRequests.map((r: any) => PublicCallRequest.fromPlainObject(r)),
+        MAX_ENQUEUED_CALLS_PER_TX,
+      ),
+      assertLength(
+        obj.publicAppLogicCallRequests.map((r: any) => PublicCallRequest.fromPlainObject(r)),
+        MAX_ENQUEUED_CALLS_PER_TX,
+      ),
+      PublicCallRequest.fromPlainObject(obj.publicTeardownCallRequest),
+      PrivateToAvmAccumulatedDataArrayLengths.fromPlainObject(obj.previousNonRevertibleAccumulatedDataArrayLengths),
+      PrivateToAvmAccumulatedDataArrayLengths.fromPlainObject(obj.previousRevertibleAccumulatedDataArrayLengths),
+      PrivateToAvmAccumulatedData.fromPlainObject(obj.previousNonRevertibleAccumulatedData),
+      PrivateToAvmAccumulatedData.fromPlainObject(obj.previousRevertibleAccumulatedData),
+      TreeSnapshots.fromPlainObject(obj.endTreeSnapshots),
+      Gas.fromPlainObject(obj.endGasUsed),
+      AvmAccumulatedDataArrayLengths.fromPlainObject(obj.accumulatedDataArrayLengths),
+      AvmAccumulatedData.fromPlainObject(obj.accumulatedData),
+      Fr.fromPlainObject(obj.transactionFee),
+      obj.reverted,
+    );
+  }
+
   public serializeWithMessagePack(): Buffer {
     return serializeWithMessagePack(this);
   }

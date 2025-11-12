@@ -772,6 +772,37 @@ export class PublicTxResult {
           ),
       );
   }
+
+  // TODO(fcarreiro): We temporarily use Zod as a glue.
+  static fromPlainObject(obj: any): PublicTxResult {
+    return z
+      .object({
+        gasUsed: schemas.GasUsed,
+        revertCode: RevertCode.schema,
+        revertReason: NullishToUndefined(SimulationError.schema),
+        // TODO(fcarreiro): Use actual Phases type schema.
+        processedPhases: NullishToUndefined(z.any().array()),
+        logs: NullishToUndefined(DebugLog.schema.array()),
+        // For the proving request.
+        publicInputs: z.any().transform(AvmCircuitPublicInputs.fromPlainObject),
+        // TODO(fcarreiro): Use actual AvmExecutionHints type schema.
+        // I'm always returning undefined because we can't yet handle hints.
+        hints: z.any().transform(_ => undefined),
+      })
+      .transform(
+        ({ gasUsed, revertCode, revertReason, processedPhases, logs, hints, publicInputs }) =>
+          new PublicTxResult(
+            gasUsed,
+            revertCode as RevertCode,
+            revertReason,
+            processedPhases,
+            logs,
+            hints,
+            publicInputs,
+          ),
+      )
+      .parse(obj);
+  }
 }
 
 export type PublicTxSimulatorConfig = {

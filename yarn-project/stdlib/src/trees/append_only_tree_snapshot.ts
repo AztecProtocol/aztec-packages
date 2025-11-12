@@ -91,6 +91,17 @@ export class AppendOnlyTreeSnapshot {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
   }
 
+  /**
+   * Creates an AppendOnlyTreeSnapshot instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AppendOnlyTreeSnapshot fields
+   * @returns An AppendOnlyTreeSnapshot instance
+   */
+  static fromPlainObject(obj: any): AppendOnlyTreeSnapshot {
+    return new AppendOnlyTreeSnapshot(Fr.fromPlainObject(obj.root), obj.nextAvailableLeafIndex);
+  }
+
   isEmpty(): boolean {
     return this.root.isZero() && this.nextAvailableLeafIndex === 0;
   }

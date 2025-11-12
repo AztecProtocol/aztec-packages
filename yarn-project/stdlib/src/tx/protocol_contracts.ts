@@ -50,6 +50,22 @@ export class ProtocolContracts {
     return new ProtocolContracts(makeTuple(MAX_PROTOCOL_CONTRACTS, () => AztecAddress.zero()));
   }
 
+  /**
+   * Creates a ProtocolContracts instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing ProtocolContracts fields
+   * @returns A ProtocolContracts instance
+   */
+  static fromPlainObject(obj: any): ProtocolContracts {
+    return new ProtocolContracts(
+      assertLength(
+        obj.derivedAddresses.map((addr: any) => AztecAddress.fromPlainObject(addr)),
+        MAX_PROTOCOL_CONTRACTS,
+      ),
+    );
+  }
+
   getSize() {
     return arraySerializedSizeOfNonEmpty(this.derivedAddresses);
   }
