@@ -46,7 +46,16 @@
       "path": "../accounts"
     },
     {
+      "path": "../aztec-node"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../telemetry-client"
     }
   ],
   "include": ["src", "src/**/*.json"],

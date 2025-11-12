@@ -97,7 +97,10 @@
   },
   "devDependencies": {
     "@aztec/accounts": "workspace:^",
+    "@aztec/aztec-node": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/lodash.chunk": "^4.2.9",
