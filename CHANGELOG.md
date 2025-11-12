@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.4](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.3...v2.1.4) (2025-11-12)
+
+
+### Bug Fixes
+
+* **config:** Set missing vars from chain l2 config ([#18363](https://github.com/AztecProtocol/aztec-packages/issues/18363)) ([fcb5718](https://github.com/AztecProtocol/aztec-packages/commit/fcb571800629bc357c9ab976e99fbbd7f0a32c55))
+
 ## [2.1.3](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.2...v2.1.3) (2025-11-11)
 
 
