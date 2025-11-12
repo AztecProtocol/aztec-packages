@@ -114,9 +114,7 @@ library ZKTranscriptLib {
         round0[1 + publicInputsSize + 7] = bytes32(proof.w3.y);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
-
         (eta, etaTwo) = splitChallenge(previousChallenge);
-
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
 
         (etaThree,) = splitChallenge(previousChallenge);
