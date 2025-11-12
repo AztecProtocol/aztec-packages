@@ -100,18 +100,10 @@ export class TreeSnapshots {
    */
   static fromPlainObject(obj: any): TreeSnapshots {
     return new TreeSnapshots(
-      obj.l1ToL2MessageTree instanceof AppendOnlyTreeSnapshot
-        ? obj.l1ToL2MessageTree
-        : AppendOnlyTreeSnapshot.fromPlainObject(obj.l1ToL2MessageTree),
-      obj.noteHashTree instanceof AppendOnlyTreeSnapshot
-        ? obj.noteHashTree
-        : AppendOnlyTreeSnapshot.fromPlainObject(obj.noteHashTree),
-      obj.nullifierTree instanceof AppendOnlyTreeSnapshot
-        ? obj.nullifierTree
-        : AppendOnlyTreeSnapshot.fromPlainObject(obj.nullifierTree),
-      obj.publicDataTree instanceof AppendOnlyTreeSnapshot
-        ? obj.publicDataTree
-        : AppendOnlyTreeSnapshot.fromPlainObject(obj.publicDataTree),
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.l1ToL2MessageTree),
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.noteHashTree),
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.nullifierTree),
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.publicDataTree),
     );
   }
 

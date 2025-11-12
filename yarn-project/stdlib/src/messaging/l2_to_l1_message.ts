@@ -38,10 +38,7 @@ export class L2ToL1Message {
    * @returns An L2ToL1Message instance
    */
   static fromPlainObject(obj: any): L2ToL1Message {
-    return new L2ToL1Message(
-      obj.recipient instanceof EthAddress ? obj.recipient : EthAddress.fromPlainObject(obj.recipient),
-      obj.content instanceof Fr ? obj.content : new Fr(obj.content),
-    );
+    return new L2ToL1Message(EthAddress.fromPlainObject(obj.recipient), Fr.fromPlainObject(obj.content));
   }
 
   /**
@@ -172,10 +169,8 @@ export class ScopedL2ToL1Message {
    */
   static fromPlainObject(obj: any): ScopedL2ToL1Message {
     return new ScopedL2ToL1Message(
-      obj.message instanceof L2ToL1Message ? obj.message : L2ToL1Message.fromPlainObject(obj.message),
-      obj.contractAddress instanceof AztecAddress
-        ? obj.contractAddress
-        : AztecAddress.fromPlainObject(obj.contractAddress),
+      L2ToL1Message.fromPlainObject(obj.message),
+      AztecAddress.fromPlainObject(obj.contractAddress),
     );
   }
 

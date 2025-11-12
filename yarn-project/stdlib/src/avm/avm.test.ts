@@ -56,15 +56,15 @@ describe('Avm circuit inputs', () => {
       .map(file => `${testdataDir}/${file}`);
     for (const file of files) {
       const buffer = readTestData(file);
-      const timerMP = new Timer();
+      // const timerMP = new Timer();
       const json = deserializeFromMessagePack(buffer);
-      console.log(`Deserialized ${file} in ${timerMP.ms()}ms (MessagePack)`);
-      const timerZod = new Timer();
+      // console.log(`Deserialized ${file} in ${timerMP.ms()}ms (MessagePack)`);
+      // const timerZod = new Timer();
       const expectedResult = PublicTxResult.schema.parse(json);
-      console.log(`Deserialized ${file} in ${timerZod.ms()}ms (TS-zod)`);
-      const timerManual = new Timer();
+      // console.log(`Deserialized ${file} in ${timerZod.ms()}ms (TS-zod)`);
+      // const timerManual = new Timer();
       const cppResult = PublicTxResult.fromPlainObject(json);
-      console.log(`Deserialized ${file} in ${timerManual.ms()}ms (manual)`);
+      // console.log(`Deserialized ${file} in ${timerManual.ms()}ms (manual)`);
       expect(cppResult).toEqual(expectedResult);
     }
   });

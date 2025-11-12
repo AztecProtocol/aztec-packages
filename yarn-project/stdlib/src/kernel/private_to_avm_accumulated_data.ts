@@ -122,15 +122,15 @@ export class PrivateToAvmAccumulatedData {
   static fromPlainObject(obj: any): PrivateToAvmAccumulatedData {
     return new PrivateToAvmAccumulatedData(
       assertLength(
-        obj.noteHashes.map((h: any) => (h instanceof Fr ? h : new Fr(h))),
+        obj.noteHashes.map((h: any) => Fr.fromPlainObject(h)),
         MAX_NOTE_HASHES_PER_TX,
       ),
       assertLength(
-        obj.nullifiers.map((n: any) => (n instanceof Fr ? n : new Fr(n))),
+        obj.nullifiers.map((n: any) => Fr.fromPlainObject(n)),
         MAX_NULLIFIERS_PER_TX,
       ),
       assertLength(
-        obj.l2ToL1Msgs.map((m: any) => (m instanceof ScopedL2ToL1Message ? m : ScopedL2ToL1Message.fromPlainObject(m))),
+        obj.l2ToL1Msgs.map((m: any) => ScopedL2ToL1Message.fromPlainObject(m)),
         MAX_L2_TO_L1_MSGS_PER_TX,
       ),
     );

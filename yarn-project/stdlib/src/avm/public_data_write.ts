@@ -94,10 +94,7 @@ export class PublicDataWrite {
    * @returns A PublicDataWrite instance
    */
   static fromPlainObject(obj: any): PublicDataWrite {
-    return new PublicDataWrite(
-      obj.leafSlot instanceof Fr ? obj.leafSlot : new Fr(obj.leafSlot),
-      obj.value instanceof Fr ? obj.value : new Fr(obj.value),
-    );
+    return new PublicDataWrite(Fr.fromPlainObject(obj.leafSlot), Fr.fromPlainObject(obj.value));
   }
 
   static random() {

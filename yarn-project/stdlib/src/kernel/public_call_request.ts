@@ -106,12 +106,10 @@ export class PublicCallRequest {
    */
   static fromPlainObject(obj: any): PublicCallRequest {
     return new PublicCallRequest(
-      obj.msgSender instanceof AztecAddress ? obj.msgSender : AztecAddress.fromPlainObject(obj.msgSender),
-      obj.contractAddress instanceof AztecAddress
-        ? obj.contractAddress
-        : AztecAddress.fromPlainObject(obj.contractAddress),
+      AztecAddress.fromPlainObject(obj.msgSender),
+      AztecAddress.fromPlainObject(obj.contractAddress),
       obj.isStaticCall,
-      obj.calldataHash instanceof Fr ? obj.calldataHash : new Fr(obj.calldataHash),
+      Fr.fromPlainObject(obj.calldataHash),
     );
   }
 

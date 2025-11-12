@@ -336,6 +336,21 @@ export class Fr extends BaseField {
     return this.toString();
   }
 
+  /**
+   * Creates an Fr instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * Handles buffers, strings, numbers, bigints, or existing instances.
+   * @param obj - Plain object, buffer, string, number, bigint, boolean, or Fr instance
+   * @returns An Fr instance
+   */
+  static fromPlainObject(obj: any): Fr {
+    if (obj instanceof Fr) {
+      return obj;
+    }
+    return new Fr(obj);
+  }
+
   static get schema() {
     return z.union([
       // Serialization from hex string.

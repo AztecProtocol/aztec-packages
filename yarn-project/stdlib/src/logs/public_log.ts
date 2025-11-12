@@ -109,7 +109,7 @@ export class FlatPublicLogs {
   static fromPlainObject(obj: any): FlatPublicLogs {
     return new FlatPublicLogs(
       obj.length,
-      obj.payload.map((p: any) => (p instanceof Fr ? p : new Fr(p))),
+      obj.payload.map((p: any) => Fr.fromPlainObject(p)),
     );
   }
 

@@ -60,9 +60,7 @@ export class ProtocolContracts {
   static fromPlainObject(obj: any): ProtocolContracts {
     return new ProtocolContracts(
       assertLength(
-        obj.derivedAddresses.map((addr: any) =>
-          addr instanceof AztecAddress ? addr : AztecAddress.fromPlainObject(addr),
-        ),
+        obj.derivedAddresses.map((addr: any) => AztecAddress.fromPlainObject(addr)),
         MAX_PROTOCOL_CONTRACTS,
       ),
     );

@@ -99,7 +99,7 @@ export class AppendOnlyTreeSnapshot {
    * @returns An AppendOnlyTreeSnapshot instance
    */
   static fromPlainObject(obj: any): AppendOnlyTreeSnapshot {
-    return new AppendOnlyTreeSnapshot(obj.root instanceof Fr ? obj.root : new Fr(obj.root), obj.nextAvailableLeafIndex);
+    return new AppendOnlyTreeSnapshot(Fr.fromPlainObject(obj.root), obj.nextAvailableLeafIndex);
   }
 
   isEmpty(): boolean {

@@ -285,61 +285,33 @@ export class AvmCircuitPublicInputs {
    */
   static fromPlainObject(obj: any): AvmCircuitPublicInputs {
     return new AvmCircuitPublicInputs(
-      obj.globalVariables instanceof GlobalVariables
-        ? obj.globalVariables
-        : GlobalVariables.fromPlainObject(obj.globalVariables),
-      obj.protocolContracts instanceof ProtocolContracts
-        ? obj.protocolContracts
-        : ProtocolContracts.fromPlainObject(obj.protocolContracts),
-      obj.startTreeSnapshots instanceof TreeSnapshots
-        ? obj.startTreeSnapshots
-        : TreeSnapshots.fromPlainObject(obj.startTreeSnapshots),
-      obj.startGasUsed instanceof Gas ? obj.startGasUsed : Gas.from(obj.startGasUsed),
-      obj.gasSettings instanceof GasSettings ? obj.gasSettings : GasSettings.from(obj.gasSettings),
-      obj.effectiveGasFees instanceof GasFees ? obj.effectiveGasFees : GasFees.from(obj.effectiveGasFees),
-      obj.feePayer instanceof AztecAddress ? obj.feePayer : AztecAddress.fromPlainObject(obj.feePayer),
-      obj.proverId instanceof Fr ? obj.proverId : new Fr(obj.proverId),
-      obj.publicCallRequestArrayLengths instanceof PublicCallRequestArrayLengths
-        ? obj.publicCallRequestArrayLengths
-        : PublicCallRequestArrayLengths.fromPlainObject(obj.publicCallRequestArrayLengths),
+      GlobalVariables.fromPlainObject(obj.globalVariables),
+      ProtocolContracts.fromPlainObject(obj.protocolContracts),
+      TreeSnapshots.fromPlainObject(obj.startTreeSnapshots),
+      Gas.fromPlainObject(obj.startGasUsed),
+      GasSettings.fromPlainObject(obj.gasSettings),
+      GasFees.fromPlainObject(obj.effectiveGasFees),
+      AztecAddress.fromPlainObject(obj.feePayer),
+      Fr.fromPlainObject(obj.proverId),
+      PublicCallRequestArrayLengths.fromPlainObject(obj.publicCallRequestArrayLengths),
       assertLength(
-        obj.publicSetupCallRequests.map((r: any) =>
-          r instanceof PublicCallRequest ? r : PublicCallRequest.fromPlainObject(r),
-        ),
+        obj.publicSetupCallRequests.map((r: any) => PublicCallRequest.fromPlainObject(r)),
         MAX_ENQUEUED_CALLS_PER_TX,
       ),
       assertLength(
-        obj.publicAppLogicCallRequests.map((r: any) =>
-          r instanceof PublicCallRequest ? r : PublicCallRequest.fromPlainObject(r),
-        ),
+        obj.publicAppLogicCallRequests.map((r: any) => PublicCallRequest.fromPlainObject(r)),
         MAX_ENQUEUED_CALLS_PER_TX,
       ),
-      obj.publicTeardownCallRequest instanceof PublicCallRequest
-        ? obj.publicTeardownCallRequest
-        : PublicCallRequest.fromPlainObject(obj.publicTeardownCallRequest),
-      obj.previousNonRevertibleAccumulatedDataArrayLengths instanceof PrivateToAvmAccumulatedDataArrayLengths
-        ? obj.previousNonRevertibleAccumulatedDataArrayLengths
-        : PrivateToAvmAccumulatedDataArrayLengths.fromPlainObject(obj.previousNonRevertibleAccumulatedDataArrayLengths),
-      obj.previousRevertibleAccumulatedDataArrayLengths instanceof PrivateToAvmAccumulatedDataArrayLengths
-        ? obj.previousRevertibleAccumulatedDataArrayLengths
-        : PrivateToAvmAccumulatedDataArrayLengths.fromPlainObject(obj.previousRevertibleAccumulatedDataArrayLengths),
-      obj.previousNonRevertibleAccumulatedData instanceof PrivateToAvmAccumulatedData
-        ? obj.previousNonRevertibleAccumulatedData
-        : PrivateToAvmAccumulatedData.fromPlainObject(obj.previousNonRevertibleAccumulatedData),
-      obj.previousRevertibleAccumulatedData instanceof PrivateToAvmAccumulatedData
-        ? obj.previousRevertibleAccumulatedData
-        : PrivateToAvmAccumulatedData.fromPlainObject(obj.previousRevertibleAccumulatedData),
-      obj.endTreeSnapshots instanceof TreeSnapshots
-        ? obj.endTreeSnapshots
-        : TreeSnapshots.fromPlainObject(obj.endTreeSnapshots),
-      obj.endGasUsed instanceof Gas ? obj.endGasUsed : Gas.from(obj.endGasUsed),
-      obj.accumulatedDataArrayLengths instanceof AvmAccumulatedDataArrayLengths
-        ? obj.accumulatedDataArrayLengths
-        : AvmAccumulatedDataArrayLengths.fromPlainObject(obj.accumulatedDataArrayLengths),
-      obj.accumulatedData instanceof AvmAccumulatedData
-        ? obj.accumulatedData
-        : AvmAccumulatedData.fromPlainObject(obj.accumulatedData),
-      obj.transactionFee instanceof Fr ? obj.transactionFee : new Fr(obj.transactionFee),
+      PublicCallRequest.fromPlainObject(obj.publicTeardownCallRequest),
+      PrivateToAvmAccumulatedDataArrayLengths.fromPlainObject(obj.previousNonRevertibleAccumulatedDataArrayLengths),
+      PrivateToAvmAccumulatedDataArrayLengths.fromPlainObject(obj.previousRevertibleAccumulatedDataArrayLengths),
+      PrivateToAvmAccumulatedData.fromPlainObject(obj.previousNonRevertibleAccumulatedData),
+      PrivateToAvmAccumulatedData.fromPlainObject(obj.previousRevertibleAccumulatedData),
+      TreeSnapshots.fromPlainObject(obj.endTreeSnapshots),
+      Gas.fromPlainObject(obj.endGasUsed),
+      AvmAccumulatedDataArrayLengths.fromPlainObject(obj.accumulatedDataArrayLengths),
+      AvmAccumulatedData.fromPlainObject(obj.accumulatedData),
+      Fr.fromPlainObject(obj.transactionFee),
       obj.reverted,
     );
   }

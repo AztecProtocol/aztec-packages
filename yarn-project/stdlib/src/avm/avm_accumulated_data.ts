@@ -159,20 +159,20 @@ export class AvmAccumulatedData {
   static fromPlainObject(obj: any): AvmAccumulatedData {
     return new AvmAccumulatedData(
       assertLength(
-        obj.noteHashes.map((h: any) => (h instanceof Fr ? h : new Fr(h))),
+        obj.noteHashes.map((h: any) => Fr.fromPlainObject(h)),
         MAX_NOTE_HASHES_PER_TX,
       ),
       assertLength(
-        obj.nullifiers.map((n: any) => (n instanceof Fr ? n : new Fr(n))),
+        obj.nullifiers.map((n: any) => Fr.fromPlainObject(n)),
         MAX_NULLIFIERS_PER_TX,
       ),
       assertLength(
-        obj.l2ToL1Msgs.map((m: any) => (m instanceof ScopedL2ToL1Message ? m : ScopedL2ToL1Message.fromPlainObject(m))),
+        obj.l2ToL1Msgs.map((m: any) => ScopedL2ToL1Message.fromPlainObject(m)),
         MAX_L2_TO_L1_MSGS_PER_TX,
       ),
-      obj.publicLogs instanceof FlatPublicLogs ? obj.publicLogs : FlatPublicLogs.fromPlainObject(obj.publicLogs),
+      FlatPublicLogs.fromPlainObject(obj.publicLogs),
       assertLength(
-        obj.publicDataWrites.map((w: any) => (w instanceof PublicDataWrite ? w : PublicDataWrite.fromPlainObject(w))),
+        obj.publicDataWrites.map((w: any) => PublicDataWrite.fromPlainObject(w)),
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       ),
     );

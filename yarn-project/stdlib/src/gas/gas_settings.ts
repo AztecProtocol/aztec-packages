@@ -54,6 +54,27 @@ export class GasSettings {
     );
   }
 
+  /**
+   * Creates a GasSettings instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing GasSettings fields
+   * @returns A GasSettings instance
+   */
+  static fromPlainObject(obj: any): GasSettings {
+    if (obj instanceof GasSettings) {
+      return obj;
+    }
+    return new GasSettings(
+      obj.gasLimits instanceof Gas ? obj.gasLimits : Gas.fromPlainObject(obj.gasLimits),
+      obj.teardownGasLimits instanceof Gas ? obj.teardownGasLimits : Gas.fromPlainObject(obj.teardownGasLimits),
+      obj.maxFeesPerGas instanceof GasFees ? obj.maxFeesPerGas : GasFees.fromPlainObject(obj.maxFeesPerGas),
+      obj.maxPriorityFeesPerGas instanceof GasFees
+        ? obj.maxPriorityFeesPerGas
+        : GasFees.fromPlainObject(obj.maxPriorityFeesPerGas),
+    );
+  }
+
   clone() {
     return new GasSettings(
       this.gasLimits.clone(),
