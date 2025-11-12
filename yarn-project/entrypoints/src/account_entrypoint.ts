@@ -104,7 +104,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       name: 'entrypoint',
       isInitializer: false,
       functionType: 'private',
-      isInternal: false,
+      isOnlySelf: false,
       isStatic: false,
       parameters: [
         {

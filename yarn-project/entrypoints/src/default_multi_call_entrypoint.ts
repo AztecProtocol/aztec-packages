@@ -50,7 +50,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
       name: 'entrypoint',
       isInitializer: false,
       functionType: 'private',
-      isInternal: false,
+      isOnlySelf: false,
       isStatic: false,
       parameters: [
         {

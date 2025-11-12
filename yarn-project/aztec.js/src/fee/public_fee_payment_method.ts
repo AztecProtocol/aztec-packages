@@ -43,7 +43,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
       const abi = {
         name: 'get_accepted_asset',
         functionType: FunctionType.PRIVATE,
-        isInternal: false,
+        isOnlySelf: false,
         isStatic: false,
         parameters: [],
         returnTypes: [

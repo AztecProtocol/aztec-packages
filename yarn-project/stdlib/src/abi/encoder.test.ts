@@ -11,7 +11,7 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isInitializer: true,
       isStatic: false,
       parameters: [
@@ -39,7 +39,7 @@ describe('abi/encoder', () => {
       name: 'constructor',
       isInitializer: true,
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isStatic: false,
       parameters: [
         {
@@ -65,7 +65,7 @@ describe('abi/encoder', () => {
       name: 'constructor',
       isInitializer: true,
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isStatic: false,
       parameters: [
         {
@@ -92,7 +92,7 @@ describe('abi/encoder', () => {
       name: 'constructor',
       isInitializer: true,
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isStatic: false,
       parameters: [
         {
@@ -131,7 +131,7 @@ describe('abi/encoder', () => {
       name: 'constructor',
       isInitializer: true,
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isStatic: false,
       parameters: [
         {
@@ -164,7 +164,7 @@ describe('abi/encoder', () => {
       name: 'constructor',
       isInitializer: true,
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isStatic: false,
       parameters: [
         {
@@ -188,7 +188,7 @@ describe('abi/encoder', () => {
       name: 'constructor',
       isInitializer: true,
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isStatic: false,
       parameters: [
         {
@@ -213,7 +213,7 @@ describe('abi/encoder', () => {
       name: 'constructor',
       isInitializer: true,
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isStatic: false,
       parameters: [
         {
@@ -240,7 +240,7 @@ describe('abi/encoder', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'test',
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isInitializer: false,
       isStatic: false,
       parameters: [
@@ -305,7 +305,7 @@ describe('abi/encoder', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'test',
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isInitializer: false,
       isStatic: false,
       parameters: [
@@ -394,7 +394,7 @@ describe('abi/encoder', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'test',
       functionType: FunctionType.PRIVATE,
-      isInternal: false,
+      isOnlySelf: false,
       isInitializer: false,
       isStatic: false,
       parameters: [

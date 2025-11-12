@@ -169,7 +169,7 @@ export async function lookupValidity(
     name: 'lookup_validity',
     isInitializer: false,
     functionType: FunctionType.UTILITY,
-    isInternal: false,
+    isOnlySelf: false,
     isStatic: false,
     parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
     returnTypes: [{ kind: 'boolean' }],
@@ -189,7 +189,7 @@ export async function lookupValidity(
     name: 'utility_is_consumable',
     isInitializer: false,
     functionType: FunctionType.UTILITY,
-    isInternal: false,
+    isOnlySelf: false,
     isStatic: false,
     parameters: [
       {
@@ -286,7 +286,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
       name: 'set_authorized',
       isInitializer: false,
       functionType: FunctionType.PUBLIC,
-      isInternal: true,
+      isOnlySelf: true,
       isStatic: false,
       parameters: [
         {
