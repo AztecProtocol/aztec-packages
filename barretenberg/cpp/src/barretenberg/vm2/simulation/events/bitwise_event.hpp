@@ -7,13 +7,6 @@
 
 namespace bb::avm2::simulation {
 
-class BitwiseException : public std::runtime_error {
-  public:
-    BitwiseException(const std::string& msg)
-        : std::runtime_error("Bitwise Exception: " + msg)
-    {}
-};
-
 struct BitwiseEvent {
     BitwiseOperation operation;
     MemoryValue a;
