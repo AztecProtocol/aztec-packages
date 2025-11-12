@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <stdexcept>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -43,7 +44,7 @@ const FF& get_tag_inverse(size_t index)
  *
  * @param a_tag The first tag.
  * @param b_tag The second tag.
- * @return The inverse of the difference between the two tags. (a_tag - b_tag^(-1).
+ * @return The inverse of the difference between the two tags. (a_tag - b_tag)^(-1).
  */
 FF get_tag_diff_inverse(const MemoryTag a_tag, const MemoryTag b_tag)
 {
@@ -91,7 +92,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             { Column::alu_sel_op_mul, 1 },
             { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_MUL },
             { Column::alu_constant_64, 64 },
-            { Column::alu_sel_mul_no_err, has_error ? 0 : 1 },
+            { Column::alu_sel_mul_no_err_non_ff, (has_error || is_ff) ? 0 : 1 },
         };
 
         if (!has_error) {
@@ -391,7 +392,7 @@ std::vector<std::pair<Column, FF>> get_error_columns(const simulation::AluEvent&
     }
 
     // We shouldn't have emitted an event with an error when one doesn't exist:
-    assert(error_columns.size() == 1 && "ALU Event emitted with an error, but none exists");
+    BB_ASSERT(error_columns.size() != 1, "ALU Event emitted with an error, but none exists");
 
     return error_columns;
 }
@@ -407,9 +408,7 @@ std::vector<std::pair<Column, FF>> get_error_columns(const simulation::AluEvent&
 void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation::AluEvent>::Container& events,
                               TraceContainer& trace)
 {
-    // We rely on the following assert in computing C::alu_tag_ff_diff_inv value
-    // below. Namely: (tag - MemoryTag::FF).invert() == tag.invert().
-    // We also rely on this for NOT opcode, where b's tag is set to 0 (FF) when a is of FF type.
+    // We rely on this for NOT opcode, where b's tag is set to 0 (FF) when a is of FF type.
     static_assert(static_cast<uint8_t>(MemoryTag::FF) == 0);
 
     using C = Column;
@@ -448,8 +447,7 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       { C::alu_max_bits, get_tag_bits(a_tag) },
                       { C::alu_max_value, get_tag_max_value(a_tag) },
                       { Column::alu_sel_is_ff, a_tag == MemoryTag::FF ? 1 : 0 },
-                      { Column::alu_tag_ff_diff_inv,
-                        get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
+                      { Column::alu_tag_ff_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::FF) },
                       { Column::alu_sel_is_u128, a_tag == MemoryTag::U128 ? 1 : 0 },
                       { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
                   } });

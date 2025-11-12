@@ -566,7 +566,7 @@ class AluMulConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel_is_u128, is_u128 ? 1 : 0 },
                 { C::alu_sel_mul_div_u128, is_u128 ? 1 : 0 },
                 { C::alu_sel_op_mul, 1 },
-                { C::alu_sel_mul_no_err, 1 },
+                { C::alu_sel_mul_no_err_non_ff, mem_tag == MemoryTag::FF ? 0 : 1 },
                 { C::alu_tag_u128_diff_inv, is_u128 ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
@@ -710,7 +710,7 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
             { C::alu_sel_is_u128, 1 },
             { C::alu_sel_mul_div_u128, 1 },
             { C::alu_sel_op_mul, 1 },
-            { C::alu_sel_mul_no_err, 1 },
+            { C::alu_sel_mul_no_err_non_ff, 1 },
             { C::alu_tag_u128_diff_inv, 0 },
             { C::alu_tag_ff_diff_inv, FF(tag).invert() },
             { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag

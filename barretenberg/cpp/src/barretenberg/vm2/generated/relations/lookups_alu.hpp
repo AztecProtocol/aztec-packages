@@ -133,7 +133,7 @@ struct lookup_alu_range_check_mul_c_hi_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_RANGE_CHECK_MUL_C_HI";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_no_err;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_no_err_non_ff;
     static constexpr Column DST_SELECTOR = Column::range_check_sel_alu;
     static constexpr Column COUNTS = Column::lookup_alu_range_check_mul_c_hi_counts;
     static constexpr Column INVERSES = Column::lookup_alu_range_check_mul_c_hi_inv;

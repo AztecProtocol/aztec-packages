@@ -39,7 +39,6 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto alu_FF_TAG_ERR =
         (in.get(C::alu_sel_op_div) + in.get(C::alu_sel_op_not) + alu_SHIFT_OPS) * in.get(C::alu_sel_is_ff) +
         in.get(C::alu_sel_op_fdiv) * alu_IS_NOT_FF;
-    const auto alu_CHECK_AB_TAGS = (FF(1) - in.get(C::alu_sel_op_truncate));
     const auto alu_AB_TAGS_EQ = (FF(1) - in.get(C::alu_sel_ab_tag_mismatch));
     const auto alu_EXPECTED_C_TAG =
         (in.get(C::alu_sel_op_add) + in.get(C::alu_sel_op_sub) + in.get(C::alu_sel_op_mul) + in.get(C::alu_sel_op_div) +
@@ -221,7 +220,7 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // AB_TAGS_CHECK
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = CView(alu_CHECK_AB_TAGS) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::alu_sel_op_truncate))) *
                    (((static_cast<View>(in.get(C::alu_ia_tag)) - static_cast<View>(in.get(C::alu_ib_tag))) *
                          (CView(alu_AB_TAGS_EQ) * (FF(1) - static_cast<View>(in.get(C::alu_ab_tags_diff_inv))) +
                           static_cast<View>(in.get(C::alu_ab_tags_diff_inv))) -
@@ -335,8 +334,9 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::alu_sel_mul_no_err)) -
-                    (FF(1) - static_cast<View>(in.get(C::alu_sel_err))) * static_cast<View>(in.get(C::alu_sel_op_mul)));
+        auto tmp = (static_cast<View>(in.get(C::alu_sel_mul_no_err_non_ff)) -
+                    CView(alu_IS_NOT_FF) * (FF(1) - static_cast<View>(in.get(C::alu_sel_err))) *
+                        static_cast<View>(in.get(C::alu_sel_op_mul)));
         std::get<37>(evals) += (tmp * scaling_factor);
     }
     {

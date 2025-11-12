@@ -36,16 +36,16 @@ include "range_check.pil";
  *
  *        2. #[DISPATCH_TO_SET]:
  *        sel_exec_dispatch_set {
- *          rop[2], rop[1], register[0], mem_tag_reg[0], subtrace_operation_id, sel_opcode_error
- *        } in alu.sel {
- *           alu.ia, alu.ia_tag, alu.ic, alu.ia_tag, alu.op_id, // alu.sel_err = 0 // precomputed.zero
+ *          rop[2], rop[1], register[0], mem_tag_reg[0], sel_exec_dispatch_set, sel_opcode_error
+ *        } in alu.sel_op_truncate {
+ *           alu.ia, alu.ia_tag, alu.ic, alu.ia_tag, alu.sel, // alu.sel_err = 0 // precomputed.zero
  *        };
  *
  *        3. #[DISPATCH_TO_CAST]:
  *        sel_exec_dispatch_cast {
- *          register[0], rop[2], register[1], mem_tag_reg[1], subtrace_operation_id, sel_opcode_error
- *        } in alu.sel {
- *           alu.ia, alu.ia_tag, alu.ic, alu.ia_tag, alu.op_id, // alu.sel_err = 0 // precomputed.zero
+ *          register[0], rop[2], register[1], mem_tag_reg[1], sel_exec_dispatch_cast, sel_opcode_error
+ *        } in alu.sel_op_truncate {
+ *           alu.ia, alu.ia_tag, alu.ic, alu.ia_tag, alu.sel, // alu.sel_err = 0 // precomputed.zero
  *        };
  *
  *        For SET and CAST, the input is a and the output is c. The output is written to register 0.
@@ -110,6 +110,8 @@ sel_op_truncate * (1 - sel_op_truncate) = 0;
 // Based on the op_id, we dispatch to the corresponding operation selector.
 // Note that the op_ids below represent a binary decomposition (see constants_gen.pil). This guarantees
 // that only one of the sel_op_* selectors is 1 at a time. (each constants.AVM_XX is a power of 2)
+// Even though truncation is dispatched directly with destination selector sel_op_truncate, we keep
+// it in this relation for the mutual exclusion of the selectors.
 #[DISPATCH_OPERATION]
 op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
       + sel_op_sub * constants.AVM_EXEC_OP_ID_ALU_SUB
@@ -142,8 +144,8 @@ pol commit sel_is_ff; // @boolean (whether input a is a field)
 pol commit sel_is_u128; // @boolean (whether input a is a u128)
 pol IS_NOT_FF = 1 - sel_is_ff; // @boolean Follows from definition.
 pol IS_NOT_U128 = 1 - sel_is_u128; // @boolean Follows from definition.
-pol SHIFT_OPS = sel_op_shl + sel_op_shr; // @boolean Follows from definition and mutual exlcusion.
-pol DIV_OPS = sel_op_div + sel_op_fdiv; // @boolean Follows from definition and mutual exlcusion.
+pol SHIFT_OPS = sel_op_shl + sel_op_shr; // @boolean Follows from definition and mutual exclusion.
+pol DIV_OPS = sel_op_div + sel_op_fdiv; // @boolean Follows from definition and mutual exclusion.
 
 // Note that #[OP_ID_CHECK] ensures selectors are mutually exclusive.
 // Therefore, SHIFT_OPS and DIV_OPS are boolean.
@@ -207,19 +209,16 @@ pol FF_TAG_ERR = (sel_op_div + sel_op_not + SHIFT_OPS) * sel_is_ff + sel_op_fdiv
 // ------------------------------------------------------------
 // Error case 2: sel_ab_tag_mismatch
 // ------------------------------------------------------------
-// For NOT opcode, an error occurs if the tag of a is FF. In this case, tracegen will set
-// b's tag as 0 (FF) which, in turn, will cause sel_ab_tag_mismatch to be 0.
-// The output of NOT opcode is in ib, and we need to unconditionally exclude a mismatched tag error for this case.
-// For this reason, we do not remove "NOT" from the CHECK_AB_TAGS selector.
-pol CHECK_AB_TAGS = 1 - sel_op_truncate; // For truncation both tags are not expected to match.
 pol AB_TAGS_EQ = 1 - sel_ab_tag_mismatch;
 pol commit ab_tags_diff_inv;
 // sel_ab_tag_mismatch = 1 <==> ia_tag - ib_tag != 0
+// For truncation both tags are not expected to match:
 #[AB_TAGS_CHECK]
-CHECK_AB_TAGS * ( (ia_tag - ib_tag) * ( AB_TAGS_EQ * (1 - ab_tags_diff_inv) + ab_tags_diff_inv) - 1 + AB_TAGS_EQ ) = 0;
+(1 - sel_op_truncate) * ( (ia_tag - ib_tag) * ( AB_TAGS_EQ * (1 - ab_tags_diff_inv) + ab_tags_diff_inv) - 1 + AB_TAGS_EQ ) = 0;
 
 // For NOT and TRUNCATE, we need to unconditionally exclude a mismatched tag error.
-// We do not need to gate `sel_op_not` term below with `1 - sel_is_ff` because tracegen set tag of b to 0 (FF).
+// For NOT opcode, an error occurs if the tag of a is FF. In this case, tracegen will set b's (the output) tag as 0 (FF)
+// which, in turn, will cause sel_ab_tag_mismatch to be 0.
 // Note that the execution dispatching lookups for TRUNCATE (SET/CAST) ignores sel_err anyway, but
 // we include it here for completeness (overhead is negligible).
 #[ONLY_RELEVANT_CHECK_AB_TAGS_ERROR]
@@ -250,7 +249,8 @@ pol commit helper1;
 
 // maximum bits the number can hold (i.e. 8 for a u8) but 0 for FF:
 pol commit max_bits;
-// maximum value the number can hold (i.e. 255 for a u8), we use `max_value + 1` as modulus for the corresponding tag. For FF, we use `p - 1`.
+// maximum value the number can hold (i.e. 255 for a u8), we use `max_value + 1` as modulus for the corresponding tag. For each integral tag,
+// the modulus is `2^max_bits - 1`. For FF, `max_value == p - 1`.
 pol commit max_value;
 
 #[TAG_MAX_BITS_VALUE]
@@ -371,11 +371,11 @@ SEL_MUL_U128 * (
         - (max_value + 1) * (cf * TWO_POW_64 + c_hi)    // c_hi * 2^128 + (cf ? 2^192 : 0)
     ) = 0;
 
-// For FF values, this range check would not be required but it makes code simpler.
-pol commit sel_mul_no_err; // @boolean Follows from definition.
-sel_mul_no_err = (1 - sel_err) * sel_op_mul;
+// We need to range check c_hi < 2^64 for non-FF values and when there is no error.
+pol commit sel_mul_no_err_non_ff; // @boolean Follows from definition.
+sel_mul_no_err_non_ff = IS_NOT_FF * (1 - sel_err) * sel_op_mul;
 #[RANGE_CHECK_MUL_C_HI]
-sel_mul_no_err { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
+sel_mul_no_err_non_ff { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 // ------------------------------------------------------------
 // DIV & FDIV
