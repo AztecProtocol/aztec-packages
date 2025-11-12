@@ -70,6 +70,24 @@ export class RevertCode {
   }
 
   /**
+   * Creates a RevertCode from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object, number, or RevertCode instance
+   * @returns A RevertCode instance
+   */
+  static fromPlainObject(obj: any): RevertCode {
+    if (obj instanceof RevertCode) {
+      return obj;
+    }
+    const code = typeof obj === 'number' ? obj : (obj.code ?? obj);
+    if (!isRevertCodeEnum(code)) {
+      throw new Error(`Invalid RevertCode: ${code}`);
+    }
+    return new RevertCode(code);
+  }
+
+  /**
    * Having different serialization methods allows for
    * decoupling the serialization for producing the content commitment hash
    * (where we use fields)
