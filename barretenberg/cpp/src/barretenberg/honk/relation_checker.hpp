@@ -41,6 +41,9 @@ template <typename Flavor> class RelationChecker {
             element = 0;
         }
 
+        // track first failure for each subrelation
+        std::map<size_t, std::string> first_failure_per_subrelation;
+
         for (size_t i = 0; i < polynomials.get_polynomial_size(); i++) {
 
             Relation::accumulate(result, polynomials.get_row(i), params, 1);
@@ -50,21 +53,37 @@ template <typename Flavor> class RelationChecker {
             for (auto& element : result) {
                 if constexpr (has_linearly_dependent) {
                     if (element != 0 && Relation::SUBRELATION_LINEARLY_INDEPENDENT[subrelation_idx]) {
-                        std::ostringstream oss;
-                        oss << "RelationChecker: " << label << " relation (subrelation idx: " << subrelation_idx
-                            << ") failed at row idx: " << i << ".";
-                        throw_or_abort(oss.str());
+                        // only record the first failure for this subrelation
+                        if (!first_failure_per_subrelation.contains(subrelation_idx)) {
+                            std::ostringstream oss;
+                            oss << "RelationChecker: " << label << " relation (subrelation idx: " << subrelation_idx
+                                << ") first fails at row idx: " << i << ".";
+                            first_failure_per_subrelation[subrelation_idx] = oss.str();
+                        }
                     }
                 } else {
                     if (element != 0) {
-                        std::ostringstream oss;
-                        oss << "RelationChecker: " << label << " relation (subrelation idx: " << subrelation_idx
-                            << ") failed at row idx: " << i << ".";
-                        throw_or_abort(oss.str());
+                        // only record the first failure for this subrelation
+                        if (!first_failure_per_subrelation.contains(subrelation_idx)) {
+                            std::ostringstream oss;
+                            oss << "RelationChecker: " << label << " relation (subrelation idx: " << subrelation_idx
+                                << ") first fails at row idx: " << i << ".";
+                            first_failure_per_subrelation[subrelation_idx] = oss.str();
+                        }
                     }
                 }
                 subrelation_idx++;
             }
+        }
+
+        // If any failures occurred, throw with first failure of each subrelation
+        if (!first_failure_per_subrelation.empty()) {
+            std::ostringstream oss;
+            oss << "RelationChecker found failures in " << first_failure_per_subrelation.size() << " subrelation(s):\n";
+            for (const auto& [idx, failure] : first_failure_per_subrelation) {
+                oss << "  " << failure << "\n";
+            }
+            throw_or_abort(oss.str());
         }
 
         if constexpr (has_linearly_dependent) {

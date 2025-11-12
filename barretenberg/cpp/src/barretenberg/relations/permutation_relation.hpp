@@ -27,8 +27,10 @@ namespace bb {
  circuit.
 
 
+
  * @tparam FF_
- *
+ * @note `z_perm[1] == 1`. if `idx` is the unique index such that `lagrange_last[idx] == 1`, then `z_perm[y] == 0` for
+ all `y>idx` (up to the size of the Boolean hypercube).
  * @note This is the only relation in Ultra that requires `lagrange_last`.
  */
 template <typename FF_> class UltraPermutationRelationImpl {
