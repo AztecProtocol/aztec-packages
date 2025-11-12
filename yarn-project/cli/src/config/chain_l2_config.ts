@@ -1,8 +1,9 @@
-import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig, type L1ContractsConfig, type L1TxUtilsConfig } from '@aztec/ethereum';
 import type { NetworkNames } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
-import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import type { P2PConfig } from '@aztec/p2p';
+import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import path from 'path';
 
@@ -14,15 +15,15 @@ const SNAPSHOTS_URL = 'https://aztec-labs-snapshots.com';
 const defaultDBMapSizeKb = 128 * 1_024 * 1_024; // 128 GB
 const tbMapSizeKb = 1_024 * 1_024 * 1_024; // 1 TB
 
-export type L2ChainConfig = L1ContractsConfig &
-  Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways'> & {
+export type L2ChainConfig = Omit<L1ContractsConfig, keyof L1TxUtilsConfig> &
+  Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways' | 'slashOverridePayload' | 'slashSelfAllowed'> &
+  Pick<P2PConfig, 'bootstrapNodes' | 'p2pEnabled'> &
+  Pick<SequencerConfig, 'minTxsPerBlock' | 'maxTxsPerBlock'> & {
     l1ChainId: number;
     testAccounts: boolean;
     sponsoredFPC: boolean;
-    p2pEnabled: boolean;
-    p2pBootstrapNodes: string[];
-    seqMinTxsPerBlock: number;
-    seqMaxTxsPerBlock: number;
+    minTxsPerBlock: number;
+    maxTxsPerBlock: number;
     realProofs: boolean;
     snapshotsUrls: string[];
     autoUpdate: SharedNodeConfig['autoUpdate'];
@@ -35,9 +36,9 @@ export type L2ChainConfig = L1ContractsConfig &
     skipArchiverInitialSync?: boolean;
     blobAllowEmptySources?: boolean;
 
-    // Setting the dbMapSize provides the default for every DB in the node.
+    // Setting the dataStoreMapSize provides the default for every DB in the node.
     // Then we explicitly override the sizes for the archiver and the larger trees.
-    dbMapSizeKb: number;
+    dataStoreMapSizeKb: number;
     archiverStoreMapSizeKb: number;
     noteHashTreeMapSizeKb: number;
     nullifierTreeMapSizeKb: number;
@@ -86,7 +87,7 @@ const DefaultSlashConfig = {
 } satisfies Partial<L2ChainConfig>;
 
 const DefaultNetworkDBMapSizeConfig = {
-  dbMapSizeKb: defaultDBMapSizeKb,
+  dataStoreMapSizeKb: defaultDBMapSizeKb,
   archiverStoreMapSizeKb: tbMapSizeKb,
   noteHashTreeMapSizeKb: tbMapSizeKb,
   nullifierTreeMapSizeKb: tbMapSizeKb,
@@ -99,9 +100,9 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: false,
   disableTransactions: true,
   p2pEnabled: true,
-  p2pBootstrapNodes: [],
-  seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 0,
+  bootstrapNodes: [],
+  minTxsPerBlock: 0,
+  maxTxsPerBlock: 0,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
@@ -180,9 +181,9 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   disableTransactions: false,
   p2pEnabled: true,
-  p2pBootstrapNodes: [],
-  seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 20,
+  bootstrapNodes: [],
+  minTxsPerBlock: 0,
+  maxTxsPerBlock: 20,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-public/`],
   autoUpdate: 'config-and-version',
@@ -234,9 +235,9 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   disableTransactions: false,
-  p2pBootstrapNodes: [],
-  seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 8,
+  bootstrapNodes: [],
+  minTxsPerBlock: 0,
+  maxTxsPerBlock: 8,
   realProofs: true,
   snapshotsUrls: [],
   autoUpdate: 'config-and-version',
@@ -288,9 +289,9 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   disableTransactions: true,
-  p2pBootstrapNodes: [],
-  seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 0,
+  bootstrapNodes: [],
+  minTxsPerBlock: 0,
+  maxTxsPerBlock: 0,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/testnet/`],
   autoUpdate: 'config-and-version',
@@ -376,9 +377,9 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: false,
   p2pEnabled: true,
   disableTransactions: true,
-  p2pBootstrapNodes: [],
-  seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 0,
+  bootstrapNodes: [],
+  minTxsPerBlock: 0,
+  maxTxsPerBlock: 0,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/mainnet/`],
   autoUpdate: 'notify',
@@ -462,9 +463,9 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   disableTransactions: false,
-  p2pBootstrapNodes: [],
-  seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 8,
+  bootstrapNodes: [],
+  minTxsPerBlock: 0,
+  maxTxsPerBlock: 8,
   realProofs: false,
   snapshotsUrls: [],
   autoUpdate: 'config-and-version',
@@ -532,7 +533,7 @@ function getDefaultDataDir(networkName: NetworkNames): string {
   return path.join(process.env.HOME || '~', '.aztec', networkName, 'data');
 }
 
-export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
+export function enrichEnvironmentWithChainName(networkName: NetworkNames) {
   if (networkName === 'local') {
     return;
   }
@@ -544,19 +545,23 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
     throw new Error(`Unknown network name: ${networkName}`);
   }
 
-  enrichVar('BOOTSTRAP_NODES', config.p2pBootstrapNodes.join(','));
+  enrichEnvironmentWithChainConfig(config);
+}
+
+export function enrichEnvironmentWithChainConfig(config: L2ChainConfig) {
+  enrichVar('BOOTSTRAP_NODES', config.bootstrapNodes.join(','));
   enrichVar('TEST_ACCOUNTS', config.testAccounts.toString());
   enrichVar('SPONSORED_FPC', config.sponsoredFPC.toString());
   enrichVar('P2P_ENABLED', config.p2pEnabled.toString());
   enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
-  enrichVar('SEQ_MIN_TX_PER_BLOCK', config.seqMinTxsPerBlock.toString());
-  enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
+  enrichVar('SEQ_MIN_TX_PER_BLOCK', config.minTxsPerBlock.toString());
+  enrichVar('SEQ_MAX_TX_PER_BLOCK', config.maxTxsPerBlock.toString());
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URLS', config.snapshotsUrls.join(','));
   enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
 
-  enrichVar('DATA_STORE_MAP_SIZE_KB', config.dbMapSizeKb.toString());
+  enrichVar('DATA_STORE_MAP_SIZE_KB', config.dataStoreMapSizeKb.toString());
   enrichVar('ARCHIVER_STORE_MAP_SIZE_KB', config.archiverStoreMapSizeKb.toString());
   enrichVar('NOTE_HASH_TREE_MAP_SIZE_KB', config.noteHashTreeMapSizeKb.toString());
   enrichVar('NULLIFIER_TREE_MAP_SIZE_KB', config.nullifierTreeMapSizeKb.toString());
@@ -597,6 +602,7 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   enrichVar('AZTEC_SLOT_DURATION', config.aztecSlotDuration.toString());
   enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
   enrichVar('AZTEC_TARGET_COMMITTEE_SIZE', config.aztecTargetCommitteeSize.toString());
+  enrichVar('AZTEC_LAG_IN_EPOCHS', config.lagInEpochs.toString());
   enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('AZTEC_ACTIVATION_THRESHOLD', config.activationThreshold.toString());
   enrichVar('AZTEC_EJECTION_THRESHOLD', config.ejectionThreshold.toString());
@@ -614,6 +620,7 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   enrichVar('AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS', config.slashingExecutionDelayInRounds.toString());
   enrichVar('AZTEC_SLASHING_OFFSET_IN_ROUNDS', config.slashingOffsetInRounds.toString());
   enrichVar('AZTEC_SLASHER_FLAVOR', config.slasherFlavor);
+  enrichVar('AZTEC_SLASHING_DISABLE_DURATION', config.slashingDisableDuration.toString());
   enrichVar('AZTEC_EXIT_DELAY_SECONDS', config.exitDelaySeconds.toString());
   enrichEthAddressVar('AZTEC_SLASHING_VETOER', config.slashingVetoer.toString());
 
@@ -631,6 +638,8 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   enrichVar('SLASH_INVALID_BLOCK_PENALTY', config.slashBroadcastedInvalidBlockPenalty.toString());
   enrichVar('SLASH_OFFENSE_EXPIRATION_ROUNDS', config.slashOffenseExpirationRounds.toString());
   enrichVar('SLASH_MAX_PAYLOAD_SIZE', config.slashMaxPayloadSize.toString());
+  enrichVar('SLASH_GRACE_PERIOD_L2_SLOTS', config.slashGracePeriodL2Slots.toString());
+  enrichVar('SLASH_EXECUTE_ROUNDS_LOOK_BACK', config.slashExecuteRoundsLookBack.toString());
 
   enrichVar('SENTINEL_ENABLED', config.sentinelEnabled.toString());
   enrichVar('TRANSACTIONS_DISABLED', config.disableTransactions.toString());

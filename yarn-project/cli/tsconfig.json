@@ -50,6 +50,15 @@
     },
     {
       "path": "../world-state"
+    },
+    {
+      "path": "../aztec-node"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../telemetry-client"
     }
   ],
   "include": ["src", "src/**/*.json"],
