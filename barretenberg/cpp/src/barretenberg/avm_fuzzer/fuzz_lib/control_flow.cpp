@@ -29,6 +29,9 @@ void ControlFlow::process_insert_simple_instruction_block(InsertSimpleInstructio
     if (instruction_blocks->size() == 0) {
         return;
     }
+    if (this->current_block->terminated) {
+        return;
+    }
     auto instruction_block = instruction_blocks->at(instruction.instruction_block_idx % instruction_blocks->size());
     for (const auto& instr : instruction_block) {
         current_block->process_instruction(instr);
@@ -38,6 +41,9 @@ void ControlFlow::process_insert_simple_instruction_block(InsertSimpleInstructio
 void ControlFlow::process_jump_to_new_block(JumpToNewBlock instruction)
 {
     if (instruction_blocks->size() == 0) {
+        return;
+    }
+    if (this->current_block->terminated) {
         return;
     }
     auto target_instruction_block =
@@ -55,6 +61,9 @@ void ControlFlow::process_jump_if_to_new_block(JumpIfToNewBlock instruction)
     if (instruction_blocks->size() == 0) {
         return;
     }
+    if (this->current_block->terminated) {
+        return;
+    }
     auto target_then_instruction_block =
         instruction_blocks->at(instruction.then_program_block_instruction_block_idx % instruction_blocks->size());
     auto target_else_instruction_block =
@@ -69,6 +78,24 @@ void ControlFlow::process_jump_if_to_new_block(JumpIfToNewBlock instruction)
         target_else_block->process_instruction(instr);
     }
     current_block = target_then_block;
+}
+
+void ControlFlow::process_jump_to_block(JumpToBlock instruction)
+{
+    if (instruction_blocks->size() == 0) {
+        return;
+    }
+    if (this->current_block->terminated) {
+        return;
+    }
+    std::vector<ProgramBlock*> possible_target_blocks = get_reachable_blocks(current_block);
+    if (possible_target_blocks.size() == 0) {
+        return;
+    }
+    ProgramBlock* target_block =
+        possible_target_blocks.at(instruction.target_block_idx % possible_target_blocks.size());
+    current_block->finalize_with_jump(target_block, /*copy_memory_manager=*/false);
+    current_block = get_non_terminated_blocks().at(0);
 }
 
 std::vector<ProgramBlock*> ControlFlow::get_non_terminated_blocks()
@@ -131,7 +158,7 @@ int predict_block_size(ProgramBlock* block)
         return bytecode_length; // finalized with return, already counted
     case 1:
         return bytecode_length + JMP_SIZE; // finalized with jump
-    case 2:
+    case 2: {
         // if boolean condition is not set adding SET_8 instruction to the bytecode
         if (!block->get_terminating_condition_value().has_value()) {
             for (uint16_t address = 0; address < 65535; address++) {
@@ -139,19 +166,19 @@ int predict_block_size(ProgramBlock* block)
                 if (block->is_memory_address_set(address)) {
                     continue;
                 }
-                std::cout << "Setting condition address to " << address << std::endl;
                 auto set_16_instruction =
                     SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U1, .offset = address, .value = 0 };
                 block->process_instruction(set_16_instruction);
                 bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
                 break;
             }
-            return bytecode_length + JMP_IF_SIZE + JMP_SIZE; // finalized with jumpi
-        default:
-            throw std::runtime_error("Unsupported number of successors for block");
         }
+        return bytecode_length + JMP_IF_SIZE + JMP_SIZE; // finalized with jumpi
     }
-    return bytecode_length;
+    default:
+        throw std::runtime_error("Unsupported number of successors for block");
+    }
+    throw std::runtime_error("Unreachable");
 }
 
 size_t find_block_idx(ProgramBlock* block, const std::vector<ProgramBlock*>& blocks)
