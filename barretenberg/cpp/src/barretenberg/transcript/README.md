@@ -119,7 +119,7 @@ c_next = H(c_prev || round_data)
 
 - First challenge: `c_0 = H(round_0_data)`
 - Subsequent: `c_i = H(c_{i-1} || round_i_data)`
-- Generates pairs: `[128-bit, 126-bit, 128-bit, 126-bit, ...]`
+- Generates pairs: `[127-bit, 127-bit, 127-bit, 127-bit, ...]`
 
 ### Hash Buffer and State Management
 
@@ -228,7 +228,7 @@ auto [beta, gamma] = transcript->get_challenges<FF>({"beta", "gamma"});
 ```
 
 **Behavior**:
-- Generates challenges in pairs `[128-bit, 126-bit]`
+- Generates challenges in pairs `[127-bit, 127-bit]`
 - Uses iterative duplex hashing for subsequent pairs
 - All challenges from same round get the same origin tag
 
@@ -547,7 +547,7 @@ ROUND 0 - PREAMBLE (reception_phase=true, round_index=0)
 ┌──────────────────────────────────┐
 │ get_challenges("eta", "eta_two", │──► 1. Sanitize: FREE_WITNESS → CONSTANT (allow hashing)
 │                "eta_three")      │    2. Hash: c₀ = Poseidon2(current_round_data)
-└──────────────────────────────────┘    3. Split to [128-bit, 126-bit] x3
+└──────────────────────────────────┘    3. Split to [127-bit, 127-bit] x3
          │                               4. Clear current_round_data
          │                               5. Set reception_phase = false
          ▼                               6. Assign tag: OriginTag(42, 0, is_submitted=false)
@@ -884,13 +884,13 @@ BB_ASSERT(elem.get_origin_tag() == expected_tag)
 
 ### Challenge Buffer Size
 
-Challenges are generated in **pairs** with sizes `[128-bit, 126-bit]`:
+Challenges are generated in **pairs** with equal sizes `[127-bit, 127-bit]`:
 
 ```cpp
 static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
 ```
 
-This matches the security level and field size constraints of the curve.
+Each challenge is 127 bits (254/2), providing more than sufficient security for our 100-bit security parameter.
 
 ### Manifest (Testing Only)
 

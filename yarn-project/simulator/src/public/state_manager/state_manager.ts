@@ -437,6 +437,8 @@ export class PublicPersistableStateManager {
         await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
 
       const hash = await readDeployerStorage(delayedPublicMutableHashSlot);
+      // NOTE: The below reads are either not performed (if hash.isZero()) or only performed in unconstrained in c++ simulation.
+      // See UpdateCheck::check_current_class_id documentation - this means if we generate hints from the merkle db, they are unused:
       const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
         delayedPublicMutableSlot,
         readDeployerStorage,
