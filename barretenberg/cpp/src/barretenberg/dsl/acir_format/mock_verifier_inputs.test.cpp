@@ -50,7 +50,7 @@ TEST(MockVerifierInputsTest, MockMergeProofSize)
  */
 TEST(MockVerifierInputsTest, MockPreIpaProofSize)
 {
-    size_t CURRENT_PRE_IPA_PROOF_SIZE = 616;
+    size_t CURRENT_PRE_IPA_PROOF_SIZE = 606;
     EXPECT_EQ(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH, CURRENT_PRE_IPA_PROOF_SIZE)
         << "The length of the Pre-IPA proof changed.";
 
@@ -63,7 +63,7 @@ TEST(MockVerifierInputsTest, MockPreIpaProofSize)
  */
 TEST(MockVerifierInputsTest, MockIPAProofSize)
 {
-    size_t CURRENT_IPA_PROOF_SIZE = 68;
+    size_t CURRENT_IPA_PROOF_SIZE = 64;
     EXPECT_EQ(IPA_PROOF_LENGTH, CURRENT_IPA_PROOF_SIZE) << "The length of the IPA proof changed.";
 
     HonkProof ipa_proof = create_mock_ipa_proof();
@@ -75,7 +75,7 @@ TEST(MockVerifierInputsTest, MockIPAProofSize)
  */
 TEST(MockVerifierInputsTest, MockTranslatorProofSize)
 {
-    size_t CURRENT_TRANSLATOR_PROOF_SIZE = 818;
+    size_t CURRENT_TRANSLATOR_PROOF_SIZE = 804;
     EXPECT_EQ(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS, CURRENT_TRANSLATOR_PROOF_SIZE)
         << "The length of the Translator proof changed.";
 
@@ -219,7 +219,7 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
         if constexpr (std::is_same_v<Flavor, UltraFlavor>) {
             CURRENT_ULTRA_HONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 441;
         } else if constexpr (std::is_same_v<Flavor, UltraRollupFlavor>) {
-            CURRENT_ULTRA_HONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 509;
+            CURRENT_ULTRA_HONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 505;
         } else if constexpr (std::is_same_v<Flavor, UltraZKFlavor>) {
             CURRENT_ULTRA_HONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 492;
         }
@@ -243,7 +243,7 @@ TEST(MockVerifierInputsTest, MockChonkProofSize)
 
     // If this value changes, we need to update the corresponding constants in noir and in yarn-project. Also, we need
     // to update the Prover.toml file for rollup-tx-private to reflect the new length of the Chonk proof.
-    size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 2021;
+    size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 1993;
     HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
     EXPECT_EQ(chonk_proof.size(), Chonk::Proof::PROOF_LENGTH());
     EXPECT_EQ(chonk_proof.size(),

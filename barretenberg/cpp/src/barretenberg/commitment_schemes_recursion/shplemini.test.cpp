@@ -350,6 +350,6 @@ TEST_F(ShpleminiMegaTest, GoblinProveAndVerifyShortScalars)
 
 TEST_F(ShpleminiMegaTest, ManyCommitmentsWithECCVMProving)
 {
-    run_shplemini_full_scalars(3500, 350, true);
+    run_shplemini_full_scalars(1700, 175, true);
     run_shplemini_short_scalars(3500, 350, true);
 }
