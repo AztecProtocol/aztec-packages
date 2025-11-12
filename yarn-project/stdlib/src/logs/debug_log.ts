@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type LogLevel, LogLevels } from '@aztec/foundation/log';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
@@ -28,5 +28,24 @@ export class DebugLog {
       .transform(
         ({ contractAddress, level, message, fields }) => new DebugLog(contractAddress, level, message, fields),
       );
+  }
+
+  /**
+   * Creates a DebugLog from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing DebugLog fields
+   * @returns A DebugLog instance
+   */
+  static fromPlainObject(obj: any): DebugLog {
+    if (obj instanceof DebugLog) {
+      return obj;
+    }
+    return new DebugLog(
+      AztecAddress.fromPlainObject(obj.contractAddress),
+      obj.level,
+      obj.message,
+      obj.fields.map((f: any) => Fr.fromPlainObject(f)),
+    );
   }
 }

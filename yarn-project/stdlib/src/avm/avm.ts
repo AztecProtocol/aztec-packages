@@ -10,7 +10,7 @@ import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
-import type { GasUsed } from '../gas/gas_used.js';
+import { GasUsed } from '../gas/gas_used.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { DebugLog } from '../logs/debug_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
@@ -1101,33 +1101,16 @@ export class PublicTxResult {
       );
   }
 
-  // TODO(fcarreiro): We temporarily use Zod as a glue.
   static fromPlainObject(obj: any): PublicTxResult {
-    return z
-      .object({
-        gasUsed: schemas.GasUsed,
-        revertCode: RevertCode.schema,
-        revertReason: NullishToUndefined(SimulationError.schema),
-        // TODO(fcarreiro): Use actual Phases type schema.
-        processedPhases: NullishToUndefined(z.any().array()),
-        logs: NullishToUndefined(DebugLog.schema.array()),
-        // For the proving request.
-        publicInputs: z.any().transform(AvmCircuitPublicInputs.fromPlainObject),
-        hints: NullishToUndefined(z.any().transform(AvmExecutionHints.fromPlainObject)),
-      })
-      .transform(
-        ({ gasUsed, revertCode, revertReason, processedPhases, logs, hints, publicInputs }) =>
-          new PublicTxResult(
-            gasUsed,
-            revertCode as RevertCode,
-            revertReason,
-            processedPhases,
-            logs,
-            hints,
-            publicInputs,
-          ),
-      )
-      .parse(obj);
+    return new PublicTxResult(
+      GasUsed.fromPlainObject(obj.gasUsed),
+      RevertCode.fromPlainObject(obj.revertCode),
+      /*revertReason=*/ undefined, // TODO(fcarreiro/mwood): add.
+      /*processedPhases=*/ [], // TODO(fcarreiro/mwood): add.
+      obj.logs?.map(DebugLog.fromPlainObject),
+      obj.hints ? AvmExecutionHints.fromPlainObject(obj.hints) : undefined,
+      AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs),
+    );
   }
 }
 

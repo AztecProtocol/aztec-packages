@@ -1,4 +1,4 @@
-import type { Gas } from './gas.js';
+import { Gas } from './gas.js';
 
 export interface GasUsed {
   /**
@@ -21,3 +21,24 @@ export interface GasUsed {
    */
   billedGas: Gas;
 }
+
+/**
+ * Creates a GasUsed from a plain object without Zod validation.
+ * This method is optimized for performance and skips validation, making it suitable
+ * for deserializing trusted data (e.g., from C++ via MessagePack).
+ * @param obj - Plain object containing GasUsed fields
+ * @returns A GasUsed object
+ */
+export function gasUsedFromPlainObject(obj: any): GasUsed {
+  return {
+    totalGas: Gas.fromPlainObject(obj.totalGas),
+    publicGas: Gas.fromPlainObject(obj.publicGas),
+    teardownGas: Gas.fromPlainObject(obj.teardownGas),
+    billedGas: Gas.fromPlainObject(obj.billedGas),
+  };
+}
+
+// Export as a namespace to match the pattern
+export const GasUsed = {
+  fromPlainObject: gasUsedFromPlainObject,
+};
