@@ -114,14 +114,14 @@ template <typename Flavor> class SumcheckProverRound {
             size_t max_end_index = 0;
 
             // Check for Ultra/Mega flavor wire structure (w_l, w_r, w_o, w_4)
-            if constexpr (requires { multivariates.w_l; }) {
+            if constexpr (IsUltraOrMegaHonk<Flavor>) {
                 max_end_index = std::max(max_end_index, multivariates.w_l.end_index());
                 max_end_index = std::max(max_end_index, multivariates.w_r.end_index());
                 max_end_index = std::max(max_end_index, multivariates.w_o.end_index());
                 max_end_index = std::max(max_end_index, multivariates.w_4.end_index());
             }
             // Check for MultilinearBatchingFlavor wire structure
-            else if constexpr (requires { multivariates.w_non_shifted_accumulator; }) {
+            else if constexpr (isMultilinearBatchingFlavor<Flavor>) {
                 max_end_index = std::max(max_end_index, multivariates.w_non_shifted_accumulator.end_index());
                 max_end_index = std::max(max_end_index, multivariates.w_non_shifted_instance.end_index());
                 max_end_index = std::max(max_end_index, multivariates.w_evaluations_accumulator.end_index());
