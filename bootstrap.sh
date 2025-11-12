@@ -301,7 +301,8 @@ function bench_merge {
     dir=${dir#./}; \
     dir=${dir%/bench-out*}; \
     jq --arg prefix "$dir/" '\''map(.name |= "\($prefix)\(.)")'\'' "$1"
-  ' _ {} | jq -s add > bench-out/bench.json
+  ' _ {} | jq -s "add // []" > bench-out/bench.json
+
 }
 
 function bench {
@@ -426,6 +427,14 @@ case "$cmd" in
     test
     ;;
   "ci-full")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=1
+    build
+    test
+    bench
+    ;;
+  "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1

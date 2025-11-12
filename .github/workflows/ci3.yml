@@ -48,6 +48,10 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: echo "CI_FULL=1" >> $GITHUB_ENV
 
+      - name: CI Full No Test Cache Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-full-no-test-cache')
+        run: echo "CI_FULL_NO_TEST_CACHE=1" >> $GITHUB_ENV
+
       - name: Cache Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
         run: echo "NO_CACHE=1" >> $GITHUB_ENV
@@ -154,6 +158,8 @@ jobs:
             git push origin ${tag_name}
           elif [ "${CI_FULL:-0}" -eq 1 ]; then
             exec ./ci.sh full
+          elif [ "${CI_FULL_NO_TEST_CACHE:-0}" -eq 1 ]; then
+            exec ./ci.sh full-no-test-cache
           elif [ "${CI_DOCS:-0}" -eq 1 ]; then
             exec ./ci.sh docs
           elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
@@ -187,11 +193,15 @@ jobs:
           gh pr merge "${{ github.event.pull_request.number }}" --auto -m || true
 
       - name: Download benchmarks
-        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
-        run: ./ci.sh gh-bench
+        if: github.event_name == 'merge_group' || env.CI_FULL == '1' || env.CI_FULL_NO_TEST_CACHE == '1'
+        run: |
+          ./ci.sh gh-bench
+          if [ "$(cat ./bench-out/bench.json)" != "[]" ]; then
+            echo "ENABLE_BENCH=1" >> $GITHUB_ENV
+          fi
 
       - name: Upload benchmarks
-        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
+        if: env.ENABLE_BENCH == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks

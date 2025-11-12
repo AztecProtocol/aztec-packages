@@ -182,10 +182,6 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
-  - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
-    error_regex: "Exceeded timeout of"
-    owners:
-      - *luke
   - regex: "slasher/src/slasher_client.test.ts"
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
@@ -223,6 +219,20 @@ tests:
     error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
     owners:
       - *saleel
+
+  # Example http://ci.aztec-labs.com/18db8adf0db50928
+  # This seems to be an error in acvm wasm/js
+  - regex: "run_compose_test [a-z]*-[a-z]* box boxes"
+    error_regex: "call_indirect to a null table entry"
+    owners:
+      - *adam
+
+  # Example http://ci.aztec-labs.com/cd76b19670ab613f
+  # related to wasm proving browser flakes potentially
+  - regex: "run_compose_test [a-z]*-[a-z]* box boxes"
+    error_regex: "Out of bounds memory access (evaluating 'this.exports"
+    owners:
+      - *adam
 
   - regex: "run_compose_test vite-[a-z]* box boxes"
     error_regex: "Test timeout of [0-9]+ms exceeded."
