@@ -27,15 +27,17 @@ namespace acir_format {
 
 using namespace bb;
 
-/**
- * @brief Deserialize `buf` either based on the first byte interpreted as a
-          Noir serialization format byte, or falling back to `bincode` if
-          the format cannot be recognized. Currently only `msgpack` format
-          is expected, or the legacy `bincode` format.
- * @note Due to the lack of exception handling available to us in Wasm we can't
- *       try `bincode` format and if it fails try `msgpack`; instead we have to
- *       make a decision and commit to it.
- */
+uint256_t from_be_bytes(std::vector<uint8_t> const& bytes)
+{
+    BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
+    uint256_t result = 0;
+    for (uint8_t byte : bytes) {
+        result <<= 8;
+        result |= byte;
+    }
+    return result;
+}
+
 template <typename T>
 T deserialize_any_format(std::vector<uint8_t>&& buf,
                          std::function<T(msgpack::object const&)> decode_msgpack,
@@ -70,6 +72,7 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
                 // In experiments bincode data was parsed as 0.
                 // All the top level formats we look for are MAP types.
                 if (o.type == msgpack::type::MAP) {
+                    BB_ASSERT(false, "Msgpack is not currently supported.");
                     return decode_msgpack(o);
                 }
             }
@@ -82,13 +85,60 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
     return decode_bincode(std::move(buf));
 }
 
-/**
- * @brief Deserializes a `Program` from bytes, trying `msgpack` or `bincode` formats.
- * @note Ignores the Brillig parts of the bytecode when using `msgpack`.
- */
-Acir::Program deserialize_program(std::vector<uint8_t>&& buf)
+AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
 {
-    return deserialize_any_format<Acir::Program>(
+    AcirFormat af;
+    // `varnum` is the true number of variables, thus we add one to the index which starts at zero
+    af.varnum = circuit.current_witness_index + 1;
+    af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
+    af.public_inputs = join({ transform::map(circuit.public_parameters.value, [](auto e) { return e.value; }),
+                              transform::map(circuit.return_values.value, [](auto e) { return e.value; }) });
+    // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
+    // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
+    std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
+    for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
+        const auto& gate = circuit.opcodes[i];
+        std::visit(
+            [&](auto&& arg) {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, Acir::Opcode::AssertZero>) {
+                    handle_arithmetic(arg, af, i);
+                } else if constexpr (std::is_same_v<T, Acir::Opcode::BlackBoxFuncCall>) {
+                    handle_blackbox_func_call(arg, af, i);
+                } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
+                    auto block = handle_memory_init(arg);
+                    uint32_t block_id = arg.block_id.value;
+                    block_id_to_block_constraint[block_id] = { block, /*opcode_indices=*/{ i } };
+                } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
+                    auto block = block_id_to_block_constraint.find(arg.block_id.value);
+                    if (block == block_id_to_block_constraint.end()) {
+                        throw_or_abort("unitialized MemoryOp");
+                    }
+                    handle_memory_op(arg, af, block->second.first);
+                    block->second.second.push_back(i);
+                } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
+                    info("ENCOUNTERED BRILLIG CALL");
+                } else {
+                    bb::assert_failure("circuit_serde_to_acir_format: Unrecognized Acir Opcode.");
+                }
+            },
+            gate.value);
+    }
+    for (const auto& [block_id, block] : block_id_to_block_constraint) {
+        // Note: the trace will always be empty for ReturnData since it cannot be explicitly read from in noir
+        if (!block.first.trace.empty() || block.first.type == BlockType::ReturnData ||
+            block.first.type == BlockType::CallData) {
+            af.block_constraints.push_back(block.first);
+            af.original_opcode_indices.block_constraints.push_back(block.second);
+        }
+    }
+    return af;
+}
+
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
+{
+    // We need to deserialize into Acir::Program first because the buffer returned by Noir has this structure
+    auto program = deserialize_any_format<Acir::Program>(
         std::move(buf),
         [](auto o) -> Acir::Program {
             Acir::Program program;
@@ -105,14 +155,15 @@ Acir::Program deserialize_program(std::vector<uint8_t>&& buf)
             return program;
         },
         &Acir::Program::bincodeDeserialize);
+    BB_ASSERT_EQ(program.functions.size(), 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
+
+    return circuit_serde_to_acir_format(program.functions[0]);
 }
 
-/**
- * @brief Deserializes a `WitnessStack` from bytes, trying `msgpack` or `bincode` formats.
- */
-Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t>&& buf)
+WitnessVector witness_buf_to_witness_data(std::vector<uint8_t>&& buf)
 {
-    return deserialize_any_format<Witnesses::WitnessStack>(
+    // We need to deserialize into WitnessStack first because the buffer returned by Noir has this structure
+    auto witness_stack = deserialize_any_format<Witnesses::WitnessStack>(
         std::move(buf),
         [](auto o) {
             Witnesses::WitnessStack witness_stack;
@@ -125,17 +176,63 @@ Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t>&& buf)
             return witness_stack;
         },
         &Witnesses::WitnessStack::bincodeDeserialize);
+    BB_ASSERT_EQ(
+        witness_stack.stack.size(), 1U, "witness_buf_to_witness_data: expected single WitnessMap in WitnessStack");
+
+    return witness_map_to_witness_vector(witness_stack.stack[0].witness);
 }
 
-// TODO(tom): clean this up.
-uint256_t from_be_bytes(std::vector<uint8_t> const& bytes)
+WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness_map)
 {
-    BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
-    uint256_t result = 0;
-    for (uint8_t byte : bytes) {
-        result <<= 8;
-        result |= byte;
+    // We need to enforce that:
+    //  - the witness map is in increasing order of witness index
+    //  - all the witness indices are positive
+    bool is_witness_map_increasing = true;
+    uint32_t previous_index = 0; // starting at 0 to check that witness indices are positive
+
+    WitnessVector witness_vector;
+    for (size_t index = 0; const auto& e : witness_map.value) {
+        is_witness_map_increasing &= previous_index <= e.first.value;
+        previous_index = e.first.value;
+
+        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
+        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
+        // which do not exist within the `WitnessMap` with the dummy value of zero.
+        while (index < e.first.value) {
+            witness_vector.emplace_back(0);
+            index++;
+        }
+        witness_vector.emplace_back(from_be_bytes(e.second));
+        index++;
     }
+
+    BB_ASSERT(is_witness_map_increasing, "witness_map_to_witness_vector: WitnessMap is not ordered by witness index");
+
+    return witness_vector;
+}
+
+WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
+{
+    WitnessOrConstant<bb::fr> result = std::visit(
+        [&](auto&& e) {
+            using T = std::decay_t<decltype(e)>;
+            if constexpr (std::is_same_v<T, Acir::FunctionInput::Witness>) {
+                return WitnessOrConstant<bb::fr>{
+                    .index = e.value.value,
+                    .value = bb::fr::zero(),
+                    .is_constant = false,
+                };
+            } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
+                return WitnessOrConstant<bb::fr>{
+                    .index = bb::stdlib::IS_CONSTANT,
+                    .value = from_be_bytes(e.value),
+                    .is_constant = true,
+                };
+            } else {
+                bb::assert_failure("acir_format::parse_input: unrecognized Acir::FunctionInput variant.");
+            }
+        },
+        input.value);
     return result;
 }
 
@@ -216,10 +313,6 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     return pt;
 }
 
-/// @brief
-
-/// @param scaling The scaling factor to apply to the linear term.
-/// @note This function is used internally to update the fields of a mul_quad_ gate with a linear term.
 /**
  * @brief Assigns a linear term to a specific index in a mul_quad_ gate.
  * @param gate The mul_quad_ gate to assign the linear term to.
@@ -552,36 +645,6 @@ uint32_t get_witness_from_function_input(Acir::FunctionInput input)
     return input_witness.value.value;
 }
 
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
-{
-    WitnessOrConstant result = std::visit(
-        [&](auto&& e) {
-            using T = std::decay_t<decltype(e)>;
-            if constexpr (std::is_same_v<T, Acir::FunctionInput::Witness>) {
-                return WitnessOrConstant<bb::fr>{
-                    .index = e.value.value,
-                    .value = bb::fr::zero(),
-                    .is_constant = false,
-                };
-            } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
-                return WitnessOrConstant<bb::fr>{
-                    .index = bb::stdlib::IS_CONSTANT,
-                    .value = from_be_bytes(e.value),
-                    .is_constant = true,
-                };
-            } else {
-                throw_or_abort("Unrecognized Acir::ConstantOrWitnessEnum variant.");
-            }
-            return WitnessOrConstant<bb::fr>{
-                .index = bb::stdlib::IS_CONSTANT,
-                .value = bb::fr::zero(),
-                .is_constant = true,
-            };
-        },
-        input.value);
-    return result;
-}
-
 void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index)
 {
     std::visit(
@@ -808,6 +871,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     af.constrained_witness.insert(output);
                 }
                 af.original_opcode_indices.poseidon2_constraints.push_back(opcode_index);
+            } else {
+                bb::assert_failure("handle_blackbox_func_call: Unrecognized BlackBoxFuncCall variant.");
             }
         },
         arg.value.value);
@@ -900,143 +965,6 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, Bloc
     MemOp acir_mem_op =
         MemOp{ .access_type = access_type, .index = index, .value = serialize_arithmetic_gate(mem_op.op.value) };
     block.trace.push_back(acir_mem_op);
-}
-
-AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
-{
-    AcirFormat af;
-    // `varnum` is the true number of variables, thus we add one to the index which starts at zero
-    af.varnum = circuit.current_witness_index + 1;
-    af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
-    af.public_inputs = join({ transform::map(circuit.public_parameters.value, [](auto e) { return e.value; }),
-                              transform::map(circuit.return_values.value, [](auto e) { return e.value; }) });
-    // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
-    // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
-    std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
-    for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
-        const auto& gate = circuit.opcodes[i];
-        std::visit(
-            [&](auto&& arg) {
-                using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, Acir::Opcode::AssertZero>) {
-                    handle_arithmetic(arg, af, i);
-                } else if constexpr (std::is_same_v<T, Acir::Opcode::BlackBoxFuncCall>) {
-                    handle_blackbox_func_call(arg, af, i);
-                } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
-                    auto block = handle_memory_init(arg);
-                    uint32_t block_id = arg.block_id.value;
-                    block_id_to_block_constraint[block_id] = { block, /*opcode_indices=*/{ i } };
-                } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
-                    auto block = block_id_to_block_constraint.find(arg.block_id.value);
-                    if (block == block_id_to_block_constraint.end()) {
-                        throw_or_abort("unitialized MemoryOp");
-                    }
-                    handle_memory_op(arg, af, block->second.first);
-                    block->second.second.push_back(i);
-                }
-            },
-            gate.value);
-    }
-    for (const auto& [block_id, block] : block_id_to_block_constraint) {
-        // Note: the trace will always be empty for ReturnData since it cannot be explicitly read from in noir
-        if (!block.first.trace.empty() || block.first.type == BlockType::ReturnData ||
-            block.first.type == BlockType::CallData) {
-            af.block_constraints.push_back(block.first);
-            af.original_opcode_indices.block_constraints.push_back(block.second);
-        }
-    }
-    return af;
-}
-
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
-{
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
-    // `program_buf_to_acir_format` once Honk fully supports all ACIR test flows For now the backend still expects
-    // to work with a single ACIR function
-    auto program = deserialize_program(std::move(buf));
-    auto circuit = program.functions[0];
-
-    return circuit_serde_to_acir_format(circuit);
-}
-
-/**
- * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
- *
- * @param witness_map ACIR-native `WitnessMap` deserialized from a buffer
- * @return A `WitnessVector` equivalent to the passed `WitnessMap`.
- * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
- *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
- */
-WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness_map)
-{
-    WitnessVector wv;
-    size_t index = 0;
-    for (const auto& e : witness_map.value) {
-        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
-        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
-        while (index < e.first.value) {
-            wv.emplace_back(0);
-            index++;
-        }
-        wv.emplace_back(from_be_bytes(e.second));
-        index++;
-    }
-    return wv;
-}
-
-WitnessVector witness_buf_to_witness_data(std::vector<uint8_t>&& buf)
-{
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
-    // `witness_buf_to_witness_stack` once Honk fully supports all ACIR test flows. For now the backend still
-    // expects to work with the stop of the `WitnessStack`.
-    auto witness_stack = deserialize_witness_stack(std::move(buf));
-    auto w = witness_stack.stack[witness_stack.stack.size() - 1].witness;
-
-    return witness_map_to_witness_vector(w);
-}
-
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t>&& buf)
-{
-    auto program = deserialize_program(std::move(buf));
-
-    std::vector<AcirFormat> constraint_systems;
-    constraint_systems.reserve(program.functions.size());
-    for (auto const& function : program.functions) {
-        constraint_systems.emplace_back(circuit_serde_to_acir_format(function));
-    }
-
-    return constraint_systems;
-}
-
-WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t>&& buf)
-{
-    auto witness_stack = deserialize_witness_stack(std::move(buf));
-    WitnessVectorStack witness_vector_stack;
-    witness_vector_stack.reserve(witness_stack.stack.size());
-    for (auto const& stack_item : witness_stack.stack) {
-        witness_vector_stack.emplace_back(stack_item.index, witness_map_to_witness_vector(stack_item.witness));
-    }
-    return witness_vector_stack;
-}
-
-AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path)
-{
-    vinfo("in get_acir_program_stack; witness path is ", witness_path);
-    std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
-    std::vector<AcirFormat> constraint_systems = program_buf_to_acir_format(std::move(bytecode));
-    WitnessVectorStack witness_stack = [&]() {
-        if (witness_path.empty()) {
-            info("producing a stack of empties");
-            WitnessVectorStack stack_of_empties{ constraint_systems.size(),
-                                                 std::make_pair(uint32_t(), WitnessVector()) };
-            return stack_of_empties;
-        }
-        std::vector<uint8_t> witness_data = get_bytecode(witness_path);
-        return witness_buf_to_witness_stack(std::move(witness_data));
-    }();
-
-    return { std::move(constraint_systems), std::move(witness_stack) };
 }
 
 } // namespace acir_format

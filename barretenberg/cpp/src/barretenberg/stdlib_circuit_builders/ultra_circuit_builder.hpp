@@ -223,22 +223,19 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * @param public_inputs indices of public inputs in witness array
      * @param varnum number of known witness
      *
-     * @note The size of witness_values may be less than varnum. The former is the set of actual witness values known at
-     * the time of acir generation. The latter may be larger and essentially acounts for placeholders for witnesses that
-     * we know will exist but whose values are not known during acir generation. Both are in general less than the total
-     * number of variables/witnesses that might be present for a circuit generated from acir, since many gates will
-     * depend on the details of the bberg implementation (or more generally on the backend used to process acir).
+     * @note When the witness values are reconstructed from ACIR, they are padded with zeros in those position for which
+     * the value of the witness is not known at compile time. Hence, we always expect varnum == witness_values.size()
+     *
      */
     UltraCircuitBuilder_(const size_t size_hint,
-                         auto& witness_values,
+                         SlabVector<FF>& witness_values,
                          const std::vector<uint32_t>& public_inputs,
                          size_t varnum)
         : CircuitBuilderBase<FF>(size_hint, witness_values.empty())
     {
-        for (size_t idx = 0; idx < varnum; ++idx) {
-            // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
-            // be "set" later on via the assert_equal mechanism.
-            auto value = idx < witness_values.size() ? witness_values[idx] : 0;
+        BB_ASSERT_EQ(
+            varnum, witness_values.size(), "UltraCircuitBuilder_: varnum does not match size of witness_values vector");
+        for (const auto value : witness_values) {
             this->add_variable(value);
         }
 

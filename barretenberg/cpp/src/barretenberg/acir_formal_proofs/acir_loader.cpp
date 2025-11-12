@@ -30,7 +30,7 @@ AcirToSmtLoader::AcirToSmtLoader(std::string filename)
 {
     this->acir_program_buf = readFile(filename);
     this->instruction_name = filename;
-    this->constraint_system = acir_format::program_buf_to_acir_format(this->acir_program_buf, false).at(0);
+    this->constraint_system = acir_format::circuit_buf_to_acir_format(std::move(this->acir_program_buf));
     this->circuit_buf = this->get_circuit_builder().export_circuit();
 }
 

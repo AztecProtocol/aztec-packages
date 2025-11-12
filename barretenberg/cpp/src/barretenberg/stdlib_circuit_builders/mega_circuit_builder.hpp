@@ -75,14 +75,11 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @param public_inputs indices of public inputs in witness array
      * @param varnum number of known witness
      *
-     * @note The size of witness_values may be less than varnum. The former is the set of actual witness values known at
-     * the time of acir generation. The former may be larger and essentially acounts for placeholders for witnesses that
-     * we know will exist but whose values are not known during acir generation. Both are in general less than the total
-     * number of variables/witnesses that might be present for a circuit generated from acir, since many gates will
-     * depend on the details of the bberg implementation (or more generally on the backend used to process acir).
+     * @note When the witness values are reconstructed from ACIR, they are padded with zeros in those position for which
+     * the value of the witness is not known at compile time. Hence, we always expect varnum == witness_values.size()
      */
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
-                        auto& witness_values,
+                        SlabVector<FF>& witness_values,
                         const std::vector<uint32_t>& public_inputs,
                         size_t varnum)
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
