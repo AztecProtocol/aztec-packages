@@ -106,15 +106,24 @@ int predict_block_size(ProgramBlock* block)
     case 2:
         // if boolean condition is not set adding SET_8 instruction to the bytecode
         if (!block->get_terminating_condition_value().has_value()) {
-            auto set_16_instruction =
-                SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U1, .offset = 10, .value = 0 };
-            block->process_instruction(set_16_instruction);
-            bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
+            for (uint16_t address = 0; address < 65535; address++) {
+                // if the memory address is already in use, we skip it
+                if (block->is_memory_address_set(address)) {
+                    continue;
+                }
+                std::cout << "Setting condition address to " << address << std::endl;
+                auto set_16_instruction =
+                    SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U1, .offset = address, .value = 0 };
+                block->process_instruction(set_16_instruction);
+                bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
+                break;
+            }
+            return bytecode_length + JMP_IF_SIZE + JMP_SIZE; // finalized with jumpi
+        default:
+            throw std::runtime_error("Unsupported number of successors for block");
         }
-        return bytecode_length + JMP_IF_SIZE + JMP_SIZE; // finalized with jumpi
-    default:
-        throw std::runtime_error("Unsupported number of successors for block");
     }
+    return bytecode_length;
 }
 
 size_t find_block_idx(ProgramBlock* block, const std::vector<ProgramBlock*>& blocks)

@@ -689,6 +689,11 @@ std::optional<uint16_t> ProgramBlock::get_terminating_condition_value()
     return condition_addr;
 }
 
+bool ProgramBlock::is_memory_address_set(uint16_t address)
+{
+    return memory_manager.is_memory_address_set(address);
+}
+
 void ProgramBlock::process_instruction(FuzzInstruction instruction)
 {
     std::visit(overloaded_instruction{
