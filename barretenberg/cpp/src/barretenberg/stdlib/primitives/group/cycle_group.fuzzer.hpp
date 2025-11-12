@@ -540,7 +540,7 @@ template <typename Builder> class CycleGroupBase {
                 if (convert_to_montgomery) {
                     e = e.to_montgomery_form();
                 }
-                // Substitute scalar element with a special value
+                // Substitute scalar element with a special value excluding zero
                 // I think that zeros from mutateGroupElement are enough zeros produced
                 auto special_value = static_cast<SpecialScalarValue>(rng.next() % SPECIAL_VALUE_COUNT_NO_ZERO);
                 e = get_special_scalar_value<ScalarField>(special_value);
@@ -945,9 +945,11 @@ template <typename Builder> class CycleGroupBase {
             cycle_group_t res;
             switch (inf_path) {
             case 0:
-                debug_log("left.set_point_at_infinity();", "\n");
+                debug_log("left.set_point_at_infinity(");
                 res = this->cg();
+                // Need to split logs here, since `set_point_at_infinity` produces extra logs
                 res.set_point_at_infinity(this->construct_predicate(builder, true));
+                debug_log(");", "\n");
                 return ExecutionHandler(base_scalar_res, base_res, res);
             case 1:
                 debug_log("right.set_point_at_infinity();", "\n");
@@ -1434,11 +1436,17 @@ template <typename Builder> class CycleGroupBase {
             }
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
+
+            ExecutionHandler result;
             if constexpr (SHOW_FUZZING_INFO) {
                 auto args = format_single_arg(stack, first_index, output_index);
-                debug_log(args.out, " = ", args.rhs, ");", "\n");
+                debug_log(args.out, " = ");
+                // Need to split logs here, since `set` produces extra logs
+                result = stack[first_index].set(builder);
+                debug_log(args.rhs, ");", "\n");
+            } else {
+                result = stack[first_index].set(builder);
             }
-            ExecutionHandler result = stack[first_index].set(builder);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1570,12 +1578,17 @@ template <typename Builder> class CycleGroupBase {
             size_t output_index = instruction.arguments.fourArgs.out % stack.size();
             bool predicate = instruction.arguments.fourArgs.in3 % 2;
 
+            ExecutionHandler result;
             if constexpr (SHOW_FUZZING_INFO) {
                 auto args = format_two_arg(stack, first_index, second_index, output_index);
-                debug_log(args.out, " = cycle_group_t::conditional_assign(", args.rhs, ", ", args.lhs, ");", "\n");
+                debug_log(args.out, " = cycle_group_t::conditional_assign(");
+                // Need to split logs here, since `conditional_assign` produces extra logs
+                result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
+                debug_log(args.rhs, ", ", args.lhs, ");", "\n");
+            } else {
+                result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
             }
 
-            ExecutionHandler result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1607,7 +1620,7 @@ template <typename Builder> class CycleGroupBase {
 
             if constexpr (SHOW_FUZZING_INFO) {
                 auto args = format_single_arg(stack, first_index, output_index);
-                debug_log(args.out, " = ", args.rhs, "\n");
+                debug_log(args.out, " = ", args.rhs);
             }
             ExecutionHandler result = stack[first_index].mul(builder, scalar);
             // If the output index is larger than the number of elements in stack, append
@@ -1643,6 +1656,7 @@ template <typename Builder> class CycleGroupBase {
             }
             size_t output_index = (size_t)instruction.arguments.batchMulArgs.output_index;
 
+            ExecutionHandler result;
             if constexpr (SHOW_FUZZING_INFO) {
                 std::string res = "";
                 bool is_const = true;
@@ -1656,9 +1670,13 @@ template <typename Builder> class CycleGroupBase {
                 std::string out = is_const ? "c" : "w";
                 out = ((output_index >= stack.size()) ? "auto " : "") + out;
                 out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
-                debug_log(out, " = cycle_group_t::batch_mul({", res, "}, {});", "\n");
+                debug_log(out, " = cycle_group_t::batch_mul({", res, "}, {");
+                // Need to split logs here, since `conditional_assign` produces extra logs
+                result = ExecutionHandler::batch_mul(builder, to_add, to_mul);
+                debug_log("});", "\n");
+            } else {
+                result = ExecutionHandler::batch_mul(builder, to_add, to_mul);
             }
-            ExecutionHandler result = ExecutionHandler::batch_mul(builder, to_add, to_mul);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
