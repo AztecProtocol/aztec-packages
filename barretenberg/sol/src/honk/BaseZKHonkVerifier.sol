@@ -205,7 +205,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // Index 0 is gemini_masking_poly, indices 1-41 are the regular entities used in relations
         Fr[NUMBER_OF_ENTITIES] memory relationsEvaluations;
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
-            relationsEvaluations[i] = proof.sumcheckEvaluations[i + 1];  // Skip gemini_masking_poly at index 0
+            relationsEvaluations[i] = proof.sumcheckEvaluations[i + 1]; // Skip gemini_masking_poly at index 0
         }
         Fr grandHonkRelationSum = RelationsLib.accumulateRelationEvaluations(
             relationsEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation
