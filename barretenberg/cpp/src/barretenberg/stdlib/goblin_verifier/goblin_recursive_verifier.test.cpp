@@ -74,6 +74,21 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         // Tamper: multiply by 2 (or tweak however you like)
         translator_proof[idx] = translator_proof[idx] + translator_proof[idx];
     };
+
+    // ECCVM pre-IPA proof ends with evaluations including `op`. We tamper with the `op` evaluation.
+    // The structure is: [..., op_eval, x_lo_y_hi_eval, x_hi_z_1_eval, y_lo_z_2_eval, IPA_proof...]
+    // So op_eval is 3 fields before the IPA proof starts.
+    static void tamper_with_eccvm_op_eval(HonkProof& eccvm_pre_ipa_proof)
+    {
+        // The `op` evaluation is located 3 evaluations before the end of pre-IPA proof
+        // (followed by x_lo_y_hi, x_hi_z_1, y_lo_z_2 evaluations)
+        static constexpr size_t evals_after_op = 3; // x_lo_y_hi, x_hi_z_1, y_lo_z_2
+        const size_t op_eval_idx = eccvm_pre_ipa_proof.size() - evals_after_op;
+
+        // Tamper with the op evaluation
+        eccvm_pre_ipa_proof[op_eval_idx] += FF(1);
+    };
+
     /**
      * @brief Create a goblin proof and the VM verification keys needed by the goblin recursive verifier
      *
@@ -235,9 +250,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     auto crs_factory = srs::get_grumpkin_crs_factory();
     VerifierCommitmentKey<curve::Grumpkin> grumpkin_verifier_commitment_key(1 << CONST_ECCVM_LOG_N, crs_factory);
     OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
-    auto native_ipa_transcript = std::make_shared<NativeTranscript>();
-    auto native_ipa_proof = goblin_rec_verifier_output.ipa_proof.get_value();
-    native_ipa_transcript->load_proof(native_ipa_proof);
+    auto native_ipa_transcript = std::make_shared<NativeTranscript>(goblin_rec_verifier_output.ipa_proof.get_value());
 
     bool native_result =
         IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript);
@@ -308,11 +321,8 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
     auto [proof, verifier_input, merge_commitments, recursive_merge_commitments] =
         create_goblin_prover_output(&builder);
 
-    // Tamper with the evaluation of `op` witness. The index is computed manually.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
-    // Better recursion testing - create more flexible proof tampering tests.
-    const size_t op_limb_index = 593;
-    proof.eccvm_proof.pre_ipa_proof[op_limb_index] += 1;
+    // Tamper with the `op` evaluation in the ECCVM proof using the helper function
+    tamper_with_eccvm_op_eval(proof.eccvm_proof.pre_ipa_proof);
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     [[maybe_unused]] auto goblin_rec_verifier_output =

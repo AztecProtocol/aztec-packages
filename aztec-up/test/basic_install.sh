@@ -45,10 +45,10 @@ echo "LSP check passed."
 export LOG_LEVEL=silent
 export PXE_PROVER=none
 
-# Start sandbox and wait for port to open.
-aztec start --sandbox &
-sandbox_pid=$!
-trap 'echo "Sending kill to pid $sandbox_pid"; kill $sandbox_pid &>/dev/null; wait $sandbox_pid' EXIT
+# Start local network and wait for port to open.
+aztec start --local-network &
+local_network_pid=$!
+trap 'echo "Sending kill to pid $local_network_pid"; kill $local_network_pid &>/dev/null; wait $local_network_pid' EXIT
 while ! curl -fs localhost:8080/status &>/dev/null; do sleep 1; done
 
 # Execute wallet commands as per: https://docs.aztec.network/guides/getting_started

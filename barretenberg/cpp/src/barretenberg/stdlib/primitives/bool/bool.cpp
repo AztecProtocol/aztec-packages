@@ -418,7 +418,7 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
 {
     const bool_t lhs = *this;
     Builder* ctx = validate_context<Builder>(rhs.get_context(), lhs.get_context());
-    (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
+
     if (lhs.is_constant() && rhs.is_constant()) {
         BB_ASSERT_EQ(lhs.get_value(), rhs.get_value());
     } else if (lhs.is_constant()) {
@@ -432,6 +432,13 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
         const bool rhs_value = lhs.witness_inverted ? !rhs.witness_bool : rhs.witness_bool;
         ctx->assert_equal_constant(lhs.witness_index, rhs_value, msg);
     } else {
+        // Both are witnesses - save original tags and clear them to allow different transcript/free witness sources
+        // (e.g., proving 2 separate properties about same object through 2 different transcripts)
+        const auto lhs_original_tag = lhs.get_origin_tag();
+        const auto rhs_original_tag = rhs.get_origin_tag();
+        lhs.set_origin_tag(OriginTag());
+        rhs.set_origin_tag(OriginTag());
+
         bool_t left = lhs;
         bool_t right = rhs;
         // we need to normalize iff lhs or rhs has an inverted witness (but not both)
@@ -440,6 +447,10 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
             right = right.normalize();
         }
         ctx->assert_equal(left.witness_index, right.witness_index, msg);
+
+        // Restore tags
+        lhs.set_origin_tag(lhs_original_tag);
+        rhs.set_origin_tag(rhs_original_tag);
     }
 }
 

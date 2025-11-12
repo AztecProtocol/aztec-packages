@@ -10,7 +10,9 @@
 
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/public_inputs_builder.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
@@ -338,6 +340,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
     NoopEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
     NoopEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+    NoopEventEmitter<UpdateCheckEvent> update_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -364,7 +367,11 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
         tx.nonRevertibleAccumulatedData.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
     SideEffectTrackingDB merkle_db(tx.nonRevertibleAccumulatedData.nullifiers[0], base_merkle_db, side_effect_tracker);
 
-    NoopUpdateCheck update_check;
+    // NoopUpdateCheck update_check;
+    // TODO(#18161): Note that if we need to gather hints here, we can't use the NoopUpdateCheck as it will skip
+    // collecting a required hint for a storage_read. Optionally use Noop if we don't need hints:
+
+    UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, update_check_emitter, global_variables);
 
     InstructionInfoDB instruction_info_db;
 
@@ -462,10 +469,29 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
     world_state::WorldState& ws,
     const Tx& tx,
     const GlobalVariables& global_variables,
-    const ProtocolContracts& protocol_contracts)
+    const ProtocolContracts& protocol_contracts,
+    bool generate_hints)
 {
     // Create PureRawMerkleDB with the provided WorldState instance
     PureRawMerkleDB raw_merkle_db(world_state_revision, ws);
+
+    if (generate_hints) {
+        auto starting_tree_roots = raw_merkle_db.get_tree_roots();
+        HintingContractsDB hinting_contract_db(raw_contract_db);
+        HintingRawDB hinting_merkle_db(raw_merkle_db);
+        auto result = simulate_fast(raw_contract_db, raw_merkle_db, tx, global_variables, protocol_contracts);
+        // TODO(MW): move to simulate_fast?
+        ExecutionHints collected_hints = ExecutionHints{ .globalVariables = global_variables,
+                                                         .tx = tx,
+                                                         .protocolContracts = protocol_contracts,
+                                                         .startingTreeRoots = starting_tree_roots };
+        hinting_contract_db.dump_hints(collected_hints);
+        hinting_merkle_db.dump_hints(collected_hints);
+
+        result.execution_hints = collected_hints;
+        return result;
+    };
+
     return simulate_fast(raw_contract_db, raw_merkle_db, tx, global_variables, protocol_contracts);
 }
 

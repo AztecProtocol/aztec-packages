@@ -19,9 +19,11 @@ import { tokenTest } from '../../fixtures/token_test.js';
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
 
 describe.each([
-  //{ useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
   { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
 ])('Public TX simulator apps tests: benchmarks ($simulatorName)', ({ useCppSimulator }) => {
+  const metricsPrefixPrefix = useCppSimulator ? 'Cpp ' : '';
+
   const logger = createLogger('public-tx-apps-tests-bench');
 
   const metrics = new TestExecutorMetrics();
@@ -52,29 +54,29 @@ describe.each([
     });
 
     it('Token Contract test', async () => {
-      tester.setMetricsPrefix('Token contract tests');
+      tester.setMetricsPrefix(`${metricsPrefixPrefix}Token contract tests`);
       await tokenTest(tester, logger, TokenContractArtifact, (b: boolean) => expect(b).toBe(true));
     });
 
     it('AMM Contract test', async () => {
-      tester.setMetricsPrefix('AMM contract tests');
+      tester.setMetricsPrefix(`${metricsPrefixPrefix}AMM contract tests`);
       await ammTest(tester, logger, TokenContractArtifact, AMMContractArtifact, (b: boolean) => expect(b).toBe(true));
     });
 
     it('AVM simulator bulk test', async () => {
-      tester.setMetricsPrefix('AvmTest contract tests');
+      tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmTest contract tests`);
       const result = await bulkTest(tester, logger, AvmTestContractArtifact);
       expect(result.revertCode.isOK()).toBe(true);
     });
 
     it('AVM simulator MEGA bulk test', async () => {
-      tester.setMetricsPrefix('AvmTest contract tests');
+      tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmTest contract tests`);
       const result = await megaBulkTest(tester, logger, AvmTestContractArtifact);
       expect(result.revertCode.isOK()).toBe(true);
     });
 
     it('AVM large calldata test', async () => {
-      tester.setMetricsPrefix('AvmTest contract tests');
+      tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmTest contract tests`);
       const deployer = AztecAddress.fromNumber(42);
 
       const avmTestContract = await tester.registerAndDeployContract(
@@ -114,7 +116,7 @@ describe.each([
         deployer,
         /*contractArtifact=*/ AvmGadgetsTestContractArtifact,
       );
-      tester.setMetricsPrefix(`AvmGadgetsTest contract tests`);
+      tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmGadgetsTest contract tests`);
     });
 
     afterEach(async () => {

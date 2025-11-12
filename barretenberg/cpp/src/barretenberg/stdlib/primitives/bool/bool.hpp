@@ -154,6 +154,7 @@ template <typename Builder> class bool_t {
     OriginTag get_origin_tag() const { return tag; }
     void set_free_witness_tag() { tag.set_free_witness(); }
     void unset_free_witness_tag() { tag.unset_free_witness(); }
+    void clear_child_tag() const { tag.clear_child_tag(); }
     void fix_witness()
     {
         BB_ASSERT(!is_constant());

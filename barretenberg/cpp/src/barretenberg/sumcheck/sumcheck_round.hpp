@@ -408,50 +408,44 @@ template <typename Flavor> class SumcheckProverRound {
         BB_BENCH_NAME("compute_univariate_with_row_skipping");
 
         std::vector<BlockOfContiguousRows> round_manifest = compute_contiguous_round_size(polynomials);
-        // Compute how many nonzero rows we have
-        size_t num_valid_rows = 0;
-        for (const BlockOfContiguousRows block : round_manifest) {
-            num_valid_rows += block.size;
-        }
-        size_t num_valid_iterations = num_valid_rows / 2;
 
-        // Determine number of threads for multithreading.
-        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
-        // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
-        // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
-        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t num_threads = bb::calculate_num_threads(num_valid_iterations, min_iterations_per_thread);
-        size_t iterations_per_thread = num_valid_iterations / num_threads; // actual iterations per thread
-        size_t iterations_for_last_thread = num_valid_iterations - (iterations_per_thread * (num_threads - 1));
         // Construct univariate accumulator containers; one per thread
         // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
-        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(get_num_cpus());
 
-        parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = thread_idx * iterations_per_thread;
-            const size_t end = (thread_idx == num_threads - 1) ? start + iterations_for_last_thread
-                                                               : (thread_idx + 1) * iterations_per_thread;
-
-            RowIterator edge_iterator(round_manifest, start);
+        parallel_for([&](ThreadChunk chunk) {
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
-            for (size_t i = start; i < end; ++i) {
-                size_t edge_idx = edge_iterator.get_next_edge();
-                extend_edges(extended_edges, polynomials, edge_idx);
-                // Compute the \f$ \ell \f$-th edge's univariate contribution,
-                // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
-                // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
-                // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
-                // \beta_{d-1}^{\ell_{d-1}}\f$.
 
-                FF scaling_factor;
-                // All subrelation in MultilinearBatchingFlavor are linearly dependent, i.e. they are not scaled by
-                // `pow`-polynomial, hence we don't need to initialize `scaling_factor`.
-                if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
-                    scaling_factor = gate_separators[(edge_idx >> 1) * gate_separators.periodicity];
+            // Process each block, dividing work within each block
+            for (const BlockOfContiguousRows& block : round_manifest) {
+                size_t block_iterations = block.size / 2;
+
+                // Get the range of iterations this thread should process for this block
+                auto iteration_range = chunk.range(block_iterations);
+
+                for (size_t i : iteration_range) {
+                    size_t edge_idx = block.starting_edge_idx + (i * 2);
+                    extend_edges(extended_edges, polynomials, edge_idx);
+                    // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
+                    // \f$
+                    // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
+                    // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots
+                    // \cdot
+                    // \beta_{d-1}^{\ell_{d-1}}\f$.
+
+                    FF scaling_factor;
+                    // All subrelation in MultilinearBatchingFlavor are linearly dependent, i.e. they are not scaled by
+                    // `pow`-polynomial, hence we don't need to initialize `scaling_factor`.
+                    if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
+                        scaling_factor = gate_separators[(edge_idx >> 1) * gate_separators.periodicity];
+                    }
+                    accumulate_relation_univariates(thread_univariate_accumulators[chunk.thread_index],
+                                                    extended_edges,
+                                                    relation_parameters,
+                                                    scaling_factor);
                 }
-                accumulate_relation_univariates(
-                    thread_univariate_accumulators[thread_idx], extended_edges, relation_parameters, scaling_factor);
             }
         });
 

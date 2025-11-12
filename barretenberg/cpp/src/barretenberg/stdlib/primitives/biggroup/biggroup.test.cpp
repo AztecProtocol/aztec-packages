@@ -16,6 +16,16 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
+enum struct InputType {
+    WITNESS,
+    CONSTANT,
+};
+
+constexpr InputType operator!(InputType type)
+{
+    return (type == InputType::WITNESS) ? InputType::CONSTANT : InputType::WITNESS;
+}
+
 template <typename T>
 concept HasGoblinBuilder = IsMegaBuilder<typename T::Curve::Builder>;
 
@@ -53,6 +63,77 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         info("num gates = ", builder.get_num_finalized_gates_inefficient());
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
+
+    // Create a random point as a witness
+    static std::pair<affine_element, element_ct> get_random_witness_point(Builder* builder)
+    {
+        affine_element point_native(element::random_element());
+        element_ct point_ct = element_ct::from_witness(builder, point_native);
+        return std::make_pair(point_native, point_ct);
+    }
+
+    // Create a random point as a constant
+    static std::pair<affine_element, element_ct> get_random_constant_point([[maybe_unused]] Builder* builder)
+    {
+        affine_element point_native(element::random_element());
+        element_ct point_ct(point_native);
+        return std::make_pair(point_native, point_ct);
+    }
+
+    // Create a random point based on InputType
+    static std::pair<affine_element, element_ct> get_random_point(Builder* builder, InputType type)
+    {
+        if (type == InputType::WITNESS) {
+            return get_random_witness_point(builder);
+        }
+        return get_random_constant_point(builder);
+    }
+
+    // Create a random scalar as a witness
+    static std::pair<fr, scalar_ct> get_random_witness_scalar(Builder* builder, bool even = false)
+    {
+        fr scalar_native = fr::random_element();
+        if (even && uint256_t(scalar_native).get_bit(0)) {
+            scalar_native -= fr(1); // make it even if it's odd
+        }
+        scalar_ct scalar_ct_val = scalar_ct::from_witness(builder, scalar_native);
+        return std::make_pair(scalar_native, scalar_ct_val);
+    }
+
+    // Create a random scalar as a constant
+    static std::pair<fr, scalar_ct> get_random_constant_scalar(Builder* builder, bool even = false)
+    {
+        fr scalar_native = fr::random_element();
+        if (even && uint256_t(scalar_native).get_bit(0)) {
+            scalar_native -= fr(1); // make it even if it's odd
+        }
+        scalar_ct scalar_ct_val = scalar_ct(builder, scalar_native);
+        return std::make_pair(scalar_native, scalar_ct_val);
+    }
+
+    // Create a random scalar based on InputType
+    static std::pair<fr, scalar_ct> get_random_scalar(Builder* builder, InputType type, bool even = false)
+    {
+        if (type == InputType::WITNESS) {
+            return get_random_witness_scalar(builder, even);
+        }
+        return get_random_constant_scalar(builder, even);
+    }
+
+    static std::pair<fr, scalar_ct> get_random_short_scalar(Builder* builder, InputType type, size_t num_bits)
+    {
+        uint256_t scalar_u256 = engine.get_random_uint256();
+        scalar_u256 = scalar_u256 >> (256 - num_bits); // keep only the lower num_bits bits
+
+        fr scalar_native(scalar_u256);
+        scalar_ct scalar_ct_val;
+        if (type == InputType::WITNESS) {
+            scalar_ct_val = scalar_ct::from_witness(builder, scalar_native);
+        } else {
+            scalar_ct_val = scalar_ct(builder, scalar_native);
+        }
+        return std::make_pair(scalar_native, scalar_ct_val);
+    }
 
   public:
     static void test_basic_tag_logic()
@@ -165,16 +246,13 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
     }
 
-    static void test_add()
+    static void test_add(InputType a_type = InputType::WITNESS, InputType b_type = InputType::WITNESS)
     {
         Builder builder;
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
-
-            element_ct a = element_ct::from_witness(&builder, input_a);
-            element_ct b = element_ct::from_witness(&builder, input_b);
+            auto [input_a, a] = get_random_point(&builder, a_type);
+            auto [input_b, b] = get_random_point(&builder, b_type);
 
             // Set different tags in a and b
             a.set_origin_tag(submitted_value_origin_tag);
@@ -187,7 +265,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // Check that the resulting tag is the union of inputs' tgs
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
             if (i == num_repetitions - 1) {
-                std::cout << "num gates per add = " << after - before << std::endl;
                 benchmark_info(Builder::NAME_STRING, "Biggroup", "ADD", "Gate Count", after - before);
             }
 
@@ -206,6 +283,27 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_add_assign(InputType a_type = InputType::WITNESS, InputType b_type = InputType::WITNESS)
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, a_type);
+            auto [input_b, b] = get_random_point(&builder, b_type);
+
+            element_ct original_a = a;
+            a += b;
+
+            affine_element expected(element(input_a) + element(input_b));
+            uint256_t result_x = a.x().get_value().lo;
+            uint256_t result_y = a.y().get_value().lo;
+
+            EXPECT_EQ(fq(result_x), expected.x);
+            EXPECT_EQ(fq(result_y), expected.y);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_add_points_at_infinity()
     {
         Builder builder;
@@ -215,6 +313,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             affine_element input_b(element::random_element());
             input_b.self_set_infinity();
             element_ct a = element_ct::from_witness(&builder, input_a);
+
             // create copy of a with different witness
             element_ct a_alternate = element_ct::from_witness(&builder, input_a);
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
@@ -284,7 +383,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             auto standard_b = input_b.get_standard_form();
 
             // Check that tags are preserved
-
             EXPECT_EQ(standard_a.get_origin_tag(), submitted_value_origin_tag);
             EXPECT_EQ(standard_b.get_origin_tag(), challenge_origin_tag);
 
@@ -305,16 +403,14 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
-    static void test_sub()
+
+    static void test_sub(InputType a_type = InputType::WITNESS, InputType b_type = InputType::WITNESS)
     {
         Builder builder;
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
-
-            element_ct a = element_ct::from_witness(&builder, input_a);
-            element_ct b = element_ct::from_witness(&builder, input_b);
+            auto [input_a, a] = get_random_point(&builder, a_type);
+            auto [input_b, b] = get_random_point(&builder, b_type);
 
             // Set tags
             a.set_origin_tag(submitted_value_origin_tag);
@@ -340,6 +436,26 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_sub_assign(InputType a_type = InputType::WITNESS, InputType b_type = InputType::WITNESS)
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, a_type);
+            auto [input_b, b] = get_random_point(&builder, b_type);
+
+            a -= b;
+
+            affine_element expected(element(input_a) - element(input_b));
+            uint256_t result_x = a.x().get_value().lo;
+            uint256_t result_y = a.y().get_value().lo;
+
+            EXPECT_EQ(fq(result_x), expected.x);
+            EXPECT_EQ(fq(result_y), expected.y);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_sub_points_at_infinity()
     {
         Builder builder;
@@ -349,6 +465,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             affine_element input_b(element::random_element());
             input_b.self_set_infinity();
             element_ct a = element_ct::from_witness(&builder, input_a);
+
             // create copy of a with different witness
             element_ct a_alternate = element_ct::from_witness(&builder, input_a);
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
@@ -396,14 +513,82 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_dbl()
+    static void test_checked_unconditional_add(InputType a_type = InputType::WITNESS,
+                                               InputType b_type = InputType::WITNESS)
     {
         Builder builder;
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input_a(element::random_element());
+            auto [input_a, a] = get_random_point(&builder, a_type);
+            auto [input_b, b] = get_random_point(&builder, b_type);
 
-            element_ct a = element_ct::from_witness(&builder, input_a);
+            element_ct result = a.checked_unconditional_add(b);
+
+            affine_element expected(element(input_a) + element(input_b));
+            uint256_t result_x = result.x().get_value().lo;
+            uint256_t result_y = result.y().get_value().lo;
+
+            EXPECT_EQ(fq(result_x), expected.x);
+            EXPECT_EQ(fq(result_y), expected.y);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_checked_unconditional_subtract(InputType a_type = InputType::WITNESS,
+                                                    InputType b_type = InputType::WITNESS)
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, a_type);
+            auto [input_b, b] = get_random_point(&builder, b_type);
+
+            element_ct result = a.checked_unconditional_subtract(b);
+
+            affine_element expected(element(input_a) - element(input_b));
+            uint256_t result_x = result.x().get_value().lo;
+            uint256_t result_y = result.y().get_value().lo;
+
+            EXPECT_EQ(fq(result_x), expected.x);
+            EXPECT_EQ(fq(result_y), expected.y);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_checked_unconditional_add_sub(InputType a_type = InputType::WITNESS,
+                                                   InputType b_type = InputType::WITNESS)
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            const auto [input_a, a] = get_random_point(&builder, a_type);
+            const auto [input_b, b] = get_random_point(&builder, b_type);
+
+            // Since unchecked_unconditional_add_sub is private in biggroup, we test it via the element_test_accessor
+            auto [sum, diff] = stdlib::element_default::element_test_accessor::checked_unconditional_add_sub(a, b);
+
+            affine_element expected_sum(element(input_a) + element(input_b));
+            affine_element expected_diff(element(input_a) - element(input_b));
+
+            uint256_t sum_x = sum.x().get_value().lo;
+            uint256_t sum_y = sum.y().get_value().lo;
+            uint256_t diff_x = diff.x().get_value().lo;
+            uint256_t diff_y = diff.y().get_value().lo;
+
+            EXPECT_EQ(fq(sum_x), expected_sum.x);
+            EXPECT_EQ(fq(sum_y), expected_sum.y);
+            EXPECT_EQ(fq(diff_x), expected_diff.x);
+            EXPECT_EQ(fq(diff_y), expected_diff.y);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_dbl(InputType a_type = InputType::WITNESS)
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, a_type);
 
             a.set_origin_tag(submitted_value_origin_tag);
 
@@ -423,66 +608,193 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(c_x_result, c_expected.x);
             EXPECT_EQ(c_y_result, c_expected.y);
         }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_chain_add(InputType a_type = InputType::WITNESS,
+                               InputType b_type = InputType::WITNESS,
+                               InputType c_type = InputType::WITNESS)
+    {
+        Builder builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+
+            auto [input_a, a] = get_random_point(&builder, a_type);
+            auto [input_b, b] = get_random_point(&builder, b_type);
+            auto [input_c, c] = get_random_point(&builder, c_type);
+
+            auto acc = element_ct::chain_add_start(a, b);
+            auto acc_out = element_ct::chain_add(c, acc);
+            element_ct result = element_ct::chain_add_end(acc_out);
+
+            // Verify result
+            affine_element expected(element(input_a) + element(input_b) + element(input_c));
+            uint256_t result_x = result.x().get_value().lo;
+            uint256_t result_y = result.y().get_value().lo;
+            EXPECT_EQ(fq(result_x), expected.x);
+            EXPECT_EQ(fq(result_y), expected.y);
+
+            // Check intermediate values
+            auto lambda_prev = (input_b.y - input_a.y) / (input_b.x - input_a.x);
+            auto x3_prev = lambda_prev * lambda_prev - input_b.x - input_a.x;
+            auto y3_prev = lambda_prev * (input_a.x - x3_prev) - input_a.y;
+            auto lambda = (y3_prev - input_c.y) / (x3_prev - input_c.x);
+            auto x3 = lambda * lambda - x3_prev - input_c.x;
+
+            uint256_t x3_u256 = acc_out.x3_prev.get_value().lo;
+            uint256_t lambda_u256 = acc_out.lambda_prev.get_value().lo;
+
+            fq x3_result(x3_u256);
+            fq lambda_result(lambda_u256);
+
+            EXPECT_EQ(x3_result, x3);
+            EXPECT_EQ(lambda_result, lambda);
+        }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_conditional_negate()
+    static void test_multiple_montgomery_ladder()
+    {
+        Builder builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element acc_small(element::random_element());
+            element_ct acc_big = element_ct::from_witness(&builder, acc_small);
+
+            std::vector<typename element_ct::chain_add_accumulator> to_add;
+            for (size_t j = 0; j < i; ++j) {
+                affine_element add_1_small_0(element::random_element());
+                element_ct add_1_big_0 = element_ct::from_witness(&builder, add_1_small_0);
+                affine_element add_2_small_0(element::random_element());
+                element_ct add_2_big_0 = element_ct::from_witness(&builder, add_2_small_0);
+                typename element_ct::chain_add_accumulator add_1 =
+                    element_ct::chain_add_start(add_1_big_0, add_2_big_0);
+                to_add.emplace_back(add_1);
+            }
+            acc_big.multiple_montgomery_ladder(to_add);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_normalize(InputType point_type = InputType::WITNESS)
     {
         Builder builder;
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input_a(element::random_element());
-            element_ct a = element_ct::from_witness(&builder, input_a);
+            auto [input_a, a] = get_random_point(&builder, point_type);
+
+            element_ct normalized = a.normalize();
+
+            // Normalized should equal the original
+            uint256_t x_before = a.x().get_value().lo;
+            uint256_t y_before = a.y().get_value().lo;
+            uint256_t x_after = normalized.x().get_value().lo;
+            uint256_t y_after = normalized.y().get_value().lo;
+
+            EXPECT_EQ(fq(x_before), fq(x_after));
+            EXPECT_EQ(fq(y_before), fq(y_after));
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_reduce(InputType point_type = InputType::WITNESS)
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, point_type);
+
+            element_ct reduced = a.reduce();
+
+            // Reduced should equal the original
+            uint256_t x_before = a.x().get_value().lo;
+            uint256_t y_before = a.y().get_value().lo;
+            uint256_t x_after = reduced.x().get_value().lo;
+            uint256_t y_after = reduced.y().get_value().lo;
+
+            EXPECT_EQ(fq(x_before), fq(x_after));
+            EXPECT_EQ(fq(y_before), fq(y_after));
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_unary_negate(InputType a_type = InputType::WITNESS)
+    {
+        Builder builder;
+        auto [input_a, a] = get_random_point(&builder, a_type);
+
+        element_ct neg_a = -a;
+
+        affine_element expected = affine_element(-element(input_a));
+        uint256_t neg_x = neg_a.x().get_value().lo;
+        uint256_t neg_y = neg_a.y().get_value().lo;
+
+        EXPECT_EQ(fq(neg_x), expected.x);
+        EXPECT_EQ(fq(neg_y), expected.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_conditional_negate(InputType point_type = InputType::WITNESS,
+                                        InputType predicate_type = InputType::WITNESS)
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            // Get random point
+            auto [input_a, a] = get_random_point(&builder, point_type);
             a.set_origin_tag(submitted_value_origin_tag);
 
-            // decide randomly whether to negate or not
-            bool negate = (engine.get_random_uint32() % 2) == 1;
-            bool_ct negate_ct = bool_ct(witness_ct(&builder, negate ? 1 : 0));
-            negate_ct.set_origin_tag(challenge_origin_tag);
+            // Get random predicate
+            bool predicate_value = (engine.get_random_uint8() % 2) != 0;
+            bool_ct predicate = (predicate_type == InputType::WITNESS) ? bool_ct(witness_ct(&builder, predicate_value))
+                                                                       : bool_ct(predicate_value);
+            predicate.set_origin_tag(challenge_origin_tag);
 
-            element_ct c = a.conditional_negate(negate_ct);
+            element_ct c = a.conditional_negate(predicate);
 
             // Check the resulting tag is preserved
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-            affine_element c_expected = negate ? affine_element(-element(input_a)) : input_a;
+            affine_element c_expected = predicate_value ? affine_element(-element(input_a)) : input_a;
             EXPECT_EQ(c.get_value(), c_expected);
         }
-
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_conditional_select()
+    static void test_conditional_select(InputType a_type = InputType::WITNESS,
+                                        InputType b_type = InputType::WITNESS,
+                                        InputType predicate_type = InputType::WITNESS)
     {
         Builder builder;
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
-            bool select_a = (engine.get_random_uint32() % 2) == 1;
-            bool_ct select_a_ct = bool_ct(witness_ct(&builder, select_a ? 1 : 0));
-            element_ct a = element_ct::from_witness(&builder, input_a);
-            element_ct b = element_ct::from_witness(&builder, input_b);
+            auto [input_a, a] = get_random_point(&builder, a_type);
+            auto [input_b, b] = get_random_point(&builder, b_type);
+
+            bool predicate_value = (engine.get_random_uint8() % 2) != 0;
+            bool_ct predicate = (predicate_type == InputType::WITNESS) ? bool_ct(witness_ct(&builder, predicate_value))
+                                                                       : bool_ct(predicate_value);
 
             // Set different tags in a and b and the predicate
             a.set_origin_tag(submitted_value_origin_tag);
             b.set_origin_tag(challenge_origin_tag);
-            select_a_ct.set_origin_tag(next_challenge_tag);
+            predicate.set_origin_tag(next_challenge_tag);
 
-            element_ct c = a.conditional_select(b, select_a_ct);
+            element_ct c = a.conditional_select(b, predicate);
 
             // Check that the resulting tag is the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
 
-            affine_element c_expected = select_a ? input_b : input_a;
+            affine_element c_expected = predicate_value ? input_b : input_a;
             EXPECT_EQ(c.get_value(), c_expected);
         }
-
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_incomplete_assert_equal_success()
+    static void test_incomplete_assert_equal()
     {
         // Case 1: Should pass because the points are identical
         {
@@ -635,18 +947,85 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_EQ(builder.err(), "points at infinity with different x,y should not be equal (x coordinate)");
     }
 
-    static void test_mul()
+    static void test_compute_naf()
+    {
+        Builder builder = Builder();
+        size_t max_num_bits = 254;
+        for (size_t length = 2; length < max_num_bits; length += 1) {
+
+            fr scalar_val;
+
+            uint256_t scalar_raw = engine.get_random_uint256();
+            scalar_raw = scalar_raw >> (256 - length);
+
+            scalar_val = fr(scalar_raw);
+
+            // We test non-zero scalars here
+            if (scalar_val == fr(0)) {
+                scalar_val += 1;
+            };
+            scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+            // Set tag for scalar
+            scalar.set_origin_tag(submitted_value_origin_tag);
+            auto naf = element_ct::compute_naf(scalar, length);
+
+            for (const auto& bit : naf) {
+                // Check that the tag is propagated to bits
+                EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+            }
+            // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
+            fr reconstructed_val(0);
+            for (size_t i = 0; i < length; i++) {
+                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
+            };
+            reconstructed_val -= fr(naf[length].get_value());
+            EXPECT_EQ(scalar_val, reconstructed_val);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_compute_naf_zero()
+    {
+        Builder builder = Builder();
+        size_t length = 254;
+
+        // Our algorithm for input 0 outputs the NAF representation of r (the field modulus)
+        fr scalar_val(0);
+
+        scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+
+        // Set tag for scalar
+        scalar.set_origin_tag(submitted_value_origin_tag);
+        auto naf = element_ct::compute_naf(scalar, length);
+
+        for (const auto& bit : naf) {
+            // Check that the tag is propagated to bits
+            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
+        fr reconstructed_val(0);
+        uint256_t reconstructed_u256(0);
+        for (size_t i = 0; i < length; i++) {
+            reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
+            reconstructed_u256 +=
+                (uint256_t(1) - uint256_t(2) * uint256_t(naf[i].get_value())) * (uint256_t(1) << (length - 1 - i));
+        };
+        reconstructed_val -= fr(naf[length].get_value());
+        EXPECT_EQ(scalar_val, reconstructed_val);
+        EXPECT_EQ(reconstructed_u256, uint256_t(fr::modulus));
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_mul(InputType scalar_type = InputType::WITNESS, InputType point_type = InputType::WITNESS)
     {
         Builder builder;
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input(element::random_element());
-            fr scalar(fr::random_element());
-            if (uint256_t(scalar).get_bit(0)) {
-                scalar -= fr(1); // make sure to add skew
-            }
-            element_ct P = element_ct::from_witness(&builder, input);
-            scalar_ct x = scalar_ct::from_witness(&builder, scalar);
+            auto [input, P] = get_random_point(&builder, point_type);
+            auto [scalar, x] = get_random_scalar(&builder, scalar_type, /*even*/ true);
 
             // Set input tags
             x.set_origin_tag(challenge_origin_tag);
@@ -669,14 +1048,57 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    // Test short scalar mul with variable even bit length. For efficiency, it's split into two tests.
-    static void test_short_scalar_mul_2_126()
+    static void test_mul_edge_cases(InputType scalar_type = InputType::WITNESS,
+                                    InputType point_type = InputType::WITNESS)
     {
         Builder builder;
-        const size_t max_num_bits = 128;
 
-        // TODO: add support for odd lengths.
-        for (size_t i = 2; i < max_num_bits; i += 2) {
+        const auto run_mul_and_check = [&](element_ct& P, scalar_ct& x) {
+            // Set input tags
+            x.set_origin_tag(challenge_origin_tag);
+            P.set_origin_tag(submitted_value_origin_tag);
+
+            // Perform multiplication
+            element_ct c = P * x;
+
+            // Check the result of the multiplication has a tag that's the union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
+
+            // Result must be a point at infinity
+            EXPECT_EQ(c.is_point_at_infinity().get_value(), true);
+        };
+
+        // Case 1: P * 0
+        {
+            auto [input, P] = get_random_point(&builder, point_type);
+            scalar_ct x = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, fr(0))
+                                                              : scalar_ct(&builder, fr(0));
+            run_mul_and_check(P, x);
+        }
+        // Case 2: (∞) * k
+        {
+            auto [input, P] = get_random_point(&builder, point_type);
+            if (point_type == InputType::CONSTANT) {
+                P.set_point_at_infinity(bool_ct(true));
+            } else {
+                P.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+            }
+            auto [scalar, x] = get_random_scalar(&builder, scalar_type, /*even*/ true);
+            run_mul_and_check(P, x);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test short scalar mul with variable bit lengths.
+    static void test_short_scalar_mul_with_bit_lengths()
+    {
+        Builder builder;
+
+        std::vector<size_t> test_lengths = { 2, 3, 10, 11, 31, 32, 63, 64, 127, 128, 252, 253 };
+
+        for (size_t i : test_lengths) {
             affine_element input(element::random_element());
             // Get a random 256 integer
             uint256_t scalar_raw = engine.get_random_uint256();
@@ -688,46 +1110,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             if (scalar == fr(0)) {
                 scalar += 1;
             };
-
-            element_ct P = element_ct::from_witness(&builder, input);
-            scalar_ct x = scalar_ct::from_witness(&builder, scalar);
-
-            // Set input tags
-            x.set_origin_tag(challenge_origin_tag);
-            P.set_origin_tag(submitted_value_origin_tag);
-
-            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
-            // Multiply using specified scalar length
-            element_ct c = P.scalar_mul(x, i);
-            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
-            affine_element c_expected(element(input) * scalar);
-
-            // Check the result of the multiplication has a tag that's the union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            fq c_x_result(c.x().get_value().lo);
-            fq c_y_result(c.y().get_value().lo);
-
-            EXPECT_EQ(c_x_result, c_expected.x);
-
-            EXPECT_EQ(c_y_result, c_expected.y);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_short_scalar_mul_128_252()
-    {
-        Builder builder;
-        const size_t max_num_bits = 254;
-
-        // TODO: add support for odd lengths.
-        for (size_t i = 128; i < max_num_bits; i += 2) {
-            affine_element input(element::random_element());
-            // Get a random 256-bit integer
-            uint256_t scalar_raw = engine.get_random_uint256();
-            // Produce a length =< i scalar.
-            scalar_raw = scalar_raw >> (256 - i);
-            fr scalar = fr(scalar_raw);
 
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
@@ -902,6 +1284,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         affine_element input_P_a = affine_element(element(input_P) + element(input_P));     // 2P
         affine_element input_P_b = affine_element(element(input_P_a) + element(input_P));   // 3P
         affine_element input_P_c = affine_element(element(input_P_a) + element(input_P_b)); // 5P
+        std::vector<affine_element> input_points = { input_P_a, input_P_b, input_P_c };
 
         // Choose scalars such that their NAF representations are:
         //    skew msd          lsd
@@ -911,34 +1294,23 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         fr scalar_a(11);
         fr scalar_b(14);
         fr scalar_c(6);
+        std::vector<fr> input_scalars = { scalar_a, scalar_b, scalar_c };
 
         OriginTag tag_union{};
+        std::vector<scalar_ct> scalars;
+        std::vector<element_ct> points;
+        for (size_t i = 0; i < 3; ++i) {
+            const element_ct point = element_ct::from_witness(&builder, input_points[i]);
+            point.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
+            tag_union = OriginTag(tag_union, point.get_origin_tag());
 
-        element_ct P_a = element_ct::from_witness(&builder, input_P_a);
-        // Set all element tags to submitted tags from sequential rounds
-        P_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/true));
-        tag_union = OriginTag(tag_union, P_a.get_origin_tag());
+            const scalar_ct scalar = scalar_ct::from_witness(&builder, input_scalars[i]);
+            scalar.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
+            tag_union = OriginTag(tag_union, scalar.get_origin_tag());
 
-        scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
-        // Set all scalar tags to challenge tags from sequential rounds
-        x_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/false));
-        tag_union = OriginTag(tag_union, x_a.get_origin_tag());
-
-        element_ct P_b = element_ct::from_witness(&builder, input_P_b);
-        P_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/true));
-        tag_union = OriginTag(tag_union, P_b.get_origin_tag());
-
-        scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);
-        x_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/false));
-        tag_union = OriginTag(tag_union, x_b.get_origin_tag());
-
-        element_ct P_c = element_ct::from_witness(&builder, input_P_c);
-        P_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/true));
-        tag_union = OriginTag(tag_union, P_c.get_origin_tag());
-
-        scalar_ct x_c = scalar_ct::from_witness(&builder, scalar_c);
-        x_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/false));
-        tag_union = OriginTag(tag_union, x_c.get_origin_tag());
+            scalars.emplace_back(scalar);
+            points.emplace_back(point);
+        }
 
         {
             // If with_edgecases = true, should handle linearly dependent points correctly
@@ -952,8 +1324,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             };
             fr masking_scalar = get_128_bit_scalar();
             scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
-            element_ct c = element_ct::batch_mul({ P_a, P_b, P_c },
-                                                 { x_a, x_b, x_c },
+            element_ct c = element_ct::batch_mul(points,
+                                                 scalars,
                                                  /*max_num_bits*/ 128,
                                                  /*with_edgecases*/ true,
                                                  /*masking_scalar*/ masking_scalar_ct);
@@ -976,8 +1348,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         {
             // If with_edgecases = false, the lookup table cannot be created as we encounter
             // a point at infinity during the table construction.
-            element_ct c = element_ct::batch_mul(
-                { P_a, P_b, P_c }, { x_a, x_b, x_c }, /*max_num_bits*/ 4, /*with_edgecases*/ false);
+            element_ct c = element_ct::batch_mul(points, scalars, /*max_num_bits*/ 4, /*with_edgecases*/ false);
 
             // Check that the result tag is a union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), tag_union);
@@ -985,157 +1356,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_CIRCUIT_CORRECTNESS(builder, false);
             EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
         }
-    }
-
-    static void test_triple_mul()
-    {
-        Builder builder;
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
-            affine_element input_c(element::random_element());
-            fr scalar_a(fr::random_element());
-            fr scalar_b(fr::random_element());
-            fr scalar_c(fr::random_element());
-            if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
-                scalar_a -= fr(1); // skew bit is 1
-            }
-            if ((uint256_t(scalar_b).get_bit(0) & 1) == 0) {
-                scalar_b += fr(1); // skew bit is 0
-            }
-            OriginTag tag_union{};
-
-            element_ct P_a = element_ct::from_witness(&builder, input_a);
-            // Set all element tags to submitted tags from sequential rounds
-            P_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/true));
-            tag_union = OriginTag(tag_union, P_a.get_origin_tag());
-
-            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
-            // Set all scalar tags to challenge tags from sequential rounds
-            x_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/false));
-            tag_union = OriginTag(tag_union, x_a.get_origin_tag());
-
-            element_ct P_b = element_ct::from_witness(&builder, input_b);
-            P_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/true));
-            tag_union = OriginTag(tag_union, P_b.get_origin_tag());
-
-            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);
-            x_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/false));
-            tag_union = OriginTag(tag_union, x_b.get_origin_tag());
-
-            element_ct P_c = element_ct::from_witness(&builder, input_c);
-            P_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/true));
-            tag_union = OriginTag(tag_union, P_c.get_origin_tag());
-
-            scalar_ct x_c = scalar_ct::from_witness(&builder, scalar_c);
-            x_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/false));
-            tag_union = OriginTag(tag_union, x_c.get_origin_tag());
-
-            element_ct c = element_ct::batch_mul({ P_a, P_b, P_c }, { x_a, x_b, x_c });
-            // Check that the result tag is a union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), tag_union);
-            element input_e = (element(input_a) * scalar_a);
-            element input_f = (element(input_b) * scalar_b);
-            element input_g = (element(input_c) * scalar_c);
-
-            affine_element expected(input_e + input_f + input_g);
-            fq c_x_result(c.x().get_value().lo);
-            fq c_y_result(c.y().get_value().lo);
-
-            EXPECT_EQ(c_x_result, expected.x);
-            EXPECT_EQ(c_y_result, expected.y);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_quad_mul()
-    {
-        Builder builder;
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
-            affine_element input_c(element::random_element());
-            affine_element input_d(element::random_element());
-            fr scalar_a(fr::random_element());
-            fr scalar_b(fr::random_element());
-            fr scalar_c(fr::random_element());
-            fr scalar_d(fr::random_element());
-            if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
-                scalar_a -= fr(1); // skew bit is 1
-            }
-            if ((uint256_t(scalar_b).get_bit(0) & 1) == 0) {
-                scalar_b += fr(1); // skew bit is 0
-            }
-            OriginTag tag_union{};
-
-            element_ct P_a = element_ct::from_witness(&builder, input_a);
-
-            // Set element tags to sequential submitted tags
-            P_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/true));
-            tag_union = OriginTag(tag_union, P_a.get_origin_tag());
-
-            // Set element tags to sequential challenge tags
-            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
-            x_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/false));
-            tag_union = OriginTag(tag_union, x_a.get_origin_tag());
-
-            element_ct P_b = element_ct::from_witness(&builder, input_b);
-            P_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/true));
-            tag_union = OriginTag(tag_union, P_b.get_origin_tag());
-
-            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);
-            x_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/false));
-            tag_union = OriginTag(tag_union, x_b.get_origin_tag());
-
-            element_ct P_c = element_ct::from_witness(&builder, input_c);
-            P_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/true));
-            tag_union = OriginTag(tag_union, P_c.get_origin_tag());
-
-            scalar_ct x_c = scalar_ct::from_witness(&builder, scalar_c);
-            x_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/false));
-            tag_union = OriginTag(tag_union, x_c.get_origin_tag());
-
-            element_ct P_d = element_ct::from_witness(&builder, input_d);
-            P_d.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/3, /*is_submitted=*/true));
-            tag_union = OriginTag(tag_union, P_d.get_origin_tag());
-
-            scalar_ct x_d = scalar_ct::from_witness(&builder, scalar_d);
-            x_d.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/3, /*is_submitted=*/false));
-            tag_union = OriginTag(tag_union, x_d.get_origin_tag());
-
-            // Define masking scalar (128 bits)
-            const auto get_128_bit_scalar = []() {
-                uint256_t scalar_u256(0, 0, 0, 0);
-                scalar_u256.data[0] = engine.get_random_uint64();
-                scalar_u256.data[1] = engine.get_random_uint64();
-                fr scalar(scalar_u256);
-                return scalar;
-            };
-            fr masking_scalar = get_128_bit_scalar();
-            scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
-
-            element_ct c =
-                element_ct::batch_mul({ P_a, P_b, P_c, P_d }, { x_a, x_b, x_c, x_d }, 0, true, masking_scalar_ct);
-
-            // Check that the tag of the batched product is the union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), tag_union);
-            element input_e = (element(input_a) * scalar_a);
-            element input_f = (element(input_b) * scalar_b);
-            element input_g = (element(input_c) * scalar_c);
-            element input_h = (element(input_d) * scalar_d);
-
-            affine_element expected(input_e + input_f + input_g + input_h);
-            fq c_x_result(c.x().get_value().lo);
-            fq c_y_result(c.y().get_value().lo);
-
-            EXPECT_EQ(c_x_result, expected.x);
-            EXPECT_EQ(c_y_result, expected.y);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
     static void test_one()
@@ -1170,10 +1390,94 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    // Overload: defaults to all WITNESS types for given num_points
+    static void test_helper_batch_mul(size_t num_points,
+                                      const bool short_scalars = false,
+                                      const bool with_edgecases = false)
+    {
+        std::vector<InputType> point_types(num_points, InputType::WITNESS);
+        std::vector<InputType> scalar_types(num_points, InputType::WITNESS);
+        test_helper_batch_mul(point_types, scalar_types, short_scalars, with_edgecases);
+    }
+
+    static void test_helper_batch_mul(std::vector<InputType> point_types,
+                                      std::vector<InputType> scalar_types,
+                                      const bool short_scalars = false,
+                                      const bool with_edgecases = false)
+    {
+        Builder builder;
+
+        const size_t num_points = point_types.size();
+        std::vector<affine_element> points;
+        std::vector<fr> scalars;
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+
+        for (size_t i = 0; i < num_points; ++i) {
+            // Generate scalars
+            if (short_scalars) {
+                auto [input_scalar, x] = get_random_short_scalar(&builder, scalar_types[i], /*num_bits*/ 128);
+                scalars.push_back(input_scalar);
+                circuit_scalars.push_back(x);
+            } else {
+                auto [input_scalar, x] = get_random_scalar(&builder, scalar_types[i], /*even*/ true);
+                scalars.push_back(input_scalar);
+                circuit_scalars.push_back(x);
+            }
+
+            // Generate points
+            auto [input_point, P] = get_random_point(&builder, point_types[i]);
+            points.push_back(input_point);
+            circuit_points.push_back(P);
+        }
+
+        OriginTag tag_union{};
+        for (size_t i = 0; i < num_points; ++i) {
+            // Set tag to submitted value tag at round i
+            circuit_points[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
+            tag_union = OriginTag(tag_union, circuit_points[i].get_origin_tag());
+
+            // Set tag to challenge tag at round i
+            circuit_scalars[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
+            tag_union = OriginTag(tag_union, circuit_scalars[i].get_origin_tag());
+        }
+
+        // Define masking scalar (128 bits) if with_edgecases is true
+        const auto get_128_bit_scalar = []() {
+            uint256_t scalar_u256(0, 0, 0, 0);
+            scalar_u256.data[0] = engine.get_random_uint64();
+            scalar_u256.data[1] = engine.get_random_uint64();
+            fr scalar(scalar_u256);
+            return scalar;
+        };
+        fr masking_scalar = with_edgecases ? get_128_bit_scalar() : fr(1);
+        scalar_ct masking_scalar_ct =
+            with_edgecases ? scalar_ct::from_witness(&builder, masking_scalar) : scalar_ct(&builder, fr(1));
+
+        element_ct result_point = element_ct::batch_mul(
+            circuit_points, circuit_scalars, /*max_num_bits=*/0, with_edgecases, masking_scalar_ct);
+
+        // Check the resulting tag is a union of inputs' tags
+        EXPECT_EQ(result_point.get_origin_tag(), tag_union);
+
+        element expected_point = g1::one;
+        expected_point.self_set_infinity();
+        for (size_t i = 0; i < num_points; ++i) {
+            expected_point += (element(points[i]) * scalars[i]);
+        }
+
+        expected_point = expected_point.normalize();
+        fq result_x(result_point.x().get_value().lo);
+        fq result_y(result_point.y().get_value().lo);
+
+        EXPECT_EQ(result_x, expected_point.x);
+        EXPECT_EQ(result_y, expected_point.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_batch_mul()
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1043): this test will fail with num_points is 1
-        // (and this case gets hit sometimes when handling points at infinity).
         const size_t num_points = 5;
         Builder builder;
         std::vector<affine_element> points;
@@ -1431,310 +1735,294 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
     }
 
-    static void test_chain_add()
+    // Test batch_mul with all points at infinity
+    static void test_batch_mul_all_infinity()
     {
-        Builder builder = Builder();
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
-            affine_element input_c(element::random_element());
-
-            element_ct a = element_ct::from_witness(&builder, input_a);
-            element_ct b = element_ct::from_witness(&builder, input_b);
-            element_ct c = element_ct::from_witness(&builder, input_c);
-
-            auto acc = element_ct::chain_add_start(a, b);
-            auto acc_out = element_ct::chain_add(c, acc);
-
-            auto lambda_prev = (input_b.y - input_a.y) / (input_b.x - input_a.x);
-            auto x3_prev = lambda_prev * lambda_prev - input_b.x - input_a.x;
-            auto y3_prev = lambda_prev * (input_a.x - x3_prev) - input_a.y;
-            auto lambda = (y3_prev - input_c.y) / (x3_prev - input_c.x);
-            auto x3 = lambda * lambda - x3_prev - input_c.x;
-
-            uint256_t x3_u256 = acc_out.x3_prev.get_value().lo;
-            uint256_t lambda_u256 = acc_out.lambda_prev.get_value().lo;
-
-            fq x3_result(x3_u256);
-            fq lambda_result(lambda_u256);
-
-            EXPECT_EQ(x3_result, x3);
-            EXPECT_EQ(lambda_result, lambda);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_multiple_montgomery_ladder()
-    {
-        Builder builder = Builder();
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element acc_small(element::random_element());
-            element_ct acc_big = element_ct::from_witness(&builder, acc_small);
-
-            std::vector<typename element_ct::chain_add_accumulator> to_add;
-            for (size_t j = 0; j < i; ++j) {
-                affine_element add_1_small_0(element::random_element());
-                element_ct add_1_big_0 = element_ct::from_witness(&builder, add_1_small_0);
-                affine_element add_2_small_0(element::random_element());
-                element_ct add_2_big_0 = element_ct::from_witness(&builder, add_2_small_0);
-                typename element_ct::chain_add_accumulator add_1 =
-                    element_ct::chain_add_start(add_1_big_0, add_2_big_0);
-                to_add.emplace_back(add_1);
-            }
-            acc_big.multiple_montgomery_ladder(to_add);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_compute_naf()
-    {
-        Builder builder = Builder();
-        size_t max_num_bits = 254;
-        for (size_t length = 2; length < max_num_bits; length += 1) {
-
-            fr scalar_val;
-
-            uint256_t scalar_raw = engine.get_random_uint256();
-            scalar_raw = scalar_raw >> (256 - length);
-
-            scalar_val = fr(scalar_raw);
-
-            // NAF with short scalars doesn't handle 0
-            if (scalar_val == fr(0)) {
-                scalar_val += 1;
-            };
-            scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
-            // Set tag for scalar
-            scalar.set_origin_tag(submitted_value_origin_tag);
-            auto naf = element_ct::compute_naf(scalar, length);
-
-            for (const auto& bit : naf) {
-                // Check that the tag is propagated to bits
-                EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
-            }
-            // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
-            fr reconstructed_val(0);
-            for (size_t i = 0; i < length; i++) {
-                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
-            };
-            reconstructed_val -= fr(naf[length].get_value());
-            EXPECT_EQ(scalar_val, reconstructed_val);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_compute_naf_zero()
-    {
-        Builder builder = Builder();
-        size_t length = 254;
-
-        // Our algorithm for input 0 outputs the NAF representation of r (the field modulus)
-        fr scalar_val(0);
-
-        scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
-
-        // Set tag for scalar
-        scalar.set_origin_tag(submitted_value_origin_tag);
-        auto naf = element_ct::compute_naf(scalar, length);
-
-        for (const auto& bit : naf) {
-            // Check that the tag is propagated to bits
-            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
-        }
-
-        // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
-        fr reconstructed_val(0);
-        uint256_t reconstructed_u256(0);
-        for (size_t i = 0; i < length; i++) {
-            reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
-            reconstructed_u256 +=
-                (uint256_t(1) - uint256_t(2) * uint256_t(naf[i].get_value())) * (uint256_t(1) << (length - 1 - i));
-        };
-        reconstructed_val -= fr(naf[length].get_value());
-        EXPECT_EQ(scalar_val, reconstructed_val);
-        EXPECT_EQ(reconstructed_u256, uint256_t(fr::modulus));
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_batch_mul_short_scalars()
-    {
-        const size_t num_points = 11;
         Builder builder;
         std::vector<affine_element> points;
         std::vector<fr> scalars;
-        for (size_t i = 0; i < num_points; ++i) {
-            points.push_back(affine_element(element::random_element()));
-            uint256_t scalar_raw = fr::random_element();
-            scalar_raw.data[2] = 0ULL;
-            scalar_raw.data[3] = 0ULL;
-            scalars.push_back(fr(scalar_raw));
+
+        for (size_t i = 0; i < 5; ++i) {
+            points.push_back(affine_element::infinity());
+            scalars.push_back(fr::random_element());
         }
+
         std::vector<element_ct> circuit_points;
         std::vector<scalar_ct> circuit_scalars;
-        OriginTag union_tag{};
-        for (size_t i = 0; i < num_points; ++i) {
+
+        for (size_t i = 0; i < points.size(); ++i) {
             circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
             circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
-            // Set tags for points to the submitted value tag for round i and for scalars to challenge tag for the same
-            // round
-            circuit_points[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
-            circuit_scalars[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
-            union_tag = OriginTag(union_tag, circuit_points[i].get_origin_tag(), circuit_scalars[i].get_origin_tag());
         }
 
-        element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars, 128);
+        element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars, 0, true);
 
-        // Check that the resulting tag is a union of inputs' tags
-        EXPECT_EQ(result_point.get_origin_tag(), union_tag);
-
-        element expected_point = g1::one;
-        expected_point.self_set_infinity();
-        for (size_t i = 0; i < num_points; ++i) {
-            expected_point += (element(points[i]) * scalars[i]);
-        }
-
-        expected_point = expected_point.normalize();
-        fq result_x(result_point.x().get_value().lo);
-        fq result_y(result_point.y().get_value().lo);
-
-        EXPECT_EQ(result_x, expected_point.x);
-        EXPECT_EQ(result_y, expected_point.y);
-
+        // Result should be point at infinity
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_wnaf_batch_4()
-    {
-        Builder builder = Builder();
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            const auto get_128_bit_scalar = []() {
-                uint256_t scalar_u256(0, 0, 0, 0);
-                scalar_u256.data[0] = engine.get_random_uint64();
-                scalar_u256.data[1] = engine.get_random_uint64();
-                fr scalar(scalar_u256);
-                return scalar;
-            };
-            affine_element input1(element::random_element());
-            affine_element input2(element::random_element());
-            affine_element input3(element::random_element());
-            affine_element input4(element::random_element());
-
-            element_ct P1 = element_ct::from_witness(&builder, input1);
-            element_ct P2 = element_ct::from_witness(&builder, input2);
-            element_ct P3 = element_ct::from_witness(&builder, input3);
-            element_ct P4 = element_ct::from_witness(&builder, input4);
-            // Set elements' tags to submitted value tags from sequential rounds
-            std::vector<OriginTag> element_tags = {
-                OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/true),
-                OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/true),
-                OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/true),
-                OriginTag(/*parent_index=*/0, /*child_index=*/3, /*is_submitted=*/true)
-            };
-            P1.set_origin_tag(element_tags[0]);
-            P2.set_origin_tag(element_tags[1]);
-            P3.set_origin_tag(element_tags[2]);
-            P4.set_origin_tag(element_tags[3]);
-
-            fr scalar1 = get_128_bit_scalar();
-            fr scalar2 = get_128_bit_scalar();
-            fr scalar3 = get_128_bit_scalar();
-            fr scalar4 = get_128_bit_scalar();
-
-            scalar_ct x1 = scalar_ct::from_witness(&builder, scalar1);
-            scalar_ct x2 = scalar_ct::from_witness(&builder, scalar2);
-            scalar_ct x3 = scalar_ct::from_witness(&builder, scalar3);
-            scalar_ct x4 = scalar_ct::from_witness(&builder, scalar4);
-
-            // Set scalars' tags to challenge tags from sequential rounds
-            std::vector<OriginTag> scalar_tags = {
-                OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/false),
-                OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/false),
-                OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/false),
-                OriginTag(/*parent_index=*/0, /*child_index=*/3, /*is_submitted=*/false)
-            };
-            x1.set_origin_tag(scalar_tags[0]);
-            x2.set_origin_tag(scalar_tags[1]);
-            x3.set_origin_tag(scalar_tags[2]);
-            x4.set_origin_tag(scalar_tags[3]);
-
-            OriginTag union_tag{};
-            for (size_t j = 0; j < element_tags.size(); j++) {
-                union_tag = OriginTag(union_tag, element_tags[j], scalar_tags[j]);
-            }
-
-            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
-            element_ct c = element_ct::batch_mul({ P1, P2, P3, P4 }, { x1, x2, x3, x4 }, 128);
-            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
-
-            // Check that the resulting tag is a union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), union_tag);
-            element out = input1 * scalar1;
-            out += (input2 * scalar2);
-            out += (input3 * scalar3);
-            out += (input4 * scalar4);
-            affine_element c_expected(out);
-
-            fq c_x_result(c.x().get_value().lo);
-            fq c_y_result(c.y().get_value().lo);
-
-            EXPECT_EQ(c_x_result, c_expected.x);
-            EXPECT_EQ(c_y_result, c_expected.y);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_mixed_mul_bn254_endo()
+    // Test batch_mul with all zero scalars
+    static void test_batch_mul_all_zero_scalars()
     {
         Builder builder;
-        size_t num_repetitions = 1;
+        std::vector<affine_element> points;
+        std::vector<fr> scalars;
 
-        const auto get_small_scalar = []() {
-            fr t1 = fr::random_element();
-            t1 = t1.from_montgomery_form();
-            t1.data[2] = 0;
-            t1.data[3] = 0;
-            return t1.to_montgomery_form();
-        };
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            std::vector<element_ct> double_points(11);
-            std::vector<scalar_ct> double_scalars(11);
-
-            std::vector<affine_element> double_points_w(11);
-            std::vector<fr> double_scalars_w(11);
-
-            for (size_t i = 0; i < 11; ++i) {
-                double_points_w[i] = affine_element(element::random_element());
-                double_scalars_w[i] = get_small_scalar();
-                double_points[i] = element_ct::from_witness(&builder, double_points_w[i]);
-                double_scalars[i] = scalar_ct::from_witness(&builder, double_scalars_w[i]);
-            }
-
-            const auto double_opening_result = element_ct::batch_mul(double_points, double_scalars, 128);
-
-            element expected = g1::one;
-            expected.self_set_infinity();
-            for (size_t i = 0; i < 11; ++i) {
-                expected += (double_points_w[i] * double_scalars_w[i]);
-            }
-            expected = expected.normalize();
-
-            fq result_x(double_opening_result.x().get_value().lo);
-            fq result_y(double_opening_result.y().get_value().lo);
-
-            EXPECT_EQ(result_x, expected.x);
-            EXPECT_EQ(result_y, expected.y);
+        for (size_t i = 0; i < 5; ++i) {
+            points.push_back(affine_element(element::random_element()));
+            scalars.push_back(fr::zero());
         }
 
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+
+        for (size_t i = 0; i < points.size(); ++i) {
+            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+            circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+        }
+
+        element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars, 0, true);
+
+        // Result should be point at infinity
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
         EXPECT_CIRCUIT_CORRECTNESS(builder);
-    };
+    }
+
+    // Test batch_mul with mixed zero and non-zero scalars
+    static void test_batch_mul_mixed_zero_scalars()
+    {
+        Builder builder;
+        std::vector<affine_element> points;
+        std::vector<fr> scalars;
+
+        for (size_t i = 0; i < 6; ++i) {
+            points.push_back(affine_element(element::random_element()));
+            // Alternate between zero and non-zero scalars
+            scalars.push_back((i % 2 == 0) ? fr::zero() : fr::random_element());
+        }
+
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+
+        for (size_t i = 0; i < points.size(); ++i) {
+            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+            circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+        }
+
+        element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars, 0, true);
+
+        // Compute expected result
+        element expected = element::infinity();
+        for (size_t i = 0; i < points.size(); ++i) {
+            expected += (element(points[i]) * scalars[i]);
+        }
+        affine_element expected_affine = affine_element(expected);
+
+        uint256_t result_x = result.x().get_value().lo;
+        uint256_t result_y = result.y().get_value().lo;
+
+        EXPECT_EQ(fq(result_x), expected_affine.x);
+        EXPECT_EQ(fq(result_y), expected_affine.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test batch_mul with mixed infinity and valid points
+    static void test_batch_mul_mixed_infinity()
+    {
+        Builder builder;
+        std::vector<affine_element> points;
+        std::vector<fr> scalars;
+
+        for (size_t i = 0; i < 6; ++i) {
+            // Alternate between infinity and valid points
+            points.push_back((i % 2 == 0) ? affine_element::infinity() : affine_element(element::random_element()));
+            scalars.push_back(fr::random_element());
+        }
+
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+
+        for (size_t i = 0; i < points.size(); ++i) {
+            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+            circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+        }
+
+        element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars, 0, true);
+
+        // Compute expected result
+        element expected = element::infinity();
+        for (size_t i = 0; i < points.size(); ++i) {
+            if (!points[i].is_point_at_infinity()) {
+                expected += (element(points[i]) * scalars[i]);
+            }
+        }
+        affine_element expected_affine = affine_element(expected);
+
+        uint256_t result_x = result.x().get_value().lo;
+        uint256_t result_y = result.y().get_value().lo;
+
+        EXPECT_EQ(fq(result_x), expected_affine.x);
+        EXPECT_EQ(fq(result_y), expected_affine.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test batch_mul with points that cancel out
+    static void test_batch_mul_cancellation()
+    {
+        Builder builder;
+        std::vector<affine_element> points;
+        std::vector<fr> scalars;
+
+        // Add P and -P with same scalar
+        affine_element P(element::random_element());
+        affine_element neg_P = affine_element(-element(P));
+        fr scalar = fr::random_element();
+
+        points.push_back(P);
+        scalars.push_back(scalar);
+        points.push_back(neg_P);
+        scalars.push_back(scalar);
+
+        // Add some other points to make it non-trivial
+        for (size_t i = 0; i < 3; ++i) {
+            points.push_back(affine_element(element::random_element()));
+            scalars.push_back(fr::random_element());
+        }
+
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+
+        for (size_t i = 0; i < points.size(); ++i) {
+            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+            circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+        }
+
+        element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars, 0, true);
+
+        // Compute expected result
+        element expected = element::infinity();
+        for (size_t i = 0; i < points.size(); ++i) {
+            expected += (element(points[i]) * scalars[i]);
+        }
+        affine_element expected_affine = affine_element(expected);
+
+        uint256_t result_x = result.x().get_value().lo;
+        uint256_t result_y = result.y().get_value().lo;
+
+        EXPECT_EQ(fq(result_x), expected_affine.x);
+        EXPECT_EQ(fq(result_y), expected_affine.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test batch_mul with constant and witness points mixed
+    static void test_batch_mul_mixed_constant_witness()
+    {
+        Builder builder;
+        std::vector<affine_element> points_native;
+        std::vector<fr> scalars_native;
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+
+        // Add constant-constant points
+        for (size_t i = 0; i < 3; ++i) {
+            const auto [point, point_ct] = get_random_point(&builder, InputType::CONSTANT);
+            const auto [scalar, scalar_ct] = get_random_scalar(&builder, InputType::CONSTANT);
+            points_native.push_back(point);
+            scalars_native.push_back(scalar);
+            circuit_points.push_back(point_ct);   // Constant
+            circuit_scalars.push_back(scalar_ct); // Constant
+        }
+
+        // Add witness-witness points
+        for (size_t i = 0; i < 3; ++i) {
+            const auto [point, point_ct] = get_random_point(&builder, InputType::WITNESS);
+            const auto [scalar, scalar_ct] = get_random_scalar(&builder, InputType::WITNESS);
+            points_native.push_back(point);
+            scalars_native.push_back(scalar);
+            circuit_points.push_back(point_ct);   // Witness
+            circuit_scalars.push_back(scalar_ct); // Witness
+        }
+
+        // Add constant-witness points
+        for (size_t i = 0; i < 4; ++i) {
+            const auto [point, point_ct] = get_random_point(&builder, InputType::CONSTANT);
+            const auto [scalar, scalar_ct] = get_random_scalar(&builder, InputType::WITNESS);
+            points_native.push_back(point);
+            scalars_native.push_back(scalar);
+            circuit_points.push_back(element_ct(point));                          // Constant
+            circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalar)); // Witness
+        }
+
+        // Add witness-constant points
+        for (size_t i = 0; i < 4; ++i) {
+            const auto [point, point_ct] = get_random_point(&builder, InputType::WITNESS);
+            const auto [scalar, scalar_ct] = get_random_scalar(&builder, InputType::CONSTANT);
+            points_native.push_back(point);
+            scalars_native.push_back(scalar);
+            circuit_points.push_back(point_ct);   // Witness
+            circuit_scalars.push_back(scalar_ct); // Constant
+        }
+
+        element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars);
+
+        // Compute expected result
+        element expected = element::infinity();
+        for (size_t i = 0; i < points_native.size(); ++i) {
+            expected += (element(points_native[i]) * scalars_native[i]);
+        }
+        affine_element expected_affine = affine_element(expected);
+
+        uint256_t result_x = result.x().get_value().lo;
+        uint256_t result_y = result.y().get_value().lo;
+
+        EXPECT_EQ(fq(result_x), expected_affine.x);
+        EXPECT_EQ(fq(result_y), expected_affine.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Test batch_mul with large number of points (stress test)
+    static void test_batch_mul_large_number_of_points()
+    {
+        Builder builder;
+        std::vector<affine_element> points;
+        std::vector<fr> scalars;
+        constexpr size_t num_points = 20;
+
+        for (size_t i = 0; i < num_points; ++i) {
+            points.push_back(affine_element(element::random_element()));
+            scalars.push_back(fr::random_element());
+        }
+
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+
+        for (size_t i = 0; i < points.size(); ++i) {
+            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+            circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+        }
+
+        element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars);
+
+        // Compute expected result
+        element expected = element::infinity();
+        for (size_t i = 0; i < points.size(); ++i) {
+            expected += (element(points[i]) * scalars[i]);
+        }
+        affine_element expected_affine = affine_element(expected);
+
+        uint256_t result_x = result.x().get_value().lo;
+        uint256_t result_y = result.y().get_value().lo;
+
+        EXPECT_EQ(fq(result_x), expected_affine.x);
+        EXPECT_EQ(fq(result_y), expected_affine.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
 };
 
 enum UseBigfield { No, Yes };
@@ -1753,10 +2041,21 @@ TYPED_TEST(stdlib_biggroup, assert_coordinates_in_field)
     TestFixture::test_assert_coordinates_in_field();
 }
 
+// Addition tests
 TYPED_TEST(stdlib_biggroup, add)
 {
 
     TestFixture::test_add();
+}
+TYPED_TEST(stdlib_biggroup, add_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_add(InputType::WITNESS, InputType::CONSTANT);  // w + c
+        TestFixture::test_add(InputType::CONSTANT, InputType::WITNESS);  // c + w
+        TestFixture::test_add(InputType::CONSTANT, InputType::CONSTANT); // c + c
+    }
 }
 TYPED_TEST(stdlib_biggroup, add_points_at_infinity)
 {
@@ -1766,9 +2065,21 @@ TYPED_TEST(stdlib_biggroup, standard_form_of_point_at_infinity)
 {
     TestFixture::test_standard_form_of_point_at_infinity();
 }
+
+// Subtraction tests
 TYPED_TEST(stdlib_biggroup, sub)
 {
     TestFixture::test_sub();
+}
+TYPED_TEST(stdlib_biggroup, sub_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_sub(InputType::WITNESS, InputType::CONSTANT);  // w - c
+        TestFixture::test_sub(InputType::CONSTANT, InputType::WITNESS);  // c - w
+        TestFixture::test_sub(InputType::CONSTANT, InputType::CONSTANT); // c - c
+    }
 }
 TYPED_TEST(stdlib_biggroup, sub_points_at_infinity)
 {
@@ -1779,17 +2090,206 @@ TYPED_TEST(stdlib_biggroup, dbl)
 {
     TestFixture::test_dbl();
 }
+TYPED_TEST(stdlib_biggroup, dbl_with_constant)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_dbl(InputType::CONSTANT); // dbl(c)
+    }
+}
+
+// Test chain_add
+HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_chain_add();
+    };
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, chain_add_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_chain_add(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w, w, c
+        TestFixture::test_chain_add(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w, c, w
+        TestFixture::test_chain_add(InputType::WITNESS, InputType::CONSTANT, InputType::CONSTANT);  // w, c, c
+        TestFixture::test_chain_add(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);   // c, w, w
+        TestFixture::test_chain_add(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);  // c, w, c
+        TestFixture::test_chain_add(InputType::CONSTANT, InputType::CONSTANT, InputType::WITNESS);  // c, c, w
+        TestFixture::test_chain_add(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT); // c, c, c
+    }
+}
+
+// Test multiple_montgomery_ladder
+HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
+{
+
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_multiple_montgomery_ladder();
+    };
+}
+
+// Test normalize
+TYPED_TEST(stdlib_biggroup, normalize)
+{
+    TestFixture::test_normalize();
+}
+TYPED_TEST(stdlib_biggroup, normalize_constant)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_normalize(InputType::CONSTANT);
+    }
+}
+
+// Test reduce
+TYPED_TEST(stdlib_biggroup, reduce)
+{
+    TestFixture::test_reduce();
+}
+TYPED_TEST(stdlib_biggroup, reduce_constant)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_reduce(InputType::CONSTANT);
+    }
+}
+
+// Test unary negation
+TYPED_TEST(stdlib_biggroup, unary_negate)
+{
+    TestFixture::test_unary_negate(InputType::WITNESS);
+}
+
+TYPED_TEST(stdlib_biggroup, unary_negate_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_unary_negate(InputType::CONSTANT);
+    }
+}
+
+// Test operator+=
+TYPED_TEST(stdlib_biggroup, add_assign)
+{
+    TestFixture::test_add_assign(InputType::WITNESS, InputType::WITNESS);
+}
+
+TYPED_TEST(stdlib_biggroup, add_assign_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_add_assign(InputType::WITNESS, InputType::CONSTANT); // w += c
+        TestFixture::test_add_assign(InputType::CONSTANT, InputType::WITNESS); // c += w
+    }
+}
+
+// Test operator-=
+TYPED_TEST(stdlib_biggroup, sub_assign)
+{
+    TestFixture::test_sub_assign(InputType::WITNESS, InputType::WITNESS);
+}
+TYPED_TEST(stdlib_biggroup, sub_assign_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_sub_assign(InputType::WITNESS, InputType::CONSTANT); // w -= c
+        TestFixture::test_sub_assign(InputType::CONSTANT, InputType::WITNESS); // c -= w
+    }
+}
+// Test checked_unconditional_add
+TYPED_TEST(stdlib_biggroup, checked_unconditional_add)
+{
+    TestFixture::test_checked_unconditional_add(InputType::WITNESS, InputType::WITNESS);
+}
+TYPED_TEST(stdlib_biggroup, checked_unconditional_add_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_checked_unconditional_add(InputType::WITNESS, InputType::CONSTANT);  // w + c
+        TestFixture::test_checked_unconditional_add(InputType::CONSTANT, InputType::WITNESS);  // c + w
+        TestFixture::test_checked_unconditional_add(InputType::CONSTANT, InputType::CONSTANT); // c + c
+    }
+}
+// Test checked_unconditional_subtract
+TYPED_TEST(stdlib_biggroup, checked_unconditional_subtract)
+{
+    TestFixture::test_checked_unconditional_subtract(InputType::WITNESS, InputType::WITNESS);
+}
+TYPED_TEST(stdlib_biggroup, checked_unconditional_subtract_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_checked_unconditional_subtract(InputType::WITNESS, InputType::CONSTANT); // w - c
+        TestFixture::test_checked_unconditional_subtract(InputType::CONSTANT, InputType::WITNESS); // c - w
+        TestFixture::test_checked_unconditional_subtract(InputType::CONSTANT,
+                                                         InputType::CONSTANT); // c - c
+    }
+}
+// Test checked_unconditional_add_sub
+TYPED_TEST(stdlib_biggroup, checked_unconditional_add_sub)
+{
+    TestFixture::test_checked_unconditional_add_sub();
+}
+TYPED_TEST(stdlib_biggroup, checked_unconditional_add_sub_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_checked_unconditional_add_sub(InputType::WITNESS, InputType::CONSTANT);  // w, c
+        TestFixture::test_checked_unconditional_add_sub(InputType::CONSTANT, InputType::WITNESS);  // c, w
+        TestFixture::test_checked_unconditional_add_sub(InputType::CONSTANT, InputType::CONSTANT); // c, c
+    }
+}
+// Test conditional_negate
 TYPED_TEST(stdlib_biggroup, conditional_negate)
 {
     TestFixture::test_conditional_negate();
 }
+TYPED_TEST(stdlib_biggroup, conditional_negate_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_conditional_negate(InputType::WITNESS, InputType::CONSTANT);  // w, c
+        TestFixture::test_conditional_negate(InputType::CONSTANT, InputType::WITNESS);  // c, w
+        TestFixture::test_conditional_negate(InputType::CONSTANT, InputType::CONSTANT); // c, c
+    }
+}
+// Test conditional_select
 TYPED_TEST(stdlib_biggroup, conditional_select)
 {
     TestFixture::test_conditional_select();
 }
+TYPED_TEST(stdlib_biggroup, conditional_select_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_conditional_select(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w, w, c
+        TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w, c, w
+        TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::CONSTANT);  // w, c, c
+        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);   // c, w, w
+        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::WITNESS);  // c, c, w
+        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);  // c, w, c
+        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT); // c, c, c
+    }
+}
 TYPED_TEST(stdlib_biggroup, incomplete_assert_equal)
 {
-    TestFixture::test_incomplete_assert_equal_success();
+    TestFixture::test_incomplete_assert_equal();
 }
 TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_fails)
 {
@@ -1799,25 +2299,63 @@ TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_edge_cases)
 {
     TestFixture::test_incomplete_assert_equal_edge_cases();
 }
+
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
+{
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        size_t num_repetitions = 1;
+        for (size_t i = 0; i < num_repetitions; i++) {
+            TestFixture::test_compute_naf();
+        }
+    } else {
+        GTEST_SKIP();
+    }
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_zero)
+{
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_compute_naf_zero();
+    } else {
+        GTEST_SKIP();
+    }
+}
+
 HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 {
     TestFixture::test_mul();
 }
-
-HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_2_126_bits)
+HEAVY_TYPED_TEST(stdlib_biggroup, mul_with_constants)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
     } else {
-        TestFixture::test_short_scalar_mul_2_126();
+        TestFixture::test_mul(InputType::WITNESS, InputType::CONSTANT);  // w * c
+        TestFixture::test_mul(InputType::CONSTANT, InputType::WITNESS);  // c * w
+        TestFixture::test_mul(InputType::CONSTANT, InputType::CONSTANT); // c * c
     }
 }
-HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_128_252_bits)
+HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases)
+{
+    TestFixture::test_mul_edge_cases();
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases_with_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_mul_edge_cases(InputType::WITNESS, InputType::CONSTANT);  // w * c
+        TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::WITNESS);  // c * w
+        TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::CONSTANT); // c * c
+    }
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_with_bit_lengths)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
     } else {
-        TestFixture::test_short_scalar_mul_128_252();
+        TestFixture::test_short_scalar_mul_with_bit_lengths();
     }
 }
 
@@ -1828,6 +2366,86 @@ HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_infinity)
     } else {
         TestFixture::test_short_scalar_mul_infinity();
     }
+}
+
+// Batch multiplication tests
+// 1 point - Base case only
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_singleton)
+{
+    TestFixture::test_helper_batch_mul(1);
+}
+
+// 2 points - Base case + flag variations + one constant mix
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin)
+{
+    TestFixture::test_helper_batch_mul(2);
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_short_scalars)
+{
+    TestFixture::test_helper_batch_mul(2, true); // short_scalars
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_with_edgecases)
+{
+    TestFixture::test_helper_batch_mul(2, false, true); // short_scalars, with_edgecases
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_short_scalars_with_edgecases)
+{
+    TestFixture::test_helper_batch_mul(2, true, true); // short_scalars, with_edgecases
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_mixed_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_helper_batch_mul({ InputType::WITNESS, InputType::CONSTANT },
+                                           { InputType::CONSTANT, InputType::WITNESS });
+    }
+}
+
+// 3 points - Base case only
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_triple)
+{
+    TestFixture::test_helper_batch_mul(3);
+}
+
+// 4 points - Base case only
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_quad)
+{
+    TestFixture::test_helper_batch_mul(4);
+}
+
+// 5 points - Base case + edge case + short scalar + mixed constant
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five)
+{
+    TestFixture::test_helper_batch_mul(5);
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_with_edgecases)
+{
+    TestFixture::test_helper_batch_mul(5, false, true); // short_scalars, with_edgecases
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_short_scalars)
+{
+    TestFixture::test_helper_batch_mul(5, true); // short_scalars
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_short_scalars_with_edgecases)
+{
+    TestFixture::test_helper_batch_mul(5, true, true); // short_scalars, with_edgecases
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_mixed_constants)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+    } else {
+        TestFixture::test_helper_batch_mul(
+            { InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT },
+            { InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT });
+    }
+}
+
+// 6 points - Base case only
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_six)
+{
+    TestFixture::test_helper_batch_mul(6);
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
@@ -1857,22 +2475,6 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_linearly_dependent_generators)
     };
 }
 
-HEAVY_TYPED_TEST(stdlib_biggroup, triple_mul)
-{
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_triple_mul();
-    };
-}
-HEAVY_TYPED_TEST(stdlib_biggroup, quad_mul)
-{
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_quad_mul();
-    };
-}
 HEAVY_TYPED_TEST(stdlib_biggroup, one)
 {
     TestFixture::test_one();
@@ -1899,82 +2501,44 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set2)
 {
     TestFixture::test_batch_mul_edge_case_set2();
 }
-HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
-{
 
+// Batch mul edge case tests
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_all_infinity)
+{
+    TestFixture::test_batch_mul_all_infinity();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_all_zero_scalars)
+{
+    TestFixture::test_batch_mul_all_zero_scalars();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_mixed_zero_scalars)
+{
+    TestFixture::test_batch_mul_mixed_zero_scalars();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_mixed_infinity)
+{
+    TestFixture::test_batch_mul_mixed_infinity();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_cancellation)
+{
+    TestFixture::test_batch_mul_cancellation();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_mixed_constant_witness)
+{
+    // Skip for goblin case - causes segfault with mixed constant/witness points
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_chain_add();
-    };
-}
-HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
-{
-
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_multiple_montgomery_ladder();
-    };
-}
-
-HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
-{
-    // ULTRATODO: make this work for secp curves
-    if constexpr ((TypeParam::Curve::type == CurveType::BN254) && !HasGoblinBuilder<TypeParam>) {
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; i++) {
-            TestFixture::test_compute_naf();
-        }
-    } else {
         GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_mixed_constant_witness();
     }
 }
 
-TYPED_TEST(stdlib_biggroup, compute_naf_zero)
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_large_number_of_points)
 {
-    // ULTRATODO: make this work for secp curves
-    if constexpr ((TypeParam::Curve::type == CurveType::BN254) && !HasGoblinBuilder<TypeParam>) {
-        TestFixture::test_compute_naf_zero();
-    } else {
-        GTEST_SKIP();
-    }
-}
-
-/* batch_mul with specified value of max_num_bits does not work for a biggroup formed over a big scalar field.
-   We skip such cases in the next group of tests. */
-HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_short_scalars)
-{
-    if constexpr (TypeParam::use_bigfield) {
-        GTEST_SKIP();
-    } else {
-        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP();
-        } else {
-            TestFixture::test_batch_mul_short_scalars();
-        };
-    }
-}
-
-HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_4)
-{
-    if constexpr (TypeParam::use_bigfield) {
-        GTEST_SKIP();
-    } else {
-        TestFixture::test_wnaf_batch_4();
-    }
-}
-
-/* The following tests are specific to BN254 and don't work when Fr is a bigfield */
-HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
-{
-    if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP();
-        } else {
-            TestFixture::test_mixed_mul_bn254_endo();
-        };
-    } else {
-        GTEST_SKIP();
-    }
+    TestFixture::test_batch_mul_large_number_of_points();
 }

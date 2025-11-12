@@ -33,8 +33,8 @@ class ECCVMFixedVKCommitments {
                             uint256_t("0x13df90d6be58ebcfb1b767db72f4c3fe3b98afd7a0094d69cdea854128819bc9")),
 
                  // lagrange_last
-                 Commitment(uint256_t("0x1a0f8fc6e94945c7036f59179a0fb25fdaf4dce29f9a9ad84ed4e17faa25903a"),
-                            uint256_t("0x1d55ee861aa772391f6486f9a1f24f503b4905eb8c10555bd44c4f406259a913"))
+                 Commitment(uint256_t("0x250f60e47845ded40a7821ccd614187f99e12df72b578d1ff222a61c62f0ace9"),
+                            uint256_t("0x0957036d9fbae4aff11fd9a76828a3292a3e58d30e9a93fe2bbfb2525d522a14"))
         };
     }
 };

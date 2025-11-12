@@ -564,12 +564,12 @@ pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 // Lengths of the different types of proofs in fields
 pub global RECURSIVE_PROOF_LENGTH: u32 = 457;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
-pub global IPA_PROOF_LENGTH: u32 = 68;
-pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 350; // See UltraKeccakFlavor for formula; based on root rollup log_n = 25
+pub global IPA_PROOF_LENGTH: u32 = 64;
+pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 339; // See UltraKeccakFlavor for formula; based on root rollup log_n = 24
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CHONK_PROOF_LENGTH: u32 = 2077;
+pub global CHONK_PROOF_LENGTH: u32 = 2049;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key

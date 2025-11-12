@@ -45,19 +45,19 @@ tags:
     --snapshots-url <value>                                                                                                                ($SYNC_SNAPSHOTS_URL)
           Base URL for snapshots index.
 
-  SANDBOX
+  LOCAL NETWORK
 
-    --sandbox
-          Starts Aztec Sandbox
+    --local-network
+          Starts Aztec local network
 
-    --sandbox.noPXE                                                                                                                        ($NO_PXE)
-          Do not expose PXE service on sandbox start
+    --local-network.noPXE                                                                                                                        ($NO_PXE)
+          Do not expose PXE service on local network start
 
-    --sandbox.l1Mnemonic <value>                                             (default: test test test test test test test test test test test junk)($MNEMONIC)
+    --local-network.l1Mnemonic <value>                                             (default: test test test test test test test test test test test junk)($MNEMONIC)
           Mnemonic for L1 accounts. Will be used
 
-    --sandbox.deployAztecContractsSalt <value>                                                                                             ($DEPLOY_AZTEC_CONTRACTS_SALT)
-          Numeric salt for deploying L1 Aztec contracts before starting the sandbox. Needs mnemonic or private key to be set.
+    --local-network.deployAztecContractsSalt <value>                                                                                             ($DEPLOY_AZTEC_CONTRACTS_SALT)
+          Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.
 
   API
 

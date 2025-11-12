@@ -141,40 +141,5 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
         verifier_inst.relation_parameters.public_input_delta = relation_parameters.public_input_delta.get_value();
         return verifier_inst;
     }
-
-    FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
-    {
-        BB_ASSERT_EQ(is_complete, true, "Trying to hash a recursive verifier instance that has not been completed.");
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_log_circuit_size",
-                                                  this->vk_and_hash->vk->log_circuit_size);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_num_public_inputs",
-                                                  this->vk_and_hash->vk->num_public_inputs);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_pub_inputs_offset",
-                                                  this->vk_and_hash->vk->pub_inputs_offset);
-
-        for (const Commitment& commitment : this->vk_and_hash->vk->get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_precomputed_comm", commitment);
-        }
-        for (const Commitment& comm : witness_commitments.get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_wit_comm", comm);
-        }
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_alpha", this->alpha);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta",
-                                                  this->relation_parameters.eta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta_two",
-                                                  this->relation_parameters.eta_two);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta_three",
-                                                  this->relation_parameters.eta_three);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_beta",
-                                                  this->relation_parameters.beta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_gamma",
-                                                  this->relation_parameters.gamma);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_public_input_delta",
-                                                  this->relation_parameters.public_input_delta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_gate_challenges",
-                                                  this->gate_challenges);
-
-        return transcript.hash_independent_buffer();
-    }
 };
 } // namespace bb::stdlib::recursion::honk

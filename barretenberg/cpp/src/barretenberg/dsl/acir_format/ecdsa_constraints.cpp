@@ -78,6 +78,9 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
         }
 
         // Set public key to 2*generator when predicate is false
+        // The choice of 2*generator is arbitrary; it just needs to be a valid point on the curve and different from G
+        // or (-G). For secp256r1, the batch multiplication requires that the two points do not have the same x
+        // coordinate (so as to create a valid lookup table).
         // Compute as native type to get byte representation
         typename Curve::AffineElementNative default_point_native(Curve::g1::one + Curve::g1::one);
         std::array<uint8_t, 32> default_x_bytes;

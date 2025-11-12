@@ -13,7 +13,7 @@
 # Such stuff belongs in higher level e.g. `aztec` or `aztec-wallet` scripts.
 set -euo pipefail
 
-# Can be overriden by env var CONTAINER_NAME, e.g. to start two sandboxes.
+# Can be overriden by env var CONTAINER_NAME, e.g. to start two local networks.
 CONTAINER_NAME=${CONTAINER_NAME:-$1}
 shift
 

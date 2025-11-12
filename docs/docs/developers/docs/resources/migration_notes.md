@@ -1,13 +1,21 @@
 ---
 title: Migration notes
 description: Read about migration notes from previous versions, which could solve problems while updating
-keywords: [sandbox, aztec, notes, migration, updating, upgrading]
-tags: [migration, updating, sandbox]
+keywords: [local network, sandbox, aztec, notes, migration, updating, upgrading]
+tags: [migration, updating, sandbox, local network]
 ---
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
 ## TBD
+
+### [CLI] Command refactor
+
+The sandbox command has been renamed and remapped to "local network". We believe this conveys better what is actually being spun up when running it.
+
+**REMOVED/RENAMED**:
+
+- `aztec start --sandbox`: now `aztec start --local-network`
 
 ## [Aztec.nr]
 

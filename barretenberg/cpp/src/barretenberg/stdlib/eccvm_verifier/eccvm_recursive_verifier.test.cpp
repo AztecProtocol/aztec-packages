@@ -140,7 +140,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         }
 
         // Check that the size of the recursive verifier is consistent with historical expectation
-        uint32_t NUM_GATES_EXPECTED = 216315;
+        uint32_t NUM_GATES_EXPECTED = 213069;
         ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()), NUM_GATES_EXPECTED)
             << "Ultra-arithmetized ECCVM Recursive verifier gate count changed! Update this value if you are sure this "
                "is expected.";
@@ -202,8 +202,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
                     &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
 
                 // Construct ipa_transcript from proof
-                std::shared_ptr<StdlibTranscript> ipa_transcript = std::make_shared<StdlibTranscript>();
-                ipa_transcript->load_proof(ipa_proof);
+                std::shared_ptr<StdlibTranscript> ipa_transcript = std::make_shared<StdlibTranscript>(ipa_proof);
                 EXPECT_FALSE(
                     IPA<RecursiveFlavor::Curve>::full_verify_recursive(stdlib_pcs_vkey, opening_claim, ipa_transcript));
             }
