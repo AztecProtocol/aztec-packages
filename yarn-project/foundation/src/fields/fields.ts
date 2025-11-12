@@ -1,11 +1,10 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 
 import { inspect } from 'util';
-import { z } from 'zod';
 
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
-import { bufferSchemaFor, hexSchemaFor } from '../schemas/utils.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 
@@ -352,12 +351,8 @@ export class Fr extends BaseField {
   }
 
   static get schema() {
-    return z.union([
-      // Serialization from hex string.
-      hexSchemaFor(Fr),
-      // Serialization from MessagePack as a buffer.
-      bufferSchemaFor(Fr, buf => buf.length === BaseField.SIZE_IN_BYTES),
-    ]);
+    // Serialization from hex string.
+    return hexSchemaFor(Fr);
   }
 }
 

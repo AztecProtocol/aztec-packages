@@ -1,5 +1,4 @@
 import { inspect } from 'util';
-import { z } from 'zod';
 
 import { keccak256String } from '../crypto/keccak/index.js';
 import { randomBytes } from '../crypto/random/index.js';
@@ -259,12 +258,8 @@ export class EthAddress {
   }
 
   static get schema() {
-    return z.union([
-      // Serialization from hex string.
-      hexSchemaFor(EthAddress, EthAddress.isAddress),
-      // Serialization from buffer.
-      Fr.schema.transform(EthAddress.fromField),
-    ]);
+    // Serialization from hex string.
+    return hexSchemaFor(EthAddress, EthAddress.isAddress);
   }
 }
 
