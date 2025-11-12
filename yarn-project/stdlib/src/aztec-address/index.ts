@@ -73,6 +73,24 @@ export class AztecAddress {
   }
 
   /**
+   * Creates an AztecAddress from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * Handles buffers, strings, or existing instances.
+   * @param obj - Plain object, buffer, string, or AztecAddress instance
+   * @returns An AztecAddress instance
+   */
+  static fromPlainObject(obj: any): AztecAddress {
+    if (obj instanceof AztecAddress) {
+      return obj;
+    }
+    if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
+      return new AztecAddress(obj);
+    }
+    return AztecAddress.fromString(obj);
+  }
+
+  /**
    * @returns a random valid address (i.e. one that can be encrypted to).
    */
   static async random() {

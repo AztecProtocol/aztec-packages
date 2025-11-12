@@ -234,7 +234,7 @@ export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements 
 
     // Deserialize the msgpack result
     const cppResultJSON: object = deserializeFromMessagePack(resultBuffer);
-    const cppResult = PublicTxResult.schema.parse(cppResultJSON);
+    const cppResult = PublicTxResult.fromPlainObject(cppResultJSON);
 
     assert(cppResult.revertCode.equals(tsResult.revertCode));
     assert(cppResult.gasUsed.totalGas.equals(tsResult.gasUsed.totalGas));

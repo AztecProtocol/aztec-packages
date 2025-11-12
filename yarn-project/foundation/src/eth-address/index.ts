@@ -43,6 +43,24 @@ export class EthAddress {
   }
 
   /**
+   * Creates an EthAddress from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * Handles buffers (20 or 32 bytes), strings, or existing instances.
+   * @param obj - Plain object, buffer, string, or EthAddress instance
+   * @returns An EthAddress instance
+   */
+  public static fromPlainObject(obj: any): EthAddress {
+    if (obj instanceof EthAddress) {
+      return obj;
+    }
+    if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
+      return obj.length === 20 ? new EthAddress(obj) : EthAddress.fromField(new Fr(obj));
+    }
+    return EthAddress.fromString(obj);
+  }
+
+  /**
    * Create a random EthAddress instance with 20 random bytes.
    * This method generates a new Ethereum address with a randomly generated set of 20 bytes.
    * It is useful for generating test addresses or unique identifiers.

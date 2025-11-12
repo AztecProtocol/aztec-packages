@@ -97,6 +97,24 @@ export class PublicCallRequest {
     return new PublicCallRequest(AztecAddress.ZERO, AztecAddress.ZERO, false, Fr.ZERO);
   }
 
+  /**
+   * Creates a PublicCallRequest instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing PublicCallRequest fields
+   * @returns A PublicCallRequest instance
+   */
+  static fromPlainObject(obj: any): PublicCallRequest {
+    return new PublicCallRequest(
+      obj.msgSender instanceof AztecAddress ? obj.msgSender : AztecAddress.fromPlainObject(obj.msgSender),
+      obj.contractAddress instanceof AztecAddress
+        ? obj.contractAddress
+        : AztecAddress.fromPlainObject(obj.contractAddress),
+      obj.isStaticCall,
+      obj.calldataHash instanceof Fr ? obj.calldataHash : new Fr(obj.calldataHash),
+    );
+  }
+
   isEmpty(): boolean {
     return (
       this.msgSender.isZero() && this.contractAddress.isZero() && !this.isStaticCall && this.calldataHash.isEmpty()
@@ -178,6 +196,17 @@ export class PublicCallRequestArrayLengths {
 
   static empty() {
     return new PublicCallRequestArrayLengths(0, 0, false);
+  }
+
+  /**
+   * Creates a PublicCallRequestArrayLengths instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing PublicCallRequestArrayLengths fields
+   * @returns A PublicCallRequestArrayLengths instance
+   */
+  static fromPlainObject(obj: any): PublicCallRequestArrayLengths {
+    return new PublicCallRequestArrayLengths(obj.setupCalls, obj.appLogicCalls, obj.teardownCall);
   }
 
   [inspect.custom]() {

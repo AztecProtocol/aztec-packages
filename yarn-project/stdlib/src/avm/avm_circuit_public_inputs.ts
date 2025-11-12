@@ -276,6 +276,74 @@ export class AvmCircuitPublicInputs {
     );
   }
 
+  /**
+   * Creates an AvmCircuitPublicInputs instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmCircuitPublicInputs fields
+   * @returns An AvmCircuitPublicInputs instance
+   */
+  static fromPlainObject(obj: any): AvmCircuitPublicInputs {
+    return new AvmCircuitPublicInputs(
+      obj.globalVariables instanceof GlobalVariables
+        ? obj.globalVariables
+        : GlobalVariables.fromPlainObject(obj.globalVariables),
+      obj.protocolContracts instanceof ProtocolContracts
+        ? obj.protocolContracts
+        : ProtocolContracts.fromPlainObject(obj.protocolContracts),
+      obj.startTreeSnapshots instanceof TreeSnapshots
+        ? obj.startTreeSnapshots
+        : TreeSnapshots.fromPlainObject(obj.startTreeSnapshots),
+      obj.startGasUsed instanceof Gas ? obj.startGasUsed : Gas.from(obj.startGasUsed),
+      obj.gasSettings instanceof GasSettings ? obj.gasSettings : GasSettings.from(obj.gasSettings),
+      obj.effectiveGasFees instanceof GasFees ? obj.effectiveGasFees : GasFees.from(obj.effectiveGasFees),
+      obj.feePayer instanceof AztecAddress ? obj.feePayer : AztecAddress.fromPlainObject(obj.feePayer),
+      obj.proverId instanceof Fr ? obj.proverId : new Fr(obj.proverId),
+      obj.publicCallRequestArrayLengths instanceof PublicCallRequestArrayLengths
+        ? obj.publicCallRequestArrayLengths
+        : PublicCallRequestArrayLengths.fromPlainObject(obj.publicCallRequestArrayLengths),
+      assertLength(
+        obj.publicSetupCallRequests.map((r: any) =>
+          r instanceof PublicCallRequest ? r : PublicCallRequest.fromPlainObject(r),
+        ),
+        MAX_ENQUEUED_CALLS_PER_TX,
+      ),
+      assertLength(
+        obj.publicAppLogicCallRequests.map((r: any) =>
+          r instanceof PublicCallRequest ? r : PublicCallRequest.fromPlainObject(r),
+        ),
+        MAX_ENQUEUED_CALLS_PER_TX,
+      ),
+      obj.publicTeardownCallRequest instanceof PublicCallRequest
+        ? obj.publicTeardownCallRequest
+        : PublicCallRequest.fromPlainObject(obj.publicTeardownCallRequest),
+      obj.previousNonRevertibleAccumulatedDataArrayLengths instanceof PrivateToAvmAccumulatedDataArrayLengths
+        ? obj.previousNonRevertibleAccumulatedDataArrayLengths
+        : PrivateToAvmAccumulatedDataArrayLengths.fromPlainObject(obj.previousNonRevertibleAccumulatedDataArrayLengths),
+      obj.previousRevertibleAccumulatedDataArrayLengths instanceof PrivateToAvmAccumulatedDataArrayLengths
+        ? obj.previousRevertibleAccumulatedDataArrayLengths
+        : PrivateToAvmAccumulatedDataArrayLengths.fromPlainObject(obj.previousRevertibleAccumulatedDataArrayLengths),
+      obj.previousNonRevertibleAccumulatedData instanceof PrivateToAvmAccumulatedData
+        ? obj.previousNonRevertibleAccumulatedData
+        : PrivateToAvmAccumulatedData.fromPlainObject(obj.previousNonRevertibleAccumulatedData),
+      obj.previousRevertibleAccumulatedData instanceof PrivateToAvmAccumulatedData
+        ? obj.previousRevertibleAccumulatedData
+        : PrivateToAvmAccumulatedData.fromPlainObject(obj.previousRevertibleAccumulatedData),
+      obj.endTreeSnapshots instanceof TreeSnapshots
+        ? obj.endTreeSnapshots
+        : TreeSnapshots.fromPlainObject(obj.endTreeSnapshots),
+      obj.endGasUsed instanceof Gas ? obj.endGasUsed : Gas.from(obj.endGasUsed),
+      obj.accumulatedDataArrayLengths instanceof AvmAccumulatedDataArrayLengths
+        ? obj.accumulatedDataArrayLengths
+        : AvmAccumulatedDataArrayLengths.fromPlainObject(obj.accumulatedDataArrayLengths),
+      obj.accumulatedData instanceof AvmAccumulatedData
+        ? obj.accumulatedData
+        : AvmAccumulatedData.fromPlainObject(obj.accumulatedData),
+      obj.transactionFee instanceof Fr ? obj.transactionFee : new Fr(obj.transactionFee),
+      obj.reverted,
+    );
+  }
+
   public serializeWithMessagePack(): Buffer {
     return serializeWithMessagePack(this);
   }

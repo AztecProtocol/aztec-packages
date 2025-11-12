@@ -1,9 +1,12 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
+import { getPathToFile, readTestData, writeTestData } from '@aztec/foundation/testing/files';
+import { Timer } from '@aztec/foundation/timer';
+
+import { readdirSync } from 'node:fs';
 
 import { makeAvmCircuitInputs } from '../tests/factories.js';
-import { AvmCircuitInputs } from './avm.js';
+import { AvmCircuitInputs, PublicTxResult } from './avm.js';
 import { deserializeFromMessagePack } from './message_pack.js';
 
 describe('Avm circuit inputs', () => {
@@ -42,5 +45,27 @@ describe('Avm circuit inputs', () => {
     const json = deserializeFromMessagePack(buffer);
     const res = AvmCircuitInputs.schema.parse(json);
     expect(res).toEqual(avmCircuitInputs);
+  });
+
+  // TODO(fcarreiro): Skipping until we have a way to generate these files.
+  it.skip('deserializes a PublicTxResult from C++', () => {
+    // For each tx result in the testdata directory, deserialize it and check that it parses correctly.
+    const testdataDir = 'barretenberg/cpp/src/barretenberg/vm2/testing';
+    const files = readdirSync(getPathToFile(testdataDir))
+      .filter(file => file.startsWith('tx_result_'))
+      .map(file => `${testdataDir}/${file}`);
+    for (const file of files) {
+      const buffer = readTestData(file);
+      const timerMP = new Timer();
+      const json = deserializeFromMessagePack(buffer);
+      console.log(`Deserialized ${file} in ${timerMP.ms()}ms (MessagePack)`);
+      const timerZod = new Timer();
+      const expectedResult = PublicTxResult.schema.parse(json);
+      console.log(`Deserialized ${file} in ${timerZod.ms()}ms (TS-zod)`);
+      const timerManual = new Timer();
+      const cppResult = PublicTxResult.fromPlainObject(json);
+      console.log(`Deserialized ${file} in ${timerManual.ms()}ms (manual)`);
+      expect(cppResult).toEqual(expectedResult);
+    }
   });
 });

@@ -65,6 +65,26 @@ export class GlobalVariables {
     return new GlobalVariables(...GlobalVariables.getFields(fields));
   }
 
+  /**
+   * Creates a GlobalVariables instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing GlobalVariables fields
+   * @returns A GlobalVariables instance
+   */
+  static fromPlainObject(obj: any): GlobalVariables {
+    return new GlobalVariables(
+      obj.chainId instanceof Fr ? obj.chainId : new Fr(obj.chainId),
+      obj.version instanceof Fr ? obj.version : new Fr(obj.version),
+      obj.blockNumber,
+      obj.slotNumber instanceof Fr ? obj.slotNumber : new Fr(obj.slotNumber),
+      typeof obj.timestamp === 'bigint' ? obj.timestamp : BigInt(obj.timestamp),
+      obj.coinbase instanceof EthAddress ? obj.coinbase : EthAddress.fromPlainObject(obj.coinbase),
+      obj.feeRecipient instanceof AztecAddress ? obj.feeRecipient : AztecAddress.fromPlainObject(obj.feeRecipient),
+      obj.gasFees instanceof GasFees ? obj.gasFees : GasFees.from(obj.gasFees),
+    );
+  }
+
   static empty(fields: Partial<FieldsOf<GlobalVariables>> = {}): GlobalVariables {
     return GlobalVariables.from({
       blockNumber: 0,
