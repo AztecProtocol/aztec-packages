@@ -171,7 +171,18 @@ export async function lookupValidity(
     functionType: FunctionType.UTILITY,
     isOnlySelf: false,
     isStatic: false,
-    parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
+    parameters: [
+      {
+        name: 'consumer',
+        type: {
+          fields: [{ name: 'inner', type: { kind: 'field' } }],
+          kind: 'struct',
+          path: 'aztec::protocol_types::address::aztec_address::AztecAddress',
+        },
+        visibility: 'private' as ABIParameterVisibility,
+      },
+      { name: 'inner_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
+    ],
     returnTypes: [{ kind: 'boolean' }],
     errorTypes: {},
   } as FunctionAbi;

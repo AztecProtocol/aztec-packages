@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -30,7 +31,7 @@ describe('Contract Class', () => {
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
-  const mockUtilityResultValue = { type: 'UtilitySimulationResult' } as any as UtilitySimulationResult;
+  const mockUtilityResultValue = { result: [new Fr(42)] } as any as UtilitySimulationResult;
 
   const defaultArtifact: ContractArtifact = {
     name: 'FooContract',
@@ -158,7 +159,10 @@ describe('Contract Class', () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, []);
-    expect(result).toBe(mockUtilityResultValue.result);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'qux', to: contractAddress }),
+      [],
+    );
+    expect(result).toBe(42n);
   });
 });

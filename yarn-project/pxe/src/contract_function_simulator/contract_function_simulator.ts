@@ -32,8 +32,8 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
-import type { AbiDecoded, FunctionCall } from '@aztec/stdlib/abi';
-import { FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas } from '@aztec/stdlib/gas';
@@ -215,9 +215,9 @@ export class ContractFunctionSimulator {
    * @param authwits - Authentication witnesses required for the function call.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
    * accounts if not specified.
-   * @returns A decoded ABI value containing the function's return data.
+   * @returns A return value of the utility function in a form as returned by the simulator (Noir fields)
    */
-  public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: AztecAddress[]): Promise<AbiDecoded> {
+  public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: AztecAddress[]): Promise<Fr[]> {
     await verifyCurrentClassId(call.to, this.executionDataProvider);
 
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(call.to, call.selector);
@@ -250,9 +250,8 @@ export class ContractFunctionSimulator {
           );
         });
 
-      const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
       this.log.verbose(`Utility simulation for ${call.to}.${call.selector} completed`);
-      return decodeFromAbi(entryPointArtifact.returnTypes, returnWitness);
+      return witnessMapToFields(acirExecutionResult.returnWitness);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }

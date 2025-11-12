@@ -9,7 +9,12 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type ContractArtifact, type EventMetadataDefinition, decodeFromAbi } from '@aztec/stdlib/abi';
+import {
+  type ContractArtifact,
+  type EventMetadataDefinition,
+  type FunctionCall,
+  decodeFromAbi,
+} from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -318,13 +323,11 @@ export abstract class BaseWallet implements Wallet {
   }
 
   simulateUtility(
-    functionName: string,
-    args: any[],
-    to: AztecAddress,
+    call: FunctionCall,
     authwits?: AuthWitness[],
-    from?: AztecAddress,
+    scopes?: AztecAddress[],
   ): Promise<UtilitySimulationResult> {
-    return this.pxe.simulateUtility(functionName, args, to, authwits, from);
+    return this.pxe.simulateUtility(call, authwits, scopes);
   }
 
   getContractClassMetadata(id: Fr, includeArtifact: boolean = false): Promise<ContractClassMetadata> {

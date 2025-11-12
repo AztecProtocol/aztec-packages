@@ -84,7 +84,7 @@ export class BatchCall extends BaseContractInteraction {
         ? this.wallet.batch(
             utility.map(([call]) => ({
               name: 'simulateUtility' as const,
-              args: [call.name, call.args, call.to, options?.authWitnesses] as const,
+              args: [call, options?.authWitnesses, undefined] as const,
             })),
           )
         : Promise.resolve([]);
@@ -99,8 +99,10 @@ export class BatchCall extends BaseContractInteraction {
     const results: any[] = [];
 
     utilityBatchResults.forEach((wrappedResult, utilityIndex) => {
-      const [, originalIndex] = utility[utilityIndex];
-      results[originalIndex] = wrappedResult.result.result;
+      const [call, originalIndex] = utility[utilityIndex];
+      // Decode the raw field elements to the actual return type
+      const rawReturnValues = wrappedResult.result.result;
+      results[originalIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
     });
 
     if (simulatedTx) {
