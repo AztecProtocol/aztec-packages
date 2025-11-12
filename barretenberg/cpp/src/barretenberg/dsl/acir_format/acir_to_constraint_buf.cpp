@@ -27,6 +27,8 @@ namespace acir_format {
 
 using namespace bb;
 
+/// ========= HELPERS ========= ///
+
 uint256_t from_be_bytes(std::vector<uint8_t> const& bytes)
 {
     BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
@@ -37,6 +39,42 @@ uint256_t from_be_bytes(std::vector<uint8_t> const& bytes)
     }
     return result;
 }
+
+WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
+{
+    WitnessOrConstant<bb::fr> result = std::visit(
+        [&](auto&& e) {
+            using T = std::decay_t<decltype(e)>;
+            if constexpr (std::is_same_v<T, Acir::FunctionInput::Witness>) {
+                return WitnessOrConstant<bb::fr>{
+                    .index = e.value.value,
+                    .value = bb::fr::zero(),
+                    .is_constant = false,
+                };
+            } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
+                return WitnessOrConstant<bb::fr>{
+                    .index = bb::stdlib::IS_CONSTANT,
+                    .value = from_be_bytes(e.value),
+                    .is_constant = true,
+                };
+            } else {
+                bb::assert_failure("acir_format::parse_input: unrecognized Acir::FunctionInput variant.");
+            }
+        },
+        input.value);
+    return result;
+}
+
+uint32_t get_witness_from_function_input(Acir::FunctionInput input)
+{
+    BB_ASSERT(std::holds_alternative<Acir::FunctionInput::Witness>(input.value),
+              "get_witness_from_function_input: input must be a Witness variant");
+
+    auto input_witness = std::get<Acir::FunctionInput::Witness>(input.value);
+    return input_witness.value.value;
+}
+
+/// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
 
 template <typename T>
 T deserialize_any_format(std::vector<uint8_t>&& buf,
@@ -160,7 +198,7 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
     return circuit_serde_to_acir_format(program.functions[0]);
 }
 
-WitnessVector witness_buf_to_witness_data(std::vector<uint8_t>&& buf)
+WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
 {
     // We need to deserialize into WitnessStack first because the buffer returned by Noir has this structure
     auto witness_stack = deserialize_any_format<Witnesses::WitnessStack>(
@@ -177,7 +215,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t>&& buf)
         },
         &Witnesses::WitnessStack::bincodeDeserialize);
     BB_ASSERT_EQ(
-        witness_stack.stack.size(), 1U, "witness_buf_to_witness_data: expected single WitnessMap in WitnessStack");
+        witness_stack.stack.size(), 1U, "witness_buf_to_witness_vector: expected single WitnessMap in WitnessStack");
 
     return witness_map_to_witness_vector(witness_stack.stack[0].witness);
 }
@@ -211,30 +249,7 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
     return witness_vector;
 }
 
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
-{
-    WitnessOrConstant<bb::fr> result = std::visit(
-        [&](auto&& e) {
-            using T = std::decay_t<decltype(e)>;
-            if constexpr (std::is_same_v<T, Acir::FunctionInput::Witness>) {
-                return WitnessOrConstant<bb::fr>{
-                    .index = e.value.value,
-                    .value = bb::fr::zero(),
-                    .is_constant = false,
-                };
-            } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
-                return WitnessOrConstant<bb::fr>{
-                    .index = bb::stdlib::IS_CONSTANT,
-                    .value = from_be_bytes(e.value),
-                    .is_constant = true,
-                };
-            } else {
-                bb::assert_failure("acir_format::parse_input: unrecognized Acir::FunctionInput variant.");
-            }
-        },
-        input.value);
-    return result;
-}
+/// ========= ACIR OPCODE HANDLERS ========= ///
 
 /**
  * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation
@@ -638,11 +653,6 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
         }
     }
     constrain_witnesses(arg, af);
-}
-uint32_t get_witness_from_function_input(Acir::FunctionInput input)
-{
-    auto input_witness = std::get<Acir::FunctionInput::Witness>(input.value);
-    return input_witness.value.value;
 }
 
 void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index)

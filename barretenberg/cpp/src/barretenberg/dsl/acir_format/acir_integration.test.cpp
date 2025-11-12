@@ -32,7 +32,7 @@ class AcirIntegrationTest : public ::testing::Test {
         std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
         std::vector<uint8_t> witness = get_bytecode(witness_path);
         acir_format::AcirFormat program = acir_format::circuit_buf_to_acir_format(std::move(bytecode));
-        acir_format::WitnessVector witness_vector = acir_format::witness_buf_to_witness_data(std::move(witness));
+        acir_format::WitnessVector witness_vector = acir_format::witness_buf_to_witness_vector(std::move(witness));
 
         return { program, witness_vector };
     }

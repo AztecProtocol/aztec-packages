@@ -8,7 +8,7 @@ namespace bb {
 acir_format::WitnessVector get_witness(std::string const& witness_path)
 {
     auto witness_data = get_bytecode(witness_path);
-    return acir_format::witness_buf_to_witness_data(std::move(witness_data));
+    return acir_format::witness_buf_to_witness_vector(std::move(witness_data));
 }
 
 acir_format::AcirFormat get_constraint_system(std::string const& bytecode_path)
