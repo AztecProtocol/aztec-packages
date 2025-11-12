@@ -132,7 +132,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
       /*raw=*/ true,
     );
     this.log.verbose(`Deserializing C++ result to PublicTxResult...`);
-    const cppResult = PublicTxResult.schema.parse(cppResultJSON);
+    const cppResult = PublicTxResult.fromPlainObject(cppResultJSON);
     this.log.verbose(`Done.`);
     // TODO(fcarreiro): complete this.
     assert(cppResult.revertCode.equals(tsResult.revertCode));
