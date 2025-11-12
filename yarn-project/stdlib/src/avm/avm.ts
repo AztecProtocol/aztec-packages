@@ -1013,6 +1013,13 @@ export class AvmCircuitInputs {
     return new AvmCircuitInputs(AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());
   }
 
+  static fromPlainObject(obj: any): AvmCircuitInputs {
+    return new AvmCircuitInputs(
+      AvmExecutionHints.fromPlainObject(obj.hints),
+      AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs),
+    );
+  }
+
   static get schema() {
     return z
       .object({

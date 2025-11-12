@@ -61,7 +61,7 @@ export class Point {
     if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
       return Point.fromBuffer(obj);
     }
-    return new Point(Fr.fromPlainObject(obj.x), Fr.fromPlainObject(obj.y), obj.isInfinite);
+    return new Point(Fr.fromPlainObject(obj.x), Fr.fromPlainObject(obj.y), obj.isInfinite ?? false);
   }
 
   /**

@@ -11,7 +11,7 @@ import { AvmCircuitInputs, PublicTxResult } from './avm.js';
 import { deserializeFromMessagePack } from './message_pack.js';
 
 describe('Avm circuit inputs', () => {
-  // This tests that serde with the orchestrator works.
+  // This tests that serde with the orchestrator works. Used in the JSON-RPC API.
   it(`serializes to JSON and deserializes it back`, async () => {
     const avmCircuitInputs = await makeAvmCircuitInputs(randomInt(2000));
     const json = jsonStringify(avmCircuitInputs);
@@ -36,6 +36,17 @@ describe('Avm circuit inputs', () => {
     // Note: we use .equals() here to prevent jest from taking forever to
     // generate the diff. This could otherwise take 10m+ and kill CI.
     expect(buffer.equals(expected)).toBe(true);
+  });
+
+  // This is a minimal requirement. It only tests that the MP serialization from TS
+  // works, but it doesn't say much about the C++ MP serialization.
+  // That is exercised in the simulator tests.
+  it('serializes with MessagePack and deserializes it back', async () => {
+    const avmCircuitInputs = await makeAvmCircuitInputs(/*seed=*/ 0x1234);
+    const buffer = avmCircuitInputs.serializeWithMessagePack();
+    const json = deserializeFromMessagePack(buffer);
+    const res = AvmCircuitInputs.fromPlainObject(json);
+    expect(res).toEqual(avmCircuitInputs);
   });
 
   // This test is only useful to benchmark the performance of the deserialization locally.
