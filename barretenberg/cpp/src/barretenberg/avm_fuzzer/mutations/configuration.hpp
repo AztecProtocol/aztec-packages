@@ -301,13 +301,15 @@ enum class CFGInstructionGenerationOptions {
     InsertSimpleInstructionBlock,
     JumpToNewBlock,
     JumpIfToNewBlock,
+    JumpToBlock,
 };
 
-using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 3>;
+using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 4>;
 
 constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIGURATION =
     CFGInstructionGenerationConfig({
         { CFGInstructionGenerationOptions::InsertSimpleInstructionBlock, 6 },
-        { CFGInstructionGenerationOptions::JumpToNewBlock, 1 },
-        { CFGInstructionGenerationOptions::JumpIfToNewBlock, 1 },
+        { CFGInstructionGenerationOptions::JumpToNewBlock, 2 },
+        { CFGInstructionGenerationOptions::JumpIfToNewBlock, 2 },
+        { CFGInstructionGenerationOptions::JumpToBlock, 1 },
     });

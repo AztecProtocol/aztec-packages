@@ -48,7 +48,7 @@ struct JumpToBlock {
     MSGPACK_FIELDS(target_block_idx);
 };
 
-using CFGInstruction = std::variant<InsertSimpleInstructionBlock, JumpToNewBlock, JumpIfToNewBlock>;
+using CFGInstruction = std::variant<InsertSimpleInstructionBlock, JumpToNewBlock, JumpIfToNewBlock, JumpToBlock>;
 template <class... Ts> struct overloaded_cfg_instruction : Ts... {
     using Ts::operator()...;
 };
@@ -66,6 +66,7 @@ inline std::ostream& operator<<(std::ostream& os, const CFGInstruction& instruct
                 os << "JumpIfToNewBlock " << arg.then_program_block_instruction_block_idx << " "
                    << arg.else_program_block_instruction_block_idx << " " << arg.condition_offset_index;
             },
+            [&](JumpToBlock arg) { os << "JumpToBlock " << arg.target_block_idx; },
         },
         instruction);
     return os;

@@ -29,6 +29,11 @@ void mutate_jump_if_to_new_block(JumpIfToNewBlock& instr, std::mt19937_64& rng)
     }
 }
 
+void mutate_jump_to_block(JumpToBlock& instr, std::mt19937_64& rng)
+{
+    mutate_uint16_t(instr.target_block_idx, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+}
+
 CFGInstruction generate_cfg_instruction(std::mt19937_64& rng)
 {
     // TODO(defkit): only one option right now
@@ -40,6 +45,8 @@ CFGInstruction generate_cfg_instruction(std::mt19937_64& rng)
         return JumpToNewBlock(generate_random_uint16(rng));
     case CFGInstructionGenerationOptions::JumpIfToNewBlock:
         return JumpIfToNewBlock(generate_random_uint16(rng), generate_random_uint16(rng), generate_random_uint16(rng));
+    case CFGInstructionGenerationOptions::JumpToBlock:
+        return JumpToBlock(generate_random_uint16(rng));
     }
 }
 
@@ -48,7 +55,8 @@ void mutate_cfg_instruction(CFGInstruction& cfg_instruction, std::mt19937_64& rn
     std::visit(overloaded_cfg_instruction{
                    [&](InsertSimpleInstructionBlock& instr) { mutate_insert_simple_instruction_block(instr, rng); },
                    [&](JumpToNewBlock& instr) { mutate_jump_to_new_block(instr, rng); },
-                   [&](JumpIfToNewBlock& instr) { mutate_jump_if_to_new_block(instr, rng); } },
+                   [&](JumpIfToNewBlock& instr) { mutate_jump_if_to_new_block(instr, rng); },
+                   [&](JumpToBlock& instr) { mutate_jump_to_block(instr, rng); } },
                cfg_instruction);
 }
 

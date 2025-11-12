@@ -4,11 +4,16 @@ std::vector<ProgramBlock*> ControlFlow::dfs_traverse(ProgramBlock* start_block, 
 {
     std::vector<ProgramBlock*> blocks;
     std::deque<ProgramBlock*> stack;
+    std::set<ProgramBlock*> visited;
 
     stack.push_back(start_block);
     while (!stack.empty()) {
         ProgramBlock* current_block = stack.front();
         stack.pop_front();
+        if (visited.contains(current_block)) {
+            continue;
+        }
+        visited.insert(current_block);
         blocks.push_back(current_block);
         if (reverse) {
             for (ProgramBlock* predecessor : current_block->predecessors) {
@@ -131,7 +136,8 @@ void ControlFlow::process_cfg_instruction(CFGInstruction instruction)
     std::visit(overloaded_cfg_instruction{
                    [&](InsertSimpleInstructionBlock arg) { process_insert_simple_instruction_block(arg); },
                    [&](JumpToNewBlock arg) { process_jump_to_new_block(arg); },
-                   [&](JumpIfToNewBlock arg) { process_jump_if_to_new_block(arg); } },
+                   [&](JumpIfToNewBlock arg) { process_jump_if_to_new_block(arg); },
+                   [&](JumpToBlock arg) { process_jump_to_block(arg); } },
                instruction);
 }
 

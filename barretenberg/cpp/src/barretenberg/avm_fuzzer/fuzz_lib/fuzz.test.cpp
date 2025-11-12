@@ -685,4 +685,37 @@ TEST(fuzz, JumpIfDepth2Smoke)
     EXPECT_EQ(simulate_jump_if_depth_2_helper(0, 1), 4);
     EXPECT_EQ(simulate_jump_if_depth_2_helper(0, 0), 4);
 }
+
+//     set u1 condition
+//      ↙        ↘
+//    nop  ----→  return 2
+FF simulate_jump_to_block_helper(uint8_t condition_value)
+{
+    auto set_instruction_block_1 =
+        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1, .offset = 1, .value = condition_value };
+    auto set_return_value_block = std::vector<FuzzInstruction>{ SET_8_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U8, .offset = 10, .value = 2 } };
+    auto instruction_block_1 = std::vector<FuzzInstruction>{ set_instruction_block_1 };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ instruction_block_1, {}, set_return_value_block };
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U8, .return_value_offset_index = 1 };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    control_flow.process_cfg_instruction(
+        JumpIfToNewBlock{ .then_program_block_instruction_block_idx = 1, // noop
+                          .else_program_block_instruction_block_idx = 2, // set return value
+                          .condition_offset_index = 0 });
+    control_flow.process_cfg_instruction(JumpToBlock{ .target_block_idx = 2 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    return result.output.at(0);
+}
+
+TEST(fuzz, JumpToBlockSmoke)
+{
+    EXPECT_EQ(simulate_jump_to_block_helper(1), 2);
+    EXPECT_EQ(simulate_jump_to_block_helper(0), 2);
+}
 } // namespace control_flow
