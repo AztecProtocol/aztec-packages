@@ -564,6 +564,7 @@ export function enrichEnvironmentWithChainConfig(config: L2ChainConfig) {
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URLS', config.snapshotsUrls.join(','));
   enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
+  enrichVar('P2P_TX_POOL_DELETE_TXS_AFTER_REORG', config.txPoolDeleteTxsAfterReorg.toString());
 
   enrichVar('DATA_STORE_MAP_SIZE_KB', config.dataStoreMapSizeKb.toString());
   enrichVar('ARCHIVER_STORE_MAP_SIZE_KB', config.archiverStoreMapSizeKb.toString());
