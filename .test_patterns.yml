@@ -32,6 +32,7 @@ names:
   - nico: &nico "U06D2QSLY10"
   - lucas: &lucas "U05MW7WQ8LQ"
   - suyash: &suyash "U08QFSL6LPM"
+  - federico: &federico "U08ULNJ4UAH"
 
 flake_groups:
   # flake_error_threshold: Only use during times of expected instability (eg. pre-release crunch).
@@ -83,6 +84,12 @@ tests:
   - regex: "barretenberg/acir_tests/scripts/browser_prove.sh .* webkit"
     owners:
       - *luke
+  - regex: "BOX=react BROWSER=webkit run_compose_test react-webkit box boxes"
+    owners:
+      - *federico
+  - regex: "BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
+    owners:
+      - *adam
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
