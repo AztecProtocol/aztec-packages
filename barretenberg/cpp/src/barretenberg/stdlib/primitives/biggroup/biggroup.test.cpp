@@ -1473,50 +1473,71 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             points.emplace_back(point);
         }
 
-        {
-            // If with_edgecases = true, should handle linearly dependent points correctly
-            // Define masking scalar (128 bits)
-            const auto get_128_bit_scalar = []() {
-                uint256_t scalar_u256(0, 0, 0, 0);
-                scalar_u256.data[0] = engine.get_random_uint64();
-                scalar_u256.data[1] = engine.get_random_uint64();
-                fr scalar(scalar_u256);
-                return scalar;
-            };
-            fr masking_scalar = get_128_bit_scalar();
-            scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
-            element_ct c = element_ct::batch_mul(points,
-                                                 scalars,
-                                                 /*max_num_bits*/ 128,
-                                                 /*with_edgecases*/ true,
-                                                 /*masking_scalar*/ masking_scalar_ct);
+        // If with_edgecases = true, should handle linearly dependent points correctly
+        // Define masking scalar (128 bits)
+        const auto get_128_bit_scalar = []() {
+            uint256_t scalar_u256(0, 0, 0, 0);
+            scalar_u256.data[0] = engine.get_random_uint64();
+            scalar_u256.data[1] = engine.get_random_uint64();
+            fr scalar(scalar_u256);
+            return scalar;
+        };
+        fr masking_scalar = get_128_bit_scalar();
+        scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
+        element_ct c = element_ct::batch_mul(points,
+                                             scalars,
+                                             /*max_num_bits*/ 128,
+                                             /*with_edgecases*/ true,
+                                             /*masking_scalar*/ masking_scalar_ct);
 
-            // Check that the result tag is a union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), tag_union);
-            element input_e = (element(input_P_a) * scalar_a);
-            element input_f = (element(input_P_b) * scalar_b);
-            element input_g = (element(input_P_c) * scalar_c);
+        // Check that the result tag is a union of inputs' tags
+        EXPECT_EQ(c.get_origin_tag(), tag_union);
+        element input_e = (element(input_P_a) * scalar_a);
+        element input_f = (element(input_P_b) * scalar_b);
+        element input_g = (element(input_P_c) * scalar_c);
 
-            affine_element expected(input_e + input_f + input_g);
-            fq c_x_result(c.x().get_value().lo);
-            fq c_y_result(c.y().get_value().lo);
+        affine_element expected(input_e + input_f + input_g);
+        fq c_x_result(c.x().get_value().lo);
+        fq c_y_result(c.y().get_value().lo);
 
-            EXPECT_EQ(c_x_result, expected.x);
-            EXPECT_EQ(c_y_result, expected.y);
+        EXPECT_EQ(c_x_result, expected.x);
+        EXPECT_EQ(c_y_result, expected.y);
 
-            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_batch_mul_linearly_dependent_generators_failure()
+    {
+        Builder builder;
+        affine_element input_P(element::random_element());
+
+        affine_element input_P_a = affine_element(element(input_P) + element(input_P));     // 2P
+        affine_element input_P_b = affine_element(element(input_P_a) + element(input_P));   // 3P
+        affine_element input_P_c = affine_element(element(input_P_a) + element(input_P_b)); // 5P
+        std::vector<affine_element> input_points = { input_P_a, input_P_b, input_P_c };
+
+        // Choose scalars similar to the previous test
+        fr scalar_a(11);
+        fr scalar_b(14);
+        fr scalar_c(6);
+        std::vector<fr> input_scalars = { scalar_a, scalar_b, scalar_c };
+
+        std::vector<scalar_ct> scalars;
+        std::vector<element_ct> points;
+        for (size_t i = 0; i < 3; ++i) {
+            const element_ct point = element_ct::from_witness(&builder, input_points[i]);
+            points.emplace_back(point);
+
+            const scalar_ct scalar = scalar_ct::from_witness(&builder, input_scalars[i]);
+            scalars.emplace_back(scalar);
         }
-        {
-            // If with_edgecases = false, the lookup table cannot be created as we encounter
-            // a point at infinity during the table construction.
-            element_ct c = element_ct::batch_mul(points, scalars, /*max_num_bits*/ 4, /*with_edgecases*/ false);
 
-            // Check that the result tag is a union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), tag_union);
+        // with_edgecases = false should fail due to linearly dependent points
+        // This will fail only while using ultra builder
+        element_ct::batch_mul(points, scalars, /*max_num_bits*/ 4, /*with_edgecases*/ false);
 
-            EXPECT_CIRCUIT_CORRECTNESS(builder, false);
-            EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
-        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+        EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
     }
 
     static void test_one()
@@ -2252,7 +2273,7 @@ TYPED_TEST(stdlib_biggroup, dbl_with_infinity)
 TYPED_TEST(stdlib_biggroup, dbl_with_y_zero)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with y = 0";
+        GTEST_SKIP() << "mega builder does not support this edge case";
     } else {
         TestFixture::test_dbl_with_y_zero();
     }
@@ -2270,7 +2291,7 @@ TYPED_TEST(stdlib_biggroup, sub_neg_equals_double)
 HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+        GTEST_SKIP() << "mega builder does not implement chain_add function";
     } else {
         TestFixture::test_chain_add();
     };
@@ -2278,7 +2299,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
 HEAVY_TYPED_TEST(stdlib_biggroup, chain_add_with_constants)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+        GTEST_SKIP() << "mega builder does not implement chain_add function";
     } else {
         TestFixture::test_chain_add(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w, w, c
         TestFixture::test_chain_add(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w, c, w
@@ -2295,7 +2316,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
 {
 
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+        GTEST_SKIP() << "mega builder does not implement multiple_montgomery_ladder function";
     } else {
         TestFixture::test_multiple_montgomery_ladder();
     };
@@ -2434,7 +2455,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
             TestFixture::test_compute_naf();
         }
     } else {
-        GTEST_SKIP();
+        GTEST_SKIP() << "mega builder does not implement compute_naf function";
     }
 }
 
@@ -2443,7 +2464,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_zero)
     if constexpr (!HasGoblinBuilder<TypeParam>) {
         TestFixture::test_compute_naf_zero();
     } else {
-        GTEST_SKIP();
+        GTEST_SKIP() << "mega builder does not implement compute_naf function";
     }
 }
 
@@ -2471,7 +2492,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases_with_constants)
 HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_with_bit_lengths)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
+        GTEST_SKIP() << "mega builder does not implement scalar_mul function";
     } else {
         TestFixture::test_short_scalar_mul_with_bit_lengths();
     }
@@ -2480,7 +2501,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_with_bit_lengths)
 HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_infinity)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
+        GTEST_SKIP() << "mega builder does not implement scalar_mul function";
     } else {
         TestFixture::test_short_scalar_mul_infinity();
     }
@@ -2560,29 +2581,26 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_six)
 
 HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_twin_mul();
-    };
+    TestFixture::test_twin_mul();
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul_with_infinity)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_twin_mul_with_infinity();
-    };
+    TestFixture::test_twin_mul_with_infinity();
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_linearly_dependent_generators)
 {
+    TestFixture::test_batch_mul_linearly_dependent_generators();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_linearly_dependent_generators_failure)
+{
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+        GTEST_SKIP() << "this failure test is designed for ultra builder only";
     } else {
-        TestFixture::test_batch_mul_linearly_dependent_generators();
-    };
+        TestFixture::test_batch_mul_linearly_dependent_generators_failure();
+    }
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, one)
@@ -2597,11 +2615,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul)
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edgecase_equivalence)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
-    } else {
-        TestFixture::test_batch_mul_edgecase_equivalence();
-    }
+    TestFixture::test_batch_mul_edgecase_equivalence();
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set1)
 {
@@ -2641,12 +2655,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_cancellation)
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_mixed_constant_witness)
 {
-    // Skip for goblin case - causes segfault with mixed constant/witness points
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
-    } else {
-        TestFixture::test_batch_mul_mixed_constant_witness();
-    }
+    TestFixture::test_batch_mul_mixed_constant_witness();
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_large_number_of_points)
