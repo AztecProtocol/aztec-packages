@@ -295,6 +295,8 @@ library Honk {
     struct Proof {
         // Pairing point object
         Fr[PAIRING_POINTS_SIZE] pairingPointObject;
+        // ZK: Gemini masking polynomial commitment (sent first, right after public inputs)
+        G1Point geminiMaskingPoly;
         // Free wires
         G1Point w1;
         G1Point w2;
@@ -337,7 +339,7 @@ library Honk {
         Fr libraSum;
         Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
         Fr libraEvaluation;
-        Fr[NUMBER_OF_ENTITIES_ZK] sumcheckEvaluations; // Includes gemini_masking_poly
+        Fr[NUMBER_OF_ENTITIES_ZK] sumcheckEvaluations; // Includes gemini_masking_poly eval
         // Shplemini
         G1Point[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
         Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
@@ -554,6 +556,7 @@ library ZKTranscriptLib {
             rhoChallengeElements[i] = Fr.unwrap(proof.sumcheckEvaluations[i - 1]);
         }
         rhoChallengeElements[i] = Fr.unwrap(proof.libraEvaluation);
+
         i += 1;
         rhoChallengeElements[i] = proof.libraCommitments[1].x;
         rhoChallengeElements[i + 1] = proof.libraCommitments[1].y;
@@ -1776,7 +1779,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     error ConsistencyCheckFailed();
 
     // Constants for proof length calculation (matching UltraKeccakZKFlavor)
-    uint256 constant NUM_WITNESS_ENTITIES = 8;
+    uint256 constant NUM_WITNESS_ENTITIES = 8 + 1;
     uint256 constant NUM_ELEMENTS_COMM = 2; // uint256 elements for curve points
     uint256 constant NUM_ELEMENTS_FR = 1; // uint256 elements for field elements
     uint256 constant NUM_LIBRA_EVALUATIONS = 4; // libra evaluations
@@ -1789,10 +1792,10 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         // Sumcheck
         proofLength += logN * ZK_BATCHED_RELATION_PARTIAL_LENGTH * NUM_ELEMENTS_FR; // sumcheck univariates
-        proofLength += NUMBER_OF_ENTITIES * NUM_ELEMENTS_FR; // sumcheck evaluations
+        proofLength += NUMBER_OF_ENTITIES_ZK * NUM_ELEMENTS_FR; // sumcheck evaluations
 
         // Libra and Gemini
-        proofLength += NUM_ELEMENTS_FR * 3; // Libra sum, claimed eval, Gemini masking eval
+        proofLength += NUM_ELEMENTS_FR * 2; // Libra sum, claimed eval
         proofLength += logN * NUM_ELEMENTS_FR; // Gemini a evaluations
         proofLength += NUM_LIBRA_EVALUATIONS * NUM_ELEMENTS_FR; // libra evaluations
 
@@ -1992,7 +1995,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr[] memory powers_of_evaluation_challenge = CommitmentSchemeLib.computeSquares(tp.geminiR, $LOG_N);
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
         Fr[] memory scalars = new Fr[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 3);
-        Honk.G1Point[] memory commitments = new Honk.G1Point[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 3);
+        Honk.G1Point[] memory commitments = new Honk.G1Point[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 2);
 
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
@@ -2286,7 +2289,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         view
         returns (Honk.G1Point memory result)
     {
-        uint256 limit = NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 3;
+        uint256 limit = NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 2;
 
         // Validate all points are on the curve
         for (uint256 i = 0; i < limit; ++i) {
