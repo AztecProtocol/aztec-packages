@@ -10,7 +10,6 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 
 #include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
@@ -93,14 +92,14 @@ struct AcirFormat {
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
-    bb::SlabVector<PolyTripleConstraint> poly_triple_constraints;
+    std::vector<PolyTripleConstraint> poly_triple_constraints;
     // A standard ultra plonk arithmetic constraint, of width 4: q_Ma*b+q_A*a+q_B*b+q_C*c+q_d*d+q_const = 0
-    bb::SlabVector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
+    std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
     // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
     // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
     // mul_gate) that has been splitted into multiple mul_gates, using w4_omega (the 4th wire of the next gate), to
     // reduce the number of intermediate variables.
-    bb::SlabVector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
+    std::vector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
@@ -145,7 +144,7 @@ struct AcirFormat {
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
 
-using WitnessVector = bb::SlabVector<bb::fr>;
+using WitnessVector = std::vector<bb::fr>;
 using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
 struct AcirProgram {
