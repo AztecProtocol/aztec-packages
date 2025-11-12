@@ -87,9 +87,6 @@ void ControlFlow::process_jump_if_to_new_block(JumpIfToNewBlock instruction)
 
 void ControlFlow::process_jump_to_block(JumpToBlock instruction)
 {
-    if (instruction_blocks->size() == 0) {
-        return;
-    }
     if (this->current_block->terminated) {
         return;
     }
@@ -100,9 +97,58 @@ void ControlFlow::process_jump_to_block(JumpToBlock instruction)
     ProgramBlock* target_block =
         possible_target_blocks.at(instruction.target_block_idx % possible_target_blocks.size());
     current_block->finalize_with_jump(target_block, /*copy_memory_manager=*/false);
-    current_block = get_non_terminated_blocks().at(0);
+    std::vector<ProgramBlock*> non_terminated_blocks = get_non_terminated_blocks();
+    if (non_terminated_blocks.size() == 0) {
+        return;
+    }
+    current_block = non_terminated_blocks.at(0);
 }
 
+void ControlFlow::process_jump_if_to_block(JumpIfToBlock instruction)
+{
+    if (this->current_block->terminated) {
+        return;
+    }
+    std::vector<ProgramBlock*> possible_target_blocks = get_reachable_blocks(current_block);
+    if (possible_target_blocks.size() == 0) {
+        return;
+    }
+    ProgramBlock* target_then_block =
+        possible_target_blocks.at(instruction.target_then_block_idx % possible_target_blocks.size());
+    ProgramBlock* target_else_block =
+        possible_target_blocks.at(instruction.target_else_block_idx % possible_target_blocks.size());
+    current_block->finalize_with_jump_if(
+        target_then_block, target_else_block, instruction.condition_offset_index, /*copy_memory_manager=*/false);
+    std::vector<ProgramBlock*> non_terminated_blocks = get_non_terminated_blocks();
+    if (non_terminated_blocks.size() == 0) {
+        return;
+    }
+    current_block = non_terminated_blocks.at(0);
+}
+
+void ControlFlow::process_finalize_with_return(FinalizeWithReturn instruction)
+{
+    if (this->current_block->terminated) {
+        return;
+    }
+    current_block->finalize_with_return(instruction.return_options.return_size,
+                                        instruction.return_options.return_value_tag,
+                                        instruction.return_options.return_value_offset_index);
+    std::vector<ProgramBlock*> non_terminated_blocks = get_non_terminated_blocks();
+    if (non_terminated_blocks.size() == 0) {
+        return;
+    }
+    current_block = non_terminated_blocks.at(0);
+}
+
+void ControlFlow::process_switch_to_non_terminated_block(SwitchToNonTerminatedBlock instruction)
+{
+    std::vector<ProgramBlock*> non_terminated_blocks = get_non_terminated_blocks();
+    if (non_terminated_blocks.size() == 0) {
+        return;
+    }
+    current_block = non_terminated_blocks.at(instruction.non_terminated_block_idx % non_terminated_blocks.size());
+}
 std::vector<ProgramBlock*> ControlFlow::get_non_terminated_blocks()
 {
     std::vector<ProgramBlock*> blocks = dfs_traverse(start_block);
@@ -131,13 +177,17 @@ std::vector<ProgramBlock*> ControlFlow::get_reachable_blocks(ProgramBlock* block
                  });
     return reachable_blocks;
 }
+
 void ControlFlow::process_cfg_instruction(CFGInstruction instruction)
 {
     std::visit(overloaded_cfg_instruction{
                    [&](InsertSimpleInstructionBlock arg) { process_insert_simple_instruction_block(arg); },
                    [&](JumpToNewBlock arg) { process_jump_to_new_block(arg); },
                    [&](JumpIfToNewBlock arg) { process_jump_if_to_new_block(arg); },
-                   [&](JumpToBlock arg) { process_jump_to_block(arg); } },
+                   [&](JumpToBlock arg) { process_jump_to_block(arg); },
+                   [&](JumpIfToBlock arg) { process_jump_if_to_block(arg); },
+                   [&](FinalizeWithReturn arg) { process_finalize_with_return(arg); },
+                   [&](SwitchToNonTerminatedBlock arg) { process_switch_to_non_terminated_block(arg); } },
                instruction);
 }
 

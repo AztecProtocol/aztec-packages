@@ -302,9 +302,12 @@ enum class CFGInstructionGenerationOptions {
     JumpToNewBlock,
     JumpIfToNewBlock,
     JumpToBlock,
+    JumpIfToBlock,
+    FinalizeWithReturn,
+    SwitchToNonTerminatedBlock,
 };
 
-using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 4>;
+using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 7>;
 
 constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIGURATION =
     CFGInstructionGenerationConfig({
@@ -312,4 +315,16 @@ constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIG
         { CFGInstructionGenerationOptions::JumpToNewBlock, 2 },
         { CFGInstructionGenerationOptions::JumpIfToNewBlock, 2 },
         { CFGInstructionGenerationOptions::JumpToBlock, 1 },
+        { CFGInstructionGenerationOptions::JumpIfToBlock, 1 },
+        { CFGInstructionGenerationOptions::FinalizeWithReturn, 1 },
+        { CFGInstructionGenerationOptions::SwitchToNonTerminatedBlock, 1 },
     });
+
+enum class JumpIfToBlockMutationOptions { target_then_block_idx, target_else_block_idx, condition_offset_index };
+using JumpIfToBlockMutationConfig = WeightedSelectionConfig<JumpIfToBlockMutationOptions, 3>;
+
+constexpr JumpIfToBlockMutationConfig BASIC_JUMP_IF_TO_BLOCK_MUTATION_CONFIGURATION = JumpIfToBlockMutationConfig({
+    { JumpIfToBlockMutationOptions::target_then_block_idx, 1 },
+    { JumpIfToBlockMutationOptions::target_else_block_idx, 1 },
+    { JumpIfToBlockMutationOptions::condition_offset_index, 1 },
+});
