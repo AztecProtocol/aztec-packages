@@ -66,12 +66,10 @@ export class GasSettings {
       return obj;
     }
     return new GasSettings(
-      obj.gasLimits instanceof Gas ? obj.gasLimits : Gas.fromPlainObject(obj.gasLimits),
-      obj.teardownGasLimits instanceof Gas ? obj.teardownGasLimits : Gas.fromPlainObject(obj.teardownGasLimits),
-      obj.maxFeesPerGas instanceof GasFees ? obj.maxFeesPerGas : GasFees.fromPlainObject(obj.maxFeesPerGas),
-      obj.maxPriorityFeesPerGas instanceof GasFees
-        ? obj.maxPriorityFeesPerGas
-        : GasFees.fromPlainObject(obj.maxPriorityFeesPerGas),
+      Gas.fromPlainObject(obj.gasLimits),
+      Gas.fromPlainObject(obj.teardownGasLimits),
+      GasFees.fromPlainObject(obj.maxFeesPerGas),
+      GasFees.fromPlainObject(obj.maxPriorityFeesPerGas),
     );
   }
 

@@ -757,7 +757,9 @@ export class PublicTxResult {
         logs: NullishToUndefined(DebugLog.schema.array()),
         // For the proving request.
         publicInputs: AvmCircuitPublicInputs.schema,
-        hints: NullishToUndefined(AvmExecutionHints.schema),
+        // TODO(fcarreiro): Use actual AvmExecutionHints type schema.
+        // I'm always returning undefined because we can't yet handle hints.
+        hints: z.any().transform(_ => undefined),
       })
       .transform(
         ({ gasUsed, revertCode, revertReason, processedPhases, logs, hints, publicInputs }) =>

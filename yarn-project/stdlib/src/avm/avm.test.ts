@@ -1,7 +1,8 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { getPathToFile, readTestData, writeTestData } from '@aztec/foundation/testing/files';
-import { Timer } from '@aztec/foundation/timer';
+
+// import { Timer } from '@aztec/foundation/timer';
 
 import { readdirSync } from 'node:fs';
 
