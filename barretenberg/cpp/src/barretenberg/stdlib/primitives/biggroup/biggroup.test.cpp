@@ -3,6 +3,7 @@
 #include "../bool/bool.hpp"
 #include "../field/field.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
@@ -677,16 +678,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         a.set_origin_tag(submitted_value_origin_tag);
 
-        element_ct result = a.dbl();
-
-        // Check that the tag is preserved
-        EXPECT_EQ(result.get_origin_tag(), submitted_value_origin_tag);
-
-        // When doubling a point with y = 0, the result should be infinity
-        // because the tangent line is vertical
-        EXPECT_TRUE(result.is_point_at_infinity().get_value());
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
+        // With the new assertion, attempting to double a point with y = 0 should throw
+        // because for valid curves like bn254, y = 0 cannot occur on the curve
+        EXPECT_THROW_OR_ABORT(a.dbl(), "Attempting to dbl a point with y = 0, not allowed.");
     }
 
     static void test_add_equals_dbl()

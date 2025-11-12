@@ -98,10 +98,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     const bool_ct rhs_infinity = other.is_point_at_infinity();
     const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
-    // Check for y = 0 case: if doubling a point with y = 0, the result is infinity (vertical tangent)
-    const Fq zero = Fq(0);
-    const bool_ct y_is_zero = (_y == zero);
-    const bool_ct double_with_y_zero = (double_predicate && y_is_zero);
+    // NOTE: For valid points on the curve, specifically for bn254 or secp256k1 or secp256r1, y = 0 cannot occur.
+    // For points not on the curve, having y = 0 will lead to a failure while performing the division below.
+    // We could enforce in circuit that y = 0 results in point at infinity, or that y != 0 always.
+    // However, this would be an unnecessary constraint for valid points on the curve.
+    // So we perform a native check here to catch any accidental misuse of this function.
+    const typename G::Fq y_value = uint256_t(_y.get_value());
+    BB_ASSERT_EQ((y_value == 0), false, "Attempting to add a point with y = 0, not allowed.");
 
     // Compute the gradient λ. If we add, λ = (y₂ - y₁)/(x₂ - x₁)
     // For doubling: λ = (3x₁² + a)/(2y₁) if curve has 'a', else λ = 3x₁²/(2y₁)
@@ -121,10 +124,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
 
     // If either input is a point at infinity, or if the result would be infinity, set lambda_denominator to 1
-    // to prevent division by zero. Cases where result is infinity:
-    // - x₁ == x₂ but y₁ != y₂ (points are inverses)
-    // - Doubling a point with y = 0 (vertical tangent line)
-    const bool_ct safe_denominator_needed = has_infinity_input || infinity_predicate || double_with_y_zero;
+    // to prevent division by zero. Cases where result is infinity: x₁ == x₂ but y₁ != y₂ (points are inverses)
+    const bool_ct safe_denominator_needed = has_infinity_input || infinity_predicate;
     lambda_denominator = Fq::conditional_assign(safe_denominator_needed, Fq(1), lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
@@ -144,8 +145,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // - If x₁ == x₂ and y₁ == -y₂ (i.e., points are inverses), result is ∞
     // - If both inputs are ∞, result is ∞
     // - If doubling a point with y = 0 (vertical tangent), result is ∞
-    bool_ct result_is_infinity =
-        (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity) || double_with_y_zero;
+    bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
 
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
@@ -290,15 +290,13 @@ std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditiona
 
 template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl() const
 {
-    // Check if input is already a point at infinity: 2∞ = ∞
-    const bool_ct input_is_infinity = is_point_at_infinity();
-
-    // Check if y = 0: tangent line is vertical, so 2(x,0) = ∞
-    const Fq zero = Fq(0);
-    const bool_ct y_is_zero = (_y == zero);
-
-    // Combined condition: result is at infinity if either edge case holds
-    const bool_ct result_is_infinity = input_is_infinity || y_is_zero;
+    // NOTE: For valid points on the curve, specifically for bn254 or secp256k1 or secp256r1, y = 0 cannot occur.
+    // For points not on the curve, having y = 0 will lead to a failure while performing the division below.
+    // We could enforce in circuit that y = 0 results in point at infinity, or that y != 0 always.
+    // However, this would be an unnecessary constraint for valid points on the curve.
+    // So we perform a native check here to catch any accidental misuse of this function.
+    const typename G::Fq y_value = uint256_t(_y.get_value());
+    BB_ASSERT_EQ((y_value == 0), false, "Attempting to dbl a point with y = 0, not allowed.");
 
     Fq two_x = _x + _x;
     if constexpr (G::has_a) {
@@ -308,7 +306,7 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
         // Safe denominator: use 1 when result is infinity to avoid division by zero
         Fq denominator = _y + _y; // 2y
         Fq safe_denominator = Fq(1);
-        denominator = Fq::conditional_assign(result_is_infinity, safe_denominator, denominator);
+        denominator = Fq::conditional_assign(is_point_at_infinity(), safe_denominator, denominator);
 
         // Compute neg_lambda = -λ = -(3x² + a) / (2y)
         // msub_div computes: -(Σᵢ aᵢ·bᵢ + Σⱼ cⱼ) / d = -(x·(3x) + a) / (2y) = -(3x² + a) / (2y)
@@ -323,7 +321,7 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
         Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
 
         element result(x_3, y_3);
-        result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
+        result.set_point_at_infinity(is_point_at_infinity(), /* add_to_used_witnesses */ true);
         return result;
     }
 
@@ -331,7 +329,7 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
     // Safe denominator: use 1 when result is infinity to avoid division by zero
     Fq denominator = _y + _y; // 2y
     Fq safe_denominator = Fq(1);
-    denominator = Fq::conditional_assign(result_is_infinity, safe_denominator, denominator);
+    denominator = Fq::conditional_assign(is_point_at_infinity(), safe_denominator, denominator);
 
     // Compute neg_lambda = -λ = -3x² / (2y)
     // msub_div computes: -(Σᵢ aᵢ·bᵢ) / d = -(x·(3x)) / (2y) = -3x² / (2y)
@@ -346,7 +344,7 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
     Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
 
     element result = element(x_3, y_3);
-    result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
+    result.set_point_at_infinity(is_point_at_infinity(), /* add_to_used_witnesses */ true);
     return result;
 }
 
