@@ -22,6 +22,13 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t>&& buf);
 
 AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf);
 
+/**
+ * @brief Converts an ACIR Circuit object directly to AcirFormat (exposed for fuzzing)
+ * @param circuit The ACIR circuit object
+ * @return AcirFormat representation of the circuit
+ */
+AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit);
+
 std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t>&& buf);
 
 WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t>&& buf);

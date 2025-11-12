@@ -392,7 +392,9 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_
             uint256_t range = static_cast<uint256_t>(range_tags[tag]);
             uint256_t value = static_cast<uint256_t>(builder.get_variable(i));
             if (value > range) {
+#ifndef FUZZING_DISABLE_WARNINGS
                 info("Failed range constraint on variable with index = ", i, ": ", value, " > ", range);
+#endif
                 return false;
             }
         }
@@ -412,23 +414,31 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_
 
         uint256_t delta = static_cast<uint256_t>(w2 - w1);
         if (delta > 3) {
+#ifndef FUZZING_DISABLE_WARNINGS
             info("Failed sort constraint relation at row idx = ", idx, " with delta1 = ", delta);
             info(w1 - w2);
+#endif
             return false;
         }
         delta = static_cast<uint256_t>(w3 - w2);
         if (delta > 3) {
+#ifndef FUZZING_DISABLE_WARNINGS
             info("Failed sort constraint relation at row idx = ", idx, " with delta2 = ", delta);
+#endif
             return false;
         }
         delta = static_cast<uint256_t>(w4 - w3);
         if (delta > 3) {
+#ifndef FUZZING_DISABLE_WARNINGS
             info("Failed sort constraint at row idx = ", idx, " with delta3 = ", delta);
+#endif
             return false;
         }
         delta = static_cast<uint256_t>(w5 - w4);
         if (delta > 3) {
+#ifndef FUZZING_DISABLE_WARNINGS
             info("Failed sort constraint at row idx = ", idx, " with delta4 = ", delta);
+#endif
             return false;
         }
     }
@@ -463,11 +473,15 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_memory_relat
             uint32_t table_witness_2 = rom_array.state[index][1];
 
             if (builder.get_variable(value_witness_1) != builder.get_variable(table_witness_1)) {
+#ifndef FUZZING_DISABLE_WARNINGS
                 info("Failed SET/Read ROM[0] in table = ", i, " at idx = ", index);
+#endif
                 return false;
             }
             if (builder.get_variable(value_witness_2) != builder.get_variable(table_witness_2)) {
+#ifndef FUZZING_DISABLE_WARNINGS
                 info("Failed SET/Read ROM[1] in table = ", i, " at idx = ", index);
+#endif
                 return false;
             }
         }
@@ -489,7 +503,9 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_memory_relat
             switch (access_type) {
             case bb::RamRecord::AccessType::READ:
                 if (builder.get_variable(value_witness) != builder.get_variable(table_witness)) {
+#ifndef FUZZING_DISABLE_WARNINGS
                     info("Failed RAM read in table = ", i, " at idx = ", index);
+#endif
                     return false;
                 }
                 break;
@@ -502,7 +518,9 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_memory_relat
         }
 
         if (tmp_state != ram_array.state) {
+#ifndef FUZZING_DISABLE_WARNINGS
             info("Failed RAM final state check at table = ", i);
+#endif
             return false;
         }
     }
