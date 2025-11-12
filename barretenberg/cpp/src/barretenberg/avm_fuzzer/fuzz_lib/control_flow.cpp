@@ -71,6 +71,34 @@ void ControlFlow::process_jump_if_to_new_block(JumpIfToNewBlock instruction)
     current_block = target_then_block;
 }
 
+std::vector<ProgramBlock*> ControlFlow::get_non_terminated_blocks()
+{
+    std::vector<ProgramBlock*> blocks = dfs_traverse(start_block);
+    std::vector<ProgramBlock*> non_terminated_blocks;
+    std::copy_if(blocks.begin(), blocks.end(), std::back_inserter(non_terminated_blocks), [](ProgramBlock* block) {
+        return !block->terminated;
+    });
+    return non_terminated_blocks;
+}
+
+std::vector<ProgramBlock*> ControlFlow::get_reachable_blocks(ProgramBlock* block)
+{
+    // traverse the graph in reverse order starting from the given block
+    // if we jump to one of the blocks in the forbidden list, we create a loop
+    std::vector<ProgramBlock*> forbidden_blocks = dfs_traverse(block, true);
+
+    std::vector<ProgramBlock*> all_blocks = dfs_traverse(start_block);
+    std::vector<ProgramBlock*> reachable_blocks;
+    // filter all forbidden blocks from the list of all blocks
+    std::copy_if(all_blocks.begin(),
+                 all_blocks.end(),
+                 std::back_inserter(reachable_blocks),
+                 [forbidden_blocks](ProgramBlock* block) {
+                     return std::find(forbidden_blocks.begin(), forbidden_blocks.end(), block) ==
+                            forbidden_blocks.end();
+                 });
+    return reachable_blocks;
+}
 void ControlFlow::process_cfg_instruction(CFGInstruction instruction)
 {
     std::visit(overloaded_cfg_instruction{

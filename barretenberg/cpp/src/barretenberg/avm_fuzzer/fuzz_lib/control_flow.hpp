@@ -92,6 +92,12 @@ class ControlFlow {
     /// @return the list of blocks in the order of traversal
     static std::vector<ProgramBlock*> dfs_traverse(ProgramBlock* start_block, bool reverse = false);
 
+    /// @brief get the list of non-terminated blocks
+    std::vector<ProgramBlock*> get_non_terminated_blocks();
+
+    /// @brief get the list of blocks which are can be reached from the given block without creating a loop in the graph
+    std::vector<ProgramBlock*> get_reachable_blocks(ProgramBlock* block);
+
   public:
     ControlFlow(std::vector<std::vector<FuzzInstruction>>& instruction_blocks)
         : current_block(new ProgramBlock())
