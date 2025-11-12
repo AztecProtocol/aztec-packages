@@ -12,4 +12,11 @@ class BitwiseInterface {
     virtual MemoryValue xor_op(const MemoryValue& a, const MemoryValue& b) = 0;
 };
 
+class BitwiseException : public std::runtime_error {
+  public:
+    BitwiseException(const std::string& msg)
+        : std::runtime_error("Bitwise Exception: " + msg)
+    {}
+};
+
 } // namespace bb::avm2::simulation
