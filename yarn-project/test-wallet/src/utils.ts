@@ -97,5 +97,5 @@ export async function proveInteraction(
   } else {
     execPayload = await interaction.request(options);
   }
-  return wallet.proveTx(execPayload, await toSendOptions(options));
+  return wallet.proveTx(execPayload, toSendOptions(options));
 }

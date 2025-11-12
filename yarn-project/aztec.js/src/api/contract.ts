@@ -44,6 +44,7 @@ export {
   type ProfileInteractionOptions,
   type SimulateInteractionOptions,
   type InteractionFeeOptions,
+  type GasSettingsOption,
   toProfileOptions,
   toSendOptions,
   toSimulateOptions,

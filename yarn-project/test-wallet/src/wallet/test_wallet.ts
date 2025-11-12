@@ -12,13 +12,13 @@ import {
 import { BaseWallet, type SendOptions, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { ProvenTx } from '../utils.js';
 
@@ -194,8 +194,8 @@ export abstract class BaseTestWallet extends BaseWallet {
       return super.simulateTx(executionPayload, opts);
     } else {
       const feeOptions = opts.fee?.estimateGas
-        ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
-        : await this.getDefaultFeeOptions(opts.from, opts.fee);
+        ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
+        : await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
       const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
       const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),
@@ -228,7 +228,7 @@ export abstract class BaseTestWallet extends BaseWallet {
    * @returns - A proven tx ready to be sent to the network
    */
   async proveTx(exec: ExecutionPayload, opts: SendOptions): Promise<ProvenTx> {
-    const fee = await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const fee = await this.completeFeeOptions(opts.from, exec.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
     const txProvingResult = await this.pxe.proveTx(txRequest);
     return new ProvenTx(

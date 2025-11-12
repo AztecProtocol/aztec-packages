@@ -1,13 +1,12 @@
 import type { AccountInterface, AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { DefaultAccountEntrypoint, type DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import type { ChainInfo, EntrypointInterface } from '@aztec/entrypoints/interfaces';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { ExecutionPayload, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 /**
  * Default implementation for an account interface. Requires that the account uses the default

@@ -31,3 +31,4 @@ export * from './indexed_tx_effect.js';
 export * from './offchain_effect.js';
 export * from './profiling.js';
 export * from './protocol_contracts.js';
+export * from './execution_payload.js';

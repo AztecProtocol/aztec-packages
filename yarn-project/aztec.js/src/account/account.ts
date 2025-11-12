@@ -1,9 +1,8 @@
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { ExecutionPayload, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { type CallIntent, type IntentInnerHash, computeAuthWitMessageHash } from '../utils/authwit.js';
 import type { AccountInterface } from './interface.js';

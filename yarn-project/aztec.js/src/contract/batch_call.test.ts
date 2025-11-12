@@ -1,8 +1,7 @@
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { TxSimulationResult, UtilitySimulationResult } from '@aztec/stdlib/tx';
+import { ExecutionPayload, TxSimulationResult, UtilitySimulationResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -31,6 +30,7 @@ function createUtilityExecutionPayload(
     [],
     [],
     [],
+    undefined, // feePayer - not a fee payment
   );
 }
 
@@ -57,6 +57,7 @@ function createPrivateExecutionPayload(
     [],
     [],
     [],
+    undefined, // feePayer - not a fee payment
   );
 }
 
@@ -82,6 +83,7 @@ function createPublicExecutionPayload(
     [],
     [],
     [],
+    undefined, // feePayer - not a fee payment
   );
 }
 

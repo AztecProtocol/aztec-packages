@@ -1,6 +1,5 @@
 import { AccountFeePaymentMethodOptions } from '@aztec/entrypoints/account';
 import { EncodedAppEntrypointCalls } from '@aztec/entrypoints/encoding';
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   type ContractArtifact,
@@ -12,6 +11,7 @@ import {
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
+import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import type { Wallet } from './index.js';
@@ -92,6 +92,7 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
       [payloadAuthWitness, ...feeAuthwitnesses],
       [],
       feeEncodedCalls.hashedArguments,
+      feePayer,
     );
   }
 

@@ -1,7 +1,6 @@
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { Capsule } from '@aztec/stdlib/tx';
+import type { Capsule, ExecutionPayload } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { type RequestInteractionOptions, type SendInteractionOptions, toSendOptions } from './interaction_options.js';
@@ -42,7 +41,7 @@ export abstract class BaseContractInteraction {
     // docs:end:send
     const sendTx = async () => {
       const executionPayload = await this.request(options);
-      const sendOptions = await toSendOptions(options);
+      const sendOptions = toSendOptions(options);
       return this.wallet.sendTx(executionPayload, sendOptions);
     };
     return new SentTx(this.wallet, sendTx);

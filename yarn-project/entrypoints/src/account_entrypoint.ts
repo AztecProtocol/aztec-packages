@@ -3,11 +3,11 @@ import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdl
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 import { EncodedAppEntrypointCalls } from './encoding.js';
 import type { AuthWitnessProvider, EntrypointInterface } from './interfaces.js';
-import { ExecutionPayload } from './payload.js';
 
 /**
  * The mechanism via which an account contract will pay for a transaction in which it gets invoked.

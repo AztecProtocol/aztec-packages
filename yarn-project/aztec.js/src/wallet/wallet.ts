@@ -1,5 +1,4 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import {
   AbiTypeSchema,
@@ -32,6 +31,7 @@ import {
   TxSimulationResult,
   UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
+import type { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
@@ -65,24 +65,13 @@ export type Aliased<T> = {
 export type ContractInstanceAndArtifact = Pick<Contract, 'artifact' | 'instance'>;
 
 /**
- * Options that can be provided to the wallet for configuration of the fee payment.
- */
-export type UserFeeOptions = {
-  /**
-   * Informs the wallet that the crafted tx already contains the necessary calls to pay for its fee
-   * and who is paying
-   */
-  embeddedPaymentMethodFeePayer?: AztecAddress;
-} & GasSettingsOption;
-
-/**
  * Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with
  * a simplified version that only hints at the wallet wether the interaction contains a
  * fee payment method or not
  */
 export type SimulateOptions = Omit<SimulateInteractionOptions, 'fee'> & {
   /** The fee options */
-  fee?: UserFeeOptions & FeeEstimationOptions;
+  fee?: GasSettingsOption & FeeEstimationOptions;
 };
 
 /**
@@ -92,7 +81,7 @@ export type SimulateOptions = Omit<SimulateInteractionOptions, 'fee'> & {
  */
 export type ProfileOptions = Omit<ProfileInteractionOptions, 'fee'> & {
   /** The fee options */
-  fee?: UserFeeOptions;
+  fee?: GasSettingsOption;
 };
 
 /**
@@ -102,7 +91,7 @@ export type ProfileOptions = Omit<ProfileInteractionOptions, 'fee'> & {
  */
 export type SendOptions = Omit<SendInteractionOptions, 'fee'> & {
   /** The fee options */
-  fee?: UserFeeOptions;
+  fee?: GasSettingsOption;
 };
 
 /**
@@ -216,7 +205,7 @@ export const ExecutionPayloadSchema = z.object({
   extraHashedArgs: z.array(HashedValues.schema),
 });
 
-export const UserFeeOptionsSchema = z.object({
+export const GasSettingsOptionSchema = z.object({
   gasSettings: optional(
     z.object({
       gasLimits: optional(Gas.schema),
@@ -225,10 +214,9 @@ export const UserFeeOptionsSchema = z.object({
       maxPriorityFeePerGas: optional(z.object({ feePerDaGas: schemas.BigInt, feePerL2Gas: schemas.BigInt })),
     }),
   ),
-  embeddedPaymentMethodFeePayer: optional(schemas.AztecAddress),
 });
 
-export const WalletSimulationFeeOptionSchema = UserFeeOptionsSchema.extend({
+export const WalletSimulationFeeOptionSchema = GasSettingsOptionSchema.extend({
   estimatedGasPadding: optional(z.number()),
   estimateGas: optional(z.boolean()),
 });
@@ -237,7 +225,7 @@ export const SendOptionsSchema = z.object({
   from: schemas.AztecAddress,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
-  fee: optional(UserFeeOptionsSchema),
+  fee: optional(GasSettingsOptionSchema),
 });
 
 export const SimulateOptionsSchema = z.object({

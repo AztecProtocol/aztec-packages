@@ -6,11 +6,11 @@ import { PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js
 import { Fr } from '@aztec/aztec.js/fields';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { FunctionType } from '@aztec/stdlib/abi';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { expectMapping } from '../fixtures/utils.js';
@@ -373,6 +373,8 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       ],
       [],
       [],
+      [],
+      this.paymentContract, // feePayer
     );
   }
 }

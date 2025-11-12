@@ -1,12 +1,11 @@
 import type { ChainInfo, EntrypointInterface } from '@aztec/entrypoints/interfaces';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { ExecutionPayload, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
 import type { Account } from './account.js';
