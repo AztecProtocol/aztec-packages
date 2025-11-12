@@ -220,4 +220,62 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     testERC20.mint(address(multiAdder), amount);
     multiAdder.addValidators(validators);
   }
+
+  /**
+   * @notice Test that getSampleSeedAt reverts when querying an epoch whose sample time is in the future
+   * @dev With lagInEpochs=2, if we're at the start of epoch 1 and query epoch 4:
+   *      - Epoch 4 sample time = genesis + 4*epochDuration - 2*epochDuration = genesis + 2*epochDuration
+   *      - Current time = genesis + 1*epochDuration
+   *      - Sample time > current time, so it should revert
+   */
+  function test_getSampleSeedRevertsWhenEpochInTheFuture() external setup(4, 4) {
+    uint256 epochDuration = TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
+
+    // Move to the start of epoch 1
+    vm.warp(block.timestamp + epochDuration);
+
+    // Try to query epoch 4 - its sample time is in the future
+    Timestamp epoch4Timestamp = Timestamp.wrap(block.timestamp + 3 * epochDuration);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.ValidatorSelection__EpochNotStable.selector, 4, uint32(block.timestamp))
+    );
+    rollup.getSampleSeedAt(epoch4Timestamp);
+  }
+
+  /**
+   * @notice Test that getSamplingSizeAt reverts when querying an epoch whose sample time is in the future
+   */
+  function test_getSamplingSizeRevertsWhenEpochInTheFuture() external setup(4, 4) {
+    uint256 epochDuration = TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
+
+    // Move to the start of epoch 1
+    vm.warp(block.timestamp + epochDuration);
+
+    // Try to query epoch 4 - its sample time is in the future
+    Timestamp epoch4Timestamp = Timestamp.wrap(block.timestamp + 3 * epochDuration);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.ValidatorSelection__EpochNotStable.selector, 4, uint32(block.timestamp))
+    );
+    rollup.getSamplingSizeAt(epoch4Timestamp);
+  }
+
+  /**
+   * @notice Test that getCommitteeAt reverts when querying an epoch whose sample time is in the future
+   */
+  function test_getCommitteeAtRevertsWhenEpochInTheFuture() external setup(4, 4) {
+    uint256 epochDuration = TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
+
+    // Move to the start of epoch 1
+    vm.warp(block.timestamp + epochDuration);
+
+    // Try to query epoch 4 committee - its sample time is in the future
+    Timestamp epoch4Timestamp = Timestamp.wrap(block.timestamp + 3 * epochDuration);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.ValidatorSelection__EpochNotStable.selector, 4, uint32(block.timestamp))
+    );
+    rollup.getCommitteeAt(epoch4Timestamp);
+  }
 }

@@ -9,6 +9,7 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract SeedAndSizeSnapshotsTest is ValidatorSelectionTestBase {
   using TimeLib for Timestamp;
@@ -74,5 +75,30 @@ contract SeedAndSizeSnapshotsTest is ValidatorSelectionTestBase {
 
     sampleSeed = rollup.getSampleSeedAt(ts);
     size = rollup.getSamplingSizeAt(ts);
+  }
+
+  /**
+   * @notice Test that operations revert when trying to access data for epochs whose sample time is in the future
+   * @dev This test verifies the epochToSampleTime check prevents accessing validator data too early
+   */
+  function test_revertWhenSampleTimeInFuture() public setup(4, 4) {
+    uint256 epochDuration = TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
+
+    // Move to the start of epoch 1
+    vm.warp(block.timestamp + epochDuration);
+
+    // Trying to get sample seed for epoch 4 should fail because its sample time is in the future
+    Timestamp futureEpochTimestamp = Timestamp.wrap(block.timestamp + 3 * epochDuration);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.ValidatorSelection__EpochNotStable.selector, 4, uint32(block.timestamp))
+    );
+    rollup.getSampleSeedAt(futureEpochTimestamp);
+
+    // Same for sampling size
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.ValidatorSelection__EpochNotStable.selector, 4, uint32(block.timestamp))
+    );
+    rollup.getSamplingSizeAt(futureEpochTimestamp);
   }
 }

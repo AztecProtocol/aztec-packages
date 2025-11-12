@@ -123,6 +123,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _ts - The timestamp to get the committee for
    *
    * @return The committee for the given timestamp
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getCommitteeAt(Timestamp _ts) external override(IValidatorSelection) returns (address[] memory) {
     return getEpochCommittee(getEpochAt(_ts));
@@ -135,6 +136,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The committee commitment for the given timestamp
    * @return The committee size for the given timestamp
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getCommitteeCommitmentAt(Timestamp _ts) external override(IValidatorSelection) returns (bytes32, uint256) {
     return ValidatorOperationsExtLib.getCommitteeCommitmentAt(getEpochAt(_ts));
@@ -147,6 +149,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The committee commitment for the given epoch
    * @return The committee size for the given epoch
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getEpochCommitteeCommitment(Epoch _epoch) external override(IValidatorSelection) returns (bytes32, uint256) {
     return ValidatorOperationsExtLib.getCommitteeCommitmentAt(_epoch);
@@ -172,6 +175,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
     external
@@ -372,11 +376,20 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _ts - The timestamp to get the sample seed for
    *
    * @return The sample seed for the given timestamp
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getSampleSeedAt(Timestamp _ts) external view override(IValidatorSelection) returns (uint256) {
     return ValidatorOperationsExtLib.getSampleSeedAt(getEpochAt(_ts));
   }
 
+  /**
+   * @notice  Get the sampling size for a given timestamp
+   *
+   * @param _ts - The timestamp to get the sampling size for
+   *
+   * @return The sampling size for the given timestamp
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
+   */
   function getSamplingSizeAt(Timestamp _ts) external view override(IValidatorSelection) returns (uint256) {
     return ValidatorOperationsExtLib.getSamplingSizeAt(getEpochAt(_ts));
   }

@@ -88,6 +88,8 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *      - Slots define proposer assignments (one proposer per slot)
  *      - Sampling uses a lagging time for the epoch to ensure validator set stability
  *      - Validator set snapshots taken at deterministic timestamps for consistency
+ *      - Getters for an epoch committee throw if queried in a non-stable epoch (as in an epoch that may still change
+ *        its committee since it's in the future)
  */
 library ValidatorSelectionLib {
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -148,6 +150,7 @@ library ValidatorSelectionLib {
    *      This setup ensures that each epoch has a stable committee and that future epochs
    *      have their randomness seeds prepared in advance.
    * @param _epochNumber The epoch number to set up
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function setupEpoch(Epoch _epochNumber) internal {
     ValidatorSelectionStorage storage store = getStorage();
@@ -198,6 +201,7 @@ library ValidatorSelectionLib {
    * stored commitment
    * @custom:reverts Errors.ValidatorSelection__MissingProposerSignature if proposer hasn't signed their attestation
    * @custom:reverts SignatureLib verification errors if proposer signature is invalid
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function verifyProposer(
     Slot _slot,
@@ -285,6 +289,7 @@ library ValidatorSelectionLib {
    * @custom:reverts Errors.ValidatorSelection__InsufficientAttestations if less than 2/3 + 1 signatures provided
    * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment if reconstructed committee doesn't match
    * stored commitment
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function verifyAttestations(
     Slot _slot,
@@ -383,6 +388,7 @@ library ValidatorSelectionLib {
    * @return proposer The address of the proposer for the slot
    * @return proposerIndex The index of the proposer within the committee, zero address and index if committee size is
    * 0 (ie test configuration).
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getProposerAt(Slot _slot) internal returns (address, uint256) {
     (address cachedProposer, uint256 cachedProposerIndex) = getCachedProposer(_slot);
@@ -409,6 +415,7 @@ library ValidatorSelectionLib {
    * @param _epoch The epoch to sample validators for
    * @param _seed The cryptographic seed for sampling randomness
    * @return The array of validator addresses selected for the committee
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function sampleValidators(Epoch _epoch, uint256 _seed) internal returns (address[] memory) {
     (uint32 ts, uint256[] memory indices) = sampleValidatorsIndices(_epoch, _seed);
@@ -421,6 +428,7 @@ library ValidatorSelectionLib {
    *      This function will trigger committee sampling if not already done for the epoch.
    * @param _epochNumber The epoch to get the committee for
    * @return The array of committee member addresses for the epoch
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getCommitteeAt(Epoch _epochNumber) internal returns (address[] memory) {
     uint256 seed = getSampleSeed(_epochNumber);
@@ -434,6 +442,7 @@ library ValidatorSelectionLib {
    * @param _epochNumber The epoch to get the committee commitment for
    * @return committeeCommitment The keccak256 hash of the committee member addresses
    * @return committeeSize The target committee size (same for all epochs)
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getCommitteeCommitmentAt(Epoch _epochNumber)
     internal
@@ -486,6 +495,7 @@ library ValidatorSelectionLib {
    * @custom:reverts Errors.Rollup__SlotAlreadyInChain if trying to propose for a past slot
    * @custom:reverts Errors.Rollup__InvalidArchive if archive doesn't match current chain tip
    * @custom:reverts Errors.ValidatorSelection__InvalidProposer if _who is not the designated proposer
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) internal returns (Slot, uint256) {
     Slot slot = _ts.slotFromTimestamp();
@@ -525,36 +535,28 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice Converts an epoch number to the timestamp used for validator set sampling
-   * @dev Calculates the sampling timestamp by:
-   *      1. Taking the epoch start timestamp
-   *      2. Subtracting `lagInEpochs` full epoch duration to ensure stability
-   *
-   *      This ensures validator set sampling uses stable historical data that won't be
-   *      affected by last-minute changes or L1 reorgs during synchronization.
-   * @param _epoch The epoch to calculate sampling time for
-   * @return The Unix timestamp (uint32) to use for validator set sampling
-   */
-  function epochToSampleTime(Epoch _epoch) internal view returns (uint32) {
-    uint32 sub = getStorage().lagInEpochs * TimeLib.getEpochDurationInSeconds().toUint32();
-    return Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - sub;
-  }
-
-  /**
-   * @notice Gets the cryptographic sample seed for an epoch
+   * @notice Gets the cryptographic sample seed for a stable epoch
    * @dev Retrieves the randao from the checkpointed randaos mapping using upperLookup.
    *      Then computes the sample seed using keccak256(epoch, randao)
    * @param _epoch The epoch to get the sample seed for
    * @return The sample seed used for validator selection randomness
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getSampleSeed(Epoch _epoch) internal view returns (uint256) {
     ValidatorSelectionStorage storage store = getStorage();
-    uint32 ts = epochToSampleTime(_epoch);
+    uint32 ts = stableEpochToSampleTime(_epoch);
     return uint256(keccak256(abi.encode(_epoch, store.randaos.upperLookup(ts))));
   }
 
+  /**
+   * @notice Gets the sampling size (attester count) for a stable epoch
+   * @dev Retrieves the number of attesters at the sampling time for the epoch.
+   * @param _epoch The epoch to get the sampling size for
+   * @return The number of attesters available at the epoch's sampling time
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
+   */
   function getSamplingSize(Epoch _epoch) internal view returns (uint256) {
-    uint32 ts = epochToSampleTime(_epoch);
+    uint32 ts = stableEpochToSampleTime(_epoch);
     return StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
   }
 
@@ -606,7 +608,7 @@ library ValidatorSelectionLib {
    */
   function sampleValidatorsIndices(Epoch _epoch, uint256 _seed) private returns (uint32, uint256[] memory) {
     ValidatorSelectionStorage storage store = getStorage();
-    uint32 ts = epochToSampleTime(_epoch);
+    uint32 ts = stableEpochToSampleTime(_epoch);
     uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
     uint256 targetCommitteeSize = store.targetCommitteeSize;
 
@@ -620,6 +622,30 @@ library ValidatorSelectionLib {
     }
 
     return (ts, SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed));
+  }
+
+  /**
+   * @notice Converts a stable epoch number to the timestamp used for validator set sampling
+   * @dev Calculates the sampling timestamp by:
+   *      1. Taking the epoch start timestamp
+   *      2. Subtracting `lagInEpochs` full epoch duration to ensure stability
+   *
+   *      This ensures validator set sampling uses stable historical data that won't be
+   *      affected by last-minute changes or L1 reorgs during synchronization.
+   *
+   *      We consider an epoch to be stable when its committee cannot change.
+   * @param _epoch The epoch to calculate sampling time for
+   * @return The Unix timestamp (uint32) to use for validator set sampling
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
+   */
+  function stableEpochToSampleTime(Epoch _epoch) private view returns (uint32) {
+    uint32 sub = getStorage().lagInEpochs * TimeLib.getEpochDurationInSeconds().toUint32();
+    uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - sub;
+    require(
+      ts <= block.timestamp,
+      Errors.ValidatorSelection__EpochNotStable(uint256(Epoch.unwrap(_epoch)), uint32(block.timestamp))
+    );
+    return ts;
   }
 
   /**
