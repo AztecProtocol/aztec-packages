@@ -17,7 +17,7 @@ const tbMapSizeKb = 1_024 * 1_024 * 1_024; // 1 TB
 
 export type L2ChainConfig = Omit<L1ContractsConfig, keyof L1TxUtilsConfig> &
   Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways' | 'slashOverridePayload' | 'slashSelfAllowed'> &
-  Pick<P2PConfig, 'bootstrapNodes' | 'p2pEnabled'> &
+  Pick<P2PConfig, 'bootstrapNodes' | 'p2pEnabled' | 'txPoolDeleteTxsAfterReorg'> &
   Pick<SequencerConfig, 'minTxsPerBlock' | 'maxTxsPerBlock'> & {
     l1ChainId: number;
     testAccounts: boolean;
@@ -112,6 +112,8 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
+  txPoolDeleteTxsAfterReorg: false,
+  blobAllowEmptySources: true,
 
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
@@ -193,6 +195,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
   maxTxPoolSize: 100_000_000, // 100MB
+  txPoolDeleteTxsAfterReorg: true,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -247,6 +250,7 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: '',
   publicMetricsCollectFrom: [''],
   maxTxPoolSize: 100_000_000, // 100MB
+  txPoolDeleteTxsAfterReorg: false,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -301,6 +305,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
+  txPoolDeleteTxsAfterReorg: true,
   skipArchiverInitialSync: true,
   blobAllowEmptySources: true,
 
@@ -372,11 +377,13 @@ export const testnetL2ChainConfig: L2ChainConfig = {
 };
 
 export const mainnetL2ChainConfig: L2ChainConfig = {
+  txPoolDeleteTxsAfterReorg: true,
+  disableTransactions: true,
+
   l1ChainId: 1,
   testAccounts: false,
   sponsoredFPC: false,
   p2pEnabled: true,
-  disableTransactions: true,
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 0,
@@ -475,6 +482,7 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: '',
   publicMetricsCollectFrom: [''],
   maxTxPoolSize: 100_000_000, // 100MB
+  txPoolDeleteTxsAfterReorg: true,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -560,6 +568,7 @@ export function enrichEnvironmentWithChainConfig(config: L2ChainConfig) {
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URLS', config.snapshotsUrls.join(','));
   enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
+  enrichVar('P2P_TX_POOL_DELETE_TXS_AFTER_REORG', config.txPoolDeleteTxsAfterReorg.toString());
 
   enrichVar('DATA_STORE_MAP_SIZE_KB', config.dataStoreMapSizeKb.toString());
   enrichVar('ARCHIVER_STORE_MAP_SIZE_KB', config.archiverStoreMapSizeKb.toString());
