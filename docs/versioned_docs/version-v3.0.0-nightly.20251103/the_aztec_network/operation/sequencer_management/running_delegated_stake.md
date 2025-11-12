@@ -121,7 +121,7 @@ struct KeyStore {
     address attester;              // Sequencer's attester address
     BN254Lib.G1Point publicKeyG1; // BLS public key (G1)
     BN254Lib.G2Point publicKeyG2; // BLS public key (G2)
-    BN254Lib.G1Point signature;    // BLS signature (prevents rogue key attacks)
+    BN254Lib.G1Point proofOfPossession;    // BLS signature (prevents rogue key attacks)
 }
 ```
 
@@ -150,7 +150,7 @@ Where the tuple structure represents:
 - `address`: Attester address
 - `(uint256,uint256)`: publicKeyG1 (x, y coordinates)
 - `(uint256,uint256,uint256,uint256)`: publicKeyG2 (x0, x1, y0, y1 coordinates)
-- `(uint256,uint256)`: signature (x, y coordinates)
+- `(uint256,uint256)`: proofOfPossession (x, y coordinates)
 
 **Important:** The BLS values shown above are placeholders. You must use properly generated BLS keys and signatures (signing "feedback") for actual registration. Add a maximum of 100 keystores per transaction to avoid gas limit issues.
 
