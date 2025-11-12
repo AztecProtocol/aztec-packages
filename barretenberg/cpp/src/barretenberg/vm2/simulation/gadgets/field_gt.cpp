@@ -18,7 +18,7 @@ LimbsComparisonWitness limb_gt_witness(const U256Decomposition& a, const U256Dec
 
 LimbsComparisonWitness canonical_decomposition(const U256Decomposition& x_limbs, RangeCheckInterface& range_check)
 {
-    static auto p_limbs = decompose(FF::modulus);
+    static auto p_limbs = decompose_256(FF::modulus);
 
     range_check.assert_range(x_limbs.lo, 128);
     range_check.assert_range(x_limbs.hi, 128);
@@ -36,8 +36,8 @@ bool FieldGreaterThan::ff_gt(const FF& a, const FF& b)
 {
     const uint256_t a_integer(a);
     const uint256_t b_integer(b);
-    const auto a_limbs = decompose(a_integer);
-    const auto b_limbs = decompose(b_integer);
+    const auto a_limbs = decompose_256(a_integer);
+    const auto b_limbs = decompose_256(b_integer);
 
     const auto p_sub_a_witness = canonical_decomposition(a_limbs, range_check);
     const auto p_sub_b_witness = canonical_decomposition(b_limbs, range_check);
@@ -65,7 +65,7 @@ bool FieldGreaterThan::ff_gt(const FF& a, const FF& b)
 
 U256Decomposition FieldGreaterThan::canon_dec(const FF& a)
 {
-    const auto a_limbs = decompose(static_cast<uint256_t>(a));
+    const auto a_limbs = decompose_256(static_cast<uint256_t>(a));
     const auto p_sub_a_witness = canonical_decomposition(a_limbs, range_check);
 
     events.emit({

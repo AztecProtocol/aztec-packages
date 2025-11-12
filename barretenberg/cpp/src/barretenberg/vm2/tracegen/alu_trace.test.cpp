@@ -5,6 +5,7 @@
 #include <tuple>
 
 #include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
@@ -27,7 +28,6 @@
 namespace bb::avm2::tracegen {
 namespace {
 
-using simulation::AluError;
 using simulation::AluOperation;
 using testing::ElementsAre;
 
@@ -169,7 +169,8 @@ TEST_P(AluAddTraceGenerationTest, TraceGenerationAdd)
                           ROW_FIELD_EQ(alu_cf, a.as_ff() + b.as_ff() != c.as_ff() ? 1 : 0),
                           ROW_FIELD_EQ(alu_max_bits, get_tag_bits(tag)),
                           ROW_FIELD_EQ(alu_max_value, get_tag_max_value(tag)),
-                          ROW_FIELD_EQ(alu_sel_is_ff, 0), // We don't set/check is_ff for ADD
+                          ROW_FIELD_EQ(alu_sel_is_ff, tag == MemoryTag::FF ? 1 : 0),
+                          ROW_FIELD_EQ(alu_sel_is_u128, tag == MemoryTag::U128 ? 1 : 0),
                           ROW_FIELD_EQ(alu_sel_tag_err, 0),
                           ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
@@ -182,7 +183,7 @@ TEST_F(AluTraceGenerationTest, TraceGenerationAddTagError)
               .a = MemoryValue::from<uint128_t>(1),
               .b = MemoryValue::from<uint64_t>(2),
               .c = MemoryValue::from<uint128_t>(3),
-              .error = AluError::TAG_ERROR },
+              .error = true },
             { .operation = AluOperation::ADD,
               .a = MemoryValue::from<uint128_t>(1),
               .b = MemoryValue::from<uint128_t>(2),
@@ -278,6 +279,8 @@ TEST_P(AluSubTraceGenerationTest, TraceGenerationSub)
                                   ROW_FIELD_EQ(alu_cf, a.as_ff() - b.as_ff() != c.as_ff() ? 1 : 0),
                                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(tag)),
                                   ROW_FIELD_EQ(alu_max_value, get_tag_max_value(tag)),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, tag == MemoryTag::FF ? 1 : 0),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, tag == MemoryTag::U128 ? 1 : 0),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
                                   ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
@@ -318,8 +321,8 @@ TEST_P(AluMulTraceGenerationTest, TraceGenerationMul)
     bool cf = false;
     if (is_u128) {
         // For u128s, we decompose a and b into 64 bit chunks:
-        auto a_hi = simulation::decompose(static_cast<uint128_t>(a.as_ff())).hi;
-        auto b_hi = simulation::decompose(static_cast<uint128_t>(b.as_ff())).hi;
+        auto a_hi = simulation::decompose_128(static_cast<uint128_t>(a.as_ff())).hi;
+        auto b_hi = simulation::decompose_128(static_cast<uint128_t>(b.as_ff())).hi;
         // c_hi = old_c_hi - a_hi * b_hi % 2^64
         auto hi_operand = static_cast<uint256_t>(a_hi) * static_cast<uint256_t>(b_hi);
         cf = hi_operand != 0;
@@ -349,11 +352,11 @@ TEST_P(AluMulTraceGenerationTest, TraceGenerationMul)
             ROW_FIELD_EQ(alu_max_value, get_tag_max_value(tag)),
             ROW_FIELD_EQ(alu_constant_64, 64),
             ROW_FIELD_EQ(alu_sel_is_u128, is_u128 ? 1 : 0),
+            ROW_FIELD_EQ(alu_sel_is_ff, tag == MemoryTag::FF ? 1 : 0),
             ROW_FIELD_EQ(
                 alu_tag_u128_diff_inv,
                 is_u128 ? 0 : (FF(static_cast<uint8_t>(tag)) - FF(static_cast<uint8_t>(MemoryTag::U128))).invert()),
             ROW_FIELD_EQ(alu_sel_mul_div_u128, is_u128 ? 1 : 0),
-            ROW_FIELD_EQ(alu_sel_mul_u128, is_u128 ? 1 : 0),
             ROW_FIELD_EQ(alu_sel_tag_err, 0),
             ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
@@ -396,9 +399,9 @@ TEST_F(AluTraceGenerationTest, TraceGenerationMulU128)
                                   ROW_FIELD_EQ(alu_max_value, u128_max),
                                   ROW_FIELD_EQ(alu_constant_64, 64),
                                   ROW_FIELD_EQ(alu_sel_is_u128, 1),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
                                   ROW_FIELD_EQ(alu_tag_u128_diff_inv, 0),
                                   ROW_FIELD_EQ(alu_sel_mul_div_u128, 1),
-                                  ROW_FIELD_EQ(alu_sel_mul_u128, 1),
                                   ROW_FIELD_EQ(alu_sel_decompose_a, 1),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
                                   ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
@@ -422,9 +425,9 @@ TEST_F(AluTraceGenerationTest, TraceGenerationMulU128)
                                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::U128)),
                                   ROW_FIELD_EQ(alu_max_value, u128_max),
                                   ROW_FIELD_EQ(alu_sel_is_u128, 1),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
                                   ROW_FIELD_EQ(alu_tag_u128_diff_inv, 0),
                                   ROW_FIELD_EQ(alu_sel_mul_div_u128, 1),
-                                  ROW_FIELD_EQ(alu_sel_mul_u128, 1),
                                   ROW_FIELD_EQ(alu_sel_decompose_a, 1),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
                                   ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
@@ -462,11 +465,7 @@ TEST_P(AluDivTraceGenerationTest, TraceGenerationDiv)
     bool is_u128 = tag == MemoryTag::U128;
     builder.process(
         {
-            { .operation = AluOperation::DIV,
-              .a = a,
-              .b = b,
-              .c = c,
-              .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
+            { .operation = AluOperation::DIV, .a = a, .b = b, .c = c, .error = div_0_error },
         },
         trace);
 
@@ -486,6 +485,7 @@ TEST_P(AluDivTraceGenerationTest, TraceGenerationDiv)
             ROW_FIELD_EQ(alu_max_bits, get_tag_bits(tag)),
             ROW_FIELD_EQ(alu_max_value, get_tag_max_value(tag)),
             ROW_FIELD_EQ(alu_constant_64, 64),
+            ROW_FIELD_EQ(alu_sel_is_ff, tag == MemoryTag::FF ? 1 : 0),
             ROW_FIELD_EQ(alu_sel_is_u128, is_u128 ? 1 : 0),
             ROW_FIELD_EQ(
                 alu_tag_u128_diff_inv,
@@ -494,7 +494,7 @@ TEST_P(AluDivTraceGenerationTest, TraceGenerationDiv)
             ROW_FIELD_EQ(alu_tag_ff_diff_inv,
                          (FF(static_cast<uint8_t>(tag)) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
             ROW_FIELD_EQ(alu_sel_mul_div_u128, is_u128 ? 1 : 0),
-            ROW_FIELD_EQ(alu_sel_div_no_0_err, div_0_error ? 0 : 1),
+            ROW_FIELD_EQ(alu_sel_div_no_err, div_0_error ? 0 : 1),
             ROW_FIELD_EQ(alu_sel_div_0_err, div_0_error ? 1 : 0),
             ROW_FIELD_EQ(alu_sel_tag_err, 0),
             ROW_FIELD_EQ(alu_sel_err, div_0_error ? 1 : 0),
@@ -538,10 +538,11 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivU128)
                                   ROW_FIELD_EQ(alu_max_value, u128_max),
                                   ROW_FIELD_EQ(alu_constant_64, 64),
                                   ROW_FIELD_EQ(alu_sel_is_u128, 1),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
                                   ROW_FIELD_EQ(alu_tag_u128_diff_inv, 0),
                                   ROW_FIELD_EQ(alu_sel_mul_div_u128, 1),
                                   ROW_FIELD_EQ(alu_sel_decompose_a, 1),
-                                  ROW_FIELD_EQ(alu_sel_div_no_0_err, 1),
+                                  ROW_FIELD_EQ(alu_sel_div_no_err, 1),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
                                   ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
                             AllOf(ROW_FIELD_EQ(alu_sel_op_div, 1),
@@ -563,10 +564,11 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivU128)
                                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::U128)),
                                   ROW_FIELD_EQ(alu_max_value, u128_max),
                                   ROW_FIELD_EQ(alu_sel_is_u128, 1),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
                                   ROW_FIELD_EQ(alu_tag_u128_diff_inv, 0),
                                   ROW_FIELD_EQ(alu_sel_mul_div_u128, 1),
                                   ROW_FIELD_EQ(alu_sel_decompose_a, 1),
-                                  ROW_FIELD_EQ(alu_sel_div_no_0_err, 1),
+                                  ROW_FIELD_EQ(alu_sel_div_no_err, 1),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
                                   ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
@@ -582,12 +584,12 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivTagError)
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<FF>(3),
               .c = MemoryValue::from<FF>(2),
-              .error = AluError::TAG_ERROR },
+              .error = true },
             { .operation = AluOperation::DIV,
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<uint128_t>(3),
               .c = MemoryValue::from<FF>(2),
-              .error = AluError::TAG_ERROR },
+              .error = true },
         },
         trace);
 
@@ -613,7 +615,7 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivTagError)
                       (FF(static_cast<uint8_t>(MemoryTag::FF)) - FF(static_cast<uint8_t>(MemoryTag::U128))).invert()),
                   ROW_FIELD_EQ(alu_sel_is_ff, 1),
                   ROW_FIELD_EQ(alu_sel_mul_div_u128, 0),
-                  ROW_FIELD_EQ(alu_sel_div_no_0_err, 1),
+                  ROW_FIELD_EQ(alu_sel_div_no_err, 0),
                   ROW_FIELD_EQ(alu_sel_tag_err, 1),
                   ROW_FIELD_EQ(alu_sel_err, 1),
                   ROW_FIELD_EQ(alu_sel_ab_tag_mismatch, 0),
@@ -638,7 +640,7 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivTagError)
                     (FF(static_cast<uint8_t>(MemoryTag::FF)) - FF(static_cast<uint8_t>(MemoryTag::U128))).invert()),
                 ROW_FIELD_EQ(alu_sel_is_ff, 1),
                 ROW_FIELD_EQ(alu_sel_mul_div_u128, 0),
-                ROW_FIELD_EQ(alu_sel_div_no_0_err, 1),
+                ROW_FIELD_EQ(alu_sel_div_no_err, 0),
                 ROW_FIELD_EQ(alu_sel_tag_err, 1),
                 ROW_FIELD_EQ(alu_sel_err, 1),
                 ROW_FIELD_EQ(alu_sel_ab_tag_mismatch, 1),
@@ -654,7 +656,7 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivByZeroError)
             { .operation = AluOperation::DIV,
               .a = MemoryValue::from<uint64_t>(6),
               .b = MemoryValue::from<uint64_t>(0), // c is optional
-              .error = AluError::DIV_0_ERROR },
+              .error = true },
         },
         trace);
 
@@ -682,7 +684,7 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivByZeroError)
             ROW_FIELD_EQ(alu_tag_ff_diff_inv,
                          (FF(static_cast<uint8_t>(MemoryTag::U64)) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
             ROW_FIELD_EQ(alu_sel_mul_div_u128, 0),
-            ROW_FIELD_EQ(alu_sel_div_no_0_err, 0),
+            ROW_FIELD_EQ(alu_sel_div_no_err, 0),
             ROW_FIELD_EQ(alu_sel_div_0_err, 1),
             ROW_FIELD_EQ(alu_sel_tag_err, 0),
             ROW_FIELD_EQ(alu_sel_err, 1),
@@ -728,11 +730,7 @@ TEST_P(AluFDivTraceGenerationTest, TraceGenerationFDiv)
 
     builder.process(
         {
-            { .operation = AluOperation::FDIV,
-              .a = a,
-              .b = b,
-              .c = c,
-              .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
+            { .operation = AluOperation::FDIV, .a = a, .b = b, .c = c, .error = div_0_error },
         },
         trace);
 
@@ -768,12 +766,12 @@ TEST_F(AluTraceGenerationTest, TraceGenerationFDivTagError)
               .a = MemoryValue::from<uint128_t>(6),
               .b = MemoryValue::from<uint128_t>(3),
               .c = MemoryValue::from<uint128_t>(2),
-              .error = AluError::TAG_ERROR },
+              .error = true },
             { .operation = AluOperation::FDIV,
               .a = MemoryValue::from<uint64_t>(6),
               .b = MemoryValue::from<FF>(3),
               .c = MemoryValue::from<uint64_t>(2),
-              .error = AluError::TAG_ERROR },
+              .error = true },
         },
         trace);
 
@@ -795,6 +793,7 @@ TEST_F(AluTraceGenerationTest, TraceGenerationFDivTagError)
                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::U128)),
                   ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::U128)),
                   ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                  ROW_FIELD_EQ(alu_sel_is_u128, 1),
                   ROW_FIELD_EQ(alu_tag_ff_diff_inv, (FF(u128_tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
                   ROW_FIELD_EQ(alu_sel_div_0_err, 0),
                   ROW_FIELD_EQ(alu_sel_tag_err, 1),
@@ -815,6 +814,7 @@ TEST_F(AluTraceGenerationTest, TraceGenerationFDivTagError)
                 ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::U64)),
                 ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::U64)),
                 ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                ROW_FIELD_EQ(alu_sel_is_u128, 0),
                 ROW_FIELD_EQ(alu_tag_ff_diff_inv, (FF(u64_tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
                 ROW_FIELD_EQ(alu_sel_div_0_err, 0),
                 ROW_FIELD_EQ(alu_sel_tag_err, 1),
@@ -827,10 +827,12 @@ TEST_F(AluTraceGenerationTest, TraceGenerationFDivByZeroError)
 {
     builder.process(
         {
-            { .operation = AluOperation::FDIV,
-              .a = MemoryValue::from<FF>(6),
-              .b = MemoryValue::from<FF>(0), // c is optional
-              .error = AluError::DIV_0_ERROR },
+            {
+                .operation = AluOperation::FDIV,
+                .a = MemoryValue::from<FF>(6),
+                .b = MemoryValue::from<FF>(0), // c is optional
+                .error = true,
+            },
         },
         trace);
 
@@ -848,6 +850,7 @@ TEST_F(AluTraceGenerationTest, TraceGenerationFDivByZeroError)
                                   ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_sel_is_u128, 0),
                                   ROW_FIELD_EQ(alu_sel_is_ff, 1),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, 0),
                                   ROW_FIELD_EQ(alu_tag_ff_diff_inv, 0),
                                   ROW_FIELD_EQ(alu_sel_div_0_err, 1),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
@@ -901,6 +904,8 @@ TEST_P(AluEQTraceGenerationTest, TraceGenerationEQ)
                                   ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(tag)),
                                   ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(tag)),
                                   ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(MemoryTag::U1)),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, tag == MemoryTag::FF ? 1 : 0),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, tag == MemoryTag::U128 ? 1 : 0),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
                                   ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
@@ -932,6 +937,8 @@ TEST_P(AluEQTraceGenerationTest, TraceGenerationInEQ)
                                   ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(tag)),
                                   ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(tag)),
                                   ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(MemoryTag::U1)),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, tag == MemoryTag::FF ? 1 : 0),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, tag == MemoryTag::U128 ? 1 : 0),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
                                   ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
@@ -969,7 +976,6 @@ TEST_P(AluLTTraceGenerationTest, TraceGenerationLT)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(AllOf(
                     ROW_FIELD_EQ(alu_sel_op_lt, 1),
-                    ROW_FIELD_EQ(alu_sel_lt_ops, 1),
                     ROW_FIELD_EQ(alu_sel, 1),
                     ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_LT),
                     ROW_FIELD_EQ(alu_ia, a),
@@ -979,14 +985,15 @@ TEST_P(AluLTTraceGenerationTest, TraceGenerationLT)
                     ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(tag)),
                     ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(MemoryTag::U1)),
                     ROW_FIELD_EQ(alu_cf, 0),
-                    ROW_FIELD_EQ(alu_lt_ops_input_a, b),
-                    ROW_FIELD_EQ(alu_lt_ops_input_b, a),
-                    ROW_FIELD_EQ(alu_lt_ops_result_c, c),
+                    ROW_FIELD_EQ(alu_gt_input_a, b),
+                    ROW_FIELD_EQ(alu_gt_input_b, a),
+                    ROW_FIELD_EQ(alu_gt_result_c, c),
                     ROW_FIELD_EQ(alu_max_bits, get_tag_bits(tag)),
                     ROW_FIELD_EQ(alu_max_value, get_tag_max_value(tag)),
                     ROW_FIELD_EQ(alu_sel_is_ff, is_ff ? 1 : 0),
-                    ROW_FIELD_EQ(alu_sel_ff_lt_ops, is_ff ? 1 : 0),
-                    ROW_FIELD_EQ(alu_sel_int_lt_ops, is_ff ? 0 : 1),
+                    ROW_FIELD_EQ(alu_sel_is_u128, tag == MemoryTag::U128 ? 1 : 0),
+                    ROW_FIELD_EQ(alu_sel_ff_gt, is_ff ? 1 : 0),
+                    ROW_FIELD_EQ(alu_sel_int_gt, is_ff ? 0 : 1),
                     ROW_FIELD_EQ(
                         alu_tag_ff_diff_inv,
                         is_ff ? 0 : (FF(static_cast<uint8_t>(tag)) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
@@ -1027,7 +1034,6 @@ TEST_P(AluLTETraceGenerationTest, TraceGenerationLTE)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(AllOf(
                     ROW_FIELD_EQ(alu_sel_op_lte, 1),
-                    ROW_FIELD_EQ(alu_sel_lt_ops, 1),
                     ROW_FIELD_EQ(alu_sel, 1),
                     ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_LTE),
                     ROW_FIELD_EQ(alu_ia, a),
@@ -1037,14 +1043,15 @@ TEST_P(AluLTETraceGenerationTest, TraceGenerationLTE)
                     ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(tag)),
                     ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(MemoryTag::U1)),
                     ROW_FIELD_EQ(alu_cf, 0),
-                    ROW_FIELD_EQ(alu_lt_ops_input_a, a),
-                    ROW_FIELD_EQ(alu_lt_ops_input_b, b),
-                    ROW_FIELD_EQ(alu_lt_ops_result_c, c.as_ff() == 1 ? 0 : 1),
+                    ROW_FIELD_EQ(alu_gt_input_a, a),
+                    ROW_FIELD_EQ(alu_gt_input_b, b),
+                    ROW_FIELD_EQ(alu_gt_result_c, c.as_ff() == 1 ? 0 : 1),
                     ROW_FIELD_EQ(alu_max_bits, get_tag_bits(tag)),
                     ROW_FIELD_EQ(alu_max_value, get_tag_max_value(tag)),
+                    ROW_FIELD_EQ(alu_sel_is_u128, tag == MemoryTag::U128 ? 1 : 0),
                     ROW_FIELD_EQ(alu_sel_is_ff, is_ff ? 1 : 0),
-                    ROW_FIELD_EQ(alu_sel_ff_lt_ops, is_ff ? 1 : 0),
-                    ROW_FIELD_EQ(alu_sel_int_lt_ops, is_ff ? 0 : 1),
+                    ROW_FIELD_EQ(alu_sel_ff_gt, is_ff ? 1 : 0),
+                    ROW_FIELD_EQ(alu_sel_int_gt, is_ff ? 0 : 1),
                     ROW_FIELD_EQ(
                         alu_tag_ff_diff_inv,
                         is_ff ? 0 : (FF(static_cast<uint8_t>(tag)) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
@@ -1069,10 +1076,7 @@ TEST_P(AluNOTTraceGenerationTest, TraceGenerationNOT)
 
     builder.process(
         {
-            { .operation = AluOperation::NOT,
-              .a = a,
-              .b = b,
-              .error = is_ff ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
+            { .operation = AluOperation::NOT, .a = a, .b = b, .error = is_ff },
         },
         trace);
 
@@ -1089,6 +1093,7 @@ TEST_P(AluNOTTraceGenerationTest, TraceGenerationNOT)
                     ROW_FIELD_EQ(alu_ic_tag, 0),
                     ROW_FIELD_EQ(alu_max_value, get_tag_max_value(tag)),
                     ROW_FIELD_EQ(alu_sel_is_ff, is_ff ? 1 : 0),
+                    ROW_FIELD_EQ(alu_sel_is_u128, tag == MemoryTag::U128 ? 1 : 0),
                     ROW_FIELD_EQ(
                         alu_tag_ff_diff_inv,
                         is_ff ? 0 : (FF(static_cast<uint8_t>(tag)) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
@@ -1124,15 +1129,15 @@ TEST_P(AluShlTraceGenerationTest, TraceGenerationShl)
 {
     auto [a, b, c] = GetParam();
     auto tag = a.get_tag();
-    auto tag_bits = get_tag_bits(tag);
-    auto b_num = static_cast<uint128_t>(b.as_ff());
+    uint256_t tag_bits = get_tag_bits(tag);
+    uint256_t b_num = static_cast<uint256_t>(b.as_ff());
 
-    auto overflow = b_num > tag_bits;
-    uint128_t shift_lo_bits = overflow ? tag_bits : tag_bits - b_num;
-    uint128_t shift_hi_bits = overflow ? tag_bits : b_num;
-    auto two_pow_shift_lo_bits = static_cast<uint128_t>(1) << shift_lo_bits;
-    auto a_lo = overflow ? b_num - tag_bits : static_cast<uint128_t>(a.as_ff()) % two_pow_shift_lo_bits;
-    auto a_hi = static_cast<uint128_t>(a.as_ff()) >> shift_lo_bits;
+    bool overflow = b_num > tag_bits;
+    uint256_t shift_lo_bits = overflow ? tag_bits : static_cast<uint256_t>(tag_bits) - b_num;
+    uint256_t shift_hi_bits = overflow ? static_cast<uint256_t>(tag_bits) : b_num;
+    uint256_t two_pow_shift_lo_bits = overflow ? 0 : static_cast<uint256_t>(1) << shift_lo_bits;
+    uint256_t a_lo = overflow ? b_num - tag_bits : static_cast<uint256_t>(a.as_ff()) % two_pow_shift_lo_bits;
+    uint256_t a_hi = static_cast<uint256_t>(a.as_ff()) >> shift_lo_bits;
 
     builder.process({ {
                         .operation = AluOperation::SHL,
@@ -1154,17 +1159,17 @@ TEST_P(AluShlTraceGenerationTest, TraceGenerationShl)
                     ROW_FIELD_EQ(alu_a_lo_bits, shift_lo_bits),
                     ROW_FIELD_EQ(alu_ib, b),
                     ROW_FIELD_EQ(alu_ic, c),
-                    ROW_FIELD_EQ(alu_helper1, static_cast<uint128_t>(1) << b_num),
+                    ROW_FIELD_EQ(alu_helper1, overflow ? 0 : static_cast<uint256_t>(1) << b_num),
                     ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(tag)),
                     ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(tag)),
                     ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(tag)),
                     ROW_FIELD_EQ(alu_max_bits, get_tag_bits(tag)),
                     ROW_FIELD_EQ(alu_max_value, get_tag_max_value(tag)),
                     ROW_FIELD_EQ(alu_sel_decompose_a, 1),
+                    ROW_FIELD_EQ(alu_sel_is_u128, tag == MemoryTag::U128 ? 1 : 0),
                     ROW_FIELD_EQ(alu_sel_is_ff, 0),
                     ROW_FIELD_EQ(alu_tag_ff_diff_inv,
                                  (FF(static_cast<uint8_t>(tag)) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
-                    ROW_FIELD_EQ(alu_sel_shift_ops, 1),
                     ROW_FIELD_EQ(alu_sel_shift_ops_no_overflow, overflow ? 0 : 1),
                     ROW_FIELD_EQ(alu_shift_lo_bits, shift_lo_bits),
                     ROW_FIELD_EQ(alu_two_pow_shift_lo_bits, two_pow_shift_lo_bits),
@@ -1184,12 +1189,12 @@ TEST_F(AluShlTraceGenerationTest, TraceGenerationShlTagError)
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<FF>(3),
               .c = MemoryValue::from<FF>(48),
-              .error = AluError::TAG_ERROR },
+              .error = true },
             { .operation = AluOperation::SHL,
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<uint128_t>(3),
               .c = MemoryValue::from<FF>(48),
-              .error = AluError::TAG_ERROR },
+              .error = true },
         },
         trace);
 
@@ -1200,12 +1205,13 @@ TEST_F(AluShlTraceGenerationTest, TraceGenerationShlTagError)
                                   ROW_FIELD_EQ(alu_ia, 6),
                                   ROW_FIELD_EQ(alu_ib, 3),
                                   ROW_FIELD_EQ(alu_ic, 48),
-                                  ROW_FIELD_EQ(alu_helper1, 8),
+                                  ROW_FIELD_EQ(alu_helper1, 0),
                                   ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::FF)),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, 0),
                                   ROW_FIELD_EQ(alu_sel_is_ff, 1),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 1),
                                   ROW_FIELD_EQ(alu_sel_err, 1),
@@ -1217,13 +1223,14 @@ TEST_F(AluShlTraceGenerationTest, TraceGenerationShlTagError)
                                   ROW_FIELD_EQ(alu_ia, 6),
                                   ROW_FIELD_EQ(alu_ib, 3),
                                   ROW_FIELD_EQ(alu_ic, 48),
-                                  ROW_FIELD_EQ(alu_helper1, 8),
+                                  ROW_FIELD_EQ(alu_helper1, 0),
                                   ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(MemoryTag::U128)),
                                   ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_sel_is_ff, 1),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, 0),
                                   ROW_FIELD_EQ(alu_sel_mul_div_u128, 0),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 1),
                                   ROW_FIELD_EQ(alu_sel_err, 1),
@@ -1263,15 +1270,15 @@ TEST_P(AluShrTraceGenerationTest, TraceGenerationShr)
 {
     auto [a, b, c] = GetParam();
     auto tag = a.get_tag();
-    auto tag_bits = get_tag_bits(tag);
-    auto b_num = static_cast<uint128_t>(b.as_ff());
+    uint256_t tag_bits = get_tag_bits(tag);
+    uint256_t b_num = static_cast<uint256_t>(b.as_ff());
 
     auto overflow = b_num > tag_bits;
-    uint128_t shift_lo_bits = overflow ? tag_bits : b_num;
-    uint128_t shift_hi_bits = overflow ? tag_bits : tag_bits - b_num;
-    auto two_pow_shift_lo_bits = static_cast<uint128_t>(1) << shift_lo_bits;
-    auto a_lo = overflow ? b_num - tag_bits : static_cast<uint128_t>(a.as_ff()) % two_pow_shift_lo_bits;
-    auto a_hi = static_cast<uint128_t>(a.as_ff()) >> shift_lo_bits;
+    uint256_t shift_lo_bits = overflow ? tag_bits : b_num;
+    uint256_t shift_hi_bits = overflow ? tag_bits : tag_bits - b_num;
+    uint256_t two_pow_shift_lo_bits = overflow ? 0 : static_cast<uint256_t>(1) << shift_lo_bits;
+    uint256_t a_lo = overflow ? b_num - tag_bits : static_cast<uint256_t>(a.as_ff()) % two_pow_shift_lo_bits;
+    uint256_t a_hi = static_cast<uint256_t>(a.as_ff()) >> shift_lo_bits;
 
     builder.process({ {
                         .operation = AluOperation::SHR,
@@ -1299,10 +1306,10 @@ TEST_P(AluShrTraceGenerationTest, TraceGenerationShr)
                     ROW_FIELD_EQ(alu_max_bits, get_tag_bits(tag)),
                     ROW_FIELD_EQ(alu_max_value, get_tag_max_value(tag)),
                     ROW_FIELD_EQ(alu_sel_decompose_a, 1),
+                    ROW_FIELD_EQ(alu_sel_is_u128, tag == MemoryTag::U128 ? 1 : 0),
                     ROW_FIELD_EQ(alu_sel_is_ff, 0),
                     ROW_FIELD_EQ(alu_tag_ff_diff_inv,
                                  (FF(static_cast<uint8_t>(tag)) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
-                    ROW_FIELD_EQ(alu_sel_shift_ops, 1),
                     ROW_FIELD_EQ(alu_sel_shift_ops_no_overflow, overflow ? 0 : 1),
                     ROW_FIELD_EQ(alu_shift_lo_bits, shift_lo_bits),
                     ROW_FIELD_EQ(alu_two_pow_shift_lo_bits, two_pow_shift_lo_bits),
@@ -1322,12 +1329,12 @@ TEST_F(AluShrTraceGenerationTest, TraceGenerationShrTagError)
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<FF>(3),
               .c = MemoryValue::from<FF>(0),
-              .error = AluError::TAG_ERROR },
+              .error = true },
             { .operation = AluOperation::SHR,
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<uint128_t>(3),
               .c = MemoryValue::from<FF>(0),
-              .error = AluError::TAG_ERROR },
+              .error = true },
         },
         trace);
 
@@ -1343,6 +1350,7 @@ TEST_F(AluShrTraceGenerationTest, TraceGenerationShrTagError)
                                   ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::FF)),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, 0),
                                   ROW_FIELD_EQ(alu_sel_is_ff, 1),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 1),
                                   ROW_FIELD_EQ(alu_sel_err, 1),
@@ -1360,6 +1368,7 @@ TEST_F(AluShrTraceGenerationTest, TraceGenerationShrTagError)
                                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::FF)),
                                   ROW_FIELD_EQ(alu_sel_is_ff, 1),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, 0),
                                   ROW_FIELD_EQ(alu_sel_mul_div_u128, 0),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 1),
                                   ROW_FIELD_EQ(alu_sel_err, 1),
@@ -1444,6 +1453,8 @@ TEST_P(AluTruncateTrivialTraceGenerationTest, TraceGenerationTruncateTrivial)
                                   ROW_FIELD_EQ(alu_ic, expected_result),
                                   ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(dst_tag)),
                                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(dst_tag)),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, dst_tag == MemoryTag::FF ? 1 : 0),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, dst_tag == MemoryTag::U128 ? 1 : 0),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
                                   ROW_FIELD_EQ(alu_a_lo, 0),
                                   ROW_FIELD_EQ(alu_a_hi, 0),
@@ -1456,7 +1467,6 @@ struct TruncateNonTrivialTestParams {
     MemoryTag dst_tag;
     FF expected_result;
     FF expected_lo_128;
-    FF expected_hi_128;
     FF expected_mid;
 };
 
@@ -1466,7 +1476,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARA
         .dst_tag = MemoryTag::U64,
         .expected_result = 123456789987654321ULL,
         .expected_lo_128 = (uint256_t(98263) << 64) + 123456789987654321ULL,
-        .expected_hi_128 = 0,
         .expected_mid = 98263,
     },
     {
@@ -1474,7 +1483,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARA
         .dst_tag = MemoryTag::U32,
         .expected_result = 1234567,
         .expected_lo_128 = (98263ULL << 32) + 1234567ULL,
-        .expected_hi_128 = 0,
         .expected_mid = 98263,
     },
     {
@@ -1482,7 +1490,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARA
         .dst_tag = MemoryTag::U16,
         .expected_result = 1234,
         .expected_lo_128 = (98263ULL << 32) + 1234ULL,
-        .expected_hi_128 = 0,
         .expected_mid = 98263ULL << 16,
     },
     {
@@ -1490,7 +1497,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARA
         .dst_tag = MemoryTag::U8,
         .expected_result = 7,
         .expected_lo_128 = 263,
-        .expected_hi_128 = 0,
         .expected_mid = 1,
     },
     {
@@ -1498,7 +1504,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARA
         .dst_tag = MemoryTag::U1,
         .expected_result = 1,
         .expected_lo_128 = 999,
-        .expected_hi_128 = 0,
         .expected_mid = 499,
     }
 };
@@ -1513,7 +1518,7 @@ INSTANTIATE_TEST_SUITE_P(AluTraceGenerationTest,
 
 TEST_P(AluTruncateNonTrivialLT128TraceGenerationTest, TraceGenerationTruncateNonTrivialLT128)
 {
-    auto [a, dst_tag, expected_result, expected_lo_128, expected_hi_128, expected_mid] = GetParam();
+    auto [a, dst_tag, expected_result, expected_lo_128, expected_mid] = GetParam();
     auto b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(dst_tag));
     auto c = MemoryValue::from_tag(dst_tag, expected_result);
 
@@ -1537,8 +1542,9 @@ TEST_P(AluTruncateNonTrivialLT128TraceGenerationTest, TraceGenerationTruncateNon
                                   ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(dst_tag)),
                                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(dst_tag)),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, dst_tag == MemoryTag::FF ? 1 : 0),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, dst_tag == MemoryTag::U128 ? 1 : 0),
                                   ROW_FIELD_EQ(alu_a_lo, expected_lo_128),
-                                  ROW_FIELD_EQ(alu_a_hi, expected_hi_128),
                                   ROW_FIELD_EQ(alu_mid, expected_mid),
                                   ROW_FIELD_EQ(alu_mid_bits, 128 - get_tag_bits(dst_tag)))));
 }
@@ -1549,7 +1555,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_GREATER_THAN_128_TEST_P
         .dst_tag = MemoryTag::U64,
         .expected_result = 123456789987654321ULL,
         .expected_lo_128 = (uint256_t(1111) << 64) + 123456789987654321ULL,
-        .expected_hi_128 = 98263,
         .expected_mid = 1111,
     },
     {
@@ -1557,7 +1562,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_GREATER_THAN_128_TEST_P
         .dst_tag = MemoryTag::U32,
         .expected_result = 123456789,
         .expected_lo_128 = (uint256_t(1111) << 64) + 123456789,
-        .expected_hi_128 = 98263,
         .expected_mid = 1111ULL << 32,
     },
     {
@@ -1565,7 +1569,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_GREATER_THAN_128_TEST_P
         .dst_tag = MemoryTag::U16,
         .expected_result = 1234,
         .expected_lo_128 = (uint256_t(1111) << 64) + 1234,
-        .expected_hi_128 = 98263,
         .expected_mid = 1111ULL << 48,
     },
     {
@@ -1573,7 +1576,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_GREATER_THAN_128_TEST_P
         .dst_tag = MemoryTag::U8,
         .expected_result = 234,
         .expected_lo_128 = (uint256_t(123456789987654321ULL) << 8) + 234,
-        .expected_hi_128 = 98263ULL << 22,
         .expected_mid = 123456789987654321ULL,
     }
 };
@@ -1588,7 +1590,7 @@ INSTANTIATE_TEST_SUITE_P(AluTraceGenerationTest,
 
 TEST_P(AluTruncateNonTrivialGT128TraceGenerationTest, TraceGenerationTruncateNonTrivialGT128)
 {
-    auto [a, dst_tag, expected_result, expected_lo_128, expected_hi_128, expected_mid] = GetParam();
+    auto [a, dst_tag, expected_result, expected_lo_128, expected_mid] = GetParam();
     auto b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(dst_tag));
     auto c = MemoryValue::from_tag(dst_tag, expected_result);
 
@@ -1611,9 +1613,10 @@ TEST_P(AluTruncateNonTrivialGT128TraceGenerationTest, TraceGenerationTruncateNon
                                   ROW_FIELD_EQ(alu_ic, expected_result),
                                   ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(dst_tag)),
                                   ROW_FIELD_EQ(alu_max_bits, get_tag_bits(dst_tag)),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, dst_tag == MemoryTag::FF ? 1 : 0),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, dst_tag == MemoryTag::U128 ? 1 : 0),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
                                   ROW_FIELD_EQ(alu_a_lo, expected_lo_128),
-                                  ROW_FIELD_EQ(alu_a_hi, expected_hi_128),
                                   ROW_FIELD_EQ(alu_mid, expected_mid),
                                   ROW_FIELD_EQ(alu_mid_bits, 128 - get_tag_bits(dst_tag)))));
 }

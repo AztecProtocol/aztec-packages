@@ -14,9 +14,9 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 63> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 2, 5, 5, 4, 3, 3, 4, 6, 3, 6, 5, 3, 3, 4, 3, 3, 6, 3, 6, 3, 5, 3, 3, 3, 6, 6, 3,
-        3, 5, 6, 3, 6, 3, 3, 3, 3, 3, 3, 3, 4, 3, 4, 6, 6, 5, 2, 3, 4, 3, 3, 3, 3, 2, 2, 3, 3, 4, 3
+    static constexpr std::array<size_t, 65> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 5, 3, 3, 3, 4, 5, 3, 5, 3, 3, 4, 3, 6, 6, 3, 3,
+        5, 6, 6, 6, 4, 3, 4, 5, 5, 5, 6, 4, 4, 3, 3, 4, 4, 6, 6, 5, 3, 3, 5, 3, 3, 3, 2, 2, 3, 3, 4, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -38,57 +38,65 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr const std::string_view NAME = "alu";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_ERR_CHECK = 4;
-    static constexpr size_t SR_OP_ID_CHECK = 5;
-    static constexpr size_t SR_TAG_IS_FF = 6;
-    static constexpr size_t SR_TAG_IS_U128 = 7;
-    static constexpr size_t SR_C_TAG_CHECK = 8;
-    static constexpr size_t SR_TAG_ERR_CHECK = 11;
-    static constexpr size_t SR_AB_TAGS_CHECK = 12;
-    static constexpr size_t SR_A_DECOMPOSITION = 14;
-    static constexpr size_t SR_B_DECOMPOSITION = 15;
-    static constexpr size_t SR_A_LO_BITS = 17;
-    static constexpr size_t SR_A_HI_BITS = 18;
-    static constexpr size_t SR_ALU_ADD_SUB = 21;
-    static constexpr size_t SR_ALU_MUL_NON_U128 = 23;
-    static constexpr size_t SR_ALU_MUL_U128 = 25;
-    static constexpr size_t SR_ALU_DIV_U128_CHECK = 29;
-    static constexpr size_t SR_ALU_DIV_U128 = 30;
-    static constexpr size_t SR_DIV_0_ERR = 33;
-    static constexpr size_t SR_ALU_FDIV_DIV_NON_U128 = 34;
-    static constexpr size_t SR_EQ_OP_MAIN = 36;
-    static constexpr size_t SR_LT_SWAP_INPUTS_A = 42;
-    static constexpr size_t SR_LT_SWAP_INPUTS_B = 43;
-    static constexpr size_t SR_LTE_NEGATE_RESULT_C = 44;
-    static constexpr size_t SR_NOT_OP_MAIN = 46;
-    static constexpr size_t SR_SHL_TWO_POW_SHIFT = 47;
-    static constexpr size_t SR_ALU_SHL = 48;
-    static constexpr size_t SR_ALU_SHR = 49;
-    static constexpr size_t SR_SHIFTS_LO_BITS = 52;
-    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 57;
-    static constexpr size_t SR_SEL_TRUNCATE = 58;
-    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 59;
-    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 60;
-    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 61;
-    static constexpr size_t SR_TRUNC_MID_BITS = 62;
+    static constexpr size_t SR_DISPATCH_OPERATION = 13;
+    static constexpr size_t SR_TAG_IS_FF = 16;
+    static constexpr size_t SR_TAG_IS_U128 = 17;
+    static constexpr size_t SR_ERR_CHECK = 20;
+    static constexpr size_t SR_TAG_ERR_CHECK = 21;
+    static constexpr size_t SR_AB_TAGS_CHECK = 22;
+    static constexpr size_t SR_ONLY_RELEVANT_CHECK_AB_TAGS_ERROR = 23;
+    static constexpr size_t SR_DIV_0_ERR = 24;
+    static constexpr size_t SR_ONLY_RELEVANT_CHECK_DIV_0_ERR_ERROR = 25;
+    static constexpr size_t SR_C_TAG_CHECK = 27;
+    static constexpr size_t SR_A_DECOMPOSITION = 29;
+    static constexpr size_t SR_B_DECOMPOSITION = 30;
+    static constexpr size_t SR_A_LO_BITS = 32;
+    static constexpr size_t SR_A_HI_BITS = 33;
+    static constexpr size_t SR_ALU_ADD_SUB = 34;
+    static constexpr size_t SR_ALU_MUL_NON_U128 = 35;
+    static constexpr size_t SR_ALU_MUL_U128 = 36;
+    static constexpr size_t SR_ALU_DIV_U128_CHECK = 40;
+    static constexpr size_t SR_ALU_DIV_U128 = 41;
+    static constexpr size_t SR_ALU_FDIV_DIV_NON_U128 = 42;
+    static constexpr size_t SR_EQ_OP_MAIN = 43;
+    static constexpr size_t SR_GT_INPUT_A = 46;
+    static constexpr size_t SR_GT_INPUT_B = 47;
+    static constexpr size_t SR_GT_ASSIGN_RESULT_C = 48;
+    static constexpr size_t SR_NOT_OP_MAIN = 49;
+    static constexpr size_t SR_SHL_TWO_POW_SHIFT = 50;
+    static constexpr size_t SR_ALU_SHL = 51;
+    static constexpr size_t SR_ALU_SHR = 52;
+    static constexpr size_t SR_SHIFTS_LO_BITS = 55;
+    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 59;
+    static constexpr size_t SR_SEL_TRUNCATE = 60;
+    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 61;
+    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 62;
+    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 63;
+    static constexpr size_t SR_TRUNC_MID_BITS = 64;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_ERR_CHECK:
-            return "ERR_CHECK";
-        case SR_OP_ID_CHECK:
-            return "OP_ID_CHECK";
+        case SR_DISPATCH_OPERATION:
+            return "DISPATCH_OPERATION";
         case SR_TAG_IS_FF:
             return "TAG_IS_FF";
         case SR_TAG_IS_U128:
             return "TAG_IS_U128";
-        case SR_C_TAG_CHECK:
-            return "C_TAG_CHECK";
+        case SR_ERR_CHECK:
+            return "ERR_CHECK";
         case SR_TAG_ERR_CHECK:
             return "TAG_ERR_CHECK";
         case SR_AB_TAGS_CHECK:
             return "AB_TAGS_CHECK";
+        case SR_ONLY_RELEVANT_CHECK_AB_TAGS_ERROR:
+            return "ONLY_RELEVANT_CHECK_AB_TAGS_ERROR";
+        case SR_DIV_0_ERR:
+            return "DIV_0_ERR";
+        case SR_ONLY_RELEVANT_CHECK_DIV_0_ERR_ERROR:
+            return "ONLY_RELEVANT_CHECK_DIV_0_ERR_ERROR";
+        case SR_C_TAG_CHECK:
+            return "C_TAG_CHECK";
         case SR_A_DECOMPOSITION:
             return "A_DECOMPOSITION";
         case SR_B_DECOMPOSITION:
@@ -107,18 +115,16 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
             return "ALU_DIV_U128_CHECK";
         case SR_ALU_DIV_U128:
             return "ALU_DIV_U128";
-        case SR_DIV_0_ERR:
-            return "DIV_0_ERR";
         case SR_ALU_FDIV_DIV_NON_U128:
             return "ALU_FDIV_DIV_NON_U128";
         case SR_EQ_OP_MAIN:
             return "EQ_OP_MAIN";
-        case SR_LT_SWAP_INPUTS_A:
-            return "LT_SWAP_INPUTS_A";
-        case SR_LT_SWAP_INPUTS_B:
-            return "LT_SWAP_INPUTS_B";
-        case SR_LTE_NEGATE_RESULT_C:
-            return "LTE_NEGATE_RESULT_C";
+        case SR_GT_INPUT_A:
+            return "GT_INPUT_A";
+        case SR_GT_INPUT_B:
+            return "GT_INPUT_B";
+        case SR_GT_ASSIGN_RESULT_C:
+            return "GT_ASSIGN_RESULT_C";
         case SR_NOT_OP_MAIN:
             return "NOT_OP_MAIN";
         case SR_SHL_TWO_POW_SHIFT:

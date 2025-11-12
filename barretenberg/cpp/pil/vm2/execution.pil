@@ -693,11 +693,12 @@ sel_exec_dispatch_bitwise {
 // - register[1] (ic: truncated value)
 // - mem_tag_reg[1] (ic_tag: write tag == ia_tag as enforced by #[C_TAG_CHECK])
 // Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[1] and rop[2].
+// Note also we enforce alu.sel == 1 (through sel_exec_dispatch_cast == alu.sel) which is crucial to properly activate alu constraints.
 #[DISPATCH_TO_CAST]
 sel_exec_dispatch_cast {
-    register[0], rop[2], subtrace_operation_id, register[1], mem_tag_reg[1], sel_opcode_error
+    register[0], rop[2], register[1], mem_tag_reg[1], sel_exec_dispatch_cast, sel_opcode_error
 } in alu.sel_op_truncate {
-    alu.ia, alu.ia_tag, alu.op_id, alu.ic, alu.ia_tag, /*sel_opcode_error=*/ precomputed.zero
+    alu.ia, alu.ia_tag, alu.ic, alu.ia_tag, alu.sel, /*sel_opcode_error=*/ precomputed.zero
 };
 
 #[DISPATCH_TO_CD_COPY]
@@ -744,11 +745,12 @@ sel_exec_dispatch_returndata_copy {
 // - register[0] (ic: truncated value)
 // - mem_tag_reg[0] (ic_tag: write tag == ia_tag as enforced by #[C_TAG_CHECK])
 // Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[0] and rop[1].
+// Note also we enforce alu.sel == 1 (through sel_exec_dispatch_set == alu.sel) which is crucial to properly activate alu constraints.
 #[DISPATCH_TO_SET]
 sel_exec_dispatch_set {
-    rop[2], rop[1], subtrace_operation_id, register[0], mem_tag_reg[0], sel_opcode_error
+    rop[2], rop[1], register[0], mem_tag_reg[0], sel_exec_dispatch_set, sel_opcode_error
 } in alu.sel_op_truncate {
-    alu.ia, alu.ia_tag, alu.op_id, alu.ic, alu.ia_tag, /*sel_opcode_error=*/ precomputed.zero
+    alu.ia, alu.ia_tag, alu.ic, alu.ia_tag, alu.sel, /*sel_opcode_error=*/ precomputed.zero
 };
 
 // Note: GetContractInstance performs its memory writes internally, so it doesn't have any "outputs" back
