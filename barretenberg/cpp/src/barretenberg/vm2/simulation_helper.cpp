@@ -479,7 +479,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
         auto starting_tree_roots = raw_merkle_db.get_tree_roots();
         HintingContractsDB hinting_contract_db(raw_contract_db);
         HintingRawDB hinting_merkle_db(raw_merkle_db);
-        auto result = simulate_fast(raw_contract_db, raw_merkle_db, tx, global_variables, protocol_contracts);
+        auto result = simulate_fast(hinting_contract_db, hinting_merkle_db, tx, global_variables, protocol_contracts);
         // TODO(MW): move to simulate_fast?
         ExecutionHints collected_hints = ExecutionHints{ .globalVariables = global_variables,
                                                          .tx = tx,
