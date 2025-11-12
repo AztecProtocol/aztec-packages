@@ -95,9 +95,8 @@ template <typename Flavor> class SumcheckProverRound {
      * @brief Compute the effective round size when !HasZK by finding the maximum end_index() across witness
      * polynomials.
      * @details When HasZK is false, witness polynomials only contain meaningful data up to final_active_wire_idx, and
-     * we can avoid iterating over the zero region beyond that point. We check witness polynomials (wires) specifically,
-     * as precomputed polynomials (selectors) are always full size. Supports both Ultra/Mega flavors (w_l, w_r, w_o,
-     * w_4) and MultilinearBatchingFlavor (w_non_shifted_accumulator, etc).
+     * we can avoid iterating over the zero region beyond that point. We check all witness polynomials (via
+     * get_witness()).
      * @return The effective iteration size: round_size when HasZK is true, or the maximum witness end_index when HasZK
      * is false.
      */
@@ -113,22 +112,13 @@ template <typename Flavor> class SumcheckProverRound {
             // We need to round up to the next even number since we process edges in pairs
             size_t max_end_index = 0;
 
-            // Check for Ultra/Mega flavor wire structure (w_l, w_r, w_o, w_4)
-            if constexpr (IsUltraOrMegaHonk<Flavor>) {
-                max_end_index = std::max(max_end_index, multivariates.w_l.end_index());
-                max_end_index = std::max(max_end_index, multivariates.w_r.end_index());
-                max_end_index = std::max(max_end_index, multivariates.w_o.end_index());
-                max_end_index = std::max(max_end_index, multivariates.w_4.end_index());
-            }
-            // Check for MultilinearBatchingFlavor wire structure
-            else if constexpr (isMultilinearBatchingFlavor<Flavor>) {
-                max_end_index = std::max(max_end_index, multivariates.w_non_shifted_accumulator.end_index());
-                max_end_index = std::max(max_end_index, multivariates.w_non_shifted_instance.end_index());
-                max_end_index = std::max(max_end_index, multivariates.w_evaluations_accumulator.end_index());
-                max_end_index = std::max(max_end_index, multivariates.w_evaluations_instance.end_index());
-            }
-            // If no recognized witness structure, use full round_size
-            else {
+            // Check if the flavor has a get_witness() method to iterate over all witness polynomials
+            if constexpr (requires { multivariates.get_witness(); }) {
+                for (auto& witness_poly : multivariates.get_witness()) {
+                    max_end_index = std::max(max_end_index, witness_poly.end_index());
+                }
+            } else {
+                // Fallback: use full round_size if no get_witness() method available
                 return round_size;
             }
 
