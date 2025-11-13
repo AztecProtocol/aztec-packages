@@ -69,16 +69,16 @@ The protocol supports two merge modes:
 
 ### Commitment Strategy: Transcript Sharing
 
-**Critical Note**: The Merge Protocol does NOT independently commit to $L_j$ and $R_j$. Instead, these commitments are **shared via the transcript** from other parts of the CHONK proof system:
+The Merge Protocol does NOT independently commit to $L_j$ and $R_j$. Instead, these commitments are **shared via the transcript**:
 
-- **$[t_j]$ commitments** (current subtable): Already added to the transcript by the HyperNova (HN) folding verifier when processing the current circuit
-- **$[T_{\text{prev},j}]$ commitments** (previous aggregate table): Already added to the transcript in the previous round of Merge verification
+- **$[t_j]$** (current subtable): Added by HyperNova folding verifier
+- **$[T_{\text{prev},j}]$** (previous aggregate table): Added in previous merge round
 
-This transcript sharing is a key optimization that avoids redundant commitment generation and verification.
+**Prover commits only to:**
+- $[M_j]$: Merged table commitments
+- $[G]$: Degree check polynomial commitment
 
-**What the prover DOES commit to:**
-- $[M_j]$: Commitments to the merged table (Step 3)
-- $[G]$: Commitment to the degree check polynomial (Step 5)
+**Benefits:** Avoids redundant commitments (8 sent instead of 20), reduces proof size, ensures cryptographic binding via Fiat-Shamir transcript
 
 ### Prover Algorithm
 
@@ -259,58 +259,19 @@ Verification                                      Protocol
                             v                         v
 ```
 
-**Key Points:**
-1. **$[t_j]$** (current subtable): Already committed by the circuit prover and in the shared transcript
-2. **$[T_{\text{prev},j}]$** (previous table): Already in transcript from previous merge verification
-3. **Merge prover** only commits to $[M_j]$ (merged table) and $[G]$ (degree check polynomial)
-4. **Merge verifier** constructs the full commitment vector from both transcript and proof
-
-### Why This Design?
-
-**Efficiency**: By reusing commitments from the shared transcript:
-1. Avoids redundant polynomial commitments (expensive operations)
-2. Reduces proof size - only 8 commitments sent instead of 20
-3. Enables seamless integration with the rest of the proving system
-
-**Security**: The Fiat-Shamir transcript ensures that:
-- Commitments cannot be changed retroactively
-- All commitments are properly bound before challenges are generated
-- The merge proof is cryptographically bound to the specific circuit being verified
-
 ## Degree Check Mechanism
 
-### Why Degree Checks Are Necessary
+Without degree checks, $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ doesn't guarantee non-overlapping subtables, allowing malicious apps to influence kernel-delegated ops during folding.
 
-Without degree checks, the identity $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ does not garanteee that different subtables do not overlap. In the case of folding, it can lead to situtations where malicious apps can influence the ops delegated by Kernels.
+**Method:** Use reversed polynomial identity (based on Thakur's degree check protocol [[6](#ref-thakur)], Section 6.2). For $\deg(L_j) < k$:
+$$L_j^*(X) = X^{k-1} \cdot L_j(X^{-1}) \implies L_j^*(\kappa^{-1}) = \kappa^{-(k-1)} \cdot L_j(\kappa)$$
 
-### How the Degree Check Works
+**Batching:** Check all 4 columns simultaneously:
+$$G(X) = X^{k-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X)$$
 
-The degree check ensures that $\deg(L_j) < k$ using a clever polynomial identity:
+**Verification:** Check $g = \sum_{i=1}^{4} \alpha_i \cdot l_i \cdot \kappa^{-(k-1)}$. If any $\deg(L_i) \geq k$, this fails with overwhelming probability.
 
-**Observation**: If $\deg(L_j) < k$, then for the reversed polynomial:
-$$L_j^*(X) = X^{k-1} \cdot L_j(X^{-1})$$
-
-we have the property:
-$$L_j^*(\kappa^{-1}) = \kappa^{-(k-1)} \cdot L_j(\kappa)$$
-
-**Batching**: To check all 4 columns simultaneously, we batch them:
-$$G(X) = \sum_{i=1}^{4} \alpha_i \cdot L_i^*(X) = X^{k-1} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(X)\right)$$
-
-**Verification**: The verifier checks:
-$$g = \sum_{i=1}^{4} \alpha_i \cdot l_i \cdot \kappa^{-(k-1)}$$
-
-This is equivalent to:
-$$G(\kappa^{-1}) = \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(\kappa)\right) \cdot \kappa^{-(k-1)}$$
-
-If any $L_i$ has degree $\geq k$, this identity will fail with overwhelming probability due to the random batching challenges $\alpha_i$.
-
-### Implementation Details
-
-The degree check polynomial is computed by:
-1. **Batching**: $B(X) = \sum_{i=1}^{4} \alpha_i \cdot L_i(X)$
-2. **Reversing**: $G(X) = B^*(X) = X^{k-1} \cdot B(X^{-1})$
-
-In code (`merge_prover.cpp:80-88`):
+**Implementation** (`merge_prover.cpp:80-88`):
 ```cpp
 static Polynomial compute_degree_check_polynomial(
     const std::array<Polynomial, NUM_WIRES>& left_table,
@@ -326,17 +287,9 @@ static Polynomial compute_degree_check_polynomial(
 
 ## Concatenation Check
 
-### The Concatenation Identity
+Verifies $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ by checking at evaluation point $\kappa$: $m_j = l_j + \kappa^\ell \cdot r_j$
 
-For proper concatenation, we must have:
-$$M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$$
-
-At evaluation point $\kappa$:
-$$m_j = l_j + \kappa^\ell \cdot r_j$$
-
-### Implementation
-
-The concatenation check (`merge_verifier.cpp:99-114`):
+**Implementation** (`merge_verifier.cpp:99-114`):
 ```cpp
 bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const
 {
@@ -356,9 +309,7 @@ bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa)
 }
 ```
 
-### Why This Works
-
-The polynomial identity $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ holds for all $X$ if and only if it holds at a random evaluation point $\kappa$ (by the Schwartz-Zippel lemma). Since $\kappa$ is generated via Fiat-Shamir after all commitments are fixed, the prover cannot manipulate it.
+The polynomial identity holds for all $X$ if and only if it holds at random $\kappa$ (Schwartz-Zippel lemma; see Appendix for proof).
 
 ## Implementation Details
 
@@ -408,10 +359,11 @@ template <typename Curve> class MergeVerifier_ {
 
 The Merge Protocol achieves soundness through:
 
-1. **Fiat-Shamir Heuristic**: All challenges are generated via transcript hashing, preventing prover manipulation
-2. **Schwartz-Zippel Lemma**: Polynomial identities checked at random points
-3. **Batching Security**: Batching challenges $\alpha_i$ ensure all columns are checked simultaneously with overwhelming probability
-4. **KZG Commitment Security**: Based on the hardness of the discrete logarithm problem on BN254
+1. **Thakur Degree Check** [[6](#ref-thakur)]: Reversed polynomial technique ensures $\deg(L_j) < \ell$
+2. **Fiat-Shamir Heuristic**: All challenges are generated via transcript hashing, preventing prover manipulation
+3. **Schwartz-Zippel Lemma**: Polynomial identities checked at random points
+4. **Batching Security**: Batching challenges $\alpha_i$ ensure all columns are checked simultaneously with overwhelming probability
+5. **KZG Commitment Security**: Based on the hardness of the discrete logarithm problem on BN254
 
 
 ### ZK Considerations
@@ -426,183 +378,29 @@ These commitments and evaluations could potentially leak information about the E
 
 #### ZK-ification in CHONK
 
-However, within the **CHONK** proving system, the Merge Protocol is made zero-knowledge through addition of **random (non-)operations** at specific locations in the op queue. This is handled by the `Chonk` class methods in `chonk.cpp`.
+Within the **CHONK** proving system, the Merge Protocol achieves zero-knowledge through **random (non-)operations** added at specific locations in the op queue (`chonk.cpp`):
 
-##### Random Op Placement Strategy
+##### Random Op Placement
 
-CHONK adds **6 random operations** total:
+**6 random operations total:**
 
-1. **3 random non-ops at the tail kernel** (beginning of op queue table)
-   - Added via `hide_op_queue_content_in_tail()` in `chonk.cpp:513-518`
-   - These ops are **prepended**, so they end up at position 0 of the final aggregate table
-   - Provides randomness for the "left table" in the merge protocol
+1. **3 random non-ops** (tail kernel, `chonk.cpp:513-518`) → Prepended to table start
+2. **2 random non-ops** (hiding kernel, `chonk.cpp:528-532`) → Appended to table end
+3. **1 valid random ECC op** (translator, `chonk.cpp:461-467`) → For accumulation hiding
 
-2. **2 random non-ops at the hiding kernel** (end of op queue table)
-   - Added via `hide_op_queue_content_in_hiding()` in `chonk.cpp:528-532`
-   - These ops are **appended**, so they end up at the end of the final aggregate table
-   - Provides randomness for the "right table" in the merge protocol
+**Key distinctions:**
+- **Random non-ops (5 total)**: Ultra-only operations with random field elements (not pushed to `eccvm_ops_table`)
+- **Valid random op (1 total)**: Real ECC multiply-accumulate operation (pushed to both `ultra_ops_table` and `eccvm_ops_table`)
 
-3. **1 random op for translator** (accumulation result hiding)
-   - Added via `hide_op_queue_accumulation_result()` in `chonk.cpp:461-467`
-   - Ensures the Translator's batched polynomial evaluation doesn't leak information
-
-##### Why This Achieves Zero-Knowledge
-
-**Random Non-Ops (5 total)**: The tail and hiding kernel use `random_op_ultra_only()` which adds UltraOps with fully random field elements:
-```cpp
-UltraOp random_op{
-    .op_code = EccOpCode{ .is_random_op = true,
-                         .random_value_1 = Fr::random_element(),
-                         .random_value_2 = Fr::random_element() },
-    .x_lo = Fr::random_element(),
-    .x_hi = Fr::random_element(),
-    .y_lo = Fr::random_element(),
-    .y_hi = Fr::random_element(),
-    .z_1 = Fr::random_element(),
-    .z_2 = Fr::random_element(),
-    .return_is_infinity = false
-};
-```
-These are **not valid ECC operations** - just random scalars that only go into `ultra_ops_table` (not `eccvm_ops_table`).
-
-**Valid Random Operation (1 total)**: The translator hiding uses `queue_ecc_mul_accum()` with random inputs:
-```cpp
-void hide_op_queue_accumulation_result(ClientCircuit& circuit)
-{
-    Point random_point = Point::random_element();
-    FF random_scalar = FF::random_element();
-    circuit.queue_ecc_mul_accum(random_point, random_scalar);  // Valid ECC op!
-    circuit.queue_ecc_eq();
-}
-```
-This **IS a valid ECC multiply-accumulate operation** that goes into both `ultra_ops_table` AND `eccvm_ops_table` and will be proven correct by ECCVM.
-
-Since each UltraOp occupies **2 rows** in the ultra ops table (due to width-4 arithmetization), each operation adds **2 random coefficients** to each of the **4 op queue polynomials**.
-
-**Randomness accounting:**
-- 3 tail kernel random non-ops → **6 random coefficients** per polynomial at the beginning
-- 2 hiding kernel random non-ops → **4 random coefficients** per polynomial at the end
-- **Total: 10 random coefficients** per $M_j$ polynomial distributed across the table
-
-##### Important Implementation Details
-
-**Random non-ops are "ultra-only"**: The tail/hiding kernel random non-ops are added to `ultra_ops_table` but **not** to `eccvm_ops_table`:
-```cpp
-UltraOp random_op_ultra_only() {
-    UltraOp random_op{ /* random field elements */ };
-    ultra_ops_table.push(random_op);
-    return random_op;  // NOT pushed to eccvm_ops_table!
-}
-```
-
-**Valid random op goes to both tables**: The translator's `queue_ecc_mul_accum()` adds to both tables:
-```cpp
-circuit.queue_ecc_mul_accum(random_point, random_scalar);
-// This calls add_accumulate internally, which:
-// 1. Constructs valid ECCVMOperation → eccvm_ops_table.push()
-// 2. Constructs corresponding UltraOp → ultra_ops_table.push()
-```
-
-This distinction is crucial because:
-- **ECCVM** proves correctness of actual ECC operations only (including the 1 valid random op)
-- **Random non-ops** don't correspond to real ECC operations, so they only appear in the ultra table
-- **Merge Protocol** works on the ultra ops table, which includes both real ops, random non-ops, and the valid random op
-- **Translator** performs translation check on the ultra ops table, matching it to ECCVM's table (which excludes the 5 random non-ops)
-
-**Position matters**:
-- Tail kernel ops are prepended → randomness at beginning of left table (for degree check)
-- Hiding kernel ops are appended → randomness at end of right table (for witness wires)
-- This strategic placement ensures all commitments and evaluations in the Merge Protocol are randomized
-
-##### Recursive Verifier Context and Security
-
-**What the Server-Side Recursive Verifier Sees:**
-
-When the rollup/server verifies a CHONK proof recursively, it observes:
-1. **Merge proof contents**: Commitments $[M_j]$, $[G]$, evaluations $l_j, r_j, m_j, g$, Shplonk quotient $[Q]$
-2. **Pairing points**: Accumulated from Merge, ECCVM, and Translator verifiers
-3. **Input commitments**: $[t_j]$ and $[T_{\text{prev},j}]$ from the transcript
-4. **MegaZK witness wire evaluations**: Including ecc_op_wires at sumcheck challenge
-5. **Translator evaluations**: Batched polynomial evaluations over Grumpkin
-
-**Current Randomness Budget:**
-
-According to `chonk.cpp:488-511`, the goal is **9 random coefficients** per op queue polynomial. Current implementation uses **5 random non-ops** (not counting the translator's valid random op separately):
-
-**For the full merged table $M_j$ polynomials:**
-- 3 tail kernel random non-ops → **6 coefficients** (at beginning)
-- 2 hiding kernel random non-ops → **4 coefficients** (at end)
+**Randomness budget:**
+- Each UltraOp = 2 rows × 4 wires = 2 random coefficients per polynomial
+- 3 tail non-ops → 6 coefficients per polynomial (beginning)
+- 2 hiding non-ops → 4 coefficients per polynomial (end)
 - **Total: 10 random coefficients** per $M_j$ polynomial
 
-**For subtables:**
-- **Tail kernel subtable** (becomes left table in first merge): 6 random coefficients from 3 random non-ops
-- **Hiding kernel subtable** (becomes right table in final merge): 4 random coefficients from 2 random non-ops
-- **Translator** also has 1 valid random op for accumulation hiding
+##### Degree-of-Freedom Analysis
 
-**Information Leakage Analysis:**
-
-**Critical Insight: Copy-Constrained Commitments and Shared Randomness**
-
-The Merge and Translator proofs use **copy-constrained commitments** to the same polynomials:
-- Merge commits to $[M_j]$ (merged table)
-- Translator uses the **same commitment** $[M_j]$ (verified via `verify_consistency_with_final_merge()`)
-- Shifted evaluations $M_j(\omega \cdot \zeta)$ use the **same commitment** $[M_j]$, not a separate commitment
-
-**What the CHONK Proof Reveals About $M_j$ (full merged table):**
-
-For each merged table polynomial $M_j$ with **10 random coefficients**:
-
-**Evaluations revealed** (consuming degrees of freedom from the same randomness pool):
-1. **Merge**: $M_j(\kappa)$ at challenge $\kappa$ → **1 DoF consumed**
-2. **Translator**: $M_j(\zeta_{\text{translator}})$ at sumcheck challenge → **1 DoF consumed**
-3. **Translator**: $M_j(\omega \cdot \zeta_{\text{translator}})$ (shifted evaluation) → **1 DoF consumed**
-4. **Total: 3 evaluations** of the full merged table
-
-**Ratio for full merged table**: $10:3 \approx 3.33:1$ ✅ Exceeds the heuristic threshold
-
-**Additional Evaluation (Degree Check):**
-- **Merge degree check**: $L_j(\kappa^{-1})$ evaluates the **left subtable** (not the full table)
-- For tail kernel as left table: 6 random coefficients, 1 evaluation → **6:1 ratio** ✅
-
-**Critical Detail: MegaZK's `ecc_op_wire` Evaluations**
-
-The MegaZK prover commits to and evaluates `ecc_op_wire_1`, `ecc_op_wire_2`, `ecc_op_wire_3`, `ecc_op_wire_4` (columns 8-11 in Mega flavor). For the **hiding kernel**:
-
-1. **Commitments** to ecc_op_wires (sent in Oink):
-   - These already include the 2 random non-ops from the hiding kernel
-   - Commitments don't leak information (KZG hiding property)
-   - **No additional randomness consumed** - the random non-ops are already in the committed polynomials
-
-2. **Evaluations** at sumcheck challenge $\zeta$ (sent in Decider proof):
-   - $\text{ecc\_op\_wire}_j(\zeta)$ is revealed for $j = 1, 2, 3, 4$
-   - Each evaluation is a linear combination: $\sum_{i=0}^{N-1} c_i \cdot \zeta^i$ where $c_i$ are the coefficients
-   - **This DOES consume randomness** - each evaluation "eats up one degree of freedom"
-
-**Precise Accounting for Hiding Kernel:**
-
-The hiding kernel subtable has $N$ rows total (real ops + 2 random non-ops). The 2 random non-ops contribute:
-- **4 rows** of random data (2 ops × 2 rows per op)
-- These are the **last 4 coefficients** of each ecc_op_wire polynomial (appended at end)
-
-For each ecc_op_wire polynomial:
-- **Random coefficients contributed**: $c_{N-4}, c_{N-3}, c_{N-2}, c_{N-1}$ are random
-- **Evaluation revealed**: $\text{ecc\_op\_wire}_j(\zeta) = c_0 + c_1\zeta + \cdots + c_{N-4}\zeta^{N-4} + \cdots + c_{N-1}\zeta^{N-1}$
-- **Degrees of freedom consumed**: Revealing 1 evaluation at random point $\zeta$ uses up 1 constraint
-- **Remaining hiding**: With 4 random coefficients and 1 evaluation revealed, we have $4 - 1 = 3$ effective degrees of freedom remaining
-
-**Why 2 Random Non-Ops Are Sufficient:**
-
-Standard computational hiding for polynomial commitments requires:
-- At least $\lambda$ random coefficients for information-theoretic hiding (e.g., $\lambda = 128$)
-- Or $\geq 2-3$ random coefficients per evaluation for computational hiding under DLog assumption
-
-For the hiding kernel ecc_op_wires:
-- **4 random coefficients** (from 2 random non-ops)
-- **1 evaluation** revealed at $\zeta$
-- **Ratio**: $4:1$ exceeds the heuristic threshold of $3:1$
-- **Conclusion**: Sufficient for computational hiding, though below information-theoretic bound
-
-**Rigorous Degree-of-Freedom Analysis**
+**Copy-Constrained Commitments:** Merge and Translator use the **same commitment** $[M_j]$ (not separate commitments). Shifted evaluations $M_j(\omega \cdot \zeta)$ also use $[M_j]$.
 
 **Total Randomness Available:**
 - 4 wires (op queue columns), each with 10 random coefficients (4 from $L_j$ hiding kernel, 6 from $R_j$ tail kernel)
@@ -659,75 +457,26 @@ These operations batch across all 4 wires and draw from the **residual pool** of
 - Residual available: 8 DoF (from per-wire surplus)
 - Shared consumed: 4 DoF
 - Reserved: 2 DoF
-- **Net surplus: 8 - 4 - 2 = 2 DoF** ✓
+- **Net surplus: 2 DoF** ✓
 
-**Conclusion: Current Masking is Sufficient**
+**Conclusion:** The 5 random non-ops provide computational hiding with a 2 DoF surplus (40 random coefficients, 38 consumed). The 4-wire structure allows per-wire surplus to cover shared batched operations. This is sufficient but with minimal margin.
 
-The 5 random non-ops (3 tail + 2 hiding) provide:
-- ✅ **40:32 = 1.25:1** effective ratio (40 random coefficients, 32 independent constraints)
-- ✅ **2 DoF net surplus** after accounting for all commitments, evaluations, and batched operations
-- ✅ **Cross-wire batching** (degree check, Shplonk, KZG) shares randomness efficiently
+##### Remaining Considerations
 
-**Key Insights:**
-1. The **4-wire structure** allows per-wire surplus to cover shared operations
-2. **Batched operations** (degree check, Shplonk) don't add independent constraints beyond the base evaluations
-3. **Copy-constrained commitments** between Merge and Translator avoid double-counting DoF costs
-
-**Remaining Caveats:**
-1. This analysis is **heuristic** - assumes ~1 DoF per commitment for computational hiding under DLog
-2. **Information-theoretic hiding** would require ~128 random coefficients (we have 40)
-3. **Formal ZK proof** needed to rigorously establish security bounds
-4. The **2 DoF surplus** is a thin margin; adding 1 more random non-op to hiding kernel would increase to 4 DoF surplus
-
-**Open Questions Requiring Further Analysis:**
-
-1. **Formal ZK Bound**: What is the provably sufficient number of random coefficients for $2^{20}$-degree polynomials?
-   - Standard hiding bound for degree-$d$ polynomials: typically $O(\lambda)$ where $\lambda$ is security parameter
-   - For $\lambda = 128$, need ≥128 random coefficients for information-theoretic hiding
-   - For computational hiding under DLog: fewer coefficients may suffice, but needs proof
-
-2. **Recursive Verifier Leakage**: Does the recursive verification circuit leak additional structure?
-   - The verifier performs field operations on evaluations
-   - Could correlations between evaluations leak information?
-   - Needs careful analysis of the verification circuit's computations
-
-3. **Accumulator Security**: Does the pairing point accumulation preserve ZK?
-   - Pairing points are accumulated: $[Q'] + \sum_i [\beta_i \cdot P_i]$
-   - If randomness is preserved through accumulation, ZK should hold
-   - But this needs formal verification
+**Caveats:**
+1. Analysis is heuristic (assumes ~1 DoF per commitment under DLog)
+2. Information-theoretic hiding would require ~128 random coefficients (we have 40)
+3. Formal ZK proof needed for rigorous security bounds
+4. 2 DoF margin is thin - sensitive to protocol changes
 
 **Recommendations:**
+- Current masking is sufficient for computational hiding
+- Consider adding 1 more random non-op to hiding kernel (increases margin to 4 DoF, minimal cost)
+- Formal cryptographic audit recommended to validate assumptions
 
-**Current Status**: Based on rigorous degree-of-freedom analysis, the implementation is **sufficient but with minimal margin** (2 DoF surplus).
-
-**For Production**:
-- ✅ Current masking (5 random non-ops) provides **computational hiding** with a 2 DoF surplus
-- ⚠️ The **2 DoF margin is thin** - sensitive to any protocol changes that add evaluations
-- ❗ **Most important**: Conduct formal ZK analysis or cryptographic audit to validate heuristic assumptions
-
-**Optional Conservative Improvements**:
-1. **Add 1 more random non-op to hiding kernel** (increases safety margin):
-   - Would increase to 12 random coefficients per wire (48 total)
-   - Net surplus: 2 → 4 DoF
-   - Provides buffer against future protocol modifications
-   - Cost: Minimal (1 extra op = 2 rows per wire = 8 rows total in hiding kernel)
-
-2. **Formal ZK proof**:
-   - Rigorously prove ~1 DoF per commitment is sufficient for computational hiding
-   - Validate that batched operations don't create unexpected correlations
-   - Construct explicit simulator showing indistinguishability from random
-   - Reduction to DLog assumption
-
-**Trade-offs**:
-- **More randomness** → Larger proof, more computation (minimal impact: each op is cheap)
-- **Formal proof** → High confidence but expensive (audits, research)
-- **Status quo** → Reasonable heuristic security, risk of undiscovered attacks
-
-For more details, see:
-- `chonk.cpp:450-532` - Random op placement logic and heuristic reasoning
-- `mega_circuit_builder.cpp:216-223` - `queue_ecc_random_op()` method
+**Implementation references:**
+- `chonk.cpp:450-532` - Random op placement logic
 - `ecc_op_queue.hpp:236-250` - `random_op_ultra_only()` method
-- `goblin_recursive_verifier.cpp:18-63` - Server-side recursive verification flow
 
 ## References
 
@@ -736,6 +485,7 @@ For more details, see:
 3. **Shplonk**: [Paper](https://eprint.iacr.org/2020/081)
 4. **KZG Commitments**: [Paper](https://www.iacr.org/archive/asiacrypt2010/6477178/6477178.pdf)
 5. **Stackproofs**: [Paper](https://eprint.iacr.org/2024/1281)
+6. <a name="ref-thakur"></a>**Thakur - Batching Non-Membership Proofs with Bilinear Accumulators**: [Paper](https://eprint.iacr.org/2019/1147.pdf), Section 6.2 (Degree Check Protocol)
 
 ## Contributing
 
