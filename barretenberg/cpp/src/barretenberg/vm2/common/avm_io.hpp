@@ -339,6 +339,8 @@ struct Tx {
     std::optional<PublicCallRequestWithCalldata> teardown_enqueued_call;
     Gas gas_used_by_private;
     AztecAddress fee_payer;
+    FF prover_id; // TODO(MW): Move? Change to AztecAddress? Injected by prover, we only use as FF, but actually an
+                  // address.
     bool operator==(const Tx& other) const = default;
 
     MSGPACK_CAMEL_CASE_FIELDS(hash,
@@ -352,7 +354,8 @@ struct Tx {
                               app_logic_enqueued_calls,
                               teardown_enqueued_call,
                               gas_used_by_private,
-                              fee_payer);
+                              fee_payer,
+                              prover_id);
 };
 
 struct ExecutionHints {

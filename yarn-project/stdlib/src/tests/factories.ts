@@ -1541,6 +1541,7 @@ export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
     await makePublicCallRequestWithCalldata(seed + 0x7000), // teardownEnqueuedCall
     makeGas(seed + 0x8000), // gasUsedByPrivate
     makeAztecAddress(seed + 0x9000), // feePayer
+    new Fr(seed + 0xa000), // proverId
   );
 }
 

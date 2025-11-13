@@ -271,6 +271,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             .billed_gas = { 0, 0 },
         },
         .revert_code = tx_context.revert_code,
+        .transaction_fee = fee,
         .app_logic_return_values = std::move(app_logic_return_values),
     };
 }

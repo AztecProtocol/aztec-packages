@@ -437,16 +437,14 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                              config.collect_call_metadata);
 
     PublicInputsBuilder public_inputs_builder;
-    public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, config.prover_id, raw_merkle_db);
+    public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, raw_merkle_db);
 
     // This triggers all the work.
     TxExecutionResult tx_execution_result = tx_execution.simulate(tx);
 
-    // TODO(fcarreiro): get these values from somewhere.
-    FF transaction_fee = 0;
     public_inputs_builder.extract_outputs(raw_merkle_db,
                                           tx_execution_result.gas_used.total_gas,
-                                          transaction_fee,
+                                          tx_execution_result.transaction_fee,
                                           tx_execution_result.revert_code != RevertCode::OK,
                                           side_effect_tracker.get_side_effects());
 

@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { avmSimulate, avmSimulateWithHintedDbs } from '@aztec/native';
@@ -36,6 +37,7 @@ import type {
  */
 export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxSimulatorInterface {
   protected override log: Logger;
+  private proverId: Fr; // TODO(MW): Temp - use config/getter on PublicTxSimulator class
 
   constructor(
     merkleTree: MerkleTreeWriteOperations,
@@ -44,6 +46,8 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     config?: Partial<PublicSimulatorConfig>,
   ) {
     super(merkleTree, contractsDB, globalVariables, config);
+    // TODO(MW): Temp - use config/getter on PublicTxSimulator class
+    this.proverId = config?.proverId ?? Fr.ZERO;
     this.log = createLogger(`simulator:cpp_public_tx_simulator`);
   }
 
@@ -98,7 +102,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     this.log.debug(`Running C++ simulation with world state revision ${JSON.stringify(wsRevision)}`);
 
     // Create the fast simulation inputs
-    const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees);
+    const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees, this.proverId);
     const protocolContracts = ProtocolContractsList;
     const fastSimInputs = new AvmFastSimulationInputs(
       wsRevision,
@@ -145,6 +149,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     assert(cppResult.gasUsed.totalGas.equals(tsResult.gasUsed.totalGas));
     // FIXME(https://github.com/AztecProtocol/aztec-packages/issues/18441): a few but not all keccaks fail!
     // expect(cppResult.appLogicReturnValues).toEqual(tsResult.appLogicReturnValues);
+    assert(cppResult.publicInputs.toBuffer().equals(tsResult.publicInputs.toBuffer()));
 
     // Confirm that tree roots match
     const cppStateRef = await this.merkleTree.getStateReference();
@@ -161,7 +166,9 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     });
 
     // TODO(dbanks12): C++ should return PublicTxResult (or something similar)
+    // TODO(MW): Remove 'return cppResult;' after testing (hints will expectedly not match)
     return tsResult;
+    //return cppResult;
   }
 }
 

@@ -693,13 +693,14 @@ export class AvmTxHint {
     public readonly setupEnqueuedCalls: PublicCallRequestWithCalldata[],
     public readonly appLogicEnqueuedCalls: PublicCallRequestWithCalldata[],
     // We need this to be null and not undefined because that's what
-    // MessagePack expects for an std::optional.
+    // MessagePack expects for an std::optional. // TODO: Is this still true?
     public readonly teardownEnqueuedCall: PublicCallRequestWithCalldata | null,
     public readonly gasUsedByPrivate: Gas,
     public readonly feePayer: AztecAddress,
+    public readonly proverId: Fr,
   ) {}
 
-  static fromTx(tx: Tx, gasFees: GasFees): AvmTxHint {
+  static fromTx(tx: Tx, gasFees: GasFees, proverId: Fr): AvmTxHint {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
@@ -731,6 +732,7 @@ export class AvmTxHint {
       teardownCallRequest ?? null,
       tx.data.gasUsed,
       tx.data.feePayer,
+      proverId,
     );
   }
 
@@ -748,6 +750,7 @@ export class AvmTxHint {
       null,
       Gas.empty(),
       AztecAddress.zero(),
+      Fr.zero(),
     );
   }
 
@@ -787,6 +790,7 @@ export class AvmTxHint {
       obj.teardownEnqueuedCall ? PublicCallRequestWithCalldata.fromPlainObject(obj.teardownEnqueuedCall) : null,
       Gas.fromPlainObject(obj.gasUsedByPrivate),
       AztecAddress.fromPlainObject(obj.feePayer),
+      Fr.fromPlainObject(obj.proverId),
     );
   }
 
@@ -813,6 +817,7 @@ export class AvmTxHint {
         teardownEnqueuedCall: PublicCallRequestWithCalldata.schema.nullable(),
         gasUsedByPrivate: Gas.schema,
         feePayer: AztecAddress.schema,
+        proverId: schemas.Fr,
       })
       .transform(
         ({
@@ -828,6 +833,7 @@ export class AvmTxHint {
           teardownEnqueuedCall,
           gasUsedByPrivate,
           feePayer,
+          proverId,
         }) =>
           new AvmTxHint(
             hash,
@@ -842,6 +848,7 @@ export class AvmTxHint {
             teardownEnqueuedCall,
             gasUsedByPrivate,
             feePayer,
+            proverId,
           ),
       );
   }
@@ -1086,17 +1093,17 @@ export class PublicTxResult {
         logs: NullishToUndefined(DebugLog.schema.array()),
         // For the proving request.
         publicInputs: AvmCircuitPublicInputs.schema,
-        hints: NullishToUndefined(AvmExecutionHints.schema),
+        executionHints: NullishToUndefined(AvmExecutionHints.schema),
       })
       .transform(
-        ({ gasUsed, revertCode, revertReason, appLogicReturnValues, logs, hints, publicInputs }) =>
+        ({ gasUsed, revertCode, revertReason, appLogicReturnValues, logs, executionHints, publicInputs }) =>
           new PublicTxResult(
             gasUsed,
             revertCode as RevertCode,
             revertReason,
             appLogicReturnValues,
             logs,
-            hints,
+            executionHints,
             publicInputs,
           ),
       );

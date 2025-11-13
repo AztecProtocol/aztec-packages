@@ -102,7 +102,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     // Create hinting DBs.
     const hints = new AvmExecutionHints(
       this.globalVariables,
-      AvmTxHint.fromTx(tx, this.globalVariables.gasFees),
+      AvmTxHint.fromTx(tx, this.globalVariables.gasFees, this.config.proverId),
       ProtocolContractsList, // imported from file
     );
     const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);

@@ -26,6 +26,7 @@ namespace bb::avm2::simulation {
 struct TxExecutionResult {
     GasUsed gas_used;
     RevertCode revert_code = RevertCode::OK;
+    FF transaction_fee;
     std::vector<CallStackMetadata> app_logic_return_values;
 };
 
