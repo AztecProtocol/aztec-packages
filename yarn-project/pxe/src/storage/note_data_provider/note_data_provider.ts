@@ -1,6 +1,7 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import type { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock } from '@aztec/stdlib/block';
@@ -31,6 +32,8 @@ export class NoteDataProvider {
   #notesByContractAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
   #notesByStorageSlotAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
 
+  #log: Logger;
+
   private constructor(store: AztecAsyncKVStore) {
     this.#store = store;
     this.#notes = store.openMap('notes');
@@ -47,6 +50,8 @@ export class NoteDataProvider {
     this.#notesToScope = store.openMultiMap('notes_to_scope');
     this.#notesByContractAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
     this.#notesByStorageSlotAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
+
+    this.#log = createLogger('pxe:note_data_provider');
   }
 
   /**
@@ -102,18 +107,39 @@ export class NoteDataProvider {
    */
   addNotes(notes: NoteDao[], scope: AztecAddress): Promise<void> {
     return this.#store.transactionAsync(async () => {
-      if (!(await this.#scopes.hasAsync(scope.toString()))) {
+      const scopeString = scope.toString();
+      if (!(await this.#scopes.hasAsync(scopeString))) {
         await this.addScope(scope);
       }
 
       for (const dao of notes) {
         const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+        if (await this.#notes.hasAsync(noteIndex)) {
+          this.#log.info('Skipping note already present in active notes', {
+            noteIndex,
+            scope: scopeString,
+            contractAddress: dao.contractAddress.toString(),
+            siloedNullifier: dao.siloedNullifier.toString(),
+          });
+          continue;
+        }
+
+        if (await this.#nullifiedNotes.hasAsync(noteIndex)) {
+          this.#log.info('Skipping note already present in nullified notes', {
+            noteIndex,
+            scope: scopeString,
+            contractAddress: dao.contractAddress.toString(),
+            siloedNullifier: dao.siloedNullifier.toString(),
+          });
+          continue;
+        }
+
         await this.#notes.set(noteIndex, dao.toBuffer());
-        await this.#notesToScope.set(noteIndex, scope.toString());
+        await this.#notesToScope.set(noteIndex, scopeString);
         await this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
 
-        await this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
-        await this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
+        await this.#notesByContractAndScope.get(scopeString)!.set(dao.contractAddress.toString(), noteIndex);
+        await this.#notesByStorageSlotAndScope.get(scopeString)!.set(dao.storageSlot.toString(), noteIndex);
       }
     });
   }

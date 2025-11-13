@@ -1,4 +1,6 @@
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
+import { toArray } from '@aztec/foundation/iterable';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
@@ -309,6 +311,45 @@ describe('NoteDataProvider', () => {
 
       const res = await provider.getNotes(filter);
       expect(res).toHaveLength(0);
+    });
+  });
+
+  describe('NoteDataProvider.addNotes duplicate handling', () => {
+    let store: AztecLMDBStoreV2;
+    let provider: NoteDataProvider;
+    let note1: NoteDao;
+
+    beforeEach(async () => {
+      ({ store, provider, note1 } = await setupProviderWithNotes('note_data_provider_duplicates'));
+    });
+
+    afterEach(async () => {
+      await store.close();
+    });
+
+    it('skips re-adding active notes and avoids duplicate scope entries', async () => {
+      await provider.addNotes([note1], SCOPE_1);
+
+      const noteIndexHex = toBufferBE(note1.index, 32).toString('hex');
+      const notesToScopeIndex = store.openMultiMap<string, string>('notes_to_scope');
+      const storedScopes = await toArray(notesToScopeIndex.getValuesAsync(noteIndexHex));
+
+      expect(storedScopes).toEqual([SCOPE_1.toString()]);
+    });
+
+    it('skips re-adding nullified notes so they remain inactive', async () => {
+      await provider.applyNullifiers([mkNullifier(note1)]);
+
+      await provider.addNotes([note1], SCOPE_1);
+
+      const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      expect(new Set(getIndexes(activeNotes))).toEqual(new Set([2n]));
+
+      const allNotes = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+      });
+      expect(new Set(getIndexes(allNotes))).toEqual(new Set([1n, 2n]));
     });
   });
 
