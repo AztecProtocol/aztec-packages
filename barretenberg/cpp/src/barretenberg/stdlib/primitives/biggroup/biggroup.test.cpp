@@ -6,8 +6,11 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uintx/uintx.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <vector>
 
@@ -219,7 +222,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
                 // Manipulate the limbs to create an invalid value
                 // Set the highest limb to a very large value that would make the total >= modulus
-                x_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, fr(uint256_t(1) << 68));
+                x_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68));
                 x_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
 
                 element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
@@ -239,7 +242,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
                 // Manipulate the limbs to create an invalid value
                 // Set the highest limb to a very large value that would make the total >= modulus
-                y_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, fr(uint256_t(1) << 68));
+                y_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68));
                 y_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
 
                 element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
@@ -848,8 +851,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         element_ct neg_a = -a;
 
         affine_element expected = affine_element(-element(input_a));
-        uint256_t neg_x = neg_a.x().get_value().lo;
-        uint256_t neg_y = neg_a.y().get_value().lo;
+        uint512_t neg_x_u512 = uint512_t(neg_a.x().get_value()) % uint512_t(fq::modulus);
+        uint512_t neg_y_u512 = uint512_t(neg_a.y().get_value()) % uint512_t(fq::modulus);
+        uint256_t neg_x = neg_x_u512.lo;
+        uint256_t neg_y = neg_y_u512.lo;
 
         EXPECT_EQ(fq(neg_x), expected.x);
         EXPECT_EQ(fq(neg_y), expected.y);
@@ -1109,7 +1114,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_compute_naf_zero()
     {
         Builder builder = Builder();
-        size_t length = 254;
+        size_t length = fr::modulus.get_msb() + 1;
 
         // Our algorithm for input 0 outputs the NAF representation of r (the field modulus)
         fr scalar_val(0);
@@ -2203,7 +2208,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
 enum UseBigfield { No, Yes };
 using TestTypes = testing::Types<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, UseBigfield::Yes>,
-                                 TestType<stdlib::bn254<bb::MegaCircuitBuilder>, UseBigfield::No>>;
+                                 TestType<stdlib::bn254<bb::MegaCircuitBuilder>, UseBigfield::No>,
+                                 TestType<stdlib::secp256k1<bb::UltraCircuitBuilder>, UseBigfield::Yes>,
+                                 TestType<stdlib::secp256r1<bb::UltraCircuitBuilder>, UseBigfield::Yes>>;
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
