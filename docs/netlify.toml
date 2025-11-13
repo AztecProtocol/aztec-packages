@@ -5,6 +5,10 @@
   functions = "netlify/functions"
 
 [[redirects]]
+    from = "/try_testnet"
+    to = "/ignition_info"
+
+[[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
     to = "/developers/docs/guides/smart_contracts/define_functions"
 
