@@ -144,7 +144,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // Determine if result is point at infinity:
     // - If x₁ == x₂ and y₁ == -y₂ (i.e., points are inverses), result is ∞
     // - If both inputs are ∞, result is ∞
-    // - If doubling a point with y = 0 (vertical tangent), result is ∞
     bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
 
