@@ -67,35 +67,72 @@ uint32_t get_phase_length(const PhaseLengths& phase_lengths, TransactionPhase ph
 
 constexpr size_t NUM_PHASES = static_cast<size_t>(TransactionPhase::LAST) + 1;
 
+/**
+ * @brief Returns true if the given phase is revertible.
+ *
+ * @param phase
+ * @return true if the given phase is revertible, false otherwise.
+ */
 bool is_revertible(TransactionPhase phase)
 {
     return TX_PHASE_SPEC_MAP.at(phase).is_revertible;
 }
 
+/**
+ * @brief Returns true if the given phase is a note hash insertion phase.
+ *
+ * @param phase
+ * @return true if the given phase is a note hash insert phase, false otherwise.
+ */
 bool is_note_hash_insert_phase(TransactionPhase phase)
 {
     return TX_PHASE_SPEC_MAP.at(phase).non_revertible_append_note_hash ||
            TX_PHASE_SPEC_MAP.at(phase).revertible_append_note_hash;
 }
 
+/**
+ * @brief Returns true if the given phase is a nullifier insertion phase.
+ *
+ * @param phase
+ * @return true if the given phase is a nullifier insertion phase, false otherwise.
+ */
 bool is_nullifier_insert_phase(TransactionPhase phase)
 {
     return TX_PHASE_SPEC_MAP.at(phase).non_revertible_append_nullifier ||
            TX_PHASE_SPEC_MAP.at(phase).revertible_append_nullifier;
 }
 
+/**
+ * @brief Returns true if the given phase is a one-shot phase, i.e., a phase with exactly one phase event/row.
+ *        One-shot phases are COLLECT_GAS_FEES, TREE_PADDING and CLEANUP.
+ *
+ * @param phase
+ * @return true if the given phase is a one-shot phase, false otherwise.
+ */
 bool is_one_shot_phase(TransactionPhase phase)
 {
     return TX_PHASE_SPEC_MAP.at(phase).is_collect_fee || TX_PHASE_SPEC_MAP.at(phase).is_tree_padding ||
            TX_PHASE_SPEC_MAP.at(phase).is_cleanup;
 }
 
+/**
+ * @brief Returns true if the given phase is the teardown phase.
+ *
+ * @param phase
+ * @return true if the given phase is the teardown phase, false otherwise.
+ */
 bool is_teardown(TransactionPhase phase)
 {
     return TX_PHASE_SPEC_MAP.at(phase).is_teardown;
 }
 
-// This is a helper to insert the previous and next tree state
+/**
+ * @brief Populate the colums for the previous and next tree state.
+ *
+ * @param prev_state The previous TxContextEvent.
+ * @param next_state The next TxContextEvent.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> insert_tree_state(const TxContextEvent& prev_state, const TxContextEvent& next_state)
 {
     return {
@@ -149,6 +186,14 @@ std::vector<std::pair<C, FF>> insert_tree_state(const TxContextEvent& prev_state
     };
 }
 
+/**
+ * @brief Populate the columns for the accounting of the side effect states.
+ *        Side effects are the unencrypted log fields and the l2 to l1 messages.
+ *
+ * @param prev_state The previous TxContextEvent.
+ * @param next_state The next TxContextEvent.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> insert_side_effect_states(const TxContextEvent& prev_state,
                                                         const TxContextEvent& next_state)
 {
@@ -160,7 +205,14 @@ std::vector<std::pair<C, FF>> insert_side_effect_states(const TxContextEvent& pr
     };
 }
 
-// Helper to retrieve the read offset and populate the read and write counters
+/**
+ * @brief Populate the columns for the read offset of the public inputs.
+ *
+ * @param phase The transaction phase.
+ * @param phase_length The length of the phase.
+ * @param read_counter The number of items read so far in the phase.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_pi_read(TransactionPhase phase, uint32_t phase_length, uint32_t read_counter)
 {
     const auto& phase_spec = get_tx_phase_spec_map().at(phase);
@@ -176,6 +228,14 @@ std::vector<std::pair<C, FF>> handle_pi_read(TransactionPhase phase, uint32_t ph
     };
 }
 
+/**
+ * @brief Populate the columns for the phase spec and derived columns. These are static attributes
+ *        of PHASE_SPEC_MAP and used in the #[READ_PHASE_SPEC] lookup in tx.pil. We also populate
+ *        the column C::tx_is_tree_insert_phase which is directly derived from the phase spec.
+ *
+ * @param phase The transaction phase.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_phase_spec(TransactionPhase phase)
 {
     const auto& phase_spec = get_tx_phase_spec_map().at(phase);
@@ -207,7 +267,13 @@ std::vector<std::pair<C, FF>> handle_phase_spec(TransactionPhase phase)
     };
 }
 
-std::vector<std::pair<C, FF>> handle_prev_gas_used(Gas prev_gas_used)
+/**
+ * @brief Populate the columns for the previous gas used.
+ *
+ * @param gas_used The gas used.
+ * @return The relevant populated columns.
+ */
+std::vector<std::pair<C, FF>> handle_prev_gas_used(const Gas& prev_gas_used)
 {
     return {
         { C::tx_prev_da_gas_used, prev_gas_used.da_gas },
@@ -215,7 +281,13 @@ std::vector<std::pair<C, FF>> handle_prev_gas_used(Gas prev_gas_used)
     };
 }
 
-std::vector<std::pair<C, FF>> handle_next_gas_used(Gas next_gas_used)
+/**
+ * @brief Populate the columns for the next gas used.
+ *
+ * @param next_gas_used The next gas used.
+ * @return The relevant populated columns.
+ */
+std::vector<std::pair<C, FF>> handle_next_gas_used(const Gas& next_gas_used)
 {
     return {
         { C::tx_next_da_gas_used, next_gas_used.da_gas },
@@ -223,7 +295,13 @@ std::vector<std::pair<C, FF>> handle_next_gas_used(Gas next_gas_used)
     };
 }
 
-std::vector<std::pair<C, FF>> handle_gas_limit(Gas gas_limit)
+/**
+ * @brief Populate the columns for the gas limit.
+ *
+ * @param gas_limit The gas limit.
+ * @return The relevant populated columns.
+ */
+std::vector<std::pair<C, FF>> handle_gas_limit(const Gas& gas_limit)
 {
     return {
         { C::tx_da_gas_limit, gas_limit.da_gas },
@@ -231,6 +309,13 @@ std::vector<std::pair<C, FF>> handle_gas_limit(Gas gas_limit)
     };
 }
 
+/**
+ * @brief Populate the columns for the enqueued call event.
+ *
+ * @param phase The transaction phase.
+ * @param event The enqueued call event.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_enqueued_call_event(TransactionPhase phase, const EnqueuedCallEvent& event)
 {
     return { { C::tx_should_process_call_request, 1 },
@@ -250,6 +335,14 @@ std::vector<std::pair<C, FF>> handle_enqueued_call_event(TransactionPhase phase,
              { C::tx_should_read_gas_limit, is_teardown(phase) ? 1 : 0 } };
 }
 
+/**
+ * @brief Populate the columns for the note hash append.
+ *        This is a private state insertion.
+ *
+ * @param event The note hash append event of type PrivateAppendTreeEvent.
+ * @param state_before The previous TxContextEvent.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_note_hash_append(const PrivateAppendTreeEvent& event,
                                                       const TxContextEvent& state_before)
 {
@@ -263,6 +356,14 @@ std::vector<std::pair<C, FF>> handle_note_hash_append(const PrivateAppendTreeEve
     };
 }
 
+/**
+ * @brief Populate the columns for the nullifier append.
+ *        This is a private state insertion.
+ *
+ * @param event The nullifier append event of type PrivateAppendTreeEvent.
+ * @param state_before The previous TxContextEvent.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_nullifier_append(const PrivateAppendTreeEvent& event,
                                                       const TxContextEvent& state_before)
 {
@@ -276,6 +377,14 @@ std::vector<std::pair<C, FF>> handle_nullifier_append(const PrivateAppendTreeEve
     };
 }
 
+/**
+ * @brief Populate the columns for the append tree event (nullifier or note hash).
+ *
+ * @param event The append tree event of type PrivateAppendTreeEvent.
+ * @param phase The transaction phase.
+ * @param state_before The previous TxContextEvent.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_append_tree_event(const PrivateAppendTreeEvent& event,
                                                        TransactionPhase phase,
                                                        const TxContextEvent& state_before)
@@ -291,6 +400,13 @@ std::vector<std::pair<C, FF>> handle_append_tree_event(const PrivateAppendTreeEv
     return {};
 }
 
+/**
+ * @brief Populate the columns for the emission of an L2 to L1 message.
+ *
+ * @param event The L2 to L1 message event of type PrivateEmitL2L1MessageEvent.
+ * @param state_before The previous TxContextEvent.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_l2_l1_msg_event(const PrivateEmitL2L1MessageEvent& event,
                                                      const TxContextEvent& state_before)
 {
@@ -307,6 +423,12 @@ std::vector<std::pair<C, FF>> handle_l2_l1_msg_event(const PrivateEmitL2L1Messag
     };
 }
 
+/**
+ * @brief Populate the columns for the collection of gas fees (specific to the COLLECT_GAS_FEES phase).
+ *
+ * @param event The gas fee collection event of type CollectGasFeeEvent.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_collect_gas_fee_event(const CollectGasFeeEvent& event)
 {
     return {
@@ -343,6 +465,11 @@ std::vector<std::pair<C, FF>> handle_collect_gas_fee_event(const CollectGasFeeEv
     };
 }
 
+/**
+ * @brief Populate the columns for the cleanup phase (single event).
+ *
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_cleanup()
 {
     return {
@@ -365,6 +492,11 @@ std::vector<std::pair<C, FF>> handle_cleanup()
     };
 }
 
+/**
+ * @brief Populate some specific columns for the first active row.
+ *
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_first_row()
 {
     std::vector<std::pair<C, FF>> columns = {
@@ -382,7 +514,15 @@ std::vector<std::pair<C, FF>> handle_first_row()
     return columns;
 }
 
-// Cannot happen for COLLECT_GAS_FEES, CLEANUP or TREE_PADDING.
+/**
+ * @brief Populate some specific columns for a padded row. This is a row that is not explicitly skipped because of a
+ *        revert, but just has no contents to process, like when app logic starts but has no enqueued calls.
+ *        This cannot happen for COLLECT_GAS_FEES, CLEANUP or TREE_PADDING phases.
+ *
+ * @param phase The transaction phase.
+ * @param gas_used The gas used.
+ * @return The relevant populated columns.
+ */
 std::vector<std::pair<C, FF>> handle_padded_row(TransactionPhase phase, const Gas& gas_used)
 {
     std::vector<std::pair<C, FF>> columns = {
@@ -409,6 +549,49 @@ std::vector<std::pair<C, FF>> handle_padded_row(TransactionPhase phase, const Ga
 
 } // namespace
 
+/**
+ * @brief Process the TX events and populate the TX relevant columns in the trace.
+ *        A processed TxEvent is either a TxStartupEvent or a TxPhaseEvent.
+ *        A TxStartupEvent is used to provide some global information about the transaction,
+ *        such as the gas limit or the phase lengths and does not populate any rows in the trace.
+ *        We have an outer loop iterating over each phase and an inner loop iterating over the events in the phase.
+ *        A phase event is one of the types specified in the TxPhaseEventType enum and embedded in the TxPhaseEvent.
+ *        A TxPhaseEvent is used to represent an event that occurs during a specific phase of the transaction.
+ *        Each phase event populates exactly one row in the trace.
+ *        The order of the phases is defined by the TransactionPhase enum.
+ *
+ *        TxPhaseEvent variant types:
+ *            - EnqueuedCallEvent: Represents an event that occurs during an enqueued call.
+ *            - PrivateAppendTreeEvent: Represents an event that occurs during a private append tree operation.
+ *            - PrivateEmitL2L1MessageEvent: Represents an event that occurs during a private emit L2 to L1 message
+ *                                           operation.
+ *            - CollectGasFeeEvent: Represents an event that occurs during a collect gas fee operation.
+ *            - PadTreesEvent: Represents an event that occurs during a pad trees operation.
+ *            - CleanupEvent: Represents an event that occurs during a cleanup operation.
+ *            - EmptyPhaseEvent: Represents an event that occurs during an empty phase.
+ *
+ *        Transaction phases and TxPhaseEvent variant types:
+ *            - NR_NULLIFIER_INSERTION: PrivateAppendTreeEvent or EmptyPhaseEvent (prevented by protocol but we
+ *                                      handle it here for completeness).
+ *            - NR_NOTE_INSERTION: PrivateAppendTreeEvent or EmptyPhaseEvent.
+ *            - NR_L2_TO_L1_MESSAGE: PrivateEmitL2L1MessageEvent or EmptyPhaseEvent.
+ *            - SETUP: EnqueuedCallEvent or EmptyPhaseEvent.
+ *            - R_NULLIFIER_INSERTION: PrivateAppendTreeEvent or EmptyPhaseEvent.
+ *            - R_NOTE_INSERTION: PrivateAppendTreeEvent or EmptyPhaseEvent.
+ *            - R_L2_TO_L1_MESSAGE: PrivateEmitL2L1MessageEvent or EmptyPhaseEvent.
+ *            - APP_LOGIC: EnqueuedCallEvent or EmptyPhaseEvent.
+ *            - TEARDOWN: EnqueuedCallEvent or EmptyPhaseEvent.
+ *            - COLLECT_GAS_FEES: CollectGasFeeEvent
+ *            - TREE_PADDING: PadTreesEvent
+ *            - CLEANUP: CleanupEvent
+ *
+ *        A nuance of the tracegen for the tx trace is that if there are no events in a phase, we still need to emit a
+ *        row for this "padded" row. This row is needed to simplify the circuit constraints and ensure that we have
+ *        continuity in the tree state propagation.
+ *
+ * @param events The container of TX events to process.
+ * @param trace The trace container.
+ */
 void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation::TxEvent>::Container& events,
                              TraceContainer& trace)
 {
@@ -419,10 +602,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     using simulation::TxStartupEvent;
 
     uint32_t row = 1; // Shifts
-
-    // A nuance of the tracegen for the tx trace is that if there are no events in a phase, we still need to emit a
-    // row for this "skipped" row. This row is needed to simplify the circuit constraints and ensure that we have
-    // continuity in the tree state propagation.
 
     // We bucket the events by phase to make it easier to detect phases with no events.
     std::array<std::vector<const TxPhaseEvent*>, NUM_PHASES> phase_buckets = {};
@@ -468,11 +647,9 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
     const auto& startup_event_data = startup_event.value();
 
-    // This is the tree state we will use during the "skipped" phases
-    TxContextEvent propagated_state = startup_event_data.state;
-    // Used to track the gas limit for the "padded" phases.
     Gas current_gas_limit = startup_event_data.gas_limit;
     const Gas& teardown_gas_limit = startup_event_data.teardown_gas_limit;
+    // Track the gas used over the course of the transaction.
     Gas gas_used = startup_event_data.state.gas_used;
     // Track whether this tx reverted
     bool tx_reverted = false;
@@ -581,8 +758,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             phase_counter++; // Inner loop counter.
             row++;
         }
-        // In case we encounter another skip row
-        propagated_state = phase_events.back()->state_after;
     }
 
     // Batch invert the columns.
