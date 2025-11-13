@@ -1,4 +1,5 @@
 import type { Buffer32 } from '@aztec/foundation/buffer';
+import type { Secp256k1Signer } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import type { EthRemoteSignerConfig } from '@aztec/node-keystore';
@@ -25,6 +26,22 @@ export interface ValidatorKeyStore {
    * @returns all addresses
    */
   getAddresses(): EthAddress[];
+
+  /**
+   * Get the signer for a specific address
+   * @param address - The address to get the signer for
+   * @returns The Secp256k1Signer instance
+   * @throws Error if address not found
+   */
+  getSignerForAddress(address: EthAddress): Secp256k1Signer;
+
+  /**
+   * Get signer by index
+   * @param index - The index of the signer
+   * @returns The Secp256k1Signer instance
+   * @throws Error if index out of bounds
+   */
+  getSigner(index: number): Secp256k1Signer;
 
   signTypedData(typedData: TypedDataDefinition): Promise<Signature[]>;
   signTypedDataWithAddress(address: EthAddress, typedData: TypedDataDefinition): Promise<Signature>;

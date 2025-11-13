@@ -1,4 +1,5 @@
 import type { Buffer32 } from '@aztec/foundation/buffer';
+import type { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 
@@ -38,6 +39,26 @@ export class Web3SignerKeyStore implements ValidatorKeyStore {
    */
   public getAddresses(): EthAddress[] {
     return this.addresses;
+  }
+
+  /**
+   * Get the signer for a specific address
+   * @throws Error - Web3SignerKeyStore does not support direct signer access
+   */
+  public getSignerForAddress(_address: EthAddress): Secp256k1Signer {
+    throw new Error(
+      'Custom k signing is not supported with Web3Signer. Only LocalKeyStore supports custom k signing for red-team testing.',
+    );
+  }
+
+  /**
+   * Get signer by index
+   * @throws Error - Web3SignerKeyStore does not support direct signer access
+   */
+  public getSigner(_index: number): Secp256k1Signer {
+    throw new Error(
+      'Custom k signing is not supported with Web3Signer. Only LocalKeyStore supports custom k signing for red-team testing.',
+    );
   }
 
   /**

@@ -81,10 +81,10 @@ export interface Validator {
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
-  ): Promise<BlockProposal | undefined>;
+  ): Promise<BlockProposal[] | undefined>;
   attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation[] | undefined>;
 
-  broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
+  broadcastBlockProposal(proposals: BlockProposal[]): Promise<void>;
   collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
   signAttestationsAndSigners(
     attestationsAndSigners: CommitteeAttestationsAndSigners,

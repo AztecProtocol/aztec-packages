@@ -15,6 +15,12 @@ import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 
 import type { ValidatorKeyStore } from '../key_store/interface.js';
 
+// Number of duplicate proposals to create for red-team testing
+const DUPLICATE_PROPOSAL_COUNT = 4;
+
+// Number of duplicate attestations to create per attestor
+const DUPLICATE_ATTESTATION_COUNT = 2;
+
 export class ValidationService {
   constructor(private keyStore: ValidatorKeyStore) {}
 
@@ -25,7 +31,7 @@ export class ValidationService {
    * @param archive - The archive of the current block
    * @param txs - TxHash[] ordered list of transactions
    *
-   * @returns A block proposal signing the above information (not the current implementation!!!)
+   * @returns Array of block proposals (1 original + N duplicates with different signatures)
    */
   async createBlockProposal(
     header: ProposedBlockHeader,
@@ -34,24 +40,45 @@ export class ValidationService {
     txs: Tx[],
     proposerAttesterAddress: EthAddress | undefined,
     options: BlockProposalOptions,
-  ): Promise<BlockProposal> {
-    let payloadSigner: (payload: Buffer32) => Promise<Signature>;
+  ): Promise<BlockProposal[]> {
+    // Get the signer
+    let signer;
     if (proposerAttesterAddress !== undefined) {
-      payloadSigner = (payload: Buffer32) => this.keyStore.signMessageWithAddress(proposerAttesterAddress, payload);
+      signer = this.keyStore.getSignerForAddress(proposerAttesterAddress);
     } else {
-      // if there is no proposer attester address, just use the first signer
-      const signer = this.keyStore.getAddress(0);
-      payloadSigner = (payload: Buffer32) => this.keyStore.signMessageWithAddress(signer, payload);
+      signer = this.keyStore.getSigner(0);
     }
-    // TODO: check if this is calculated earlier / can not be recomputed
+
+    const payload = new ConsensusPayload(header, archive, stateReference);
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
-    return BlockProposal.createProposalFromSigner(
-      new ConsensusPayload(header, archive, stateReference),
+    // Create original proposal using standard deterministic signing
+    const payloadHash = Buffer32.fromBuffer(
+      keccak256(payload.getPayloadToSign(SignatureDomainSeparator.blockProposal)),
+    );
+    const originalSignature = signer.signMessage(payloadHash);
+    const originalProposal = new BlockProposal(
+      payload,
+      originalSignature,
       txHashes,
       options.publishFullTxs ? txs : undefined,
-      payloadSigner,
     );
+
+    // Create duplicates with non-deterministic signatures using indexed k values
+    const duplicates: BlockProposal[] = [];
+    for (let i = 0; i < DUPLICATE_PROPOSAL_COUNT; i++) {
+      const customSignature = signer.signMessageWithCustomK(payloadHash, i);
+      const duplicateProposal = new BlockProposal(
+        payload,
+        customSignature,
+        txHashes,
+        options.publishFullTxs ? txs : undefined,
+      );
+      duplicates.push(duplicateProposal);
+    }
+
+    // Return original + duplicates
+    return [originalProposal, ...duplicates];
   }
 
   /**
@@ -62,16 +89,31 @@ export class ValidationService {
    *
    * @param proposal - The proposal to attest to
    * @param attestors - The validators to attest with
-   * @returns attestations
+   * @returns attestations (including duplicates with different signatures for red-team testing)
    */
   async attestToProposal(proposal: BlockProposal, attestors: EthAddress[]): Promise<BlockAttestation[]> {
     const buf = Buffer32.fromBuffer(
       keccak256(proposal.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation)),
     );
-    const signatures = await Promise.all(
-      attestors.map(attestor => this.keyStore.signMessageWithAddress(attestor, buf)),
-    );
-    return signatures.map(sig => new BlockAttestation(proposal.payload, sig, proposal.signature));
+
+    const allAttestations: BlockAttestation[] = [];
+
+    // For each attestor, create original + duplicates
+    for (const attestor of attestors) {
+      const signer = this.keyStore.getSignerForAddress(attestor);
+
+      // Create original attestation (deterministic)
+      const originalSignature = await this.keyStore.signMessageWithAddress(attestor, buf);
+      allAttestations.push(new BlockAttestation(proposal.payload, originalSignature, proposal.signature));
+
+      // Create duplicate attestations (non-deterministic) using indexed k values
+      for (let i = 0; i < DUPLICATE_ATTESTATION_COUNT; i++) {
+        const customSignature = signer.signMessageWithCustomK(buf, i);
+        allAttestations.push(new BlockAttestation(proposal.payload, customSignature, proposal.signature));
+      }
+    }
+
+    return allAttestations;
   }
 
   async signAttestationsAndSigners(

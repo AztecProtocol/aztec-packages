@@ -116,7 +116,7 @@ describe('ValidatorClient', () => {
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
 
-      const blockProposal = await validatorClient.createBlockProposal(
+      const blockProposals = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
         header.toPropose(),
         archive,
@@ -126,11 +126,13 @@ describe('ValidatorClient', () => {
         { publishFullTxs: false },
       );
 
-      expect(blockProposal).toBeDefined();
+      expect(blockProposals).toBeDefined();
+      expect(blockProposals!.length).toBeGreaterThan(0);
 
+      const blockProposal = blockProposals![0];
       const validatorAddress = EthAddress.fromString(validatorAccounts[0].address);
-      expect(blockProposal?.getSender()).toEqual(validatorAddress);
-      expect(blockProposal!.txs).toBeUndefined();
+      expect(blockProposal.getSender()).toEqual(validatorAddress);
+      expect(blockProposal.txs).toBeUndefined();
     });
   });
 

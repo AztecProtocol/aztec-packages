@@ -44,6 +44,33 @@ export class LocalKeyStore implements ValidatorKeyStore {
   }
 
   /**
+   * Get the signer for a specific address
+   * @param address - The address to get the signer for
+   * @returns The Secp256k1Signer instance
+   * @throws Error if address not found
+   */
+  public getSignerForAddress(address: EthAddress): Secp256k1Signer {
+    const signer = this.signersByAddress.get(address.toString());
+    if (!signer) {
+      throw new Error(`No signer found for address ${address.toString()}`);
+    }
+    return signer;
+  }
+
+  /**
+   * Get signer by index
+   * @param index - The index of the signer
+   * @returns The Secp256k1Signer instance
+   * @throws Error if index out of bounds
+   */
+  public getSigner(index: number): Secp256k1Signer {
+    if (index < 0 || index >= this.signers.length) {
+      throw new Error(`Signer index ${index} out of bounds (have ${this.signers.length} signers)`);
+    }
+    return this.signers[index];
+  }
+
+  /**
    * Sign a message with all keystore private keys
    * @param typedData - The complete EIP-712 typed data structure (domain, types, primaryType, message)
    * @return signature

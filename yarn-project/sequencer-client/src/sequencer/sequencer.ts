@@ -692,7 +692,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     this.log.debug('Creating block proposal for validators');
     const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };
-    const proposal = await this.validatorClient.createBlockProposal(
+    const proposals = await this.validatorClient.createBlockProposal(
       block.header.globalVariables.blockNumber,
       block.header.toPropose(),
       block.archive.root,
@@ -702,18 +702,21 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       blockProposalOptions,
     );
 
-    if (!proposal) {
+    if (!proposals || proposals.length === 0) {
       throw new Error(`Failed to create block proposal`);
     }
 
+    // Use the first (original) proposal for attestation collection
+    const originalProposal = proposals[0];
+
     if (this.config.skipCollectingAttestations) {
       this.log.warn('Skipping attestation collection as per config (attesting with own keys only)');
-      const attestations = await this.validatorClient?.collectOwnAttestations(proposal);
+      const attestations = await this.validatorClient?.collectOwnAttestations(originalProposal);
       return orderAttestations(attestations ?? [], committee);
     }
 
-    this.log.debug('Broadcasting block proposal to validators');
-    await this.validatorClient.broadcastBlockProposal(proposal);
+    this.log.debug('Broadcasting block proposal(s) to validators');
+    await this.validatorClient.broadcastBlockProposal(proposals);
 
     const attestationTimeAllowed = this.enforceTimeTable
       ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_BLOCK)!
@@ -726,7 +729,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     try {
       const attestationDeadline = new Date(this.dateProvider.now() + attestationTimeAllowed * 1000);
       const attestations = await this.validatorClient.collectAttestations(
-        proposal,
+        originalProposal,
         numberOfRequiredAttestations,
         attestationDeadline,
       );

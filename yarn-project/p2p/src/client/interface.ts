@@ -44,11 +44,11 @@ export interface P2PSyncState {
  **/
 export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & {
   /**
-   * Broadcasts a block proposal to other peers.
+   * Broadcasts block proposals to other peers.
    *
-   * @param proposal - the block proposal
+   * @param proposals - the block proposals (array supports red-team testing with duplicate proposals)
    */
-  broadcastProposal(proposal: BlockProposal): Promise<void>;
+  broadcastProposal(proposals: BlockProposal[]): Promise<void>;
 
   /**
    * Registers a callback from the validator client that determines how to behave when

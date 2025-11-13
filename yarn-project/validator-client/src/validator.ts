@@ -369,13 +369,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
-  ): Promise<BlockProposal | undefined> {
+  ): Promise<BlockProposal[] | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
       return Promise.resolve(undefined);
     }
 
-    const newProposal = await this.validationService.createBlockProposal(
+    const newProposals = await this.validationService.createBlockProposal(
       header,
       archive,
       stateReference,
@@ -383,12 +383,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       proposerAddress,
       options,
     );
-    this.previousProposal = newProposal;
-    return newProposal;
+    // Store the first (original) proposal to track we've already proposed for this slot
+    this.previousProposal = newProposals[0];
+    return newProposals;
   }
 
-  async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
-    await this.p2pClient.broadcastProposal(proposal);
+  async broadcastBlockProposal(proposals: BlockProposal[]): Promise<void> {
+    await this.p2pClient.broadcastProposal(proposals);
   }
 
   async signAttestationsAndSigners(

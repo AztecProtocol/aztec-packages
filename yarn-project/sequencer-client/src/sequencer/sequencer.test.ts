@@ -101,7 +101,9 @@ describe('sequencer', () => {
   const createBlockProposal = () => {
     const consensusPayload = ConsensusPayload.fromBlock(block);
     const txHashes = block.body.txEffects.map(tx => tx.txHash);
-    return new BlockProposal(consensusPayload, mockedSig, txHashes);
+    const proposal = new BlockProposal(consensusPayload, mockedSig, txHashes);
+    // Return array to match interface change (1 original + 4 duplicates = 5 total)
+    return [proposal, proposal, proposal, proposal, proposal];
   };
 
   const processTxs = async (txs: Tx[]) => {

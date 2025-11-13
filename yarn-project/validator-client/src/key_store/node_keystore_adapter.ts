@@ -1,8 +1,9 @@
 import type { EthSigner } from '@aztec/ethereum';
 import type { Buffer32 } from '@aztec/foundation/buffer';
+import type { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import { KeystoreManager, loadKeystoreFile } from '@aztec/node-keystore';
+import { KeystoreManager, LocalSigner, loadKeystoreFile } from '@aztec/node-keystore';
 import type { EthRemoteSignerConfig } from '@aztec/node-keystore';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { InvalidValidatorPrivateKeyError } from '@aztec/stdlib/validators';
@@ -225,6 +226,51 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
       }
     }
     return out;
+  }
+
+  /**
+   * Get the signer for a specific address
+   * @param address - The address to get the signer for
+   * @returns The Secp256k1Signer instance for custom k signing (red-team testing)
+   * @throws Error if address not found
+   */
+  getSignerForAddress(address: EthAddress): Secp256k1Signer {
+    const entry = this.addressIndex.get(NodeKeystoreAdapter.key(address));
+    if (entry) {
+      return (entry.signer as LocalSigner).getSecp256k1Signer();
+    }
+
+    // If not in global index yet, lazily hydrate all validators once and retry
+    for (const i of this.validatorIndices()) {
+      this.ensureValidator(i);
+    }
+    const second = this.addressIndex.get(NodeKeystoreAdapter.key(address));
+    if (second) {
+      return (second.signer as LocalSigner).getSecp256k1Signer();
+    }
+
+    throw new Error(`No signer found for address ${address.toString()}`);
+  }
+
+  /**
+   * Get signer by index (flat index across all attester signers)
+   * @param index - The index of the signer
+   * @returns The Secp256k1Signer instance for custom k signing (red-team testing)
+   * @throws Error if index out of bounds
+   */
+  getSigner(index: number): Secp256k1Signer {
+    // Build flat list of attester signers
+    const signers: EthSigner[] = [];
+    for (const i of this.validatorIndices()) {
+      const v = this.ensureValidator(i);
+      signers.push(...v.attesters);
+    }
+
+    if (index < 0 || index >= signers.length) {
+      throw new Error(`Signer index ${index} out of bounds (have ${signers.length} signers)`);
+    }
+
+    return (signers[index] as LocalSigner).getSecp256k1Signer();
   }
 
   /**

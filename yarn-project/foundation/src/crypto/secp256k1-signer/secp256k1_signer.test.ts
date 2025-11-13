@@ -6,7 +6,11 @@ import { hashMessage, recoverAddress as viemRecoverAddress, recoverPublicKey as 
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount, publicKeyToAddress } from 'viem/accounts';
 
 import { Secp256k1Signer } from './secp256k1_signer.js';
-import { recoverAddress as lightRecoverAddress, recoverPublicKey as lightRecoverPublicKey } from './utils.js';
+import {
+  recoverAddress as lightRecoverAddress,
+  recoverPublicKey as lightRecoverPublicKey,
+  makeEthSignDigest,
+} from './utils.js';
 
 /**
  * Differential fuzzing implementation of viem's signer and the secp256k1 signer
@@ -59,5 +63,72 @@ describe('Secp256k1Signer', () => {
 
     // Check light signer matches
     expect(viemAddress.toString()).toEqual(lightAddress.toString());
+  });
+
+  describe('signWithCustomK', () => {
+    it('should create valid signatures with custom k at specific index', () => {
+      const signer = Secp256k1Signer.random();
+      const message = Buffer32.random();
+
+      const signature = signer.signWithCustomK(message, 0);
+      const recovered = lightRecoverAddress(message, signature);
+
+      expect(recovered.equals(signer.address)).toBe(true);
+    });
+
+    it('should create different signatures with different k indices', () => {
+      const signer = Secp256k1Signer.random();
+      const message = Buffer32.random();
+
+      const sig1 = signer.signWithCustomK(message, 0);
+      const sig2 = signer.signWithCustomK(message, 1);
+      const sig3 = signer.signWithCustomK(message, 2);
+
+      // All signatures should be different
+      expect(sig1.equals(sig2)).toBe(false);
+      expect(sig2.equals(sig3)).toBe(false);
+      expect(sig1.equals(sig3)).toBe(false);
+    });
+
+    it('should create same signature for same k index', () => {
+      const signer = Secp256k1Signer.random();
+      const message = Buffer32.random();
+
+      const sig1 = signer.signWithCustomK(message, 5);
+      const sig2 = signer.signWithCustomK(message, 5);
+
+      // Same k index should produce same signature
+      expect(sig1.equals(sig2)).toBe(true);
+    });
+
+    it('should differ from deterministic signing', () => {
+      const signer = Secp256k1Signer.random();
+      const message = Buffer32.random();
+
+      const deterministicSig = signer.sign(message);
+      const customKSig = signer.signWithCustomK(message, 0);
+
+      // Should be different signatures
+      expect(deterministicSig.equals(customKSig)).toBe(false);
+
+      // But both should recover to same address
+      expect(lightRecoverAddress(message, deterministicSig).equals(signer.address)).toBe(true);
+      expect(lightRecoverAddress(message, customKSig).equals(signer.address)).toBe(true);
+    });
+  });
+
+  describe('signMessageWithCustomK', () => {
+    it('should apply eth_sign prefix and use custom k at specific index', () => {
+      const signer = Secp256k1Signer.random();
+      const message = Buffer32.random();
+
+      const signature = signer.signMessageWithCustomK(message, 0);
+
+      // Should recover with eth_sign digest
+      const digest = makeEthSignDigest(message);
+      const recovered = lightRecoverAddress(digest, signature);
+
+      expect(recovered.equals(signer.address)).toBe(true);
+    });
   });
 });

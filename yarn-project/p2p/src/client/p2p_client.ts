@@ -370,14 +370,22 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     await this.blockStream!.sync();
   }
 
-  @trackSpan('p2pClient.broadcastProposal', async proposal => ({
-    [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
-    [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
-    [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
+  @trackSpan('p2pClient.broadcastProposal', async proposals => ({
+    [Attributes.SLOT_NUMBER]: proposals[0]?.slotNumber.toNumber(),
+    [Attributes.BLOCK_ARCHIVE]: proposals[0]?.archive.toString(),
+    [Attributes.P2P_ID]: proposals[0] ? (await proposals[0].p2pMessageIdentifier()).toString() : undefined,
+    proposalCount: proposals.length,
   }))
-  public broadcastProposal(proposal: BlockProposal): Promise<void> {
-    this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber.toNumber()} to peers`);
-    return this.p2pService.propagate(proposal);
+  public async broadcastProposal(proposals: BlockProposal[]): Promise<void> {
+    if (proposals.length === 0) {
+      return;
+    }
+    this.log.verbose(
+      `Broadcasting ${proposals.length} proposal(s) for slot ${proposals[0].slotNumber.toNumber()} to peers`,
+    );
+    for (const proposal of proposals) {
+      await this.p2pService.propagate(proposal);
+    }
   }
 
   public async getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]> {

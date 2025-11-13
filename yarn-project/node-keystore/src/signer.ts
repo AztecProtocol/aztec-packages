@@ -52,6 +52,14 @@ export class LocalSigner implements EthSigner {
     return this.signer.address;
   }
 
+  /**
+   * Get the underlying Secp256k1Signer for custom k signing (red-team testing)
+   * @returns The Secp256k1Signer instance
+   */
+  getSecp256k1Signer(): Secp256k1Signer {
+    return this.signer;
+  }
+
   signMessage(message: Buffer32): Promise<Signature> {
     return Promise.resolve(this.signer.signMessage(message));
   }
