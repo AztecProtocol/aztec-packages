@@ -244,7 +244,7 @@ $$G(X) = X^{k-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X)$$
 
 **Verification:** Check $g = \sum_{i=1}^{4} \alpha_i \cdot l_i \cdot \kappa^{-(k-1)}$. If any $\deg(L_i) \geq k$, this fails with overwhelming probability.
 
-**Implementation** (`merge_prover.cpp:80-88`):
+**Implementation** (`merge_prover.cpp`):
 ```cpp
 static Polynomial compute_degree_check_polynomial(
     const std::array<Polynomial, NUM_WIRES>& left_table,
@@ -262,7 +262,7 @@ static Polynomial compute_degree_check_polynomial(
 
 Verifies $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ by checking at evaluation point $\kappa$: $m_j = l_j + \kappa^\ell \cdot r_j$
 
-**Implementation** (`merge_verifier.cpp:99-114`):
+**Implementation** (`merge_verifier.cpp`):
 ```cpp
 bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const
 {
@@ -324,9 +324,9 @@ Within the **CHONK** proving system, the Merge Protocol achieves zero-knowledge 
 
 **6 random operations total:**
 
-1. **3 random non-ops** (tail kernel, `chonk.cpp:513-518`) → Prepended to table start
-2. **2 random non-ops** (hiding kernel, `chonk.cpp:528-532`) → Appended to table end
-3. **1 valid random ECC op** (translator, `chonk.cpp:461-467`) → For accumulation hiding
+1. **3 random non-ops** (tail kernel, `Chonk::hide_op_queue_content_in_tail()`) → Prepended to table start
+2. **2 random non-ops** (hiding kernel, `Chonk::hide_op_queue_content_in_hiding()`) → Appended to table end
+3. **1 valid random ECC op** (translator, `Chonk::hide_op_queue_accumulation_result()`) → For accumulation hiding
 
 **Key distinctions:**
 - **Random non-ops (5 total)**: Ultra-only operations with random field elements (not pushed to `eccvm_ops_table`)
@@ -408,8 +408,8 @@ These operations batch across all 4 wires and draw from the **residual pool** of
 2. 2 DoF margin is thin - sensitive to protocol changes
 
 **Implementation references:**
-- `chonk.cpp:450-532` - Random op placement logic
-- `ecc_op_queue.hpp:236-250` - `random_op_ultra_only()` method
+- `Chonk::hide_op_queue_content_in_tail()`, `Chonk::hide_op_queue_content_in_hiding()`, `Chonk::hide_op_queue_accumulation_result()`
+- `ECCOpQueue::random_op_ultra_only()`
 
 ## References
 
@@ -465,7 +465,7 @@ Circuit i                 Circuit i+1 (Kernel)               Circuit i+2
 
 #### 1. Public Input Binding
 
-**KernelIO Structure** (`special_public_inputs.hpp:50-142`):
+**KernelIO Structure** (`special_public_inputs.hpp`):
 ```cpp
 class KernelIO {
     TableCommitments ecc_op_tables; // 4 commitments [M_1]...[M_4]
@@ -491,42 +491,42 @@ After merge verification in kernel $K_i$, merged commitments $[M_{i,j}]$ are set
 
 #### 2. Witness Commitment Extraction
 
-`chonk.cpp:204`: `merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy()` extracts columns 8-11 (`ecc_op_wire_1..4`). These commitments are already in transcript from Oink/HyperNova.
+`Chonk::perform_recursive_verification_and_databus_consistency_checks()`: `merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy()` extracts columns 8-11 (`ecc_op_wire_1..4`). These commitments are already in transcript from Oink/HyperNova.
 
 #### 3. Transcript Sharing
 
-`merge_verifier.cpp:29-32`: $[t_j]$ already added by HyperNova, $[T_{\text{prev},j}]$ from previous merge. Shared transcript prevents forgery and binds all challenges to commitments via Fiat-Shamir.
+`MergeVerifier_::verify_proof()`: $[t_j]$ already added by HyperNova, $[T_{\text{prev},j}]$ from previous merge. Shared transcript prevents forgery and binds all challenges to commitments via Fiat-Shamir.
 
 #### 4. First Circuit Special Case
 
-`chonk.cpp:130-132`: For OINK (first app), `T_prev_commitments = empty_ecc_op_tables(circuit)` (point at infinity, `special_public_inputs.hpp:36-44`). Fixes starting point, prevents initial state manipulation.
+`Chonk::perform_recursive_verification_and_databus_consistency_checks()`: For OINK (first app), `T_prev_commitments = empty_ecc_op_tables(circuit)` (point at infinity, see `empty_ecc_op_tables()` in `special_public_inputs.hpp`). Fixes starting point, prevents initial state manipulation.
 
 #### 5. Merge Mode
 
-`merge_verifier.cpp:65-72`: PREPEND (default): $L_j = t_j$, $R_j = T_{\text{prev},j}$; APPEND (hiding kernel): $L_j = T_{\text{prev},j}$, $R_j = t_j$
+`MergeVerifier_::verify_proof()`: PREPEND (default): $L_j = t_j$, $R_j = T_{\text{prev},j}$; APPEND (hiding kernel): $L_j = T_{\text{prev},j}$, $R_j = t_j$
 
 ### Verification Flow at Each Step
 
 **Step-by-step for kernel $K_i$ verifying circuit $C_i$:**
 
-1. **Extract commitments** (`chonk.cpp:204`):
+1. **Extract commitments** (`Chonk::perform_recursive_verification_and_databus_consistency_checks()`):
    - `t_commitments` ← witness commitments (ecc_op_wires) from $C_i$'s proof
    - `T_prev_commitments` ← public inputs from $K_{i-1}$ (previous kernel)
 
-2. **Pass to merge verifier** (`chonk.cpp:207-208`):
+2. **Pass to merge verifier** (`Goblin::recursively_verify_merge()`):
    ```cpp
    auto [merge_pairing_points, merged_table_commitments] =
        goblin.recursively_verify_merge(circuit, merge_commitments, transcript);
    ```
 
-3. **Merge verification** (`merge_verifier.cpp:41-137`)
+3. **Merge verification** (`MergeVerifier_::verify_proof()`)
 
-4. **Update state** (`chonk.cpp:277`):
+4. **Update state** (`Chonk::complete_kernel_circuit_logic()`):
    ```cpp
    T_prev_commitments = merged_table_commitments;
    ```
 
-5. **Propagate via public inputs** (`chonk.cpp:307`):
+5. **Propagate via public inputs** (`KernelIO::set_public()`):
    ```cpp
    kernel_output.ecc_op_tables = T_prev_commitments;
    kernel_output.set_public(); // Adds to public inputs
@@ -542,7 +542,8 @@ After merge verification in kernel $K_i$, merged commitments $[M_{i,j}]$ are set
 
 ### Final Goblin Verification
 
-From `chonk.cpp:579-590`:
+`Chonk::verify()` extracts final commitments from hiding kernel public inputs and verifies the complete Goblin proof:
+
 ```cpp
 // Extract final merged commitments from hiding kernel public inputs
 auto [mega_verified, kernel_return_data, T_prev_commitments] =
@@ -559,7 +560,7 @@ bool goblin_verified = Goblin::verify(
 **Final consistency check:**
 - `t_commitments`: Hiding kernel's ecc_op_wires (from witness commitments)
 - `T_prev_commitments`: Final merged table (from hiding kernel public inputs)
-- Goblin verifier runs final merge verification in APPEND mode
+- `Goblin::verify()` runs final merge verification in APPEND mode
 - Translator and ECCVM use the same merged table commitments
 
 ## Op Queue Lifecycle in CHONK
