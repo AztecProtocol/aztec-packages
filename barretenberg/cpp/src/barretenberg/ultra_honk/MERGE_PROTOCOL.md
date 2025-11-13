@@ -487,6 +487,346 @@ These operations batch across all 4 wires and draw from the **residual pool** of
 5. **Stackproofs**: [Paper](https://eprint.iacr.org/2024/1281)
 6. <a name="ref-thakur"></a>**Thakur - Batching Non-Membership Proofs with Bilinear Accumulators**: [Paper](https://eprint.iacr.org/2019/1147.pdf), Section 6.2 (Degree Check Protocol)
 
+## Commitment Propagation and Consistency
+
+### Overview
+
+The merge protocol's soundness relies on **cryptographic consistency** between commitments used across folding steps. Commitments flow through the system via **public inputs**, ensuring that the prover cannot manipulate op queue state between circuits.
+
+### Commitment Flow Through CHONK
+
+```
+Circuit i                 Circuit i+1 (Kernel)               Circuit i+2
+   |                             |                                |
+   | Oink/HN commits             | Reads from pub inputs          |
+   | to ecc_op_wires             |                                |
+   | [t_i,1]...[t_i,4]          |                                |
+   |                             |                                |
+   +---> Added to transcript --> +                                |
+         (witness commitments)    |                                |
+                                  |                                |
+                              Merge Verifier                       |
+                              • Receives [t_i,j]                   |
+                              • Receives [T_prev,j]                |
+                                from kernel_i.public_inputs        |
+                              • Verifies merge proof               |
+                              • Outputs [M_i,j]                    |
+                                                                   |
+                              kernel_i.public_inputs               |
+                              • ecc_op_tables = [M_i,1]...[M_i,4] |
+                              • Set to public                      |
+                                                                   |
+                                  +-------------------------------> +
+                                  | [M_i,j] becomes [T_prev,j]     |
+                                  | in next merge verification     |
+                                                                   |
+                                                              Next Merge
+                                                              • [t_{i+1},j] from witness
+                                                              • [T_prev,j] = [M_i,j]
+                                                              • Outputs [M_{i+1},j]
+```
+
+### Input Commitments Structure
+
+From `merge_verifier.hpp:47-50`:
+```cpp
+struct InputCommitments {
+    TableCommitments t_commitments;      // Current subtable [t_1]...[t_4]
+    TableCommitments T_prev_commitments; // Previous aggregate [T_prev,1]...[T_prev,4]
+};
+```
+
+**Source of commitments:**
+- **`t_commitments`**: Extracted from witness commitments (ecc_op_wires) of the circuit being verified
+- **`T_prev_commitments`**: Retrieved from public inputs of the previous kernel circuit
+
+### Consistency Enforcement Mechanisms
+
+#### 1. Public Input Binding
+
+**KernelIO Structure** (`special_public_inputs.hpp:50-142`):
+```cpp
+class KernelIO {
+    TableCommitments ecc_op_tables; // 4 commitments [M_1]...[M_4]
+    // ... other fields ...
+
+    void set_public() {
+        // Each commitment is added as public input
+        for (auto& table_commitment : ecc_op_tables) {
+            table_commitment.set_public();
+        }
+    }
+
+    void reconstruct_from_public(const std::vector<FF>& public_inputs) {
+        // Reconstructs commitments from public inputs
+        for (auto& table_commitment : ecc_op_tables) {
+            table_commitment = PublicPoint::reconstruct(public_inputs, ...);
+        }
+    }
+};
+```
+
+**Binding mechanism:**
+1. After merge verification in kernel $K_i$, merged commitments $[M_{i,j}]$ are set as public inputs
+2. Kernel $K_{i+1}$ reads these commitments from $K_i$'s public inputs via `kernel_input.ecc_op_tables`
+3. These become `T_prev_commitments` for the next merge verification
+4. **Any tampering** would break the Fiat-Shamir transcript, causing verification to fail
+
+#### 2. Witness Commitment Extraction
+
+From `chonk.cpp:204`:
+```cpp
+// Extract commitments to current subtable from witness commitments
+merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
+```
+
+**Process:**
+1. Oink (for OINK circuits) or HyperNova (for folded circuits) commits to witness columns
+2. Columns 8-11 in Mega flavor are `ecc_op_wire_1` through `ecc_op_wire_4`
+3. These commitments are **already in the transcript** when merge verification begins
+4. Merge verifier uses these commitments directly (doesn't re-commit)
+
+#### 3. Transcript Sharing
+
+From `merge_verifier.cpp:29-32`:
+> The prover doesn't commit to $t_j$ because it shares a transcript with the HN instance that folds
+> the present circuit, and therefore $t_j$ has already been added to the transcript by HN. Similarly, it doesn't commit
+> to $T_{\text{prev}, j}$ because the transcript is shared by entire recursive verification and therefore $T_{\text{prev}, j}$ has been
+> added to the transcript in the previous round of Merge verification.
+
+**Shared transcript ensures:**
+- Commitments cannot be forged or replaced
+- Challenge generation is deterministic and bound to all prior commitments
+- Fiat-Shamir security: any inconsistency → transcript mismatch → verification failure
+
+#### 4. First Circuit Special Case
+
+From `chonk.cpp:130-132`:
+```cpp
+case QUEUE_TYPE::OINK:
+    // T_prev = 0 in the first recursive verification
+    merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
+```
+
+**For the first app circuit:**
+- No previous aggregate table exists
+- `T_prev_commitments` set to **point at infinity** (empty tables)
+- Defined in `special_public_inputs.hpp:36-44`:
+  ```cpp
+  std::array<Group, NUM_WIRES> empty_ecc_op_tables(Builder& builder) {
+      std::array<Group, NUM_WIRES> empty_tables;
+      for (auto& table_commitment : empty_tables) {
+          table_commitment = Group::point_at_infinity(&builder);
+      }
+      return empty_tables;
+  }
+  ```
+- **This fixes the starting point**, preventing prover from lying about initial state
+
+#### 5. Merge Mode and Commitment Assignment
+
+From `merge_verifier.cpp:65-72`:
+```cpp
+// Assign L and R based on merge mode
+for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    table_commitments.emplace_back(settings == MergeSettings::PREPEND
+        ? input_commitments.t_commitments[idx]      // L = t, R = T_prev
+        : input_commitments.T_prev_commitments[idx]); // L = T_prev, R = t
+}
+for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    table_commitments.emplace_back(settings == MergeSettings::PREPEND
+        ? input_commitments.T_prev_commitments[idx]
+        : input_commitments.t_commitments[idx]);
+}
+```
+
+**PREPEND mode** (default): $L_j = t_j$, $R_j = T_{\text{prev},j}$ → $M_j = [t_j | T_{\text{prev},j}]$
+**APPEND mode** (hiding kernel): $L_j = T_{\text{prev},j}$, $R_j = t_j$ → $M_j = [T_{\text{prev},j} | t_j]$
+
+### Verification Flow at Each Step
+
+**Step-by-step for kernel $K_i$ verifying circuit $C_i$:**
+
+1. **Extract commitments** (`chonk.cpp:204`):
+   - `t_commitments` ← witness commitments (ecc_op_wires) from $C_i$'s proof
+   - `T_prev_commitments` ← public inputs from $K_{i-1}$ (previous kernel)
+
+2. **Pass to merge verifier** (`chonk.cpp:207-208`):
+   ```cpp
+   auto [merge_pairing_points, merged_table_commitments] =
+       goblin.recursively_verify_merge(circuit, merge_commitments, transcript);
+   ```
+
+3. **Merge verification** (`merge_verifier.cpp:41-137`):
+   - Uses `input_commitments.t_commitments` and `input_commitments.T_prev_commitments` directly
+   - Receives new commitments $[M_j]$ and $[G]$ from proof
+   - Verifies concatenation and degree checks
+   - Returns `merged_table_commitments` = $[M_1], \ldots, [M_4]$
+
+4. **Update state** (`chonk.cpp:277`):
+   ```cpp
+   T_prev_commitments = merged_table_commitments;
+   ```
+
+5. **Propagate via public inputs** (`chonk.cpp:307`):
+   ```cpp
+   kernel_output.ecc_op_tables = T_prev_commitments;
+   kernel_output.set_public(); // Adds to public inputs
+   ```
+
+6. **Next iteration** reads from public inputs (step 1)
+
+### Security Properties
+
+1. **Immutability**: Once commitments are in public inputs, they cannot be changed
+2. **Traceability**: Each merge output is cryptographically bound to its inputs
+3. **Consistency**: Same commitments used by Merge and Translator (copy-constrained)
+4. **Tamper-Evidence**: Any modification breaks Fiat-Shamir transcript
+
+### Final Goblin Verification
+
+From `chonk.cpp:579-590`:
+```cpp
+// Extract final merged commitments from hiding kernel public inputs
+auto [mega_verified, kernel_return_data, T_prev_commitments] =
+    verifier.verify_proof<HidingKernelIO>(proof.mega_proof);
+
+// Goblin verification uses final commitments
+bool goblin_verified = Goblin::verify(
+    proof.goblin_proof,
+    { t_commitments, T_prev_commitments },  // InputCommitments
+    chonk_verifier_transcript,
+    MergeSettings::APPEND);
+```
+
+**Final consistency check:**
+- `t_commitments`: Hiding kernel's ecc_op_wires (from witness commitments)
+- `T_prev_commitments`: Final merged table (from hiding kernel public inputs)
+- Goblin verifier runs final merge verification in APPEND mode
+- Translator and ECCVM use the same merged table commitments
+
+## Op Queue Lifecycle in CHONK
+
+The ECC operation queue is built incrementally through CHONK execution, with **merge verification happening at each accumulation step**:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Step 1: First App Circuit (OINK)                                   │
+├─────────────────────────────────────────────────────────────────────┤
+│ • App circuit generates ECC ops → subtable t₁                      │
+│ • Commitments [t₁,ⱼ] added to transcript by Oink                   │
+│ • Merge verification: L = t₁, R = ∅ (empty)                        │
+│ • Result: M₁ = t₁ (first aggregate table)                          │
+│ • Update: T_prev ← M₁                                               │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ Step 2 through N-3: App/Kernel Circuits (HN, PREPEND mode)         │
+├─────────────────────────────────────────────────────────────────────┤
+│ For each circuit i:                                                 │
+│   • Circuit generates ECC ops → subtable tᵢ                         │
+│   • Commitments [tᵢ,ⱼ] added to transcript by HyperNova            │
+│   • Merge verification (PREPEND): L = tᵢ, R = T_prev               │
+│   • Merge proves: Mᵢ = tᵢ + X^ℓ · T_prev                           │
+│   • Merge proves: deg(tᵢ) < ℓ (degree check)                       │
+│   • Result: Mᵢ = [tᵢ | T_prev]                                     │
+│   • Update: T_prev ← Mᵢ                                             │
+│                                                                     │
+│ Growing structure: [t_N | ... | t_3 | t_2 | t_1]                   │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ Step N-2: Tail Kernel (HN_FINAL, PREPEND mode)                     │
+├─────────────────────────────────────────────────────────────────────┤
+│ • No-op added first (for shiftability of translator wires)         │
+│ • 3 RANDOM NON-OPS prepended (ZK masking for left table)           │
+│ • Tail kernel operations                                            │
+│ • Subtable: t_tail = [no-op | 3 random | tail_ops]                 │
+│ • Commitments [t_tail,ⱼ] added to transcript                       │
+│ • Merge verification (PREPEND): L = t_tail, R = T_prev             │
+│ • Result: M_tail = [t_tail | all previous ops]                     │
+│ • Update: T_prev ← M_tail                                           │
+│                                                                     │
+│ Structure now: [no-op | 3 random | tail_ops | app/kernel ops | t₁]│
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ Step N-1: Hiding Kernel (MEGA, APPEND mode) ← KEY DIFFERENCE!      │
+├─────────────────────────────────────────────────────────────────────┤
+│ During recursive verification of tail kernel (HN_FINAL case):      │
+│   • 1 VALID RANDOM ECC OP added (for translator accumulation)      │
+│                                                                     │
+│ Hiding kernel circuit completion:                                  │
+│   • Hiding kernel operations                                        │
+│   • 2 RANDOM NON-OPS appended at end (ZK masking for right table)  │
+│   • Subtable: t_hiding = [hiding_ops | 2 random non-ops]           │
+│   • Commitments [t_hiding,ⱼ] added to transcript                   │
+│   • Merge verification (APPEND): L = T_prev, R = t_hiding          │
+│   • FINAL merge proves: M_final = T_prev + X^ℓ · t_hiding          │
+│   • Result: M_final = [T_prev | t_hiding]                          │
+│                                                                     │
+│ NOTE: APPEND mode places hiding kernel at the END, not beginning   │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ Final Op Queue Structure: Randomness Surrounds Real Ops            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│ M_final,ⱼ = [no-op | 3 random | tail_ops | apps | hiding | 2 random]│
+│                                                                     │
+│ Detailed layout:                                                    │
+│ ┌────┬──────────┬──────────┬──────────┬──────────┬──────────┐      │
+│ │No-op│3 random │Tail ops │App/Kernel│ Hiding  │2 random  │      │
+│ │     │non-ops  │         │   ops    │  ops    │non-ops   │      │
+│ └────┴──────────┴──────────┴──────────┴──────────┴──────────┘      │
+│  ↑              ↑                                 ↑                 │
+│  For            Left table in                     Right table in    │
+│  shiftability   final merge                       final merge       │
+│                 (degree check)                    (ecc_op_wires)    │
+│                                                                     │
+│ ZK Masking Strategy:                                                │
+│ • 3 random non-ops at START (from tail kernel, prepended)           │
+│ • 2 random non-ops at END (from hiding kernel, appended)            │
+│ • 1 valid random ECC op (added during tail verification)            │
+│                                                                     │
+│ → Real application operations are SURROUNDED by randomness          │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ Final Proof Generation (3 Protocols)                               │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│ 1. MERGE PROTOCOL (THIS PROTOCOL)                                  │
+│    Final merge (APPEND mode):                                      │
+│    • L = T_prev (all previous ops including tail with 3 random)    │
+│    • R = t_hiding (hiding kernel with 2 random non-ops at end)     │
+│    • Proves: M = L + X^ℓ · R and deg(L) < ℓ                        │
+│    • Commitments: [M_j], [G] (new); [L_j], [R_j] (from transcript) │
+│                                                                     │
+│ 2. TRANSLATOR PROTOCOL                                             │
+│    • Proves BN254 ↔ Grumpkin translation correctness              │
+│    • Uses SAME commitments [M_j] as Merge (copy-constrained)       │
+│    • All 6 random ops contribute to ZK                             │
+│                                                                     │
+│ 3. ECCVM PROTOCOL                                                   │
+│    • Proves ECC operations executed correctly                      │
+│    • Only real ops + 1 valid random op (excludes 5 random non-ops) │
+│                                                                     │
+│ → Combined into complete CHONK proof for recursive verification    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Insights:**
+
+1. **Incremental Merge**: Merge verification happens **at each circuit accumulation**, not just at the end
+2. **Mode Switch**: Most circuits use PREPEND mode; **hiding kernel uses APPEND mode**
+3. **Randomness Placement**: Strategic use of PREPEND (tail) and APPEND (hiding) ensures random ops **surround** real application ops
+4. **Transcript Sharing**: Each merge reuses commitments $[t_j]$ (from HyperNova/Oink) and $[T_{\text{prev},j}]$ (from previous merge)
+5. **Final Merge Structure**:
+   - **Left table** (degree checked): All previous ops including tail kernel's 3 random non-ops at start
+   - **Right table** (ecc_op_wires in MegaZK): Hiding kernel with 2 random non-ops at end
+6. **Copy-Constrained Commitments**: Merge and Translator share $[M_j]$, not separate commitments
+
 ## Contributing
 
 When modifying the Merge Protocol:
@@ -494,38 +834,3 @@ When modifying the Merge Protocol:
 2. Add tests for both native and recursive verification
 3. Verify that degree check and concatenation check are independently tested
 4. Update this documentation if the protocol changes
-
-## Appendix: Mathematical Proofs
-
-### Proof of Degree Check Correctness
-
-**Claim**: If $\deg(L_j) < k$ for all $j$, then $G(\kappa^{-1}) = \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(\kappa)\right) \cdot \kappa^{-(k-1)}$.
-
-**Proof**:
-1. By definition, $G(X) = X^{k-1} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})\right)$
-2. Evaluating at $\kappa^{-1}$: $G(\kappa^{-1}) = (\kappa^{-1})^{k-1} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(\kappa)\right)$
-3. Simplifying: $G(\kappa^{-1}) = \kappa^{-(k-1)} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(\kappa)\right)$
-4. Rearranging: $\left(\sum_{i=1}^{4} \alpha_i \cdot L_i(\kappa)\right) = G(\kappa^{-1}) \cdot \kappa^{k-1}$ ∎
-
-**Claim**: If $\deg(L_j) \geq k$ for any $j$, the check fails with overwhelming probability.
-
-**Proof**:
-1. If $\deg(L_j) \geq k$, then $L_j(X)$ has a term $c \cdot X^k$ with $c \neq 0$
-2. The reversed polynomial $L_j^*(X) = X^{k-1} \cdot L_j(X^{-1})$ will have terms of degree $< k-1$
-3. The evaluation $L_j^*(\kappa^{-1})$ will not satisfy the identity
-4. With random batching challenges $\alpha_i$, the batched check fails with probability $\geq 1 - \frac{1}{|\mathbb{F}|}$ ∎
-
-### Proof of Concatenation Check Correctness
-
-**Claim**: $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ for all $X$ if and only if $m_j = l_j + \kappa^\ell \cdot r_j$ where $\kappa$ is random.
-
-**Proof** ($\Rightarrow$):
-1. If $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ for all $X$, then it holds at $X = \kappa$
-2. Therefore $M_j(\kappa) = L_j(\kappa) + \kappa^\ell \cdot R_j(\kappa)$, i.e., $m_j = l_j + \kappa^\ell \cdot r_j$ ∎
-
-**Proof** ($\Leftarrow$):
-1. Define $D_j(X) = M_j(X) - L_j(X) - X^\ell \cdot R_j(X)$
-2. If the check passes, then $D_j(\kappa) = 0$
-3. By Schwartz-Zippel, if $D_j \neq 0$, then $\Pr[D_j(\kappa) = 0] \leq \frac{\deg(D_j)}{|\mathbb{F}|}$
-4. Since $\deg(D_j) < |\mathbb{F}|$, the probability is negligible
-5. Therefore $D_j(X) = 0$ with overwhelming probability, i.e., $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ ∎
