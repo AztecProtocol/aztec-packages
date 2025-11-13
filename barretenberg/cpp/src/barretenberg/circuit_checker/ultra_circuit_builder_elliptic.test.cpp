@@ -58,6 +58,7 @@ inline auto add_dbl_gate_variables(UltraCircuitBuilder& builder, const DoublingP
                            builder.add_variable(points.result.y));
 }
 
+// Verifies that a valid elliptic curve point addition passes the circuit checker.
 TEST(UltraCircuitBuilderElliptic, Addition)
 {
     UltraCircuitBuilder builder;
@@ -69,6 +70,7 @@ TEST(UltraCircuitBuilderElliptic, Addition)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+// Verifies that invalidating any coordinate in an addition operation causes the circuit checker to fail.
 TEST(UltraCircuitBuilderElliptic, AdditionFailure)
 {
     auto test_invalid_coordinate = [](auto modify_points) {
@@ -88,6 +90,7 @@ TEST(UltraCircuitBuilderElliptic, AdditionFailure)
     test_invalid_coordinate([](AdditionPoints& p) { p.result.y += bb::fr(1); });
 }
 
+// Verifies that a valid elliptic curve point subtraction passes the circuit checker.
 TEST(UltraCircuitBuilderElliptic, Subtraction)
 {
     UltraCircuitBuilder builder;
@@ -97,6 +100,7 @@ TEST(UltraCircuitBuilderElliptic, Subtraction)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+// Verifies that invalidating any coordinate in a subtraction operation causes the circuit checker to fail.
 TEST(UltraCircuitBuilderElliptic, SubtractionFailure)
 {
     auto test_invalid_coordinate = [](auto modify_points) {
@@ -116,6 +120,7 @@ TEST(UltraCircuitBuilderElliptic, SubtractionFailure)
     test_invalid_coordinate([](AdditionPoints& p) { p.result.y += bb::fr(1); });
 }
 
+// Verifies that a valid elliptic curve point doubling passes the circuit checker.
 TEST(UltraCircuitBuilderElliptic, Double)
 {
     UltraCircuitBuilder builder;
@@ -127,6 +132,7 @@ TEST(UltraCircuitBuilderElliptic, Double)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+// Verifies that invalidating any coordinate in a doubling operation causes the circuit checker to fail.
 TEST(UltraCircuitBuilderElliptic, DoubleFailure)
 {
     auto test_invalid_coordinate = [](auto modify_points) {
@@ -144,6 +150,7 @@ TEST(UltraCircuitBuilderElliptic, DoubleFailure)
     test_invalid_coordinate([](DoublingPoints& p) { p.result.y += bb::fr(1); });
 }
 
+// Verifies that multiple independent elliptic curve operations can coexist in a circuit.
 TEST(UltraCircuitBuilderElliptic, MultipleOperationsUnchained)
 {
     UltraCircuitBuilder builder;
@@ -166,6 +173,7 @@ TEST(UltraCircuitBuilderElliptic, MultipleOperationsUnchained)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+// Verifies that chaining two operations by reusing intermediate results reduces the gate count.
 TEST(UltraCircuitBuilderElliptic, ChainedOperations)
 {
     UltraCircuitBuilder builder;
@@ -193,6 +201,7 @@ TEST(UltraCircuitBuilderElliptic, ChainedOperations)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+// Verifies that a chain of three operations (add-double-add) correctly reuses intermediate results.
 TEST(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
 {
     UltraCircuitBuilder builder;
@@ -229,6 +238,7 @@ TEST(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+// Verifies that invalidating a middle operation in a chain causes circuit checker to fail
 TEST(UltraCircuitBuilderElliptic, ChainedOperationsDoubleFailure)
 {
     UltraCircuitBuilder builder;
