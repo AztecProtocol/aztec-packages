@@ -457,16 +457,6 @@ Circuit i                 Circuit i+1 (Kernel)               Circuit i+2
                                                               • Outputs [M_{i+1},j]
 ```
 
-### Input Commitments Structure
-
-From `merge_verifier.hpp:47-50`:
-```cpp
-struct InputCommitments {
-    TableCommitments t_commitments;      // Current subtable [t_1]...[t_4]
-    TableCommitments T_prev_commitments; // Previous aggregate [T_prev,1]...[T_prev,4]
-};
-```
-
 **Source of commitments:**
 - **`t_commitments`**: Extracted from witness commitments (ecc_op_wires) of the circuit being verified
 - **`T_prev_commitments`**: Retrieved from public inputs of the previous kernel circuit
@@ -497,82 +487,23 @@ class KernelIO {
 };
 ```
 
-**Binding mechanism:**
-1. After merge verification in kernel $K_i$, merged commitments $[M_{i,j}]$ are set as public inputs
-2. Kernel $K_{i+1}$ reads these commitments from $K_i$'s public inputs via `kernel_input.ecc_op_tables`
-3. These become `T_prev_commitments` for the next merge verification
-4. **Any tampering** would break the Fiat-Shamir transcript, causing verification to fail
+After merge verification in kernel $K_i$, merged commitments $[M_{i,j}]$ are set as public inputs. Kernel $K_{i+1}$ reads them via `kernel_input.ecc_op_tables` to use as `T_prev_commitments`.
 
 #### 2. Witness Commitment Extraction
 
-From `chonk.cpp:204`:
-```cpp
-// Extract commitments to current subtable from witness commitments
-merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
-```
-
-**Process:**
-1. Oink (for OINK circuits) or HyperNova (for folded circuits) commits to witness columns
-2. Columns 8-11 in Mega flavor are `ecc_op_wire_1` through `ecc_op_wire_4`
-3. These commitments are **already in the transcript** when merge verification begins
-4. Merge verifier uses these commitments directly (doesn't re-commit)
+`chonk.cpp:204`: `merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy()` extracts columns 8-11 (`ecc_op_wire_1..4`). These commitments are already in transcript from Oink/HyperNova.
 
 #### 3. Transcript Sharing
 
-From `merge_verifier.cpp:29-32`:
-> The prover doesn't commit to $t_j$ because it shares a transcript with the HN instance that folds
-> the present circuit, and therefore $t_j$ has already been added to the transcript by HN. Similarly, it doesn't commit
-> to $T_{\text{prev}, j}$ because the transcript is shared by entire recursive verification and therefore $T_{\text{prev}, j}$ has been
-> added to the transcript in the previous round of Merge verification.
-
-**Shared transcript ensures:**
-- Commitments cannot be forged or replaced
-- Challenge generation is deterministic and bound to all prior commitments
-- Fiat-Shamir security: any inconsistency → transcript mismatch → verification failure
+`merge_verifier.cpp:29-32`: $[t_j]$ already added by HyperNova, $[T_{\text{prev},j}]$ from previous merge. Shared transcript prevents forgery and binds all challenges to commitments via Fiat-Shamir.
 
 #### 4. First Circuit Special Case
 
-From `chonk.cpp:130-132`:
-```cpp
-case QUEUE_TYPE::OINK:
-    // T_prev = 0 in the first recursive verification
-    merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
-```
+`chonk.cpp:130-132`: For OINK (first app), `T_prev_commitments = empty_ecc_op_tables(circuit)` (point at infinity, `special_public_inputs.hpp:36-44`). Fixes starting point, prevents initial state manipulation.
 
-**For the first app circuit:**
-- No previous aggregate table exists
-- `T_prev_commitments` set to **point at infinity** (empty tables)
-- Defined in `special_public_inputs.hpp:36-44`:
-  ```cpp
-  std::array<Group, NUM_WIRES> empty_ecc_op_tables(Builder& builder) {
-      std::array<Group, NUM_WIRES> empty_tables;
-      for (auto& table_commitment : empty_tables) {
-          table_commitment = Group::point_at_infinity(&builder);
-      }
-      return empty_tables;
-  }
-  ```
-- **This fixes the starting point**, preventing prover from lying about initial state
+#### 5. Merge Mode
 
-#### 5. Merge Mode and Commitment Assignment
-
-From `merge_verifier.cpp:65-72`:
-```cpp
-// Assign L and R based on merge mode
-for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-    table_commitments.emplace_back(settings == MergeSettings::PREPEND
-        ? input_commitments.t_commitments[idx]      // L = t, R = T_prev
-        : input_commitments.T_prev_commitments[idx]); // L = T_prev, R = t
-}
-for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-    table_commitments.emplace_back(settings == MergeSettings::PREPEND
-        ? input_commitments.T_prev_commitments[idx]
-        : input_commitments.t_commitments[idx]);
-}
-```
-
-**PREPEND mode** (default): $L_j = t_j$, $R_j = T_{\text{prev},j}$ → $M_j = [t_j | T_{\text{prev},j}]$
-**APPEND mode** (hiding kernel): $L_j = T_{\text{prev},j}$, $R_j = t_j$ → $M_j = [T_{\text{prev},j} | t_j]$
+`merge_verifier.cpp:65-72`: PREPEND (default): $L_j = t_j$, $R_j = T_{\text{prev},j}$; APPEND (hiding kernel): $L_j = T_{\text{prev},j}$, $R_j = t_j$
 
 ### Verification Flow at Each Step
 
@@ -588,11 +519,7 @@ for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
        goblin.recursively_verify_merge(circuit, merge_commitments, transcript);
    ```
 
-3. **Merge verification** (`merge_verifier.cpp:41-137`):
-   - Uses `input_commitments.t_commitments` and `input_commitments.T_prev_commitments` directly
-   - Receives new commitments $[M_j]$ and $[G]$ from proof
-   - Verifies concatenation and degree checks
-   - Returns `merged_table_commitments` = $[M_1], \ldots, [M_4]$
+3. **Merge verification** (`merge_verifier.cpp:41-137`)
 
 4. **Update state** (`chonk.cpp:277`):
    ```cpp
@@ -609,10 +536,9 @@ for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
 
 ### Security Properties
 
-1. **Immutability**: Once commitments are in public inputs, they cannot be changed
-2. **Traceability**: Each merge output is cryptographically bound to its inputs
-3. **Consistency**: Same commitments used by Merge and Translator (copy-constrained)
-4. **Tamper-Evidence**: Any modification breaks Fiat-Shamir transcript
+1. Once commitments are in public inputs, they cannot be changed
+2. **Consistency**: Same commitments used by Merge and Translator (copy-constrained)
+3. **Tamper-Evidence**: Any modification breaks Fiat-Shamir transcript
 
 ### Final Goblin Verification
 
@@ -749,19 +675,11 @@ The ECC operation queue is built incrementally through CHONK execution, with **m
 
 **Key Insights:**
 
-1. **Incremental Merge**: Merge verification happens **at each circuit accumulation**, not just at the end
+1. **Incremental Merge**: Merge verification happens **at each circuit accumulation**
 2. **Mode Switch**: Most circuits use PREPEND mode; **hiding kernel uses APPEND mode**
-3. **Randomness Placement**: Strategic use of PREPEND (tail) and APPEND (hiding) ensures random ops **surround** real application ops
+3. **Randomness Placement**: The usage of PREPEND (tail) and APPEND (hiding) modes ensures random ops **surround** real application ops
 4. **Transcript Sharing**: Each merge reuses commitments $[t_j]$ (from HyperNova/Oink) and $[T_{\text{prev},j}]$ (from previous merge)
 5. **Final Merge Structure**:
    - **Left table** (degree checked): All previous ops including tail kernel's 3 random non-ops at start
    - **Right table** (ecc_op_wires in MegaZK): Hiding kernel with 2 random non-ops at end
 6. **Copy-Constrained Commitments**: Merge and Translator share $[M_j]$, not separate commitments
-
-## Contributing
-
-When modifying the Merge Protocol:
-1. Ensure transcript labels remain consistent between prover and verifier
-2. Add tests for both native and recursive verification
-3. Verify that degree check and concatenation check are independently tested
-4. Update this documentation if the protocol changes
