@@ -337,14 +337,14 @@ library ZKTranscriptLib {
             }
         }
 
+        p.libraEvaluation = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+        boundary += FIELD_ELEMENT_SIZE;
+
         // Sumcheck evaluations (includes gemini_masking_poly eval at index 0 for ZK flavors)
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES_ZK; i++) {
             p.sumcheckEvaluations[i] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
             boundary += FIELD_ELEMENT_SIZE;
         }
-
-        p.libraEvaluation = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
-        boundary += FIELD_ELEMENT_SIZE;
 
         p.libraCommitments[1] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
         boundary += GROUP_ELEMENT_SIZE;
@@ -374,6 +374,5 @@ library ZKTranscriptLib {
         boundary += GROUP_ELEMENT_SIZE;
         // KZG
         p.kzgQuotient = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
-        boundary += GROUP_ELEMENT_SIZE;
     }
 }

@@ -280,8 +280,8 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
         Fr[] memory powers_of_evaluation_challenge = CommitmentSchemeLib.computeSquares(tp.geminiR, $LOG_N);
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
-        Fr[] memory scalars = new Fr[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 1);
-        Honk.G1Point[] memory commitments = new Honk.G1Point[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 1);
+        Fr[] memory scalars = new Fr[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 2);
+        Honk.G1Point[] memory commitments = new Honk.G1Point[](NUMBER_UNSHIFTED_ZK + $LOG_N + LIBRA_COMMITMENTS + 2);
 
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
@@ -342,7 +342,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // Applied to w1, w2, w3, w4 and zPerm
         for (uint256 i = 0; i < NUMBER_TO_BE_SHIFTED; ++i) {
             uint256 scalarOff = i + SHIFTED_COMMITMENTS_START;
-            uint256 evaluationOff = i + NUMBER_UNSHIFTED_ZK;
+            uint256 evaluationOff = i + NUMBER_UNSHIFTED;
 
             scalars[scalarOff] = scalars[scalarOff] + (mem.shiftedScalarNeg * mem.batchingChallenge);
             mem.batchedEvaluation =
