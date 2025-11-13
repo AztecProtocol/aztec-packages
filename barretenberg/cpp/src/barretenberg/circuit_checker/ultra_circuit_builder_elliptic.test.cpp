@@ -144,7 +144,7 @@ TEST(UltraCircuitBuilderElliptic, DoubleFailure)
     test_invalid_coordinate([](DoublingPoints& p) { p.result.y += bb::fr(1); });
 }
 
-TEST(UltraCircuitBuilderElliptic, MultipleOperations)
+TEST(UltraCircuitBuilderElliptic, MultipleOperationsUnchained)
 {
     UltraCircuitBuilder builder;
 
@@ -158,10 +158,11 @@ TEST(UltraCircuitBuilderElliptic, MultipleOperations)
     auto [sub_x1, sub_y1, sub_x2, sub_y2, sub_x3, sub_y3] = add_add_gate_variables(builder, sub_points);
     auto [dbl_x1, dbl_y1, dbl_x3, dbl_y3] = add_dbl_gate_variables(builder, dbl_points);
 
-    builder.create_ecc_add_gate({ add_x1, add_y1, add_x2, add_y2, add_x3, add_y3, 1 });
-    builder.create_ecc_add_gate({ sub_x1, sub_y1, sub_x2, sub_y2, sub_x3, sub_y3, -1 });
+    builder.create_ecc_add_gate({ add_x1, add_y1, add_x2, add_y2, add_x3, add_y3, /*sign_coefficient=*/1 });
+    builder.create_ecc_add_gate({ sub_x1, sub_y1, sub_x2, sub_y2, sub_x3, sub_y3, /*sign_coefficient=*/-1 });
     builder.create_ecc_dbl_gate({ dbl_x1, dbl_y1, dbl_x3, dbl_y3 });
 
+    EXPECT_EQ(builder.blocks.elliptic.size(), 6UL); // 3 unchained operations, 2 gates each
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -185,10 +186,85 @@ TEST(UltraCircuitBuilderElliptic, ChainedOperations)
     uint32_t x_result = builder.add_variable(result.x);
     uint32_t y_result = builder.add_variable(result.y);
 
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp, y_temp, 1 });
-    builder.create_ecc_add_gate({ x_temp, y_temp, x3, y3, x_result, y_result, 1 });
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp, y_temp, /*sign_coefficient=*/1 });
+    builder.create_ecc_add_gate({ x_temp, y_temp, x3, y3, x_result, y_result, /*sign_coefficient=*/1 });
 
+    EXPECT_EQ(builder.blocks.elliptic.size(), 3UL); // 2 chained operations = 2 + (2 - 1) gates
     EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+TEST(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
+{
+    UltraCircuitBuilder builder;
+
+    // Chain: p1 + p2 = temp1, then 2*temp1 = temp2, then temp2 + p3 = result
+    auto first_add = create_add_points(1, 2, true);
+    affine_element temp1 = first_add.result;
+
+    // Double temp1
+    affine_element temp2(element(temp1).dbl());
+
+    // Add p3 to temp2
+    affine_element p3 = crypto::pedersen_commitment::commit_native({ bb::fr(3) }, 0);
+    affine_element result(element(temp2) + element(p3));
+
+    // Add variables for first operation (addition)
+    auto [x1, y1, x2, y2, x_temp1, y_temp1] = add_add_gate_variables(builder, first_add);
+
+    // Add variables for second operation (doubling)
+    uint32_t x_temp2 = builder.add_variable(temp2.x);
+    uint32_t y_temp2 = builder.add_variable(temp2.y);
+
+    // Add variables for third operation (addition)
+    uint32_t x3 = builder.add_variable(p3.x);
+    uint32_t y3 = builder.add_variable(p3.y);
+    uint32_t x_result = builder.add_variable(result.x);
+    uint32_t y_result = builder.add_variable(result.y);
+
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*sign_coefficient=*/1 });
+    builder.create_ecc_dbl_gate({ x_temp1, y_temp1, x_temp2, y_temp2 });
+    builder.create_ecc_add_gate({ x_temp2, y_temp2, x3, y3, x_result, y_result, /*sign_coefficient=*/1 });
+
+    EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 3 chained operations, 2 + (2 - 1) + (2 - 1) gates
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+TEST(UltraCircuitBuilderElliptic, ChainedOperationsDoubleFailure)
+{
+    UltraCircuitBuilder builder;
+
+    // Chain: p1 + p2 = temp1, then 2*temp1 = temp2 (INVALID), then temp2 + p3 = result
+    auto first_add = create_add_points(1, 2, true);
+    affine_element temp1 = first_add.result;
+
+    // Double temp1
+    affine_element temp2(element(temp1).dbl());
+    temp2.x += bb::fr(1); // Invalidate the middle result
+
+    // Add p3 to (invalid) temp2
+    affine_element p3 = crypto::pedersen_commitment::commit_native({ bb::fr(3) }, 0);
+    affine_element result(element(temp2) + element(p3));
+
+    // Add variables for first operation (addition - valid)
+    auto [x1, y1, x2, y2, x_temp1, y_temp1] = add_add_gate_variables(builder, first_add);
+
+    // Add variables for second operation (doubling - INVALID)
+    uint32_t x_temp2 = builder.add_variable(temp2.x);
+    uint32_t y_temp2 = builder.add_variable(temp2.y);
+
+    // Add variables for third operation (addition)
+    uint32_t x3 = builder.add_variable(p3.x);
+    uint32_t y3 = builder.add_variable(p3.y);
+    uint32_t x_result = builder.add_variable(result.x);
+    uint32_t y_result = builder.add_variable(result.y);
+
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*sign_coefficient=*/1 });
+    builder.create_ecc_dbl_gate({ x_temp1, y_temp1, x_temp2, y_temp2 });
+    builder.create_ecc_add_gate({ x_temp2, y_temp2, x3, y3, x_result, y_result, /*sign_coefficient=*/1 });
+
+    EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 3 chained operations, 2 + (2 - 1) + (2 - 1) gates
+    // Should fail because the middle operation (doubling) has an invalid result
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 } // namespace bb
