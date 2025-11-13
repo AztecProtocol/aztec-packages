@@ -540,28 +540,27 @@ plookup::BasicTable& UltraCircuitBuilder_<ExecutionTrace>::get_table(const plook
  * lookups and the reconstruction of the desired result from those components.
  *
  * @details To perform a lookup, we often need to decompose inputs into smaller "limbs", look up each limb in a
- * BasicTable, then use those to reconstruct the result. E.g., to perform an XOR on uint32, we decompose into 6-bit
- * limbs, look up each limb's XOR in a 6-bit XOR table, then reconstruct the full 32-bit XOR from those limb results.
+ * BasicTable, then reconstruct the result. E.g., to perform a 32-bit XOR, we decompose into 6-bit limbs, look up each
+ * limb's XOR in a 6-bit XOR table, then reconstruct the full 32-bit XOR from those.
  *
  * This method creates a sequence of lookup gates that simultaneously establish (1) the individual BasicTable lookups,
- * and (2) the reconstruction of the final result from those limb lookups. This is done via an accumulator pattern:
- * Each gate stores accumulated sums in its wires and uses step size coefficients in selectors
- * to extract individual slices via: `wire[i] - q_2*wire[i+1] - q_m*wire[i+2] - q_c*wire[i+3]`, which yields the raw
- * slice to verify against the BasicTable.
+ * and (2) the reconstruction of the final result from the results of the BasicTable lookups. This is done via an
+ * accumulator pattern where the wires in each gate store accumulated sums and we use step size coefficients (stored in
+ * q_2, q_m, q_c) to extract actual table entries via an expression of the form `derived_entry_i = w_i - step_size_i *
+ * w_i_shift` where w_i is the wire value at the current row, w_i_shift is the wire value at the next row.
  *
  * The last lookup has zero step size coefficients (q_2 = q_m = q_c = 0) because there's no next accumulator to
  * subtract; its wire values already contain the raw slices.
  *
  * @param id MultiTable identifier specifying which lookup operation to perform
  * @param read_values Pre-computed accumulator values and lookup entries from plookup::get_lookup_accumulators
- * @param key_a_index Witness index for first input; reused in first lookup gate
+ * @param key_a_index Witness index for first input; reused in first lookup gate to avoid creating duplicate variables
  * @param key_b_index Optional witness index for second input (2-to-1 lookups); reused in first lookup if provided
  *
- * @return ReadData<uint32_t> containing witness indices for all gates. Primary use: result of the original operation
- * being looked up is in [C3][0]. (We return the indices for all values, not just result, because some algorithms
- * like SHA256 make use of the intermediate values).
+ * @return ReadData<uint32_t> containing witness indices for all created gates. Primary use: [C3][0] contains the
+ * result of the lookup operation. All indices are returned (not just the result) because some algorithms like SHA256
+ * need access to the intermediate decomposed limb values.
  */
-
 template <typename ExecutionTrace>
 plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_from_plookup_accumulators(
     const plookup::MultiTableId& id,
