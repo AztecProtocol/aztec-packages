@@ -19,79 +19,220 @@ keywords:
 sidebar_position: 0
 ---
 
-This guide shows how to generate a Solidity Verifier with Barretenberg and deploy it on the [Remix IDE](https://remix.ethereum.org/). It is assumed that:
+This guide shows how to generate a Solidity Verifier with Barretenberg and deploy it using [Foundry](https://book.getfoundry.sh/).
+
+:::tip[Complete Working Example]
+
+For a complete, production-ready example with Foundry tests and deployment scripts, check out the [noir-examples/solidity-example](https://github.com/noir-lang/noir-examples/tree/master/solidity-example) repository. This repository demonstrates the full workflow from circuit compilation to on-chain verification.
+
+:::
+
+It is assumed that:
 
 - You are comfortable with the Solidity programming language and understand how contracts are deployed on the Ethereum network
 - You have Noir installed and you have a Noir program. If you don't, [get started](https://noir-lang.org/docs/getting_started/quick_start) with Nargo, then follow through the [Barretenberg quick start](../index.md)
-- You are comfortable navigating RemixIDE. If you aren't or you need a refresher, you can find some video tutorials [here](https://www.youtube.com/channel/UCjTUPyFEr2xDGN6Cg8nKDaA) that could help you.
+- You have [Foundry](https://book.getfoundry.sh/getting-started/installation) installed. If you don't, run `curl -L https://foundry.paradigm.xyz | bash` and then `foundryup`
 
 ## Rundown
 
-Generating a Solidity Verifier with Barretenberg contract is actually a one-command process. However, compiling it and deploying it can have some caveats. Here's the rundown of this guide:
+Generating a Solidity Verifier with Barretenberg is straightforward, but there are important considerations for compilation and deployment. Here's the rundown of this guide:
 
-1. How to generate a solidity smart contract
-2. How to compile the smart contract in the RemixIDE
-3. How to deploy it to a testnet
+1. How to generate a Solidity verifier contract
+2. How to set up a Foundry project
+3. How to compile and test the verifier with Foundry
+4. How to deploy it to a network
 
 ## Step 1 - Generate a solidity contract
 
+First, compile your Noir circuit, then generate the verification key and Solidity verifier:
+
 ```sh
+# Compile the circuit
+nargo compile
+
 # Generate the verification key. You need to pass the `--oracle_hash keccak` flag when generating vkey and proving
 # to instruct bb to use keccak as the hash function, which is more optimal in Solidity
-bb write_vk -b ./target/<noir_artifact_name>.json -o ./target --oracle_hash keccak
+bb write_vk --oracle_hash keccak -b ./target/<noir_artifact_name>.json -o ./target
 
 # Generate the Solidity verifier from the vkey
-bb write_solidity_verifier -k ./target/vk -o ../target/Verifier.sol
+bb write_solidity_verifier -k ./target/vk -o ./target/Verifier.sol
 ```
 
 replacing `<noir_artifact_name>` with the name of your Noir project. A `Verifier.sol` contract is now in the target folder and can be deployed to any EVM blockchain acting as a verifier smart contract.
 
-## Step 2 - Compiling
+## Step 2 - Set up a Foundry project
 
-We will mostly skip the details of RemixIDE, as the UI can change from version to version. For now, we can just open <a href="https://remix.ethereum.org" target="_blank">Remix</a> and create a blank workspace.
+If you don't already have a Foundry project, create one:
 
-![Create Workspace](@site/static/img/how-tos/solidity_verifier_1.png)
+```sh
+# Create a new Foundry project
+forge init my-verifier-project
+cd my-verifier-project
 
-We will create a new file to contain the contract Nargo generated, and copy-paste its content.
+# Copy the generated Verifier.sol into the src directory
+cp ../target/Verifier.sol src/
+```
 
-:::warning
+If you already have a Foundry project, simply copy the `Verifier.sol` file into your `src` directory.
 
-You'll likely see a warning advising you to not trust pasted code. While it is an important warning, it is irrelevant in the context of this guide and can be ignored. We will not be deploying anywhere near a mainnet.
+## Step 3 - Compile with Foundry
+
+The Solidity verifier requires optimization to compile successfully. You need to configure Foundry to use the optimizer with a sufficient number of runs.
+
+Create or update your `foundry.toml` file:
+
+```toml
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+optimizer = true
+optimizer_runs = 200
+
+# For production deployments, you may want to use more runs
+# This reduces gas costs at the expense of a larger contract
+[profile.production]
+optimizer = true
+optimizer_runs = 5000
+```
+
+Now compile the verifier:
+
+```sh
+forge build
+```
+
+:::info[Optimizer Settings]
+
+The verifier contract is complex and requires optimization to avoid "stack too deep" errors. The noir-examples repository uses 5000 optimizer runs for production deployments, which optimizes for lower gas costs during verification at the expense of slightly higher deployment costs.
+
+- **200 runs**: Good for development and testing
+- **5000+ runs**: Recommended for production deployments where verification gas costs matter
 
 :::
 
-To compile our the verifier, we can navigate to the compilation tab:
+## Step 4 - Deploy the verifier
 
-![Compilation Tab](@site/static/img/how-tos/solidity_verifier_2.png)
+At this point we have a compiled contract ready to deploy. Foundry provides several options for deployment.
 
-Remix should automatically match a suitable compiler version. However, hitting the "Compile" button will most likely tell you the contract is too big to deploy on mainnet, or complain about a stack too deep:
+### Deploy to a local network (Anvil)
 
-![Contract code too big](@site/static/img/how-tos/solidity_verifier_6.png)
-![Stack too deep](@site/static/img/how-tos/solidity_verifier_8.png)
+For testing, you can deploy to a local Anvil instance:
 
-To avoid this, you can just use some optimization. Open the "Advanced Configurations" tab and enable optimization. The default 200 runs will suffice.
+```sh
+# In one terminal, start Anvil
+anvil
 
-![Compilation success](@site/static/img/how-tos/solidity_verifier_4.png)
+# In another terminal, deploy the verifier
+forge create --rpc-url http://localhost:8545 \
+  --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+  src/Verifier.sol:UltraVerifier
+```
 
-## Step 3 - Deploying
+### Deploy to a testnet or mainnet
 
-At this point we should have a compiled contract ready to deploy. If we navigate to the deploy section in Remix, we will see many different environments we can deploy to. The steps to deploy on each environment would be out-of-scope for this guide, so we will just use the default Remix VM.
+To deploy to a real network, you'll need:
+- An RPC URL for your target network
+- A private key with funds for gas (use a dedicated deployment wallet, not your main wallet)
 
-Looking closely, we will notice that our "Solidity Verifier" is composed on multiple contracts working together. Remix will take care of the dependencies for us so we can simply deploy the Verifier contract by selecting it and hitting "deploy":
+```sh
+# Example: Deploy to Base Sepolia testnet
+forge create --rpc-url https://sepolia.base.org \
+  --private-key $PRIVATE_KEY \
+  src/Verifier.sol:UltraVerifier \
+  --legacy
 
-![Deploying HonkVerifier](@site/static/img/how-tos/solidity_verifier_7.png)
+# Example: Deploy to Base Mainnet (use with caution!)
+forge create --rpc-url https://mainnet.base.org \
+  --private-key $PRIVATE_KEY \
+  src/Verifier.sol:UltraVerifier \
+  --legacy
+```
 
-A contract will show up in the "Deployed Contracts" section.
+:::warning[Private Key Security]
 
-## Step 4 - Verifying
+Never hardcode private keys in scripts or commit them to version control. Use environment variables or Foundry's keystore feature:
 
-To verify a proof using the Solidity verifier contract, we call the `verify` function:
+```sh
+# Create an encrypted keystore
+cast wallet import myKeystore --interactive
+
+# Use the keystore for deployment
+forge create --rpc-url $RPC_URL \
+  --account myKeystore \
+  src/Verifier.sol:UltraVerifier
+```
+
+:::
+
+### Using deployment scripts
+
+For more complex deployments, create a Foundry script. Create `script/Deploy.s.sol`:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Script.sol";
+import "../src/Verifier.sol";
+
+contract DeployScript is Script {
+    function run() external {
+        vm.startBroadcast();
+
+        UltraVerifier verifier = new UltraVerifier();
+        console.log("Verifier deployed at:", address(verifier));
+
+        vm.stopBroadcast();
+    }
+}
+```
+
+Then deploy using:
+
+```sh
+forge script script/Deploy.s.sol:DeployScript --rpc-url $RPC_URL --broadcast --legacy
+```
+
+### Verify contract on block explorer
+
+After deploying to a public network, you can verify your contract on the block explorer using Foundry:
+
+```sh
+# Get your contract address from the deployment
+forge verify-contract \
+  --chain-id 84532 \
+  --compiler-version v0.8.20 \
+  --optimizer-runs 200 \
+  <CONTRACT_ADDRESS> \
+  src/Verifier.sol:UltraVerifier \
+  --etherscan-api-key $ETHERSCAN_API_KEY
+```
+
+For networks like Base, you can use Basescan:
+
+```sh
+forge verify-contract \
+  --chain-id 8453 \
+  --compiler-version v0.8.20 \
+  --optimizer-runs 5000 \
+  <CONTRACT_ADDRESS> \
+  src/Verifier.sol:UltraVerifier \
+  --verifier-url https://api.basescan.org/api \
+  --etherscan-api-key $BASESCAN_API_KEY
+```
+
+## Step 5 - Testing the verifier
+
+### Generate a proof
+
+To verify a proof using the Solidity verifier contract, we first need to generate a proof. The verifier expects to call:
 
 ```solidity
 function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool)
 ```
 
-First generate a proof with `bb`. We need a `Prover.toml` file for our inputs. Run:
+Generate a proof with `bb`. We need a `Prover.toml` file for our inputs:
 
 ```bash
 nargo check
@@ -101,14 +242,68 @@ This will generate a `Prover.toml` you can fill with the values you want to prov
 
 ```bash
 nargo execute <witness-name>
-bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target --oracle_hash keccak
+bb prove --oracle_hash keccak -b ./target/<circuit-name>.json -w ./target/<witness-name>.gz -o ./target
 ```
 
-Binary Output Format
+### Binary Output Format
 
 Barretenberg outputs `proof` and `public_inputs` files in binary format. The binary format is fields-compatible, meaning it can be split into 32-byte chunks where each chunk represents a field element.
 
-A programmatic example of how the `verify` function is called can be seen in the example zk voting application [here](https://github.com/noir-lang/noir-examples/blob/33e598c257e2402ea3a6b68dd4c5ad492bce1b0a/foundry-voting/src/zkVote.sol#L35):
+### Create a Foundry test
+
+Create a test file `test/Verifier.t.sol`:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+import "../src/Verifier.sol";
+
+contract VerifierTest is Test {
+    UltraVerifier public verifier;
+
+    function setUp() public {
+        verifier = new UltraVerifier();
+    }
+
+    function testVerifyProof() public {
+        // Read the proof from file
+        bytes memory proof = vm.readFileBinary("../target/proof");
+
+        // Read and parse public inputs from file
+        bytes memory publicInputsBytes = vm.readFileBinary("../target/public_inputs");
+        bytes32[] memory publicInputs = new bytes32[](publicInputsBytes.length / 32);
+
+        for (uint i = 0; i < publicInputs.length; i++) {
+            bytes32 chunk;
+            uint offset = i * 32;
+            assembly {
+                chunk := mload(add(publicInputsBytes, add(32, offset)))
+            }
+            publicInputs[i] = chunk;
+        }
+
+        // Verify the proof
+        bool result = verifier.verify(proof, publicInputs);
+        assertTrue(result, "Proof verification failed");
+    }
+}
+```
+
+Run the test:
+
+```sh
+forge test --optimize --optimizer-runs 5000 --gas-report -vvv
+```
+
+:::tip[Gas Reporting]
+
+The `--gas-report` flag provides detailed gas cost information for your verification. This is useful for understanding the on-chain costs of proof verification.
+
+:::
+
+A programmatic example of how the `verify` function is called in a real application can be seen in the example zk voting application [here](https://github.com/noir-lang/noir-examples/blob/33e598c257e2402ea3a6b68dd4c5ad492bce1b0a/foundry-voting/src/zkVote.sol#L35):
 
 ```solidity
 function castVote(bytes calldata proof, uint proposalId, uint vote, bytes32 nullifierHash) public returns (bool) {
@@ -205,13 +400,63 @@ Some EVM chains manually tested to work with the Barretenberg verifier include:
 - Linea
 - Moonbeam
 
-Meanwhile, some EVM chains chains manually tested that failed to work with the Barretenberg verifier include:
-
-- zkSync ERA
-- Polygon zkEVM
-
 Pull requests to update this section is welcome and appreciated if you have compatibility updates on existing / new chains to contribute: https://github.com/noir-lang/noir
+
+## Complete Workflow Summary
+
+Here's the complete workflow from circuit to on-chain verification:
+
+```sh
+# 1. Compile your circuit
+cd circuits
+nargo compile
+
+# 2. Generate verifier
+bb write_vk --oracle_hash keccak -b ./target/<circuit>.json -o ./target
+bb write_solidity_verifier -k ./target/vk -o ../contract/src/Verifier.sol
+
+# 3. Set up Foundry project (if not already done)
+cd ../contract
+forge init # or skip if project exists
+
+# 4. Compile with Foundry
+forge build --optimize --optimizer-runs 5000
+
+# 5. Generate proof
+cd ../circuits
+nargo execute witness
+bb prove --oracle_hash keccak -b ./target/<circuit>.json -w ./target/witness.gz -o ./target
+
+# 6. Test locally
+cd ../contract
+forge test --optimize --optimizer-runs 5000 --gas-report -vvv
+
+# 7. Deploy
+forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast --legacy
+
+# 8. Verify on block explorer (optional)
+forge verify-contract --chain-id <CHAIN_ID> \
+  --compiler-version v0.8.20 \
+  --optimizer-runs 5000 \
+  <CONTRACT_ADDRESS> \
+  src/Verifier.sol:UltraVerifier \
+  --etherscan-api-key $API_KEY
+```
 
 ## What's next
 
-Now that you know how to call a Noir Solidity Verifier on a smart contract using Remix, you should be comfortable with using it with some programmatic frameworks. You can find other tools, examples, boilerplates and libraries in the [awesome-noir](https://github.com/noir-lang/awesome-noir) repository.
+Now that you know how to generate, compile, test, and deploy a Noir Solidity Verifier using Foundry, you're ready to integrate proof verification into your applications.
+
+### Production-Ready Examples
+
+For a complete, working example with Foundry integration, automated testing, and deployment scripts, explore the [noir-examples/solidity-example](https://github.com/noir-lang/noir-examples/tree/master/solidity-example) repository. This example includes:
+
+- Build scripts for automated verifier generation
+- Foundry tests for proof verification
+- Deployment scripts for mainnet/testnet
+- JavaScript utilities for proof generation with bb.js
+- Gas cost benchmarks and optimization settings
+
+### Additional Resources
+
+You can find other tools, examples, boilerplates and libraries in the [awesome-noir](https://github.com/noir-lang/awesome-noir) repository.
