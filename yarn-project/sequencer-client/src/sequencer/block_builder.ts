@@ -127,7 +127,7 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
       this.telemetryClient,
       {
         doMerkleOperations: true,
-        skipFeeEnforcement: true,
+        skipFeeEnforcement: false,
         clientInitiatedSimulation: false,
       },
     );
