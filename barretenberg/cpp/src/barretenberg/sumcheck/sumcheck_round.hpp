@@ -92,6 +92,42 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
+     * @brief Compute the effective round size when !HasZK by finding the maximum end_index() across witness
+     * polynomials.
+     * @details When HasZK is false, witness polynomials only contain meaningful data up to final_active_wire_idx, and
+     * we can avoid iterating over the zero region beyond that point. We check all witness polynomials (via
+     * get_witness()).
+     * @return The effective iteration size: round_size when HasZK is true, or the maximum witness end_index when HasZK
+     * is false.
+     */
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    size_t compute_effective_round_size(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates) const
+    {
+        if constexpr (Flavor::HasZK) {
+            // When ZK is enabled, we must iterate over the full round_size
+            return round_size;
+        } else {
+            // When ZK is disabled, find the maximum end_index() across witness polynomials only
+            // (precomputed polynomials like selectors are always full size)
+            // We need to round up to the next even number since we process edges in pairs
+            size_t max_end_index = 0;
+
+            // Check if the flavor has a get_witness() method to iterate over all witness polynomials
+            if constexpr (requires { multivariates.get_witness(); }) {
+                for (auto& witness_poly : multivariates.get_witness()) {
+                    max_end_index = std::max(max_end_index, witness_poly.end_index());
+                }
+            } else {
+                // Fallback: use full round_size if no get_witness() method available
+                return round_size;
+            }
+
+            // Round up to next even number and ensure we don't exceed round_size
+            return std::min(round_size, max_end_index + (max_end_index % 2));
+        }
+    }
+
+    /**
      * @brief  To compute the round univariate in Round \f$i\f$, the prover first computes the values of Honk
      polynomials \f$ P_1,\ldots, P_N \f$ at the points of the form \f$ (u_0,\ldots, u_{i-1}, k, \vec \ell)\f$ for \f$
      k=0,\ldots, D \f$, where \f$ D \f$ is defined as
@@ -334,9 +370,12 @@ template <typename Flavor> class SumcheckProverRound {
     std::vector<BlockOfContiguousRows> compute_contiguous_round_size(
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials)
     {
+        // When !HasZK, compute the effective round size to avoid iterating over zero regions
+        const size_t effective_round_size = compute_effective_round_size(polynomials);
+
         const size_t min_iterations_per_thread = 1 << 10; // min number of iterations for which we'll spin up a unique
-        const size_t num_threads = bb::calculate_num_threads_pow2(round_size, min_iterations_per_thread);
-        const size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
+        const size_t num_threads = bb::calculate_num_threads_pow2(effective_round_size, min_iterations_per_thread);
+        const size_t iterations_per_thread = effective_round_size / num_threads; // actual iterations per thread
 
         std::vector<BlockOfContiguousRows> result;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
@@ -372,7 +411,7 @@ template <typename Flavor> class SumcheckProverRound {
                 }
             }
         } else {
-            result.push_back(BlockOfContiguousRows{ .starting_edge_idx = 0, .size = round_size });
+            result.push_back(BlockOfContiguousRows{ .starting_edge_idx = 0, .size = effective_round_size });
         }
         return result;
     }
