@@ -32,7 +32,7 @@ As a sequencer operator, your responsibilities extend beyond simply running a no
 
 ## What This Guide Covers
 
-This guide walks you through sequencer management in three parts:
+This guide walks you through sequencer management in four parts:
 
 ### 1. Governance and Proposal Process
 
@@ -46,7 +46,19 @@ Learn how to participate in protocol governance:
 
 See [Governance and Proposal Process](./creating_and_voting_on_proposals.md) for detailed instructions.
 
-### 2. Running Delegated Stake
+### 2. Slashing and Offenses
+
+Understand how the slashing mechanism protects network integrity:
+
+- How the Tally Model of slashing works
+- Automatically detected offense types (inactivity, invalid blocks, data withholding)
+- Configuring slashing behavior and penalties
+- Monitoring slashing activity
+- Safety mechanisms and best practices
+
+See [Slashing and Offenses](./slashing_and_offenses.md) for complete details.
+
+### 3. Running Delegated Stake
 
 If you're operating a sequencer with delegated stake:
 
@@ -58,7 +70,7 @@ If you're operating a sequencer with delegated stake:
 
 See [Running Delegated Stake](./running_delegated_stake.md) for setup instructions.
 
-### 3. Useful Commands
+### 4. Useful Commands
 
 Essential contract query commands for operators:
 
@@ -84,6 +96,8 @@ For operators running with delegated stake, the [Running Delegated Stake](./runn
 
 **Participate in Governance**: Stay informed about governance proposals and participate in votes that affect your operations. Join the community discussions on Discord to understand proposed changes.
 
+**Understand Slashing**: Familiarize yourself with the slashing mechanism and configure your node appropriately. Enable the Sentinel if you want to participate in inactivity detection.
+
 **Maintain Adequate Balances**: Ensure your publisher account always has sufficient ETH (at least 0.1 ETH) to avoid being slashed. Monitor balances and set up automated top-ups if possible.
 
 **Keep Your Node Updated**: When governance proposals pass that require node upgrades, prepare during the execution delay period. Have a plan for coordinated upgrades to minimize downtime.
@@ -94,5 +108,6 @@ For operators running with delegated stake, the [Running Delegated Stake](./runn
 
 - Query your sequencer status using the [Useful Commands](./useful_commands.md)
 - Learn about [governance participation](./creating_and_voting_on_proposals.md) to vote on protocol changes
+- Understand the [slashing mechanism](./slashing_and_offenses.md) and configure your node appropriately
 - Set up [monitoring](../monitoring.md) to track your sequencer's performance
 - Join the [Aztec Discord](https://discord.gg/aztec) for operator support and community discussions
