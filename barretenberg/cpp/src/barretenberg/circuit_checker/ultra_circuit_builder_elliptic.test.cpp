@@ -6,60 +6,60 @@
 
 using namespace bb;
 
-namespace bb {
+class UltraCircuitBuilderElliptic : public ::testing::Test {
+  protected:
+    using affine_element = grumpkin::g1::affine_element;
+    using element = grumpkin::g1::element;
 
-// Type aliases for elliptic curve tests
-using affine_element = grumpkin::g1::affine_element;
-using element = grumpkin::g1::element;
+    // Helper to create points for addition/subtraction: (p1, p2, p1 ± p2)
+    struct AdditionPoints {
+        affine_element p1, p2, result;
+    };
 
-// Helper to create points for addition/subtraction: (p1, p2, p1 ± p2)
-struct AdditionPoints {
-    affine_element p1, p2, result;
+    // Helper to create points for doubling: (p1, 2*p1)
+    struct DoublingPoints {
+        affine_element p1, result;
+    };
+
+    static AdditionPoints create_add_points(uint64_t seed1 = 1, uint64_t seed2 = 2, bool is_addition = true)
+    {
+        affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(seed1) }, 0);
+        affine_element p2 = crypto::pedersen_commitment::commit_native({ bb::fr(seed2) }, 0);
+        affine_element result =
+            is_addition ? affine_element(element(p1) + element(p2)) : affine_element(element(p1) - element(p2));
+        return { p1, p2, result };
+    }
+
+    static DoublingPoints create_dbl_points(uint64_t seed = 1)
+    {
+        affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(seed) }, 0);
+        affine_element result(element(p1).dbl());
+        return { p1, result };
+    }
+
+    // Add all variables for an add gate and return wire indices as tuple
+    static auto add_add_gate_variables(UltraCircuitBuilder& builder, const AdditionPoints& points)
+    {
+        return std::make_tuple(builder.add_variable(points.p1.x),
+                               builder.add_variable(points.p1.y),
+                               builder.add_variable(points.p2.x),
+                               builder.add_variable(points.p2.y),
+                               builder.add_variable(points.result.x),
+                               builder.add_variable(points.result.y));
+    }
+
+    // Add all variables for a dbl gate and return wire indices as tuple
+    static auto add_dbl_gate_variables(UltraCircuitBuilder& builder, const DoublingPoints& points)
+    {
+        return std::make_tuple(builder.add_variable(points.p1.x),
+                               builder.add_variable(points.p1.y),
+                               builder.add_variable(points.result.x),
+                               builder.add_variable(points.result.y));
+    }
 };
-
-inline AdditionPoints create_add_points(uint64_t seed1 = 1, uint64_t seed2 = 2, bool is_addition = true)
-{
-    affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(seed1) }, 0);
-    affine_element p2 = crypto::pedersen_commitment::commit_native({ bb::fr(seed2) }, 0);
-    affine_element result =
-        is_addition ? affine_element(element(p1) + element(p2)) : affine_element(element(p1) - element(p2));
-    return { p1, p2, result };
-}
-
-// Helper to create points for doubling: (p1, 2*p1)
-struct DoublingPoints {
-    affine_element p1, result;
-};
-
-inline DoublingPoints create_dbl_points(uint64_t seed = 1)
-{
-    affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(seed) }, 0);
-    affine_element result(element(p1).dbl());
-    return { p1, result };
-}
-
-// Add all variables for an add gate and return wire indices as tuple
-inline auto add_add_gate_variables(UltraCircuitBuilder& builder, const AdditionPoints& points)
-{
-    return std::make_tuple(builder.add_variable(points.p1.x),
-                           builder.add_variable(points.p1.y),
-                           builder.add_variable(points.p2.x),
-                           builder.add_variable(points.p2.y),
-                           builder.add_variable(points.result.x),
-                           builder.add_variable(points.result.y));
-}
-
-// Add all variables for a dbl gate and return wire indices as tuple
-inline auto add_dbl_gate_variables(UltraCircuitBuilder& builder, const DoublingPoints& points)
-{
-    return std::make_tuple(builder.add_variable(points.p1.x),
-                           builder.add_variable(points.p1.y),
-                           builder.add_variable(points.result.x),
-                           builder.add_variable(points.result.y));
-}
 
 // Verifies that a valid elliptic curve point addition passes the circuit checker.
-TEST(UltraCircuitBuilderElliptic, Addition)
+TEST_F(UltraCircuitBuilderElliptic, Addition)
 {
     UltraCircuitBuilder builder;
     auto points = create_add_points(1, 2, true);
@@ -71,7 +71,7 @@ TEST(UltraCircuitBuilderElliptic, Addition)
 }
 
 // Verifies that invalidating any coordinate in an addition operation causes the circuit checker to fail.
-TEST(UltraCircuitBuilderElliptic, AdditionFailure)
+TEST_F(UltraCircuitBuilderElliptic, AdditionFailure)
 {
     auto test_invalid_coordinate = [](auto modify_points) {
         UltraCircuitBuilder builder;
@@ -91,7 +91,7 @@ TEST(UltraCircuitBuilderElliptic, AdditionFailure)
 }
 
 // Verifies that a valid elliptic curve point subtraction passes the circuit checker.
-TEST(UltraCircuitBuilderElliptic, Subtraction)
+TEST_F(UltraCircuitBuilderElliptic, Subtraction)
 {
     UltraCircuitBuilder builder;
     auto points = create_add_points(1, 2, false); // false = subtraction
@@ -101,7 +101,7 @@ TEST(UltraCircuitBuilderElliptic, Subtraction)
 }
 
 // Verifies that invalidating any coordinate in a subtraction operation causes the circuit checker to fail.
-TEST(UltraCircuitBuilderElliptic, SubtractionFailure)
+TEST_F(UltraCircuitBuilderElliptic, SubtractionFailure)
 {
     auto test_invalid_coordinate = [](auto modify_points) {
         UltraCircuitBuilder builder;
@@ -121,7 +121,7 @@ TEST(UltraCircuitBuilderElliptic, SubtractionFailure)
 }
 
 // Verifies that a valid elliptic curve point doubling passes the circuit checker.
-TEST(UltraCircuitBuilderElliptic, Double)
+TEST_F(UltraCircuitBuilderElliptic, Double)
 {
     UltraCircuitBuilder builder;
     auto points = create_dbl_points(1);
@@ -133,7 +133,7 @@ TEST(UltraCircuitBuilderElliptic, Double)
 }
 
 // Verifies that invalidating any coordinate in a doubling operation causes the circuit checker to fail.
-TEST(UltraCircuitBuilderElliptic, DoubleFailure)
+TEST_F(UltraCircuitBuilderElliptic, DoubleFailure)
 {
     auto test_invalid_coordinate = [](auto modify_points) {
         UltraCircuitBuilder builder;
@@ -151,7 +151,7 @@ TEST(UltraCircuitBuilderElliptic, DoubleFailure)
 }
 
 // Verifies that multiple independent elliptic curve operations can coexist in a circuit.
-TEST(UltraCircuitBuilderElliptic, MultipleOperationsUnchained)
+TEST_F(UltraCircuitBuilderElliptic, MultipleOperationsUnchained)
 {
     UltraCircuitBuilder builder;
 
@@ -174,7 +174,7 @@ TEST(UltraCircuitBuilderElliptic, MultipleOperationsUnchained)
 }
 
 // Verifies that chaining two operations by reusing intermediate results reduces the gate count.
-TEST(UltraCircuitBuilderElliptic, ChainedOperations)
+TEST_F(UltraCircuitBuilderElliptic, ChainedOperations)
 {
     UltraCircuitBuilder builder;
 
@@ -202,7 +202,7 @@ TEST(UltraCircuitBuilderElliptic, ChainedOperations)
 }
 
 // Verifies that a chain of three operations (add-double-add) correctly reuses intermediate results.
-TEST(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
+TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
 {
     UltraCircuitBuilder builder;
 
@@ -239,7 +239,7 @@ TEST(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
 }
 
 // Verifies that invalidating a middle operation in a chain causes circuit checker to fail
-TEST(UltraCircuitBuilderElliptic, ChainedOperationsDoubleFailure)
+TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsDoubleFailure)
 {
     UltraCircuitBuilder builder;
 
@@ -276,5 +276,3 @@ TEST(UltraCircuitBuilderElliptic, ChainedOperationsDoubleFailure)
     // Should fail because the middle operation (doubling) has an invalid result
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
-
-} // namespace bb
