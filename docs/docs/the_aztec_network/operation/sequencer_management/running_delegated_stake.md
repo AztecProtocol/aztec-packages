@@ -19,6 +19,22 @@ Before proceeding, ensure you have:
 - An Ethereum wallet with sufficient ETH for gas fees
 - Understanding of basic Aztec staking mechanics
 - Foundry installed for `cast` commands
+- Aztec CLI v2.1.4 or later installed:
+
+```bash
+bash -i <(curl -s https://install.aztec.network)
+aztec-up --version 2.1.4
+```
+
+### Contract Addresses
+
+**Testnet (Sepolia):**
+- Staking Registry: `0xc3860c45e5F0b1eF3000dbF93149756f16928ADB`
+- GSE (Governance Staking Escrow): `0xfb243b9112bb65785a4a8edaf32529accf003614`
+
+**Mainnet:**
+- Staking Registry: 0x042dF8f42790d6943F41C25C2132400fd727f452
+- GSE: 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f
 
 ## How Delegated Stake Works
 
@@ -51,7 +67,7 @@ Follow these steps to set up delegated stake:
 
 1. Register your provider with the Staking Registry
 2. Add sequencer identities to your provider queue
-3. (Optional) Add provider metadata via pull request
+3. Set your metadata in the GitHub repo (or via email)
 
 **After a delegator stakes:** Configure your sequencer's coinbase (see [After Delegation](#after-delegation-configure-sequencer-coinbase))
 
@@ -80,22 +96,48 @@ function registerProvider(
 
 ```bash
 # Register a provider with 5% commission rate
-cast send [STAKING_REGISTRY_ADDRESS] \
+cast send $STAKING_REGISTRY_ADDRESS \
   "registerProvider(address,uint16,address)" \
-  [PROVIDER_ADMIN_ADDRESS] \
+  $PROVIDER_ADMIN_ADDRESS \
   500 \
-  [REWARDS_RECIPIENT_ADDRESS] \
-  --rpc-url [RPC_URL] \
-  --private-key [YOUR_PRIVATE_KEY]
+  $REWARDS_RECIPIENT_ADDRESS \
+  --rpc-url $RPC_URL \
+  --private-key $YOUR_PRIVATE_KEY
 ```
 
-Once the transaction is confirmed, retrieve your `providerIdentifier` from the transaction receipt:
+### Extracting Your Provider ID
+
+Once the transaction is confirmed, you need to extract your `providerIdentifier` from the transaction logs. The provider ID is emitted as the second topic in the registration event log.
+
+**Method 1: Using cast receipt**
 
 ```bash
-cast receipt [TX_HASH] --rpc-url [RPC_URL] | grep "return" | awk '{print $2}' | xargs cast to-dec
+cast receipt [TX_HASH] --rpc-url $RPC_URL | grep "return" | awk '{print $2}' | xargs cast to-dec
 ```
 
-Replace `[TX_HASH]` with the transaction hash from the `registerProvider` call. Save the resulting `providerIdentifier`—you'll need it for all subsequent provider operations.
+**Method 2: From transaction logs**
+
+The transaction receipt will contain one log where the second topic is your `providerId` in hex format:
+
+```bash
+# Example log output
+logs [{"address":"0xc3860c45e5f0b1ef3000dbf93149756f16928adb",
+       "topics":["0x43fe1b4477c9a580955f586c904f4670929e184ef4bef4936221c52d0a79a75b",
+                 "0x0000000000000000000000000000000000000000000000000000000000000002",  # This is your providerId
+                 "0x000000000000000000000000efdb4c5f3a2f04e0cb393725bcae2dd675cc3718",
+                 "0x00000000000000000000000000000000000000000000000000000000000001f4"],
+       ...
+      }]
+```
+
+Convert the hex value to decimal:
+
+```bash
+cast to-dec 0x0000000000000000000000000000000000000000000000000000000000000002
+# Output: 2
+```
+
+**Save your `providerIdentifier`**—you'll need it for all subsequent provider operations.
 
 ### Step 2: Add Sequencer Identities
 
@@ -118,52 +160,118 @@ function addKeysToProvider(
 
 ```solidity
 struct KeyStore {
-    address attester;              // Sequencer's attester address
+    address attester;              // Sequencer's address
     BN254Lib.G1Point publicKeyG1; // BLS public key (G1)
     BN254Lib.G2Point publicKeyG2; // BLS public key (G2)
     BN254Lib.G1Point proofOfPossession;    // BLS signature (prevents rogue key attacks)
 }
 ```
 
-:::tip Creating Keystores for Delegated Staking
-Before adding sequencer identities to your provider queue, you need to create keystores with BLS keys. See the [Creating Sequencer Keystores](../keystore/creating_keystores.md) guide for detailed instructions.
+:::warning Critical: Key Management for Delegated Staking
 
-To generate the additional BLS data required for the `KeyStore` struct (G2 public keys and proof of possession signatures), see [Preparing BLS Keys for Registration](../../setup/sequencer_management.md#preparing-bls-keys-for-registration) in the Sequencer Management guide.
+**⚠️ If you run out of keys, users cannot delegate tokens to you.**
+
+The Staking Registry **DOES NOT** check for duplicate keys. Please take **EXTREME** care when registering keys:
+- Duplicate keys will cause delegation failures when that duplicate is at the top of your queue
+- The only way to fix this is by calling `dripProviderQueue(_providerIdentifier, _numberOfKeysToDrip)` to remove the duplicate
+- Always verify keys before registration to avoid user experience issues
 :::
 
-**Example with sample data:**
+### Generating Keys for Registration
 
-Due to the complexity of nested struct encoding, here's an example showing the structure (with placeholder BLS values):
+Use the `aztec validator-keys` command with the `--staker-output` flag to automatically generate properly formatted registration data:
 
 ```bash
-# Example: Add one keystore to your provider
-# The KeyStore array is encoded as a tuple array parameter
-cast send [STAKING_REGISTRY_ADDRESS] \
-  "addKeysToProvider(uint256,(address,(uint256,uint256),(uint256,uint256,uint256,uint256),(uint256,uint256))[])" \
-  [YOUR_PROVIDER_IDENTIFIER] \
-  "[(0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb,(12345,67890),(11111,22222,33333,44444),(98765,43210))]" \
-  --rpc-url [RPC_URL] \
-  --private-key [ADMIN_PRIVATE_KEY]
+aztec validator-keys new \
+  --fee-recipient $AZTEC_ADDRESS \
+  --staker-output \
+  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --l1-rpc-urls $RPC_URL
 ```
 
-Where the tuple structure represents:
-- `address`: Attester address
-- `(uint256,uint256)`: publicKeyG1 (x, y coordinates)
-- `(uint256,uint256,uint256,uint256)`: publicKeyG2 (x0, x1, y0, y1 coordinates)
-- `(uint256,uint256)`: proofOfPossession (x, y coordinates)
+This command automatically:
+1. Generates the keystore with ETH and BLS keys
+2. Computes G1 and G2 public keys
+3. Generates the proof of possession signature
+4. Outputs the data in the correct format for the `addKeysToProvider` function
 
-**Important:** The BLS values shown above are placeholders. You must use properly generated BLS keys and signatures (signing "feedback") for actual registration. Add a maximum of 100 keystores per transaction to avoid gas limit issues.
+For more details on keystore creation, see the [Creating Sequencer Keystores](../keystore/creating_keystores.md) guide.
 
-### Step 3: Add Provider Metadata (Optional)
+### Building the Registration Command
 
-To be featured on the staking dashboard, submit metadata about your provider via a GitHub pull request. You'll need to provide:
+You have two options for constructing the `addKeysToProvider` command:
 
-1. Provider name and description
-2. Logo image
-3. Website and social media URLs
-4. Your `providerIdentifier`
+**Option 1: Use the helper script (Recommended)**
 
-Good metadata helps delegators understand your offering and builds trust. Check the [Aztec Discord](https://discord.gg/aztec) for the latest submission instructions.
+Use this helper script to automatically build the command from your `validator-keys` output:
+
+https://gist.github.com/koenmtb1/1b665d055fbc22581c288f90cdc60d88
+
+The script reads the JSON output from `validator-keys staker` and constructs the properly formatted `cast send` command.
+
+**Option 2: Manual construction**
+
+If you need to manually construct the command, the function signature is:
+
+```solidity
+addKeysToProvider(uint256,(address,(uint256,uint256),(uint256,uint256,uint256,uint256),(uint256,uint256))[])
+```
+
+**Parameters:**
+- First `uint256`: Your provider identifier (from registration in Step 1)
+- Tuple array: `KeyStore[]` where each element contains:
+  - `address`: Sequencer address
+  - `(uint256,uint256)`: publicKeyG1 (x, y coordinates)
+  - `(uint256,uint256,uint256,uint256)`: publicKeyG2 (x0, x1, y0, y1 coordinates)
+  - `(uint256,uint256)`: proofOfPossession (x, y coordinates)
+
+Example with placeholder values:
+
+```bash
+cast send $STAKING_REGISTRY_ADDRESS \
+  "addKeysToProvider(uint256,(address,(uint256,uint256),(uint256,uint256,uint256,uint256),(uint256,uint256))[])" \
+  $YOUR_PROVIDER_IDENTIFIER \
+  "[(0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb,(12345,67890),(11111,22222,33333,44444),(98765,43210))]" \
+  --rpc-url $RPC_URL \
+  --private-key $ADMIN_PRIVATE_KEY
+```
+
+**Important:**
+- Replace all values above with actual data from `aztec validator-keys new --staker-output`
+- Add a maximum of 100 keystores per transaction to avoid gas limit issues
+- Verify each keystore is unique before adding to prevent duplicate key issues
+
+### Step 3: Set Your Metadata
+
+To be featured on the staking dashboard, submit metadata about your provider.
+
+**Required metadata:**
+- Provider name and description
+- Contact email
+- Logo image (PNG or SVG, recommended size: 256x256px)
+- Website URL
+- Discord username
+- Your `providerIdentifier`
+
+**Submission process:**
+
+Once made public, you'll create a pull request to the [staking-dashboard-external GitHub repository](https://github.com/AztecProtocol/staking-dashboard-external/tree/master/providers).
+
+For now, email your provider metadata to [koen@aztec.foundation](mailto:koen@aztec.foundation) in the following JSON format. **Make sure to specify if it's for testnet or mainnet!**
+
+```json
+{
+  "providerId": 1,
+  "providerName": "Example provider",
+  "providerDescription": "Brief description of the provider",
+  "providerEmail": "contact@provider.com",
+  "providerWebsite": "https://provider.com",
+  "providerLogoUrl": "https://provider.com/logo.png",
+  "discordUsername": "username"
+}
+```
+
+Good metadata helps delegators understand your offering and builds trust.
 
 ## After Delegation: Configure Sequencer Coinbase
 
@@ -185,8 +293,8 @@ Update the `coinbase` field in your sequencer node's keystore configuration to t
   "validators": [
     {
       "attester": {
-        "eth": "0x...",  // Your Ethereum attester private key
-        "bls": "0x..."   // Your BLS attester private key
+        "eth": "0x...",  // Your Ethereum sequencer private key
+        "bls": "0x..."   // Your BLS sequencer private key
       },
       "publisher": ["0x..."],  // Address that submits blocks to L1
       "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]",  // Split contract for this delegation
@@ -202,13 +310,33 @@ For detailed information about keystore configuration, including different stora
 
 ### Finding Your Split Contract Address
 
-You can retrieve the Split contract address for a specific delegation through the **Staking Dashboard**, where you can view all active delegations and their associated Split contract addresses in your provider dashboard.
+**You have to manually monitor the delegations you receive and update the `coinbase` address to the correct Split contract!**
+
+You can retrieve the Split contract address for a specific delegation through the **Staking Dashboard**:
+
+1. Navigate to your provider dashboard on the staking dashboard
+2. Look for the dropdown called **"Sequencer Registered (x)"** where x is the number of registered sequencers
+3. Click on the dropdown to expand it
+4. This shows the Sequencer address → Split contract relation
+5. Set the Split contract as the `coinbase` for the respective Sequencer address on your node
+
+The dropdown will display a table showing which Split contract corresponds to each of your sequencer addresses, making it easy to configure the correct coinbase for each sequencer.
+
+**Manual monitoring approach:**
+
+Since coinbase configuration must be done manually, you should:
+- Regularly check the staking dashboard for new delegations
+- Set up alerts or scheduled checks (daily or more frequently during high activity)
+- Update keystore configurations promptly when new delegations appear
+- Maintain a record of which Split contracts map to which keystores
 
 ### Important Notes
 
+- **Monitor delegations actively**: The system does not automatically notify you of new delegations
 - Configure the coinbase immediately after each delegation to ensure rewards flow correctly from the start
 - Each delegation creates a unique Split contract—configure each sequencer with its specific Split contract address
 - Restart your sequencer node after updating the keystore for changes to take effect
+- Keep a mapping of sequencer addresses to Split contracts for operational tracking
 
 ## Monitoring Keystore Availability
 
@@ -408,7 +536,7 @@ Ensure your sequencer nodes are running and synced. See [Useful Commands](./usef
 - Confirm you're calling from the `providerAdmin` address
 - Verify your `providerIdentifier` is correct
 - Ensure BLS signatures in `KeyStore` are properly formatted (use the keystore creation utility)
-- Check that the attester addresses aren't already registered elsewhere
+- Check that the sequencer addresses aren't already registered elsewhere
 - Reduce batch size if hitting gas limits (max 100 keystores per transaction)
 
 ### No delegators appearing
