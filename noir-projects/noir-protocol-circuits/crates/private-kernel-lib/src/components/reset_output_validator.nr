@@ -175,6 +175,9 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer);
 
+        // Reset doesn't mutate include_by_timestamp
+        assert_eq(self.output.include_by_timestamp, self.previous_kernel.include_by_timestamp);
+
         // accumulated_data
         assert_eq(self.output.end.l2_to_l1_msgs, self.previous_kernel.end.l2_to_l1_msgs);
         assert_eq(

@@ -297,6 +297,10 @@ where
         assert_eq(self.length, 0);
     }
 
+    pub fn assert_length_within_bounds<let S: u32>(self, msg: str<S>) {
+        assert(self.length <= N, msg);
+    }
+
     pub fn push(&mut self, item: T) {
         assert(self.length != N, "Array full");
 

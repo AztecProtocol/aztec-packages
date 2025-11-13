@@ -27,11 +27,11 @@ impl<let RequestsLen: u32, let HintsLen: u32> KeyValidationRequestsValidator<Req
         } else {
             assert_eq(
                 KeyValidationAmount,
-                self.hints.len(),
+                HintsLen,
                 "hints array length does not match KeyValidationAmount",
             );
 
-            for i in 0..self.hints.len() {
+            for i in 0..HintsLen {
                 let hint = self.hints[i];
                 let request = self.key_validation_requests.array[i];
                 if i < self.key_validation_requests.length {
@@ -39,8 +39,8 @@ impl<let RequestsLen: u32, let HintsLen: u32> KeyValidationRequestsValidator<Req
                 }
             }
 
-            let unverified_length = if self.key_validation_requests.length > KeyValidationAmount {
-                self.key_validation_requests.length - KeyValidationAmount
+            let unverified_length = if self.key_validation_requests.length > HintsLen {
+                self.key_validation_requests.length - HintsLen
             } else {
                 0
             };

@@ -9,6 +9,7 @@ mod validate_contract_address;
 mod validate_counters;
 mod validate_private_call_requests;
 mod verify_proof;
+mod validate_claimed_lengths;
 
 use crate::components::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{

@@ -29,9 +29,8 @@ pub fn for_i_in_0_<Env1, Env2>(
     let mut after_max = false;
 
     for i in 0..MAX {
-        if i == max {
-            after_max = true;
-        }
+        after_max |= i == max;
+
         if after_max {
             f_after_max(i);
         } else {
