@@ -115,6 +115,10 @@ export class NoteDataProvider {
       for (const dao of notes) {
         const noteIndex = toBufferBE(dao.index, 32).toString('hex');
         if (await this.#notes.hasAsync(noteIndex)) {
+          // Without this check, we would simply overwrite the existing value with the same data, which would not cause
+          // any issues. However, for clarity, we log a message here and skip further processing. This is expected
+          // because, due to the mechanics of tagging synchronization, the same private log may be processed multiple
+          // times.
           this.#log.info('Skipping note already present in active notes', {
             noteIndex,
             scope: scopeString,
@@ -125,6 +129,10 @@ export class NoteDataProvider {
         }
 
         if (await this.#nullifiedNotes.hasAsync(noteIndex)) {
+          // Without this check, the note would exist in both the active and nullified notes upon re-adding it. While
+          // this wouldn't cause a bug—since private state sync would identify the note as nullified and remove it from
+          // the active notes — it would be inefficient, as in case there would be no other active notes this would
+          // result in one extra call to the node.
           this.#log.info('Skipping note already present in nullified notes', {
             noteIndex,
             scope: scopeString,
