@@ -7,6 +7,8 @@
 #include <variant>
 #include <vector>
 
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -85,24 +87,10 @@ bool is_tree_insert_phase(TransactionPhase phase)
     return is_note_hash_insert_phase(phase) || is_nullifier_insert_phase(phase);
 }
 
-bool is_collect_fee_phase(TransactionPhase phase)
-{
-    return phase == TransactionPhase::COLLECT_GAS_FEES;
-}
-
-bool is_tree_padding_phase(TransactionPhase phase)
-{
-    return phase == TransactionPhase::TREE_PADDING;
-}
-
-bool is_cleanup_phase(TransactionPhase phase)
-{
-    return phase == TransactionPhase::CLEANUP;
-}
-
 bool is_one_shot_phase(TransactionPhase phase)
 {
-    return is_collect_fee_phase(phase) || is_tree_padding_phase(phase) || is_cleanup_phase(phase);
+    return phase == TransactionPhase::COLLECT_GAS_FEES || phase == TransactionPhase::TREE_PADDING ||
+           phase == TransactionPhase::CLEANUP;
 }
 
 bool is_teardown(TransactionPhase phase)
@@ -111,7 +99,7 @@ bool is_teardown(TransactionPhase phase)
 }
 
 // This is a helper to insert the previous and next tree state
-std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state, const TxContextEvent& next_state)
+std::vector<std::pair<Column, FF>> insert_tree_state(const TxContextEvent& prev_state, const TxContextEvent& next_state)
 {
     return {
         // Previous Tree State
@@ -160,14 +148,6 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
         { Column::tx_next_retrieved_bytecodes_tree_root, next_state.retrieved_bytecodes_tree_snapshot.root },
         { Column::tx_next_retrieved_bytecodes_tree_size,
           next_state.retrieved_bytecodes_tree_snapshot.next_available_leaf_index },
-
-        // Prev sideffect state
-        { Column::tx_prev_num_unencrypted_log_fields, prev_state.numUnencryptedLogFields },
-        { Column::tx_prev_num_l2_to_l1_messages, prev_state.numL2ToL1Messages },
-
-        // Next sideffect state
-        { Column::tx_next_num_unencrypted_log_fields, next_state.numUnencryptedLogFields },
-        { Column::tx_next_num_l2_to_l1_messages, next_state.numL2ToL1Messages },
 
         // Execution context
         { Column::tx_next_context_id, prev_state.next_context_id },
@@ -273,8 +253,7 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
 };
 
 std::vector<std::pair<Column, FF>> handle_note_hash_append(const PrivateAppendTreeEvent& event,
-                                                           const TxContextEvent& state_before,
-                                                           bool reverted)
+                                                           const TxContextEvent& state_before)
 {
     uint32_t remaining_note_hashes = MAX_NOTE_HASHES_PER_TX - state_before.tree_states.note_hash_tree.counter;
 
@@ -284,13 +263,11 @@ std::vector<std::pair<Column, FF>> handle_note_hash_append(const PrivateAppendTr
         { Column::tx_remaining_side_effects_inv, remaining_note_hashes }, // Will be inverted in batch later
         { Column::tx_should_try_note_hash_append, 1 },
         { Column::tx_should_note_hash_append, remaining_note_hashes > 0 },
-        { Column::tx_reverted, reverted ? 1 : 0 },
     };
 }
 
 std::vector<std::pair<Column, FF>> handle_nullifier_append(const PrivateAppendTreeEvent& event,
-                                                           const TxContextEvent& state_before,
-                                                           bool reverted)
+                                                           const TxContextEvent& state_before)
 {
     uint32_t remaining_nullifiers = MAX_NULLIFIERS_PER_TX - state_before.tree_states.nullifier_tree.counter;
 
@@ -300,27 +277,26 @@ std::vector<std::pair<Column, FF>> handle_nullifier_append(const PrivateAppendTr
         { Column::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
         { Column::tx_should_try_nullifier_append, 1 },
         { Column::tx_should_nullifier_append, remaining_nullifiers > 0 },
-        { Column::tx_reverted, reverted ? 1 : 0 },
     };
 }
 
 std::vector<std::pair<Column, FF>> handle_append_tree_event(const PrivateAppendTreeEvent& event,
                                                             TransactionPhase phase,
-                                                            const TxContextEvent& state_before,
-                                                            bool reverted)
+                                                            const TxContextEvent& state_before)
 {
     if (is_note_hash_insert_phase(phase)) {
-        return handle_note_hash_append(event, state_before, reverted);
+        return handle_note_hash_append(event, state_before);
     }
     if (is_nullifier_insert_phase(phase)) {
-        return handle_nullifier_append(event, state_before, reverted);
+        return handle_nullifier_append(event, state_before);
     }
-    throw std::runtime_error("Invalid phase for append tree event");
+
+    BB_ASSERT(false, format("Invalid phase for append tree event: ", static_cast<uint8_t>(phase)));
+    return {};
 }
 
 std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const PrivateEmitL2L1MessageEvent& event,
-                                                          const TxContextEvent& state_before,
-                                                          bool reverted)
+                                                          const TxContextEvent& state_before)
 {
     uint32_t remaining_l2_to_l1_msgs = MAX_L2_TO_L1_MSGS_PER_TX - state_before.numL2ToL1Messages;
     return {
@@ -332,8 +308,6 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const PrivateEmitL2L1M
         { Column::tx_l2_l1_msg_content, event.scoped_msg.message.content },
         { Column::tx_write_pi_offset,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + state_before.numL2ToL1Messages },
-        // Selectors
-        { Column::tx_reverted, reverted ? 1 : 0 },
     };
 }
 
@@ -413,38 +387,32 @@ std::vector<std::pair<Column, FF>> handle_first_row()
     return columns;
 }
 
-std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, Gas gas_used, bool discard)
+std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, const Gas& gas_used)
 {
     // We should throw here - but tests are currently unsuitable
     // assert(phase != TransactionPhase::COLLECT_GAS_FEES);
 
-    // TODO: We should probably split this into multiple functions, that are called if the padded phase is a specific
-    // phase.
     const auto& phase_spec = get_tx_phase_spec_map().at(phase);
     std::vector<std::pair<Column, FF>> columns = {
-        { Column::tx_sel, 1 },
-        { Column::tx_discard, discard ? 1 : 0 },
-        { Column::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
         { Column::tx_is_padded, 1 },
-        { Column::tx_start_phase, 1 },
-        { Column::tx_sel_read_phase_length, !is_one_shot_phase(phase) },
-        { Column::tx_end_phase, 1 },
         // Selector specific
         { Column::tx_is_tree_insert_phase, is_tree_insert_phase(phase) ? 1 : 0 },
         // Public call request specific
         { Column::tx_gas_limit_pi_offset,
           is_teardown(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
         { Column::tx_should_read_gas_limit, is_teardown(phase) },
-        // Gas used does not change in padding rows
-        { Column::tx_prev_da_gas_used_sent_to_enqueued_call,
-          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.da_gas : 0 },
-        { Column::tx_prev_l2_gas_used_sent_to_enqueued_call,
-          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.l2_gas : 0 },
-        { Column::tx_next_da_gas_used_sent_to_enqueued_call,
-          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.da_gas : 0 },
-        { Column::tx_next_l2_gas_used_sent_to_enqueued_call,
-          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.l2_gas : 0 },
     };
+
+    // Gas used does not change in padding rows
+    if (phase_spec.is_public_call_request == 1 && !is_teardown(phase)) {
+        columns.insert(columns.end(),
+                       {
+                           { Column::tx_prev_da_gas_used_sent_to_enqueued_call, gas_used.da_gas },
+                           { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, gas_used.l2_gas },
+                           { Column::tx_next_da_gas_used_sent_to_enqueued_call, gas_used.da_gas },
+                           { Column::tx_next_l2_gas_used_sent_to_enqueued_call, gas_used.l2_gas },
+                       });
+    }
 
     return columns;
 }
@@ -475,8 +443,14 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     std::optional<TxStartupEvent> startup_event;
     PhaseLengths phase_lengths{}; // Will be populated from startup event
 
+    // Some flags used to populate the discard column.
     bool r_insertion_or_app_logic_failure = false;
     bool teardown_failure = false;
+
+    // Pre-processing pass:
+    // - extract the startup event and phase lengths.
+    // - set the flags defined above.
+    // - bucket the events by phase.
     for (const auto& tx_event : events) {
         if (std::holds_alternative<TxStartupEvent>(tx_event)) {
             startup_event = std::get<TxStartupEvent>(tx_event);
@@ -487,12 +461,11 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
             // Set some flags for use when populating the discard column.
             if (tx_phase_event.reverted) {
-                if (!is_revertible(tx_phase_event.phase)) {
-                    throw std::runtime_error("Reverted in non-revertible phase: " +
-                                             std::to_string(static_cast<uint8_t>(tx_phase_event.phase)));
-                }
+                // Simulation must have been aborted if we reverted in a non-revertible phase.
+                BB_ASSERT(is_revertible(tx_phase_event.phase),
+                          format("Reverted in non-revertible phase: ", static_cast<uint8_t>(tx_phase_event.phase)));
 
-                if (tx_phase_event.phase == TransactionPhase::TEARDOWN) {
+                if (is_teardown(tx_phase_event.phase)) {
                     teardown_failure = true;
                 } else {
                     r_insertion_or_app_logic_failure = true;
@@ -501,9 +474,8 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
         }
     }
 
-    if (!startup_event.has_value()) {
-        throw std::runtime_error("Transaction startup event is missing");
-    }
+    // Our simulation always emits a startup event.
+    BB_ASSERT(startup_event.has_value(), "Transaction startup event is missing");
 
     const auto& startup_event_data = startup_event.value();
 
@@ -511,10 +483,14 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     TxContextEvent propagated_state = startup_event_data.state;
     // Used to track the gas limit for the "padded" phases.
     Gas current_gas_limit = startup_event_data.gas_limit;
-    Gas teardown_gas_limit = startup_event_data.teardown_gas_limit;
+    const Gas& teardown_gas_limit = startup_event_data.teardown_gas_limit;
     Gas gas_used = startup_event_data.state.gas_used;
     // Track whether this tx reverted
     bool tx_reverted = false;
+
+    // From here we start populating the trace.
+
+    trace.set(row, handle_first_row());
 
     // Go through each phase except startup and process the events in the phase
     for (uint32_t i = 0; i < NUM_PHASES; i++) {
@@ -526,11 +502,11 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             continue;
         }
 
-        TransactionPhase phase = static_cast<TransactionPhase>(i);
+        const TransactionPhase phase = static_cast<TransactionPhase>(i);
 
         bool discard = false;
         if (is_revertible(phase)) {
-            if (phase == TransactionPhase::TEARDOWN) {
+            if (is_teardown(phase)) {
                 discard = teardown_failure;
             } else {
                 // Even if we don't fail until later in teardown, all revertible phases discard.
@@ -547,80 +523,73 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
         // Get the phase length from the startup event's phase_lengths
         // This represents how many items were specified for this phase in the transaction itself.
         // In case of a revert, we may process less items in a phase as we'll stop at the revert.
-        uint32_t phase_length = get_phase_length(phase_lengths, phase);
+        const uint32_t phase_length = get_phase_length(phase_lengths, phase);
 
         // We have events to process in this phase
-        for (const auto& tx_phase_event : phase_events) {
+        for (const auto* tx_phase_event : phase_events) {
             // If this phase is the first revert, set tx_reverted:
             tx_reverted = tx_reverted || tx_phase_event->reverted;
 
-            // Populate all phase_spec related columns
-            trace.set(row, handle_phase_spec(tx_phase_event->phase));
+            // Generic selectors and values common to all phase events.
+            trace.set(row,
+                      { {
+                          { C::tx_sel, 1 },
+                          { C::tx_discard, discard ? 1 : 0 },
+                          { C::tx_reverted, tx_phase_event->reverted ? 1 : 0 },
+                          { C::tx_tx_reverted, tx_reverted ? 1 : 0 },
+                          { C::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
+                          { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
+                          { C::tx_sel_read_phase_length, (phase_counter == 0 && !is_one_shot_phase(phase)) ? 1 : 0 },
+                          { C::tx_end_phase, phase_counter == phase_events.size() - 1 ? 1 : 0 },
+                      } });
 
-            // We always set the tree state
-            trace.set(row, insert_state(tx_phase_event->state_before, tx_phase_event->state_after));
+            // Populate all phase_spec related columns
+            trace.set(row, handle_phase_spec(phase));
+
+            // We always set the tree state and side effect states
+            trace.set(row, insert_tree_state(tx_phase_event->state_before, tx_phase_event->state_after));
             trace.set(row, insert_side_effect_states(tx_phase_event->state_before, tx_phase_event->state_after));
-            trace.set(
-                row,
-                { {
-                    { C::tx_sel, 1 },
-                    { C::tx_discard, discard ? 1 : 0 },
-                    { C::tx_tx_reverted, tx_reverted ? 1 : 0 },
-                    { Column::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
-                    { C::tx_is_padded, 0 }, // overidden below if this is a skipped phase event
-                    { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
-                    { C::tx_sel_read_phase_length, phase_counter == 0 && !is_one_shot_phase(tx_phase_event->phase) },
-                    { C::tx_end_phase, phase_counter == phase_events.size() - 1 ? 1 : 0 },
-                } });
             trace.set(row, handle_prev_gas_used(gas_used));
-            if (row == 1) {
-                trace.set(row, handle_first_row());
-            }
 
             // Pattern match on the variant event type and call the appropriate handler
-            std::visit(
-                overloaded{
-                    [&](const EnqueuedCallEvent& event) {
-                        trace.set(row, handle_enqueued_call_event(tx_phase_event->phase, event));
-                        // No explicit write counter for this phase
-                        trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
+            std::visit(overloaded{ [&](const EnqueuedCallEvent& event) {
+                                      trace.set(row, handle_enqueued_call_event(phase, event));
+                                      // No explicit write counter for this phase
+                                      trace.set(row, handle_pi_read(phase, phase_length, phase_counter));
 
-                        gas_used = tx_phase_event->state_after.gas_used;
-                    },
-                    [&](const PrivateAppendTreeEvent& event) {
-                        trace.set(
-                            row,
-                            handle_append_tree_event(
-                                event, tx_phase_event->phase, tx_phase_event->state_before, tx_phase_event->reverted));
+                                      gas_used = tx_phase_event->state_after.gas_used;
+                                  },
+                                   [&](const PrivateAppendTreeEvent& event) {
+                                       trace.set(row,
+                                                 handle_append_tree_event(event, phase, tx_phase_event->state_before));
+                                       trace.set(row, handle_pi_read(phase, phase_length, phase_counter));
+                                   },
+                                   [&](const PrivateEmitL2L1MessageEvent& event) {
+                                       trace.set(row, handle_l2_l1_msg_event(event, tx_phase_event->state_before));
+                                       trace.set(row, handle_pi_read(phase, phase_length, phase_counter));
+                                   },
+                                   [&](const CollectGasFeeEvent& event) {
+                                       trace.set(row, handle_collect_gas_fee_event(event));
+                                       trace.set(row, handle_pi_read(phase, 1, 0));
+                                   },
+                                   [&](const PadTreesEvent&) { trace.set(row, handle_pi_read(phase, 1, 0)); },
+                                   [&](const CleanupEvent&) {
+                                       trace.set(row, handle_cleanup());
+                                       trace.set(row, handle_pi_read(phase, 1, 0));
+                                   },
+                                   [&](const EmptyPhaseEvent&) {
+                                       // EmptyPhaseEvent represents a phase that is not explicitly skipped because of a
+                                       // revert, but just has no contents to process, like when app logic starts but
+                                       // has no enqueued calls.
+                                       trace.set(row, handle_padded_row(phase, gas_used));
+                                       trace.set(row, handle_pi_read(phase, 0, 0));
+                                   } },
+                       tx_phase_event->event);
 
-                        trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
-                    },
-                    [&](const PrivateEmitL2L1MessageEvent& event) {
-                        trace.set(
-                            row, handle_l2_l1_msg_event(event, tx_phase_event->state_before, tx_phase_event->reverted));
-                        trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
-                    },
-                    [&](const CollectGasFeeEvent& event) {
-                        trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0));
-                        trace.set(row, handle_collect_gas_fee_event(event));
-                    },
-                    [&](const PadTreesEvent&) { trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0)); },
-                    [&](const CleanupEvent&) {
-                        trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0));
-                        trace.set(row, handle_cleanup());
-                    },
-                    [&](const EmptyPhaseEvent&) {
-                        // EmptyPhaseEvent represents a phase that is not explicitly skipped because of a
-                        // revert, but just has no contents to process, like when app logic starts but has no
-                        // enqueued calls.
-                        trace.set(row, handle_pi_read(tx_phase_event->phase, 0, 0));
-                        trace.set(row, handle_padded_row(tx_phase_event->phase, gas_used, discard));
-                    } },
-                tx_phase_event->event);
             trace.set(row, handle_next_gas_used(gas_used));
             trace.set(row, handle_gas_limit(current_gas_limit));
 
-            phase_counter++;
+            phase_counter++; // Inner loop counter.
             row++;
         }
         // In case we encounter another skip row
