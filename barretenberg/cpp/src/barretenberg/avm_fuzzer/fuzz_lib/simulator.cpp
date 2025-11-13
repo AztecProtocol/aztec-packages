@@ -1,11 +1,14 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 
+#include <cstring>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <libdeflate.h>
 #include <nlohmann/json.hpp>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <unordered_set>
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
@@ -26,6 +29,44 @@ using namespace bb::avm2;
 using namespace bb::avm2::simulation;
 using namespace bb::avm2::fuzzer;
 using json = nlohmann::json;
+
+extern "C" void __sanitizer_cov_8bit_counters_init(char* start, char* end);
+
+static constexpr size_t MAX_EXTERNAL_COVERAGE_COUNTERS = 65536;
+static char external_coverage_counters[MAX_EXTERNAL_COVERAGE_COUNTERS] = { 0 }; // NOLINT
+static bool coverage_counters_initialized = false;                              // NOLINT
+
+void register_external_coverage(const json& coverage_data)
+{
+    if (!coverage_data.is_object()) {
+        return;
+    }
+
+    // Initialize coverage counters if not already done
+    if (!coverage_counters_initialized) {
+        // Initialize the coverage counters array for libFuzzer
+        __sanitizer_cov_8bit_counters_init(external_coverage_counters,
+                                           external_coverage_counters + MAX_EXTERNAL_COVERAGE_COUNTERS);
+        coverage_counters_initialized = true;
+    }
+
+    size_t counter_index = 0;
+
+    auto simple_str_hash = [](const std::string& s) -> size_t {
+        size_t hash = 0;
+        for (char c : s) {
+            hash += 37 * static_cast<unsigned char>(c) + 200;
+        }
+        return hash;
+    };
+
+    for (const auto& [key, value] : coverage_data.items()) {
+        if (value.is_number() && value.get<int>() > 0) {
+            counter_index = (simple_str_hash(key) % MAX_EXTERNAL_COVERAGE_COUNTERS);
+            external_coverage_counters[counter_index]++;
+        }
+    }
+}
 
 // Helper function to serialize bytecode and calldata to JSON and print to stdout
 std::string serialize_bytecode_and_calldata(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
@@ -210,6 +251,12 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
     for (const auto& field : output) {
         output_fields.push_back(FF(field));
     }
+
+    // Extract and register external coverage from JsSimulator
+    if (response_json.contains("coverage") && response_json["coverage"].is_object()) {
+        register_external_coverage(response_json["coverage"]);
+    }
+
     SimulatorResult result = { .reverted = reverted, .output = output_fields };
     return result;
 }
