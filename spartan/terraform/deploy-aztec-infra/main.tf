@@ -168,6 +168,7 @@ locals {
         "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
         "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
         "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"              = var.BLOB_ALLOW_EMPTY_SOURCES
+        "validator.node.logLevel"                                  = var.LOG_LEVEL
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -187,6 +188,7 @@ locals {
           "node.mnemonic"                                       = var.PROVER_MNEMONIC
           "node.mnemonicStartIndex"                             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
+          "node.node.logLevel"                                  = var.LOG_LEVEL
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
           "node.node.env.KEY_INDEX_START"                       = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
@@ -195,11 +197,13 @@ locals {
           "node.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
           "node.node.env.BLOB_ALLOW_EMPTY_SOURCES"              = var.BLOB_ALLOW_EMPTY_SOURCES
           "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
+          "broker.node.logLevel"                                = var.LOG_LEVEL
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.replicaCount"                                  = var.PROVER_REPLICAS
           "agent.node.env.BOOTSTRAP_NODES"                      = "asdf"
           "agent.node.env.AGENT_COUNT"                          = var.PROVER_AGENTS_PER_PROVER
+          "agent.node.logLevel"                                 = var.LOG_LEVEL
           "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
           "node.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
         },
@@ -254,15 +258,16 @@ locals {
           "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
           "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
           "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
+          "node.logLevel"                               = var.LOG_LEVEL
         },
         # Only set RPC mnemonic config in fisherman mode)
         var.FISHERMAN_MODE ? {
           "node.secret.envEnabled"       = true
           "node.env.FISHERMAN_MODE"      = "true"
-          "node.env.LOG_LEVEL"           = "debug"
           "node.secret.mnemonic"         = var.FISHERMAN_MNEMONIC
           "node.secret.mnemonicIndex"    = var.FISHERMAN_MNEMONIC_START_INDEX
           "node.env.KEY_INDEX_START"     = var.FISHERMAN_MNEMONIC_START_INDEX
+          "node.logLevel"                = var.FISHERMAN_LOG_LEVEL
           "node.env.VALIDATORS_PER_NODE" = "1"
           "node.preStartScript"          = "source /scripts/get-private-key.sh"
         } : {}

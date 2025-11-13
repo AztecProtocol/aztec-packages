@@ -250,6 +250,18 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   nullable    = true
 }
 
+variable "LOG_LEVEL" {
+  description = "Log level for all nodes"
+  type        = string
+  default     = "info"
+}
+
+variable "FISHERMAN_LOG_LEVEL" {
+  description = "Log level for fisherman nodes"
+  type        = string
+  default     = "debug"
+}
+
 variable "SPONSORED_FPC" {
   description = "Enable sponsored FPC"
   type        = bool
