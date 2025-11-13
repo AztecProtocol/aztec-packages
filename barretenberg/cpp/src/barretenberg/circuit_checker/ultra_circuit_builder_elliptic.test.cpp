@@ -58,44 +58,37 @@ inline auto add_dbl_gate_variables(UltraCircuitBuilder& builder, const DoublingP
                            builder.add_variable(points.result.y));
 }
 
-TEST(UltraCircuitBuilder, TestEllipticAdd)
+TEST(UltraCircuitBuilderElliptic, Addition)
 {
     UltraCircuitBuilder builder;
     auto points = create_add_points(1, 2, true);
+
     auto [x1, y1, x2, y2, x3, y3] = add_add_gate_variables(builder, points);
     builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TEST(UltraCircuitBuilder, TestEllipticAddFailure)
+TEST(UltraCircuitBuilderElliptic, AdditionFailure)
 {
-    UltraCircuitBuilder builder;
-    auto points = create_add_points(1, 2, true);
+    auto test_invalid_coordinate = [](auto modify_points) {
+        UltraCircuitBuilder builder;
+        auto points = create_add_points(1, 2, true);
+        modify_points(points);
+        auto [x1, y1, x2, y2, x3, y3] = add_add_gate_variables(builder, points);
+        builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    };
 
-    // Create a point not on the curve by modifying p2's x-coordinate
-    bb::fr invalid_x = points.p2.x + bb::fr(1);
-
-    uint32_t x1 = builder.add_variable(points.p1.x);
-    uint32_t y1 = builder.add_variable(points.p1.y);
-    uint32_t x2 = builder.add_variable(invalid_x);
-    uint32_t y2 = builder.add_variable(points.p2.y);
-    uint32_t x3 = builder.add_variable(points.result.x);
-    uint32_t y3 = builder.add_variable(points.result.y);
-
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
-    EXPECT_FALSE(CircuitChecker::check(builder));
+    test_invalid_coordinate([](AdditionPoints& p) { p.p1.x += bb::fr(1); });
+    test_invalid_coordinate([](AdditionPoints& p) { p.p1.y += bb::fr(1); });
+    test_invalid_coordinate([](AdditionPoints& p) { p.p2.x += bb::fr(1); });
+    test_invalid_coordinate([](AdditionPoints& p) { p.p2.y += bb::fr(1); });
+    test_invalid_coordinate([](AdditionPoints& p) { p.result.x += bb::fr(1); });
+    test_invalid_coordinate([](AdditionPoints& p) { p.result.y += bb::fr(1); });
 }
 
-TEST(UltraCircuitBuilder, TestEllipticDoubleGate)
-{
-    UltraCircuitBuilder builder;
-    auto points = create_dbl_points(1);
-    auto [x1, y1, x3, y3] = add_dbl_gate_variables(builder, points);
-    builder.create_ecc_dbl_gate({ x1, y1, x3, y3 });
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
-TEST(UltraCircuitBuilder, TestEllipticSubtraction)
+TEST(UltraCircuitBuilderElliptic, Subtraction)
 {
     UltraCircuitBuilder builder;
     auto points = create_add_points(1, 2, false); // false = subtraction
@@ -104,29 +97,54 @@ TEST(UltraCircuitBuilder, TestEllipticSubtraction)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TEST(UltraCircuitBuilder, TestEllipticSubtractionFailure)
+TEST(UltraCircuitBuilderElliptic, SubtractionFailure)
 {
-    UltraCircuitBuilder builder;
-    // Create addition result but use subtraction gate - should fail
-    auto points = create_add_points(1, 2, true); // true = addition (wrong for subtraction gate)
-    auto [x1, y1, x2, y2, x3, y3] = add_add_gate_variables(builder, points);
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
-    EXPECT_FALSE(CircuitChecker::check(builder));
+    auto test_invalid_coordinate = [](auto modify_points) {
+        UltraCircuitBuilder builder;
+        auto points = create_add_points(1, 2, /*is_addition=*/false);
+        modify_points(points);
+        auto [x1, y1, x2, y2, x3, y3] = add_add_gate_variables(builder, points);
+        builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*sign_coefficient=*/-1 });
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    };
+
+    test_invalid_coordinate([](AdditionPoints& p) { p.p1.x += bb::fr(1); });
+    test_invalid_coordinate([](AdditionPoints& p) { p.p1.y += bb::fr(1); });
+    test_invalid_coordinate([](AdditionPoints& p) { p.p2.x += bb::fr(1); });
+    test_invalid_coordinate([](AdditionPoints& p) { p.p2.y += bb::fr(1); });
+    test_invalid_coordinate([](AdditionPoints& p) { p.result.x += bb::fr(1); });
+    test_invalid_coordinate([](AdditionPoints& p) { p.result.y += bb::fr(1); });
 }
 
-TEST(UltraCircuitBuilder, TestEllipticDoubleGateFailure)
+TEST(UltraCircuitBuilderElliptic, Double)
 {
     UltraCircuitBuilder builder;
     auto points = create_dbl_points(1);
-    uint32_t x1 = builder.add_variable(points.p1.x);
-    uint32_t y1 = builder.add_variable(points.p1.y);
-    uint32_t x3 = builder.add_variable(points.result.x + bb::fr(1)); // Incorrect x
-    uint32_t y3 = builder.add_variable(points.result.y);
+
+    auto [x1, y1, x3, y3] = add_dbl_gate_variables(builder, points);
     builder.create_ecc_dbl_gate({ x1, y1, x3, y3 });
-    EXPECT_FALSE(CircuitChecker::check(builder));
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TEST(UltraCircuitBuilder, TestEllipticIncorrectXCoordinate)
+TEST(UltraCircuitBuilderElliptic, DoubleFailure)
+{
+    auto test_invalid_coordinate = [](auto modify_points) {
+        UltraCircuitBuilder builder;
+        auto points = create_dbl_points(1);
+        modify_points(points);
+        auto [x1, y1, x3, y3] = add_dbl_gate_variables(builder, points);
+        builder.create_ecc_dbl_gate({ x1, y1, x3, y3 });
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    };
+
+    test_invalid_coordinate([](DoublingPoints& p) { p.p1.x += bb::fr(1); });
+    test_invalid_coordinate([](DoublingPoints& p) { p.p1.y += bb::fr(1); });
+    test_invalid_coordinate([](DoublingPoints& p) { p.result.x += bb::fr(1); });
+    test_invalid_coordinate([](DoublingPoints& p) { p.result.y += bb::fr(1); });
+}
+
+TEST(UltraCircuitBuilderElliptic, IncorrectXCoordinate)
 {
     UltraCircuitBuilder builder;
     auto points = create_add_points(1, 2, true);
@@ -140,7 +158,7 @@ TEST(UltraCircuitBuilder, TestEllipticIncorrectXCoordinate)
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
-TEST(UltraCircuitBuilder, TestEllipticIncorrectYCoordinate)
+TEST(UltraCircuitBuilderElliptic, IncorrectYCoordinate)
 {
     UltraCircuitBuilder builder;
     auto points = create_add_points(1, 2, true);
@@ -154,7 +172,7 @@ TEST(UltraCircuitBuilder, TestEllipticIncorrectYCoordinate)
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
-TEST(UltraCircuitBuilder, TestEllipticSwappedCoordinates)
+TEST(UltraCircuitBuilderElliptic, SwappedCoordinates)
 {
     UltraCircuitBuilder builder;
     auto points = create_add_points(1, 2, true);
@@ -168,7 +186,7 @@ TEST(UltraCircuitBuilder, TestEllipticSwappedCoordinates)
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
-TEST(UltraCircuitBuilder, TestEllipticMultipleOperations)
+TEST(UltraCircuitBuilderElliptic, MultipleOperations)
 {
     UltraCircuitBuilder builder;
 
@@ -189,7 +207,7 @@ TEST(UltraCircuitBuilder, TestEllipticMultipleOperations)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TEST(UltraCircuitBuilder, TestEllipticChainedOperations)
+TEST(UltraCircuitBuilderElliptic, ChainedOperations)
 {
     UltraCircuitBuilder builder;
 
@@ -215,7 +233,7 @@ TEST(UltraCircuitBuilder, TestEllipticChainedOperations)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TEST(UltraCircuitBuilder, TestEllipticDoubleWithIncorrectYCoordinate)
+TEST(UltraCircuitBuilderElliptic, DoubleWithIncorrectYCoordinate)
 {
     UltraCircuitBuilder builder;
     auto points = create_dbl_points(1);
