@@ -12,13 +12,13 @@
 
 ## Overview
 
-The **Merge Protocol** is a critical component of the CHONK proving system used in Aztec. It ensures the correct construction and concatenation of the ECC (Elliptic Curve Cryptography) operation queue polynomials as circuits are accumulated during folding or recursive proof verification.
+The **Merge Protocol** is a critical component of the CHONK proving system used in Aztec. It ensures the correct construction and concatenation of the ECC (Elliptic Curve Cryptography) operation queue polynomials throughout folding or recursive verification.
 
 ### Purpose
 
 In the Goblin architecture, elliptic curve operations from multiple circuits are accumulated into a shared operation queue. The Merge Protocol proves that:
-1. **Concatenation is correct**: The merged table is the proper concatenation of two subtables
-2. **Degree bounds are satisfied**: The left table (see below) has bounded degree to prevent malicious padding
+1. **Concatenation is correct**
+2. **Subtables do not overlap**
 
 ### Role in Goblin
 
@@ -69,10 +69,7 @@ The protocol supports two merge modes:
 
 ### Commitment Strategy: Transcript Sharing
 
-The Merge Protocol does NOT independently commit to $L_j$ and $R_j$. Instead, these commitments are **shared via the transcript**:
-
-- **$[t_j]$** (current subtable): Added by HyperNova folding verifier
-- **$[T_{\text{prev},j}]$** (previous aggregate table): Added in previous merge round
+The Merge Protocol does NOT independently commit to $L_j$ and $R_j$. Instead, these commitments are **obtained from previous steps via the transcript or public inputs**:
 
 **At a given step, prover commits only to:**
 - $[M_j]$: Merged table commitments
@@ -90,11 +87,8 @@ The `MergeProver::construct_proof()` method executes the following steps:
 
 These are **not** sent again during the merge proof.
 
-#### Step 1: Table Construction
+#### Step 1: Merged Table Construction
 ```cpp
-// Construct the three tables based on merge settings
-std::array<Polynomial, NUM_WIRES> left_table;
-std::array<Polynomial, NUM_WIRES> right_table;
 std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns();
 ```
 
@@ -113,7 +107,7 @@ for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
 }
 ```
 
-#### Step 4: Degree Check Batching
+#### Step 4: Get Challenges for Batched Degree Check
 Receive challenges $\alpha_1, \ldots, \alpha_4$ and compute the batched polynomial:
 $$G(X) = X^{\ell-1} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(X)\right)$$
 
@@ -126,7 +120,7 @@ for (size_t idx = 0; idx < NUM_WIRES; idx++) {
 return reversed_batched_left_tables.reverse(); // Multiply by X^(k-1)
 ```
 
-#### Step 5: Commit to Degree Check Polynomial
+#### Step 5: Commit to Batched Degree Check Polynomial
 ```cpp
 transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
                              pcs_commitment_key.commit(reversed_batched_left_tables));
@@ -147,68 +141,9 @@ Use the Shplonk protocol to batch all openings into a single KZG opening proof.
 
 ### Verifier Algorithm
 
-The `MergeVerifier_<Curve>::verify_proof()` method performs:
+Mirrors the Prover's steps. Critical checks are performed as follows.
 
-#### Step 0: Prerequisite - Input Commitments
-The verifier receives an `InputCommitments` structure containing:
-```cpp
-struct InputCommitments {
-    TableCommitments t_commitments;      // [t_1], [t_2], [t_3], [t_4]
-    TableCommitments T_prev_commitments; // [T_prev,1], ..., [T_prev,4]
-};
-```
-These commitments are retrieved from the shared transcript (they were added by HN and previous Merge verification).
-
-#### Step 1: Receive Shift Size
-```cpp
-const FF shift_size = transcript->receive_from_prover<FF>("shift_size");
-```
-
-#### Step 2: Construct Table Commitment Vector
-Based on merge settings, organize the commitments in order $[L_1], \ldots, [L_4], [R_1], \ldots, [R_4]$:
-```cpp
-std::vector<Commitment> table_commitments;
-table_commitments.reserve((3 * NUM_WIRES) + 1);
-
-// Add [L_j] commitments from input
-for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-    table_commitments.emplace_back(settings == MergeSettings::PREPEND
-        ? input_commitments.t_commitments[idx]
-        : input_commitments.T_prev_commitments[idx]);
-}
-
-// Add [R_j] commitments from input
-for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-    table_commitments.emplace_back(settings == MergeSettings::PREPEND
-        ? input_commitments.T_prev_commitments[idx]
-        : input_commitments.t_commitments[idx]);
-}
-```
-
-#### Step 3: Receive Merged Table Commitments
-Receive $[M_j]$ from the proof:
-```cpp
-for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-    merged_table_commitments[idx] =
-        transcript->receive_from_prover<Commitment>("MERGED_TABLE_" + std::to_string(idx));
-    table_commitments.emplace_back(merged_table_commitments[idx]);
-}
-```
-
-#### Step 4: Receive Degree Check Commitment
-Receive $[G]$ from the proof:
-```cpp
-table_commitments.emplace_back(
-    transcript->receive_from_prover<Commitment>("REVERSED_BATCHED_LEFT_TABLES"));
-```
-
-#### Step 5: Generate Challenges
-Generate the same challenges as the prover: $\alpha_i$ and $\kappa$.
-
-#### Step 6: Receive Evaluations
-Receive all evaluations: $l_j$, $r_j$, $m_j$, and $g$.
-
-#### Step 7: Check Concatenation Identity
+#### Check Concatenation Identity
 ```cpp
 bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);
 ```
@@ -216,7 +151,7 @@ bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);
 Verifies for each $j$:
 $$l_j + \kappa^\ell \cdot r_j = m_j$$
 
-#### Step 8: Check Degree Identity
+#### Check Degree Identity
 ```cpp
 bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, degree_check_challenges);
 ```
@@ -224,7 +159,7 @@ bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, d
 Verifies:
 $$\sum_{i=1}^{4} \alpha_i \cdot l_i = g \cdot \kappa^{\ell-1}$$
 
-#### Step 9: Verify Shplonk Opening
+#### Verify Shplonk Opening
 Use KZG to verify the batched opening claim for ALL commitments:
 - $[L_1], \ldots, [L_4]$ (from input commitments)
 - $[R_1], \ldots, [R_4]$ (from input commitments)
@@ -282,7 +217,7 @@ bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa)
 }
 ```
 
-The polynomial identity holds for all $X$ if and only if it holds at random $\kappa$ (Schwartz-Zippel lemma; see Appendix for proof).
+The polynomial identity holds for all $X$ if and only if it holds at random $\kappa$ (Schwartz-Zippel lemma).
 
 ## Implementation Details
 
@@ -340,7 +275,7 @@ Within the **CHONK** proving system, the Merge Protocol achieves zero-knowledge 
 
 ##### Degree-of-Freedom Analysis
 
-**Copy-Constrained Commitments:** Merge and Translator use the **same commitment** $[M_j]$ (not separate commitments). Shifted evaluations $M_{j, \text{shifted}}(u)$ re-use $[M_j]$. Here $u$ is a sumcheck evaluation challenge.
+**Copy-Constrained Commitments:** Merge and Translator use the **same commitment** $[M_j]$ (not separate commitments). Shifted evaluations $M_{j, \text{shifted}}(u)$ re-use $[M_j]$. Here $u^\prime$ is the Translator sumcheck evaluation challenge.
 
 **Total Randomness Available:**
 - 4 wires (op queue columns), each with 10 random coefficients (4 from $L_j$ hiding kernel, 6 from $R_j$ tail kernel)
@@ -380,26 +315,24 @@ These operations batch across all 4 wires and draw from the **residual pool** of
    - Evaluation $G(\kappa^{-1})$ → **-1 DoF** (shared)
    - Verification: $\sum_i \alpha_i L_i(\kappa) = G(\kappa^{-1}) \cdot \kappa^{k-1}$ (consistency check, not new constraint)
    - **Requires at least 2 DoF** in $L_j$ polynomials for degree bound security
-   - **Total: -2 DoF shared, -2 DoF reserved**
+   - **Total: -2 DoF** (shared)
 
 2. **Shplonk batching:**
    - Batches all 13 opening claims (4 × 3 for $L, R, M$ plus $G$)
-   - Quotient commitment $[Q]$ → **-1 DoF** (shared)
+   - Quotient commitment $[Q]$ → **-1 DoF** shared
 
-3. **KZG final pairing:**
+3. **KZG Quotient:**
    - Verifies Shplonk quotient opening → **-1 DoF** (shared)
 
 **Shared Operations Total:** $-2$ (degree check used) $-1$ (Shplonk) $-1$ (KZG) $= -4$ DoF
 
-**Reserved for Degree Check Security:** $-2$ DoF (need high-degree randomness in $L_j$)
 
 **Final Balance:**
 - Residual available: 8 DoF (from per-wire surplus)
 - Shared consumed: 4 DoF
-- Reserved: 2 DoF
-- **Net surplus: 2 DoF** ✓
+- **Net surplus: 4 DoF** ✓
 
-**Conclusion:** The 5 random non-ops provide computational hiding with a 2 DoF surplus (40 random coefficients, 38 consumed). The 4-wire structure allows per-wire surplus to cover shared batched operations. This is sufficient but with minimal margin.
+**Conclusion:** The 5 random non-ops provide computational hiding with a 4 DoF surplus (40 random coefficients, 36 consumed). The 4-wire structure allows per-wire surplus to cover shared batched operations. This is sufficient but with minimal margin.
 
 ##### Remaining Considerations
 
