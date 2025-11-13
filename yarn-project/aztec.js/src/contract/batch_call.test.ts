@@ -30,7 +30,7 @@ function createUtilityExecutionPayload(
     [],
     [],
     [],
-    undefined, // feePayer - not a fee payment
+    undefined,
   );
 }
 
@@ -57,7 +57,7 @@ function createPrivateExecutionPayload(
     [],
     [],
     [],
-    undefined, // feePayer - not a fee payment
+    undefined,
   );
 }
 
@@ -83,7 +83,7 @@ function createPublicExecutionPayload(
     [],
     [],
     [],
-    undefined, // feePayer - not a fee payment
+    undefined,
   );
 }
 
@@ -113,11 +113,6 @@ describe('BatchCall', () => {
       const utilityResult1 = UtilitySimulationResult.random();
       const utilityResult2 = UtilitySimulationResult.random();
 
-      wallet.batch.mockResolvedValue([
-        { name: 'simulateUtility', result: utilityResult1 },
-        { name: 'simulateUtility', result: utilityResult2 },
-      ] as any);
-
       // Mock tx simulation result
       const privateReturnValues = [Fr.random(), Fr.random()];
       const publicReturnValues = [Fr.random()];
@@ -127,11 +122,17 @@ describe('BatchCall', () => {
         nested: [{ values: privateReturnValues }],
       } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
-      wallet.simulateTx.mockResolvedValue(txSimResult);
+
+      // Mock wallet.batch to return both utility results and simulateTx result
+      wallet.batch.mockResolvedValue([
+        { name: 'simulateUtility', result: utilityResult1 },
+        { name: 'simulateUtility', result: utilityResult2 },
+        { name: 'simulateTx', result: txSimResult },
+      ] as any);
 
       const results = await batchCall.simulate({ from: await AztecAddress.random() });
 
-      // Verify wallet.batch was called with both utility calls
+      // Verify wallet.batch was called once with both utility calls AND simulateTx
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
         {
@@ -142,19 +143,23 @@ describe('BatchCall', () => {
           name: 'simulateUtility',
           args: [expect.objectContaining({ name: 'checkPermission', to: contractAddress3 }), undefined, undefined],
         },
+        {
+          name: 'simulateTx',
+          args: [
+            expect.objectContaining({
+              calls: expect.arrayContaining([
+                expect.objectContaining({ type: FunctionType.PRIVATE }),
+                expect.objectContaining({ type: FunctionType.PUBLIC }),
+              ]),
+            }),
+            expect.any(Object),
+          ],
+        },
       ]);
 
-      // Verify wallet.simulateTx was called with merged private/public calls
-      expect(wallet.simulateTx).toHaveBeenCalledTimes(1);
-      expect(wallet.simulateTx).toHaveBeenCalledWith(
-        expect.objectContaining({
-          calls: expect.arrayContaining([
-            expect.objectContaining({ type: FunctionType.PRIVATE }),
-            expect.objectContaining({ type: FunctionType.PUBLIC }),
-          ]),
-        }),
-        expect.any(Object),
-      );
+      // Verify wallet.simulateTx/simulateUtility were NOT called directly
+      expect(wallet.simulateTx).not.toHaveBeenCalled();
+      expect(wallet.simulateUtility).not.toHaveBeenCalled();
 
       expect(results).toHaveLength(4);
       // First utility - decoded from Fr[] to bigint (single field returns the value directly, not as array)
@@ -188,9 +193,16 @@ describe('BatchCall', () => {
       const results = await batchCall.simulate({ from: await AztecAddress.random() });
 
       expect(wallet.batch).toHaveBeenCalledTimes(1);
-
-      // Verify wallet.simulateTx was NOT called since there are no private/public calls. This avoids empty txs.
-      expect(wallet.simulateTx).not.toHaveBeenCalled();
+      expect(wallet.batch).toHaveBeenCalledWith([
+        {
+          name: 'simulateUtility',
+          args: [expect.objectContaining({ name: 'view1', to: contractAddress1 }), undefined, undefined],
+        },
+        {
+          name: 'simulateUtility',
+          args: [expect.objectContaining({ name: 'view2', to: contractAddress2 }), undefined, undefined],
+        },
+      ]);
 
       // Verify results - decoded from Fr[] to bigint
       expect(results).toHaveLength(2);
@@ -198,7 +210,7 @@ describe('BatchCall', () => {
       expect(results[1]).toEqual(utilityResult2.result[0].toBigInt());
     });
 
-    it('should handle only private/public calls without calling wallet.batch', async () => {
+    it('should handle only private/public calls using wallet.batch with simulateTx', async () => {
       const contractAddress1 = await AztecAddress.random();
       const contractAddress2 = await AztecAddress.random();
 
@@ -215,14 +227,26 @@ describe('BatchCall', () => {
         nested: [{ values: privateReturnValues }],
       } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
-      wallet.simulateTx.mockResolvedValue(txSimResult);
+
+      wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);
 
       const results = await batchCall.simulate({ from: await AztecAddress.random() });
 
-      // Verify wallet.batch was NOT called since there are no utility calls
-      expect(wallet.batch).not.toHaveBeenCalled();
-
-      expect(wallet.simulateTx).toHaveBeenCalledTimes(1);
+      expect(wallet.batch).toHaveBeenCalledTimes(1);
+      expect(wallet.batch).toHaveBeenCalledWith([
+        {
+          name: 'simulateTx',
+          args: [
+            expect.objectContaining({
+              calls: expect.arrayContaining([
+                expect.objectContaining({ type: FunctionType.PRIVATE }),
+                expect.objectContaining({ type: FunctionType.PUBLIC }),
+              ]),
+            }),
+            expect.any(Object),
+          ],
+        },
+      ]);
 
       // Verify results (decoded)
       expect(results).toHaveLength(2);
@@ -236,7 +260,6 @@ describe('BatchCall', () => {
       const results = await batchCall.simulate({ from: await AztecAddress.random() });
 
       expect(wallet.batch).not.toHaveBeenCalled();
-      expect(wallet.simulateTx).not.toHaveBeenCalled();
       expect(results).toEqual([]);
     });
   });
