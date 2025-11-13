@@ -658,17 +658,20 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
     terminated = true;
 }
 
-void ProgramBlock::finalize_with_jump(ProgramBlock* target_block)
+void ProgramBlock::finalize_with_jump(ProgramBlock* target_block, bool copy_memory_manager)
 {
     terminated = true;
     successors.push_back(target_block);
     target_block->predecessors.push_back(this);
-    target_block->memory_manager = memory_manager;
+    if (copy_memory_manager) {
+        target_block->memory_manager = memory_manager;
+    }
 }
 
 void ProgramBlock::finalize_with_jump_if(ProgramBlock* target_then_block,
                                          ProgramBlock* target_else_block,
-                                         uint16_t condition_offset)
+                                         uint16_t condition_offset,
+                                         bool copy_memory_manager)
 {
     terminated = true;
     successors.push_back(target_then_block);
@@ -676,8 +679,10 @@ void ProgramBlock::finalize_with_jump_if(ProgramBlock* target_then_block,
     this->condition_offset_index = condition_offset;
     target_then_block->predecessors.push_back(this);
     target_else_block->predecessors.push_back(this);
-    target_then_block->memory_manager = memory_manager;
-    target_else_block->memory_manager = memory_manager;
+    if (copy_memory_manager) {
+        target_then_block->memory_manager = memory_manager;
+        target_else_block->memory_manager = memory_manager;
+    }
 }
 
 std::optional<uint16_t> ProgramBlock::get_terminating_condition_value()
@@ -687,6 +692,11 @@ std::optional<uint16_t> ProgramBlock::get_terminating_condition_value()
         return std::nullopt;
     }
     return condition_addr;
+}
+
+bool ProgramBlock::is_memory_address_set(uint16_t address)
+{
+    return memory_manager.is_memory_address_set(address);
 }
 
 void ProgramBlock::process_instruction(FuzzInstruction instruction)
