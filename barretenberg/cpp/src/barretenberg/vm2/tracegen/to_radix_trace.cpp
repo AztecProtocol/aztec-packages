@@ -117,6 +117,9 @@ void ToRadixTraceBuilder::process_with_memory(
         // Error Handling - Num Limbs and Value
         bool invalid_num_limbs = event.num_limbs == 0 && !(event.value == FF(0));
 
+        info("max_write_addr: ", max_write_addr);
+        info("dst_addr: ", event.dst_addr);
+        info("num_limbs:", event.num_limbs);
         // Common values for the first row
         trace.set(row,
                   { {
