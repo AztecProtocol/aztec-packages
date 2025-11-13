@@ -536,7 +536,30 @@ plookup::BasicTable& UltraCircuitBuilder_<ExecutionTrace>::get_table(const plook
 }
 
 /**
- * @brief Perform a series of lookups, one for each 'row' in read_values.
+ * @brief Create gates from pre-computed accumulator values which simultaneously establish individual basic-table
+ * lookups and the reconstruction of the desired result from those components.
+ *
+ * @details To perform a lookup, we often need to decompose inputs into smaller "limbs", look up each limb in a
+ * BasicTable, then use those to reconstruct the result. E.g., to perform an XOR on uint32, we decompose into 6-bit
+ * limbs, look up each limb's XOR in a 6-bit XOR table, then reconstruct the full 32-bit XOR from those limb results.
+ *
+ * This method creates a sequence of lookup gates that simultaneously establish (1) the individual BasicTable lookups,
+ * and (2) the reconstruction of the final result from those limb lookups. This is done via an accumulator pattern:
+ * Each gate stores accumulated sums in its wires and uses step size coefficients in selectors
+ * to extract individual slices via: `wire[i] - q_2*wire[i+1] - q_m*wire[i+2] - q_c*wire[i+3]`, which yields the raw
+ * slice to verify against the BasicTable.
+ *
+ * The last lookup has zero step size coefficients (q_2 = q_m = q_c = 0) because there's no next accumulator to
+ * subtract; its wire values already contain the raw slices.
+ *
+ * @param id MultiTable identifier specifying which lookup operation to perform
+ * @param read_values Pre-computed accumulator values and lookup entries from plookup::get_lookup_accumulators
+ * @param key_a_index Witness index for first input; reused in first lookup gate
+ * @param key_b_index Optional witness index for second input (2-to-1 lookups); reused in first lookup if provided
+ *
+ * @return ReadData<uint32_t> containing witness indices for all gates. Primary use: result of the original operation
+ * being looked up is in [C3][0]. (We return the indices for all values, not just result, because some algorithms
+ * like SHA256 make use of the intermediate values).
  */
 
 template <typename ExecutionTrace>
@@ -546,34 +569,43 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
     const uint32_t key_a_index,
     std::optional<uint32_t> key_b_index)
 {
+    using plookup::ColumnIdx;
+
     const auto& multi_table = plookup::get_multitable(id);
-    const size_t num_lookups = read_values[plookup::ColumnIdx::C1].size();
+    const size_t num_lookups = read_values[ColumnIdx::C1].size();
     plookup::ReadData<uint32_t> read_data;
+
     for (size_t i = 0; i < num_lookups; ++i) {
-        // get basic lookup table; construct and add to builder.lookup_tables if not already present
-        auto& table = get_table(multi_table.basic_table_ids[i]);
+        const bool is_first_lookup = (i == 0);
+        const bool is_last_lookup = (i == num_lookups - 1);
 
-        table.lookup_gates.emplace_back(read_values.lookup_entries[i]); // used for constructing sorted polynomials
+        // Get basic lookup table; construct and add to builder.lookup_tables if not already present
+        plookup::BasicTable& table = get_table(multi_table.basic_table_ids[i]);
+        table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
 
-        const auto first_idx = (i == 0) ? key_a_index : this->add_variable(read_values[plookup::ColumnIdx::C1][i]);
-        const auto second_idx = (i == 0 && (key_b_index.has_value()))
-                                    ? key_b_index.value()
-                                    : this->add_variable(read_values[plookup::ColumnIdx::C2][i]);
-        const auto third_idx = this->add_variable(read_values[plookup::ColumnIdx::C3][i]);
+        // Create witness variables: first lookup reuses user's input indices, subsequent create new variables
+        const auto first_idx = is_first_lookup ? key_a_index : this->add_variable(read_values[ColumnIdx::C1][i]);
+        const auto second_idx = (is_first_lookup && key_b_index.has_value())
+                                    ? *key_b_index
+                                    : this->add_variable(read_values[ColumnIdx::C2][i]);
+        const auto third_idx = this->add_variable(read_values[ColumnIdx::C3][i]);
 
-        read_data[plookup::ColumnIdx::C1].push_back(first_idx);
-        read_data[plookup::ColumnIdx::C2].push_back(second_idx);
-        read_data[plookup::ColumnIdx::C3].push_back(third_idx);
+        read_data[ColumnIdx::C1].push_back(first_idx);
+        read_data[ColumnIdx::C2].push_back(second_idx);
+        read_data[ColumnIdx::C3].push_back(third_idx);
         this->assert_valid_variables({ first_idx, second_idx, third_idx });
 
-        blocks.lookup.q_3().emplace_back(FF(table.table_index));
+        // Populate lookup gate: wire values and selectors
         blocks.lookup.populate_wires(first_idx, second_idx, third_idx, this->zero_idx());
-        blocks.lookup.q_1().emplace_back(0);
-        blocks.lookup.q_2().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_1_step_sizes[i + 1]));
-        blocks.lookup.q_m().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_2_step_sizes[i + 1]));
-        blocks.lookup.q_c().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_3_step_sizes[i + 1]));
-        blocks.lookup.q_4().emplace_back(0);
-        blocks.lookup.set_gate_selector(1);
+        blocks.lookup.set_gate_selector(1);                      // mark as lookup gate
+        blocks.lookup.q_3().emplace_back(FF(table.table_index)); // unique table identifier
+        // Step size coefficients: zero for last lookup (no next accumulator), negative step sizes otherwise
+        blocks.lookup.q_2().emplace_back(is_last_lookup ? 0 : -multi_table.column_1_step_sizes[i + 1]);
+        blocks.lookup.q_m().emplace_back(is_last_lookup ? 0 : -multi_table.column_2_step_sizes[i + 1]);
+        blocks.lookup.q_c().emplace_back(is_last_lookup ? 0 : -multi_table.column_3_step_sizes[i + 1]);
+        blocks.lookup.q_1().emplace_back(0); // unused
+        blocks.lookup.q_4().emplace_back(0); // unused
+
         check_selector_length_consistency();
         this->increment_num_gates();
     }
