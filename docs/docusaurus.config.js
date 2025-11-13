@@ -78,12 +78,12 @@ const config = {
               }),
             },
             [versions[1]]: {
-              label: "Devnet (v3.0.0-devnet.4)",
+              label: "Devnet (v3.0.0-devnet.5)",
               path: "devnet",
               banner: "none",
             },
-            "v2.1.2": {
-              label: "RC (v2.1.2)",
+            "v2.1.4": {
+              label: "RC (v2.1.4)",
             },
             ...(process.env.CONTEXT !== "production" && {
               current: {
