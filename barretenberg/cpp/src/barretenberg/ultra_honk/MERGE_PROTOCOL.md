@@ -12,7 +12,7 @@
 
 ## Overview
 
-The **Merge Protocol** is a critical component of the Goblin proving system used in Aztec. It ensures the correct construction and concatenation of the ECC (Elliptic Curve Cryptography) operation queue polynomials as circuits are accumulated during folding or recursive proof verification.
+The **Merge Protocol** is a critical component of the CHONK proving system used in Aztec. It ensures the correct construction and concatenation of the ECC (Elliptic Curve Cryptography) operation queue polynomials as circuits are accumulated during folding or recursive proof verification.
 
 ### Purpose
 
@@ -31,7 +31,7 @@ The Merge Protocol is one of three components in a full Goblin proof:
 
 ### Notation
 
-Let's define our key components:
+Key components:
 - $L_j$ (Left table): Represents either the current subtable $t_j$ or the previous table $T_{\text{prev},j}$
 - $R_j$ (Right table): Represents the other table (whichever $L_j$ is not)
 - $M_j$ (Merged table): The full aggregate table $T_j$
@@ -74,11 +74,10 @@ The Merge Protocol does NOT independently commit to $L_j$ and $R_j$. Instead, th
 - **$[t_j]$** (current subtable): Added by HyperNova folding verifier
 - **$[T_{\text{prev},j}]$** (previous aggregate table): Added in previous merge round
 
-**Prover commits only to:**
+**At a given step, prover commits only to:**
 - $[M_j]$: Merged table commitments
 - $[G]$: Degree check polynomial commitment
 
-**Benefits:** Avoids redundant commitments (8 sent instead of 20), reduces proof size, ensures cryptographic binding via Fiat-Shamir transcript
 
 ### Prover Algorithm
 
@@ -160,10 +159,9 @@ struct InputCommitments {
 ```
 These commitments are retrieved from the shared transcript (they were added by HN and previous Merge verification).
 
-#### Step 1: Receive and Validate Shift Size
+#### Step 1: Receive Shift Size
 ```cpp
 const FF shift_size = transcript->receive_from_prover<FF>("shift_size");
-BB_ASSERT_GT(shift_size, 0U, "Shift size should always be bigger than 0");
 ```
 
 #### Step 2: Construct Table Commitment Vector
@@ -233,31 +231,6 @@ Use KZG to verify the batched opening claim for ALL commitments:
 - $[M_1], \ldots, [M_4]$ (from proof)
 - $[G]$ (from proof)
 
-### Commitment Flow Diagram
-
-```
-Previous Merge          Circuit Prover           Current Merge
-Verification                                      Protocol
-     |                       |                         |
-     |                       |                         |
-[T_prev,j] ────────────────────────────────────────>  |
-   already in               |                         |
-   transcript               |                         |
-                            |                         |
-                        [t_j] ────────────────────>   |
-                        already in                    |
-                        transcript                    |
-                            |                         |
-                            |              Merge prover commits to:
-                            |                     [M_j] ────>
-                            |                      [G]  ────>
-                            |                         |
-                            |      Merge verifier uses commitments from:
-                            |         - Transcript: [L_j], [R_j]
-                            |         - Proof: [M_j], [G]
-                            |                         |
-                            v                         v
-```
 
 ## Degree Check Mechanism
 
@@ -320,38 +293,6 @@ The polynomial identity holds for all $X$ if and only if it holds at random $\ka
 - **merge_verifier.hpp**: Verifier class template declaration
 - **merge_verifier.cpp**: Verifier implementation with native and recursive instantiations
 
-### Key Classes
-
-#### MergeProver
-```cpp
-class MergeProver {
-    std::shared_ptr<ECCOpQueue> op_queue;
-    CommitmentKey pcs_commitment_key;
-    std::shared_ptr<Transcript> transcript;
-    MergeSettings settings;
-
-    MergeProof construct_proof();
-};
-```
-
-#### MergeVerifier_<Curve>
-```cpp
-template <typename Curve> class MergeVerifier_ {
-    struct InputCommitments {
-        TableCommitments t_commitments;
-        TableCommitments T_prev_commitments;
-    };
-
-    struct VerificationResult {
-        PairingPoints pairing_points;
-        TableCommitments merged_commitments;
-        bool degree_check_passed;
-        bool concatenation_check_passed;
-    };
-
-    VerificationResult verify_proof(const Proof& proof, const InputCommitments& input_commitments);
-};
-```
 
 ## Security Considerations
 
@@ -360,10 +301,9 @@ template <typename Curve> class MergeVerifier_ {
 The Merge Protocol achieves soundness through:
 
 1. **Thakur Degree Check** [[6](#ref-thakur)]: Reversed polynomial technique ensures $\deg(L_j) < \ell$
-2. **Fiat-Shamir Heuristic**: All challenges are generated via transcript hashing, preventing prover manipulation
-3. **Schwartz-Zippel Lemma**: Polynomial identities checked at random points
-4. **Batching Security**: Batching challenges $\alpha_i$ ensure all columns are checked simultaneously with overwhelming probability
-5. **KZG Commitment Security**: Based on the hardness of the discrete logarithm problem on BN254
+2. **Schwartz-Zippel Lemma**: Polynomial identities checked at random points
+3. **Batching Security**: We are using Shplonk to batch different opening claims.
+4. **KZG Commitment Security**: Based on the hardness of the discrete logarithm problem on BN254
 
 
 ### ZK Considerations
@@ -400,7 +340,7 @@ Within the **CHONK** proving system, the Merge Protocol achieves zero-knowledge 
 
 ##### Degree-of-Freedom Analysis
 
-**Copy-Constrained Commitments:** Merge and Translator use the **same commitment** $[M_j]$ (not separate commitments). Shifted evaluations $M_j(\omega \cdot \zeta)$ also use $[M_j]$.
+**Copy-Constrained Commitments:** Merge and Translator use the **same commitment** $[M_j]$ (not separate commitments). Shifted evaluations $M_{j, \text{shifted}}(u)$ re-use $[M_j]$. Here $u$ is a sumcheck evaluation challenge.
 
 **Total Randomness Available:**
 - 4 wires (op queue columns), each with 10 random coefficients (4 from $L_j$ hiding kernel, 6 from $R_j$ tail kernel)
@@ -412,16 +352,16 @@ For each wire $j \in \{1, 2, 3, 4\}$:
 
 1. **Commitments** (copy-constrained between Merge and Translator):
    - $[L_j]$, $[R_j]$, $[M_j]$ → 3 commitments per wire
-   - KZG computational hiding: ~1 DoF per commitment
+   - KZG computational hiding: -1 DoF per commitment
    - **Per wire: -3 DoF**
 
 2. **Independent evaluation constraints:**
    - Merge: $L_j(\kappa)$ → **-1 DoF**
    - Merge: $R_j(\kappa)$ → **-1 DoF**
      - Note: $M_j(\kappa) = L_j(\kappa) + \kappa^\ell \cdot R_j(\kappa)$ is not independent, provides no new info
-   - MegaZK: $L_j(\zeta_{\text{sumcheck}})$ (as `ecc_op_wire`) → **-1 DoF**
-   - Translator: $M_j(\zeta_{\text{translator}})$ → **-1 DoF**
-   - Translator: $M_j(\omega \cdot \zeta_{\text{translator}})$ (shifted) → **-1 DoF**
+   - MegaZK: $L_j(u)$ (as `ecc_op_wire`) → **-1 DoF**
+   - Translator: $M_j(u^\prime)$ → **-1 DoF**
+   - Translator: $M_{j, \text{shifted}}(u^\prime)$ → **-1 DoF**
    - **Per wire: -5 DoF** for evaluations
 
 **Per-Wire Subtotal:** $-3$ (commitments) $-5$ (evaluations) $= -8$ DoF per wire
@@ -465,14 +405,7 @@ These operations batch across all 4 wires and draw from the **residual pool** of
 
 **Caveats:**
 1. Analysis is heuristic (assumes ~1 DoF per commitment under DLog)
-2. Information-theoretic hiding would require ~128 random coefficients (we have 40)
-3. Formal ZK proof needed for rigorous security bounds
-4. 2 DoF margin is thin - sensitive to protocol changes
-
-**Recommendations:**
-- Current masking is sufficient for computational hiding
-- Consider adding 1 more random non-op to hiding kernel (increases margin to 4 DoF, minimal cost)
-- Formal cryptographic audit recommended to validate assumptions
+2. 2 DoF margin is thin - sensitive to protocol changes
 
 **Implementation references:**
 - `chonk.cpp:450-532` - Random op placement logic
@@ -480,12 +413,10 @@ These operations batch across all 4 wires and draw from the **residual pool** of
 
 ## References
 
-1. **Goblin Plonk**: [HackMD](https://hackmd.io/@aztec-network/BkGNaHUJn/%2FdUsu57SOTBiQ4tS9KJMkMQ)
-2. **Aztec Protocol**: [Paper](https://eprint.iacr.org/2024/1651)
-3. **Shplonk**: [Paper](https://eprint.iacr.org/2020/081)
-4. **KZG Commitments**: [Paper](https://www.iacr.org/archive/asiacrypt2010/6477178/6477178.pdf)
-5. **Stackproofs**: [Paper](https://eprint.iacr.org/2024/1281)
-6. <a name="ref-thakur"></a>**Thakur - Batching Non-Membership Proofs with Bilinear Accumulators**: [Paper](https://eprint.iacr.org/2019/1147.pdf), Section 6.2 (Degree Check Protocol)
+1. **Shplonk**: [Paper](https://eprint.iacr.org/2020/081)
+2. **KZG Commitments**: [Paper](https://www.iacr.org/archive/asiacrypt2010/6477178/6477178.pdf)
+3. **Stackproofs**: [Paper](https://eprint.iacr.org/2024/1281)
+4. <a name="ref-thakur"></a>**Thakur - Batching Non-Membership Proofs with Bilinear Accumulators**: [Paper](https://eprint.iacr.org/2019/1147.pdf), Section 6.2 (Degree Check Protocol)
 
 ## Commitment Propagation and Consistency
 
