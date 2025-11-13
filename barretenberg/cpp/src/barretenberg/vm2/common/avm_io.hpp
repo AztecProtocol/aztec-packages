@@ -367,6 +367,9 @@ struct ExecutionHints {
     std::vector<ContractClassHint> contractClasses;
     std::vector<BytecodeCommitmentHint> bytecodeCommitments;
     std::vector<DebugFunctionNameHint> debugFunctionNames;
+    std::vector<ContractDBCreateCheckpointHint> contractDBCreateCheckpointHints;
+    std::vector<ContractDBCommitCheckpointHint> contractDBCommitCheckpointHints;
+    std::vector<ContractDBRevertCheckpointHint> contractDBRevertCheckpointHints;
     // Merkle DB.
     TreeSnapshots startingTreeRoots;
     std::vector<GetSiblingPathHint> getSiblingPathHints;
@@ -382,9 +385,6 @@ struct ExecutionHints {
     std::vector<CreateCheckpointHint> createCheckpointHints;
     std::vector<CommitCheckpointHint> commitCheckpointHints;
     std::vector<RevertCheckpointHint> revertCheckpointHints;
-    std::vector<ContractDBCreateCheckpointHint> contractDBCreateCheckpointHints;
-    std::vector<ContractDBCommitCheckpointHint> contractDBCommitCheckpointHints;
-    std::vector<ContractDBRevertCheckpointHint> contractDBRevertCheckpointHints;
 
     bool operator==(const ExecutionHints& other) const = default;
 
@@ -395,6 +395,9 @@ struct ExecutionHints {
                    contractClasses,
                    bytecodeCommitments,
                    debugFunctionNames,
+                   contractDBCreateCheckpointHints,
+                   contractDBCommitCheckpointHints,
+                   contractDBRevertCheckpointHints,
                    startingTreeRoots,
                    getSiblingPathHints,
                    getPreviousValueIndexHints,
@@ -406,10 +409,7 @@ struct ExecutionHints {
                    appendLeavesHints,
                    createCheckpointHints,
                    commitCheckpointHints,
-                   revertCheckpointHints,
-                   contractDBCreateCheckpointHints,
-                   contractDBCommitCheckpointHints,
-                   contractDBRevertCheckpointHints);
+                   revertCheckpointHints);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -461,18 +461,12 @@ struct TxSimulationResult {
     std::optional<std::vector<DebugLog>> logs;
     // Proving request data.
     PublicInputs public_inputs;
-    std::optional<ExecutionHints> execution_hints;
+    std::optional<ExecutionHints> hints;
 
     bool operator==(const TxSimulationResult& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(gas_used,
-                              revert_code,
-                              revert_reason,
-                              processed_phases,
-                              app_logic_return_value,
-                              logs,
-                              public_inputs,
-                              execution_hints);
+    MSGPACK_CAMEL_CASE_FIELDS(
+        gas_used, revert_code, revert_reason, processed_phases, app_logic_return_value, logs, public_inputs, hints);
 };
 
 } // namespace bb::avm2

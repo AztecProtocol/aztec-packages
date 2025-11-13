@@ -4208,7 +4208,7 @@ export async isL1ToL2MessageReady(
 
 **Type:** Function
 
-Returns the owner's fee juice balance. Note: This is used only e2e_sandbox_example test. TODO: Consider nuking.
+Returns the owner's fee juice balance. Note: This is used only e2e_local_network_example test. TODO: Consider nuking.
 
 **Signature:**
 

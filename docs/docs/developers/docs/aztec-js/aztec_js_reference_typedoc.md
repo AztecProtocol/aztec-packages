@@ -6644,7 +6644,7 @@ True if the message is meant to be consumed from a public function
 Defined in: [utils/fee\_juice.ts:11](https://github.com/AztecProtocol/aztec-packages/blob/bb791b3df2829191d45efa5bf4da66802a553fac/yarn-project/aztec.js/src/utils/fee_juice.ts#L11)
 
 Returns the owner's fee juice balance.
-Note: This is used only e2e_sandbox_example test. TODO: Consider nuking.
+Note: This is used only e2e_local_network_example test. TODO: Consider nuking.
 
 ###### Parameters
 

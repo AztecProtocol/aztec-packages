@@ -90,7 +90,7 @@ SumcheckOutput<Flavor> HypernovaFoldingVerifier<Flavor>::sumcheck_on_incoming_in
     transcript->load_proof(proof);
     verifier.verify();
 
-    instance->gate_challenges = transcript->template get_powers_of_challenge<FF>(
+    instance->gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
         "HypernovaFoldingProver:gate_challenge", Flavor::VIRTUAL_LOG_N);
 
     // Sumcheck verification

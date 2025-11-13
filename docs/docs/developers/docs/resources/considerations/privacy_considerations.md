@@ -138,9 +138,3 @@ We're researching cryptographic ways to enable users to retrieve sibling paths f
 Any query to a node leaks information to that node.
 
 We're researching cryptographic ways to enable users to query any data privately.
-
----
-
-Footnotes
-
-[^1]: All txs should set the kernel circuit public inputs for all roots to _valid_, _up-to-date_ nonzero values, so as to mask which trees have _actually_ been read from. The Sandbox will eventually automate this (see this [issue (GitHub link)](https://github.com/AztecProtocol/aztec-packages/issues/1676)).

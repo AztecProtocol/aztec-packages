@@ -11,7 +11,7 @@ This guide walks you through paying transaction fees on Aztec using various paym
 
 ## Prerequisites
 
-- Running Aztec sandbox
+- Running Aztec local network
 - Deployed account wallet
 - Understanding of [fee concepts](../foundational-topics/fees.md)
 
@@ -43,7 +43,7 @@ Fee Payment Contracts (FPC) pay fees on your behalf, typically accepting a diffe
 
 ### Sponsored Fee Payment Contracts
 
-The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on both the sandbox and the testnet (deployed by Aztec Labs).
+The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on both the local network and the testnet (deployed by Aztec Labs).
 
 You can derive the Sponsored FPC address from its deployment parameters and salt (which defaults to `0`):
 
@@ -145,14 +145,14 @@ Fee Juice is non-transferable on L2, but you can bridge it from L1, claim it on 
 // essentially returns an extended wallet from Viem
 import { createExtendedL1Client } from "@aztec/ethereum";
 const walletClient = createExtendedL1Client(
-  ["https://your-ethereum-host"], // ex. http://localhost:8545 on the Sandbox (yes it runs Anvil under the hood)
+  ["https://your-ethereum-host"], // ex. http://localhost:8545 on the local network (yes it runs Anvil under the hood)
   privateKey // the private key for some account, needs funds for gas!
 );
 
 // a helper to interact with the L1 fee juice portal
 import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
 const portalManager = await L1FeeJuicePortalManager.new(
-  node, // your Aztec node, ex. https://aztec-testnet-fullnode.zkv.xyz, or http://localhost:8080 for Sandbox
+  node, // your Aztec node, ex. https://aztec-testnet-fullnode.zkv.xyz, or http://localhost:8080 for local network
   walletClient,
   logger // a logger, ex. import { createLogger } from "@aztec/aztec.js"
 );

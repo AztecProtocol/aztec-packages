@@ -243,6 +243,7 @@ class UltraFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
+        auto get_witness() const { return WitnessEntities<DataType>::get_all(); };
     };
 
     /**
@@ -336,6 +337,8 @@ class UltraFlavor {
     template <typename Codec, typename HashFunction> class Transcript_ : public BaseTranscript<Codec, HashFunction> {
       public:
         using Base = BaseTranscript<Codec, HashFunction>;
+
+        using Base::Base; // Inherit base class constructors
 
         // Transcript objects defined as public member variables for easy access and modification
         std::vector<FF> public_inputs;
@@ -477,6 +480,14 @@ class UltraFlavor {
                 commitment = commitment_key.commit(polynomial);
             }
         }
+
+#ifndef NDEBUG
+        bool compare(const VerificationKey& other)
+        {
+            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
+                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
+        }
+#endif
     };
 
     /**

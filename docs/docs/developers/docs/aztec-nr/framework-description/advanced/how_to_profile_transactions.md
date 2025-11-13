@@ -9,8 +9,8 @@ This guide shows you how to profile your Aztec transactions to identify bottlene
 
 ## Prerequisites
 
-- `aztec` command installed ([see installation](../../../aztec-cli/sandbox-reference.md))
-- `aztec-wallet` installed (part of Sandbox)
+- `aztec` command installed ([see installation](../../../aztec-cli/local-network-reference.md))
+- `aztec-wallet` installed
 - Aztec contract deployed and ready to test
 - Basic understanding of proving and gate counts
 

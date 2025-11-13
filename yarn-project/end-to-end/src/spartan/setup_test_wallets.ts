@@ -11,7 +11,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet, proveInteraction, registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
+import { TestWallet, proveInteraction, registerInitialLocalNetworkAccountsInWallet } from '@aztec/test-wallet/server';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
@@ -42,7 +42,7 @@ export async function setupTestAccountsWithTokens(
   const aztecNode = createAztecNodeClient(nodeUrl);
   const wallet = await TestWallet.create(aztecNode);
 
-  const [recipientAccount, ...accounts] = (await registerInitialSandboxAccountsInWallet(wallet)).slice(
+  const [recipientAccount, ...accounts] = (await registerInitialLocalNetworkAccountsInWallet(wallet)).slice(
     0,
     ACCOUNT_COUNT + 1,
   );

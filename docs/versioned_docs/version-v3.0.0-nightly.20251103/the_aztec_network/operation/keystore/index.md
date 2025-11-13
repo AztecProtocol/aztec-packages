@@ -27,7 +27,7 @@ When running a sequencer, you configure these keys and addresses:
 
 - **Attester** (required): Your sequencer's identity. This key signs block proposals and attestations. The corresponding Ethereum address uniquely identifies your sequencer on the network.
 - **Publisher** (optional): Submits block proposals to L1. Defaults to using the attester key if not specified. Must be funded with at least 0.1 ETH.
-- **Coinbase** (optional): Ethereum address that receives L1 block rewards. Defaults to the attester address if not set.
+- **Coinbase** (optional): Ethereum address that receives L2 block rewards on L1. Defaults to the attester address if not set.
 - **Fee Recipient** (required): Aztec address that receives unburnt L2 transaction fees from blocks you produce.
 
 ### Prover Keys

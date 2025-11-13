@@ -283,3 +283,31 @@ constexpr FuzzerDataMutationConfig BASIC_FUZZER_DATA_MUTATION_CONFIGURATION = Fu
     { FuzzerDataMutationOptions::ReturnOptionsMutation, 1 },
     { FuzzerDataMutationOptions::CalldataMutation, 0 },
 });
+
+enum class JumpIfMutationOptions {
+    then_program_block_instruction_block_idx,
+    else_program_block_instruction_block_idx,
+    condition_offset
+};
+using JumpIfMutationConfig = WeightedSelectionConfig<JumpIfMutationOptions, 3>;
+
+constexpr JumpIfMutationConfig BASIC_JUMP_IF_MUTATION_CONFIGURATION = JumpIfMutationConfig({
+    { JumpIfMutationOptions::then_program_block_instruction_block_idx, 1 },
+    { JumpIfMutationOptions::else_program_block_instruction_block_idx, 1 },
+    { JumpIfMutationOptions::condition_offset, 1 },
+});
+
+enum class CFGInstructionGenerationOptions {
+    InsertSimpleInstructionBlock,
+    JumpToNewBlock,
+    JumpIfToNewBlock,
+};
+
+using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 3>;
+
+constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIGURATION =
+    CFGInstructionGenerationConfig({
+        { CFGInstructionGenerationOptions::InsertSimpleInstructionBlock, 6 },
+        { CFGInstructionGenerationOptions::JumpToNewBlock, 1 },
+        { CFGInstructionGenerationOptions::JumpIfToNewBlock, 1 },
+    });

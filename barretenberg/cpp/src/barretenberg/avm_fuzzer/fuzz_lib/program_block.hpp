@@ -31,6 +31,7 @@ class ProgramBlock {
   private:
     MemoryManager memory_manager;
     std::vector<bb::avm2::simulation::Instruction> instructions;
+    uint16_t condition_offset_index = 0;
 
     void process_add_8_instruction(ADD_8_Instruction instruction);
     void process_sub_8_instruction(SUB_8_Instruction instruction);
@@ -72,6 +73,11 @@ class ProgramBlock {
     void process_cast_16_instruction(CAST_16_Instruction instruction);
 
   public:
+    std::vector<ProgramBlock*> successors;
+    std::vector<ProgramBlock*> predecessors;
+    bool terminated = false;
+    int offset = -1;
+
     ProgramBlock() = default;
     /// @brief process the instruction
     /// @param instruction the instruction to process
@@ -87,5 +93,18 @@ class ProgramBlock {
                               MemoryTagWrapper return_value_tag,
                               uint16_t return_value_offset_index);
 
+    /// @brief finalize the block with a jump
+    /// NOTE: this method does not actually insert the jump instruction, it only sets the target block and the
+    /// terminated flag
+    void finalize_with_jump(ProgramBlock* target_block);
+
+    /// @brief finalize the block with a jump if
+    /// NOTE: this method does not actually insert the jump if instruction, it only sets the target blocks and the
+    /// terminated flag
+    void finalize_with_jump_if(ProgramBlock* target_then_block,
+                               ProgramBlock* target_else_block,
+                               uint16_t condition_offset);
+
+    std::optional<uint16_t> get_terminating_condition_value();
     std::vector<bb::avm2::simulation::Instruction> get_instructions();
 };

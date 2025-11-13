@@ -1,7 +1,7 @@
 ---
 title: Reference
 description: Comprehensive reference for the Aztec command-line interface (CLI).
-tags: [sandbox]
+tags: [local network]
 sidebar_position: 2
 ---
 
@@ -15,7 +15,7 @@ If you want to deploy contracts and manage accounts you will need to use [`aztec
 
 The Aztec CLI provides commands for:
 
-- **Starting and Testing**: Starting the Aztec Sandbox and running tests
+- **Starting and Testing**: Starting the Aztec Local Network and running tests
 - **Contract Operations**: Deploying, interacting with, and managing smart contracts
 - **Network Information**: Querying node and network status
 - **Data Retrieval**: Accessing logs and contract data
@@ -38,11 +38,11 @@ Note: Most commands accept a `--node-url` option to specify the Aztec node URL, 
 Example usage:
 
 ```bash
-# Start the sandbox
-aztec start --sandbox
+# Start the local network
+aztec start --local-network
 
 # Start with custom ports
-aztec start --sandbox --port 8081
+aztec start --local-network --port 8081
 
 # Start specific components
 aztec start --node
@@ -58,7 +58,7 @@ aztec start --node --data-directory /path/to/data --data-store-map-size-kb 13421
 
 ### start
 
-Initiates various Aztec modules. It can be used to start individual components or the entire Aztec Sandbox.
+Initiates various Aztec modules. It can be used to start individual components or the entire Aztec Local Network.
 
 ```bash
 aztec start [options]
@@ -74,12 +74,12 @@ Options:
 - `--sync-mode <value>`: Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data (default: snapshot).
 - `--snapshots-url <value>`: Base URL for snapshots index.
 
-#### Sandbox Options
+#### Local Network Options
 
-- `--sandbox`: Starts Aztec Sandbox.
-- `--sandbox.noPXE`: Do not expose PXE service on sandbox start.
-- `--sandbox.l1Mnemonic <value>`: Mnemonic for L1 accounts. Will be used (default: test test test test test test test test test test test junk).
-- `--sandbox.deployAztecContractsSalt <value>`: Numeric salt for deploying L1 Aztec contracts before starting the sandbox. Needs mnemonic or private key to be set.
+- `--local-network`: Starts Aztec local network.
+- `--local-network.noPXE`: Do not expose PXE service on local network start.
+- `--local-network.l1Mnemonic <value>`: Mnemonic for L1 accounts. Will be used (default: test test test test test test test test test test test junk).
+- `--local-network.deployAztecContractsSalt <value>`: Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.
 
 #### API Options
 

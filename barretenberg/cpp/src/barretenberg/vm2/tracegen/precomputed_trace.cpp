@@ -372,6 +372,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
         std::vector<std::pair<Column, FF>> row_data = {
             { C::precomputed_sel_phase, 1 },
             { C::precomputed_is_public_call_request, spec.is_public_call_request },
+            { C::precomputed_is_teardown, spec.is_teardown },
             { C::precomputed_is_collect_fee, spec.is_collect_fee },
             { C::precomputed_is_tree_padding, spec.is_tree_padding },
             { C::precomputed_is_cleanup, spec.is_cleanup },

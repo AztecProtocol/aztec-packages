@@ -107,5 +107,5 @@ Oracles are pieces of data that are injected into a smart contract function from
 
 To learn how to develop on top of the PXE, refer to these guides:
 
-- [Run more than one PXE on your local machine](../../tutorials/sandbox.md#running-multiple-pxes-in-the-sandbox)
+- [Run more than one PXE on your local machine](../../tutorials/local_network.md#running-multiple-pxes-in-the-local-network)
 - [Use in-built oracles including oracles for arbitrary data](../../aztec-nr/framework-description/advanced/how_to_use_capsules.md)

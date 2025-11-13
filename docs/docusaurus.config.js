@@ -68,8 +68,8 @@ const config = {
           // Hide current version in Netlify production, show in dev and PR previews
           // Netlify sets CONTEXT
           includeCurrentVersion: process.env.CONTEXT !== "production",
-          // Testnet should be the default version
-          lastVersion: versions[2],
+          // Ignition should be the default version
+          lastVersion: versions[3],
           versions: {
             [versions[0]]: {
               ...(versions[0].includes("nightly") && {
@@ -78,12 +78,18 @@ const config = {
               }),
             },
             [versions[1]]: {
-              label: "Devnet (v3.0.0-devnet.4)",
+              label: "Devnet (v3.0.0-devnet.5)",
               path: "devnet",
               banner: "none",
             },
-            "v2.1.2": {
-              label: "RC (v2.1.2)",
+            "v2.1.4": {
+              path: "testnet",
+              label: "Testnet (v2.1.4)",
+              banner: "none",
+            },
+            "v2.1.4-ignition": {
+              label: "Ignition (v2.1.4)",
+              banner: "none",
             },
             ...(process.env.CONTEXT !== "production" && {
               current: {
@@ -203,14 +209,14 @@ const config = {
             position: "left",
             label: "Run a node",
           },
+          // {
+          //   to: "/try_testnet",
+          //   label: "Try Testnet",
+          //   position: "right",
+          // },
           {
-            to: "/developers/getting_started_on_sandbox",
-            label: "Install Sandbox",
-            position: "right",
-          },
-          {
-            to: "/try_testnet",
-            label: "Try Testnet",
+            to: "/ignition_info",
+            label: "Ignition Info",
             position: "right",
           },
           {
@@ -308,10 +314,6 @@ const config = {
               {
                 label: "Introduction",
                 to: "/",
-              },
-              {
-                label: "Developer Getting Started",
-                to: "/developers/getting_started",
               },
               {
                 label: "Aztec.nr",

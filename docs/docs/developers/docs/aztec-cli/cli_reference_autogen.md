@@ -1410,21 +1410,21 @@ Options:
   Base URLs for snapshots index, comma-separated.
   *Environment: `$SYNC_SNAPSHOTS_URLS`*
 
-**SANDBOX**
+**LOCAL NETWORK**
 
-- `--sandbox`
-  Starts Aztec Sandbox
+- `--local-network`
+  Starts Aztec Local Network
 
-- `--sandbox.noPXE`
-  Do not expose PXE service on sandbox start
+- `--local-network.noPXE`
+  Do not expose PXE service on local network start
   *Environment: `$NO_PXE`*
 
-- `--sandbox.l1Mnemonic <value>` (default: `test test test test test test test test test test test junk`)
+- `--local-network.l1Mnemonic <value>` (default: `test test test test test test test test test test test junk`)
   Mnemonic for L1 accounts. Will be used
   *Environment: `$MNEMONIC`*
 
-- `--sandbox.deployAztecContractsSalt <value>`
-  Numeric salt for deploying L1 Aztec contracts before starting the sandbox. Needs mnemonic or private key to be set.
+- `--local-network.deployAztecContractsSalt <value>`
+  Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.
   *Environment: `$DEPLOY_AZTEC_CONTRACTS_SALT`*
 
 **API**

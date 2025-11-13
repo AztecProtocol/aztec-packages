@@ -318,7 +318,7 @@ export function ContractComponent() {
           {functionAbis
             .filter(
               fn =>
-                !fn.isInternal &&
+                !fn.isOnlySelf &&
                 !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
                 ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
                   (filters.public && fn.functionType === FunctionType.PUBLIC) ||
