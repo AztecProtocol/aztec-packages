@@ -69,35 +69,30 @@ constexpr size_t NUM_PHASES = static_cast<size_t>(TransactionPhase::LAST) + 1;
 
 bool is_revertible(TransactionPhase phase)
 {
-    return phase == TransactionPhase::R_NOTE_INSERTION || phase == TransactionPhase::R_NULLIFIER_INSERTION ||
-           phase == TransactionPhase::R_L2_TO_L1_MESSAGE || phase == TransactionPhase::APP_LOGIC ||
-           phase == TransactionPhase::TEARDOWN;
+    return TX_PHASE_SPEC_MAP.at(phase).is_revertible;
 }
 
 bool is_note_hash_insert_phase(TransactionPhase phase)
 {
-    return phase == TransactionPhase::NR_NOTE_INSERTION || phase == TransactionPhase::R_NOTE_INSERTION;
+    return TX_PHASE_SPEC_MAP.at(phase).non_revertible_append_note_hash ||
+           TX_PHASE_SPEC_MAP.at(phase).revertible_append_note_hash;
 }
 
 bool is_nullifier_insert_phase(TransactionPhase phase)
 {
-    return phase == TransactionPhase::NR_NULLIFIER_INSERTION || phase == TransactionPhase::R_NULLIFIER_INSERTION;
-}
-
-bool is_tree_insert_phase(TransactionPhase phase)
-{
-    return is_note_hash_insert_phase(phase) || is_nullifier_insert_phase(phase);
+    return TX_PHASE_SPEC_MAP.at(phase).non_revertible_append_nullifier ||
+           TX_PHASE_SPEC_MAP.at(phase).revertible_append_nullifier;
 }
 
 bool is_one_shot_phase(TransactionPhase phase)
 {
-    return phase == TransactionPhase::COLLECT_GAS_FEES || phase == TransactionPhase::TREE_PADDING ||
-           phase == TransactionPhase::CLEANUP;
+    return TX_PHASE_SPEC_MAP.at(phase).is_collect_fee || TX_PHASE_SPEC_MAP.at(phase).is_tree_padding ||
+           TX_PHASE_SPEC_MAP.at(phase).is_cleanup;
 }
 
 bool is_teardown(TransactionPhase phase)
 {
-    return phase == TransactionPhase::TEARDOWN;
+    return TX_PHASE_SPEC_MAP.at(phase).is_teardown;
 }
 
 // This is a helper to insert the previous and next tree state
@@ -185,27 +180,30 @@ std::vector<std::pair<C, FF>> handle_phase_spec(TransactionPhase phase)
 {
     const auto& phase_spec = get_tx_phase_spec_map().at(phase);
     return {
-        { C::tx_phase_value, phase_spec.phase_value },
-        { C::tx_is_public_call_request, phase_spec.is_public_call_request },
-        { C::tx_is_teardown, phase_spec.is_teardown },
-        { C::tx_is_collect_fee, phase_spec.is_collect_fee },
-        { C::tx_is_tree_padding, phase_spec.is_tree_padding },
-        { C::tx_is_cleanup, phase_spec.is_cleanup },
-        { C::tx_is_revertible, phase_spec.is_revertible },
+        { C::tx_phase_value, static_cast<uint8_t>(phase) },
+        { C::tx_is_public_call_request, phase_spec.is_public_call_request ? 1 : 0 },
+        { C::tx_is_teardown, phase_spec.is_teardown ? 1 : 0 },
+        { C::tx_is_collect_fee, phase_spec.is_collect_fee ? 1 : 0 },
+        { C::tx_is_tree_padding, phase_spec.is_tree_padding ? 1 : 0 },
+        { C::tx_is_cleanup, phase_spec.is_cleanup ? 1 : 0 },
+        { C::tx_is_revertible, phase_spec.is_revertible ? 1 : 0 },
         { C::tx_read_pi_start_offset, phase_spec.read_pi_start_offset },
         { C::tx_read_pi_length_offset, phase_spec.read_pi_length_offset },
-        { C::tx_sel_non_revertible_append_note_hash, phase_spec.non_revertible_append_note_hash },
-        { C::tx_sel_non_revertible_append_nullifier, phase_spec.non_revertible_append_nullifier },
-        { C::tx_sel_non_revertible_append_l2_l1_msg, phase_spec.non_revertible_append_l2_l1_msg },
-        { C::tx_sel_revertible_append_note_hash, phase_spec.revertible_append_note_hash },
-        { C::tx_sel_revertible_append_nullifier, phase_spec.revertible_append_nullifier },
-        { C::tx_sel_revertible_append_l2_l1_msg, phase_spec.revertible_append_l2_l1_msg },
-        { C::tx_sel_can_emit_note_hash, phase_spec.can_emit_note_hash },
-        { C::tx_sel_can_emit_nullifier, phase_spec.can_emit_nullifier },
-        { C::tx_sel_can_write_public_data, phase_spec.can_write_public_data },
-        { C::tx_sel_can_emit_unencrypted_log, phase_spec.can_emit_unencrypted_log },
-        { C::tx_sel_can_emit_l2_l1_msg, phase_spec.can_emit_l2_l1_msg },
+        { C::tx_sel_non_revertible_append_note_hash, phase_spec.non_revertible_append_note_hash ? 1 : 0 },
+        { C::tx_sel_non_revertible_append_nullifier, phase_spec.non_revertible_append_nullifier ? 1 : 0 },
+        { C::tx_sel_non_revertible_append_l2_l1_msg, phase_spec.non_revertible_append_l2_l1_msg ? 1 : 0 },
+        { C::tx_sel_revertible_append_note_hash, phase_spec.revertible_append_note_hash ? 1 : 0 },
+        { C::tx_sel_revertible_append_nullifier, phase_spec.revertible_append_nullifier ? 1 : 0 },
+        { C::tx_sel_revertible_append_l2_l1_msg, phase_spec.revertible_append_l2_l1_msg ? 1 : 0 },
+        { C::tx_sel_can_emit_note_hash, phase_spec.can_emit_note_hash ? 1 : 0 },
+        { C::tx_sel_can_emit_nullifier, phase_spec.can_emit_nullifier ? 1 : 0 },
+        { C::tx_sel_can_write_public_data, phase_spec.can_write_public_data ? 1 : 0 },
+        { C::tx_sel_can_emit_unencrypted_log, phase_spec.can_emit_unencrypted_log ? 1 : 0 },
+        { C::tx_sel_can_emit_l2_l1_msg, phase_spec.can_emit_l2_l1_msg ? 1 : 0 },
         { C::tx_next_phase_on_revert, phase_spec.next_phase_on_revert },
+
+        // Directly derived from phase spec but not part of the phase spec struct.
+        { C::tx_is_tree_insert_phase, (is_note_hash_insert_phase(phase) || is_nullifier_insert_phase(phase)) ? 1 : 0 },
     };
 }
 
@@ -249,7 +247,7 @@ std::vector<std::pair<C, FF>> handle_enqueued_call_event(TransactionPhase phase,
              { C::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2_gas },
              { C::tx_gas_limit_pi_offset,
                is_teardown(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
-             { C::tx_should_read_gas_limit, is_teardown(phase) } };
+             { C::tx_should_read_gas_limit, is_teardown(phase) ? 1 : 0 } };
 }
 
 std::vector<std::pair<C, FF>> handle_note_hash_append(const PrivateAppendTreeEvent& event,
@@ -258,7 +256,6 @@ std::vector<std::pair<C, FF>> handle_note_hash_append(const PrivateAppendTreeEve
     uint32_t remaining_note_hashes = MAX_NOTE_HASHES_PER_TX - state_before.tree_states.note_hash_tree.counter;
 
     return {
-        { C::tx_is_tree_insert_phase, 1 },
         { C::tx_leaf_value, event.leaf_value },
         { C::tx_remaining_side_effects_inv, remaining_note_hashes }, // Will be inverted in batch later
         { C::tx_should_try_note_hash_append, 1 },
@@ -272,7 +269,6 @@ std::vector<std::pair<C, FF>> handle_nullifier_append(const PrivateAppendTreeEve
     uint32_t remaining_nullifiers = MAX_NULLIFIERS_PER_TX - state_before.tree_states.nullifier_tree.counter;
 
     return {
-        { C::tx_is_tree_insert_phase, 1 },
         { C::tx_leaf_value, event.leaf_value },
         { C::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
         { C::tx_should_try_nullifier_append, 1 },
@@ -386,24 +382,19 @@ std::vector<std::pair<C, FF>> handle_first_row()
     return columns;
 }
 
+// Cannot happen for COLLECT_GAS_FEES, CLEANUP or TREE_PADDING.
 std::vector<std::pair<C, FF>> handle_padded_row(TransactionPhase phase, const Gas& gas_used)
 {
-    // We should throw here - but tests are currently unsuitable
-    // assert(phase != TransactionPhase::COLLECT_GAS_FEES);
-
-    const auto& phase_spec = get_tx_phase_spec_map().at(phase);
     std::vector<std::pair<C, FF>> columns = {
         { C::tx_is_padded, 1 },
-        // Selector specific
-        { C::tx_is_tree_insert_phase, is_tree_insert_phase(phase) ? 1 : 0 },
         // Public call request specific
         { C::tx_gas_limit_pi_offset,
           is_teardown(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
-        { C::tx_should_read_gas_limit, is_teardown(phase) },
+        { C::tx_should_read_gas_limit, is_teardown(phase) ? 1 : 0 },
     };
 
     // Gas used does not change in padding rows
-    if (phase_spec.is_public_call_request == 1 && !is_teardown(phase)) {
+    if (get_tx_phase_spec_map().at(phase).is_public_call_request && !is_teardown(phase)) {
         columns.insert(columns.end(),
                        {
                            { C::tx_prev_da_gas_used_sent_to_enqueued_call, gas_used.da_gas },
