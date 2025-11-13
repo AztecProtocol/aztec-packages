@@ -25,6 +25,12 @@ namespace bb::stdlib {
  * @brief cycle_group represents a group Element of the proving system's embedded curve, i.e. a curve with a cofactor 1
  * defined over a field equal to the circuit's native field Builder::FF
  * @details In barretenberg, cycle group is used to represent the Grumpkin curve defined over the bn254 scalar field.
+ * The point at infinity is represented as (0, 0).
+ *
+ * @note For the honest prover, we restrict the construction of cycle group elements in the following ways: (1) x and y
+ * coordinates of a point must have matching constancy, i.e. both are constants or both are witnesses, enforced via a
+ * runtime assert. (2) We disallow construction of points not on the curve via runtime asserts (always) and via circuit
+ * constraints in select situations, e.g. EC operations from noir in DSL.
  *
  * @tparam Builder
  */
@@ -94,8 +100,6 @@ template <typename Builder> class cycle_group {
     void set_point_at_infinity(const bool_t& is_infinity);
 #endif
     void standardize();
-    bool is_standard() const { return this->_is_standard; };
-    cycle_group get_standard_form();
     void validate_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
@@ -131,7 +135,6 @@ template <typename Builder> class cycle_group {
     bool_t operator==(cycle_group& other);
     void assert_equal(cycle_group& other, std::string const& msg = "cycle_group::assert_equal");
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
-    cycle_group operator/(const cycle_group& other) const;
 
     /**
      * @brief Set the origin tag for x, y and _is_infinity members of cycle_group
@@ -218,14 +221,6 @@ template <typename Builder> class cycle_group {
     field_t _x;
     field_t _y;
     bool_t _is_infinity;
-    // The point is considered to be `standard` or in `standard form` when:
-    // - It's not a point at infinity, and the coordinates belong to the curve
-    // - It's a point at infinity and both of the coordinates are set to be 0. (0, 0)
-    // Most of the time it is true, so we won't need to do extra conditional_assign
-    // during `get_standard_form`, `assert_equal` or `==` calls
-    // However sometimes it won't be the case(due to some previous design choices),
-    // so we can handle these cases using this flag
-    bool _is_standard;
     Builder* context;
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,

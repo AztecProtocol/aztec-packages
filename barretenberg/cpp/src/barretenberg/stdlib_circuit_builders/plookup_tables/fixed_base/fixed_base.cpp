@@ -245,7 +245,8 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
  */
 template <size_t multitable_index, size_t num_bits> MultiTable table::get_fixed_base_table(const MultiTableId id)
 {
-    static_assert(num_bits == BITS_PER_LO_SCALAR || num_bits == BITS_PER_HI_SCALAR);
+    static_assert(num_bits == BITS_PER_LO_SCALAR || num_bits == BITS_PER_HI_SCALAR,
+                  "Fixed-base tables only support 128-bit (lo) or 126-bit (hi) limbs totaling 254 bits");
     constexpr size_t NUM_TABLES = numeric::ceil_div(num_bits, BITS_PER_TABLE);
     constexpr std::array<BasicTableId, NUM_FIXED_BASE_MULTI_TABLES> basic_table_ids{
         FIXED_BASE_0_0,

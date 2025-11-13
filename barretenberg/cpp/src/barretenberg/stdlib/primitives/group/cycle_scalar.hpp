@@ -17,11 +17,8 @@ template <typename Builder> class cycle_group;
 
 /**
  * @brief Represents a member of the Grumpkin curve scalar field (i.e. BN254 base field).
- * @details The primary use for this class is scalar multiplication of points on the Grumpkin curve. It largely exists
- * to abstract away the details of performing these operations with values of different origins, which may or may not
- * originate from the Grumpkin scalar field, e.g. u256 values or BN254 scalars. In these cases we convert scalar
- * multiplication inputs into cycle_scalars to enable scalar multiplication to be complete. E.g. multiplication of
- * Grumpkin points by BN254 scalars does not produce a cyclic group as BN254::ScalarField < Grumpkin::ScalarField.
+ * @details The primary use for this class is scalar multiplication of points on the Grumpkin curve. For simplicity,
+ * class is hardcoded for 254-bit scalars
  *
  * @note The reason for not using `bigfield` to represent cycle scalars is that `bigfield` is inefficient in this
  * context. All required range checks for `cycle_scalar` can be obtained for free from the `batch_mul` algorithm, making
@@ -42,12 +39,15 @@ template <typename Builder> class cycle_scalar {
     static constexpr size_t LO_BITS = field_t::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
     static constexpr size_t HI_BITS = NUM_BITS - LO_BITS;
 
+    // Enforce the architectural constraint that cycle_scalar is hardcoded for 254-bit scalars
+    static_assert(NUM_BITS == 254);
+    static_assert(LO_BITS == 128 && HI_BITS == 126);
+
     enum class SkipValidation { FLAG };
 
   private:
     field_t _lo; // LO_BITS of the scalar
     field_t _hi; // Remaining HI_BITS of the scalar
-    size_t _num_bits = NUM_BITS;
 
     /**
      * @brief Decompose a uint256_t value into lo and hi parts for cycle_scalar representation
@@ -71,14 +71,11 @@ template <typename Builder> class cycle_scalar {
     cycle_scalar(const ScalarField& in = 0);
     cycle_scalar(const field_t& lo, const field_t& hi);
     static cycle_scalar from_witness(Builder* context, const ScalarField& value);
-    static cycle_scalar from_u256_witness(Builder* context, const uint256_t& bitstring);
-    static cycle_scalar create_from_bn254_scalar(const field_t& in);
     explicit cycle_scalar(BigScalarField& scalar);
 
     [[nodiscard]] bool is_constant() const;
     ScalarField get_value() const;
     Builder* get_context() const { return _lo.get_context() != nullptr ? _lo.get_context() : _hi.get_context(); }
-    [[nodiscard]] size_t num_bits() const { return _num_bits; }
 
     const field_t& lo() const { return _lo; }
     const field_t& hi() const { return _hi; }

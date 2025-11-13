@@ -1737,12 +1737,12 @@ template <typename Builder> class CycleGroupBase {
                 return false;
             }
 
-            bool fake_standardized = element.cycle_group.is_standard();
-            fake_standardized &= element.cycle_group.is_point_at_infinity().get_value();
-            fake_standardized &=
+            // Check that infinity points always have (0,0) coordinates
+            bool is_infinity_with_bad_coords = element.cycle_group.is_point_at_infinity().get_value();
+            is_infinity_with_bad_coords &=
                 (element.cycle_group.x().get_value() != 0) || (element.cycle_group.y().get_value() != 0);
-            if (fake_standardized) {
-                std::cerr << "Failed at " << i << " with value claimed to be standard: (0, 0) but the actual value is ("
+            if (is_infinity_with_bad_coords) {
+                std::cerr << "Failed at " << i << "; point at infinity with non-zero coordinates: ("
                           << element.cycle_group.x().get_value() << ", " << element.cycle_group.y().get_value() << ")"
                           << std::endl;
                 return false;
