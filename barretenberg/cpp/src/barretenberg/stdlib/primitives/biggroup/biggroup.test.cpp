@@ -48,6 +48,7 @@ template <typename _Curve, bool _use_bigfield = false> struct TestType {
 
 STANDARD_TESTING_TAGS
 template <typename TestType> class stdlib_biggroup : public testing::Test {
+  public:
     using Curve = typename TestType::Curve;
     using element_ct = typename TestType::element_ct;
     using scalar_ct = typename TestType::scalar_ct;
@@ -2206,11 +2207,29 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     }
 };
 
-enum UseBigfield { No, Yes };
-using TestTypes = testing::Types<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, UseBigfield::Yes>,
-                                 TestType<stdlib::bn254<bb::MegaCircuitBuilder>, UseBigfield::No>,
-                                 TestType<stdlib::secp256k1<bb::UltraCircuitBuilder>, UseBigfield::Yes>,
-                                 TestType<stdlib::secp256r1<bb::UltraCircuitBuilder>, UseBigfield::Yes>>;
+// bn254 with ultra arithmetisation where scalar field is native field, base field is non-native field (bigfield)
+using bn254_with_ultra = stdlib_biggroup<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, /*_use_bigfield=*/false>>;
+
+// bn254 with ultra arithmetisation where both scalar and base fields are non-native fields
+using bn254_with_ultra_scalar_bigfield =
+    stdlib_biggroup<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+
+// bn254 with mega arithmetisation where scalar field is native field, base field is non-native field
+using bn254_with_mega = stdlib_biggroup<TestType<stdlib::bn254<bb::MegaCircuitBuilder>, /*_use_bigfield=*/false>>;
+
+// secp256r1 with ultra arithmetisation where both scalar and base fields are (naturally) non-native fields
+using secp256r1_with_ultra =
+    stdlib_biggroup<TestType<stdlib::secp256r1<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+
+// secp256k1 with ultra arithmetisation where both scalar and base fields are (naturally) non-native fields
+using secp256k1_with_ultra =
+    stdlib_biggroup<TestType<stdlib::secp256k1<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+
+using TestTypes = testing::Types<bn254_with_ultra,
+                                 bn254_with_ultra_scalar_bigfield,
+                                 bn254_with_mega,
+                                 secp256r1_with_ultra,
+                                 secp256k1_with_ultra>;
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
