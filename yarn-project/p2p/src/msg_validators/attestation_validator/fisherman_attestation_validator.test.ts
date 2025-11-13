@@ -2,7 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BlockProposal, ConsensusPayload, PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { makeBlockAttestation, makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import { makeBlockAttestation, makeBlockProposal, makeHeader } from '@aztec/stdlib/testing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -28,7 +28,7 @@ describe('FishermanAttestationValidator', () => {
   describe('base validation', () => {
     it('returns high tolerance error if slot number is not current or next slot', async () => {
       // Create an attestation for slot 97
-      const header = makeL2BlockHeader(1, 97, 97);
+      const header = makeHeader(1, 97, 97);
       const mockAttestation = makeBlockAttestation({
         header,
         attesterSigner: attester,
@@ -53,7 +53,7 @@ describe('FishermanAttestationValidator', () => {
 
     it('returns high tolerance error if attester is not in committee', async () => {
       const mockAttestation = makeBlockAttestation({
-        header: makeL2BlockHeader(1, 100, 100),
+        header: makeHeader(1, 100, 100),
         attesterSigner: attester,
         proposerSigner: proposer,
       });
@@ -76,7 +76,7 @@ describe('FishermanAttestationValidator', () => {
     it('returns high tolerance error if proposer signature is invalid', async () => {
       const wrongProposer = Secp256k1Signer.random();
       const mockAttestation = makeBlockAttestation({
-        header: makeL2BlockHeader(1, 100, 100),
+        header: makeHeader(1, 100, 100),
         attesterSigner: attester,
         proposerSigner: wrongProposer,
       });
@@ -110,7 +110,7 @@ describe('FishermanAttestationValidator', () => {
     });
 
     it('returns undefined if attestation payload matches proposal payload', async () => {
-      const header = makeL2BlockHeader(1, 100, 100);
+      const header = makeHeader(1, 100, 100);
       const archive = Fr.random();
       const mockAttestation = makeBlockAttestation({
         header,
@@ -136,8 +136,8 @@ describe('FishermanAttestationValidator', () => {
     });
 
     it('returns low tolerance error if attestation payload does not match proposal payload', async () => {
-      const header1 = makeL2BlockHeader(1, 100, 100);
-      const header2 = makeL2BlockHeader(2, 100, 100); // Different block number
+      const header1 = makeHeader(1, 100, 100);
+      const header2 = makeHeader(2, 100, 100); // Different block number
 
       const mockAttestation = makeBlockAttestation({
         header: header1,
@@ -161,7 +161,7 @@ describe('FishermanAttestationValidator', () => {
     });
 
     it('returns undefined if proposal is not found yet (attestation arrived before proposal)', async () => {
-      const header = makeL2BlockHeader(1, 100, 100);
+      const header = makeHeader(1, 100, 100);
       const mockAttestation = makeBlockAttestation({
         header,
         attesterSigner: attester,
@@ -179,7 +179,7 @@ describe('FishermanAttestationValidator', () => {
     });
 
     it('detects payload mismatch with different archive roots', async () => {
-      const header = makeL2BlockHeader(1, 100, 100);
+      const header = makeHeader(1, 100, 100);
       const mockAttestation = makeBlockAttestation({
         header,
         attesterSigner: attester,
@@ -188,7 +188,7 @@ describe('FishermanAttestationValidator', () => {
 
       // Create a proposal with the same header but manually create a different payload
       const differentPayload = new ConsensusPayload(
-        header.toCheckpointHeader(),
+        header.toPropose(),
         Fr.random(), // Different archive
         mockAttestation.payload.stateReference,
       );
@@ -201,8 +201,8 @@ describe('FishermanAttestationValidator', () => {
     });
 
     it('detects payload mismatch with different header hash', async () => {
-      const header1 = makeL2BlockHeader(1, 100, 100);
-      const header2 = makeL2BlockHeader(1, 100, 100); // Same slot but different random content
+      const header1 = makeHeader(1, 100, 100);
+      const header2 = makeHeader(1, 100, 100); // Same slot but different random content
 
       const mockAttestation = makeBlockAttestation({
         header: header1,
@@ -237,7 +237,7 @@ describe('FishermanAttestationValidator', () => {
     });
 
     it('handles attestation pool errors gracefully', async () => {
-      const header = makeL2BlockHeader(1, 100, 100);
+      const header = makeHeader(1, 100, 100);
       const mockAttestation = makeBlockAttestation({
         header,
         attesterSigner: attester,
