@@ -55,7 +55,7 @@ template <typename Field> class StdlibCodec {
      * `challenge` is "short".
      *
      * @tparam T fr or fq
-     * @param challenge a 128- or a 126- bit limb of a full challenge
+     * @param challenge a 127-bit limb of a full challenge
      * @return T
      */
     template <typename T> static T convert_challenge(const fr& challenge)
@@ -272,8 +272,8 @@ template <typename Field> class StdlibCodec {
         }
     }
     /**
-     * @brief Split a challenge field element into two half-width challenges
-     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * @brief Split a challenge field element into two equal-width challenges
+     * @details Both `lo` and `hi` are 127 bits each (254/2) which provides significantly more than our security
      * parameter bound: 100 bits. The decomposition is constrained to be unique.
      *
      * @param challenge
@@ -281,8 +281,9 @@ template <typename Field> class StdlibCodec {
      */
     static std::array<fr, 2> split_challenge(const fr& challenge)
     {
-        const size_t lo_bits = fr::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-        // Constuct a unique lo/hi decomposition of the challenge (hi_bits will be 254 - 128 = 126)
+        constexpr size_t TOTAL_BITS = fr::native::modulus.get_msb() + 1; // 254
+        constexpr size_t lo_bits = TOTAL_BITS / 2;                       // 127
+        // Construct a unique lo/hi decomposition of the challenge (hi_bits will be 127)
         const auto [lo, hi] = split_unique(challenge, lo_bits);
         return std::array<fr, 2>{ lo, hi };
     }

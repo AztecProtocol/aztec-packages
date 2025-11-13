@@ -231,6 +231,18 @@ variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
   default     = false
 }
 
+variable "FISHERMAN_MNEMONIC" {
+  description = "The fisherman mnemonic for RPC nodes (used when validators are disabled, e.g., fisherman mode)"
+  type        = string
+  default     = ""
+}
+
+variable "FISHERMAN_MNEMONIC_START_INDEX" {
+  description = "The fisherman mnemonic start index for RPC nodes (used when validators are disabled)"
+  type        = string
+  default     = 1
+}
+
 variable "OTEL_COLLECTOR_ENDPOINT" {
   description = "Optional OpenTelemetry collector endpoint URL (e.g., http://otel-collector:4318)"
   type        = string
@@ -505,6 +517,12 @@ variable "PROVER_AGENTS_PER_PROVER" {
 
 variable "BLOB_ALLOW_EMPTY_SOURCES" {
   description = "Whether to allow starting without any consensus client URLs"
+  type        = bool
+  default     = false
+}
+
+variable "FISHERMAN_MODE" {
+  description = "Whether to run in fisherman mode"
   type        = bool
   default     = false
 }

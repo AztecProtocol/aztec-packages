@@ -154,8 +154,8 @@ class FrCodec {
     }
 
     /**
-     * @brief Split a challenge field element into two half-width challenges
-     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * @brief Split a challenge field element into two equal-width challenges
+     * @details Both `lo` and `hi` are 127 bits each (254/2) which provides significantly more than our security
      * parameter bound: 100 bits. The decomposition is constrained to be unique.
      *
      * @param challenge
@@ -163,8 +163,9 @@ class FrCodec {
      */
     static std::array<bb::fr, 2> split_challenge(const bb::fr& challenge)
     {
-        static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR; // 128
-        static constexpr size_t HI_BITS = bb::fr::modulus.get_msb() + 1 - LO_BITS;          // 126
+        static constexpr size_t TOTAL_BITS = bb::fr::modulus.get_msb() + 1; // 254
+        static constexpr size_t LO_BITS = TOTAL_BITS / 2;                   // 127
+        static constexpr size_t HI_BITS = TOTAL_BITS - LO_BITS;             // 127
 
         const uint256_t u = static_cast<uint256_t>(challenge);
         const uint256_t lo = u.slice(0, LO_BITS);
@@ -280,8 +281,8 @@ class U256Codec {
     }
 
     /**
-     * @brief Split a challenge field element into two half-width challenges
-     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * @brief Split a challenge field element into two equal-width challenges
+     * @details Both `lo` and `hi` are 127 bits each (254/2) which provides significantly more than our security
      * parameter bound: 100 bits. The decomposition is constrained to be unique.
      *
      * @param challenge
@@ -289,8 +290,9 @@ class U256Codec {
      */
     static std::array<uint256_t, 2> split_challenge(const uint256_t& challenge)
     {
-        static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR; // 128
-        static constexpr size_t HI_BITS = bb::fr::modulus.get_msb() + 1 - LO_BITS;          // 126
+        static constexpr size_t TOTAL_BITS = bb::fr::modulus.get_msb() + 1; // 254
+        static constexpr size_t LO_BITS = TOTAL_BITS / 2;                   // 127
+        static constexpr size_t HI_BITS = TOTAL_BITS - LO_BITS;             // 127
 
         const uint256_t u = static_cast<uint256_t>(challenge);
         const uint256_t lo = u.slice(0, LO_BITS);

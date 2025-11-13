@@ -1,4 +1,5 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { writeTestData } from '@aztec/foundation/testing/files';
 import { avmSimulate, avmSimulateWithHintedDbs } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import {
@@ -124,8 +125,14 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     // Deserialize the msgpack result
     this.log.verbose(`Deserializing C++ from buffer (size: ${resultBuffer.length})...`);
     const cppResultJSON: object = deserializeFromMessagePack(resultBuffer);
+    // Write testdata if AZTEC_WRITE_TESTDATA=1.
+    writeTestData(
+      `barretenberg/cpp/src/barretenberg/vm2/testing/tx_result_${txHash}.testdata.bin`,
+      resultBuffer,
+      /*raw=*/ true,
+    );
     this.log.verbose(`Deserializing C++ result to PublicTxResult...`);
-    const cppResult = PublicTxResult.schema.parse(cppResultJSON);
+    const cppResult = PublicTxResult.fromPlainObject(cppResultJSON);
     this.log.verbose(`Done.`);
     // TODO(fcarreiro): complete this.
     assert(cppResult.revertCode.equals(tsResult.revertCode));
@@ -234,7 +241,7 @@ export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements 
 
     // Deserialize the msgpack result
     const cppResultJSON: object = deserializeFromMessagePack(resultBuffer);
-    const cppResult = PublicTxResult.schema.parse(cppResultJSON);
+    const cppResult = PublicTxResult.fromPlainObject(cppResultJSON);
 
     assert(cppResult.revertCode.equals(tsResult.revertCode));
     assert(cppResult.gasUsed.totalGas.equals(tsResult.gasUsed.totalGas));

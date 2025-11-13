@@ -1,5 +1,5 @@
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
@@ -84,7 +84,7 @@ export class BatchCall extends BaseContractInteraction {
         ? this.wallet.batch(
             utility.map(([call]) => ({
               name: 'simulateUtility' as const,
-              args: [call.name, call.args, call.to, options?.authWitnesses] as const,
+              args: [call, options?.authWitnesses, undefined] as const,
             })),
           )
         : Promise.resolve([]);
@@ -92,15 +92,17 @@ export class BatchCall extends BaseContractInteraction {
     const [utilityBatchResults, simulatedTx] = await Promise.all([
       utilityBatchPromise,
       indexedExecutionPayloads.length > 0
-        ? this.wallet.simulateTx(executionPayload, await toSimulateOptions(options))
+        ? this.wallet.simulateTx(executionPayload, toSimulateOptions(options))
         : Promise.resolve(),
     ]);
 
     const results: any[] = [];
 
     utilityBatchResults.forEach((wrappedResult, utilityIndex) => {
-      const [, originalIndex] = utility[utilityIndex];
-      results[originalIndex] = wrappedResult.result.result;
+      const [call, originalIndex] = utility[utilityIndex];
+      // Decode the raw field elements to the actual return type
+      const rawReturnValues = wrappedResult.result.result;
+      results[originalIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
     });
 
     if (simulatedTx) {

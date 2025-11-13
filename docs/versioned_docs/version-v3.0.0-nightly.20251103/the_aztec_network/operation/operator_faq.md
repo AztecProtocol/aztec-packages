@@ -38,7 +38,7 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
 2. Remove the archiver data directory:
 
    ```bash
-   rm -rf ~/.aztec/v2.0.2/data/archiver
+   rm -rf ~/.aztec/v2.0.4/data/archiver
    ```
 
 3. Update to the latest version:
@@ -345,7 +345,10 @@ CodeError: stream reset
      "schemaVersion": 1,
      "validators": [
        {
-         "attester": ["0xYOUR_PRIVATE_KEY_HERE"],
+         "attester": {
+           "eth": "0xYOUR_ETH_PRIVATE_KEY_HERE",
+           "bls": "0xYOUR_BLS_PRIVATE_KEY_HERE"
+         },
          "publisher": ["0xYOUR_PUBLISHER_KEY_HERE"],
          "coinbase": "0xYOUR_COINBASE_ADDRESS",
          "feeRecipient": "0xYOUR_AZTEC_ADDRESS"
@@ -359,6 +362,7 @@ CodeError: stream reset
    - Keys should start with `0x`
    - Keys should be 64 hexadecimal characters (plus the `0x` prefix)
    - No spaces or extra characters
+   - The attester must contain both `eth` and `bls` keys
 
 3. **Check file permissions**:
 
@@ -374,7 +378,7 @@ CodeError: stream reset
    - Docker Compose: Ensure `KEY_STORE_DIRECTORY` environment variable is set
    - CLI: Check that `--key-store` flag points to the correct directory
 
-For more information on keystore configuration, see the [advanced keystore guide](./keystore/index.md).
+For more information on keystore configuration and creation, see the [Creating Validator Keystores guide](./keystore/creating_keystores.md) and the [Advanced Keystore Usage guide](./keystore/index.md).
 
 ### Docker Container Won't Start
 
