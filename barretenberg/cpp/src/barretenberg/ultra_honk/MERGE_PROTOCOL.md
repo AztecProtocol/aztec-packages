@@ -493,7 +493,7 @@ bool goblin_verified = Goblin::verify(
 - `t_commitments`: Hiding kernel's ecc_op_wires (from witness commitments)
 - `T_prev_commitments`: Final merged table (from hiding kernel public inputs)
 - `Goblin::verify()` runs final merge verification in APPEND mode
-- Translator and ECCVM use the same merged table commitments
+- Translator and ECCVM use a special consistency check.
 
 ## Op Queue Lifecycle in CHONK
 
