@@ -93,6 +93,14 @@ function(barretenberg_module_with_sources MODULE_NAME)
             )
         endif()
 
+        if(FUZZING_AVM)
+            target_compile_options(
+                ${MODULE_NAME}_objects
+                PRIVATE
+                -fsanitize-coverage=inline-8bit-counters
+            )
+        endif()
+
         # enable msgpack downloading via dependency (solves race condition)
         add_dependencies(${MODULE_NAME} msgpack-c)
         add_dependencies(${MODULE_NAME}_objects msgpack-c)
