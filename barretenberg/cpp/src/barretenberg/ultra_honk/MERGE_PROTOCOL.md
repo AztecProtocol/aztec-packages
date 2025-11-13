@@ -314,7 +314,6 @@ These operations batch across all 4 wires and draw from the **residual pool** of
    - Commitment $[G]$ → **-1 DoF** (shared across all wires)
    - Evaluation $G(\kappa^{-1})$ → **-1 DoF** (shared)
    - Verification: $\sum_i \alpha_i L_i(\kappa) = G(\kappa^{-1}) \cdot \kappa^{k-1}$ (consistency check, not new constraint)
-   - **Requires at least 2 DoF** in $L_j$ polynomials for degree bound security
    - **Total: -2 DoF** (shared)
 
 2. **Shplonk batching:**
@@ -338,7 +337,7 @@ These operations batch across all 4 wires and draw from the **residual pool** of
 
 **Caveats:**
 1. Analysis is heuristic (assumes ~1 DoF per commitment under DLog)
-2. 2 DoF margin is thin - sensitive to protocol changes
+2. 4 DoF margin is thin
 
 **Implementation references:**
 - `Chonk::hide_op_queue_content_in_tail()`, `Chonk::hide_op_queue_content_in_hiding()`, `Chonk::hide_op_queue_accumulation_result()`
