@@ -13,6 +13,7 @@ import {
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1Point, bytesToFr} from "./utils.sol";
+import {logFr} from "./Debug.sol";
 
 // ZKTranscript library to generate fiat shamir challenges, the ZK transcript only differest
 /// forge-lint: disable-next-item(pascal-case-struct)
@@ -118,6 +119,11 @@ library ZKTranscriptLib {
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
 
         (etaThree,) = splitChallenge(previousChallenge);
+
+        // Debug: Print eta challenges
+        logFr("verifier eta", eta);
+        logFr("verifier eta_two", etaTwo);
+        logFr("verifier eta_three", etaThree);
     }
 
     function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.ZKProof memory proof)
@@ -337,14 +343,14 @@ library ZKTranscriptLib {
             }
         }
 
-        p.libraEvaluation = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
-        boundary += FIELD_ELEMENT_SIZE;
-
         // Sumcheck evaluations (includes gemini_masking_poly eval at index 0 for ZK flavors)
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES_ZK; i++) {
             p.sumcheckEvaluations[i] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
             boundary += FIELD_ELEMENT_SIZE;
         }
+
+        p.libraEvaluation = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+        boundary += FIELD_ELEMENT_SIZE;
 
         p.libraCommitments[1] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
         boundary += GROUP_ELEMENT_SIZE;
