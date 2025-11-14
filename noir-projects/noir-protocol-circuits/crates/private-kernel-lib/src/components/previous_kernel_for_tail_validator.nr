@@ -100,6 +100,11 @@ pub fn validate_previous_kernel_for_tail(
 
     // --- claimed_first_nullifier ---
 
+    assert(
+        previous_kernel_public_inputs.end.nullifiers.length != 0,
+        "TX must create at least one nullifier",
+    );
+
     let claimed_first_nullifier = previous_kernel_public_inputs.claimed_first_nullifier;
 
     let first_nullifier = previous_kernel_public_inputs.end.nullifiers.array[0];
