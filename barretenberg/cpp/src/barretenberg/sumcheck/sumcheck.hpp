@@ -512,7 +512,6 @@ template <typename Flavor> class SumcheckProver {
     };
 
     /**
-     *
      @brief Evaluate Honk polynomials at the round challenge and prepare class for next round.
      @details At initialization, \ref ProverPolynomials "Prover Polynomials"
      are submitted by reference into \p full_polynomials, which is a two-dimensional array defined as \f{align}{
@@ -730,8 +729,6 @@ template <typename Flavor> class SumcheckVerifier {
     FF libra_challenge;
     FF libra_total_sum;
 
-    FF correcting_factor;
-
     std::vector<Commitment> round_univariate_commitments = {};
     std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
 
@@ -744,12 +741,14 @@ template <typename Flavor> class SumcheckVerifier {
         , virtual_log_n(virtual_log_n)
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha)) {};
     /**
-     * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until
-     * final round, then use purported evaluations to generate purported full Honk relation value and check against
-     * final target sum.
+     * @brief The Sumcheck verification method. First it extracts round univariate, check sum (the sumcheck univariate
+     * consistency check), generate challenge, compute next target sum..., repeat until final round, then use purported
+     * evaluations to generate purported full Honk relation value and check against final target sum.
      *
      * @details If verification fails, returns std::nullopt, otherwise returns SumcheckOutput
      * @param relation_parameters
+     * @param gate_challenges
+     * @param padding_indicator
      * @param transcript
      */
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters = {},
@@ -767,6 +766,7 @@ template <typename Flavor> class SumcheckVerifier {
 
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
+        // it holds the value of $\tilde{S}^i(u_i)$ for each round i.
 
         bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> round_univariate;
 
@@ -774,6 +774,7 @@ template <typename Flavor> class SumcheckVerifier {
             // If running zero-knowledge sumcheck the target total sum is corrected by the claimed sum of libra masking
             // multivariate over the hypercube
             libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
+            // The random value \rho to combine the libra multivariate and the sumcheck multivariate.
             libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
             round.target_total_sum = libra_total_sum * libra_challenge;
         }
@@ -788,14 +789,16 @@ template <typename Flavor> class SumcheckVerifier {
                     round_univariate_label);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
-
+            // Check that $\tilde{S}^{i-1}(u_{i-1}) == \tilde{S}^{i}(0) + \tilde{S}^{i}(1)$
+            // For i = 0, check that $\tilde{S}^0(u_0) == target_total_sum$
             const bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
+            // Evaluate $\tilde{S}^{i}(u_i)$
             round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
             gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
 
             verified = verified && checked;
         }
-        // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
+        // Get the claimed evaluations of the prover polynomials
         // Final round
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
@@ -815,10 +818,12 @@ template <typename Flavor> class SumcheckVerifier {
             if constexpr (UseRowDisablingPolynomial<Flavor>) {
                 // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
                 // rows where all sumcheck relations are disabled
+                // i.e. compute the term $1 - \prod_{i=2}^{d-1} u_i$
                 full_honk_purported_value *=
                     RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding_indicator_array);
             }
 
+            // Get the claimed evaluation of the Libra multivariate evaluated at the sumcheck challenge
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
             full_honk_purported_value += libra_evaluation * libra_challenge;
         }
@@ -872,8 +877,8 @@ template <typename Flavor> class SumcheckVerifier {
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(virtual_log_n);
-        // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
-        // challenge
+        // Since ECCVM/ECCVMRecursive flavors have ZK, the target total sum is corrected by Libra total sum multiplied
+        // by the Libra challenge
         round.target_total_sum = libra_total_sum * libra_challenge;
 
         for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
@@ -931,18 +936,16 @@ template <typename Flavor> class SumcheckVerifier {
                 round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
         };
 
+        //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {
-
-            first_sumcheck_round_evaluations_sum.self_reduce();
-            round.target_total_sum.self_reduce();
-
             // This bool is only needed for debugging
             verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
             // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
             // target total sum
-            first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
+            auto difference = first_sumcheck_round_evaluations_sum - round.target_total_sum;
+            difference.self_reduce();
+            difference.assert_is_zero();
 
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
             full_honk_purported_value.self_reduce();
 
         } else {
@@ -953,7 +956,6 @@ template <typename Flavor> class SumcheckVerifier {
 
         round_univariate_evaluations[virtual_log_n - 1][2] = full_honk_purported_value;
 
-        //! [Final Verification Step]
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
                                        .claimed_evaluations = purported_evaluations,

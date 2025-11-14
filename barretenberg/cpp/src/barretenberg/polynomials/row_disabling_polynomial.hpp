@@ -43,15 +43,15 @@ namespace bb {
  *
  * Recall:
  * - \f$ n-1 = 2^d - 1 = (1,1, \ldots, 1) \f$
- * - \f$ n-2 = (0,1,\ldots,1) \f$
- * - \f$ n-3 = (1,0,\ldots,1) \f$
- * - \f$ n-4 = (0,0,\ldots,1) \f$
+ * - \f$ n-2 = (0,1,1,\ldots,1) \f$
+ * - \f$ n-3 = (1,0,1,\ldots,1) \f$
+ * - \f$ n-4 = (0,0,1,\ldots,1) \f$
  *
  * ### Round 0:
  * \f[
  * \begin{aligned}
  * S' &=
- * S_{H,0} - \Big(L_{n-1}(X, 1, \ldots, 1) + L_{n-2}(X, 1,\ldots,1)\Big) H(X,1,\ldots, 1) \\
+ * S_{H,0} - \Big(L_{n-1}(X, 1,1, \ldots, 1) + L_{n-2}(X, 1,1,\ldots,1)\Big) H(X,1,1,\ldots, 1) \\
  * &\quad - \Big(L_{n-3}(X, 0,1,\ldots,1) + L_{n-4}(X,0,1,\ldots,1)\Big) H(X,0,1,\ldots,1)
  * \end{aligned}
  * \f]

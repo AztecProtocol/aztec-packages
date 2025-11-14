@@ -467,6 +467,10 @@ template <typename Flavor> class SumcheckProverRound {
 
         return round_univariate;
     };
+    // TODO(Khashayar-audit): remove the method and take back the constexpr if to prove method.
+    // currently it's not clear in the prove method that we are disabling the contribution of some rows
+    // because the removal is done as a part of the compute_hiding_univariate method. This leads to the code being
+    // confusing in the prove method.
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_hiding_univariate(
         const size_t round_idx,
@@ -676,7 +680,7 @@ template <typename Flavor> class SumcheckProverRound {
      * @brief In Round \f$ i \f$, for a given point \f$ \vec \ell \in \{0,1\}^{d-1 - i}\f$, calculate the contribution
      * of each sub-relation to \f$ T^i(X_i) \f$.
      *
-     * @details In Round \f$ i \f$, this method computes the univariate \f$ T^i(X_i) \f$ deined in \ref
+     * @details In Round \f$ i \f$, this method computes the univariate \f$ T^i(X_i) \f$ defined in \ref
      *SumcheckProverContributionsofPow "this section". It is done  as follows:
      *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube
      *\f$\{0,1\}\times
