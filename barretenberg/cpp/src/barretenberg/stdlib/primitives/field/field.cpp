@@ -940,6 +940,13 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
     } else if (rhs.is_constant()) {
         ctx->assert_equal_constant(lhs.get_witness_index(), rhs.get_value(), msg);
     } else {
+        // Both are witnesses - save original tags and clear them to allow different transcript/free witness sources
+        // (e.g., proving 2 separate properties about same object through 2 different transcripts)
+        const auto lhs_original_tag = lhs.get_origin_tag();
+        const auto rhs_original_tag = rhs.get_origin_tag();
+        lhs.set_origin_tag(OriginTag());
+        rhs.set_origin_tag(OriginTag());
+
         if (lhs.is_normalized() || rhs.is_normalized()) {
             ctx->assert_equal(lhs.get_witness_index(), rhs.get_witness_index(), msg);
         } else {
@@ -956,6 +963,10 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
                 ctx->failure(msg);
             }
         }
+
+        // Restore tags
+        lhs.set_origin_tag(lhs_original_tag);
+        rhs.set_origin_tag(rhs_original_tag);
     }
 }
 /**

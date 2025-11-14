@@ -104,9 +104,8 @@ pub contract ContractInstanceRegistry {
         universal_deploy: bool,
     ) {
         // contract class must be published in order to publish an instance
-        ContractClassRegistry::at(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)
-            .assert_class_id_is_published(contract_class_id)
-            .call(self.context);
+        self.call(ContractClassRegistry::at(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)
+            .assert_class_id_is_published(contract_class_id));
 
         let deployer = if universal_deploy {
             AztecAddress::zero()

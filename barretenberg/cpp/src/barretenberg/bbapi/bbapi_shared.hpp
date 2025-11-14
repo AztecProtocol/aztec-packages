@@ -21,9 +21,10 @@ namespace bb::bbapi {
  * @brief Policy for handling verification keys during IVC accumulation
  */
 enum class VkPolicy {
-    DEFAULT,  // Use the provided VK as-is (default behavior)
-    CHECK,    // Verify the provided VK matches the computed VK, throw error if mismatch
-    RECOMPUTE // Always ignore the provided VK and treat it as nullptr
+    DEFAULT,   // Use the provided VK as-is (default behavior)
+    CHECK,     // Verify the provided VK matches the computed VK, throw error if mismatch
+    RECOMPUTE, // Always ignore the provided VK and treat it as nullptr
+    REWRITE    // Check the VK and rewrite the input file with correct VK if mismatch (for check command)
 };
 
 /**
@@ -136,6 +137,9 @@ inline VkPolicy parse_vk_policy(const std::string& policy)
     }
     if (policy == "recompute") {
         return VkPolicy::RECOMPUTE;
+    }
+    if (policy == "rewrite") {
+        return VkPolicy::REWRITE;
     }
     return VkPolicy::DEFAULT; // default
 }

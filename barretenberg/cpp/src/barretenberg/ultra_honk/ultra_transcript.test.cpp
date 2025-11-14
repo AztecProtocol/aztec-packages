@@ -199,8 +199,8 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     Proof export_serialized_proof(Prover prover, const size_t num_public_inputs)
     {
         // reset internal variables needed for exporting the proof
-        prover.transcript->num_frs_written = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
-        prover.transcript->proof_start = 0;
+        size_t proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
+        prover.transcript->test_set_proof_parsing_state(0, proof_length);
         return prover.export_proof();
     }
 };

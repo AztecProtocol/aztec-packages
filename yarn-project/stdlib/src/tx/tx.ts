@@ -317,13 +317,12 @@ export class Tx extends Gossipable {
  */
 export class TxArray extends Array<Tx> {
   static fromBuffer(buffer: Buffer | BufferReader): TxArray {
+    const reader = BufferReader.asReader(buffer);
     try {
-      const reader = BufferReader.asReader(buffer);
       const txs = reader.readVector(Tx);
-
       return new TxArray(...txs);
     } catch {
-      return new TxArray();
+      throw new Error('Failed to deserialize TxArray from buffer');
     }
   }
 

@@ -118,23 +118,6 @@ describe('validator keys utilities', () => {
       expect(summaries[0].publisherEth!.length).toBe(1);
     });
 
-    it('supports bls-only mode', async () => {
-      const { validators, summaries } = await buildValidatorEntries({
-        validatorCount: 1,
-        publisherCount: 0,
-        accountIndex: 0,
-        baseAddressIndex: 0,
-        mnemonic: TEST_MNEMONIC,
-        blsOnly: true,
-        feeRecipient: ('0x' + '22'.repeat(32)) as unknown as AztecAddress,
-      });
-      expect(validators.length).toBe(1);
-      const att = validators[0].attester as any;
-      expect(typeof att.bls).toBe('string');
-      expect(summaries[0].attesterEth).toBeUndefined();
-      expect(typeof summaries[0].attesterBls).toBe('string');
-    });
-
     it('creates multiple publishers when requested', async () => {
       const { validators, summaries } = await buildValidatorEntries({
         validatorCount: 1,
@@ -417,6 +400,29 @@ describe('validator keys utilities', () => {
       const parsed = JSON.parse(logs[0]);
       expect(parsed).toHaveProperty('privateKey');
       expect(parsed).toHaveProperty('publicKey');
+    });
+  });
+
+  describe('newValidatorKeystore with staker-output', () => {
+    it('requires gse-address when staker-output is enabled', async () => {
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+      await expect(
+        newValidatorKeystore(
+          {
+            dataDir: tmp,
+            file: 'staker-test.json',
+            count: 1,
+            mnemonic: TEST_MNEMONIC,
+            feeRecipient: ('0x' + '44'.repeat(32)) as unknown as AztecAddress,
+            stakerOutput: true,
+            // Missing gseAddress
+            l1RpcUrls: ['http://localhost:8545'],
+            l1ChainId: 31337,
+          },
+          log,
+        ),
+      ).rejects.toThrow(/--gse-address is required/);
     });
   });
 });

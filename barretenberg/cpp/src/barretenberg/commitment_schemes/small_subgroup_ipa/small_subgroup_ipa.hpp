@@ -267,13 +267,11 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
         if constexpr (Curve::is_stdlib_type) {
             if constexpr (std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
                 diff.self_reduce();
             }
+            bool out = (diff.get_value() == FF(0).get_value());
             diff.assert_equal(FF(0));
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186).
-            // Insecure pattern.
-            return (diff.get_value() == FF(0).get_value());
+            return out;
         } else {
             return (diff == FF(0));
         };

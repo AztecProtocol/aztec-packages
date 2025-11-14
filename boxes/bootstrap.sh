@@ -3,12 +3,9 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-export TRANSPILER=$PWD/../avm-transpiler/target/release/avm-transpiler
-export BB=$PWD/../barretenberg/cpp/build/bin/bb
-export NARGO=$PWD/../noir/noir-repo/target/release/nargo
-export AZTEC_NARGO=$PWD/../aztec-up/bin/aztec-nargo
-export AZTEC_POSTPROCESS_CONTRACT=$PWD/../aztec-up/bin/aztec-postprocess-contract
-export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
+# We set container name to "" to avoid container name collisions when building boxes
+export CONTAINER_NAME=""
+export AZTEC=$PWD/../aztec-up/bin/aztec
 
 hash=$(hash_str \
   $(../noir/bootstrap.sh hash) \
@@ -40,7 +37,7 @@ function test_cmds {
   done
 
   # The vanilla app works with deployed contracts configured during the build.
-  # To avoid building the app three times, we test it with one sandbox and multiple browsers.
+  # To avoid building the app three times, we test it with one local network and multiple browsers.
   echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
 }
 
@@ -116,7 +113,7 @@ case "$cmd" in
     build
     test
     ;;
-  "")
+  ""|"fast"|"full")
     build
     ;;
   test|test_cmds|release)

@@ -91,6 +91,22 @@ export class TreeSnapshots {
     );
   }
 
+  /**
+   * Creates a TreeSnapshots instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing TreeSnapshots fields
+   * @returns A TreeSnapshots instance
+   */
+  static fromPlainObject(obj: any): TreeSnapshots {
+    return new TreeSnapshots(
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.l1ToL2MessageTree),
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.noteHashTree),
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.nullifierTree),
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.publicDataTree),
+    );
+  }
+
   isEmpty(): boolean {
     return (
       this.l1ToL2MessageTree.isEmpty() &&

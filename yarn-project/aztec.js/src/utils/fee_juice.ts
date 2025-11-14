@@ -6,7 +6,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 /**
  * Returns the owner's fee juice balance.
- * Note: This is used only e2e_sandbox_example test. TODO: Consider nuking.
+ * Note: This is used only e2e_local_network_example test. TODO: Consider nuking.
  */
 export async function getFeeJuiceBalance(owner: AztecAddress, node: AztecNode): Promise<bigint> {
   const slot = await deriveStorageSlotInMap(new Fr(1), owner);

@@ -83,9 +83,11 @@ namespace tx;
     reverted * (1 - is_revertible) = 0;
 
     // Control flow
+    pol commit read_pi_start_offset; // start index in public inputs to read data for a given phase
     pol commit read_pi_offset; // index in public inputs to read data from -> Revisit!
     pol commit read_pi_length_offset; // index in public inputs to read lengths from
     pol commit write_pi_offset; // index in public inputs to write data to: Constrain in the phases that need it.
+    pol commit next_phase_on_revert; // phase to jump to if we revert
 
     pol commit remaining_phase_inv;
     pol commit remaining_phase_counter;
@@ -101,18 +103,16 @@ namespace tx;
     #[REM_COUNT_IS_ONE]
     sel * (1 - reverted) * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
 
-    // TODO: Add constraints to propagate down the things read from precomputed
-    // while NOT_PHASE_END
-    #[READ_PHASE_TABLE]
-    start_phase {
+    #[READ_PHASE_SPEC]
+    sel {
         phase_value,
         is_public_call_request,
+        is_teardown,
         is_collect_fee,
         is_tree_padding,
         is_cleanup,
-
         is_revertible,
-        read_pi_offset,
+        read_pi_start_offset,
         read_pi_length_offset,
         sel_non_revertible_append_note_hash,
         sel_non_revertible_append_nullifier,
@@ -124,19 +124,20 @@ namespace tx;
         sel_can_emit_nullifier,
         sel_can_write_public_data,
         sel_can_emit_unencrypted_log,
-        sel_can_emit_l2_l1_msg
+        sel_can_emit_l2_l1_msg,
+        next_phase_on_revert
     }
     in
     precomputed.sel_phase {
-        precomputed.phase_value,
-        precomputed.is_public_call_request_phase,
-        precomputed.sel_collect_fee,
-        precomputed.sel_tree_padding,
-        precomputed.sel_cleanup,
-
+        precomputed.clk,
+        precomputed.is_public_call_request,
+        precomputed.is_teardown,
+        precomputed.is_collect_fee,
+        precomputed.is_tree_padding,
+        precomputed.is_cleanup,
         precomputed.is_revertible,
-        precomputed.read_public_input_offset,
-        precomputed.read_public_input_length_offset,
+        precomputed.read_pi_start_offset,
+        precomputed.read_pi_length_offset,
         precomputed.sel_non_revertible_append_note_hash,
         precomputed.sel_non_revertible_append_nullifier,
         precomputed.sel_non_revertible_append_l2_l1_msg,
@@ -147,13 +148,13 @@ namespace tx;
         precomputed.sel_can_emit_nullifier,
         precomputed.sel_can_write_public_data,
         precomputed.sel_can_emit_unencrypted_log,
-        precomputed.sel_can_emit_l2_l1_msg
+        precomputed.sel_can_emit_l2_l1_msg,
+        precomputed.next_phase_on_revert
     };
 
     // If a phase reverts (when it is allowed to), it jumps to a known next phase
     #[PHASE_JUMP_ON_REVERT]
-    reverted { phase_value, phase_value' } in
-    precomputed.sel_phase { precomputed.phase_value, precomputed.next_phase_on_revert};
+    reverted * (next_phase_on_revert - phase_value') = 0;
 
     // === Phase Lengths ===
     // Read the number of steps in the phase from public inputs
@@ -176,9 +177,11 @@ namespace tx;
     #[DECR_REM_PHASE_EVENTS]
     (1 - precomputed.first_row) * NOT_PHASE_END * (remaining_phase_counter' - (remaining_phase_counter - 1)) = 0;
 
+    #[READ_PI_OFFSET_INIT]
+    start_phase * (read_pi_offset - read_pi_start_offset) = 0;
     // The read index increments at each row
-    #[INCR_READ_PI_OFFSET]
-    (1 - precomputed.first_row) * NOT_PHASE_END * (read_pi_offset' - (read_pi_offset + 1)) = 0;
+    #[READ_PI_OFFSET_INCREMENT]
+    NOT_PHASE_END * (read_pi_offset + 1 - read_pi_offset') = 0;
 
     // === Public Call Request Phase ===
     pol commit is_public_call_request;
@@ -220,21 +223,21 @@ namespace tx;
     pol commit should_process_call_request;
     should_process_call_request = is_public_call_request * (1 - is_padded);
 
-    pol commit is_teardown_phase; // TODO: Constrain
-    is_teardown_phase * (1 - is_teardown_phase) = 0;
+    pol commit is_teardown;
+    is_teardown * (1 - is_teardown) = 0;
 
     pol commit prev_l2_gas_used_sent_to_enqueued_call;
     pol commit prev_da_gas_used_sent_to_enqueued_call;
     pol commit next_l2_gas_used_sent_to_enqueued_call;
     pol commit next_da_gas_used_sent_to_enqueued_call;
 
-    // prev_gas_used_sent_to_enqueued_call = is_teardown_phase ? 0 : prev_gas_used
-    should_process_call_request * ((0 - prev_l2_gas_used) * is_teardown_phase + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
-    should_process_call_request * ((0 - prev_da_gas_used) * is_teardown_phase + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
-    // next_gas_used = is_teardown_gas_phase ? prev_gas_used : next_gas_used_sent_to_enqueued_call
+    // prev_gas_used_sent_to_enqueued_call = is_teardown ? 0 : prev_gas_used
+    should_process_call_request * ((0 - prev_l2_gas_used) * is_teardown + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
+    should_process_call_request * ((0 - prev_da_gas_used) * is_teardown + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
+    // next_gas_used = is_teardown ? prev_gas_used : next_gas_used_sent_to_enqueued_call
     // In the teardown phase, next_gas_used_sent_to_enqueued_call is unconstrained on purpose: we don't care about gas usage in teardown
-    should_process_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
-    should_process_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
+    should_process_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
+    should_process_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
 
     // Public Call Requests are dispatch to the execution trace
     // We match the values to the start of an enqueued call in the execution trace
@@ -535,10 +538,10 @@ namespace tx;
     // During teardown, transaction fee must be the same as the one used in collect_fee (the following row/phase)
     // (unless it is a padded row)
     #[TEARDOWN_GETS_FEE]
-    is_teardown_phase * (1 - is_padded) * (fee' - fee) = 0;
+    is_teardown * (1 - is_padded) * (fee' - fee) = 0;
     // In all other phases, force fee to 0
     #[FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN]
-    (1 - is_collect_fee) * (1 - is_teardown_phase) * fee = 0;
+    (1 - is_collect_fee) * (1 - is_teardown) * fee = 0;
 
     pol commit fee_juice_contract_address;
     is_collect_fee * (constants.FEE_JUICE_ADDRESS - fee_juice_contract_address) = 0;

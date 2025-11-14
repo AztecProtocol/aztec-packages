@@ -117,16 +117,26 @@ export const setupL1Contracts = async (
   args: Partial<DeployL1ContractsArgs> = {},
   chain: Chain = foundry,
 ) => {
-  const l1Data = await deployL1Contracts(l1RpcUrls, account, chain, logger, {
-    vkTreeRoot: getVKTreeRoot(),
-    protocolContractsHash,
-    genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-    salt: args.salt,
-    initialValidators: args.initialValidators,
-    ...getL1ContractsConfigEnvVars(),
-    realVerifier: false,
-    ...args,
-  });
+  const l1Data = await deployL1Contracts(
+    l1RpcUrls,
+    account,
+    chain,
+    logger,
+    {
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractsHash,
+      genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+      salt: args.salt,
+      initialValidators: args.initialValidators,
+      ...getL1ContractsConfigEnvVars(),
+      realVerifier: false,
+      ...args,
+    },
+    {
+      priorityFeeBumpPercentage: 0,
+      priorityFeeRetryBumpPercentage: 0,
+    },
+  );
 
   return l1Data;
 };
@@ -728,7 +738,7 @@ export async function setup(
 
 export async function ensureAccountContractsPublished(wallet: Wallet, accountsToDeploy: AztecAddress[]) {
   // We have to check whether the accounts are already deployed. This can happen if the test runs against
-  // the sandbox and the test accounts exist
+  // the local network and the test accounts exist
   const accountsAndAddresses = await Promise.all(
     accountsToDeploy.map(async address => {
       return {
@@ -893,7 +903,11 @@ export function createAndSyncProverNode(
 
     // Creating temp store and archiver for simulated prover node
     const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
-    const archiver = await createArchiver(archiverConfig, { blobSinkClient }, { blockUntilSync: true });
+    const archiver = await createArchiver(
+      archiverConfig,
+      { blobSinkClient, dateProvider: proverNodeDeps.dateProvider },
+      { blockUntilSync: true },
+    );
 
     // Prover node config is for simulated proofs
     const proverConfig: ProverNodeConfig = {

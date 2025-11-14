@@ -280,18 +280,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                       "back to RAM (requires --slow_low_memory).");
     };
 
-    const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
-    };
-
     const auto add_vk_policy_option = [&](CLI::App* subcommand) {
         return subcommand
             ->add_option("--vk_policy",
                          flags.vk_policy,
-                         "Policy for handling verification keys during IVC accumulation. 'default' uses the provided "
-                         "VK as-is, 'check' verifies the provided VK matches the computed VK (throws error on "
-                         "mismatch), 'recompute' always ignores the provided VK and treats it as nullptr.")
-            ->check(CLI::IsMember({ "default", "check", "recompute" }).name("is_member"));
+                         "Policy for handling verification keys. 'default' uses the provided VK as-is, 'check' "
+                         "verifies the provided VK matches the computed VK (throws error on mismatch), 'recompute' "
+                         "always ignores the provided VK and treats it as nullptr, 'rewrite' checks the VK and "
+                         "rewrites the input file with the correct VK if there's a mismatch (for check command).")
+            ->check(CLI::IsMember({ "default", "check", "recompute", "rewrite" }).name("is_member"));
     };
 
     const auto add_optimized_solidity_verifier_flag = [&](CLI::App* subcommand) {
@@ -342,7 +339,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(check);
     add_witness_path_option(check);
     add_ivc_inputs_path_options(check);
-    add_update_inputs_flag(check);
+    add_vk_policy_option(check);
 
     /***************************************************************************************************************
      * Subcommand: gates

@@ -23,7 +23,6 @@ export type BuildValidatorsInput = {
   mnemonic: string;
   ikm?: string;
   blsPath?: string;
-  blsOnly?: boolean;
   feeRecipient: AztecAddress;
   coinbase?: EthAddress;
   remoteSigner?: string;
@@ -69,7 +68,6 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
     mnemonic,
     ikm,
     blsPath,
-    blsOnly,
     feeRecipient,
     coinbase,
     remoteSigner,
@@ -85,14 +83,8 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
       const basePath = blsPath ?? defaultBlsPath;
       const perValidatorPath = withValidatorIndex(basePath, addressIndex);
 
-      const blsPrivKey = blsOnly || ikm || mnemonic ? deriveBlsPrivateKey(mnemonic, ikm, perValidatorPath) : undefined;
+      const blsPrivKey = ikm || mnemonic ? deriveBlsPrivateKey(mnemonic, ikm, perValidatorPath) : undefined;
       const blsPubCompressed = blsPrivKey ? await computeBlsPublicKeyCompressed(blsPrivKey) : undefined;
-
-      if (blsOnly) {
-        const attester = { bls: blsPrivKey! };
-        summaries.push({ attesterBls: blsPubCompressed });
-        return { attester, feeRecipient } as ValidatorKeyStore;
-      }
 
       const ethAttester = deriveEthAttester(mnemonic, accountIndex, addressIndex, remoteSigner);
       const attester = blsPrivKey ? { eth: ethAttester, bls: blsPrivKey } : ethAttester;

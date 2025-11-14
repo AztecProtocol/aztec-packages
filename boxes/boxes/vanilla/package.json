@@ -8,8 +8,8 @@
   },
   "scripts": {
     "clean": "rm -rf app/dist contracts/target contracts/codegenCache.json",
-    "compile-contracts": "cd contracts && ${AZTEC_NARGO:-aztec-nargo} compile && ${AZTEC_POSTPROCESS_CONTRACT:-aztec-postprocess-contract}",
-    "codegen-contracts": "cd contracts && ${AZTEC_BUILDER:-aztec} codegen ./target -o ./target",
+    "compile-contracts": "cd contracts && CONTAINER_NAME=\"aztec-vanilla-box\" ${AZTEC:-aztec} compile",
+    "codegen-contracts": "cd contracts && CONTAINER_NAME=\"aztec-vanilla-box\" ${AZTEC:-aztec} codegen ./target -o ./target",
     "copy-artifacts": "mkdir -p artifacts && cp contracts/target/*.json contracts/target/*.ts ./artifacts",
     "build-contracts": "yarn clean && yarn compile-contracts && yarn codegen-contracts && yarn copy-artifacts",
     "deploy-contracts": "node --experimental-transform-types scripts/deploy.ts",

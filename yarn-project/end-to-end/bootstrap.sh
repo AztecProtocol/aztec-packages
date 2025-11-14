@@ -57,7 +57,7 @@ function test_cmds {
     fi
   done
 
-  # compose-based tests (use running sandbox)
+  # compose-based tests (use running local network)
   tests=(
     src/composed/!(integration_proof_verification|e2e_persistence).test.ts
     src/guides/*.test.ts

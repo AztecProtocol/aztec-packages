@@ -14,6 +14,7 @@ TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
 {
     info("Simulating...");
     AvmSimulationHelper simulation_helper;
+    // TODO(MW): Add hint checks here
     return AVM_TRACK_TIME_V(
         "simulation/all",
         simulation_helper.simulate_fast_with_existing_ws(

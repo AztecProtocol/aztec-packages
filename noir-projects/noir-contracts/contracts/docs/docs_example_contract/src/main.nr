@@ -163,6 +163,7 @@ pub contract DocsExample {
             let enqueue_self = ();
             let call_self_static = ();
             let enqueue_self_static = ();
+            let internal = ();
             aztec::contract_self::ContractSelf::new_private(
                 &mut context,
                 storage,
@@ -170,6 +171,7 @@ pub contract DocsExample {
                 enqueue_self,
                 call_self_static,
                 enqueue_self_static,
+                internal,
             )
         };
         // docs:end:contract_self_creation

@@ -35,9 +35,8 @@ contract Updated {
 
     #[external("public")]
     fn get_update_delay() -> u64 {
-        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .get_update_delay()
-            .view(self.context)
+        self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .get_update_delay())
     }
 
     #[external("utility")]

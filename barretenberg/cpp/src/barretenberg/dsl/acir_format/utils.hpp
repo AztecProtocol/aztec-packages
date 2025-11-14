@@ -46,7 +46,7 @@ static std::vector<field_t<Builder>> fields_from_witnesses(Builder& builder, std
  */
 template <typename Builder> byte_array<Builder> fields_to_bytes(Builder& builder, std::vector<field_t<Builder>>& fields)
 {
-    byte_array<Builder> result(&builder);
+    byte_array<Builder> result = byte_array<Builder>::constant_padding(&builder, /*length*/ 0);
     for (auto& field : fields) {
         // Construct byte array of length 1 from the field element
         // The constructor enforces that `field` fits in one byte

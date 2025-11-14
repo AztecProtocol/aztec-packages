@@ -87,19 +87,6 @@ function single_test {
   $root/yarn-project/end-to-end/scripts/run_test.sh simple $test_file
 }
 
-function start_env {
-  if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    echo "Skipping start_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
-  fi
-}
-
-function stop_env {
-  if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    echo "Skipping stop_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
-  fi
-}
-
-
 function test {
   echo_header "spartan test (deprecated)"
   # the existing test flow is deprecated.
@@ -230,7 +217,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|gke|build|start_env|stop_env|gcp_auth)
+  test|test_cmds|gke|build|gcp_auth)
     $cmd
     ;;
   "test-kind-smoke")

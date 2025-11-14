@@ -112,7 +112,7 @@ function release_git_push {
 }
 
 case "$cmd" in
-  "")
+  ""|"fast"|"full")
     build
     ;;
   "ci")

@@ -74,6 +74,10 @@ function build_cross {
 
 function build {
   build_native
+  if [ "$CI_FULL" -eq 1 ]; then
+    build_cross amd64-macos
+    build_cross arm64-macos
+  fi
 }
 
 case "$cmd" in

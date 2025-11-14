@@ -87,12 +87,12 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1411) Use std::unordered map in Transcript so that we
     // can access/modify elements of a proof more easily
     inner_prover.transcript->serialize_full_transcript();
-    inner_prover.transcript->proof_start = 0;
-    inner_prover.transcript->num_frs_written = InnerFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
+    size_t num_frs = InnerFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
     if (HasIPAAccumulator<InnerFlavor>) {
         // Exclude the IPA points from the proof - they are added again by export_proof
-        inner_prover.transcript->num_frs_written -= IPA_PROOF_LENGTH;
+        num_frs -= IPA_PROOF_LENGTH;
     }
+    inner_prover.transcript->test_set_proof_parsing_state(0, num_frs);
 
     // Extract the tampered proof
     inner_proof = inner_prover.export_proof();

@@ -320,8 +320,8 @@ TEST_F(ChonkAPITests, CheckPrecomputedVksMismatch)
     bool result = api.check_precomputed_vks(ChonkAPI::Flags{}, input_path);
     EXPECT_FALSE(result);
 
-    // Check with --update_input should still fail but update the VK in the input.
-    result = api.check_precomputed_vks(ChonkAPI::Flags{ .update_inputs = true }, input_path);
+    // Check with --vk_policy=rewrite should still fail but update the VK in the input.
+    result = api.check_precomputed_vks(ChonkAPI::Flags{ .vk_policy = "rewrite" }, input_path);
     EXPECT_FALSE(result);
 
     // Check again and it should succeed with the updated VK.

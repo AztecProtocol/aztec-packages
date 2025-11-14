@@ -73,7 +73,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     static constexpr size_t VIRTUAL_LOG_N = Flavor::NativeFlavor::VIRTUAL_LOG_N;
     // Get the gate challenges for sumcheck computation
     verifier_instance->gate_challenges =
-        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", VIRTUAL_LOG_N);
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", VIRTUAL_LOG_N);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u

@@ -412,8 +412,7 @@
       "binaryDir": "build-wasm-threads",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "MULTITHREADING": "ON",
-        "ENABLE_WASM_BENCH": "ON"
+        "MULTITHREADING": "ON"
       }
     },
     {
@@ -649,7 +648,13 @@
       "configurePreset": "wasm",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm.gz"]
+      "targets": [
+        "barretenberg.wasm",
+        "barretenberg.wasm.gz",
+        "barretenberg",
+        "wasi",
+        "env"
+      ]
     },
     {
       "name": "wasm-threads-dbg",
@@ -663,7 +668,7 @@
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm.gz", "ecc_tests"]
+      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
     },
     {
       "name": "xray",

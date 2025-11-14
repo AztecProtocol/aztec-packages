@@ -51,6 +51,7 @@ Chiplets
 ciphertextheader
 ciphertexts
 citizensˮ
+claimability
 clawback
 cmov
 CMOV

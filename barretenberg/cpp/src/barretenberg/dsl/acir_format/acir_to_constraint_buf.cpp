@@ -187,15 +187,15 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
         // index and the corresponding selector value.
         if (!a_set || pt.a == witness_idx) { // q_l * w_l
             pt.a = witness_idx;
-            pt.q_l = selector_value;
+            pt.q_l += selector_value; // Accumulate coefficients for duplicate witnesses
             a_set = true;
         } else if (!b_set || pt.b == witness_idx) { // q_r * w_r
             pt.b = witness_idx;
-            pt.q_r = selector_value;
+            pt.q_r += selector_value; // Accumulate coefficients for duplicate witnesses
             b_set = true;
         } else if (!c_set || pt.c == witness_idx) { // q_o * w_o
             pt.c = witness_idx;
-            pt.q_o = selector_value;
+            pt.q_o += selector_value; // Accumulate coefficients for duplicate witnesses
             c_set = true;
         } else {
             return poly_triple{
@@ -293,26 +293,35 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
             mul_gate.b = std::get<2>(*current_mul_term).value;
             mul_gate.a_scaling = fr::zero();
             mul_gate.b_scaling = fr::zero();
-            // Try to add corresponding linear terms, only if they were not already added
-            if (!processed_mul_terms.contains(mul_gate.a) || !processed_mul_terms.contains(mul_gate.b)) {
-                for (auto lin_term : arg.linear_combinations) {
-                    auto w = std::get<1>(lin_term).value;
-                    if (w == mul_gate.a) {
-                        if (!processed_mul_terms.contains(mul_gate.a)) {
-                            mul_gate.a_scaling = fr(from_be_bytes(std::get<0>(lin_term)));
-                            processed_mul_terms.insert(w);
-                        }
-                        if (mul_gate.a == mul_gate.b) {
-                            break;
-                        }
-                    } else if (w == mul_gate.b) {
-                        if (!processed_mul_terms.contains(mul_gate.b)) {
-                            mul_gate.b_scaling = fr(from_be_bytes(std::get<0>(lin_term)));
-                            processed_mul_terms.insert(w);
-                        }
-                        break;
-                    }
+            // Try to add corresponding linear terms
+            // Accumulate coefficients for all occurrences of duplicate witnesses
+            bool a_processed = false;
+            bool b_processed = false;
+            for (auto lin_term : arg.linear_combinations) {
+                auto w = std::get<1>(lin_term).value;
+                fr coeff = fr(from_be_bytes(std::get<0>(lin_term)));
+
+                if (w == mul_gate.a && !processed_mul_terms.contains(mul_gate.a)) {
+                    mul_gate.a_scaling += coeff; // Accumulate
+                    a_processed = true;
                 }
+                // Only process as b if it's a different witness than a
+                // (if a == b, we already accumulated the coefficient above)
+                if (w == mul_gate.b && !processed_mul_terms.contains(mul_gate.b) && mul_gate.a != mul_gate.b) {
+                    mul_gate.b_scaling += coeff; // Accumulate
+                    b_processed = true;
+                }
+            }
+            // Mark as processed only after accumulating ALL occurrences
+            if (a_processed) {
+                processed_mul_terms.insert(mul_gate.a);
+                // If a == b, also mark b as processed
+                if (mul_gate.a == mul_gate.b) {
+                    b_processed = true;
+                }
+            }
+            if (b_processed && mul_gate.a != mul_gate.b) {
+                processed_mul_terms.insert(mul_gate.b);
             }
             i = 2; // a and b are used because of the mul term
             current_mul_term = std::next(current_mul_term);
@@ -392,19 +401,19 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
         // index and the corresponding selector value.
         if (!a_set || quad.a == witness_idx) {
             quad.a = witness_idx;
-            quad.a_scaling = selector_value;
+            quad.a_scaling += selector_value; // Accumulate coefficients for duplicate witnesses
             a_set = true;
         } else if (!b_set || quad.b == witness_idx) {
             quad.b = witness_idx;
-            quad.b_scaling = selector_value;
+            quad.b_scaling += selector_value; // Accumulate coefficients for duplicate witnesses
             b_set = true;
         } else if (!c_set || quad.c == witness_idx) {
             quad.c = witness_idx;
-            quad.c_scaling = selector_value;
+            quad.c_scaling += selector_value; // Accumulate coefficients for duplicate witnesses
             c_set = true;
         } else if (!d_set || quad.d == witness_idx) {
             quad.d = witness_idx;
-            quad.d_scaling = selector_value;
+            quad.d_scaling += selector_value; // Accumulate coefficients for duplicate witnesses
             d_set = true;
         } else {
             // We cannot assign linear term to a constraint of width 4
@@ -458,6 +467,7 @@ std::pair<uint32_t, uint32_t> is_assert_equal(Acir::Opcode::AssertZero const& ar
 
 void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
 {
+    // coefficient * witness1 * witness2 + coefficient * witness3 + coefficient * witness4 + constant = 0
     // If the expression fits in a polytriple, we use it.
     bool might_fit_in_polytriple = arg.value.linear_combinations.size() <= 3 && arg.value.mul_terms.size() <= 1;
     bool needs_to_be_parsed_as_mul_quad = !might_fit_in_polytriple;

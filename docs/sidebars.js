@@ -16,7 +16,7 @@ const sidebar = {
     },
     {
       type: "doc",
-      id: "developers/getting_started_on_sandbox",
+      id: "developers/getting_started_on_local_network",
     },
     {
       type: "doc",
@@ -185,13 +185,21 @@ const sidebar = {
         },
         {
           "type": "doc",
-          "id": "the_aztec_network/operation/sequencer_management/running_delegated_stake"
+          "id": "the_aztec_network/operation/sequencer_management/slashing_and_offenses"
         },
         {
           "type": "doc",
-          "id": "the_aztec_network/operation/sequencer_management/useful_commands"
-        }
-      ]
+          "id": "the_aztec_network/operation/sequencer_management/running_delegated_stake"
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/sequencer_management/claiming_rewards",
+        },
+        {
+          type: "doc",
+          id: "the_aztec_network/operation/sequencer_management/useful_commands",
+        },
+      ],
     },
     {
       "type": "doc",

@@ -40,23 +40,20 @@ contract Updatable {
 
     #[external("private")]
     fn update_to(new_class_id: ContractClassId) {
-        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .update(new_class_id)
-            .enqueue(self.context);
+        self.enqueue(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .update(new_class_id));
     }
 
     #[external("private")]
     fn set_update_delay(new_delay: u64) {
-        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .set_update_delay(new_delay)
-            .enqueue(self.context);
+        self.enqueue(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .set_update_delay(new_delay));
     }
 
     #[external("public")]
     fn get_update_delay() -> u64 {
-        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .get_update_delay()
-            .view(self.context)
+        self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .get_update_delay())
     }
 
     #[external("utility")]

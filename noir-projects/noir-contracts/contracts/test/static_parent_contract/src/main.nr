@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract StaticParent {
-    use dep::aztec::{context::gas::GasOpts, macros::functions::external};
+    use dep::aztec::{context::gas::GasOpts, macros::functions::{external, view}};
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector, address::AztecAddress,
     };
@@ -11,6 +11,7 @@ pub contract StaticParent {
 
     // Public function to directly call another public function to the target_contract using the selector and value provided
     #[external("public")]
+    #[view]
     fn public_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -36,6 +37,7 @@ pub contract StaticParent {
 
     // Just like function above but with 3 args.
     #[external("private")]
+    #[view]
     fn private_call_3_args(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -86,7 +88,7 @@ pub contract StaticParent {
         value: Field,
         owner: AztecAddress,
     ) -> Field {
-        StaticChild::at(target_contract).private_get_value(value, owner).view(self.context)
+        self.view(StaticChild::at(target_contract).private_get_value(value, owner))
     }
 
     // Private function to set a static context and verify correct propagation for nested private calls
@@ -96,6 +98,9 @@ pub contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 2],
     ) -> Field {
+        // Not using the new self.view(...) API because that doesn't allow for static calls to non-static functions
+        // which this test seems to rely on. TODO(F-130): Address this and replace e2e_static_calls.test.ts with Noir
+        // tests.
         StaticParent::at(self.address).private_call(target_contract, target_selector, args).view(
             self.context,
         )
@@ -108,9 +113,11 @@ pub contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 3],
     ) -> Field {
-        StaticParent::at(self.address)
-            .private_call_3_args(target_contract, target_selector, args)
-            .view(self.context)
+        self.view(StaticParent::at(self.address).private_call_3_args(
+            target_contract,
+            target_selector,
+            args,
+        ))
     }
 
     // Public function to statically call another public function to the target_contract using the selector and value provided
@@ -131,7 +138,7 @@ pub contract StaticParent {
     // Same as above but using a specific function from the interface
     #[external("public")]
     fn public_get_value_from_child(target_contract: AztecAddress, value: Field) -> Field {
-        StaticChild::at(target_contract).pub_get_value(value).view(self.context)
+        self.view(StaticChild::at(target_contract).pub_get_value(value))
     }
 
     // Public function to set a static context and verify correct propagation for nested public calls
@@ -160,7 +167,7 @@ pub contract StaticParent {
     // Same as above but using a specific function from the interface
     #[external("private")]
     fn enqueue_public_get_value_from_child(target_contract: AztecAddress, value: Field) {
-        StaticChild::at(target_contract).pub_get_value(value).enqueue_view(self.context);
+        self.enqueue_view(StaticChild::at(target_contract).pub_get_value(value));
     }
 
     // Private function to set a static context and verify correct propagation of nested enqueuing of public calls
@@ -171,8 +178,10 @@ pub contract StaticParent {
         args: [Field; 1],
     ) {
         // Call the target public function through the pub entrypoint statically
-        StaticParent::at(self.address)
-            .public_call(target_contract, target_selector, args[0])
-            .enqueue_view(self.context)
+        self.enqueue_view(StaticParent::at(self.address).public_call(
+            target_contract,
+            target_selector,
+            args[0],
+        ))
     }
 }

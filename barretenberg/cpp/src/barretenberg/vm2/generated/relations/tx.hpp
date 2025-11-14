@@ -14,10 +14,10 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 58> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 4, 3, 3, 3, 3, 3, 4, 3, 4, 6, 6, 3,
-                                                                            5, 7, 4, 3, 6, 6, 3, 3, 4, 4, 4, 4, 2, 4, 5,
-                                                                            3, 3, 3, 4, 5, 4, 4, 4, 4, 6, 4, 3, 4, 2, 4,
-                                                                            4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 60> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 4, 3, 4, 3, 3, 3, 3, 3, 4, 3, 4, 6, 6, 3, 5, 7, 3, 4, 3, 6, 3, 5, 3, 3, 4, 4, 4, 4, 2,
+        4, 5, 3, 3, 3, 4, 5, 4, 4, 4, 4, 6, 4, 3, 4, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -48,23 +48,25 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
     static constexpr size_t SR_INCR_PHASE_VALUE_ON_END = 13;
     static constexpr size_t SR_REM_COUNT_IS_ZERO = 15;
     static constexpr size_t SR_REM_COUNT_IS_ONE = 16;
-    static constexpr size_t SR_READ_PI_LENGTH_SEL = 17;
-    static constexpr size_t SR_ONE_SHOT_REMAINING_PHASE_COUNTER_ONE = 18;
-    static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 19;
-    static constexpr size_t SR_INCR_READ_PI_OFFSET = 20;
-    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 29;
-    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 34;
-    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 39;
-    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 42;
-    static constexpr size_t SR_COMPUTE_FEE = 44;
-    static constexpr size_t SR_TEARDOWN_GETS_FEE = 45;
-    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 46;
-    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING = 52;
-    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 53;
-    static constexpr size_t SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING = 54;
-    static constexpr size_t SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING = 55;
-    static constexpr size_t SR_PAD_NULLIFIER_TREE = 56;
-    static constexpr size_t SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING = 57;
+    static constexpr size_t SR_PHASE_JUMP_ON_REVERT = 17;
+    static constexpr size_t SR_READ_PI_LENGTH_SEL = 18;
+    static constexpr size_t SR_ONE_SHOT_REMAINING_PHASE_COUNTER_ONE = 19;
+    static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 20;
+    static constexpr size_t SR_READ_PI_OFFSET_INIT = 21;
+    static constexpr size_t SR_READ_PI_OFFSET_INCREMENT = 22;
+    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 31;
+    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 36;
+    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 41;
+    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 44;
+    static constexpr size_t SR_COMPUTE_FEE = 46;
+    static constexpr size_t SR_TEARDOWN_GETS_FEE = 47;
+    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 48;
+    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING = 54;
+    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 55;
+    static constexpr size_t SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING = 56;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING = 57;
+    static constexpr size_t SR_PAD_NULLIFIER_TREE = 58;
+    static constexpr size_t SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING = 59;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -89,14 +91,18 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
             return "REM_COUNT_IS_ZERO";
         case SR_REM_COUNT_IS_ONE:
             return "REM_COUNT_IS_ONE";
+        case SR_PHASE_JUMP_ON_REVERT:
+            return "PHASE_JUMP_ON_REVERT";
         case SR_READ_PI_LENGTH_SEL:
             return "READ_PI_LENGTH_SEL";
         case SR_ONE_SHOT_REMAINING_PHASE_COUNTER_ONE:
             return "ONE_SHOT_REMAINING_PHASE_COUNTER_ONE";
         case SR_DECR_REM_PHASE_EVENTS:
             return "DECR_REM_PHASE_EVENTS";
-        case SR_INCR_READ_PI_OFFSET:
-            return "INCR_READ_PI_OFFSET";
+        case SR_READ_PI_OFFSET_INIT:
+            return "READ_PI_OFFSET_INIT";
+        case SR_READ_PI_OFFSET_INCREMENT:
+            return "READ_PI_OFFSET_INCREMENT";
         case SR_MAX_NOTE_HASH_WRITES_REACHED:
             return "MAX_NOTE_HASH_WRITES_REACHED";
         case SR_MAX_NULLIFIER_WRITES_REACHED:

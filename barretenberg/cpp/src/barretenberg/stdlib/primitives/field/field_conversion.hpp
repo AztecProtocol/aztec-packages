@@ -23,8 +23,8 @@ template <typename Field> class StdlibCodec {
     using Builder = typename Field::Builder;
     using fr = field_t<Builder>;
     using fq = bigfield<Builder, bb::Bn254FqParams>;
-    using bn254_element = element<Builder, fq, fr, curve::BN254::Group>;
-    using grumpkin_element = cycle_group<Builder>;
+    using bn254_commitment = element<Builder, fq, fr, curve::BN254::Group>;
+    using grumpkin_commitment = cycle_group<Builder>;
 
     /**
      * @brief Check whether a point corresponds to (0, 0), the conventional representation of the point infinity.
@@ -38,7 +38,7 @@ template <typename Field> class StdlibCodec {
      */
     template <typename T> static bool_t<Builder> check_point_at_infinity(std::span<const fr> fr_vec)
     {
-        if constexpr (IsAnyOf<T, bn254_element>) {
+        if constexpr (IsAnyOf<T, bn254_commitment>) {
             // Sum the limbs and check whether the sum is 0
             return (fr::accumulate(std::vector<fr>(fr_vec.begin(), fr_vec.end())).is_zero());
         } else {
@@ -55,7 +55,7 @@ template <typename Field> class StdlibCodec {
      * `challenge` is "short".
      *
      * @tparam T fr or fq
-     * @param challenge a 128- or a 126- bit limb of a full challenge
+     * @param challenge a 127-bit limb of a full challenge
      * @return T
      */
     template <typename T> static T convert_challenge(const fr& challenge)
@@ -100,7 +100,7 @@ template <typename Field> class StdlibCodec {
             return Bn254FrParams::NUM_BN254_SCALARS;
         } else if constexpr (IsAnyOf<T, fq, goblin_field<Builder>>) {
             return Bn254FqParams::NUM_BN254_SCALARS;
-        } else if constexpr (IsAnyOf<T, bn254_element, grumpkin_element>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             return 2 * calc_num_fields<typename T::BaseField>();
         } else {
             // Array or Univariate
@@ -158,7 +158,7 @@ template <typename Field> class StdlibCodec {
         } else if constexpr (IsAnyOf<T, bigfield_ct, goblin_field<Builder>>) {
             // Cases 2 and 3: a bigfield/goblin_field element is reconstructed from low and high limbs.
             return T(fr_vec[0], fr_vec[1]);
-        } else if constexpr (IsAnyOf<T, bn254_element, grumpkin_element>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             // Case 4 and 5: Convert a vector of frs to a group element
             using Basefield = typename T::BaseField;
 
@@ -168,7 +168,7 @@ template <typename Field> class StdlibCodec {
             Basefield y = deserialize_from_fields<Basefield>(fr_vec.subspan(base_field_frs, base_field_frs));
 
             T out;
-            if constexpr (IsAnyOf<T, grumpkin_element>) {
+            if constexpr (IsAnyOf<T, grumpkin_commitment>) {
                 out = T(x, y, check_point_at_infinity<T>(fr_vec), /*assert_on_curve=*/false);
             } else {
                 out = T(x, y, check_point_at_infinity<T>(fr_vec));
@@ -253,7 +253,7 @@ template <typename Field> class StdlibCodec {
             return convert_grumpkin_fr_to_bn254_frs(val);
         } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
             return convert_goblin_fr_to_bn254_frs(val);
-        } else if constexpr (IsAnyOf<T, bn254_element, grumpkin_element>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::BaseField;
 
             std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x());
@@ -272,8 +272,8 @@ template <typename Field> class StdlibCodec {
         }
     }
     /**
-     * @brief Split a challenge field element into two half-width challenges
-     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * @brief Split a challenge field element into two equal-width challenges
+     * @details Both `lo` and `hi` are 127 bits each (254/2) which provides significantly more than our security
      * parameter bound: 100 bits. The decomposition is constrained to be unique.
      *
      * @param challenge
@@ -281,8 +281,9 @@ template <typename Field> class StdlibCodec {
      */
     static std::array<fr, 2> split_challenge(const fr& challenge)
     {
-        const size_t lo_bits = fr::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-        // Constuct a unique lo/hi decomposition of the challenge (hi_bits will be 254 - 128 = 126)
+        constexpr size_t TOTAL_BITS = fr::native::modulus.get_msb() + 1; // 254
+        constexpr size_t lo_bits = TOTAL_BITS / 2;                       // 127
+        // Construct a unique lo/hi decomposition of the challenge (hi_bits will be 127)
         const auto [lo, hi] = split_unique(challenge, lo_bits);
         return std::array<fr, 2>{ lo, hi };
     }

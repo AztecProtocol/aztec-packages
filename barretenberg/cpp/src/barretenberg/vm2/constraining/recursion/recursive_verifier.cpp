@@ -157,7 +157,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     SumcheckVerifier<Flavor> sumcheck(transcript, alpha, key->log_fixed_circuit_size);
 
     std::vector<FF> gate_challenges =
-        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_fixed_circuit_size);
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_fixed_circuit_size);
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.

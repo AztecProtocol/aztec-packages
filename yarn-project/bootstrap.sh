@@ -233,10 +233,6 @@ function release_packages {
   rm -rf "$dir"
 }
 
-function cross_copy {
-  ./native/scripts/copy_cross.sh
-}
-
 function release {
   echo_header "yarn-project release"
   release_packages "$(dist_tag)" "${REF_NAME#v}"
@@ -257,8 +253,11 @@ case "$cmd" in
     build
     test
     ;;
-  "")
+  ""|"fast")
     build
+    ;;
+  "full")
+    TYPECHECK=1 build
     ;;
   "compile")
     if [ -n "${1:-}" ]; then
@@ -296,7 +295,14 @@ case "$cmd" in
     trap cleanup_instrumentation EXIT
     eval "$cmd"
     ;;
-  *)
+  lint|format)
     $cmd "$@"
+    ;;
+  test|test_cmds|bench_cmds|hash|release|format)
+    $cmd
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
   ;;
 esac

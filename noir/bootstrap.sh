@@ -258,7 +258,7 @@ case "$cmd" in
     build
     test
     ;;
-  "")
+  ""|"fast"|"full")
     build
     ;;
   test_cmds|build_native|build_packages|format|test|release)
