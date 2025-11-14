@@ -444,31 +444,13 @@ std::vector<std::pair<C, FF>> handle_collect_gas_fee_event(const CollectGasFeeEv
         { C::tx_effective_fee_per_l2_gas, FF(event.effective_fee_per_l2_gas) },
         { C::tx_fee_payer, event.fee_payer },
         { C::tx_fee_payer_pi_offset, AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX },
-        {
-            C::tx_fee,
-            event.fee,
-        },
-        {
-            C::tx_fee_juice_contract_address,
-            FEE_JUICE_ADDRESS,
-        },
-        {
-            C::tx_fee_juice_balances_slot,
-            FEE_JUICE_BALANCES_SLOT,
-        },
-        {
-            C::tx_fee_juice_balance_slot,
-            event.fee_juice_balance_slot,
-        },
-        {
-            C::tx_fee_payer_balance,
-            event.fee_payer_balance,
-        },
-        {
-            C::tx_fee_payer_new_balance,
-            event.fee_payer_balance - event.fee,
-        },
-        { C::tx_uint32_max, 0xffffffff },
+        { C::tx_fee, event.fee },
+        { C::tx_fee_juice_contract_address, FEE_JUICE_ADDRESS },
+        { C::tx_fee_juice_balances_slot, FEE_JUICE_BALANCES_SLOT },
+        { C::tx_fee_juice_balance_slot, event.fee_juice_balance_slot },
+        { C::tx_fee_payer_balance, event.fee_payer_balance },
+        { C::tx_fee_payer_new_balance, event.fee_payer_balance - event.fee },
+        { C::tx_uint32_max, UINT32_MAX },
         { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX },
     };
 }

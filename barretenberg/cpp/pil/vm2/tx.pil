@@ -566,6 +566,9 @@ namespace tx;
     // In all other phases, force fee to 0
     #[FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN]
     (1 - is_collect_fee) * (1 - is_teardown) * fee = 0;
+    // Note that if TEARDOWN is empty (is_padded == 1), fee is unconstrained. It is fine because no public call request will be
+    // dispatched in this case (lookup #[DISPATCH_EXEC_START] is inactive). All the other relations involving the fee below
+    // are gated by `is_collect_fee`.
 
     pol commit fee_juice_contract_address;
     is_collect_fee * (constants.FEE_JUICE_ADDRESS - fee_juice_contract_address) = 0;
