@@ -7,11 +7,12 @@ namespace bb::avm2::simulation {
 PublicInputsBuilder& PublicInputsBuilder::extract_inputs(const Tx& tx,
                                                          const GlobalVariables& global_variables,
                                                          const ProtocolContracts& protocol_contracts,
+                                                         const FF& prover_id,
                                                          const LowLevelMerkleDBInterface& merkle_db)
 {
     public_inputs_.global_variables = global_variables;
     public_inputs_.protocol_contracts = protocol_contracts;
-    public_inputs_.prover_id = tx.prover_id;
+    public_inputs_.prover_id = prover_id;
     public_inputs_.start_gas_used = tx.gas_used_by_private;
     public_inputs_.gas_settings = tx.gas_settings;
     public_inputs_.effective_gas_fees = tx.effective_gas_fees;

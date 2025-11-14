@@ -339,8 +339,6 @@ struct Tx {
     std::optional<PublicCallRequestWithCalldata> teardown_enqueued_call;
     Gas gas_used_by_private;
     AztecAddress fee_payer;
-    FF prover_id; // TODO(MW): Move? Change to AztecAddress? Injected by prover, we only use as FF, but actually an
-                  // address.
     bool operator==(const Tx& other) const = default;
 
     MSGPACK_CAMEL_CASE_FIELDS(hash,
@@ -354,8 +352,7 @@ struct Tx {
                               app_logic_enqueued_calls,
                               teardown_enqueued_call,
                               gas_used_by_private,
-                              fee_payer,
-                              prover_id);
+                              fee_payer);
 };
 
 struct ExecutionHints {
@@ -453,11 +450,12 @@ struct AvmFastSimulationInputs {
     Tx tx;
     GlobalVariables global_variables;
     ProtocolContracts protocol_contracts;
+    FF prover_id;
 
     static AvmFastSimulationInputs from(const std::vector<uint8_t>& data);
     bool operator==(const AvmFastSimulationInputs& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(ws_revision, config, tx, global_variables, protocol_contracts);
+    MSGPACK_CAMEL_CASE_FIELDS(ws_revision, config, tx, global_variables, protocol_contracts, prover_id);
 };
 
 ////////////////////////////////////////////////////////////////////////////

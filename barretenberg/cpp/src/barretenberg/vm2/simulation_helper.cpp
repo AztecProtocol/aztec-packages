@@ -313,7 +313,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                                                       const PublicSimulatorConfig& config,
                                                       const Tx& tx,
                                                       const GlobalVariables& global_variables,
-                                                      const ProtocolContracts& protocol_contracts)
+                                                      const ProtocolContracts& protocol_contracts,
+                                                      const FF& proverId) // TODO(MW): move to config
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
 
@@ -437,7 +438,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                              config.collect_call_metadata);
 
     PublicInputsBuilder public_inputs_builder;
-    public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, raw_merkle_db);
+    public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, proverId, raw_merkle_db);
 
     // This triggers all the work.
     TxExecutionResult tx_execution_result = tx_execution.simulate(tx);
@@ -467,7 +468,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
     const PublicSimulatorConfig& config,
     const Tx& tx,
     const GlobalVariables& global_variables,
-    const ProtocolContracts& protocol_contracts)
+    const ProtocolContracts& protocol_contracts,
+    const FF& prover_id) // TODO(MW): move to config
 {
     // Create PureRawMerkleDB with the provided WorldState instance
     PureRawMerkleDB raw_merkle_db(world_state_revision, ws);
@@ -476,8 +478,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
         auto starting_tree_roots = raw_merkle_db.get_tree_roots();
         HintingContractsDB hinting_contract_db(raw_contract_db);
         HintingRawDB hinting_merkle_db(raw_merkle_db);
-        auto result =
-            simulate_fast(hinting_contract_db, hinting_merkle_db, config, tx, global_variables, protocol_contracts);
+        auto result = simulate_fast(
+            hinting_contract_db, hinting_merkle_db, config, tx, global_variables, protocol_contracts, prover_id);
         // TODO(MW): move to simulate_fast?
         ExecutionHints collected_hints = ExecutionHints{ .global_variables = global_variables,
                                                          .tx = tx,
@@ -490,7 +492,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
         return result;
     };
 
-    return simulate_fast(raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts);
+    return simulate_fast(raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts, prover_id);
 }
 
 TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints)
@@ -500,9 +502,9 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const Exec
 
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
-
+    // TODO(MW): Handle proverId here (config?)
     return simulate_fast(
-        raw_contract_db, raw_merkle_db, config, hints.tx, hints.global_variables, hints.protocol_contracts);
+        raw_contract_db, raw_merkle_db, config, hints.tx, hints.global_variables, hints.protocol_contracts, FF::zero());
 }
 
 } // namespace bb::avm2

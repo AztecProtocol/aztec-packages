@@ -12,6 +12,7 @@ class PublicInputsBuilder {
     PublicInputsBuilder& extract_inputs(const Tx& tx,
                                         const GlobalVariables& global_variables,
                                         const ProtocolContracts& protocol_contracts,
+                                        const FF& prover_id,
                                         const LowLevelMerkleDBInterface& merkle_db);
 
     PublicInputsBuilder& extract_outputs(const LowLevelMerkleDBInterface& merkle_db,

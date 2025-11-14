@@ -102,7 +102,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     this.log.debug(`Running C++ simulation with world state revision ${JSON.stringify(wsRevision)}`);
 
     // Create the fast simulation inputs
-    const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees, this.proverId);
+    const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees);
     const protocolContracts = ProtocolContractsList;
     const fastSimInputs = new AvmFastSimulationInputs(
       wsRevision,
@@ -110,6 +110,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
       txHint,
       this.globalVariables,
       protocolContracts,
+      this.proverId,
     );
 
     // Create contract provider for callbacks to TypeScript PublicContractsDB from C++

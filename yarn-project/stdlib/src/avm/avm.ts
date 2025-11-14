@@ -697,10 +697,9 @@ export class AvmTxHint {
     public readonly teardownEnqueuedCall: PublicCallRequestWithCalldata | null,
     public readonly gasUsedByPrivate: Gas,
     public readonly feePayer: AztecAddress,
-    public readonly proverId: Fr,
   ) {}
 
-  static fromTx(tx: Tx, gasFees: GasFees, proverId: Fr): AvmTxHint {
+  static fromTx(tx: Tx, gasFees: GasFees): AvmTxHint {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
@@ -732,7 +731,6 @@ export class AvmTxHint {
       teardownCallRequest ?? null,
       tx.data.gasUsed,
       tx.data.feePayer,
-      proverId,
     );
   }
 
@@ -750,7 +748,6 @@ export class AvmTxHint {
       null,
       Gas.empty(),
       AztecAddress.zero(),
-      Fr.zero(),
     );
   }
 
@@ -790,7 +787,6 @@ export class AvmTxHint {
       obj.teardownEnqueuedCall ? PublicCallRequestWithCalldata.fromPlainObject(obj.teardownEnqueuedCall) : null,
       Gas.fromPlainObject(obj.gasUsedByPrivate),
       AztecAddress.fromPlainObject(obj.feePayer),
-      Fr.fromPlainObject(obj.proverId),
     );
   }
 
@@ -817,7 +813,6 @@ export class AvmTxHint {
         teardownEnqueuedCall: PublicCallRequestWithCalldata.schema.nullable(),
         gasUsedByPrivate: Gas.schema,
         feePayer: AztecAddress.schema,
-        proverId: schemas.Fr,
       })
       .transform(
         ({
@@ -833,7 +828,6 @@ export class AvmTxHint {
           teardownEnqueuedCall,
           gasUsedByPrivate,
           feePayer,
-          proverId,
         }) =>
           new AvmTxHint(
             hash,
@@ -848,7 +842,6 @@ export class AvmTxHint {
             teardownEnqueuedCall,
             gasUsedByPrivate,
             feePayer,
-            proverId,
           ),
       );
   }
@@ -1171,6 +1164,7 @@ export class AvmFastSimulationInputs {
     public tx: AvmTxHint,
     public globalVariables: GlobalVariables,
     public protocolContracts: ProtocolContracts,
+    public proverId: Fr,
   ) {}
 
   static empty() {
@@ -1180,6 +1174,7 @@ export class AvmFastSimulationInputs {
       AvmTxHint.empty(),
       GlobalVariables.empty(),
       ProtocolContracts.empty(),
+      Fr.zero(),
     );
   }
 
@@ -1191,10 +1186,11 @@ export class AvmFastSimulationInputs {
         tx: AvmTxHint.schema,
         globalVariables: GlobalVariables.schema,
         protocolContracts: ProtocolContracts.schema,
+        proverId: schemas.Fr,
       })
       .transform(
-        ({ wsRevision, config, tx, globalVariables, protocolContracts }) =>
-          new AvmFastSimulationInputs(wsRevision, config, tx, globalVariables, protocolContracts),
+        ({ wsRevision, config, tx, globalVariables, protocolContracts, proverId }) =>
+          new AvmFastSimulationInputs(wsRevision, config, tx, globalVariables, protocolContracts, proverId),
       );
   }
 
