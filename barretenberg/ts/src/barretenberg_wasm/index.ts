@@ -7,9 +7,9 @@ export async function fetchModuleAndThreads(
   wasmPath?: string,
   logger: (msg: string) => void = createDebugLogger('fetch_mat'),
 ) {
-  const shared = getSharedMemoryAvailable();
+  const shared = await getSharedMemoryAvailable();
 
-  const availableThreads = shared ? await getAvailableThreads(logger) : 1;
+  const availableThreads = shared ? getAvailableThreads(logger) : 1;
   // We limit the number of threads to 32 as we do not benefit from greater numbers.
   const limitedThreads = Math.min(desiredThreads, availableThreads, 32);
 

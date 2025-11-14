@@ -5,6 +5,8 @@ import { ungzip } from 'pako';
 import { Buffer } from 'buffer';
 import { Decoder, Encoder } from 'msgpackr';
 
+let hackToDetermineIfLoadCrs = true;
+
 export class AztecClientBackendError extends Error {
   constructor(message: string) {
     super(message);
@@ -67,9 +69,11 @@ export class UltraHonkVerifierBackend {
   /** @ignore */
   private async instantiate(): Promise<void> {
     if (!this.api) {
-      const api = await Barretenberg.new(this.backendOptions);
-      const honkRecursion = true;
-      await api.initSRSForCircuitSize(0);
+      const api = await Barretenberg.initSingleton(this.backendOptions);
+      if (hackToDetermineIfLoadCrs) {
+        await api.initSRSChonk();
+        hackToDetermineIfLoadCrs = false;
+      }
 
       this.api = api;
     }
@@ -120,9 +124,11 @@ export class UltraHonkBackend {
   /** @ignore */
   private async instantiate(): Promise<void> {
     if (!this.api) {
-      const api = await Barretenberg.new(this.backendOptions);
-      const honkRecursion = true;
-      await api.acirInitSRS(this.acirUncompressedBytecode, this.circuitOptions.recursive, honkRecursion);
+      const api = await Barretenberg.initSingleton(this.backendOptions);
+      if (hackToDetermineIfLoadCrs) {
+        await api.initSRSChonk();
+        hackToDetermineIfLoadCrs = false;
+      }
 
       this.api = api;
     }
@@ -267,9 +273,11 @@ export class AztecClientBackend {
   /** @ignore */
   private async instantiate(): Promise<void> {
     if (!this.api) {
-      const api = await Barretenberg.new(this.options);
-      await api.initSRSChonk();
-      this.api = api;
+      this.api = await Barretenberg.initSingleton(this.options);
+      if (hackToDetermineIfLoadCrs) {
+        await this.api.initSRSChonk();
+        hackToDetermineIfLoadCrs = false;
+      }
     }
   }
 

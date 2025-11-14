@@ -135,34 +135,41 @@ program
       // https://bugs.webkit.org/show_bug.cgi?id=245346
       // Present at least on playwright 1.49.0
 
-      const verificationPage = await context.newPage();
-      await verificationPage.goto(`http://localhost:${PORT}`);
+      for (let i = 0; i < 10; i++) {
+        const verificationPage = await context.newPage();
+        await verificationPage.goto(`http://localhost:${PORT}`);
 
-      if (program.opts().verbose) {
-        verificationPage.on("console", (msg) => formatAndPrintLog(msg.text()));
+        if (program.opts().verbose) {
+          verificationPage.on("console", (msg) =>
+            formatAndPrintLog(msg.text())
+          );
+        }
+
+        console.log(`verification attempt ${i + 1}...`);
+        const verificationResult: boolean = await verificationPage.evaluate(
+          ([publicInputs, proof, verificationKey]: [
+            string[],
+            number[],
+            number[]
+          ]) => {
+            const verificationKeyUint8Array = new Uint8Array(verificationKey);
+            const proofData: ProofData = {
+              publicInputs,
+              proof: new Uint8Array(proof),
+            };
+            return (window as any).verify(proofData, verificationKeyUint8Array);
+          },
+          [publicInputs, proof, verificationKey]
+        );
+
+        if (!verificationResult) {
+          process.exit(1);
+        }
+
+        verificationPage.close();
       }
-
-      const verificationResult: boolean = await verificationPage.evaluate(
-        ([publicInputs, proof, verificationKey]: [
-          string[],
-          number[],
-          number[]
-        ]) => {
-          const verificationKeyUint8Array = new Uint8Array(verificationKey);
-          const proofData: ProofData = {
-            publicInputs,
-            proof: new Uint8Array(proof),
-          };
-          return (window as any).verify(proofData, verificationKeyUint8Array);
-        },
-        [publicInputs, proof, verificationKey]
-      );
 
       await browser.close();
-
-      if (!verificationResult) {
-        process.exit(1);
-      }
     }
   });
 
@@ -186,9 +193,7 @@ program
       if (BROWSER && !BROWSER.split(",").includes(name)) {
         continue;
       }
-      console.log(
-        chalk.blue(`Testing Chonk ${ivcInputsPath} in ${name}...`)
-      );
+      console.log(chalk.blue(`Testing Chonk ${ivcInputsPath} in ${name}...`));
       const browser = await browserType.launch();
 
       const context = await browser.newContext();
@@ -202,9 +207,7 @@ program
       const verificationResult: boolean = await provingPage.evaluate(
         async ([ivcInputsData, threads]: [number[], number]) => {
           const ivcInputsUint8Array = new Uint8Array(ivcInputsData);
-          return await (
-            window as any
-          ).proveChonk(ivcInputsUint8Array, threads);
+          return await (window as any).proveChonk(ivcInputsUint8Array, threads);
         },
         [Array.from(ivcInputs), threads]
       );
@@ -213,7 +216,11 @@ program
       if (!verificationResult) {
         process.exit(1);
       }
-      console.log(chalk.green(`Chonk proof generated and self-verified successfully in ${name}.`));
+      console.log(
+        chalk.green(
+          `Chonk proof generated and self-verified successfully in ${name}.`
+        )
+      );
     }
   });
 

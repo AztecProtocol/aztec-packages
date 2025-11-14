@@ -42,7 +42,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
 
     const initialMb = (initial * 2 ** 16) / (1024 * 1024);
     const maxMb = (maximum * 2 ** 16) / (1024 * 1024);
-    const shared = getSharedMemoryAvailable();
+    const shared = await getSharedMemoryAvailable();
 
     this.logger(
       `Initializing bb wasm: initial memory ${initial} pages ${initialMb}MiB; ` +

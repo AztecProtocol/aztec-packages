@@ -20,5 +20,5 @@ mkdir -p ./dest/browser/barretenberg_wasm
 
 cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
 cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm.gz
-cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp ../cpp/build-wasm-threads/bin/barretenberg-debug.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg-threads.wasm.gz
 cp ../cpp/build-wasm/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg.wasm.gz

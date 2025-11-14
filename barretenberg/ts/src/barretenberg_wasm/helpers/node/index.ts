@@ -4,7 +4,7 @@ import { wrap } from 'comlink';
 import { nodeEndpoint } from './node_endpoint.js';
 import { writeSync } from 'fs';
 
-export function getSharedMemoryAvailable() {
+export async function getSharedMemoryAvailable() {
   return true;
 }
 
