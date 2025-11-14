@@ -36,10 +36,7 @@ class UltraZKFlavor : public UltraFlavor {
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
 
-    // Override WitnessEntities to use ZK version (includes gemini_masking_poly)
-    template <typename DataType> using WitnessEntities = UltraFlavor::WitnessEntities_<DataType, HasZK>;
-
-    // Override AllEntities to use ZK version (this automatically updates ProverPolynomials and AllValues)
+    // Override AllEntities to use ZK version (includes gemini_masking_poly via ZKEntities)
     template <typename DataType> using AllEntities = UltraFlavor::AllEntities_<DataType, HasZK>;
 
     // NUM_WITNESS_ENTITIES includes gemini_masking_poly

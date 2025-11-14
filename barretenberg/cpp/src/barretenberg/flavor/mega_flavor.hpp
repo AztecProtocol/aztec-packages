@@ -250,9 +250,9 @@ class MegaFlavor {
     /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
-     * Combines WireEntities + DerivedEntities + ZKEntities (if HasZK).
+     * Combines WireEntities + DerivedEntities. ZK entities are added separately in AllEntities_.
      */
-    template <typename DataType, bool HasZK_ = false>
+    template <typename DataType>
     class WitnessEntities_ : public WireEntities<DataType>, public DerivedEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedEntities<DataType>)
@@ -310,8 +310,8 @@ class MegaFlavor {
                        this->return_data_inverses);
     };
 
-    // Default WitnessEntities alias (no ZK)
-    template <typename DataType> using WitnessEntities = WitnessEntities_<DataType, false>;
+    // Default WitnessEntities alias
+    template <typename DataType> using WitnessEntities = WitnessEntities_<DataType>;
 
     /**
      * @brief Class for ShiftedEntities, containing the shifted witness polynomials.
@@ -336,31 +336,31 @@ class MegaFlavor {
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    template <typename DataType, bool HasZK_ = false>
+    template <typename DataType, bool HasZK_ = HasZK>
     class AllEntities_ : public ZKEntities<DataType, HasZK_>,
                          public PrecomputedEntities<DataType>,
-                         public WitnessEntities_<DataType, HasZK_>,
+                         public WitnessEntities_<DataType>,
                          public ShiftedEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(ZKEntities<DataType, HasZK_>,
                                 PrecomputedEntities<DataType>,
-                                WitnessEntities_<DataType, HasZK_>,
+                                WitnessEntities_<DataType>,
                                 ShiftedEntities<DataType>)
 
         auto get_unshifted()
         {
             return concatenate(ZKEntities<DataType, HasZK_>::get_all(),
                                PrecomputedEntities<DataType>::get_all(),
-                               WitnessEntities_<DataType, HasZK_>::get_all());
+                               WitnessEntities_<DataType>::get_all());
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
-        auto get_witness() { return WitnessEntities_<DataType, HasZK_>::get_all(); };
-        auto get_witness() const { return WitnessEntities_<DataType, HasZK_>::get_all(); };
+        auto get_witness() { return WitnessEntities_<DataType>::get_all(); };
+        auto get_witness() const { return WitnessEntities_<DataType>::get_all(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
     // Default AllEntities alias (no ZK)
-    template <typename DataType> using AllEntities = AllEntities_<DataType, false>;
+    template <typename DataType> using AllEntities = AllEntities_<DataType, HasZK>;
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated

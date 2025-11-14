@@ -25,9 +25,6 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to UltraKeccakZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
-    // Override WitnessEntities to use ZK version (includes gemini_masking_poly)
-    template <typename DataType> using WitnessEntities = UltraFlavor::WitnessEntities_<DataType, HasZK>;
-
     // Override AllEntities to use ZK version (this automatically updates ProverPolynomials and AllValues)
     template <typename DataType> using AllEntities = UltraFlavor::AllEntities_<DataType, HasZK>;
 

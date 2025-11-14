@@ -120,7 +120,7 @@ class ECCVMFlavor {
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES + 1) * num_frs_comm) +
+        /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS) * num_frs_comm) +
         /* 2. Libra concatenation commitment*/ (num_frs_comm) +
         /* 3. Libra sum */ (num_frs_fq) +
         /* 4. CONST_ECCVM_LOG_N sumcheck univariates commitments */

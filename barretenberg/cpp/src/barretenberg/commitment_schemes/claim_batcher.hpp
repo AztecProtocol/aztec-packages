@@ -150,7 +150,6 @@ template <typename Curve> struct ClaimBatcher_ {
                                                         Fr shplonk_batching_pos = { 0 },
                                                         Fr shplonk_batching_neg = { 0 })
     {
-
         Fr rho_power(1);
         // Append the commitments/scalars from a given batch to the corresponding containers; update the batched
         // evaluation and the running batching challenge in place

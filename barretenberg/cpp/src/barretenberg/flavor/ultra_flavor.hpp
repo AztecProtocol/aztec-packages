@@ -188,7 +188,7 @@ class UltraFlavor {
      * @brief ZK-specific entities (only used when HasZK = true)
      * @details Contains the Gemini masking polynomial used for zero-knowledge
      */
-    template <typename DataType, bool EnableZK = HasZK> class ZKEntities {
+    template <typename DataType, bool HasZK_ = HasZK> class ZKEntities {
       public:
         // When ZK is disabled, this class is empty
         auto get_all() { return RefArray<DataType, 0>{}; }
@@ -203,9 +203,9 @@ class UltraFlavor {
     };
 
     /**
-     * @brief Base witness entities (non-ZK)
+     * @brief Base witness entities
      */
-    template <typename DataType> class BaseWitnessEntities {
+    template <typename DataType> class WitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_l,                // column 0
@@ -222,22 +222,6 @@ class UltraFlavor {
 
         MSGPACK_FIELDS(w_l, w_r, w_o, w_4, z_perm, lookup_inverses, lookup_read_counts, lookup_read_tags);
     };
-
-    /**
-     * @brief Container for all witness polynomials used/constructed by the prover.
-     * @details Shifts are not included here since they do not occupy their own memory.
-     * Combines BaseWitnessEntities + ZKEntities (if HasZK).
-     */
-    template <typename DataType, bool HasZK_ = HasZK> class WitnessEntities_ : public BaseWitnessEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(BaseWitnessEntities<DataType>)
-
-        auto get_wires() { return BaseWitnessEntities<DataType>::get_wires(); };
-        auto get_to_be_shifted() { return BaseWitnessEntities<DataType>::get_to_be_shifted(); };
-    };
-
-    // Default WitnessEntities alias (no ZK)
-    template <typename DataType> using WitnessEntities = WitnessEntities_<DataType, false>;
 
     /**
      * @brief Class for ShitftedEntities, containing shifted witness polynomials.
@@ -266,23 +250,23 @@ class UltraFlavor {
     template <typename DataType, bool HasZK_ = HasZK>
     class AllEntities_ : public ZKEntities<DataType, HasZK_>,
                          public PrecomputedEntities<DataType>,
-                         public WitnessEntities_<DataType, HasZK_>,
+                         public WitnessEntities<DataType>,
                          public ShiftedEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(ZKEntities<DataType, HasZK_>,
                                 PrecomputedEntities<DataType>,
-                                WitnessEntities_<DataType, HasZK_>,
+                                WitnessEntities<DataType>,
                                 ShiftedEntities<DataType>)
 
         auto get_unshifted()
         {
             return concatenate(ZKEntities<DataType, HasZK_>::get_all(),
                                PrecomputedEntities<DataType>::get_all(),
-                               WitnessEntities_<DataType, HasZK_>::get_all());
+                               WitnessEntities<DataType>::get_all());
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
-        auto get_witness() { return WitnessEntities_<DataType, HasZK_>::get_all(); };
-        auto get_witness() const { return WitnessEntities_<DataType, HasZK_>::get_all(); };
+        auto get_witness() { return WitnessEntities<DataType>::get_all(); };
+        auto get_witness() const { return WitnessEntities<DataType>::get_all(); };
     };
 
     // Default AllEntities alias (no ZK)

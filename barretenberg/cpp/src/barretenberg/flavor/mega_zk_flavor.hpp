@@ -27,10 +27,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
-    // Override WitnessEntities to use ZK version (includes gemini_masking_poly)
-    template <typename DataType> using WitnessEntities = MegaFlavor::WitnessEntities_<DataType, HasZK>;
-
-    // Override AllEntities to use ZK version (this automatically updates ProverPolynomials and AllValues)
+    // Override AllEntities to use ZK version (includes gemini_masking_poly via ZKEntities)
     template <typename DataType> using AllEntities = MegaFlavor::AllEntities_<DataType, HasZK>;
 
     // NUM_WITNESS_ENTITIES includes gemini_masking_poly
