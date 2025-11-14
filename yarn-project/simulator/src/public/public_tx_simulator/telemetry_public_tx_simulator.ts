@@ -1,5 +1,5 @@
 import type { Fr } from '@aztec/foundation/fields';
-import type { PublicTxSimulatorConfig } from '@aztec/stdlib/avm';
+import type { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { type GlobalVariables, PublicCallRequestWithCalldata, TxExecutionPhase } from '@aztec/stdlib/tx';
@@ -24,7 +24,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     telemetryClient: TelemetryClient = getTelemetryClient(),
-    config?: Partial<PublicTxSimulatorConfig>,
+    config?: Partial<PublicSimulatorConfig>,
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
     super(merkleTree, contractsDB, globalVariables, metrics, config);
