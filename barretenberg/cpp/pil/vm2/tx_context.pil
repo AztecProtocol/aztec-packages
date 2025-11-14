@@ -307,38 +307,38 @@ namespace tx;
 
 
     #[NOTE_HASH_ROOT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_note_hash) * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
+    (1 - sel_can_emit_note_hash) * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
     #[NOTE_HASH_SIZE_IMMUTABILITY]
-    sel * (1 - sel_can_emit_note_hash) * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
+    (1 - sel_can_emit_note_hash) * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
     #[NOTE_HASH_COUNT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_note_hash) * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
+    (1 - sel_can_emit_note_hash) * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
 
     #[NULLIFIER_ROOT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_nullifier) * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
+    (1 - sel_can_emit_nullifier) * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
     #[NULLIFIER_SIZE_IMMUTABILITY]
-    sel * (1 - sel_can_emit_nullifier) * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
+    (1 - sel_can_emit_nullifier) * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
     #[NULLIFIER_COUNT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_nullifier) * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
+    (1 - sel_can_emit_nullifier) * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
 
     #[PUBLIC_DATA_ROOT_IMMUTABILITY]
-    sel * (1 - sel_can_write_public_data) * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
+    (1 - sel_can_write_public_data) * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
     #[PUBLIC_DATA_SIZE_IMMUTABILITY]
-    sel * (1 - sel_can_write_public_data) * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
+    (1 - sel_can_write_public_data) * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY]
-    sel * (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
+    (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY]
-    sel * (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
+    (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
 
     #[UNENCRYPTED_LOG_COUNT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_unencrypted_log) * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
+    (1 - sel_can_emit_unencrypted_log) * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
 
     #[L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_l2_l1_msg) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
+    (1 - sel_can_emit_l2_l1_msg) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY]
-    sel * (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;
+    (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;
     #[RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY]
-    sel * (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_size - next_retrieved_bytecodes_tree_size) = 0;
+    (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_size - next_retrieved_bytecodes_tree_size) = 0;
 
     // Padded rows are not allowed to change the state
     #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY]
@@ -372,9 +372,9 @@ namespace tx;
     is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[L2_GAS_USED_IMMUTABILITY]
-    sel * (1 - should_process_call_request) * (prev_l2_gas_used - next_l2_gas_used) = 0;
+    (1 - should_process_call_request) * (prev_l2_gas_used - next_l2_gas_used) = 0;
     #[DA_GAS_USED_IMMUTABILITY]
-    sel * (1 - should_process_call_request) * (prev_da_gas_used - next_da_gas_used) = 0;
+    (1 - should_process_call_request) * (prev_da_gas_used - next_da_gas_used) = 0;
 
     // Write end counters to PI
 

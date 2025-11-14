@@ -61,9 +61,11 @@ namespace tx;
     pol NOT_LAST = sel' * sel; // Could probably use a different condition (i.e. COLLECT_GAS is last row - save this for optimisation)
     pol NOT_PHASE_END = NOT_LAST * (1 - end_phase);
 
-    // sel == 1 when start_tx, is_padded, reverted, start_phase or end_phase is 1
+    // sel == 1 when start_tx, is_padded, reverted, start_phase, end_phase, ... is 1
+    // Note that is_tree_insert_phase covers the 4 selectors sel_[nr/r]_append_[note_hash/nullifier].
     #[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS]
-    (start_tx + is_padded + reverted + start_phase + end_phase) * (1 - sel) = 0;
+    (start_tx + is_padded + reverted + start_phase + end_phase + is_tree_insert_phase
+              + sel_non_revertible_append_l2_l1_msg + sel_revertible_append_l2_l1_msg) * (1 - sel) = 0;
 
     #[START_PHASE_VALUE_INITIALIZATION]
     start_tx * (phase_value - constants.AVM_TX_PHASE_VALUE_START) = 0;
@@ -187,7 +189,7 @@ namespace tx;
     pol commit sel_read_phase_length;
     // Read length if start phase and not one shot phase
     #[READ_PI_LENGTH_SEL]
-    sel * (sel_read_phase_length - start_phase * (1 - IS_ONE_SHOT_PHASE)) = 0;
+    sel_read_phase_length = start_phase * (1 - IS_ONE_SHOT_PHASE);
     #[READ_PHASE_LENGTH]
     sel_read_phase_length { read_pi_length_offset, remaining_phase_counter } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
@@ -405,7 +407,7 @@ namespace tx;
 
     // ===== NOTE HASHES =====
     pol commit should_try_note_hash_append;
-    should_try_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
+    should_try_note_hash_append = (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
 
     // If we are at the maximum emitted note hashes, we must revert
     pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX - prev_num_note_hashes_emitted;
@@ -445,7 +447,7 @@ namespace tx;
 
     // ===== NULLIFIERS =====
     pol commit should_try_nullifier_append;
-    should_try_nullifier_append = sel * (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
+    should_try_nullifier_append = (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
 
     pol commit nullifier_limit_error;
     nullifier_limit_error * (1 - nullifier_limit_error) = 0;
@@ -490,7 +492,7 @@ namespace tx;
 
     // ===== L2 - L1 Messages =====
     pol commit should_try_l2_l1_msg_append;
-    should_try_l2_l1_msg_append = sel * (1 - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
+    should_try_l2_l1_msg_append = (1 - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
 
     pol commit l2_l1_msg_contract_address;
     pol commit l2_l1_msg_recipient;
