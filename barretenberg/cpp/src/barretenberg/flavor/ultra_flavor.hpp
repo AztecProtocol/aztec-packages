@@ -282,6 +282,7 @@ class UltraFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities_<DataType, HasZK_>::get_all(); };
+        auto get_witness() const { return WitnessEntities_<DataType, HasZK_>::get_all(); };
     };
 
     // Default AllEntities alias (no ZK)

@@ -185,6 +185,10 @@ const sidebar = {
         },
         {
           "type": "doc",
+          "id": "the_aztec_network/operation/sequencer_management/slashing_and_offenses"
+        },
+        {
+          "type": "doc",
           "id": "the_aztec_network/operation/sequencer_management/running_delegated_stake"
         },
         {

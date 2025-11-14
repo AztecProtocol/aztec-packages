@@ -11,8 +11,7 @@ import type {
 export const AZTEC_PRIVATE_ATTRIBUTE = 'abi_private';
 export const AZTEC_PUBLIC_ATTRIBUTE = 'abi_public';
 export const AZTEC_UTILITY_ATTRIBUTE = 'abi_utility';
-// TODO(F-142): Fix the naming here.
-export const AZTEC_INTERNAL_ATTRIBUTE = 'abi_only_self';
+export const AZTEC_ONLY_SELF_ATTRIBUTE = 'abi_only_self';
 export const AZTEC_INITIALIZER_ATTRIBUTE = 'abi_initializer';
 export const AZTEC_VIEW_ATTRIBUTE = 'abi_view';
 

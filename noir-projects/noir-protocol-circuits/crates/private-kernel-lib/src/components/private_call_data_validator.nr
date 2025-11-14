@@ -40,6 +40,7 @@ impl PrivateCallDataValidator {
         validate_contract_address(self.data, protocol_contracts);
 
         self.restrict_side_effects();
+        self.validate_claimed_lengths();
 
         self.validate_private_call_requests();
         self.validate_public_call_requests();
@@ -179,6 +180,39 @@ impl PrivateCallDataValidator {
                 "contract_class_logs_hashes must be empty for static calls",
             );
         }
+    }
+
+    fn validate_claimed_lengths(self) {
+        self.data.public_inputs.note_hash_read_requests.assert_length_within_bounds(
+            "note_hash_read_requests length out of bounds",
+        );
+        self.data.public_inputs.nullifier_read_requests.assert_length_within_bounds(
+            "nullifier_read_requests length out of bounds",
+        );
+        self.data.public_inputs.key_validation_requests_and_generators.assert_length_within_bounds(
+            "key_validation_requests_and_generators length out of bounds",
+        );
+        self.data.public_inputs.note_hashes.assert_length_within_bounds(
+            "note_hashes length out of bounds",
+        );
+        self.data.public_inputs.nullifiers.assert_length_within_bounds(
+            "nullifiers length out of bounds",
+        );
+        self.data.public_inputs.private_call_requests.assert_length_within_bounds(
+            "private_call_requests length out of bounds",
+        );
+        self.data.public_inputs.public_call_requests.assert_length_within_bounds(
+            "public_call_requests length out of bounds",
+        );
+        self.data.public_inputs.l2_to_l1_msgs.assert_length_within_bounds(
+            "l2_to_l1_msgs length out of bounds",
+        );
+        self.data.public_inputs.private_logs.assert_length_within_bounds(
+            "private_logs length out of bounds",
+        );
+        self.data.public_inputs.contract_class_logs_hashes.assert_length_within_bounds(
+            "contract_class_logs_hashes length out of bounds",
+        );
     }
 
     // TODO: Maybe we should loop once over each array. This will be the 2nd time we iterate over this array (the first time being the length validation).

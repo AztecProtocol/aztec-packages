@@ -22,18 +22,27 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
 
     auto cpp_simulator = CppSimulator();
     JsSimulator* js_simulator = JsSimulator::getInstance();
-    auto result = cpp_simulator.simulate(bytecode, fuzzer_data.calldata);
+    SimulatorResult cpp_result;
+    try {
+        cpp_result = cpp_simulator.simulate(bytecode, fuzzer_data.calldata);
+    } catch (const std::exception& e) {
+        std::cout << "Fuzzer data: " << fuzzer_data << std::endl;
+        std::cout << "Bytecode: " << bytecode << std::endl;
+        std::cout << "Error simulating with CppSimulator: " << e.what() << std::endl;
+        throw std::runtime_error("Error simulating with CppSimulator");
+    }
+
     auto js_result = js_simulator->simulate(bytecode, fuzzer_data.calldata);
 
     // If the results does not match
-    if (!compare_simulator_results(result, js_result)) {
-        log_result(result, fuzzer_data, bytecode);
+    if (!compare_simulator_results(cpp_result, js_result)) {
+        log_result(cpp_result, fuzzer_data, bytecode);
         throw std::runtime_error("Simulator results are different");
     }
     bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
     if (logging_enabled) {
         info("Simulator results match successfully");
-        log_result(result, fuzzer_data, bytecode);
+        log_result(cpp_result, fuzzer_data, bytecode);
     }
-    return result;
+    return cpp_result;
 }

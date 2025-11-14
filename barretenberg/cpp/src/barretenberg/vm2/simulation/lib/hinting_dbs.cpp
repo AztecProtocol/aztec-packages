@@ -54,7 +54,8 @@ std::optional<ContractClass> HintingContractsDB::get_contract_class(const Contra
             .classId = class_id,
             .artifactHash = klass->artifact_hash,
             .privateFunctionsRoot = klass->private_functions_root,
-            .packedBytecode = std::move(klass->packed_bytecode),
+            // TODO(fcarreiro): find out why moving things here breaks things
+            .packedBytecode = klass->packed_bytecode,
         };
     }
 

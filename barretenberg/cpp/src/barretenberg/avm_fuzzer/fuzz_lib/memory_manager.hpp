@@ -24,4 +24,5 @@ class MemoryManager {
     void set_memory_address(bb::avm2::MemoryTag tag, uint16_t address);
     std::optional<uint16_t> get_memory_offset_16_bit(bb::avm2::MemoryTag tag, uint16_t address_index);
     std::optional<uint8_t> get_memory_offset_8_bit(bb::avm2::MemoryTag tag, uint16_t address_index);
+    bool is_memory_address_set(uint16_t address);
 };

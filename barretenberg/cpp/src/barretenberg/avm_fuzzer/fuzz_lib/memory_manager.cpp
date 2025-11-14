@@ -9,6 +9,11 @@ MemoryManager& MemoryManager::operator=(const MemoryManager& other)
     return *this;
 }
 
+bool MemoryManager::is_memory_address_set(uint16_t address)
+{
+    return memory_address_to_tag.find(address) != memory_address_to_tag.end();
+}
+
 void MemoryManager::set_memory_address(bb::avm2::MemoryTag tag, uint16_t address)
 {
     // if address is already set

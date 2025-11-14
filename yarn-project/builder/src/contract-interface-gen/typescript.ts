@@ -284,7 +284,7 @@ async function generateEvents(events: any[] | undefined) {
  */
 export async function generateTypescriptContractInterface(input: ContractArtifact, artifactImportPath?: string) {
   const methods = getAllFunctionAbis(input)
-    .filter(f => !f.isInternal)
+    .filter(f => !f.isOnlySelf)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(generateMethod);
   const deploy = artifactImportPath && generateDeploy(input);
