@@ -435,45 +435,10 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
     return quad;
 }
 
-void constrain_witnesses(Acir::Opcode::AssertZero const& arg, AcirFormat& af)
-{
-    for (const auto& linear_term : arg.value.linear_combinations) {
-        uint32_t witness_idx = std::get<1>(linear_term).value;
-        af.constrained_witness.insert(witness_idx);
-    }
-    for (const auto& linear_term : arg.value.mul_terms) {
-        uint32_t witness_idx = std::get<1>(linear_term).value;
-        af.constrained_witness.insert(witness_idx);
-        witness_idx = std::get<2>(linear_term).value;
-        af.constrained_witness.insert(witness_idx);
-    }
-}
-
-std::pair<uint32_t, uint32_t> is_assert_equal_(Acir::Opcode::AssertZero const& arg,
-                                               poly_triple const& pt,
-                                               AcirFormat const& af)
-{
-    if (!arg.value.mul_terms.empty() || arg.value.linear_combinations.size() != 2) {
-        return { 0, 0 };
-    }
-    if (pt.q_l == -pt.q_r && pt.q_l != bb::fr::zero() && pt.q_c == bb::fr::zero()) {
-        // we require that one of the 2 witnesses to be constrained in an arithmetic gate
-        if (af.constrained_witness.contains(pt.a) || af.constrained_witness.contains(pt.b)) {
-            return { pt.a, pt.b };
-        }
-    }
-    return { 0, 0 };
-}
-
 // NOTE: WE ONLY NEED TO HANDLE a AND b BECAUSE IF IT IS AN ASSERT EQUAL IT WILL ONLY HAVE TWO WITS AND THEY WILL BE
 // PLACED IN POSITION A AND B
-bool is_assert_equal(mul_quad_<fr> const& mul_quad, AcirFormat const& af)
+bool is_assert_equal(mul_quad_<fr> const& mul_quad)
 {
-    if (!af.constrained_witness.contains(mul_quad.a) && !af.constrained_witness.contains(mul_quad.b)) {
-        // If neither of the inputs is constrained, we need to add an arithmetic gate
-        return false;
-    }
-
     return mul_quad.mul_scaling == bb::fr::zero() && mul_quad.a_scaling == -mul_quad.b_scaling &&
            mul_quad.a_scaling != bb::fr::zero() && mul_quad.const_scaling == bb::fr::zero() &&
            mul_quad.c_scaling == bb::fr::zero() && mul_quad.d_scaling == bb::fr::zero();
@@ -497,16 +462,8 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
             mul_quad.a != bb::stdlib::IS_CONSTANT && ((mul_quad.mul_scaling != fr(0)) || (mul_quad.a_scaling != fr(0)));
         BB_ASSERT(is_non_zero_gate, "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
 
-        if (is_assert_equal(mul_quad, af) && (mul_quad.a != 0)) {
+        if (is_assert_equal(mul_quad) && (mul_quad.a != 0)) {
             if (mul_quad.a != mul_quad.b) {
-                if (!af.constrained_witness.contains(mul_quad.a)) {
-                    // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
-                    af.constrained_witness.insert(mul_quad.a);
-                }
-                if (!af.constrained_witness.contains(mul_quad.b)) {
-                    // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
-                    af.constrained_witness.insert(mul_quad.b);
-                }
                 // minimal_range of a witness is the smallest range of the witness and the witness that are
                 // 'assert_equal' to it
                 if (af.minimal_range.contains(mul_quad.b) && af.minimal_range.contains(mul_quad.a)) {
@@ -528,91 +485,7 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
         break;
     }
     }
-    constrain_witnesses(arg, af);
 }
-
-// void handle_arithmetic_(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
-// {
-//     // coefficient * witness1 * witness2 + coefficient * witness3 + coefficient * witness4 + constant = 0
-//     // If the expression fits in a polytriple, we use it.
-//     bool might_fit_in_polytriple = arg.value.linear_combinations.size() <= 3 && arg.value.mul_terms.size() <= 1;
-//     bool needs_to_be_parsed_as_mul_quad = !might_fit_in_polytriple;
-//     if (might_fit_in_polytriple) {
-//         poly_triple pt = serialize_arithmetic_gate(arg.value);
-
-//         auto assert_equal = is_assert_equal_(arg, pt, af);
-//         uint32_t w1 = std::get<0>(assert_equal);
-//         uint32_t w2 = std::get<1>(assert_equal);
-//         if (w1 != 0) {
-//             if (w1 != w2) {
-//                 if (!af.constrained_witness.contains(pt.a)) {
-//                     // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
-//                     af.constrained_witness.insert(pt.a);
-//                     // swap the witnesses so that the first one is always properly constrained.
-//                     auto tmp = pt.a;
-//                     pt.a = pt.b;
-//                     pt.b = tmp;
-//                 }
-//                 if (!af.constrained_witness.contains(pt.b)) {
-//                     // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
-//                     af.constrained_witness.insert(pt.b);
-//                 }
-//                 // minimal_range of a witness is the smallest range of the witness and the witness that are
-//                 // 'assert_equal' to it
-//                 if (af.minimal_range.contains(pt.b) && af.minimal_range.contains(pt.a)) {
-//                     if (af.minimal_range[pt.a] < af.minimal_range[pt.b]) {
-//                         af.minimal_range[pt.a] = af.minimal_range[pt.b];
-//                     } else {
-//                         af.minimal_range[pt.b] = af.minimal_range[pt.a];
-//                     }
-//                 } else if (af.minimal_range.contains(pt.b)) {
-//                     af.minimal_range[pt.a] = af.minimal_range[pt.b];
-//                 } else if (af.minimal_range.contains(pt.a)) {
-//                     af.minimal_range[pt.b] = af.minimal_range[pt.a];
-//                 }
-
-//                 af.assert_equalities.push_back(pt);
-//                 af.original_opcode_indices.assert_equalities.push_back(opcode_index);
-//             }
-//             return;
-//         }
-//         // Even if the number of linear terms is less than 3, we might not be able to fit it into a width-3
-//         arithmetic
-//         // gate. This is the case if the linear terms are all distinct witness from the multiplication term. In that
-//         // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a
-//         width-4
-//         // gate instead. We could probably always use a width-4 gate in fact.
-//         if (pt != poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
-//             af.poly_triple_constraints.push_back(pt);
-//             af.original_opcode_indices.poly_triple_constraints.push_back(opcode_index);
-//         } else {
-//             needs_to_be_parsed_as_mul_quad = true;
-//         }
-//     }
-//     if (needs_to_be_parsed_as_mul_quad) {
-//         std::vector<mul_quad_<fr>> mul_quads;
-//         // We try to use a single mul_quad gate to represent the expression.
-//         if (arg.value.mul_terms.size() <= 1) {
-//             auto quad = serialize_mul_quad_gate(arg.value);
-//             // add it to the result vector if it worked
-//             if (quad.a != 0 || !(quad.mul_scaling == fr(0)) || !(quad.a_scaling == fr(0))) {
-//                 mul_quads.push_back(quad);
-//             }
-//         }
-//         if (mul_quads.empty()) {
-//             // If not, we need to split the expression into multiple gates
-//             mul_quads = split_into_mul_quad_gates(arg.value);
-//         }
-//         if (mul_quads.size() == 1) {
-//             af.quad_constraints.push_back(mul_quads[0]);
-//             af.original_opcode_indices.quad_constraints.push_back(opcode_index);
-//         }
-//         if (mul_quads.size() > 1) {
-//             af.big_quad_constraints.push_back(mul_quads);
-//         }
-//     }
-//     constrain_witnesses(arg, af);
-// }
 
 uint32_t get_witness_from_function_input(Acir::FunctionInput input)
 {
@@ -665,7 +538,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .num_bits = arg.num_bits,
                     .is_xor_gate = false,
                 });
-                af.constrained_witness.insert(af.logic_constraints.back().result);
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::XOR>) {
                 auto lhs_input = parse_input(arg.lhs);
@@ -677,7 +549,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .num_bits = arg.num_bits,
                     .is_xor_gate = true,
                 });
-                af.constrained_witness.insert(af.logic_constraints.back().result);
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::RANGE>) {
                 auto witness_input = get_witness_from_function_input(arg.input);
@@ -700,9 +571,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .key = transform::map(*arg.key, [](auto& e) { return parse_input(e); }),
                     .outputs = transform::map(arg.outputs, [](auto& e) { return e.value; }),
                 });
-                for (auto& output : af.aes128_constraints.back().outputs) {
-                    af.constrained_witness.insert(output);
-                }
                 af.original_opcode_indices.aes128_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Sha256Compression>) {
                 af.sha256_compression.push_back(Sha256Compression{
@@ -710,9 +578,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .hash_values = transform::map(*arg.hash_values, [](auto& e) { return parse_input(e); }),
                     .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
-                for (auto& output : af.sha256_compression.back().result) {
-                    af.constrained_witness.insert(output);
-                }
                 af.original_opcode_indices.sha256_compression.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake2s>) {
                 af.blake2s_constraints.push_back(Blake2sConstraint{
@@ -725,9 +590,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                                              }),
                     .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
-                for (auto& output : af.blake2s_constraints.back().result) {
-                    af.constrained_witness.insert(output);
-                }
                 af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake3>) {
                 af.blake3_constraints.push_back(Blake3Constraint{
@@ -736,9 +598,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                         [](auto& e) { return Blake3Input{ .blackbox_input = parse_input(e), .num_bits = 8 }; }),
                     .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
-                for (auto& output : af.blake3_constraints.back().result) {
-                    af.constrained_witness.insert(output);
-                }
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaConstraint{
@@ -754,7 +613,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .predicate = parse_input(arg.predicate),
                     .result = arg.output.value,
                 });
-                af.constrained_witness.insert(af.ecdsa_k1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
                 af.ecdsa_r1_constraints.push_back(EcdsaConstraint{
@@ -770,7 +628,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .predicate = parse_input(arg.predicate),
                     .result = arg.output.value,
                 });
-                af.constrained_witness.insert(af.ecdsa_r1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::MultiScalarMul>) {
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
@@ -781,9 +638,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .out_point_y = (*arg.outputs)[1].value,
                     .out_point_is_infinite = (*arg.outputs)[2].value,
                 });
-                af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_x);
-                af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_y);
-                af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_is_infinite);
                 af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EmbeddedCurveAdd>) {
                 auto input_1_x = parse_input((*arg.input1)[0]);
@@ -806,18 +660,12 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .result_y = (*arg.outputs)[1].value,
                     .result_infinite = (*arg.outputs)[2].value,
                 });
-                af.constrained_witness.insert(af.ec_add_constraints.back().result_x);
-                af.constrained_witness.insert(af.ec_add_constraints.back().result_y);
-                af.constrained_witness.insert(af.ec_add_constraints.back().result_infinite);
                 af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Keccakf1600>) {
                 af.keccak_permutations.push_back(Keccakf1600{
                     .state = transform::map(*arg.inputs, [](auto& e) { return parse_input(e); }),
                     .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
-                for (auto& output : af.keccak_permutations.back().result) {
-                    af.constrained_witness.insert(output);
-                }
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::RecursiveAggregation>) {
 
@@ -872,9 +720,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .state = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
                     .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
                 });
-                for (auto& output : af.poseidon2_constraints.back().result) {
-                    af.constrained_witness.insert(output);
-                }
                 af.original_opcode_indices.poseidon2_constraints.push_back(opcode_index);
             }
         },

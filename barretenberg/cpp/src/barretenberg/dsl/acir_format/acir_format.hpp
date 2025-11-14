@@ -105,8 +105,6 @@ struct AcirFormat {
     // Has length equal to num_acir_opcodes.
     std::vector<size_t> gates_per_opcode;
 
-    // Set of constrained witnesses
-    std::set<uint32_t> constrained_witness;
     // map witness with their minimal bit-range
     std::map<uint32_t, uint32_t> minimal_range;
     // map witness with their minimal bit-range implied by array operations
