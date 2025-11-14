@@ -54,7 +54,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> avm_recursion_constraints;
     std::vector<size_t> hn_recursion_constraints;
     std::vector<size_t> chonk_recursion_constraints;
-    std::vector<size_t> assert_equalities;
     std::vector<size_t> poly_triple_constraints;
     std::vector<size_t> quad_constraints;
     // Multiple opcode indices per block:
@@ -88,7 +87,6 @@ struct AcirFormat {
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> hn_recursion_constraints;
     std::vector<RecursionConstraint> chonk_recursion_constraints;
-    std::vector<std::pair<uint32_t, uint32_t>> assert_equalities;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
@@ -139,8 +137,7 @@ struct AcirFormat {
                    poly_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
-                   block_constraints,
-                   assert_equalities);
+                   block_constraints);
 
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };

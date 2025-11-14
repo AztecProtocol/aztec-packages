@@ -25,7 +25,6 @@ acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indice
         .avm_recursion_constraints = {},
         .hn_recursion_constraints = {},
         .chonk_recursion_constraints = {},
-        .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
@@ -82,9 +81,6 @@ void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
     }
     for (size_t i = 0; i < constraint_system.chonk_recursion_constraints.size(); i++) {
         constraint_system.original_opcode_indices.chonk_recursion_constraints.push_back(current_opcode++);
-    }
-    for (size_t i = 0; i < constraint_system.assert_equalities.size(); i++) {
-        constraint_system.original_opcode_indices.assert_equalities.push_back(current_opcode++);
     }
     for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); i++) {
         constraint_system.original_opcode_indices.poly_triple_constraints.push_back(current_opcode++);

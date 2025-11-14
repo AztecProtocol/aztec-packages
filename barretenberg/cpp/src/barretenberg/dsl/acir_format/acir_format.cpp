@@ -113,6 +113,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     GateCounter gate_counter{ &builder, collect_gates_per_opcode };
 
     // Add arithmetic gates
+
+    // AUDITTODO(federico): remove poly_triple_constraints
     for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
         const auto& constraint = constraint_system.poly_triple_constraints.at(i);
         builder.create_poly_gate(constraint);
@@ -127,9 +129,9 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.quad_constraints.at(i));
     }
+
     // Oversize gates are a vector of mul_quad gates.
-    for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); ++i) {
-        auto& big_constraint = constraint_system.big_quad_constraints.at(i);
+    for (auto& big_constraint : constraint_system.big_quad_constraints) {
         fr next_w4_wire_value = fr(0);
         // Define the 4th wire of these mul_quad gates, which is implicitly used by the previous gate.
         for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
@@ -276,14 +278,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 constraint_system.gates_per_opcode[opcode_index] = avg_gates_per_opcode;
             }
         }
-    }
-
-    // assert equals
-    for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
-        const auto& [lhs, rhs] = constraint_system.assert_equalities.at(i);
-        builder.assert_equal(lhs, rhs);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.assert_equalities.at(i));
     }
 
     // RecursionConstraints
