@@ -38,8 +38,8 @@ describe('BBAPI Logging in Browser', () => {
     const result = await page.evaluate(async () => {
       try {
         // Call the test function that's bundled and exposed on window
-        const testResult = await (window as any).testBbapiLoggingBasic();
-        return { success: true, callCount: testResult.callCount };
+        await (window as any).testBbapiLoggingBasic();
+        return { success: true };
       } catch (e: any) {
         return { error: e?.message || String(e) };
       }
@@ -100,8 +100,8 @@ describe('BBAPI Logging in Browser', () => {
     const result = await page.evaluate(async () => {
       try {
         // Call the test function that makes multiple BBAPI calls
-        const testResult = await (window as any).testBbapiLoggingMultiple();
-        return { success: true, callCount: testResult.callCount };
+        await (window as any).testBbapiLoggingMultiple();
+        return { success: true };
       } catch (e: any) {
         return { error: e?.message || String(e) };
       }
@@ -167,8 +167,8 @@ describe('BBAPI Logging in Browser', () => {
     const result = await page.evaluate(async () => {
       try {
         // Call the test function that makes multiple BBAPI calls
-        const testResult = await (window as any).testBbapiLoggingMultiple();
-        return { success: true, callCount: testResult.callCount };
+        await (window as any).testBbapiLoggingMultiple();
+        return { success: true };
       } catch (e: any) {
         return { error: e?.message || String(e) };
       }
@@ -250,8 +250,8 @@ describe('BBAPI Logging in Browser', () => {
     const result = await page.evaluate(async () => {
       try {
         // Call the test function with logging disabled
-        const testResult = await (window as any).testBbapiLoggingBasic();
-        return { success: true, callCount: testResult.callCount };
+        await (window as any).testBbapiLoggingBasic();
+        return { success: true };
       } catch (e: any) {
         return { error: e?.message || String(e) };
       }
