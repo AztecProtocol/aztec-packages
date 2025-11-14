@@ -66,7 +66,7 @@ template <class Curve> class EcdsaTestingFunctions {
 
         switch (invalid_witness_target) {
         case InvalidWitness::Target::HashIsNotAByteArray:
-            // Set all bytes of hash to 256 (invalid valid as it doesn't fit in one byte)
+            // Set all bytes of hash to 256 (invalid as it doesn't fit in one byte)
             for (size_t idx = 0; idx < 32; idx++) {
                 witness_values[ecdsa_constraints.hashed_message[idx]] = bb::fr(256);
             };
