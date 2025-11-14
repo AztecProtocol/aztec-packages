@@ -130,19 +130,9 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     for (size_t i = 0; i < constraint_system.quad_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.quad_constraints.at(i);
-        builder.create_big_mul_gate(mul_quad_<fr>{
-            .a = constraint.a == bb::stdlib::IS_CONSTANT ? 0 : constraint.a,
-            .b = constraint.b == bb::stdlib::IS_CONSTANT ? 0 : constraint.b,
-            .c = constraint.c == bb::stdlib::IS_CONSTANT ? 0 : constraint.c,
-            .d = constraint.d == bb::stdlib::IS_CONSTANT ? 0 : constraint.d,
-            .mul_scaling = constraint.mul_scaling,
-            .a_scaling = constraint.a_scaling,
-            .b_scaling = constraint.b_scaling,
-            .c_scaling = constraint.c_scaling,
-            .d_scaling = constraint.d_scaling,
-            .const_scaling = constraint.const_scaling,
-        });
+        auto constraint = constraint_system.quad_constraints.at(i);
+        set_zero_idx(builder, constraint);
+        builder.create_big_mul_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.quad_constraints.at(i));
     }
