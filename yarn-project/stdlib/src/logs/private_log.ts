@@ -49,12 +49,11 @@ export class PrivateLog {
   }
 
   toBlobFields(): Fr[] {
-    return [new Fr(this.emittedLength)].concat(this.getEmittedFields());
+    return this.getEmittedFields();
   }
 
-  static fromBlobFields(fields: Fr[] | FieldReader) {
+  static fromBlobFields(emittedLength: number, fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    const emittedLength = reader.readU32();
     const emittedFields = reader.readFieldArray(emittedLength);
     return new PrivateLog(padArrayEnd(emittedFields, Fr.ZERO, PRIVATE_LOG_SIZE_IN_FIELDS), emittedLength);
   }

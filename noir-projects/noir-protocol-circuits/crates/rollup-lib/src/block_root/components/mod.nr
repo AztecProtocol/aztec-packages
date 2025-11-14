@@ -1,3 +1,4 @@
+pub mod block_blob_data;
 mod block_root_rollup_inputs_validator;
 mod block_rollup_public_inputs_composer;
 

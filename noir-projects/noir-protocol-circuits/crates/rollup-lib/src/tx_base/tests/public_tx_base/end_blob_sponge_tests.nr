@@ -64,6 +64,7 @@ unconstrained fn full_tx_effects() {
             private_logs: MAX_PRIVATE_LOGS_PER_TX,
             contract_class_logs: MAX_CONTRACT_CLASS_LOGS_PER_TX,
         },
+        MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS,
         FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
         0, // revert_code
@@ -194,6 +195,7 @@ unconstrained fn all_side_effects_non_full() {
             private_logs: private_log_lengths.len(),
             contract_class_logs: contract_class_log_lengths.len(),
         },
+        private_log_lengths.fold(0, |acc, len| acc + len),
         public_logs_length,
         contract_class_log_lengths[0],
         0, // revert_code
@@ -300,6 +302,7 @@ unconstrained fn partially_empty_tx_effects() {
             private_logs: 0,
             contract_class_logs: 0,
         },
+        0, // private_logs_length
         0, // public_logs_length
         0, // contract_class_log_length
         0, // revert_code
@@ -389,6 +392,7 @@ unconstrained fn discard_reverted_side_effects() {
             private_logs: non_revertible_private_log_lengths.len(),
             contract_class_logs: 0, // All contract class logs are reverted.
         },
+        non_revertible_private_log_lengths.fold(0, |acc, len| acc + len),
         public_logs_length,
         0, // contract_class_log_length. All contract class logs are reverted.
         1, // revert_code

@@ -3,6 +3,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
+
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 
@@ -80,5 +82,23 @@ export class CheckpointConstantData {
       reader.readObject(AztecAddress),
       reader.readObject(GasFees),
     );
+  }
+
+  toInspect() {
+    return {
+      chainId: this.chainId.toNumber(),
+      version: this.version.toNumber(),
+      vkTreeRoot: this.vkTreeRoot.toString(),
+      protocolContractsHash: this.protocolContractsHash.toString(),
+      proverId: this.proverId.toString(),
+      slotNumber: this.slotNumber.toNumber(),
+      coinbase: this.coinbase.toString(),
+      feeRecipient: this.feeRecipient.toString(),
+      gasFees: this.gasFees.toInspect(),
+    };
+  }
+
+  [inspect.custom]() {
+    return `CheckpointConstantData ${inspect(this.toInspect())}`;
   }
 }

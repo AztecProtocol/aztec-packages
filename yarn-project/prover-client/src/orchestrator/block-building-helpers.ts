@@ -3,6 +3,7 @@ import {
   BatchedBlobAccumulator,
   SpongeBlob,
   computeBlobsHashFromBlobs,
+  encodeBlockBlobData,
   getBlobCommitmentsFromBlobs,
   getBlobsPerL1Block,
 } from '@aztec/blob-lib';
@@ -17,24 +18,17 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type Bufferable, type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
-import {
-  MembershipWitness,
-  MerkleTreeCalculator,
-  computeCompressedUnbalancedMerkleTreeRoot,
-} from '@aztec/foundation/trees';
+import { type Bufferable, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import { Body, L2BlockHeader, getBlockBlobFields } from '@aztec/stdlib/block';
-import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
+import { Body } from '@aztec/stdlib/block';
 import type { MerkleTreeWriteOperations, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import { Proof, ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
@@ -50,13 +44,11 @@ import {
   AppendOnlyTreeSnapshot,
   MerkleTreeId,
   NullifierLeafPreimage,
-  PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   getTreeHeight,
 } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
-  ContentCommitment,
   GlobalVariables,
   PartialStateReference,
   type ProcessedTx,
@@ -103,30 +95,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
       NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
     );
 
-    // Update the note hash trees with the new items being inserted to get the new roots
-    // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-    const noteHashes = padArrayEnd(tx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
-    await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
-
-    // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
-    // All reads that refer to writes in the same tx are transient and can be simplified out.
-    const txPublicDataUpdateRequestInfo = await processPublicDataUpdateRequests(tx, db);
-
-    // Update the nullifier tree, capturing the low nullifier info for each individual operation
-    const {
-      lowLeavesWitnessData: nullifierWitnessLeaves,
-      newSubtreeSiblingPath: nullifiersSubtreeRootSiblingPath,
-      sortedNewLeaves: sortedNullifiers,
-      sortedNewLeavesIndexes,
-    } = await db.batchInsert(
-      MerkleTreeId.NULLIFIER_TREE,
-      padArrayEnd(tx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
-      NULLIFIER_SUBTREE_HEIGHT,
-    );
-
-    if (nullifierWitnessLeaves === undefined) {
-      throw new Error(`Could not craft nullifier batch insertion proofs`);
-    }
+    const { nullifierInsertionResult, publicDataInsertionResult } = await insertSideEffects(tx, db);
 
     const blockHash = await tx.data.constants.anchorBlockHeader.hash();
     const anchorBlockArchiveSiblingPath = (
@@ -146,52 +115,59 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         contractClassLogsFields,
       });
     } else {
-      if (
-        txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses.length > 1 ||
-        txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages.length > 1 ||
-        txPublicDataUpdateRequestInfo.publicDataWritesSiblingPaths.length > 1
-      ) {
+      if (tx.txEffect.publicDataWrites.length > 1) {
         throw new Error(`More than one public data write in a private only tx`);
       }
 
       // Get hints for reading fee payer's balance in the public data tree.
-      const feePayerBalanceMembershipWitness = txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses[0];
-      const feePayerBalanceLeafPreimage = txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0];
+      const feePayerBalanceLeafWitnessData = publicDataInsertionResult.lowLeavesWitnessData[0];
+      const feePayerBalanceMembershipWitness = MembershipWitness.fromBufferArray<typeof PUBLIC_DATA_TREE_HEIGHT>(
+        feePayerBalanceLeafWitnessData.index,
+        assertLength(feePayerBalanceLeafWitnessData.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
+      );
+      const feePayerBalanceLeafPreimage = feePayerBalanceLeafWitnessData.leafPreimage as PublicDataTreeLeafPreimage;
       const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
-      if (!feePayerBalanceMembershipWitness || !leafSlot.equals(feePayerBalanceLeafPreimage?.leaf.slot)) {
+      if (!leafSlot.equals(feePayerBalanceLeafPreimage.leaf.slot)) {
         throw new Error(`Cannot find the public data tree leaf for the fee payer's balance`);
       }
 
-      // Extract witness objects from returned data
-      const nullifierPredecessorMembershipWitnessesWithoutPadding: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
-        nullifierWitnessLeaves.map(l =>
-          MembershipWitness.fromBufferArray(
+      // Get hints for inserting the nullifiers.
+      const nullifierLowLeavesWitnessData = nullifierInsertionResult.lowLeavesWitnessData!;
+      const nullifierPredecessorPreimages = padArrayEnd(
+        nullifierLowLeavesWitnessData.map(l => l.leafPreimage as NullifierLeafPreimage),
+        NullifierLeafPreimage.empty(),
+        MAX_NULLIFIERS_PER_TX,
+      );
+      const nullifierPredecessorMembershipWitnesses = padArrayEnd(
+        nullifierLowLeavesWitnessData.map(l =>
+          MembershipWitness.fromBufferArray<typeof NULLIFIER_TREE_HEIGHT>(
             l.index,
             assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT),
           ),
-        );
+        ),
+        makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
+        MAX_NULLIFIERS_PER_TX,
+      );
+      const sortedNullifiers = assertLength(
+        nullifierInsertionResult.sortedNewLeaves.map(n => Fr.fromBuffer(n)),
+        MAX_NULLIFIERS_PER_TX,
+      );
+      const sortedNullifierIndexes = assertLength(
+        nullifierInsertionResult.sortedNewLeavesIndexes,
+        MAX_NULLIFIERS_PER_TX,
+      );
+      const nullifierSubtreeRootSiblingPath = assertLength(
+        nullifierInsertionResult.newSubtreeSiblingPath.toFields(),
+        NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+      );
 
       const treeSnapshotDiffHints = TreeSnapshotDiffHints.from({
         noteHashSubtreeRootSiblingPath,
-        nullifierPredecessorPreimages: padArrayEnd(
-          nullifierWitnessLeaves.map(l => l.leafPreimage as NullifierLeafPreimage),
-          NullifierLeafPreimage.empty(),
-          MAX_NULLIFIERS_PER_TX,
-        ),
-        nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
-          i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
-            ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
-            : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
-        ),
-        sortedNullifiers: assertLength(
-          sortedNullifiers.map(n => Fr.fromBuffer(n)),
-          MAX_NULLIFIERS_PER_TX,
-        ),
-        sortedNullifierIndexes: assertLength(sortedNewLeavesIndexes, MAX_NULLIFIERS_PER_TX),
-        nullifierSubtreeRootSiblingPath: assertLength(
-          nullifiersSubtreeRootSiblingPath.toFields(),
-          NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
-        ),
+        nullifierPredecessorPreimages,
+        nullifierPredecessorMembershipWitnesses,
+        sortedNullifiers,
+        sortedNullifierIndexes,
+        nullifierSubtreeRootSiblingPath,
         feePayerBalanceMembershipWitness,
       });
 
@@ -214,6 +190,44 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         constants,
       });
     }
+  },
+);
+
+export const insertSideEffects = runInSpan(
+  'BlockBuilderHelpers',
+  'buildBaseRollupHints',
+  async (span: Span, tx: ProcessedTx, db: MerkleTreeWriteOperations) => {
+    span.setAttribute(Attributes.TX_HASH, tx.hash.toString());
+
+    // Insert the note hashes. Padded with zeros to the max number of note hashes per tx.
+    const noteHashes = padArrayEnd(tx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
+    await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
+
+    // Insert the nullifiers. Padded with zeros to the max number of nullifiers per tx.
+    // Capturing the low nullifier info for each individual operation.
+    const nullifierInsertionResult = await db.batchInsert(
+      MerkleTreeId.NULLIFIER_TREE,
+      padArrayEnd(tx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
+      NULLIFIER_SUBTREE_HEIGHT,
+    );
+    if (nullifierInsertionResult.lowLeavesWitnessData === undefined) {
+      throw new Error(`Failed to batch insert nullifiers.`);
+    }
+
+    if (tx.txEffect.publicDataWrites.some(write => write.isEmpty())) {
+      throw new Error(`Empty public data write in tx: ${toFriendlyJSON(tx)}.`);
+    }
+    // Insert the public data writes sequentially. No need to pad them to the max array size.
+    // Capturing the low leaf info for each individual operation.
+    const publicDataInsertionResult = await db.sequentialInsert(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      tx.txEffect.publicDataWrites.map(write => write.toBuffer()),
+    );
+
+    return {
+      nullifierInsertionResult,
+      publicDataInsertionResult,
+    };
   },
 );
 
@@ -244,13 +258,6 @@ export const buildBlobHints = (blobFields: Fr[]) => {
   const blobCommitments = getBlobCommitmentsFromBlobs(blobs);
   const blobsHash = computeBlobsHashFromBlobs(blobs);
   return { blobCommitments, blobs, blobsHash };
-};
-
-// Build the data required to prove the txs in an epoch. Currently only used in tests. It assumes 1 block per checkpoint.
-export const buildBlobDataFromTxs = async (txsPerCheckpoint: ProcessedTx[][]) => {
-  const blobFields = txsPerCheckpoint.map(txs => getCheckpointBlobFields([txs.map(tx => tx.txEffect)]));
-  const finalBlobChallenges = await buildFinalBlobChallenges(blobFields);
-  return { blobFieldsLengths: blobFields.map(fields => fields.length), finalBlobChallenges };
 };
 
 export const buildFinalBlobChallenges = async (blobFieldsPerCheckpoint: Fr[][]) => {
@@ -303,102 +310,59 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
   async (
     span,
     txs: ProcessedTx[],
+    lastArchive: AppendOnlyTreeSnapshot,
+    endState: StateReference,
     globalVariables: GlobalVariables,
-    l1ToL2Messages: Fr[],
-    db: MerkleTreeReadOperations,
-    startSpongeBlob?: SpongeBlob,
+    startSpongeBlob: SpongeBlob,
+    isFirstBlock: boolean,
   ) => {
     span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
-    const stateReference = new StateReference(
-      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
-      new PartialStateReference(
-        await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
-        await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
-        await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
-      ),
-    );
-
-    const previousArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
 
     const txEffects = txs.map(tx => tx.txEffect);
     const body = new Body(txEffects);
 
-    const txOutHashes = txEffects.map(tx => tx.txOutHash());
-    const outHash = txOutHashes.length === 0 ? Fr.ZERO : new Fr(computeCompressedUnbalancedMerkleTreeRoot(txOutHashes));
+    const totalFees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
+    const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
 
-    const parityShaRoot = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const blockBlobFields = body.toBlobFields();
-    // TODO(#17027): This only works when there's one block per checkpoint.
-    const blobFields = [new Fr(blockBlobFields.length + 1)].concat(blockBlobFields);
-    const blobsHash = computeBlobsHashFromBlobs(getBlobsPerL1Block(blobFields));
+    const { l1ToL2MessageTree, partial } = endState;
 
-    const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
+    const blockBlobFields = encodeBlockBlobData({
+      blockEndMarker: {
+        timestamp: globalVariables.timestamp,
+        blockNumber: globalVariables.blockNumber,
+        numTxs: txs.length,
+      },
+      blockEndStateField: {
+        l1ToL2MessageNextAvailableLeafIndex: l1ToL2MessageTree.nextAvailableLeafIndex,
+        noteHashNextAvailableLeafIndex: partial.noteHashTree.nextAvailableLeafIndex,
+        nullifierNextAvailableLeafIndex: partial.nullifierTree.nextAvailableLeafIndex,
+        publicDataNextAvailableLeafIndex: partial.publicDataTree.nextAvailableLeafIndex,
+        totalManaUsed: totalManaUsed.toBigInt(),
+      },
+      lastArchiveRoot: lastArchive.root,
+      noteHashRoot: partial.noteHashTree.root,
+      nullifierRoot: partial.nullifierTree.root,
+      publicDataRoot: partial.publicDataTree.root,
+      l1ToL2MessageRoot: isFirstBlock ? l1ToL2MessageTree.root : undefined,
+      txs: body.toTxBlobData(),
+    });
 
-    const fees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
-    const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
-
-    const endSpongeBlob = startSpongeBlob?.clone() ?? (await SpongeBlob.init(blobFields.length));
+    const endSpongeBlob = startSpongeBlob.clone();
     await endSpongeBlob.absorb(blockBlobFields);
     const spongeBlobHash = await endSpongeBlob.squeeze();
 
-    const header = new L2BlockHeader(
-      previousArchive,
-      contentCommitment,
-      stateReference,
-      globalVariables,
-      fees,
-      manaUsed,
+    const header = BlockHeader.from({
+      lastArchive,
+      state: endState,
       spongeBlobHash,
-    );
+      globalVariables,
+      totalFees,
+      totalManaUsed,
+    });
 
-    return { header, body };
+    return { header, body, blockBlobFields };
   },
 );
-
-export const buildBlockHeaderFromTxs = runInSpan(
-  'BlockBuilderHelpers',
-  'buildBlockHeaderFromTxs',
-  async (
-    span,
-    txs: ProcessedTx[],
-    globalVariables: GlobalVariables,
-    startSpongeBlob: SpongeBlob,
-    db: MerkleTreeReadOperations,
-  ) => {
-    span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
-    const stateReference = new StateReference(
-      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
-      new PartialStateReference(
-        await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
-        await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
-        await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
-      ),
-    );
-
-    const previousArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
-
-    const blobFields = getBlockBlobFields(txs.map(tx => tx.txEffect));
-    const endSpongeBlob = startSpongeBlob.clone();
-    await endSpongeBlob.absorb(blobFields);
-    const spongeBlobHash = await endSpongeBlob.squeeze();
-
-    const txEffects = txs.map(tx => tx.txEffect);
-    const fees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
-    const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
-
-    return new BlockHeader(previousArchive, stateReference, spongeBlobHash, globalVariables, fees, manaUsed);
-  },
-);
-
-/** Computes the inHash for a block's ContentCommitment given its l1 to l2 messages. */
-export async function computeInHashFromL1ToL2Messages(unpaddedL1ToL2Messages: Fr[]): Promise<Fr> {
-  const l1ToL2Messages = padArrayEnd<Fr, number>(unpaddedL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-  const hasher = (left: Buffer, right: Buffer) =>
-    Promise.resolve(sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>);
-  const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
-  const parityCalculator = await MerkleTreeCalculator.create(parityHeight, Fr.ZERO.toBuffer(), hasher);
-  return new Fr(await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer())));
-}
 
 export async function getLastSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
   const { size } = await db.getTreeInfo(treeId);
@@ -424,48 +388,6 @@ export function makeEmptyMembershipWitness<N extends number>(height: N) {
     makeTuple(height, () => Fr.ZERO),
   );
 }
-
-const processPublicDataUpdateRequests = runInSpan(
-  'BlockBuilderHelpers',
-  'processPublicDataUpdateRequests',
-  async (span, tx: ProcessedTx, db: MerkleTreeWriteOperations) => {
-    span.setAttribute(Attributes.TX_HASH, tx.hash.toString());
-    const allPublicDataWrites = tx.txEffect.publicDataWrites.map(
-      ({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value),
-    );
-
-    const { lowLeavesWitnessData, insertionWitnessData } = await db.sequentialInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      allPublicDataWrites.map(write => {
-        if (write.isEmpty()) {
-          throw new Error(`Empty public data write in tx: ${toFriendlyJSON(tx)}`);
-        }
-        return write.toBuffer();
-      }),
-    );
-
-    const lowPublicDataWritesPreimages = lowLeavesWitnessData.map(
-      lowLeafWitness => lowLeafWitness.leafPreimage as PublicDataTreeLeafPreimage,
-    );
-    const lowPublicDataWritesMembershipWitnesses = lowLeavesWitnessData.map(lowLeafWitness =>
-      MembershipWitness.fromBufferArray<typeof PUBLIC_DATA_TREE_HEIGHT>(
-        lowLeafWitness.index,
-        assertLength(lowLeafWitness.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
-      ),
-    );
-    const publicDataWritesSiblingPaths = insertionWitnessData.map(w => {
-      const insertionSiblingPath = w.siblingPath.toFields();
-      assertLength(insertionSiblingPath, PUBLIC_DATA_TREE_HEIGHT);
-      return insertionSiblingPath as Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>;
-    });
-
-    return {
-      lowPublicDataWritesPreimages,
-      lowPublicDataWritesMembershipWitnesses,
-      publicDataWritesSiblingPaths,
-    };
-  },
-);
 
 export async function getSubtreeSiblingPath(
   treeId: MerkleTreeId,

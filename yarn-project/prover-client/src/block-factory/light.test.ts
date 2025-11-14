@@ -1,5 +1,5 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { SpongeBlob } from '@aztec/blob-lib';
+import { SpongeBlob, encodeBlockEndBlobData, getTotalNumBlobFieldsFromTxs } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
   CHONK_PROOF_LENGTH,
@@ -19,8 +19,6 @@ import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-co
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { createBlockEndMarker } from '@aztec/stdlib/block';
-import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import {
@@ -40,7 +38,7 @@ import {
   TxMergeRollupPrivateInputs,
   type TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
-import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
+import { mockProcessedTx } from '@aztec/stdlib/testing';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { GlobalVariables, type ProcessedTx } from '@aztec/stdlib/tx';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
@@ -204,8 +202,8 @@ describe('LightBlockBuilder', () => {
     feePayerBalance = new Fr(feePayerBalance.toBigInt() - expectedTxFee.toBigInt());
     const feePaymentPublicDataWrite = new PublicDataWrite(feePayerSlot, feePayerBalance);
 
-    return makeBloatedProcessedTx({
-      header: fork.getInitialHeader(),
+    return mockProcessedTx({
+      anchorBlockHeader: fork.getInitialHeader(),
       globalVariables,
       vkTreeRoot,
       protocolContracts: ProtocolContractsList,
@@ -245,7 +243,7 @@ describe('LightBlockBuilder', () => {
     );
     const lastL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
 
-    const numBlobFields = getCheckpointBlobFields([txs.map(tx => tx.txEffect)]).length;
+    const numBlobFields = getTotalNumBlobFieldsFromTxs([txs.map(tx => tx.txEffect.getTxStartMarker())]);
     const startSpongeBlob = await SpongeBlob.init(numBlobFields);
 
     const parityOutput = await getParityOutput(l1ToL2Messages);
@@ -265,6 +263,31 @@ describe('LightBlockBuilder', () => {
       lastL1ToL2MessageSubtreeRootSiblingPath,
       startSpongeBlob,
     );
+
+    // Absorb blob end states into the sponge blob.
+    const noteHashSnapshot = await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, expectsFork);
+    const nullifierSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, expectsFork);
+    const publicDataSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, expectsFork);
+    const blockEndStates = encodeBlockEndBlobData({
+      blockEndMarker: {
+        blockNumber: globalVariables.blockNumber,
+        timestamp: globalVariables.timestamp,
+        numTxs: txs.length,
+      },
+      blockEndStateField: {
+        l1ToL2MessageNextAvailableLeafIndex: newL1ToL2Snapshot.nextAvailableLeafIndex,
+        noteHashNextAvailableLeafIndex: noteHashSnapshot.nextAvailableLeafIndex,
+        nullifierNextAvailableLeafIndex: nullifierSnapshot.nextAvailableLeafIndex,
+        publicDataNextAvailableLeafIndex: publicDataSnapshot.nextAvailableLeafIndex,
+        totalManaUsed: txs.reduce((acc, tx) => acc + BigInt(tx.gasUsed.totalGas.l2Gas), 0n),
+      },
+      lastArchiveRoot: lastArchive.root,
+      noteHashRoot: noteHashSnapshot.root,
+      nullifierRoot: nullifierSnapshot.root,
+      publicDataRoot: publicDataSnapshot.root,
+      l1ToL2MessageRoot: newL1ToL2Snapshot.root,
+    });
+    await spongeBlobState.absorb(blockEndStates);
 
     const expectedHeader = await buildHeaderFromCircuitOutputs(rootOutput);
     expect(expectedHeader.spongeBlobHash).toEqual(await spongeBlobState.squeeze());
@@ -310,7 +333,6 @@ describe('LightBlockBuilder', () => {
       expect(result.inputs.accumulatedFees).toEqual(expectedTxFee);
       rollupOutputs.push(result.inputs);
     }
-    await spongeBlobState.absorb([createBlockEndMarker(txs.length)]);
     return rollupOutputs;
   };
 

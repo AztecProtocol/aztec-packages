@@ -1,7 +1,7 @@
 import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import type { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockNew } from '@aztec/stdlib/block';
 import type { ForkMerkleTreeOperations, MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import type { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -42,7 +42,11 @@ export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
    * @param isFirstBlock - Whether the block is the first block in a checkpoint. Temporary hack to only insert l1 to l2
    * messages for the first block in a checkpoint. TODO(#17027) Remove this.
    */
-  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[], isFirstBlock?: boolean): Promise<WorldStateStatusFull>;
+  handleL2BlockAndMessages(
+    block: L2Block | L2BlockNew,
+    l1ToL2Messages: Fr[],
+    isFirstBlock?: boolean,
+  ): Promise<WorldStateStatusFull>;
 
   /**
    * Gets a handle that allows reading the latest committed state
