@@ -238,4 +238,13 @@ template <typename Builder> class GateCounter {
     size_t prev_gate_count{};
 };
 
+/**
+ * @brief Replace indices which are set to IS_CONSTANT with the zero index of the builder
+ *
+ * @details When creating a mul_quad_ gate, unused witness indices are set to IS_CONSTANT. When adding the gate to
+ * the builder, we replace these indices with the zero index. Note that we don't do this replacement for a, so that
+ * we implicitly get a check that the gate is non-zero when adding it to the Builder.
+ */
+template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad);
+
 } // namespace acir_format

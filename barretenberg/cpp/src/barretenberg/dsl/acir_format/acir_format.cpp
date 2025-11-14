@@ -36,6 +36,22 @@ namespace acir_format {
 
 using namespace bb;
 
+template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad)
+{
+    using FF = Builder::FF;
+
+    auto replace_and_check_zero_scaling = [&](uint32_t& index, FF& scaling) {
+        if (index == bb::stdlib::IS_CONSTANT) {
+            index = builder.zero_idx();
+            BB_ASSERT_EQ(scaling, FF(0), "mul_quad_ gate with IS_CONSTANT witness index has non-zero scaling");
+        }
+    };
+
+    replace_and_check_zero_scaling(mul_quad.b, mul_quad.b_scaling);
+    replace_and_check_zero_scaling(mul_quad.c, mul_quad.c_scaling);
+    replace_and_check_zero_scaling(mul_quad.d, mul_quad.d_scaling);
+}
+
 template <typename Builder>
 void perform_full_IPA_verification(Builder& builder,
                                    const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
@@ -132,40 +148,32 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
     // Oversize gates are a vector of mul_quad gates.
     for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); ++i) {
-        const auto& big_constraint = constraint_system.big_quad_constraints.at(i);
+        auto& big_constraint = constraint_system.big_quad_constraints.at(i);
         fr next_w4_wire_value = fr(0);
         // Define the 4th wire of these mul_quad gates, which is implicitly used by the previous gate.
         for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
-            mul_quad_<fr> quad_constraint = big_constraint[j];
-            quad_constraint.a = quad_constraint.a == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.a;
-            quad_constraint.b = quad_constraint.b == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.b;
-            quad_constraint.c = quad_constraint.c == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.c;
-            quad_constraint.d = quad_constraint.d == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.d;
+            set_zero_idx(builder, big_constraint[j]);
             if (j == 0) {
-                next_w4_wire_value = builder.get_variable(quad_constraint.d);
+                next_w4_wire_value = builder.get_variable(big_constraint[j].d);
             } else {
                 uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
-                quad_constraint.d = next_w4_wire;
-                quad_constraint.d_scaling = fr(-1);
+                big_constraint[j].d = next_w4_wire;
+                big_constraint[j].d_scaling = fr(-1);
             }
-            builder.create_big_mul_add_gate(quad_constraint, true);
-            next_w4_wire_value = builder.get_variable(quad_constraint.a) * builder.get_variable(quad_constraint.b) *
-                                     quad_constraint.mul_scaling +
-                                 builder.get_variable(quad_constraint.a) * quad_constraint.a_scaling +
-                                 builder.get_variable(quad_constraint.b) * quad_constraint.b_scaling +
-                                 builder.get_variable(quad_constraint.c) * quad_constraint.c_scaling +
-                                 next_w4_wire_value * quad_constraint.d_scaling + quad_constraint.const_scaling;
+            builder.create_big_mul_add_gate(big_constraint[j], true);
+            next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
+                                     big_constraint[j].mul_scaling +
+                                 builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
+                                 builder.get_variable(big_constraint[j].b) * big_constraint[j].b_scaling +
+                                 builder.get_variable(big_constraint[j].c) * big_constraint[j].c_scaling +
+                                 next_w4_wire_value * big_constraint[j].d_scaling + big_constraint[j].const_scaling;
             next_w4_wire_value = -next_w4_wire_value;
         }
         uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
-        mul_quad_<fr> quad_constraint = big_constraint.back();
-        quad_constraint.a = quad_constraint.a == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.a;
-        quad_constraint.b = quad_constraint.b == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.b;
-        quad_constraint.c = quad_constraint.c == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.c;
-        quad_constraint.d = quad_constraint.d == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.d;
-        quad_constraint.d = next_w4_wire;
-        quad_constraint.d_scaling = fr(-1);
-        builder.create_big_mul_add_gate(quad_constraint, false);
+        set_zero_idx(builder, big_constraint.back());
+        big_constraint.back().d = next_w4_wire;
+        big_constraint.back().d_scaling = fr(-1);
+        builder.create_big_mul_add_gate(big_constraint.back(), false);
     }
 
     // Add logic constraint

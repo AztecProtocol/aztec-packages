@@ -473,9 +473,7 @@ bool is_assert_equal(mul_quad_<fr> const& mul_quad, AcirFormat const& af)
         // If neither of the inputs is constrained, we need to add an arithmetic gate
         return false;
     }
-    if (mul_quad.a == 229 || mul_quad.b == 229) {
-        info("HELLO");
-    }
+
     return mul_quad.mul_scaling == bb::fr::zero() && mul_quad.a_scaling == -mul_quad.b_scaling &&
            mul_quad.a_scaling != bb::fr::zero() && mul_quad.const_scaling == bb::fr::zero() &&
            mul_quad.c_scaling == bb::fr::zero() && mul_quad.d_scaling == bb::fr::zero();
