@@ -53,13 +53,15 @@ export class PublicPersistableStateManager {
   /** Make sure a forked state is never merged twice. */
   private alreadyMergedIntoParent = false;
 
+  // TODO: this should be removed.
+  private readonly doMerkleOperations: boolean = true;
+
   constructor(
     private readonly treesDB: PublicTreesDB,
     private readonly contractsDB: PublicContractsDBInterface,
     private readonly trace: PublicSideEffectTraceInterface,
     private readonly firstNullifier: Fr, // Needed for note hashes.
     private readonly timestamp: UInt64, // Needed for contract updates.
-    private readonly doMerkleOperations: boolean = false,
     private readonly publicStorage: PublicStorage = new PublicStorage(treesDB),
     private readonly nullifiers: NullifierManager = new NullifierManager(treesDB),
   ) {}
@@ -71,18 +73,10 @@ export class PublicPersistableStateManager {
     treesDB: PublicTreesDB,
     contractsDB: PublicContractsDBInterface,
     trace: PublicSideEffectTraceInterface,
-    doMerkleOperations: boolean = false,
     firstNullifier: Fr,
     timestamp: UInt64,
   ): PublicPersistableStateManager {
-    return new PublicPersistableStateManager(
-      treesDB,
-      contractsDB,
-      trace,
-      firstNullifier,
-      timestamp,
-      doMerkleOperations,
-    );
+    return new PublicPersistableStateManager(treesDB, contractsDB, trace, firstNullifier, timestamp);
   }
 
   /**
@@ -96,7 +90,6 @@ export class PublicPersistableStateManager {
       this.trace.fork(),
       this.firstNullifier,
       this.timestamp,
-      this.doMerkleOperations,
       this.publicStorage.fork(),
       this.nullifiers.fork(),
     );
@@ -147,13 +140,8 @@ export class PublicPersistableStateManager {
 
     await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
 
-    if (this.doMerkleOperations) {
-      // write to native merkle trees
-      await this.treesDB.storageWrite(contractAddress, slot, value);
-    } else {
-      // Cache storage writes for later reference/reads
-      this.publicStorage.write(contractAddress, slot, value);
-    }
+    // Write and cache storage writes for later reference/reads
+    this.publicStorage.write(contractAddress, slot, value);
   }
 
   public isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean {
@@ -168,16 +156,11 @@ export class PublicPersistableStateManager {
    * @returns the latest value written to slot, or 0 if never written to before
    */
   public async readStorage(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
-    if (this.doMerkleOperations) {
-      return await this.treesDB.storageRead(contractAddress, slot);
-    } else {
-      // TODO(fcarreiro): I don't get this. PublicStorage CAN end up reading the tree. Why is it in the "dont do merkle operations" branch?
-      const read = await this.publicStorage.read(contractAddress, slot);
-      this.log.trace(
-        `Storage read results (address=${contractAddress}, slot=${slot}): value=${read.value}, cached=${read.cached}`,
-      );
-      return read.value;
-    }
+    const read = await this.publicStorage.read(contractAddress, slot);
+    this.log.trace(
+      `Storage read results (address=${contractAddress}, slot=${slot}): value=${read.value}, cached=${read.cached}`,
+    );
+    return read.value;
   }
 
   // TODO(4886): We currently don't silo note hashes.
@@ -234,9 +217,7 @@ export class PublicPersistableStateManager {
   public async writeUniqueNoteHash(uniqueNoteHash: Fr): Promise<void> {
     this.log.trace(`noteHashes += @${uniqueNoteHash}.`);
     this.trace.traceNewNoteHash(uniqueNoteHash);
-    if (this.doMerkleOperations) {
-      await this.treesDB.writeNoteHash(uniqueNoteHash);
-    }
+    await this.treesDB.writeNoteHash(uniqueNoteHash);
   }
 
   /**
@@ -249,15 +230,9 @@ export class PublicPersistableStateManager {
     this.log.trace(`Checking existence of nullifier (address=${contractAddress}, nullifier=${nullifier})`);
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
-    if (this.doMerkleOperations) {
-      const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
-      this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists})`);
-      return Promise.resolve(exists);
-    } else {
-      const { exists, cacheHit } = await this.nullifiers.checkExists(siloedNullifier);
-      this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists}), cacheHit=${cacheHit}`);
-      return Promise.resolve(exists);
-    }
+    const { exists, cacheHit } = await this.nullifiers.checkExists(siloedNullifier);
+    this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists}), cacheHit=${cacheHit}`);
+    return Promise.resolve(exists);
   }
 
   /**
@@ -280,20 +255,16 @@ export class PublicPersistableStateManager {
 
     this.trace.traceNewNullifier(siloedNullifier);
 
-    if (this.doMerkleOperations) {
-      const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
+    const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
 
-      if (exists) {
-        this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree!`);
-        throw new NullifierCollisionError(
-          `Siloed nullifier ${siloedNullifier} already exists in parent cache or host.`,
-        );
-      } else {
-        await this.treesDB.writeNullifier(siloedNullifier);
-      }
+    if (exists) {
+      this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree!`);
+      throw new NullifierCollisionError(`Siloed nullifier ${siloedNullifier} already exists in parent cache or host.`);
     } else {
       // Cache pending nullifiers for later access
       await this.nullifiers.append(siloedNullifier);
+      // Write to tree.
+      await this.treesDB.writeNullifier(siloedNullifier);
     }
   }
 

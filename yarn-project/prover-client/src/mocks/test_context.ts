@@ -12,7 +12,7 @@ import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { SimpleContractDataSource } from '@aztec/simulator/public/fixtures';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { PublicDataWrite, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { EthAddress } from '@aztec/stdlib/block';
 import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
@@ -336,10 +336,17 @@ export class TestContext {
       contractDataSource ?? new SimpleContractDataSource(),
       new TestDateProvider(),
     );
-    const publicProcessor = processorFactory.create(merkleTrees, this.globalVariables, {
-      skipFeeEnforcement: false,
-      clientInitiatedSimulation: false,
-    });
+    const publicProcessor = processorFactory.create(
+      merkleTrees,
+      this.globalVariables,
+      PublicSimulatorConfig.from({
+        skipFeeEnforcement: false,
+        collectDebugLogs: false,
+        collectHints: true,
+        maxDebugLogMemoryReads: 0,
+        collectStatistics: false,
+      }),
+    );
 
     return await publicProcessor.process(txs, { maxTransactions });
   }

@@ -112,7 +112,6 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       tx,
       this.globalVariables,
       ProtocolContractsList, // imported from file
-      this.config.doMerkleOperations,
       this.config.proverId,
     );
 

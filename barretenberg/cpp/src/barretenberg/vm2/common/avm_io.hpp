@@ -427,7 +427,6 @@ struct AvmProvingInputs {
 
 struct PublicSimulatorConfig {
     FF proverId = 0;
-    bool doMerkleOperations = false; // TODO(fcarreiro): deprecated.
     bool skipFeeEnforcement = false;
     bool collectCallMetadata = false;
     bool collectHints = false;
@@ -438,7 +437,6 @@ struct PublicSimulatorConfig {
     bool operator==(const PublicSimulatorConfig& other) const = default;
 
     MSGPACK_FIELDS(proverId,
-                   doMerkleOperations,
                    skipFeeEnforcement,
                    collectCallMetadata,
                    collectHints,

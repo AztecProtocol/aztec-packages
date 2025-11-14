@@ -44,7 +44,6 @@ export function initPersistableStateManager(overrides?: {
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
-  doMerkleOperations?: boolean;
   firstNullifier?: Fr;
   timestamp?: UInt64;
 }): PublicPersistableStateManager {
@@ -55,7 +54,6 @@ export function initPersistableStateManager(overrides?: {
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
     overrides?.firstNullifier || new Fr(27),
     overrides?.timestamp || DEFAULT_TIMESTAMP,
-    overrides?.doMerkleOperations || false,
     overrides?.publicStorage,
     overrides?.nullifiers,
   );

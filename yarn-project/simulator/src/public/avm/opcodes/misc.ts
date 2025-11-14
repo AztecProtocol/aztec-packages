@@ -44,7 +44,7 @@ export class DebugLog extends Instruction {
     const operands = [this.levelOffset, this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
     const [levelOffset, messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
 
-    // DebugLog is a no-op except when doing client-initiated simulation.
+    // DebugLog is a no-op except unless the config is set to collect debug logs.
     // Note that we still do address resolution and basic tag-checking (above)
     // To avoid a special-case in the witness generator and circuit.
     if (context.environment.config.collectDebugLogs) {

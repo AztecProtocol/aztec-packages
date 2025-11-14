@@ -1125,7 +1125,6 @@ export class PublicTxResult {
 export class PublicSimulatorConfig {
   constructor(
     public readonly proverId: Fr,
-    public readonly doMerkleOperations: boolean, // TODO(fcarreiro): deprecated.
     public readonly skipFeeEnforcement: boolean,
     public readonly collectCallMetadata: boolean, // processedPhases.
     public readonly collectHints: boolean, // hints.
@@ -1137,7 +1136,6 @@ export class PublicSimulatorConfig {
   static from(obj: Partial<PublicSimulatorConfig>): PublicSimulatorConfig {
     return new PublicSimulatorConfig(
       obj.proverId ?? Fr.ZERO,
-      obj.doMerkleOperations ?? false,
       obj.skipFeeEnforcement ?? false,
       obj.collectCallMetadata ?? false,
       obj.collectHints ?? false,
@@ -1155,7 +1153,6 @@ export class PublicSimulatorConfig {
     return z
       .object({
         proverId: Fr.schema,
-        doMerkleOperations: z.boolean(),
         skipFeeEnforcement: z.boolean(),
         collectCallMetadata: z.boolean(),
         collectHints: z.boolean(),
