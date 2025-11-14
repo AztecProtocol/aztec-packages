@@ -553,12 +553,12 @@ TYPED_TEST(UltraHonkNonZKTests, ZPermShiftNotZeroAtLagrangeLastFailure)
     ASSERT_EQ(prover_instance->polynomials.z_perm.at(last_valid_index), fr(0));
     ASSERT_EQ(prover_instance->polynomials.z_perm_shift.at(last_valid_index - 1), fr(0));
     // Tamper: change `z_perm_shift` to something non-zero when `lagrange_last == 1`.
-    // (The checker fails even if we don't correspondingly increment `z_perm`.)
     prover_instance->polynomials.z_perm_shift.at(last_valid_index - 1) += fr(1);
-    prover_instance->polynomials.z_perm.at(last_valid_index) += fr(1);
+    // Note that `z_perm_shift` and `z_perm` are no longer inextricably linked because we have replaced them by their
+    // full incarnations. Therefore, we still `z_perm.at(last_valid_index) == 0`. This does not effect the test we
+    // wish to check.
 
-    // Verify that the Permutation relation now fails. Use the try/catch pattern to see explicitly what subrelations
-    // fail.
+    // Verify that the Permutation relation now fails.
     auto tampered_permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
         prover_instance->polynomials,
         prover_instance->relation_parameters,

@@ -17,14 +17,14 @@ namespace bb {
  \cdot (w_3(\vec X) + id_3(\vec X) \cdot \beta + \gamma) \cdot  (w_4(\vec X) + id_4(\vec X) \cdot \beta + \gamma)\right]
  &\
          - \\
-        \left(Z_{\text{perm, shifted}}(\vec X) + L_{2^d-1}(\vec X) \cdot \delta_{\text{pub}} \right)  \cdot
+        \left(Z_{\text{perm, shifted}}(\vec X) + L_{\text{last}}(\vec X) \cdot \delta_{\text{pub}} \right)  \cdot
         \left[ (w_1(\vec X) + \sigma_1(\vec X) \cdot \beta + \gamma) \cdot (w_2(\vec X) + \sigma_2(\vec X) \cdot \beta +
  \gamma) \cdot (w_3(\vec X) + \sigma_3 (\vec X) \cdot \beta + \gamma) \cdot (w_4 (\vec X) + \sigma_4(\vec X) \cdot \beta
  + \gamma)\right] &\ = 0 \f} and \f{align}{ L_{\text{last}}(\vec X)\cdot Z_{\text{perm, shifted}}(\vec X)   = 0 \f}
 
     Here, \f$ \vec X = (X_0,\ldots, X_{d-1})\f$, and \f$L_{\text{last}}\f$ is "Lagrange last", i.e., the indicator
- function on the boolean hypercube which is 1 at the point whose corresponding index is the last active row of the
- circuit.
+ function on the boolean hypercube which is 1 at the point whose corresponding index is the last row of the
+ circuit where the wire polynomails (`w_l`, `w_r`, `w_o`, and `w_4`) take non-zero values.
 
 
 
