@@ -59,6 +59,7 @@ export class PublicPersistableStateManager {
     private readonly trace: PublicSideEffectTraceInterface,
     private readonly firstNullifier: Fr, // Needed for note hashes.
     private readonly timestamp: UInt64, // Needed for contract updates.
+    private readonly doMerkleOperations: boolean = true,
     private readonly publicStorage: PublicStorage = new PublicStorage(treesDB),
     private readonly nullifiers: NullifierManager = new NullifierManager(treesDB),
   ) {}
@@ -87,6 +88,7 @@ export class PublicPersistableStateManager {
       this.trace.fork(),
       this.firstNullifier,
       this.timestamp,
+      this.doMerkleOperations,
       this.publicStorage.fork(),
       this.nullifiers.fork(),
     );
@@ -137,10 +139,13 @@ export class PublicPersistableStateManager {
 
     await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
 
-    // write to native merkle trees
-    await this.treesDB.storageWrite(contractAddress, slot, value);
-    // Cache storage writes for later reference/reads
-    this.publicStorage.write(contractAddress, slot, value);
+    if (this.doMerkleOperations) {
+      // write to native merkle trees
+      await this.treesDB.storageWrite(contractAddress, slot, value);
+    } else {
+      // Cache storage writes for later reference/reads
+      this.publicStorage.write(contractAddress, slot, value);
+    }
   }
 
   public isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean {
@@ -155,11 +160,15 @@ export class PublicPersistableStateManager {
    * @returns the latest value written to slot, or 0 if never written to before
    */
   public async readStorage(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
-    const read = await this.publicStorage.read(contractAddress, slot);
-    this.log.trace(
-      `Storage read results (address=${contractAddress}, slot=${slot}): value=${read.value}, cached=${read.cached}`,
-    );
-    return read.value;
+    if (this.doMerkleOperations) {
+      return await this.treesDB.storageRead(contractAddress, slot);
+    } else {
+      const read = await this.publicStorage.read(contractAddress, slot);
+      this.log.trace(
+        `Storage read results (address=${contractAddress}, slot=${slot}): value=${read.value}, cached=${read.cached}`,
+      );
+      return read.value;
+    }
   }
 
   // TODO(4886): We currently don't silo note hashes.
@@ -216,7 +225,9 @@ export class PublicPersistableStateManager {
   public async writeUniqueNoteHash(uniqueNoteHash: Fr): Promise<void> {
     this.log.trace(`noteHashes += @${uniqueNoteHash}.`);
     this.trace.traceNewNoteHash(uniqueNoteHash);
-    await this.treesDB.writeNoteHash(uniqueNoteHash);
+    if (this.doMerkleOperations) {
+      await this.treesDB.writeNoteHash(uniqueNoteHash);
+    }
   }
 
   /**
@@ -229,9 +240,15 @@ export class PublicPersistableStateManager {
     this.log.trace(`Checking existence of nullifier (address=${contractAddress}, nullifier=${nullifier})`);
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
-    const { exists, cacheHit } = await this.nullifiers.checkExists(siloedNullifier);
-    this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists}), cacheHit=${cacheHit}`);
-    return Promise.resolve(exists);
+    if (this.doMerkleOperations) {
+      const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
+      this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists})`);
+      return Promise.resolve(exists);
+    } else {
+      const { exists, cacheHit } = await this.nullifiers.checkExists(siloedNullifier);
+      this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists}), cacheHit=${cacheHit}`);
+      return Promise.resolve(exists);
+    }
   }
 
   /**
@@ -254,16 +271,20 @@ export class PublicPersistableStateManager {
 
     this.trace.traceNewNullifier(siloedNullifier);
 
-    const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
+    if (this.doMerkleOperations) {
+      const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
 
-    if (exists) {
-      this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree!`);
-      throw new NullifierCollisionError(`Siloed nullifier ${siloedNullifier} already exists in parent cache or host.`);
+      if (exists) {
+        this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree!`);
+        throw new NullifierCollisionError(
+          `Siloed nullifier ${siloedNullifier} already exists in parent cache or host.`,
+        );
+      } else {
+        await this.treesDB.writeNullifier(siloedNullifier);
+      }
     } else {
       // Cache pending nullifiers for later access
       await this.nullifiers.append(siloedNullifier);
-      // Write to tree.
-      await this.treesDB.writeNullifier(siloedNullifier);
     }
   }
 
@@ -362,6 +383,7 @@ export class PublicPersistableStateManager {
     // Nullifier check! We do this regardless of whether or not the instance exists,
     // as even for non-existence, we need to generate nullifier check hints.
 
+    // This will internally decide whether to check the nullifier tree or not depending on doMerkleOperations.
     const nullifierExistsInTree = await this.checkNullifierExists(
       AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
       contractAddress.toField(),
@@ -386,60 +408,63 @@ export class PublicPersistableStateManager {
   }
 
   private async checkContractUpdateInformation(instance: ContractInstanceWithAddress): Promise<void> {
-    // Check that the contract updatability information is correct.
-    // We always do this because we need hints.
+    // If "merkle operations" are not requested, we trust the DB.
+    // Otherwise we check that the contract updatability information is correct.
+    // That is, that the current and original contract class ids are correct.
+    // All failures are fatal and the simulation is not expected to be provable.
+    if (this.doMerkleOperations) {
+      // Conceptually, we want to do the following:
+      // * Read a DelayedPublicMutable at the contract update slot.
+      // * Obtain the expected current class id from the DelayedPublicMutable, at the current block.
+      // * if expectedId == 0 then currentClassId should be original contract class id
+      // * if expectedId != 0 then currentClassId should be expectedId
+      //
+      // However, we will also be checking the hash of the delayed public mutable values.
+      // This is a bit of a leak of information, since the circuit will use it to prove
+      // one public read instead of N of the delayed public mutable values.
+      const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
+        await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(instance.address);
+      const readDeployerStorage = async (storageSlot: Fr) =>
+        await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
 
-    // Conceptually, we want to do the following:
-    // * Read a DelayedPublicMutable at the contract update slot.
-    // * Obtain the expected current class id from the DelayedPublicMutable, at the current block.
-    // * if expectedId == 0 then currentClassId should be original contract class id
-    // * if expectedId != 0 then currentClassId should be expectedId
-    //
-    // However, we will also be checking the hash of the delayed public mutable values.
-    // This is a bit of a leak of information, since the circuit will use it to prove
-    // one public read instead of N of the delayed public mutable values.
-    const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
-      await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(instance.address);
-    const readDeployerStorage = async (storageSlot: Fr) =>
-      await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
-
-    const hash = await readDeployerStorage(delayedPublicMutableHashSlot);
-    // NOTE: The below reads are either not performed (if hash.isZero()) or only performed in unconstrained in c++ simulation.
-    // See UpdateCheck::check_current_class_id documentation - this means if we generate hints from the merkle db, they are unused:
-    const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
-      delayedPublicMutableSlot,
-      readDeployerStorage,
-    );
-    const preImage = delayedPublicMutableValues.toFields();
-
-    // 1) update never scheduled: hash == 0 and preimage should be empty (but poseidon2hash(preimage) will not be 0s)
-    if (hash.isZero()) {
-      assert(
-        preImage.every(f => f.isZero()),
-        `Found updatability hash 0 but preimage is not empty for contract instance ${instance.address}.`,
+      const hash = await readDeployerStorage(delayedPublicMutableHashSlot);
+      // NOTE: The below reads are either not performed (if hash.isZero()) or only performed in unconstrained in c++ simulation.
+      // See UpdateCheck::check_current_class_id documentation - this means if we generate hints from the merkle db, they are unused:
+      const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
+        delayedPublicMutableSlot,
+        readDeployerStorage,
       );
+      const preImage = delayedPublicMutableValues.toFields();
+
+      // 1) update never scheduled: hash == 0 and preimage should be empty (but poseidon2hash(preimage) will not be 0s)
+      if (hash.isZero()) {
+        assert(
+          preImage.every(f => f.isZero()),
+          `Found updatability hash 0 but preimage is not empty for contract instance ${instance.address}.`,
+        );
+        assert(
+          instance.currentContractClassId.equals(instance.originalContractClassId),
+          `Found updatability hash 0 for contract instance ${instance.address} but original class id ${instance.originalContractClassId} != current class id ${instance.currentContractClassId}.`,
+        );
+        return;
+      }
+
+      // 2) At this point we know that the hash is not zero and this means that an update has at some point been scheduled.
+      const computedHash = await poseidon2Hash(preImage);
       assert(
-        instance.currentContractClassId.equals(instance.originalContractClassId),
-        `Found updatability hash 0 for contract instance ${instance.address} but original class id ${instance.originalContractClassId} != current class id ${instance.currentContractClassId}.`,
+        hash.equals(computedHash),
+        `Delayed public mutable values hash mismatch for contract instance ${instance.address}. Expected: ${hash}, computed: ${computedHash}`,
       );
-      return;
-    }
 
-    // 2) At this point we know that the hash is not zero and this means that an update has at some point been scheduled.
-    const computedHash = await poseidon2Hash(preImage);
-    assert(
-      hash.equals(computedHash),
-      `Delayed public mutable values hash mismatch for contract instance ${instance.address}. Expected: ${hash}, computed: ${computedHash}`,
-    );
-
-    // We now check that, depending on the current block, the current class id is correct.
-    const expectedClassIdRaw = delayedPublicMutableValues.svc.getCurrentAt(this.timestamp).at(0)!;
-    const expectedClassId = expectedClassIdRaw.isZero() ? instance.originalContractClassId : expectedClassIdRaw;
-    assert(
-      instance.currentContractClassId.equals(expectedClassId),
-      `Current class id mismatch
+      // We now check that, depending on the current block, the current class id is correct.
+      const expectedClassIdRaw = delayedPublicMutableValues.svc.getCurrentAt(this.timestamp).at(0)!;
+      const expectedClassId = expectedClassIdRaw.isZero() ? instance.originalContractClassId : expectedClassIdRaw;
+      assert(
+        instance.currentContractClassId.equals(expectedClassId),
+        `Current class id mismatch
         for contract instance ${instance.address}. Expected: ${expectedClassId}, current: ${instance.currentContractClassId}`,
-    );
+      );
+    }
   }
 
   /**

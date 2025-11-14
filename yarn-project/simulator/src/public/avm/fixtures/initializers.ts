@@ -54,8 +54,7 @@ export function initPersistableStateManager(overrides?: {
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
     overrides?.firstNullifier || new Fr(27),
     overrides?.timestamp || DEFAULT_TIMESTAMP,
-    overrides?.publicStorage,
-    overrides?.nullifiers,
+    /*doMerkleOperations=*/ false,
   );
 }
 
