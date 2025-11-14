@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
-
-cmd=${1:-}
 
 # nargo command path relative to the individual contract directory
 export NARGO=${NARGO:-../../../../noir/noir-repo/target/release/nargo}
@@ -60,10 +57,7 @@ function test_cmds {
 }
 
 case "$cmd" in
-  test|test_cmds)
-    $cmd
-    ;;
   *)
-    echo_stderr "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

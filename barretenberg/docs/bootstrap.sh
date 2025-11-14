@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
 hash=$(
@@ -48,22 +46,13 @@ function test {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  ""|"full"|"fast"|"ci")
+  "")
     build
     ;;
   "hash")
     echo "$hash"
     ;;
-  "test_cmds")
-    test_cmds
-    ;;
-  "test")
-    test
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

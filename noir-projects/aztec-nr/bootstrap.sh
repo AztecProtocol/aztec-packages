@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
@@ -112,20 +110,13 @@ function release_git_push {
 }
 
 case "$cmd" in
-  ""|"fast"|"full")
+  "")
     build
-    ;;
-  "ci")
-    build
-    test
-    ;;
-  test|test_cmds|format|release)
-    $cmd
     ;;
   "test-macro-compilation-failure")
     ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh
     ;;
   *)
-    echo_stderr "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

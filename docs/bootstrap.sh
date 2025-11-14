@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 export BB=${BB:-../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../avm-transpiler/target/release/avm-transpiler}
@@ -64,16 +62,13 @@ function build_examples {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
   "ci")
     build_examples
     build_docs
     test
     check_references
     ;;
-  ""|"full"|"fast")
+  "")
     build_examples
     build_docs
     check_references
@@ -82,13 +77,9 @@ case "$cmd" in
     echo "$hash"
     ;;
   "compile")
-    shift
     build_examples compile "$@"
     ;;
-  test|test_cmds)
-    $cmd
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

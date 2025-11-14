@@ -2,8 +2,6 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 # We mix if we're a release into the hash, as releases have all architectures built.
 hash=$(hash_str \
   $(../cpp/bootstrap.sh hash) \
@@ -58,26 +56,13 @@ function release {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  "ci")
-    build
-    test
-    ;;
-  ""|"fast"|"full")
+  "")
     build
     ;;
   "hash")
     echo "$hash"
     ;;
-  bench|bench_cmds)
-    # Empty handling just to make this command valid.
-    ;;
-  test|test_cmds|release)
-    $cmd
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

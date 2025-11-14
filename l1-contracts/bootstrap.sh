@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
-
 # We rely on noir-projects for the verifier contract.
 export hash=$(cache_content_hash \
   .rebuild_patterns \
@@ -401,35 +398,13 @@ function release {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  "ci")
+  "")
     build
-    test
-    ;;
-  ""|"fast"|"full")
-    build
-    ;;
-  "gas_report")
-    shift
-    gas_report "$@"
-    ;;
-  "gas_benchmark")
-    shift
-    gas_benchmark "$@"
-    ;;
-  "coverage")
-    shift
-    coverage "$@"
-    ;;
-  test|test_cmds|bench|bench_cmds|inspect|release|build_src|build_verifier)
-    $cmd
     ;;
   "hash")
     echo $hash
     ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

@@ -20,12 +20,11 @@ function hash {
 }
 
 cmd=${1:-}
-
 case "$cmd" in
   hash)
     hash
     ;;
-  ""|clean|ci|fast|test|test_cmds|bench|bench_cmds|release)
+  ""|clean|ci|test|test_cmds|bench|bench_cmds|release)
     bootstrap_all $@
     ;;
   "release-preview")

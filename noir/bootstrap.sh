@@ -3,9 +3,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 set -eou pipefail
 
-cmd=${1:-}
-[ -n "$cmd" ] && shift
-
 # Must be in dependency order for releasing.
 export js_projects="
   @noir-lang/types
@@ -51,7 +48,7 @@ function noir_content_hash {
   fi
 }
 
-if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
+if [ ! -v NOIR_HASH ] && [ "${1:-}" != "clean" ]; then
   noir_sync
   export NOIR_HASH=$(noir_content_hash)
 fi
@@ -254,32 +251,25 @@ case "$cmd" in
     # Double `f` needed to delete the nested git repository.
     git clean -ffdx
     ;;
-  "ci")
+  "")
     build
-    test
-    ;;
-  ""|"fast"|"full")
-    build
-    ;;
-  test_cmds|build_native|build_packages|format|test|release)
-    $cmd "$@"
     ;;
   "hash")
-    echo $NOIR_HASH
-    ;;
-  "hash-tests")
     echo $NOIR_HASH
     ;;
   "make-patch")
     scripts/sync.sh make-patch
     ;;
-  "bump-noir-repo-ref")
-    bump_noir_repo_ref $@
+  "noir-sync")
+    # Noop, we synced above.
+    ;;
+  "noir-sync")
+    # Noop, we synced above.
     ;;
   "noir-sync")
     # Noop, we synced above.
     ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

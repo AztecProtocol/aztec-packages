@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# TODO: THIS SCRIPT SHOULD NOW BE ABLE TO REPLACE TRANSPILATION AND VK GENERATION WITH 'bb aztec_process'.
+#
 # Some notes if you have to work on this script.
 # - First of all, I'm sorry (edit: not sorry). It's a beautiful script but it's no fun to debug. I got carried away.
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
@@ -17,7 +19,6 @@
 # - We could perhaps make it less tricky to work with by leveraging more tempfiles and less stdin/stdout.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
 # entrypoint for docs
 if [ -n "${DOCS_WORKING_DIR:-}" ]; then
   cd "$DOCS_WORKING_DIR"
@@ -258,9 +259,6 @@ function format {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
   "clean-keys")
     for artifact in target/*.json; do
       echo_stderr "Scrubbing vk from $artifact..."
@@ -268,21 +266,13 @@ case "$cmd" in
       mv "${artifact}.tmp" "$artifact"
     done
     ;;
-  ""|"fast"|"full")
+  "")
     build
-    ;;
-  "ci")
-    build
-    test
     ;;
   "compile")
-    shift
     VERBOSE=${VERBOSE:-1} build "$@"
     ;;
-  test|test_cmds|format)
-    $cmd
-    ;;
   *)
-    echo_stderr "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

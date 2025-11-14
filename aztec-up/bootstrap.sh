@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
-
 
 function build_dind_image {
   echo_header "aztec-up build test image"
@@ -52,12 +49,9 @@ function release {
 }
 
 case "$cmd" in
-  ""|"full"|"fast")
-    ;;
-  test_cmds|test|release|build_dind_image|update_manifest)
-    $cmd
+  "")
     ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac
