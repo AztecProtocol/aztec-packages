@@ -94,7 +94,7 @@ AppendOnlyTreeSnapshot NullifierTreeCheck::write(const FF& source_nullifier,
     } else {
         // Low leaf update
         NullifierTreeLeafPreimage updated_low_leaf_preimage = low_leaf_preimage;
-        updated_low_leaf_preimage.nextIndex = prev_snapshot.nextAvailableLeafIndex;
+        updated_low_leaf_preimage.nextIndex = prev_snapshot.next_available_leaf_index;
         updated_low_leaf_preimage.nextKey = nullifier;
         FF updated_low_leaf_hash = poseidon2.hash(updated_low_leaf_preimage.get_hash_inputs());
 
@@ -109,13 +109,13 @@ AppendOnlyTreeSnapshot NullifierTreeCheck::write(const FF& source_nullifier,
 
         FF write_root = merkle_check.write(FF(0),
                                            new_leaf_hash,
-                                           prev_snapshot.nextAvailableLeafIndex,
+                                           prev_snapshot.next_available_leaf_index,
                                            insertion_sibling_path.value(),
                                            intermediate_root);
 
         next_snapshot = AppendOnlyTreeSnapshot{
             .root = write_root,
-            .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1,
+            .next_available_leaf_index = prev_snapshot.next_available_leaf_index + 1,
         };
         append_data = NullifierAppendData{
             .updated_low_leaf_hash = updated_low_leaf_hash,

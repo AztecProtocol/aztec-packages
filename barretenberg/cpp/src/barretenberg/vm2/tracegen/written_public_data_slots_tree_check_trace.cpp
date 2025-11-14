@@ -39,7 +39,7 @@ void WrittenPublicDataSlotsTreeCheckTraceBuilder::process(
         bool append = event.append_data.has_value();
         if (append) {
             updated_low_leaf_next_key = leaf_slot;
-            updated_low_leaf_next_index = event.prev_snapshot.nextAvailableLeafIndex;
+            updated_low_leaf_next_index = event.prev_snapshot.next_available_leaf_index;
             updated_low_leaf_hash = event.append_data->updated_low_leaf_hash;
             new_leaf_hash = event.append_data->new_leaf_hash;
             intermediate_root = event.append_data->intermediate_root;
@@ -54,9 +54,9 @@ void WrittenPublicDataSlotsTreeCheckTraceBuilder::process(
                 { C::written_public_data_slots_tree_check_root, event.prev_snapshot.root },
                 { C::written_public_data_slots_tree_check_write_root, event.next_snapshot.root },
                 { C::written_public_data_slots_tree_check_tree_size_before_write,
-                  event.prev_snapshot.nextAvailableLeafIndex },
+                  event.prev_snapshot.next_available_leaf_index },
                 { C::written_public_data_slots_tree_check_tree_size_after_write,
-                  event.next_snapshot.nextAvailableLeafIndex },
+                  event.next_snapshot.next_available_leaf_index },
                 { C::written_public_data_slots_tree_check_address, address },
                 { C::written_public_data_slots_tree_check_low_leaf_slot, event.low_leaf_preimage.leaf.slot },
                 { C::written_public_data_slots_tree_check_low_leaf_next_index, event.low_leaf_preimage.nextIndex },

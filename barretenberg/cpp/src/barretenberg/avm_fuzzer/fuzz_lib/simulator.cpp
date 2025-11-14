@@ -48,14 +48,14 @@ std::string serialize_bytecode_and_calldata(const std::vector<uint8_t>& bytecode
 GlobalVariables create_default_globals()
 {
     return GlobalVariables{
-        .chainId = 1,
+        .chain_id = 1,
         .version = 1,
-        .blockNumber = 1,
-        .slotNumber = 1,
+        .block_number = 1,
+        .slot_number = 1,
         .timestamp = 1000000,
         .coinbase = EthAddress{ 0 },
-        .feeRecipient = AztecAddress{ 0 },
-        .gasFees = GasFees{ .feePerDaGas = 1, .feePerL2Gas = 1 },
+        .fee_recipient = AztecAddress{ 0 },
+        .gas_fees = GasFees{ .fee_per_da_gas = 1, .fee_per_l2_gas = 1 },
     };
 }
 
@@ -70,39 +70,39 @@ Tx create_default_tx(const AztecAddress& contract_address,
     return Tx
     {
         .hash = std::string("0xdeadbeef"),
-        .gasSettings = GasSettings{
-            .gasLimits = gas_limit,
+        .gas_settings = GasSettings{
+            .gas_limits = gas_limit,
         },
-        .effectiveGasFees = GasFees{
-            .feePerDaGas = 0,
-            .feePerL2Gas = 0,
+        .effective_gas_fees = GasFees{
+            .fee_per_da_gas = 0,
+            .fee_per_l2_gas = 0,
         },
-        .nonRevertibleAccumulatedData = AccumulatedData{
-            .noteHashes = {},
+        .non_revertible_accumulated_data = AccumulatedData{
+            .note_hashes = {},
             // This nullifier is needed to make the nonces for note hashes and expected by simulation_helper
             .nullifiers = {FF("0x00000000000000000000000000000000000000000000000000000000deadbeef")},
-            .l2ToL1Messages = {},
+            .l2_to_l1_messages = {},
         },
-        .revertibleAccumulatedData = AccumulatedData{
-            .noteHashes = {},
+        .revertible_accumulated_data = AccumulatedData{
+            .note_hashes = {},
             .nullifiers = {},
-            .l2ToL1Messages = {},
+            .l2_to_l1_messages = {},
         },
-        .setupEnqueuedCalls = {},
-        .appLogicEnqueuedCalls = {
+        .setup_enqueued_calls = {},
+        .app_logic_enqueued_calls = {
             PublicCallRequestWithCalldata{
                 .request = PublicCallRequest{
-                    .msgSender = 0,
-                    .contractAddress = contract_address,
-                    .isStaticCall = is_static_call,
-                    .calldataHash = 0,
+                    .msg_sender = 0,
+                    .contract_address = contract_address,
+                    .is_static_call = is_static_call,
+                    .calldata_hash = 0,
                 },
                 .calldata = calldata,
             },
         },
-        .teardownEnqueuedCall = std::nullopt,
-        .gasUsedByPrivate = Gas{ .l2Gas = 0, .daGas = 0 },
-        .feePayer = sender_address,
+        .teardown_enqueued_call = std::nullopt,
+        .gas_used_by_private = Gas{ .l2_gas = 0, .da_gas = 0 },
+        .fee_payer = sender_address,
     };
 }
 
@@ -121,6 +121,8 @@ class TestSimulator {
         FuzzerContractDB minimal_contract_db(bytecode);
         FuzzerLowLevelDB minimal_low_level_db;
 
+        const PublicSimulatorConfig config{};
+
         // This is needed so that the contract existence check passes in simulation
         minimal_low_level_db.insert_contract_address(contract_address);
         ProtocolContracts protocol_contracts{};
@@ -128,6 +130,7 @@ class TestSimulator {
         return helper.simulate_fast(
             minimal_contract_db,
             minimal_low_level_db,
+            config,
             create_default_tx(contract_address, sender_address, calldata, transaction_fee, is_static_call, gas_limit),
             globals,
             protocol_contracts);

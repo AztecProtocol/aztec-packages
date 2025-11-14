@@ -120,7 +120,7 @@ TEST(SLoadConstrainingTest, Interactions)
                        l1_to_l2_message_tree_check);
 
     TreeSnapshots trees;
-    trees.publicDataTree.root = 42;
+    trees.public_data_tree.root = 42;
     EXPECT_CALL(low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
 
     FF value = merkle_db.storage_read(contract_address, slot);
@@ -133,7 +133,7 @@ TEST(SLoadConstrainingTest, Interactions)
           { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD },
           { C::execution_contract_address, contract_address },
-          { C::execution_prev_public_data_tree_root, trees.publicDataTree.root } },
+          { C::execution_prev_public_data_tree_root, trees.public_data_tree.root } },
     });
 
     PublicDataTreeTraceBuilder public_data_tree_trace_builder;

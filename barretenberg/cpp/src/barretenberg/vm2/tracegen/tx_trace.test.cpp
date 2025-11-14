@@ -154,17 +154,17 @@ TEST(TxTraceGenTest, PadTreesEvent)
     simulation::TxPhaseEvent tx_event = { .phase = TransactionPhase::TREE_PADDING,
                                           .state_before = {
                                             .tree_states = {
-                                                .noteHashTree = {
+                                                .note_hash_tree = {
                                                     .tree = {
                                                         .root = 27,
-                                                        .nextAvailableLeafIndex = 65,
+                                                        .next_available_leaf_index = 65,
                                                     },
                                                     .counter = 1
                                                 },
-                                                .nullifierTree = {
+                                                .nullifier_tree = {
                                                     .tree = {
                                                         .root = 28,
-                                                        .nextAvailableLeafIndex = 127,
+                                                        .next_available_leaf_index = 127,
                                                     },
                                                     .counter = 63
                                                 },
@@ -172,17 +172,17 @@ TEST(TxTraceGenTest, PadTreesEvent)
                                           },
                                           .state_after = {
                                             .tree_states = {
-                                                .noteHashTree = {
+                                                .note_hash_tree = {
                                                     .tree = {
                                                         .root = 27,
-                                                        .nextAvailableLeafIndex = 128,
+                                                        .next_available_leaf_index = 128,
                                                     },
                                                     .counter = 1
                                                 },
-                                                .nullifierTree = {
+                                                .nullifier_tree = {
                                                     .tree = {
                                                         .root = 28,
-                                                        .nextAvailableLeafIndex = 128,
+                                                        .next_available_leaf_index = 128,
                                                     },
                                                     .counter = 63
                                                 },
