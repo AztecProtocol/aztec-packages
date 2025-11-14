@@ -1,6 +1,8 @@
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { mockTx } from '@aztec/stdlib/testing';
-import { TxArray } from '@aztec/stdlib/tx';
+import { BlockProposal } from '@aztec/stdlib/p2p';
+import { makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
+import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { describe, expect, it } from '@jest/globals';
 
@@ -8,15 +10,27 @@ import { BitVector } from './bitvector.js';
 import { BlockTxsRequest, BlockTxsResponse } from './block_txs_reqresp.js';
 
 describe('BlockTxRequest', () => {
+  const createBlockProposal = (txHashes: TxHash[]): BlockProposal => {
+    return makeBlockProposal({
+      signer: Secp256k1Signer.random(),
+      header: makeL2BlockHeader(1, 5),
+      archive: Fr.random(),
+      txHashes,
+    });
+  };
+
   it('should serialize and deserialize correctly', () => {
     const blockHash = Fr.random();
+    const missing = new TxHashArray(...Array.from({ length: 4 }, () => TxHash.random()));
     const txIndices = BitVector.init(16, [0, 5, 10, 15]);
 
-    const original = new BlockTxsRequest(blockHash, txIndices);
+    const original = new BlockTxsRequest(blockHash, missing, txIndices);
     const buffer = original.toBuffer();
     const deserialized = BlockTxsRequest.fromBuffer(buffer);
 
     expect(deserialized.blockHash).toEqual(original.blockHash);
+    expect(deserialized.txHashes.length).toBe(original.txHashes.length);
+    expect(deserialized.txHashes).toEqual(original.txHashes);
     expect(deserialized.txIndices.getLength()).toBe(original.txIndices.getLength());
     expect(deserialized.txIndices.getTrueIndices()).toEqual(original.txIndices.getTrueIndices());
   });
@@ -25,12 +39,102 @@ describe('BlockTxRequest', () => {
     const blockHash = Fr.random();
     const txIndices = BitVector.init(8, []);
 
-    const original = new BlockTxsRequest(blockHash, txIndices);
+    const original = new BlockTxsRequest(blockHash, new TxHashArray(), txIndices);
     const buffer = original.toBuffer();
     const deserialized = BlockTxsRequest.fromBuffer(buffer);
 
     expect(deserialized.blockHash).toEqual(blockHash);
     expect(deserialized.txIndices.getTrueIndices()).toEqual([]);
+  });
+
+  it('should create request with full tx hashes when includeFullTxHashes=true', () => {
+    const allTxHashes = Array.from({ length: 5 }, () => TxHash.random());
+    const blockProposal = createBlockProposal(allTxHashes);
+    const missingHashes = [allTxHashes[1], allTxHashes[3]];
+
+    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, true);
+
+    expect(request).toBeDefined();
+    expect(request!.blockHash).toEqual(blockProposal.archive);
+    expect(request!.txHashes.length).toBe(2);
+    expect(request!.txHashes).toEqual(new TxHashArray(...missingHashes));
+    expect(request!.txIndices.getTrueIndices()).toEqual([1, 3]);
+    expect(request!.txIndices.getLength()).toBe(5);
+  });
+
+  it('should create request without tx hashes when includeFullTxHashes=false', () => {
+    const allTxHashes = Array.from({ length: 5 }, () => TxHash.random());
+    const blockProposal = createBlockProposal(allTxHashes);
+    const missingHashes = [allTxHashes[0], allTxHashes[2], allTxHashes[4]];
+
+    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, false);
+
+    expect(request).toBeDefined();
+    expect(request!.blockHash).toEqual(blockProposal.archive);
+    expect(request!.txHashes.length).toBe(0);
+    expect(request!.txIndices.getTrueIndices()).toEqual([0, 2, 4]);
+    expect(request!.txIndices.getLength()).toBe(5);
+  });
+
+  it('should create request without tx hashes when includeFullTxHashes is not provided', () => {
+    const allTxHashes = Array.from({ length: 3 }, () => TxHash.random());
+    const blockProposal = createBlockProposal(allTxHashes);
+    const missingHashes = [allTxHashes[1]];
+
+    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes);
+
+    expect(request).toBeDefined();
+    expect(request!.blockHash).toEqual(blockProposal.archive);
+    expect(request!.txHashes.length).toBe(0);
+    expect(request!.txIndices.getTrueIndices()).toEqual([1]);
+  });
+
+  it('should return undefined when no missing txs are provided', () => {
+    const allTxHashes = Array.from({ length: 3 }, () => TxHash.random());
+    const blockProposal = createBlockProposal(allTxHashes);
+
+    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, [], true);
+    expect(request).toBeUndefined();
+
+    const requestDefault = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, []);
+    expect(requestDefault).toBeUndefined();
+  });
+
+  it('should return undefined when missing tx hashes do not match proposal hashes', () => {
+    const allTxHashes = Array.from({ length: 3 }, () => TxHash.random());
+    const blockProposal = createBlockProposal(allTxHashes);
+    const nonMatchingHashes = Array.from({ length: 2 }, () => TxHash.random());
+
+    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, nonMatchingHashes, true);
+    expect(request).toBeUndefined();
+  });
+
+  it('should serialize and deserialize correctly with full tx hashes', () => {
+    const allTxHashes = Array.from({ length: 4 }, () => TxHash.random());
+    const blockProposal = createBlockProposal(allTxHashes);
+    const missingHashes = [allTxHashes[0], allTxHashes[3]];
+
+    const original = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, true)!;
+    const buffer = original.toBuffer();
+    const deserialized = BlockTxsRequest.fromBuffer(buffer);
+
+    expect(deserialized.blockHash).toEqual(original.blockHash);
+    expect(deserialized.txHashes).toEqual(original.txHashes);
+    expect(deserialized.txIndices.getTrueIndices()).toEqual(original.txIndices.getTrueIndices());
+  });
+
+  it('should serialize and deserialize correctly without tx hashes', () => {
+    const allTxHashes = Array.from({ length: 4 }, () => TxHash.random());
+    const blockProposal = createBlockProposal(allTxHashes);
+    const missingHashes = [allTxHashes[1], allTxHashes[2]];
+
+    const original = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, false)!;
+    const buffer = original.toBuffer();
+    const deserialized = BlockTxsRequest.fromBuffer(buffer);
+
+    expect(deserialized.blockHash).toEqual(original.blockHash);
+    expect(deserialized.txHashes.length).toBe(0);
+    expect(deserialized.txIndices.getTrueIndices()).toEqual(original.txIndices.getTrueIndices());
   });
 });
 

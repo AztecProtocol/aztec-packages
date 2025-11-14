@@ -115,7 +115,7 @@ export async function createP2PClient<T extends P2PClientType>(
   }
 
   const txCollection = new TxCollection(
-    p2pService,
+    p2pService.getBatchTxRequesterService(),
     nodeSources,
     l1Constants,
     mempools.txPool,

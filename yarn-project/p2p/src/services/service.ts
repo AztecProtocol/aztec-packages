@@ -7,6 +7,7 @@ import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
 import type EventEmitter from 'events';
 
+import type { BatchTxRequesterLibP2PService } from './reqresp/batch-tx-requester/interface.js';
 import type { P2PReqRespConfig } from './reqresp/config.js';
 import type { StatusMessage } from './reqresp/index.js';
 import type {
@@ -88,6 +89,9 @@ export interface P2PService {
 
   /** If node running this P2P stack is validator, passes in validator address to P2P layer */
   registerThisValidatorAddresses(address: EthAddress[]): void;
+
+  /** Get BatchTxRequester service dependencies */
+  getBatchTxRequesterService(): BatchTxRequesterLibP2PService;
 }
 
 /**
