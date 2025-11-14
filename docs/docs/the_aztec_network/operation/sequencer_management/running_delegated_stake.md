@@ -33,8 +33,8 @@ aztec-up --version 2.1.4
 - GSE (Governance Staking Escrow): `0xfb243b9112bb65785a4a8edaf32529accf003614`
 
 **Mainnet:**
-- Staking Registry: 0x042dF8f42790d6943F41C25C2132400fd727f452
-- GSE: 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f
+- Staking Registry: `0x042dF8f42790d6943F41C25C2132400fd727f452`
+- GSE: `0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f`
 
 ## How Delegated Stake Works
 
