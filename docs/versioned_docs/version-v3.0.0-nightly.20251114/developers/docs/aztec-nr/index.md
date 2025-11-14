@@ -25,12 +25,12 @@ help you write Noir programs to deploy on the Aztec network.
 ```toml
 # Nargo.toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0.0-nightly.20251114", directory="noir-projects/smart-contracts/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0.0-nightly.20251114", directory="noir-projects/aztec-nr/aztec" }
 ```
 
 Update your `main.nr` contract file to use the Aztec.nr macros for writing contracts.
 
-```rust title="setup" showLineNumbers 
+```rust title="setup" showLineNumbers
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -41,7 +41,7 @@ pub contract Counter {
 
 and import dependencies from the Aztec.nr library.
 
-```rust title="imports" showLineNumbers 
+```rust title="imports" showLineNumbers
 use aztec::{
     macros::{functions::{external, initializer}, storage::storage},
     oracle::debug_log::debug_log_format, protocol_types::{address::AztecAddress, traits::ToField},

@@ -30,7 +30,7 @@ Aztec.nr provides pre-built note types for common use cases:
 
 ```toml
 # In Nargo.toml
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/smart-contracts/value-note" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
 ```
 
 ```rust
@@ -42,7 +42,7 @@ let note = ValueNote::new(100, owner);
 
 ```toml
 # In Nargo.toml
-address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/smart-contracts/address-note" }
+address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/address-note" }
 ```
 
 ```rust

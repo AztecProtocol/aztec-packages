@@ -21,7 +21,7 @@ Add the `authwit` library to your `Nargo.toml` file:
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0.0-nightly.20251114", directory="noir-projects/smart-contracts/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0.0-nightly.20251114", directory="noir-projects/aztec-nr/aztec" }
 ```
 
 Import the authwit library in your contract:
