@@ -215,11 +215,16 @@ describe('BBAPI Logging in Browser', () => {
     // Try to replay with bb msgpack run
     const { exec } = await import('child_process');
     const { promisify } = await import('util');
+    const { join } = await import('path');
+    const { fileURLToPath } = await import('url');
+    const { dirname } = await import('path');
     const execAsync = promisify(exec);
 
     try {
-      // Find the bb binary
-      const bbPath = '/mnt/user-data/jonathan/aztec-packages/barretenberg/cpp/build/bin/bb';
+      // Find the bb binary using relative path from this test file
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      const bbPath = join(__dirname, '../../../barretenberg/cpp/build/bin/bb');
 
       // Run bb msgpack run with the downloaded file
       const { stdout, stderr } = await execAsync(`${bbPath} msgpack run -i ${tmpPath}`, {
