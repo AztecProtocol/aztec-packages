@@ -301,20 +301,20 @@ std::vector<std::pair<C, FF>> handle_next_gas_used(const Gas& next_gas_used)
  * @param gas_limit The gas limit.
  * @return The relevant populated columns.
  */
-std::vector<std::pair<C, FF>> handle_gas_limit(TransactionPhase phase, const Gas& gas_limit, bool is_first_row)
+std::vector<std::pair<C, FF>> handle_gas_limit(TransactionPhase phase, const Gas& gas_limit, bool is_first_active_row)
 {
     const bool is_phase_teardown = is_teardown(phase);
 
     uint32_t gas_limit_pi_offset = 0;
     if (is_phase_teardown) {
         gas_limit_pi_offset = AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX;
-    } else if (is_first_row) {
+    } else if (is_first_active_row) {
         gas_limit_pi_offset = AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX;
     }
 
     return {
         { C::tx_gas_limit_pi_offset, gas_limit_pi_offset },
-        { C::tx_should_read_gas_limit, (is_phase_teardown || is_first_row) ? 1 : 0 },
+        { C::tx_should_read_gas_limit, (is_phase_teardown || is_first_active_row) ? 1 : 0 },
         { C::tx_da_gas_limit, gas_limit.da_gas },
         { C::tx_l2_gas_limit, gas_limit.l2_gas },
     };
@@ -487,7 +487,7 @@ std::vector<std::pair<C, FF>> handle_cleanup()
  *
  * @return The relevant populated columns.
  */
-std::vector<std::pair<C, FF>> handle_first_row()
+std::vector<std::pair<C, FF>> handle_first_active_row()
 {
     std::vector<std::pair<C, FF>> columns = {
         { C::tx_start_tx, 1 },
@@ -640,7 +640,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
     // From here we start populating the trace.
 
-    trace.set(row, handle_first_row());
+    trace.set(row, handle_first_active_row());
 
     // Go through each phase except startup and process the events in the phase
     for (uint32_t i = 0; i < NUM_PHASES; i++) {
