@@ -178,6 +178,86 @@ describe('BBAPI Logging in Browser', () => {
     }
   });
 
+  it('Should create msgpack file that can be replayed with bb msgpack run', async () => {
+    // Navigate to URL with BBAPI_DEBUG_LOG parameter
+    await page.goto('http://localhost:8080?BBAPI_DEBUG_LOG');
+
+    // Set up download listener
+    const downloadPromise = page.waitForEvent('download', { timeout: 5000 });
+
+    const result = await page.evaluate(async () => {
+      const { Barretenberg } = await import('@aztec/bb.js');
+      const api = await Barretenberg.new({ threads: 1 });
+
+      try {
+        // Make some BBAPI calls that we can replay
+        await api.grumpkinGetRandomFr({ dummy: 0 });
+        await api.grumpkinGetRandomFr({ dummy: 0 });
+        await api.destroy();
+        return { success: true };
+      } catch (e: any) {
+        return { error: e?.message || String(e) };
+      }
+    });
+
+    if ('error' in result) {
+      logger.error(`BBAPI call failed: ${result.error}`);
+      expect(result).toHaveProperty('success');
+      return;
+    }
+
+    // Save the downloaded file to /tmp
+    const download = await downloadPromise;
+    const tmpPath = `/tmp/browser-bbapi-test-${Date.now()}.msgpack`;
+    await download.saveAs(tmpPath);
+    logger.info(`Saved msgpack file to ${tmpPath}`);
+
+    // Try to replay with bb msgpack run
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+
+    try {
+      // Find the bb binary
+      const bbPath = '/mnt/user-data/jonathan/aztec-packages/barretenberg/cpp/build/bin/bb';
+
+      // Run bb msgpack run with the downloaded file
+      const { stdout, stderr } = await execAsync(`${bbPath} msgpack run -i ${tmpPath}`, {
+        timeout: 10000,
+      });
+
+      logger.info(`bb msgpack run output: ${stdout}`);
+      if (stderr) {
+        logger.info(`bb msgpack run stderr: ${stderr}`);
+      }
+
+      // Verify the command succeeded (should have processed the msgpack file)
+      expect(stdout.length).toBeGreaterThan(0);
+
+      // Verify we got responses for both calls
+      expect(stdout).toContain('GrumpkinGetRandomFrResponse');
+
+      logger.info('BBAPI logging replay test passed - msgpack file successfully replayed with bb');
+    } catch (e: any) {
+      logger.error(`Failed to replay msgpack with bb: ${e.message}`);
+      if (e.stdout) {
+        logger.error(`stdout: ${e.stdout}`);
+      }
+      if (e.stderr) {
+        logger.error(`stderr: ${e.stderr}`);
+      }
+      throw e;
+    } finally {
+      // Clean up temp file
+      const { unlinkSync } = await import('fs');
+      try {
+        unlinkSync(tmpPath);
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  });
+
   it('Should not trigger download when logging is disabled', async () => {
     // Don't set localStorage or URL param - logging should be disabled
     await page.goto('http://localhost:8080');
