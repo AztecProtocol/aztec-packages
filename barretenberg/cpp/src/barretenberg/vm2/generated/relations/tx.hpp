@@ -14,9 +14,9 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 66> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 4, 3, 4, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 6, 3, 5, 7, 3, 3, 3, 3, 3, 4, 3, 5, 3, 5, 3, 3, 4, 4,
-        4, 4, 2, 4, 5, 3, 3, 3, 4, 5, 4, 4, 4, 4, 5, 4, 3, 4, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+    static constexpr std::array<size_t, 68> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 4, 3, 4, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 6, 3, 5, 7, 3, 3, 3, 3, 3, 4, 3, 5, 3, 5, 3, 3, 4, 4, 4,
+        4, 2, 4, 5, 3, 3, 3, 4, 3, 5, 4, 3, 4, 4, 4, 5, 4, 3, 4, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -61,18 +61,18 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
     static constexpr size_t SR_READ_PI_OFFSET_INIT = 27;
     static constexpr size_t SR_INCR_READ_PI_OFFSET = 28;
     static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 37;
-    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 42;
-    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 47;
-    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 50;
-    static constexpr size_t SR_COMPUTE_FEE = 52;
-    static constexpr size_t SR_TEARDOWN_GETS_FEE = 53;
-    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 54;
-    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING = 60;
-    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 61;
-    static constexpr size_t SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING = 62;
-    static constexpr size_t SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING = 63;
-    static constexpr size_t SR_PAD_NULLIFIER_TREE = 64;
-    static constexpr size_t SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING = 65;
+    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 43;
+    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 49;
+    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 52;
+    static constexpr size_t SR_COMPUTE_FEE = 54;
+    static constexpr size_t SR_TEARDOWN_GETS_FEE = 55;
+    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 56;
+    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING = 62;
+    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 63;
+    static constexpr size_t SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING = 64;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING = 65;
+    static constexpr size_t SR_PAD_NULLIFIER_TREE = 66;
+    static constexpr size_t SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING = 67;
 
     static std::string get_subrelation_label(size_t index)
     {

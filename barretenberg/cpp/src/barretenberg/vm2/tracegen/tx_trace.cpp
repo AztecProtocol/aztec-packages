@@ -378,9 +378,10 @@ std::vector<std::pair<C, FF>> handle_nullifier_append(const PrivateAppendTreeEve
 
     return {
         { C::tx_leaf_value, event.leaf_value },
+        { C::tx_nullifier_limit_error, remaining_nullifiers > 0 ? 0 : 1 },
         { C::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
         { C::tx_should_try_nullifier_append, 1 },
-        { C::tx_should_nullifier_append, remaining_nullifiers > 0 },
+        { C::tx_should_nullifier_append, remaining_nullifiers > 0 ? 1 : 0 },
     };
 }
 

@@ -392,7 +392,7 @@ namespace tx;
     pol commit sel_non_revertible_append_l2_l1_msg;
     // A tree selector means we need to get the tree value
     pol commit is_tree_insert_phase;
-    is_tree_insert_phase  = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
+    is_tree_insert_phase = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
     pol commit leaf_value;
     // Shared column to track the inverse of the remaining side effects for note hashes, nullifiers and l2 to l1 messages
     pol commit remaining_side_effects_inv;
@@ -408,15 +408,14 @@ namespace tx;
     should_try_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
 
     // If we are at the maximum emitted note hashes, we must revert
-    pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX -
-        prev_num_note_hashes_emitted;
+    pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX - prev_num_note_hashes_emitted;
     // Revert if remaining note hashes is 0
     #[MAX_NOTE_HASH_WRITES_REACHED]
     should_try_note_hash_append * (REMAINING_NOTE_HASH_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
 
     // Commited since it's used in the lookup
     pol commit should_note_hash_append;
-    should_try_note_hash_append * ((1 - reverted) - should_note_hash_append) = 0;
+    should_note_hash_append = should_try_note_hash_append * (1 - reverted);
 
     #[NOTE_HASH_APPEND]
     should_note_hash_append {
@@ -448,19 +447,20 @@ namespace tx;
     pol commit should_try_nullifier_append;
     should_try_nullifier_append = sel * (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
 
-    // Commited since it's used in the lookup
-    pol commit should_nullifier_append;
-    pol NULLIFIER_LIMIT_ERROR = 1 - should_nullifier_append;
+    pol commit nullifier_limit_error;
+    nullifier_limit_error * (1 - nullifier_limit_error) = 0;
 
     // If we are at the maximum emitted nullifiers, we must disable the lookup
-    pol REMAINING_NULLIFIER_WRITES = constants.MAX_NULLIFIERS_PER_TX -
-        prev_num_nullifiers_emitted;
+    pol REMAINING_NULLIFIER_WRITES = constants.MAX_NULLIFIERS_PER_TX - prev_num_nullifiers_emitted;
     // Disable the lookup if remaining nullifiers is 0
     #[MAX_NULLIFIER_WRITES_REACHED]
-    should_try_nullifier_append * (REMAINING_NULLIFIER_WRITES * (NULLIFIER_LIMIT_ERROR * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + NULLIFIER_LIMIT_ERROR) = 0;
+    should_try_nullifier_append * (REMAINING_NULLIFIER_WRITES * (nullifier_limit_error * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + nullifier_limit_error) = 0;
 
     // If over the limit, reverted=1, else, reverted is constrained by the lookup
-    should_try_nullifier_append * NULLIFIER_LIMIT_ERROR * (1 - reverted) = 0;
+    should_try_nullifier_append * nullifier_limit_error * (1 - reverted) = 0;
+
+    pol commit should_nullifier_append;
+    should_nullifier_append = should_try_nullifier_append * (1 - nullifier_limit_error);
 
     #[NULLIFIER_APPEND]
     should_nullifier_append {
@@ -508,7 +508,7 @@ namespace tx;
 
     pol commit should_l2_l1_msg_append;
     // A msg emit must be written to PI if it didn't revert, and is not discard.
-    should_try_l2_l1_msg_append * ((1 - reverted) * (1 - discard) - should_l2_l1_msg_append) = 0;
+    should_l2_l1_msg_append = should_try_l2_l1_msg_append * (1 - reverted) * (1 - discard);
     // discard is from tx_discard.pil virtual trace
 
     should_l2_l1_msg_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_messages - write_pi_offset) = 0;
