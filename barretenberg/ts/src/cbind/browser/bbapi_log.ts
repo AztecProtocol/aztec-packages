@@ -26,7 +26,8 @@ export function shouldLogBbapi(): boolean {
       }
     }
   } catch (e) {
-    // Silently fail if localStorage or window is not available
+    // Catch SecurityError (localStorage in cross-origin iframes/private browsing)
+    // or any other unexpected browser API errors
   }
 
   return false;
