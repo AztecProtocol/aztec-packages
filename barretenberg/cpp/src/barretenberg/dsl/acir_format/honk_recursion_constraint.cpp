@@ -250,8 +250,40 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
     RecursiveVerifier verifier(&builder, vk_and_hash);
     UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.template verify_proof<IO>(proof_fields);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
-    // is important, like what the plonk recursion constraint does.
+
+#ifndef NDEBUG
+    using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
+    using NativeIO = std::conditional_t<HasIPAAccumulator<Flavor>, bb::RollupIO, bb::DefaultIO>;
+    auto native_vkey = std::make_shared<NativeVerificationKey>(vkey->get_value());
+    HonkProof native_proof = proof_fields.get_value();
+    HonkProof honk_proof;
+    HonkProof ipa_proof;
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        honk_proof = HonkProof(native_proof.begin(), native_proof.end() - IPA_PROOF_LENGTH);
+        ipa_proof = HonkProof(native_proof.end() - IPA_PROOF_LENGTH, native_proof.end());
+    } else {
+        honk_proof = native_proof;
+    }
+    UltraVerifier_<typename Flavor::NativeFlavor> native_verifier(
+        native_vkey, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
+    bool is_valid_proof(native_verifier.template verify_proof<NativeIO>(honk_proof, ipa_proof));
+    info("===== HONK RECURSION CONSTRAINT DEBUG INFO =====");
+    std::string flavor;
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        flavor = "Ultra Rollup Flavor";
+    } else if constexpr (Flavor::HasZK) {
+        flavor = "Ultra ZK Flavor";
+    } else {
+        flavor = "Ultra Flavor";
+    }
+    info("Flavor used: ", flavor);
+    info("Honk recursion constraint: is the native proof corresponding to the in-circuit proof valid? ",
+         is_valid_proof ? "true" : "false");
+    info("===== END OF HONK RECURSION CONSTRAINT DEBUG INFO =====");
+#endif
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether
+    // assert_equal on public inputs is important, like what the plonk recursion constraint does.
     return verifier_output;
 }
 
