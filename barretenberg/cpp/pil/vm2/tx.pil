@@ -107,6 +107,7 @@ namespace tx;
     sel {
         phase_value,
         is_public_call_request,
+        is_teardown,
         is_collect_fee,
         is_tree_padding,
         is_cleanup,
@@ -130,6 +131,7 @@ namespace tx;
     precomputed.sel_phase {
         precomputed.clk,
         precomputed.is_public_call_request,
+        precomputed.is_teardown,
         precomputed.is_collect_fee,
         precomputed.is_tree_padding,
         precomputed.is_cleanup,
@@ -221,21 +223,21 @@ namespace tx;
     pol commit should_process_call_request;
     should_process_call_request = is_public_call_request * (1 - is_padded);
 
-    pol commit is_teardown_phase; // TODO: Constrain
-    is_teardown_phase * (1 - is_teardown_phase) = 0;
+    pol commit is_teardown;
+    is_teardown * (1 - is_teardown) = 0;
 
     pol commit prev_l2_gas_used_sent_to_enqueued_call;
     pol commit prev_da_gas_used_sent_to_enqueued_call;
     pol commit next_l2_gas_used_sent_to_enqueued_call;
     pol commit next_da_gas_used_sent_to_enqueued_call;
 
-    // prev_gas_used_sent_to_enqueued_call = is_teardown_phase ? 0 : prev_gas_used
-    should_process_call_request * ((0 - prev_l2_gas_used) * is_teardown_phase + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
-    should_process_call_request * ((0 - prev_da_gas_used) * is_teardown_phase + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
-    // next_gas_used = is_teardown_gas_phase ? prev_gas_used : next_gas_used_sent_to_enqueued_call
+    // prev_gas_used_sent_to_enqueued_call = is_teardown ? 0 : prev_gas_used
+    should_process_call_request * ((0 - prev_l2_gas_used) * is_teardown + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
+    should_process_call_request * ((0 - prev_da_gas_used) * is_teardown + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
+    // next_gas_used = is_teardown ? prev_gas_used : next_gas_used_sent_to_enqueued_call
     // In the teardown phase, next_gas_used_sent_to_enqueued_call is unconstrained on purpose: we don't care about gas usage in teardown
-    should_process_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
-    should_process_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
+    should_process_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
+    should_process_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
 
     // Public Call Requests are dispatch to the execution trace
     // We match the values to the start of an enqueued call in the execution trace
@@ -536,10 +538,10 @@ namespace tx;
     // During teardown, transaction fee must be the same as the one used in collect_fee (the following row/phase)
     // (unless it is a padded row)
     #[TEARDOWN_GETS_FEE]
-    is_teardown_phase * (1 - is_padded) * (fee' - fee) = 0;
+    is_teardown * (1 - is_padded) * (fee' - fee) = 0;
     // In all other phases, force fee to 0
     #[FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN]
-    (1 - is_collect_fee) * (1 - is_teardown_phase) * fee = 0;
+    (1 - is_collect_fee) * (1 - is_teardown) * fee = 0;
 
     pol commit fee_juice_contract_address;
     is_collect_fee * (constants.FEE_JUICE_ADDRESS - fee_juice_contract_address) = 0;

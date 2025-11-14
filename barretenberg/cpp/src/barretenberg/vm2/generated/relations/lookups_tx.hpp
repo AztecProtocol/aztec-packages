@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_tx_read_phase_spec_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_SPEC";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 20;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 21;
     static constexpr Column SRC_SELECTOR = Column::tx_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
     static constexpr Column COUNTS = Column::lookup_tx_read_phase_spec_counts;
@@ -24,6 +24,7 @@ struct lookup_tx_read_phase_spec_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::tx_phase_value,
         ColumnAndShifts::tx_is_public_call_request,
+        ColumnAndShifts::tx_is_teardown,
         ColumnAndShifts::tx_is_collect_fee,
         ColumnAndShifts::tx_is_tree_padding,
         ColumnAndShifts::tx_is_cleanup,
@@ -46,6 +47,7 @@ struct lookup_tx_read_phase_spec_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk,
         ColumnAndShifts::precomputed_is_public_call_request,
+        ColumnAndShifts::precomputed_is_teardown,
         ColumnAndShifts::precomputed_is_collect_fee,
         ColumnAndShifts::precomputed_is_tree_padding,
         ColumnAndShifts::precomputed_is_cleanup,

@@ -81,6 +81,9 @@ export const AbiDecodedSchema: ZodFor<AbiDecoded> = z.union([
   z.record(z.lazy(() => AbiDecodedSchema)),
 ]);
 
+// C++ only supports null values, which we want to convert to undefined.
+export const NullishToUndefined = (schema: ZodFor<any>) => schema.nullish().transform(x => x ?? undefined);
+
 export {
   type ZodFor,
   bufferSchema,

@@ -66,7 +66,7 @@ Uses Docusaurus versioning with:
 - `versioned_docs/version-X.X.X/` contains historical versions
 - `versioned_sidebars/` contains version-specific sidebar configurations
 - Macros (`#include_code`, `#include_aztec_version`, etc.) only work in source `docs/` folder, not in versioned copies
-- Version dropdown shows: `Next`, `testnet`, and latest sandbox release versions
+- Version dropdown shows: `Next`, `testnet`, and latest release versions
 
 ## Documentation Review Standards
 

@@ -150,12 +150,12 @@ namespace tx;
 
     pol commit gas_limit_pi_offset;
     start_tx * (constants.AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX - gas_limit_pi_offset) = 0;
-    is_teardown_phase * (constants.AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX - gas_limit_pi_offset) = 0;
+    is_teardown * (constants.AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX - gas_limit_pi_offset) = 0;
 
     // Gas limit is read twice, but not on start and end, but rather on start and teardown.
     // On start we read the general tx gas limit, and on teardown we read the teardown gas limit.
     pol commit should_read_gas_limit;
-    should_read_gas_limit = start_tx + is_teardown_phase;
+    should_read_gas_limit = start_tx + is_teardown;
 
     #[PUBLIC_INPUTS_READ_GAS_LIMIT]
     should_read_gas_limit {
@@ -305,9 +305,9 @@ namespace tx;
     NOT_LAST_ROW * (next_da_gas_used - prev_da_gas_used') = 0;
 
     #[PROPAGATE_L2_GAS_LIMIT]
-    NOT_LAST_ROW * (1 - is_teardown_phase') * (l2_gas_limit - l2_gas_limit') = 0;
+    NOT_LAST_ROW * (1 - is_teardown') * (l2_gas_limit - l2_gas_limit') = 0;
     #[PROPAGATE_DA_GAS_LIMIT]
-    NOT_LAST_ROW * (1 - is_teardown_phase') * (da_gas_limit - da_gas_limit') = 0;
+    NOT_LAST_ROW * (1 - is_teardown') * (da_gas_limit - da_gas_limit') = 0;
 
     // Selectors to allow prev => next state changes on the different phases
     pol commit sel_can_emit_note_hash;

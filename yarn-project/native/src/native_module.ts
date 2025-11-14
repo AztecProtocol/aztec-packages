@@ -102,6 +102,7 @@ export interface ContractProvider {
  * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
  * @param contractProvider - Object with callbacks for fetching contract instances and classes
  * @param worldStateHandle - Native handle to WorldState instance
+ * TODO(MW): include generate_hints bool
  * @returns Promise resolving to msgpack-serialized AvmCircuitPublicInputs buffer
  */
 export const avmSimulate: (

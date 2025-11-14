@@ -40,7 +40,7 @@ services:
     # Propagating the signal (e.g. via exec) isn't much use, as jest provides no mechanism for cleanup on signals.
     # Better would be just to have no state...
     #
-    # We wait for the sandbox to become live.
+    # We wait for the local network to become live.
     # We launch the test in the background and capture it's process id.
     # We launch it using setsid, which will ensure the test and all subprocesses have their own process group id.
     # We set a trap to handle SIGTERM (comes from docker-compose when it receives e.g. SIGINT).

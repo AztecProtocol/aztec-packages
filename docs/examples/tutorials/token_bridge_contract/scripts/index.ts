@@ -39,7 +39,7 @@ const ethWallet = createWalletClient({
   transport: http("http://localhost:8545"),
 });
 
-// Setup L2 using Aztec's sandbox and one of its initial accounts
+// Setup L2 using Aztec's local network and one of its initial accounts
 console.log("🔮 Setting up L2...\n");
 const node = createAztecNodeClient("http://localhost:8080");
 const aztecWallet = await TestWallet.create(node);
@@ -288,7 +288,7 @@ const msgLeaf = computeL2ToL1MessageHash({
 });
 
 // Wait for the block to be proven before withdrawing
-// Waiting for the block to be proven is not necessary on the sandbox, but it is necessary on devnet
+// Waiting for the block to be proven is not necessary on the local network, but it is necessary on devnet
 console.log("⏳ Waiting for block to be proven...");
 console.log(`   Exit block number: ${exitReceipt.blockNumber}`);
 

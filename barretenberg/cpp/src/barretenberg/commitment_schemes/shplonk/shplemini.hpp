@@ -14,6 +14,7 @@
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -266,6 +267,14 @@ template <typename Curve> class ShpleminiVerifier_ {
             libra_evaluations[1] = transcript->template receive_from_prover<Fr>("Libra:shifted_grand_sum_eval");
             libra_evaluations[2] = transcript->template receive_from_prover<Fr>("Libra:grand_sum_eval");
             libra_evaluations[3] = transcript->template receive_from_prover<Fr>("Libra:quotient_eval");
+
+            // OriginTag false positive: Libra evaluations need to satisfy an identity where they
+            // are mixing without challenge, it is safe because these evaluations are opened in Shplonk.
+            if constexpr (Curve::is_stdlib_type) {
+                for (auto& eval : libra_evaluations) {
+                    eval.clear_child_tag();
+                }
+            }
         }
 
         // Process Shplonk transcript data:

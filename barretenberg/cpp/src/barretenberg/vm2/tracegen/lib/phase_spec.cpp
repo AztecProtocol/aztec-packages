@@ -102,6 +102,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec> TX_PHASE_SPEC_MAP = { {
       {
           .phase_value = static_cast<uint8_t>(TransactionPhase::TEARDOWN),
           .is_public_call_request = 1,
+          .is_teardown = 1,
           .is_revertible = 1,
           .read_pi_start_offset = AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX,
           .read_pi_length_offset = AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX,

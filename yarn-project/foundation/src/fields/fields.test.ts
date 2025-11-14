@@ -103,6 +103,15 @@ describe('GrumpkinScalar Serialization', () => {
   });
 });
 
+describe('Fr Serialization via schema', () => {
+  it('should serialize and deserialize correctly (hex)', () => {
+    const original = Fr.random();
+    const string = original.toString();
+    const obtained = Fr.schema.parse(string);
+    expect(obtained).toEqual(original);
+  });
+});
+
 describe('Bn254 arithmetic', () => {
   describe('Addition', () => {
     it('Low Boundary', () => {

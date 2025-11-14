@@ -1,7 +1,7 @@
 ---
 title: Reference
 description: Comprehensive reference for the Aztec wallet command-line interface (CLI).
-tags: [sandbox, wallet, cli]
+tags: [local network, wallet, cli]
 keywords: [wallet, cli wallet]
 sidebar_position: 3
 ---
@@ -50,7 +50,7 @@ Many options can be set using environment variables. For example:
 
 ### Proving transactions
 
-You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../tutorials/sandbox.md#proving-with-aztec-wallet). Proving transactions is required when interacting with the testnet.
+You can prove a transaction using the aztec-wallet with a running local network. Follow the guide [here](../tutorials/local_network.md#proving-with-aztec-wallet). Proving transactions is required when interacting with the testnet.
 
 ## Aliases
 
@@ -109,12 +109,12 @@ aztec-wallet create-account -a main --payment method=fpc-sponsored,fpc=$FPC_ADDR
 ```
 
 :::note
-In the sandbox, the sponsored FPC address is printed at the end of its initial logs.
+In the local network, the sponsored FPC address is printed at the end of its initial logs.
 :::
 
-### Fee Juice from Sandbox Test accounts
+### Fee Juice from Local Network Test accounts
 
-In the sandbox pre-loaded test accounts can be used to cover fee juice when deploying contracts.
+In the local network pre-loaded test accounts can be used to cover fee juice when deploying contracts.
 
 First import them:
 
@@ -126,14 +126,14 @@ Then use the alias (test0, test1...) when paying in fee juice. Eg to create acco
 
 ### Mint and Bridge Fee Juice
 
-#### On Sandbox
+#### On Local Network
 
 First register an account, mint the fee asset on L1 and bridge it to fee juice:
 
 #include_code bridge-fee-juice yarn-project/cli-wallet/test/flows/create_account_pay_native.sh bash
 
 You'll have to wait for two blocks to pass for bridged fee juice to be ready on Aztec.
-For the sandbox you do this by putting through two arbitrary transactions. Eg:
+For the local network you do this by putting through two arbitrary transactions. Eg:
 
 <!-- This is hard coded because the 'aztec-wallet deploy Counter' command is different in the test file -->
 
@@ -552,7 +552,7 @@ Mints L1 Fee Juice and pushes them to L2.
 The wallet provides an easy way to mint the fee-paying asset on L1 and
 bridging it to L2. Current placeholder-name "fee juice".
 
-Using the sandbox, there's already a Fee Juice contract that manages this
+Using the local network, there's already a Fee Juice contract that manages this
 enshrined asset. You can optionally mint more Juice before bridging it.
 
 ```bash
@@ -578,7 +578,7 @@ aztec-wallet bridge-fee-juice [options] <amount> <recipient>
 
 #### Example
 
-This simple sandbox example mints an amount of fee juice and bridges it to the `master_yoda` recipient on L2. For testnet, you will need to specify relevant L1 options listed above.
+This simple local network example mints an amount of fee juice and bridges it to the `master_yoda` recipient on L2. For testnet, you will need to specify relevant L1 options listed above.
 
 ```bash
 aztec-wallet bridge-fee-juice --mint <amount> master_yoda

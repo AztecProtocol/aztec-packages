@@ -9,7 +9,7 @@ This guide walks you through creating and deploying a new account contract in Az
 
 ## Prerequisites
 
-- Running Aztec sandbox or testnet
+- Running Aztec local network or testnet
 - Node.js and TypeScript environment
 - `@aztec/aztec.js` package installed
 - Understanding of [account concepts](../foundational-topics/accounts/index.md)
@@ -57,16 +57,16 @@ const wallet = await TestWallet.create(node);
 
 ### Get Fee Juice
 
-On the sandbox, all test accounts come pre-funded with Fee Juice. [Import them](./how_to_connect_to_sandbox.md) to start using them immediately.
+On the local network, all test accounts come pre-funded with Fee Juice. [Import them](./how_to_connect_to_local_network.md) to start using them immediately.
 
 On testnet, accounts start without Fee Juice. You can either [use an account that has Fee Juice](./how_to_pay_fees.md#pay-with-fee-juice) or [use the Sponsored Fee Payment Contract](./how_to_pay_fees.md#sponsored-fee-payment-contracts).
 
 ### Register and deploy accounts
 
-Test accounts on the Sandbox are already deployed but need to be registered in the wallet:
+Test accounts on the local network are already deployed but need to be registered in the wallet:
 
 ```typescript
-// on the Sandbox, you can get the initial test accounts data using getInitialTestAccountsData
+// on the local network, you can get the initial test accounts data using getInitialTestAccountsData
 const [initialAccountData] = await getInitialTestAccountsData();
 // add the funded account to the wallet
 const initialAccount = await wallet.createSchnorrAccount(
