@@ -189,8 +189,8 @@
       <div class="control-group">
         <label for="flow">Flow Name:</label>
         <select id="flow">
-          <option value="ecdsar1+transfer_1_recursions+sponsored_fpc">ecdsar1+transfer_1_recursions+sponsored_fpc</option>
-          <option value="ecdsar1+transfer_0_recursions+sponsored_fpc" selected>ecdsar1+transfer_0_recursions+sponsored_fpc</option>
+          <option value="ecdsar1+transfer_1_recursions+sponsored_fpc" selected>ecdsar1+transfer_1_recursions+sponsored_fpc</option>
+          <option value="ecdsar1+transfer_0_recursions+sponsored_fpc">ecdsar1+transfer_0_recursions+sponsored_fpc</option>
           <option value="ecdsar1+token_bridge_claim_private+sponsored_fpc">ecdsar1+token_bridge_claim_private+sponsored_fpc</option>
           <option value="deploy_ecdsar1+sponsored_fpc">deploy_ecdsar1+sponsored_fpc</option>
           <option value="ecdsar1+transfer_1_recursions+private_fpc">ecdsar1+transfer_1_recursions+private_fpc</option>
@@ -361,7 +361,7 @@
       const url = new URL(window.location);
       const defaults = {
         runtime: 'native',
-        flow: 'ecdsar1+transfer_0_recursions+sponsored_fpc'
+        flow: 'ecdsar1+transfer_1_recursions+sponsored_fpc'
       };
 
       // Clear existing params
@@ -580,7 +580,13 @@
         const response = await fetch(url);
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch data (${response.status}). The breakdown might not exist for this commit.`);
+          const errorMsg = `Failed to fetch data (${response.status}). The breakdown might not exist for this commit.<br><br>` +
+            `<strong>Note:</strong> CI only uploads benchmark breakdowns for <code>ecdsar1+transfer_1_recursions+sponsored_fpc</code> (native runtime) by default.<br><br>` +
+            `To generate breakdowns for other flows, run locally:<br>` +
+            `<code style="display: block; background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 4px; margin-top: 8px;">` +
+            `FORCE_UPLOAD_BREAKDOWN=1 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh ${runtime} path/to/${flow}` +
+            `</code>`;
+          throw new Error(errorMsg);
         }
 
         benchmarkData = await response.json();
