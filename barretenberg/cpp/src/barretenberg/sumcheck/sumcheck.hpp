@@ -775,6 +775,7 @@ template <typename Flavor> class SumcheckVerifier {
             // multivariate over the hypercube
             libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
             libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
+            info("c++ Libra", libra_challenge);
             round.target_total_sum = libra_total_sum * libra_challenge;
         }
 
@@ -808,7 +809,10 @@ template <typename Flavor> class SumcheckVerifier {
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
         FF full_honk_purported_value = round.compute_full_relation_purported_value(
             purported_evaluations, relation_parameters, gate_separators, alphas);
-
+        info("full honk eval ", full_honk_purported_value);
+        if constexpr (IsAnyOf<Flavor, UltraKeccakZKFlavor>) {
+            info("masking poly eval ", purported_evaluations.gemini_masking_poly);
+        }
         // For ZK Flavors: compute the evaluation of the Row Disabling Polynomial at the sumcheck challenge and of the
         // libra univariate used to hide the contribution from the actual Honk relation
         if constexpr (Flavor::HasZK) {
