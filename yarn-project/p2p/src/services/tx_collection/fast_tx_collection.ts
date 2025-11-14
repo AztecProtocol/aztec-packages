@@ -12,7 +12,9 @@ import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
-import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
+import { BatchTxRequester } from '../reqresp/batch-tx-requester/batch_tx_requester.js';
+import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
+import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import type { TxCollectionConfig } from './config.js';
 import type { FastCollectionRequest, FastCollectionRequestInput } from './tx_collection.js';
@@ -24,7 +26,7 @@ export class FastTxCollection {
   protected requests: Set<FastCollectionRequest> = new Set();
 
   constructor(
-    private reqResp: Pick<ReqRespInterface, 'sendBatchRequest'>,
+    private p2pService: BatchTxRequesterLibP2PService,
     private nodes: TxSource[],
     private txCollectionSink: TxCollectionSink,
     private config: TxCollectionConfig,
@@ -261,16 +263,34 @@ export class FastTxCollection {
     try {
       await this.txCollectionSink.collect(
         async txHashes => {
-          const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
-            ReqRespSubProtocol.TX,
-            chunkTxHashesRequest(txHashes),
-            pinnedPeer,
-            timeoutMs,
-            maxPeers,
-            maxRetryAttempts,
-          );
+          if (request.type === 'proposal') {
+            const blockProposal = request.blockProposal;
 
-          return txs.flat();
+            const batchRequester = new BatchTxRequester(
+              txHashes,
+              blockProposal,
+              pinnedPeer,
+              timeoutMs,
+              this.p2pService,
+              this.log,
+              this.dateProvider,
+            );
+
+            return await BatchTxRequester.collectAllTxs(batchRequester.run());
+          } else if (request.type === 'block') {
+            const txs = await this.p2pService.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
+              ReqRespSubProtocol.TX,
+              chunkTxHashesRequest(txHashes),
+              pinnedPeer,
+              timeoutMs,
+              maxPeers,
+              maxRetryAttempts,
+            );
+
+            return txs.flat();
+          } else {
+            throw new Error(`Unknown request type: ${(request as any).type}`);
+          }
         },
         Array.from(request.missingTxHashes).map(txHash => TxHash.fromString(txHash)),
         { description: `reqresp for slot ${slotNumber}`, method: 'fast-req-resp', ...opts, ...request.blockInfo },

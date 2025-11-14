@@ -88,10 +88,12 @@ import { gossipScoreThresholds } from '../gossipsub/scoring.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
+import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import type { P2PReqRespConfig } from '../reqresp/config.js';
 import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
+  type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
@@ -639,6 +641,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     pinnedPeerId: PeerId | undefined,
   ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
     return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
+  }
+
+  public sendRequestToPeer(
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+    payload: Buffer,
+    dialTimeout?: number,
+  ): Promise<ReqRespResponse> {
+    return this.reqresp.sendRequestToPeer(peerId, subProtocol, payload, dialTimeout);
   }
 
   /**
@@ -1433,6 +1444,37 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return true;
   }
 
+  @trackSpan('Libp2pService.validateFastTx', tx => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  }))
+  private async validateFastTx(tx: Tx, _peerId: PeerId): Promise<boolean> {
+    const currentBlockNumber = await this.archiver.getBlockNumber();
+
+    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
+
+    for (const validator of messageValidators) {
+      const outcome = await this.runValidations(tx, validator);
+
+      if (outcome.allPassed) {
+        continue;
+      }
+      const { name } = outcome.failure;
+      // let { severity } = outcome.failure;
+
+      // Double spend validator has a special case handler
+      if (name === 'doubleSpendValidator') {
+        const txBlockNumber = currentBlockNumber + 1; // tx is expected to be in the next block
+        const _severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
+      }
+
+      // TODO: Penalize Peer?
+      return false;
+    }
+    return true;
+  }
+
   private async getGasFees(blockNumber: BlockNumber): Promise<GasFees> {
     if (blockNumber === this.feesCache?.blockNumber) {
       return this.feesCache.gasFees;
@@ -1442,6 +1484,17 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const gasFees = header?.globalVariables.gasFees ?? GasFees.empty();
     this.feesCache = { blockNumber, gasFees };
     return gasFees;
+  }
+
+  /**
+   * Get the BatchTxRequesterLibP2PService dependencies for creating BatchTxRequester instances
+   */
+  public getBatchTxRequesterService(): BatchTxRequesterLibP2PService {
+    return {
+      reqResp: this.reqresp,
+      connectionSampler: this.reqresp.getConnectionSampler(),
+      txValidator: this.validateFastTx.bind(this),
+    };
   }
 
   public async validate(txs: Tx[]): Promise<void> {

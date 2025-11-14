@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { TxArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -32,6 +33,20 @@ export function reqRespBlockTxsHandler(attestationPool: AttestationPool, txPool:
 
     const blockProposal = await attestationPool.getBlockProposal(request.blockHash.toString());
 
+    let requestedTxsHashes;
+    if (request.txHashes.length > 0) {
+      requestedTxsHashes = request.txHashes;
+    }
+
+    // This is scenario in which we don't have this block proposal the peer is requesting from us
+    // But peer has sent requested tx hashes, so we can send them the transactions
+    if (!blockProposal && requestedTxsHashes !== undefined) {
+      const responseTxs = (await txPool.getTxsByHash(requestedTxsHashes)).filter(tx => !!tx);
+      const response = new BlockTxsResponse(Fr.zero(), new TxArray(...responseTxs), BitVector.init(0, []));
+      return response.toBuffer();
+    }
+
+    // If don't have this block proposal and peer has not sent requested tx hashes
     if (!blockProposal) {
       throw new ReqRespStatusError(ReqRespStatus.NOT_FOUND);
     }
@@ -42,10 +57,9 @@ export function reqRespBlockTxsHandler(attestationPool: AttestationPool, txPool:
     const responseBitVector = BitVector.init(blockProposal.txHashes.length, availableIndices);
 
     const requestedIndices = new Set(request.txIndices.getTrueIndices());
-    const requestedTxsHashes = blockProposal.txHashes.filter((_, idx) => requestedIndices.has(idx));
+    requestedTxsHashes = blockProposal.txHashes.filter((_, idx) => requestedIndices.has(idx));
 
     const responseTxs = (await txPool.getTxsByHash(requestedTxsHashes)).filter(tx => !!tx);
-
     const response = new BlockTxsResponse(request.blockHash, new TxArray(...responseTxs), responseBitVector);
 
     return response.toBuffer();

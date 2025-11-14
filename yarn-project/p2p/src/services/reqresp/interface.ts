@@ -5,6 +5,7 @@ import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 import type { PeerId } from '@libp2p/interface';
 
 import type { P2PReqRespConfig } from './config.js';
+import type { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import { AuthRequest, AuthResponse } from './protocols/auth.js';
 import { BlockTxsRequest, BlockTxsResponse } from './protocols/block_txs/block_txs_reqresp.js';
 import { StatusMessage } from './protocols/status.js';
@@ -237,4 +238,6 @@ export interface ReqRespInterface {
   ): Promise<ReqRespResponse>;
 
   updateConfig(config: Partial<P2PReqRespConfig>): void;
+
+  getConnectionSampler(): Pick<ConnectionSampler, 'getPeerListSortedByConnectionCountAsc'>;
 }
