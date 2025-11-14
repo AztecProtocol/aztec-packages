@@ -1023,7 +1023,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::mark_range_list_connected_components()
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::mark_finalize_connected_components()
 {
-    const auto& finalize_witnesses = circuit_builder.finalize_witnesses;
+    const auto& finalize_witnesses = circuit_builder.get_finalize_witnesses();
     for (auto& cc : connected_components) {
         const auto& vars = cc.vars();
         cc.is_finalize_cc = std::all_of(vars.begin(), vars.end(), [&finalize_witnesses](uint32_t var_idx) {
@@ -1154,10 +1154,10 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_decompose_va
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_range_constrains_variables()
 {
-    std::map<uint64_t, typename CircuitBuilder::RangeList> range_lists = circuit_builder.range_lists;
+    const auto& range_lists = circuit_builder.range_lists;
     std::unordered_set<uint32_t> range_lists_tau_tags;
     std::unordered_set<uint32_t> range_lists_range_tags;
-    std::vector<uint32_t> real_variable_tags = circuit_builder.real_variable_tags;
+    const auto& real_variable_tags = circuit_builder.real_variable_tags;
     for (const auto& pair : range_lists) {
         typename CircuitBuilder::RangeList list = pair.second;
         range_lists_tau_tags.insert(list.tau_tag);
