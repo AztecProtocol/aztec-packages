@@ -143,10 +143,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 129;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3080;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3072;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 342;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3551;
+    static constexpr size_t NUM_ALL_ENTITIES = 3543;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -599,8 +599,6 @@ struct AvmFlavorVariables {
         lookup_tx_context_public_inputs_write_nullifier_count_relation<FF_>,
         lookup_tx_context_public_inputs_write_unencrypted_log_count_relation<FF_>,
         lookup_tx_context_restore_state_on_revert_relation<FF_>,
-        lookup_tx_dispatch_exec_end_relation<FF_>,
-        lookup_tx_dispatch_exec_start_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_nullifier_append_relation<FF_>,
         lookup_tx_read_calldata_hash_relation<FF_>,
@@ -684,7 +682,9 @@ struct AvmFlavorVariables {
         perm_sha256_mem_mem_op_7_relation<FF_>,
         perm_sstore_storage_write_relation<FF_>,
         perm_to_radix_mem_write_mem_relation<FF_>,
-        perm_tx_balance_update_relation<FF_>>;
+        perm_tx_balance_update_relation<FF_>,
+        perm_tx_dispatch_exec_end_relation<FF_>,
+        perm_tx_dispatch_exec_start_relation<FF_>>;
 };
 
 } // namespace bb::avm2

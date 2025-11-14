@@ -24,21 +24,32 @@ using EthAddress = FF;
 
 using FunctionSelector = FF; // really a 4-byte BE buffer in TS, but we use FF for simplicity
 
-enum class TransactionPhase {
-    NR_NULLIFIER_INSERTION = 1,
-    NR_NOTE_INSERTION = 2,
-    NR_L2_TO_L1_MESSAGE = 3,
-    SETUP = 4,
-    R_NULLIFIER_INSERTION = 5,
-    R_NOTE_INSERTION = 6,
-    R_L2_TO_L1_MESSAGE = 7,
-    APP_LOGIC = 8,
-    TEARDOWN = 9,
-    COLLECT_GAS_FEES = 10,
-    TREE_PADDING = 11,
-    CLEANUP = 12,
+// The Tx phases are executed in increasing order defined by these enum values.
+// Do not change the order of the enum values.
+// pil constraints rely on these constants being in consecutive order (increment by 1).
+enum class TransactionPhase : uint8_t {
+    NR_NULLIFIER_INSERTION = 0,
+    NR_NOTE_INSERTION = 1,
+    NR_L2_TO_L1_MESSAGE = 2,
+    SETUP = 3,
+    R_NULLIFIER_INSERTION = 4,
+    R_NOTE_INSERTION = 5,
+    R_L2_TO_L1_MESSAGE = 6,
+    APP_LOGIC = 7,
+    TEARDOWN = 8,
+    COLLECT_GAS_FEES = 9,
+    TREE_PADDING = 10,
+    CLEANUP = 11,
     LAST = CLEANUP,
 };
+
+// The three following constants are used in .pil files and need to match the enum counterpart.
+static_assert(static_cast<uint8_t>(TransactionPhase::SETUP) == AVM_TX_PHASE_VALUE_SETUP,
+              "TransactionPhase::LAST must match AVM_TX_PHASE_VALUE_SETUP");
+static_assert(static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) == AVM_TX_PHASE_VALUE_START,
+              "TransactionPhase::NR_NULLIFIER_INSERTION must match AVM_TX_PHASE_VALUE_START");
+static_assert(static_cast<uint8_t>(TransactionPhase::LAST) == AVM_TX_PHASE_VALUE_LAST,
+              "TransactionPhase::LAST must match AVM_TX_PHASE_VALUE_LAST");
 
 using InternalCallId = uint32_t;
 
@@ -46,23 +57,23 @@ using InternalCallId = uint32_t;
  * Enum for environment variables, representing the various environment values
  * that can be accessed by the AVM GETENVVAR opcode.
  */
-enum class EnvironmentVariable {
-    ADDRESS,
-    SENDER,
-    TRANSACTIONFEE,
-    CHAINID,
-    VERSION,
-    BLOCKNUMBER,
-    TIMESTAMP,
-    BASEFEEPERL2GAS,
-    BASEFEEPERDAGAS,
-    ISSTATICCALL,
-    L2GASLEFT,
-    DAGASLEFT,
+enum class EnvironmentVariable : uint8_t {
+    ADDRESS = 0,
+    SENDER = 1,
+    TRANSACTIONFEE = 2,
+    CHAINID = 3,
+    VERSION = 4,
+    BLOCKNUMBER = 5,
+    TIMESTAMP = 6,
+    BASEFEEPERL2GAS = 7,
+    BASEFEEPERDAGAS = 8,
+    ISSTATICCALL = 9,
+    L2GASLEFT = 10,
+    DAGASLEFT = 11,
     MAX = DAGASLEFT,
 };
 
-enum class ContractInstanceMember {
+enum class ContractInstanceMember : uint8_t {
     DEPLOYER = 0,
     CLASS_ID = 1,
     INIT_HASH = 2,
@@ -103,11 +114,11 @@ struct PublicKeys {
 };
 
 struct ContractInstance {
-    FF salt;
-    AztecAddress deployer;
-    ContractClassId current_contract_class_id;
-    ContractClassId original_contract_class_id;
-    FF initialization_hash;
+    FF salt = 0;
+    AztecAddress deployer = 0;
+    ContractClassId current_contract_class_id = 0;
+    ContractClassId original_contract_class_id = 0;
+    FF initialization_hash = 0;
     PublicKeys public_keys;
 
     bool operator==(const ContractInstance& other) const = default;
@@ -135,11 +146,11 @@ struct ContractInstance {
 // - privateFunctions[]
 // - utilityFunctions[]
 struct ContractClassWithCommitment {
-    FF id;
-    FF artifact_hash;
-    FF private_functions_root;
+    FF id = 0;
+    FF artifact_hash = 0;
+    FF private_functions_root = 0;
     std::vector<uint8_t> packed_bytecode;
-    FF public_bytecode_commitment;
+    FF public_bytecode_commitment = 0;
 
     bool operator==(const ContractClassWithCommitment& other) const = default;
 
@@ -164,9 +175,9 @@ struct ContractClassWithCommitment {
 // - privateFunctions[]
 // - utilityFunctions[]
 struct ContractClass {
-    FF id;
-    FF artifact_hash;
-    FF private_functions_root;
+    FF id = 0;
+    FF artifact_hash = 0;
+    FF private_functions_root = 0;
     std::vector<uint8_t> packed_bytecode;
 
     bool operator==(const ContractClass& other) const = default;
@@ -201,8 +212,8 @@ struct ContractClass {
 ////////////////////////////////////////////////////////////////////////////
 
 struct L2ToL1Message {
-    EthAddress recipient;
-    FF content;
+    EthAddress recipient = 0;
+    FF content = 0;
 
     bool operator==(const L2ToL1Message& other) const = default;
 
@@ -211,7 +222,7 @@ struct L2ToL1Message {
 
 struct ScopedL2ToL1Message {
     L2ToL1Message message;
-    AztecAddress contractAddress;
+    AztecAddress contractAddress = 0;
 
     bool operator==(const ScopedL2ToL1Message& other) const = default;
 
@@ -220,7 +231,7 @@ struct ScopedL2ToL1Message {
 
 struct PublicLog {
     std::vector<FF> fields;
-    AztecAddress contractAddress;
+    AztecAddress contractAddress = 0;
 
     bool operator==(const PublicLog& other) const = default;
 
@@ -266,8 +277,8 @@ struct PublicLogs {
 };
 
 struct PublicDataWrite {
-    FF leafSlot;
-    FF value;
+    FF leafSlot = 0;
+    FF value = 0;
 
     bool operator==(const PublicDataWrite& other) const = default;
 
@@ -279,8 +290,8 @@ struct PublicDataWrite {
 ////////////////////////////////////////////////////////////////////////////
 
 struct GasFees {
-    uint128_t feePerDaGas;
-    uint128_t feePerL2Gas;
+    uint128_t feePerDaGas = 0;
+    uint128_t feePerL2Gas = 0;
 
     bool operator==(const GasFees& other) const = default;
 
@@ -288,8 +299,8 @@ struct GasFees {
 };
 
 struct Gas {
-    uint32_t l2Gas;
-    uint32_t daGas;
+    uint32_t l2Gas = 0;
+    uint32_t daGas = 0;
 
     bool operator==(const Gas& other) const = default;
 
@@ -325,10 +336,10 @@ struct GasSettings {
 ////////////////////////////////////////////////////////////////////////////
 
 struct PublicCallRequest {
-    AztecAddress msgSender;
-    AztecAddress contractAddress;
-    bool isStaticCall;
-    FF calldataHash;
+    AztecAddress msgSender = 0;
+    AztecAddress contractAddress = 0;
+    bool isStaticCall = false;
+    FF calldataHash = 0;
 
     bool operator==(const PublicCallRequest& other) const = default;
 
@@ -336,9 +347,9 @@ struct PublicCallRequest {
 };
 
 struct PublicCallRequestArrayLengths {
-    uint32_t setupCalls;
-    uint32_t appLogicCalls;
-    bool teardownCall;
+    uint32_t setupCalls = 0;
+    uint32_t appLogicCalls = 0;
+    bool teardownCall = false;
 
     bool operator==(const PublicCallRequestArrayLengths& other) const = default;
 
@@ -346,10 +357,10 @@ struct PublicCallRequestArrayLengths {
 };
 
 struct AvmAccumulatedDataArrayLengths {
-    uint32_t noteHashes;
-    uint32_t nullifiers;
-    uint32_t l2ToL1Msgs;
-    uint32_t publicDataWrites;
+    uint32_t noteHashes = 0;
+    uint32_t nullifiers = 0;
+    uint32_t l2ToL1Msgs = 0;
+    uint32_t publicDataWrites = 0;
 
     bool operator==(const AvmAccumulatedDataArrayLengths& other) const = default;
 
@@ -369,9 +380,9 @@ struct ContractClassLogFields {
 };
 
 struct ContractClassLog {
-    AztecAddress contractAddress;
+    AztecAddress contractAddress = 0;
     ContractClassLogFields fields;
-    uint32_t emittedLength;
+    uint32_t emittedLength = 0;
 
     bool operator==(const ContractClassLog& other) const = default;
 
@@ -380,7 +391,7 @@ struct ContractClassLog {
 
 struct PrivateLog {
     std::vector<FF> fields;
-    uint32_t emittedLength;
+    uint32_t emittedLength = 0;
 
     bool operator==(const PrivateLog& other) const = default;
 
@@ -401,9 +412,9 @@ struct ContractDeploymentData {
 ////////////////////////////////////////////////////////////////////////////
 
 struct PrivateToAvmAccumulatedDataArrayLengths {
-    uint32_t noteHashes;
-    uint32_t nullifiers;
-    uint32_t l2ToL1Msgs;
+    uint32_t noteHashes = 0;
+    uint32_t nullifiers = 0;
+    uint32_t l2ToL1Msgs = 0;
 
     bool operator==(const PrivateToAvmAccumulatedDataArrayLengths& other) const = default;
 
@@ -437,13 +448,13 @@ struct AvmAccumulatedData {
 ////////////////////////////////////////////////////////////////////////////
 
 struct GlobalVariables {
-    FF chainId;
-    FF version;
-    uint32_t blockNumber;
-    FF slotNumber;
-    uint64_t timestamp;
-    EthAddress coinbase;
-    AztecAddress feeRecipient;
+    FF chainId = 0;
+    FF version = 0;
+    uint32_t blockNumber = 0;
+    FF slotNumber = 0;
+    uint64_t timestamp = 0;
+    EthAddress coinbase = 0;
+    AztecAddress feeRecipient = 0;
     GasFees gasFees;
 
     bool operator==(const GlobalVariables& other) const = default;
@@ -456,8 +467,8 @@ struct GlobalVariables {
 ////////////////////////////////////////////////////////////////////////////
 
 struct AppendOnlyTreeSnapshot {
-    FF root;
-    uint64_t nextAvailableLeafIndex;
+    FF root = 0;
+    uint64_t nextAvailableLeafIndex = 0;
 
     std::size_t hash() const noexcept { return utils::hash_as_tuple(root, nextAvailableLeafIndex); }
     bool operator==(const AppendOnlyTreeSnapshot& other) const = default;
@@ -478,7 +489,7 @@ struct TreeSnapshots {
 
 struct TreeState {
     AppendOnlyTreeSnapshot tree;
-    uint32_t counter;
+    uint32_t counter = 0;
 
     bool operator==(const TreeState& other) const = default;
     MSGPACK_FIELDS(tree, counter);
@@ -498,14 +509,14 @@ struct TreeStates {
 // Misc Types
 ////////////////////////////////////////////////////////////////////////////
 
-enum RevertCode {
+enum class RevertCode : uint8_t {
     OK,
     APP_LOGIC_REVERTED,
     TEARDOWN_REVERTED,
     BOTH_REVERTED,
 };
 
-enum class DebugLogLevel {
+enum class DebugLogLevel : uint8_t {
     SILENT = 0,
     FATAL = 1,
     ERROR = 2,
@@ -545,7 +556,7 @@ inline std::string debug_log_level_to_string(DebugLogLevel lvl)
 }
 
 struct DebugLog {
-    AztecAddress contractAddress;
+    AztecAddress contractAddress = 0;
     // Level is a string since on the TS side is a union type of strings
     // We could make it a number but we'd need to/from validation and conversion on the TS side.
     // Consider doing that if it becomes a performance problem.

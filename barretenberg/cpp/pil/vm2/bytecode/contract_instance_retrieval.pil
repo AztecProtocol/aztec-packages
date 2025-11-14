@@ -110,7 +110,7 @@ namespace contract_instance_retrieval;
     is_protocol_contract {
         derived_address_pi_index,
         derived_address
-    }in public_inputs.sel {
+    } in public_inputs.sel {
         precomputed.clk,
         public_inputs.cols[0]
     };

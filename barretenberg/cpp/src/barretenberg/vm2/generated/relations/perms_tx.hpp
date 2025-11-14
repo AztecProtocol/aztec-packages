@@ -11,6 +11,138 @@
 
 namespace bb::avm2 {
 
+/////////////////// perm_tx_dispatch_exec_start ///////////////////
+
+struct perm_tx_dispatch_exec_start_settings_ {
+    static constexpr std::string_view NAME = "PERM_TX_DISPATCH_EXEC_START";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t COLUMNS_PER_SET = 26;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_start;
+    static constexpr Column INVERSES = Column::perm_tx_dispatch_exec_start_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::tx_next_context_id,
+        ColumnAndShifts::tx_discard,
+        ColumnAndShifts::tx_msg_sender,
+        ColumnAndShifts::tx_contract_addr,
+        ColumnAndShifts::tx_fee,
+        ColumnAndShifts::tx_is_static,
+        ColumnAndShifts::tx_calldata_size,
+        ColumnAndShifts::tx_prev_note_hash_tree_root,
+        ColumnAndShifts::tx_prev_note_hash_tree_size,
+        ColumnAndShifts::tx_prev_num_note_hashes_emitted,
+        ColumnAndShifts::tx_prev_nullifier_tree_root,
+        ColumnAndShifts::tx_prev_nullifier_tree_size,
+        ColumnAndShifts::tx_prev_num_nullifiers_emitted,
+        ColumnAndShifts::tx_prev_public_data_tree_root,
+        ColumnAndShifts::tx_prev_public_data_tree_size,
+        ColumnAndShifts::tx_prev_written_public_data_slots_tree_root,
+        ColumnAndShifts::tx_prev_written_public_data_slots_tree_size,
+        ColumnAndShifts::tx_l1_l2_tree_root,
+        ColumnAndShifts::tx_prev_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::tx_prev_retrieved_bytecodes_tree_size,
+        ColumnAndShifts::tx_prev_num_unencrypted_log_fields,
+        ColumnAndShifts::tx_prev_num_l2_to_l1_messages,
+        ColumnAndShifts::tx_prev_l2_gas_used_sent_to_enqueued_call,
+        ColumnAndShifts::tx_prev_da_gas_used_sent_to_enqueued_call,
+        ColumnAndShifts::tx_l2_gas_limit,
+        ColumnAndShifts::tx_da_gas_limit
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::execution_discard,
+        ColumnAndShifts::execution_msg_sender,
+        ColumnAndShifts::execution_contract_address,
+        ColumnAndShifts::execution_transaction_fee,
+        ColumnAndShifts::execution_is_static,
+        ColumnAndShifts::execution_parent_calldata_size,
+        ColumnAndShifts::execution_prev_note_hash_tree_root,
+        ColumnAndShifts::execution_prev_note_hash_tree_size,
+        ColumnAndShifts::execution_prev_num_note_hashes_emitted,
+        ColumnAndShifts::execution_prev_nullifier_tree_root,
+        ColumnAndShifts::execution_prev_nullifier_tree_size,
+        ColumnAndShifts::execution_prev_num_nullifiers_emitted,
+        ColumnAndShifts::execution_prev_public_data_tree_root,
+        ColumnAndShifts::execution_prev_public_data_tree_size,
+        ColumnAndShifts::execution_prev_written_public_data_slots_tree_root,
+        ColumnAndShifts::execution_prev_written_public_data_slots_tree_size,
+        ColumnAndShifts::execution_l1_l2_tree_root,
+        ColumnAndShifts::execution_prev_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::execution_prev_retrieved_bytecodes_tree_size,
+        ColumnAndShifts::execution_prev_num_unencrypted_log_fields,
+        ColumnAndShifts::execution_prev_num_l2_to_l1_messages,
+        ColumnAndShifts::execution_prev_l2_gas_used,
+        ColumnAndShifts::execution_prev_da_gas_used,
+        ColumnAndShifts::execution_l2_gas_limit,
+        ColumnAndShifts::execution_da_gas_limit
+    };
+};
+
+using perm_tx_dispatch_exec_start_settings = permutation_settings<perm_tx_dispatch_exec_start_settings_>;
+template <typename FF_>
+using perm_tx_dispatch_exec_start_relation = permutation_relation_base<FF_, perm_tx_dispatch_exec_start_settings>;
+
+/////////////////// perm_tx_dispatch_exec_end ///////////////////
+
+struct perm_tx_dispatch_exec_end_settings_ {
+    static constexpr std::string_view NAME = "PERM_TX_DISPATCH_EXEC_END";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t COLUMNS_PER_SET = 21;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_end;
+    static constexpr Column INVERSES = Column::perm_tx_dispatch_exec_end_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::tx_next_context_id,
+        ColumnAndShifts::tx_next_context_id_shift,
+        ColumnAndShifts::tx_reverted,
+        ColumnAndShifts::tx_discard,
+        ColumnAndShifts::tx_next_note_hash_tree_root,
+        ColumnAndShifts::tx_next_note_hash_tree_size,
+        ColumnAndShifts::tx_next_num_note_hashes_emitted,
+        ColumnAndShifts::tx_next_nullifier_tree_root,
+        ColumnAndShifts::tx_next_nullifier_tree_size,
+        ColumnAndShifts::tx_next_num_nullifiers_emitted,
+        ColumnAndShifts::tx_next_public_data_tree_root,
+        ColumnAndShifts::tx_next_public_data_tree_size,
+        ColumnAndShifts::tx_next_written_public_data_slots_tree_root,
+        ColumnAndShifts::tx_next_written_public_data_slots_tree_size,
+        ColumnAndShifts::tx_l1_l2_tree_root,
+        ColumnAndShifts::tx_next_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::tx_next_retrieved_bytecodes_tree_size,
+        ColumnAndShifts::tx_next_num_unencrypted_log_fields,
+        ColumnAndShifts::tx_next_num_l2_to_l1_messages,
+        ColumnAndShifts::tx_next_l2_gas_used_sent_to_enqueued_call,
+        ColumnAndShifts::tx_next_da_gas_used_sent_to_enqueued_call
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::execution_next_context_id,
+        ColumnAndShifts::execution_sel_failure,
+        ColumnAndShifts::execution_discard,
+        ColumnAndShifts::execution_note_hash_tree_root,
+        ColumnAndShifts::execution_note_hash_tree_size,
+        ColumnAndShifts::execution_num_note_hashes_emitted,
+        ColumnAndShifts::execution_nullifier_tree_root,
+        ColumnAndShifts::execution_nullifier_tree_size,
+        ColumnAndShifts::execution_num_nullifiers_emitted,
+        ColumnAndShifts::execution_public_data_tree_root,
+        ColumnAndShifts::execution_public_data_tree_size,
+        ColumnAndShifts::execution_written_public_data_slots_tree_root,
+        ColumnAndShifts::execution_written_public_data_slots_tree_size,
+        ColumnAndShifts::execution_l1_l2_tree_root,
+        ColumnAndShifts::execution_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::execution_retrieved_bytecodes_tree_size,
+        ColumnAndShifts::execution_num_unencrypted_log_fields,
+        ColumnAndShifts::execution_num_l2_to_l1_messages,
+        ColumnAndShifts::execution_l2_gas_used,
+        ColumnAndShifts::execution_da_gas_used
+    };
+};
+
+using perm_tx_dispatch_exec_end_settings = permutation_settings<perm_tx_dispatch_exec_end_settings_>;
+template <typename FF_>
+using perm_tx_dispatch_exec_end_relation = permutation_relation_base<FF_, perm_tx_dispatch_exec_end_settings>;
+
 /////////////////// perm_tx_balance_update ///////////////////
 
 struct perm_tx_balance_update_settings_ {

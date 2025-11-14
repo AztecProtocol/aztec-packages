@@ -672,6 +672,11 @@ pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
 pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
 pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
 
+// Transaction Phase Values
+pub global AVM_TX_PHASE_VALUE_START: u8 = 0;
+pub global AVM_TX_PHASE_VALUE_SETUP: u8 = 3;
+pub global AVM_TX_PHASE_VALUE_LAST: u8 = 11;
+
 // Subtrace IDs.
 // Execution, ALU, BITWISE and then we follow the order given by ExecutionOpCode enum.
 pub global AVM_SUBTRACE_ID_EXECUTION: u32 = 1;
