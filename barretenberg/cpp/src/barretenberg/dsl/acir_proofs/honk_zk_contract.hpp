@@ -7,7 +7,6 @@
 #pragma once
 #include "barretenberg/honk/utils/honk_key_gen.hpp"
 #include <iostream>
-#include <sstream>
 
 // Source code for the Ultrahonk Solidity verifier.
 // It's expected that the AcirComposer will inject a library which will load the verification key into memory.
@@ -293,31 +292,6 @@ library Honk {
         Fr publicInputsDelta;
     }
 
-    struct Proof {
-        // Pairing point object
-        Fr[PAIRING_POINTS_SIZE] pairingPointObject;
-        // ZK: Gemini masking polynomial commitment (sent first, right after public inputs)
-        G1Point geminiMaskingPoly;
-        // Free wires
-        G1Point w1;
-        G1Point w2;
-        G1Point w3;
-        G1Point w4;
-        // Lookup helpers - Permutations
-        G1Point zPerm;
-        // Lookup helpers - logup
-        G1Point lookupReadCounts;
-        G1Point lookupReadTags;
-        G1Point lookupInverses;
-        // Sumcheck
-        Fr[BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
-        Fr[NUMBER_OF_ENTITIES_ZK] sumcheckEvaluations;
-        // Shplemini
-        G1Point[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
-        Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
-        G1Point shplonkQ;
-        G1Point kzgQuotient;
-    }
 
     struct ZKProof {
         // Pairing point object
@@ -375,7 +349,7 @@ library ZKTranscriptLib {
         uint256 vkHash,
         uint256 publicInputsSize,
         uint256 logN
-    ) external view returns (ZKTranscript memory t) {
+    ) external pure returns (ZKTranscript memory t) {
         Fr previousChallenge;
         (t.relationParameters, previousChallenge) =
             generateRelationParametersChallenges(proof, publicInputs, vkHash, publicInputsSize, previousChallenge);
@@ -411,24 +385,11 @@ library ZKTranscriptLib {
         uint256 vkHash,
         uint256 publicInputsSize,
         Fr previousChallenge
-    ) internal view returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
+    ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
             generateEtaChallenge(proof, publicInputs, vkHash, publicInputsSize);
 
         (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
-    }
-
-    // DEBUG HELPER: Get eta challenges for debugging
-    function debugGetEtaChallenges(
-        Honk.ZKProof memory proof,
-        bytes32[] calldata publicInputs,
-        uint256 vkHash,
-        uint256 publicInputsSize
-    ) external view returns (uint256 eta, uint256 etaTwo, uint256 etaThree) {
-        Fr etaFr; Fr etaTwoFr; Fr etaThreeFr; Fr prevChallenge;
-        (etaFr, etaTwoFr, etaThreeFr, prevChallenge) =
-            generateEtaChallenge(proof, publicInputs, vkHash, publicInputsSize);
-        return (Fr.unwrap(etaFr), Fr.unwrap(etaTwoFr), Fr.unwrap(etaThreeFr));
     }
 
     function generateEtaChallenge(
@@ -436,7 +397,7 @@ library ZKTranscriptLib {
         bytes32[] calldata publicInputs,
         uint256 vkHash,
         uint256 publicInputsSize
-    ) internal view returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
+    ) internal pure returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
         bytes32[] memory round0 = new bytes32[](1 + publicInputsSize + 8);
         round0[0] = bytes32(vkHash);
 
@@ -536,11 +497,6 @@ library ZKTranscriptLib {
         challengeData[3] = Fr.unwrap(proof.libraSum);
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(challengeData)));
         (libraChallenge,) = splitChallenge(nextPreviousChallenge);
-        // DEBUG: Uncomment next 3 lines to see eta value in error output
-        // assembly {
-        //     mstore(0, libraChallenge)
-        //     revert(0, 32)
-        // }
     }
 
     function generateSumcheckChallenges(Honk.ZKProof memory proof, Fr prevChallenge, uint256 logN)
@@ -1939,23 +1895,12 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // Relations only use elements at indices 1-41 (index 0 is gemini_masking_poly, not used in relations)
         Fr[NUMBER_OF_ENTITIES] memory relationsEvaluations;
 
-        // Fr maskingPolyEval = proof.sumcheckEvaluations[0];
-        // assembly {
-        //     mstore(0, maskingPolyEval)
-        //     revert(0, 32)
-        // }
-
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
             relationsEvaluations[i] = proof.sumcheckEvaluations[i + 1];
         }
         Fr grandHonkRelationSum = RelationsLib.accumulateRelationEvaluations(
             relationsEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation
         );
-        // DEBUG: Uncomment next 3 lines to see eta value in error output
-        // assembly {
-        //     mstore(0, grandHonkRelationSum)
-        //     revert(0, 32)
-        // }
 
         Fr evaluation = Fr.wrap(1);
         for (uint256 i = 2; i < $LOG_N; i++) {

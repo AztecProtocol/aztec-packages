@@ -775,7 +775,6 @@ template <typename Flavor> class SumcheckVerifier {
             // multivariate over the hypercube
             libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
             libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
-            info("c++ Libra", libra_challenge);
             round.target_total_sum = libra_total_sum * libra_challenge;
         }
 
@@ -788,9 +787,6 @@ template <typename Flavor> class SumcheckVerifier {
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-            if (round_idx == 0) {
-                info("first sumcheck challenge ", round_challenge);
-            }
             multivariate_challenge.emplace_back(round_challenge);
 
             const bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
@@ -802,23 +798,17 @@ template <typename Flavor> class SumcheckVerifier {
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
         // Final round
         ClaimedEvaluations purported_evaluations;
-        info("num tr evals ", NUM_POLYNOMIALS);
         auto transcript_evaluations =
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
-        size_t idx = 0;
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
-            info(std::to_string(idx++) + " . ", eval);
         }
+
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
         FF full_honk_purported_value = round.compute_full_relation_purported_value(
             purported_evaluations, relation_parameters, gate_separators, alphas);
 
-        info("full honk eval ", full_honk_purported_value);
-        if constexpr (IsAnyOf<Flavor, UltraKeccakZKFlavor>) {
-            info("masking poly eval ", purported_evaluations.gemini_masking_poly);
-        }
         // For ZK Flavors: compute the evaluation of the Row Disabling Polynomial at the sumcheck challenge and of the
         // libra univariate used to hide the contribution from the actual Honk relation
         if constexpr (Flavor::HasZK) {
@@ -912,13 +902,10 @@ template <typename Flavor> class SumcheckVerifier {
 
         // Populate claimed evaluations at the challenge
         ClaimedEvaluations purported_evaluations;
-        info("num tr evals ", NUM_POLYNOMIALS);
         auto transcript_evaluations =
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
-        size_t idx = 0;
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
-            info(std::to_string(idx++) + " . ", eval);
         }
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.

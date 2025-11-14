@@ -312,36 +312,6 @@ library Honk {
         G1Point kzgQuotient;
     }
 
-    struct ZKProof {
-        // Pairing point object
-        Fr[PAIRING_POINTS_SIZE] pairingPointObject;
-        // ZK
-        G1Point geminiMaskingPoly;
-        // Commitments to wire polynomials
-        G1Point w1;
-        G1Point w2;
-        G1Point w3;
-        G1Point w4;
-        // Commitments to logup witness polynomials
-        G1Point lookupReadCounts;
-        G1Point lookupReadTags;
-        G1Point lookupInverses;
-        // Commitment to grand permutation polynomial
-        G1Point zPerm;
-        G1Point[3] libraCommitments;
-        // Sumcheck
-        Fr libraSum;
-        Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
-        Fr[NUMBER_OF_ENTITIES_ZK] sumcheckEvaluations;
-        Fr libraEvaluation;
-        Fr geminiMaskingEval;
-        // Shplemini
-        G1Point[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
-        Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
-        Fr[4] libraPolyEvals;
-        G1Point shplonkQ;
-        G1Point kzgQuotient;
-    }
 }
 
 // Transcript library to generate fiat shamir challenges

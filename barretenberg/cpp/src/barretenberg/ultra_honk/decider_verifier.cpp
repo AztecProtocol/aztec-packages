@@ -48,9 +48,7 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
 
     // For ZK flavors: set gemini_masking_poly commitment from accumulator
     if constexpr (Flavor::HasZK) {
-        if constexpr (requires { commitments.gemini_masking_poly; }) {
-            commitments.gemini_masking_poly = accumulator->gemini_masking_commitment;
-        }
+        commitments.gemini_masking_poly = accumulator->gemini_masking_commitment;
     }
 
     const size_t log_circuit_size = static_cast<size_t>(accumulator->vk->log_circuit_size);

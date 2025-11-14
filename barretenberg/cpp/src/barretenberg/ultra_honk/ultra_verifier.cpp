@@ -24,7 +24,6 @@ template <class IO>
 UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof(
     const typename UltraVerifier_<Flavor>::Proof& proof, const typename UltraVerifier_<Flavor>::Proof& ipa_proof)
 {
-    info("proof size ", proof.size());
     using FF = typename Flavor::FF;
 
     transcript->load_proof(proof);
