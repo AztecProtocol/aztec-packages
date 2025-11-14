@@ -58,7 +58,6 @@ struct EnqueuedCallEvent {
 
 struct PrivateAppendTreeEvent {
     FF leaf_value = 0;
-    uint64_t size = 0;
 };
 
 struct PrivateEmitL2L1MessageEvent {
