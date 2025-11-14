@@ -10,7 +10,6 @@
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstddef>
 
@@ -211,7 +210,7 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
     bool empty() const override { return data.empty(); }
 
   private:
-    SlabVector<FF> data;
+    std::vector<FF> data;
 };
 
 /**
@@ -225,7 +224,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     static constexpr size_t NUM_WIRES = NUM_WIRES_;
 
     using SelectorType = Selector<FF>;
-    using WireType = SlabVector<uint32_t>;
+    using WireType = std::vector<uint32_t>;
     using Wires = std::array<WireType, NUM_WIRES>;
 
     ExecutionTraceBlock() = default;

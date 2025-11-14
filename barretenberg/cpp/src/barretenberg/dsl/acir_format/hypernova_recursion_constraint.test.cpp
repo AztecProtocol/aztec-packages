@@ -160,7 +160,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
      * @param witness Array of witnesses into which the above data is placed
      * @return RecursionConstraint
      */
-    static RecursionConstraint create_recursion_constraint(const VerifierInputs& input, SlabVector<FF>& witness)
+    static RecursionConstraint create_recursion_constraint(const VerifierInputs& input, std::vector<FF>& witness)
     {
         // Assemble simple vectors of witnesses for vkey and proof
         std::vector<FF> key_witnesses = input.honk_vk->to_field_elements();

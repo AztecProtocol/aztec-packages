@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "unistd.h"
 #include <atomic>
@@ -109,8 +108,8 @@ template <typename Fr> struct BackingMemory {
   private:
     static void allocate_aligned(BackingMemory& memory, size_t size)
     {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        memory.aligned_memory = std::static_pointer_cast<Fr[]>(std::move(bb::get_mem_slab(sizeof(Fr) * size)));
+        // Fr has alignas on it so this is fine post c++20.
+        memory.aligned_memory = std::make_shared<Fr[]>(size);
         memory.raw_data = memory.aligned_memory.get();
     }
 
