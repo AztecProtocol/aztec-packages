@@ -282,7 +282,7 @@ export class EpochProvingJob implements Traceable {
     );
     this.log.verbose(`Creating fork at ${blockNumber} with ${l1ToL2Messages.length} L1 to L2 messages`, {
       blockNumber,
-      l1ToL2Messages: l1ToL2MessagesPadded.map(m => m.toString()),
+      l1ToL2Messages: l1ToL2Messages.map(m => m.toString()),
     });
     await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
     return db;

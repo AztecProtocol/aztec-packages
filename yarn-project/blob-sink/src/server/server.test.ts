@@ -1,5 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
-import { makeEncodedBlob } from '@aztec/blob-lib/testing';
+import { makeRandomBlob } from '@aztec/blob-lib/testing';
 
 import request from 'supertest';
 
@@ -37,8 +37,8 @@ describe('BlobSinkService', () => {
     beforeEach(async () => {
       await startServer();
 
-      blob0 = makeEncodedBlob(6);
-      blob1 = makeEncodedBlob(8);
+      blob0 = makeRandomBlob(6);
+      blob1 = makeRandomBlob(8);
 
       // Post the blobs using new API
       const postResponse = await request(service.getApp())

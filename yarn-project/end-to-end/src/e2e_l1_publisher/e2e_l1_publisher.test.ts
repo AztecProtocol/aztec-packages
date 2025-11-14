@@ -52,8 +52,8 @@ import { orderAttestations } from '@aztec/stdlib/p2p';
 import {
   fr,
   makeAndSignCommitteeAttestationsAndSigners,
-  makeBloatedProcessedTx,
   makeBlockAttestationFromBlock,
+  mockProcessedTx,
 } from '@aztec/stdlib/testing';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
 import {
@@ -290,8 +290,8 @@ describe('L1Publisher integration', () => {
   });
 
   const makeProcessedTx = (seed = 0x1): Promise<ProcessedTx> =>
-    makeBloatedProcessedTx({
-      header: prevHeader,
+    mockProcessedTx({
+      anchorBlockHeader: prevHeader,
       chainId: fr(chainId),
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),

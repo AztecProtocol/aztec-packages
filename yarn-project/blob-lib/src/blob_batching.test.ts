@@ -11,7 +11,6 @@ import { dirname, resolve } from 'path';
 
 import { getBlobsPerL1Block } from './blob_utils.js';
 import { BatchedBlob, Blob, computeBlobFieldsHash } from './index.js';
-import { makeEncodedBlobFields } from './testing.js';
 
 // TODO(MW): Remove below file and test? Only required to ensure commiting and compression are correct.
 const trustedSetup = JSON.parse(
@@ -229,13 +228,18 @@ describe('Blob Batching', () => {
     3, 5, 10,
     // 32 <- NB Full 32 blocks currently takes around 30s to fully batch
   ])('should construct and verify a batch of blobs over %p blocks', async numBlocks => {
-    const blobFieldsPerBlock = Array.from({ length: numBlocks }, () =>
-      makeEncodedBlobFields(FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
+    const blobFieldsPerBlock = Array.from({ length: numBlocks }, (_, blockIndex) =>
+      Array.from(
+        { length: FIELDS_PER_BLOB * BLOBS_PER_BLOCK },
+        (_, i) => new Fr(i + blockIndex * (FIELDS_PER_BLOB * BLOBS_PER_BLOCK)),
+      ),
     );
+    // Change the first fields to indicate the total number of fields.
+    blobFieldsPerBlock.forEach(fields => (fields[0] = new Fr(fields.length)));
 
     const blobs = blobFieldsPerBlock.map(fields => getBlobsPerL1Block(fields));
-    // BatchedBlob.batch() performs a verification check:
-    await BatchedBlob.batch(blobs);
+    const batchedBlob = await BatchedBlob.batch(blobs);
+    expect(batchedBlob.verify()).toBe(true);
   });
 });
 

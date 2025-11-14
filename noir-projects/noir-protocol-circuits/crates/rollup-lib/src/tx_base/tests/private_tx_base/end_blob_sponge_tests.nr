@@ -50,6 +50,7 @@ unconstrained fn full_tx_effects() {
             private_logs: MAX_PRIVATE_LOGS_PER_TX,
             contract_class_logs: 1,
         },
+        MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS,
         0, // public_logs_length
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
         0, // revert_code
@@ -158,6 +159,7 @@ unconstrained fn all_side_effects_non_full() {
             private_logs: private_log_lengths.len(),
             contract_class_logs: contract_class_log_lengths.len(),
         },
+        private_log_lengths.fold(0, |acc, len| acc + len),
         0, // public_logs_length
         contract_class_log_lengths[0],
         0, // revert_code
@@ -259,6 +261,7 @@ unconstrained fn partially_empty_tx_effects() {
             private_logs: private_log_lengths.len(),
             contract_class_logs: 0,
         },
+        private_log_lengths.fold(0, |acc, len| acc + len),
         0, // public_logs_length
         0, // contract_class_log_length
         0, // revert_code

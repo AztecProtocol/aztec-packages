@@ -1,4 +1,10 @@
-import { decodeTxStartMarker, encodeTxStartMarker, isValidTxStartMarker } from '@aztec/blob-lib/encoding';
+import {
+  type TxBlobData,
+  type TxStartMarker,
+  decodeTxBlobData,
+  encodeTxBlobData,
+  getNumTxBlobFields,
+} from '@aztec/blob-lib/encoding';
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -10,14 +16,8 @@ import {
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
-import {
-  BufferReader,
-  FieldReader,
-  serializeArrayOfBufferableToVector,
-  serializeToBuffer,
-} from '@aztec/foundation/serialize';
+import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { computeUnbalancedMerkleTreeRoot } from '@aztec/foundation/trees';
 
 import { inspect } from 'util';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ import { RevertCode } from '../avm/revert_code.js';
 import { ContractClassLog } from '../logs/contract_class_log.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
+import { computeTxOutHash } from '../messaging/out_hash.js';
 import { TxHash } from './tx_hash.js';
 
 export class TxEffect {
@@ -160,11 +161,6 @@ export class TxEffect {
     );
   }
 
-  /** Returns the size of this tx effect in bytes as serialized onto DA. */
-  getDASize() {
-    return this.toBlobFields().length * Fr.SIZE_IN_BYTES;
-  }
-
   /**
    * Deserializes the TxEffect object from a Buffer.
    * @param buffer - Buffer or BufferReader object to deserialize.
@@ -191,13 +187,8 @@ export class TxEffect {
    * Computes txOutHash of this tx effect.
    * @dev Follows new_sha in unbalanced_merkle_tree.nr
    */
-  txOutHash(): Buffer {
-    const { l2ToL1Msgs } = this;
-    if (l2ToL1Msgs.length == 0) {
-      return Buffer.alloc(32);
-    }
-
-    return computeUnbalancedMerkleTreeRoot(l2ToL1Msgs.map(msg => msg.toBuffer()));
+  txOutHash(): Fr {
+    return computeTxOutHash(this.l2ToL1Msgs);
   }
 
   static async random(
@@ -242,71 +233,74 @@ export class TxEffect {
     return bufferToHex(this.toBuffer());
   }
 
-  /**
-   * Returns a flat packed array of fields of all tx effects, to be appended to blobs.
-   * Must match the implementation in noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/tx_blob_data.nr
-   */
+  getNumBlobFields(): number {
+    return this.getTxStartMarker().numBlobFields;
+  }
+
   toBlobFields(): Fr[] {
-    const flattened: Fr[] = [];
+    return encodeTxBlobData(this.toTxBlobData());
+  }
 
-    // We reassign the first field at the end when we know the length of all effects to create the tx start marker.
-    flattened.push(Fr.ZERO);
+  static fromBlobFields(fields: Fr[]) {
+    return TxEffect.fromTxBlobData(decodeTxBlobData(fields));
+  }
 
-    flattened.push(this.txHash.hash);
-    flattened.push(this.transactionFee);
-    flattened.push(...this.noteHashes);
-    flattened.push(...this.nullifiers);
-    flattened.push(...this.l2ToL1Msgs);
-    flattened.push(...this.publicDataWrites.flatMap(w => w.toBlobFields()));
-    flattened.push(...this.privateLogs.flatMap(l => l.toBlobFields()));
-    const flattenedPublicLogs = FlatPublicLogs.fromLogs(this.publicLogs);
-    flattened.push(...flattenedPublicLogs.toBlobFields());
-    flattened.push(...this.contractClassLogs.flatMap(l => l.toBlobFields()));
-
-    flattened[0] = encodeTxStartMarker({
+  getTxStartMarker(): TxStartMarker {
+    const flatPublicLogs = FlatPublicLogs.fromLogs(this.publicLogs);
+    const partialTxStartMarker = {
       revertCode: this.revertCode.getCode(),
-      numBlobFields: flattened.length,
       numNoteHashes: this.noteHashes.length,
       numNullifiers: this.nullifiers.length,
       numL2ToL1Msgs: this.l2ToL1Msgs.length,
       numPublicDataWrites: this.publicDataWrites.length,
       numPrivateLogs: this.privateLogs.length,
-      publicLogsLength: flattenedPublicLogs.length,
+      privateLogsLength: this.privateLogs.reduce((acc, log) => acc + log.emittedLength, 0),
+      publicLogsLength: flatPublicLogs.length,
       contractClassLogLength: this.contractClassLogs[0]?.emittedLength ?? 0,
-    });
+    };
+    const numBlobFields = getNumTxBlobFields(partialTxStartMarker);
+    return {
+      ...partialTxStartMarker,
+      numBlobFields,
+    };
+  }
 
-    return flattened;
+  /**
+   * Returns a flat packed array of fields of all tx effects, to be appended to blobs.
+   * Must match the implementation in noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/tx_blob_data.nr
+   */
+  toTxBlobData(): TxBlobData {
+    return {
+      txStartMarker: this.getTxStartMarker(),
+      txHash: this.txHash.hash,
+      transactionFee: this.transactionFee,
+      noteHashes: this.noteHashes,
+      nullifiers: this.nullifiers,
+      l2ToL1Msgs: this.l2ToL1Msgs,
+      publicDataWrites: this.publicDataWrites.map(w => w.toBlobFields()),
+      privateLogs: this.privateLogs.map(l => l.toBlobFields()),
+      publicLogs: FlatPublicLogs.fromLogs(this.publicLogs).toBlobFields(),
+      contractClassLog: this.contractClassLogs.map(l => l.toBlobFields()).flat(),
+    };
   }
 
   /**
    * Decodes a flat packed array of fields to TxEffect.
    */
-  static fromBlobFields(fields: Fr[] | FieldReader) {
-    const reader = FieldReader.asReader(fields);
-    const totalFields = reader.remainingFields();
-    if (!totalFields) {
-      throw new Error('Cannot process empty blob fields.');
-    }
-
-    const txStartMarker = decodeTxStartMarker(reader.readField());
-    if (!isValidTxStartMarker(txStartMarker)) {
-      throw new Error('Invalid fields given to TxEffect.fromBlobFields(): invalid TxStartMarker');
-    }
-
-    const revertCode = RevertCode.fromField(new Fr(txStartMarker.revertCode));
-    const txHash = new TxHash(reader.readField());
-    const transactionFee = reader.readField();
-    const noteHashes = reader.readFieldArray(txStartMarker.numNoteHashes);
-    const nullifiers = reader.readFieldArray(txStartMarker.numNullifiers);
-    const l2ToL1Msgs = reader.readFieldArray(txStartMarker.numL2ToL1Msgs);
-    const publicDataWrites = Array.from({ length: txStartMarker.numPublicDataWrites }, () =>
-      PublicDataWrite.fromBlobFields(reader),
-    );
-    const privateLogs = Array.from({ length: txStartMarker.numPrivateLogs }, () => PrivateLog.fromBlobFields(reader));
-    const publicLogs = FlatPublicLogs.fromBlobFields(txStartMarker.publicLogsLength, reader).toLogs();
+  static fromTxBlobData(txBlobData: TxBlobData) {
+    const txStartMarker = txBlobData.txStartMarker;
+    const revertCode = RevertCode.fromNumber(txStartMarker.revertCode);
+    const txHash = new TxHash(txBlobData.txHash);
+    const transactionFee = txBlobData.transactionFee;
+    const noteHashes = txBlobData.noteHashes;
+    const nullifiers = txBlobData.nullifiers;
+    const l2ToL1Msgs = txBlobData.l2ToL1Msgs;
+    const publicDataWrites = txBlobData.publicDataWrites.map(w => PublicDataWrite.fromBlobFields(w));
+    const privateLogs = txBlobData.privateLogs.map(l => PrivateLog.fromBlobFields(l.length, l));
+    const publicLogs = FlatPublicLogs.fromBlobFields(txStartMarker.publicLogsLength, txBlobData.publicLogs).toLogs();
     const contractClassLogs =
       txStartMarker.contractClassLogLength > 0
-        ? [ContractClassLog.fromBlobFields(txStartMarker.contractClassLogLength, reader)]
+        ? [ContractClassLog.fromBlobFields(txStartMarker.contractClassLogLength, txBlobData.contractClassLog)]
         : [];
 
     return TxEffect.from({

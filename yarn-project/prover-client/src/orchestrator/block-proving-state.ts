@@ -1,4 +1,4 @@
-import type { SpongeBlob } from '@aztec/blob-lib';
+import { type BlockBlobData, type BlockEndBlobData, type SpongeBlob, encodeBlockEndBlobData } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
@@ -25,7 +25,7 @@ import {
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { type BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import { buildHeaderFromCircuitOutputs, toProofData } from './block-building-helpers.js';
@@ -54,6 +54,7 @@ export class BlockProvingState {
     | ProofState<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
     | undefined;
   private builtBlockHeader: BlockHeader | undefined;
+  private endState: StateReference | undefined;
   private endSpongeBlob: SpongeBlob | undefined;
   private txs: TxProvingState[] = [];
   private isFirstBlock: boolean;
@@ -200,30 +201,34 @@ export class BlockProvingState {
     return this.blockRootProof?.provingOutput?.inputs;
   }
 
-  public setBuiltBlockHeader(blockHeader: BlockHeader) {
-    this.builtBlockHeader = blockHeader;
+  public async buildBlockHeader() {
+    if (this.isAcceptingTxs()) {
+      throw new Error('All txs must be added to the block before building the header.');
+    }
+    if (!this.endState) {
+      throw new Error('Call `setEndState` first.');
+    }
+    if (!this.endSpongeBlob) {
+      throw new Error('Call `setEndSpongeBlob` first.');
+    }
+
+    const endSpongeBlob = this.endSpongeBlob.clone();
+    const endSpongeBlobHash = await endSpongeBlob.squeeze();
+
+    this.builtBlockHeader = new BlockHeader(
+      this.lastArchiveTreeSnapshot,
+      this.endState,
+      endSpongeBlobHash,
+      this.#getGlobalVariables(),
+      this.#getTotalFees(),
+      new Fr(this.#getTotalManaUsed()),
+    );
+
+    return this.builtBlockHeader;
   }
 
   public getBuiltBlockHeader() {
     return this.builtBlockHeader;
-  }
-
-  public getGlobalVariables() {
-    if (this.txs.length) {
-      return this.txs[0].processedTx.globalVariables;
-    }
-
-    const constants = this.constants;
-    return GlobalVariables.from({
-      chainId: constants.chainId,
-      version: constants.version,
-      blockNumber: this.blockNumber,
-      slotNumber: constants.slotNumber,
-      timestamp: this.timestamp,
-      coinbase: constants.coinbase,
-      feeRecipient: constants.feeRecipient,
-      gasFees: constants.gasFees,
-    });
   }
 
   public getStartSpongeBlob() {
@@ -236,6 +241,52 @@ export class BlockProvingState {
 
   public getEndSpongeBlob() {
     return this.endSpongeBlob;
+  }
+
+  public setEndState(endState: StateReference) {
+    this.endState = endState;
+  }
+
+  public hasEndState() {
+    return !!this.endState;
+  }
+
+  public getBlockEndBlobFields(): Fr[] {
+    return encodeBlockEndBlobData(this.getBlockEndBlobData());
+  }
+
+  getBlockEndBlobData(): BlockEndBlobData {
+    if (!this.endState) {
+      throw new Error('Call `setEndState` first.');
+    }
+
+    const partial = this.endState.partial;
+    return {
+      blockEndMarker: {
+        numTxs: this.totalNumTxs,
+        timestamp: this.timestamp,
+        blockNumber: this.blockNumber,
+      },
+      blockEndStateField: {
+        l1ToL2MessageNextAvailableLeafIndex: this.newL1ToL2MessageTreeSnapshot.nextAvailableLeafIndex,
+        noteHashNextAvailableLeafIndex: partial.noteHashTree.nextAvailableLeafIndex,
+        nullifierNextAvailableLeafIndex: partial.nullifierTree.nextAvailableLeafIndex,
+        publicDataNextAvailableLeafIndex: partial.publicDataTree.nextAvailableLeafIndex,
+        totalManaUsed: this.#getTotalManaUsed(),
+      },
+      lastArchiveRoot: this.lastArchiveTreeSnapshot.root,
+      noteHashRoot: partial.noteHashTree.root,
+      nullifierRoot: partial.nullifierTree.root,
+      publicDataRoot: partial.publicDataTree.root,
+      l1ToL2MessageRoot: this.isFirstBlock ? this.newL1ToL2MessageTreeSnapshot.root : undefined,
+    };
+  }
+
+  public getBlockBlobData(): BlockBlobData {
+    return {
+      ...this.getBlockEndBlobData(),
+      txs: this.getTxEffects().map(t => t.toTxBlobData()),
+    };
   }
 
   public getTxEffects() {
@@ -391,5 +442,32 @@ export class BlockProvingState {
     return this.totalNumTxs === 1
       ? [this.baseOrMergeProofs.getNode(rootLocation)?.provingOutput]
       : this.baseOrMergeProofs.getChildren(rootLocation).map(c => c?.provingOutput);
+  }
+
+  #getGlobalVariables() {
+    if (this.txs.length) {
+      return this.txs[0].processedTx.globalVariables;
+    }
+
+    const constants = this.constants;
+
+    return GlobalVariables.from({
+      chainId: constants.chainId,
+      version: constants.version,
+      blockNumber: this.blockNumber,
+      slotNumber: constants.slotNumber,
+      timestamp: this.timestamp,
+      coinbase: constants.coinbase,
+      feeRecipient: constants.feeRecipient,
+      gasFees: constants.gasFees,
+    });
+  }
+
+  #getTotalFees() {
+    return this.txs.reduce((acc, tx) => acc.add(tx.processedTx.txEffect.transactionFee), Fr.ZERO);
+  }
+
+  #getTotalManaUsed() {
+    return this.txs.reduce((acc, tx) => acc + BigInt(tx.processedTx.gasUsed.billedGas.l2Gas), 0n);
   }
 }
