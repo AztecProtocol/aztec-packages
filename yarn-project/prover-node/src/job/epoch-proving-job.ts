@@ -197,7 +197,7 @@ export class EpochProvingJob implements Traceable {
           proverId: this.prover.getProverId().toField(),
           skipFeeEnforcement: false,
           collectDebugLogs: false,
-          collectHints: false,
+          collectHints: true,
           maxDebugLogMemoryReads: 0,
           collectStatistics: false,
         });
