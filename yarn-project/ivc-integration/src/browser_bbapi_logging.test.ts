@@ -30,14 +30,22 @@ describe('BBAPI Logging in Browser', () => {
     });
 
     // Reload page so BBAPI logging initialization sees the setting
-    await page.goto('http://localhost:8080');
+    await page.goto('http://localhost:8080', { waitUntil: 'load' });
 
     // Set up download listener before triggering the download
     const downloadPromise = page.waitForEvent('download', { timeout: 5000 });
 
     const result = await page.evaluate(async () => {
       try {
+        // Debug: check what's on window
+        const keys = Object.keys(window).filter(k => k.includes('test') || k.includes('prove'));
+
         // Call the test function that's bundled and exposed on window
+        if (typeof (window as any).testBbapiLoggingBasic !== 'function') {
+          throw new Error(
+            `window.testBbapiLoggingBasic is ${typeof (window as any).testBbapiLoggingBasic}, not a function. Available: ${keys.join(', ')}`,
+          );
+        }
         await (window as any).testBbapiLoggingBasic();
         return { success: true };
       } catch (e: any) {
@@ -92,7 +100,7 @@ describe('BBAPI Logging in Browser', () => {
 
   it('Should log BBAPI calls and save msgpack when URL parameter is set', async () => {
     // Navigate to URL with BBAPI_DEBUG_LOG parameter
-    await page.goto('http://localhost:8080?BBAPI_DEBUG_LOG');
+    await page.goto('http://localhost:8080?BBAPI_DEBUG_LOG', { waitUntil: 'load' });
 
     // Set up download listener before triggering the download
     const downloadPromise = page.waitForEvent('download', { timeout: 5000 });
@@ -159,7 +167,7 @@ describe('BBAPI Logging in Browser', () => {
 
   it('Should create msgpack file that can be replayed with bb msgpack run', async () => {
     // Navigate to URL with BBAPI_DEBUG_LOG parameter
-    await page.goto('http://localhost:8080?BBAPI_DEBUG_LOG');
+    await page.goto('http://localhost:8080?BBAPI_DEBUG_LOG', { waitUntil: 'load' });
 
     // Set up download listener
     const downloadPromise = page.waitForEvent('download', { timeout: 5000 });
@@ -239,7 +247,7 @@ describe('BBAPI Logging in Browser', () => {
 
   it('Should not trigger download when logging is disabled', async () => {
     // Don't set localStorage or URL param - logging should be disabled
-    await page.goto('http://localhost:8080');
+    await page.goto('http://localhost:8080', { waitUntil: 'load' });
 
     // Set up download listener - should NOT receive any download
     let downloadReceived = false;
