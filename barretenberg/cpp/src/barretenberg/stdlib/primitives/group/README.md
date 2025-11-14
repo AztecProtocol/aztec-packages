@@ -50,6 +50,7 @@ The `batch_mul` method uses the Straus MSM algorithm and automatically selects t
   4. Subtract accumulated offset generators
 - **Cost**: ~29 plookup operations + ~29 point additions per scalar mul
 - **Primary application**: Efficient Pedersen hashing
+- See `plookup_tables/README.md` for details about how lookups are performed
 
 ### Variable-Base MSM (ROM Arrays)
 **When**: Everything else
@@ -72,6 +73,7 @@ The `batch_mul` method uses the Straus MSM algorithm and automatically selects t
   3. Subtract accumulated offset generators
 - **Cost**: 1 gate per ROM lookup + point additions + point doublings
 - **Flexibility**: Handles arbitrary base points determined at runtime
+- See `memory/README.md` for details about how ROM tables work
 
 ### Common Elements
 
