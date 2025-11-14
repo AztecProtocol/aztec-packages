@@ -53,9 +53,6 @@ export class PublicPersistableStateManager {
   /** Make sure a forked state is never merged twice. */
   private alreadyMergedIntoParent = false;
 
-  // TODO: this should be removed.
-  private readonly doMerkleOperations: boolean = true;
-
   constructor(
     private readonly treesDB: PublicTreesDB,
     private readonly contractsDB: PublicContractsDBInterface,
@@ -140,7 +137,9 @@ export class PublicPersistableStateManager {
 
     await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
 
-    // Write and cache storage writes for later reference/reads
+    // write to native merkle trees
+    await this.treesDB.storageWrite(contractAddress, slot, value);
+    // Cache storage writes for later reference/reads
     this.publicStorage.write(contractAddress, slot, value);
   }
 
@@ -363,7 +362,6 @@ export class PublicPersistableStateManager {
     // Nullifier check! We do this regardless of whether or not the instance exists,
     // as even for non-existence, we need to generate nullifier check hints.
 
-    // This will internally decide whether to check the nullifier tree or not depending on doMerkleOperations.
     const nullifierExistsInTree = await this.checkNullifierExists(
       AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
       contractAddress.toField(),
@@ -388,63 +386,60 @@ export class PublicPersistableStateManager {
   }
 
   private async checkContractUpdateInformation(instance: ContractInstanceWithAddress): Promise<void> {
-    // If "merkle operations" are not requested, we trust the DB.
-    // Otherwise we check that the contract updatability information is correct.
-    // That is, that the current and original contract class ids are correct.
-    // All failures are fatal and the simulation is not expected to be provable.
-    if (this.doMerkleOperations) {
-      // Conceptually, we want to do the following:
-      // * Read a DelayedPublicMutable at the contract update slot.
-      // * Obtain the expected current class id from the DelayedPublicMutable, at the current block.
-      // * if expectedId == 0 then currentClassId should be original contract class id
-      // * if expectedId != 0 then currentClassId should be expectedId
-      //
-      // However, we will also be checking the hash of the delayed public mutable values.
-      // This is a bit of a leak of information, since the circuit will use it to prove
-      // one public read instead of N of the delayed public mutable values.
-      const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
-        await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(instance.address);
-      const readDeployerStorage = async (storageSlot: Fr) =>
-        await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
+    // Check that the contract updatability information is correct.
+    // We always do this because we need hints.
 
-      const hash = await readDeployerStorage(delayedPublicMutableHashSlot);
-      // NOTE: The below reads are either not performed (if hash.isZero()) or only performed in unconstrained in c++ simulation.
-      // See UpdateCheck::check_current_class_id documentation - this means if we generate hints from the merkle db, they are unused:
-      const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
-        delayedPublicMutableSlot,
-        readDeployerStorage,
-      );
-      const preImage = delayedPublicMutableValues.toFields();
+    // Conceptually, we want to do the following:
+    // * Read a DelayedPublicMutable at the contract update slot.
+    // * Obtain the expected current class id from the DelayedPublicMutable, at the current block.
+    // * if expectedId == 0 then currentClassId should be original contract class id
+    // * if expectedId != 0 then currentClassId should be expectedId
+    //
+    // However, we will also be checking the hash of the delayed public mutable values.
+    // This is a bit of a leak of information, since the circuit will use it to prove
+    // one public read instead of N of the delayed public mutable values.
+    const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
+      await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(instance.address);
+    const readDeployerStorage = async (storageSlot: Fr) =>
+      await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
 
-      // 1) update never scheduled: hash == 0 and preimage should be empty (but poseidon2hash(preimage) will not be 0s)
-      if (hash.isZero()) {
-        assert(
-          preImage.every(f => f.isZero()),
-          `Found updatability hash 0 but preimage is not empty for contract instance ${instance.address}.`,
-        );
-        assert(
-          instance.currentContractClassId.equals(instance.originalContractClassId),
-          `Found updatability hash 0 for contract instance ${instance.address} but original class id ${instance.originalContractClassId} != current class id ${instance.currentContractClassId}.`,
-        );
-        return;
-      }
+    const hash = await readDeployerStorage(delayedPublicMutableHashSlot);
+    // NOTE: The below reads are either not performed (if hash.isZero()) or only performed in unconstrained in c++ simulation.
+    // See UpdateCheck::check_current_class_id documentation - this means if we generate hints from the merkle db, they are unused:
+    const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
+      delayedPublicMutableSlot,
+      readDeployerStorage,
+    );
+    const preImage = delayedPublicMutableValues.toFields();
 
-      // 2) At this point we know that the hash is not zero and this means that an update has at some point been scheduled.
-      const computedHash = await poseidon2Hash(preImage);
+    // 1) update never scheduled: hash == 0 and preimage should be empty (but poseidon2hash(preimage) will not be 0s)
+    if (hash.isZero()) {
       assert(
-        hash.equals(computedHash),
-        `Delayed public mutable values hash mismatch for contract instance ${instance.address}. Expected: ${hash}, computed: ${computedHash}`,
+        preImage.every(f => f.isZero()),
+        `Found updatability hash 0 but preimage is not empty for contract instance ${instance.address}.`,
       );
-
-      // We now check that, depending on the current block, the current class id is correct.
-      const expectedClassIdRaw = delayedPublicMutableValues.svc.getCurrentAt(this.timestamp).at(0)!;
-      const expectedClassId = expectedClassIdRaw.isZero() ? instance.originalContractClassId : expectedClassIdRaw;
       assert(
-        instance.currentContractClassId.equals(expectedClassId),
-        `Current class id mismatch
-        for contract instance ${instance.address}. Expected: ${expectedClassId}, current: ${instance.currentContractClassId}`,
+        instance.currentContractClassId.equals(instance.originalContractClassId),
+        `Found updatability hash 0 for contract instance ${instance.address} but original class id ${instance.originalContractClassId} != current class id ${instance.currentContractClassId}.`,
       );
+      return;
     }
+
+    // 2) At this point we know that the hash is not zero and this means that an update has at some point been scheduled.
+    const computedHash = await poseidon2Hash(preImage);
+    assert(
+      hash.equals(computedHash),
+      `Delayed public mutable values hash mismatch for contract instance ${instance.address}. Expected: ${hash}, computed: ${computedHash}`,
+    );
+
+    // We now check that, depending on the current block, the current class id is correct.
+    const expectedClassIdRaw = delayedPublicMutableValues.svc.getCurrentAt(this.timestamp).at(0)!;
+    const expectedClassId = expectedClassIdRaw.isZero() ? instance.originalContractClassId : expectedClassIdRaw;
+    assert(
+      instance.currentContractClassId.equals(expectedClassId),
+      `Current class id mismatch
+        for contract instance ${instance.address}. Expected: ${expectedClassId}, current: ${instance.currentContractClassId}`,
+    );
   }
 
   /**

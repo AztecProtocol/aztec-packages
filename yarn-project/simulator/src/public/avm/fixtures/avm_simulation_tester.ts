@@ -85,7 +85,6 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       skipFeeEnforcement: false,
       collectDebugLogs: true,
       collectHints: false,
-      maxDebugLogMemoryReads: 1000,
       collectStatistics: false,
     });
     const environment = initExecutionEnvironment({

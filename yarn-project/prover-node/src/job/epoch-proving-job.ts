@@ -195,7 +195,7 @@ export class EpochProvingJob implements Traceable {
         const db = await this.createFork(block.number - 1, l1ToL2Messages);
         const config = PublicSimulatorConfig.from({
           proverId: this.prover.getProverId().toField(),
-          skipFeeEnforcement: true,
+          skipFeeEnforcement: false,
           collectDebugLogs: false,
           collectHints: false,
           maxDebugLogMemoryReads: 0,

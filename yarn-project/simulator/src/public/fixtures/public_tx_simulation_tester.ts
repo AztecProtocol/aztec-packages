@@ -59,7 +59,6 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       skipFeeEnforcement: false,
       collectDebugLogs: true,
       collectHints: false,
-      maxDebugLogMemoryReads: 1000,
       collectStatistics: false,
     });
     this.simulator = useCppSimulator

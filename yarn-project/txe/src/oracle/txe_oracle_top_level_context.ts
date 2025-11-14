@@ -378,7 +378,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       skipFeeEnforcement: true,
       collectDebugLogs: true,
       collectHints: false,
-      maxDebugLogMemoryReads: 1000,
       collectStatistics: false,
     });
     const processor = new PublicProcessor(
@@ -495,7 +494,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       skipFeeEnforcement: true,
       collectDebugLogs: true,
       collectHints: false,
-      maxDebugLogMemoryReads: 1000,
       collectStatistics: false,
     });
     const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);

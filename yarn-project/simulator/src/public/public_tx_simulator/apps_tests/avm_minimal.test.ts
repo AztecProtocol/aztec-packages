@@ -1,4 +1,4 @@
-import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
 import { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -37,18 +37,8 @@ describe.each([
     const path = 'yarn-project/simulator/artifacts/avm_minimal_inputs.json';
     writeTestData(path, Buffer.from(json), /*raw=*/ true);
 
-    const expectedJson = readTestData(path);
-    const expectedAvmInputs = jsonParseWithSchema(expectedJson.toString(), AvmCircuitInputs.schema);
+    const expectedAvmInputs = readAvmMinimalPublicTxInputsFromFile();
     expect(expectedAvmInputs).toStrictEqual(inputs);
-  });
-
-  it('Minimal Tx avm inputs snapshot loaded from json file', async () => {
-    // If the test data needs to be updated, run the above ^ test case
-    // with AZTEC_GENERATE_TEST_DATA=1, and _then_ rerun this test and it should pass.
-    const result = await executeAvmMinimalPublicTx(tester);
-    const inputs = new AvmCircuitInputs(result.hints!, result.publicInputs);
-    const avmInputsFromFile = readAvmMinimalPublicTxInputsFromFile();
-    expect(inputs).toStrictEqual(avmInputsFromFile);
   });
 
   // This test makes sure that any TS changes are propagated to the testdata,
