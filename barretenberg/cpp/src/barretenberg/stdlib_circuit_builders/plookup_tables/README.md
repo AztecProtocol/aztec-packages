@@ -80,19 +80,22 @@ To understand how coefficients and step sizes are used, consider the actual gate
 
 We create 6 lookup gates, one for each slice. To understand the pattern, let's focus on the first wire $w_1$:
 
-| row idx | $w_1$ |
-|------|-------|
-| $0$ | $S = s_0 \cdot 2^{0} + s_1 \cdot 2^{6} + s_2 \cdot 2^{12} + s_3 \cdot 2^{18} + s_4 \cdot 2^{24} + s_5 \cdot 2^{30}$ |
-| $1$ | $\frac{S - s_0}{2^6} = s_1 \cdot 2^{0} + s_2 \cdot 2^{6} + s_3 \cdot 2^{12} + s_4 \cdot 2^{18} + s_5 \cdot 2^{24}$ |
-| $2$ | $\frac{S - s_0 - s_1 \cdot 2^6}{2^{12}} = s_2 \cdot 2^{0} + s_3 \cdot 2^{6} + s_4 \cdot 2^{12} + s_5 \cdot 2^{18}$ |
-| $\vdots$ | $\dots$ |
+| row idx | $w_1$                                                                                                               |
+| ------- | ------------------------------------------------------------------------------------------------------------------- |
+| $0$     | $S = s_0 \cdot 2^{0} + s_1 \cdot 2^{6} + s_2 \cdot 2^{12} + s_3 \cdot 2^{18} + s_4 \cdot 2^{24} + s_5 \cdot 2^{30}$ |
+| $1$     | $\frac{S - s_0}{2^6} = s_1 \cdot 2^{0} + s_2 \cdot 2^{6} + s_3 \cdot 2^{12} + s_4 \cdot 2^{18} + s_5 \cdot 2^{24}$  |
+| $2$     | $\frac{S - s_0 - s_1 \cdot 2^6}{2^{12}} = s_2 \cdot 2^{0} + s_3 \cdot 2^{6} + s_4 \cdot 2^{12} + s_5 \cdot 2^{18}$  |
+| $3$     | $\frac{S - s_0 - s_1 \cdot 2^6 - s_2 \cdot 2^{12}}{2^{18}} = s_3 \cdot 2^{0} + s_4 \cdot 2^{6} + s_5 \cdot 2^{12}$  |
+| $4$     | $\frac{S - s_0 - s_1 \cdot 2^6 - s_2 \cdot 2^{12} - s_3 \cdot 2^{18}}{2^{24}} = s_4 \cdot 2^{0} + s_5 \cdot 2^{6}$  |
+| $5$     | $\frac{S - s_0 - s_1 \cdot 2^6 - s_2 \cdot 2^{12} - s_3 \cdot 2^{18} - s_4 \cdot 2^{24}}{2^{30}} = s_5 \cdot 2^{0}$ |
+|         |                                                                                                                     |
 
 This establishes the reconstruction of the full value $S$ from the slices while also allowing us to prove the individual lookups by considering the difference of consecutive rows. For example, the slice value $s_0$ is reconstructed as:
 
 $$w_1[0] - w_1[1]\cdot 2^6 = S  - \frac{S - s_0}{2^6}\cdot 2^6 = s_0$$
 
-Or, more generally for the $i$th wire and $j$th row:
+Or, more generally for the $i$-th wire and $j$-th row:
 
-$$w_i[j] - w_i[j+1]\cdot step\_size_{i,j} = s_{i,j}, \,\,\, i = 1,2,3, \,\,\, j \in [0,5]$$
+$$w_i[j] - w_i[j+1]\cdot \texttt{step\_size}_{i,j} = s_{i,j}, \,\,\, i = 1,2,3, \,\,\, j \in [0,5]$$
 
-In the lookup relation (`LogDerivLookupRelation`) values $w_i[j+1]$ are accessed via the shifted wire polynomials `w_i_shift` and the $step\_size_{i,j}$ are stored in selectors $q_r, q_m$ and $q_c$.
+In the lookup relation (`LogDerivLookupRelation`) values $w_i[j+1]$ are accessed via the shifted wire polynomials `w_i_shift` and the $\texttt{step\_size}_{i,j}$ are stored in selectors $q_r, q_m$ and $q_c$.
