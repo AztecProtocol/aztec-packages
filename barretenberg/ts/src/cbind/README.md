@@ -182,11 +182,3 @@ BBAPI_DEBUG_LOG=. node -e "
   });
 "
 ```
-
-## Architecture Notes
-
-- The logging system uses dynamic imports to load platform-specific implementations
-- Logging is zero-overhead when disabled (only a function call check)
-- All captured data is msgpack-encoded requests, not responses
-- Logs are automatically flushed when the API is destroyed
-- The size-prefixed format allows efficient parsing and random access

@@ -36,7 +36,8 @@ const BBAPI_LOGGING: boolean = (() => {
         }
       }
     } catch (e) {
-      // Silent fail
+      // Catch SecurityError (localStorage in cross-origin iframes/private browsing) or other unexpected browser API errors
+      console.error('Failed to check BBAPI logging settings in browser:', e);
     }
   }
 
