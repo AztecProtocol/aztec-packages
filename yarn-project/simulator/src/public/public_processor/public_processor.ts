@@ -13,7 +13,6 @@ import {
   AvmExecutionHints,
   type AvmProvingRequest,
   PublicDataWrite,
-  PublicSimulatorConfig,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -78,12 +77,23 @@ export class PublicProcessorFactory {
   public create(
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
-    config: PublicSimulatorConfig,
+    config: {
+      skipFeeEnforcement: boolean;
+      clientInitiatedSimulation: boolean;
+      proverId?: Fr;
+      maxDebugLogMemoryReads?: number;
+    },
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
+    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, {
+      proverId: config.proverId,
+      doMerkleOperations: true,
+      skipFeeEnforcement: config.skipFeeEnforcement,
+      clientInitiatedSimulation: config.clientInitiatedSimulation,
+      maxDebugLogMemoryReads: config.maxDebugLogMemoryReads,
+    });
 
     return new PublicProcessor(
       globalVariables,
@@ -234,8 +244,10 @@ export class PublicProcessor implements Traceable {
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
 
+        const txBlobFields = processedTx.txEffect.getNumBlobFields();
+
         // If the actual size of this tx would exceed block size, skip it
-        const txSize = processedTx.txEffect.getDASize();
+        const txSize = txBlobFields * Fr.SIZE_IN_BYTES;
         if (maxBlockSize !== undefined && totalSizeInBytes + txSize > maxBlockSize) {
           this.log.debug(`Skipping processed tx ${txHash} sized ${txSize} due to max block size.`, {
             txHash,
@@ -250,7 +262,6 @@ export class PublicProcessor implements Traceable {
         }
 
         // If the actual blob fields of this tx would exceed the limit, skip it
-        const txBlobFields = processedTx.txEffect.toBlobFields().length;
         if (maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
           this.log.debug(
             `Skipping processed tx ${txHash} with ${txBlobFields} blob fields due to max blob fields limit.`,
