@@ -1,6 +1,5 @@
 #include "ultra_honk.test.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
-#include "barretenberg/ultra_honk/oink_prover.hpp"
 
 #include <gtest/gtest.h>
 
