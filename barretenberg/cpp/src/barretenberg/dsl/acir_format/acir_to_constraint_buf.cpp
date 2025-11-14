@@ -502,10 +502,6 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
                 if (!af.constrained_witness.contains(mul_quad.a)) {
                     // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
                     af.constrained_witness.insert(mul_quad.a);
-                    // swap the witnesses so that the first one is always properly constrained.
-                    auto tmp = mul_quad.a;
-                    mul_quad.a = mul_quad.b;
-                    mul_quad.b = tmp;
                 }
                 if (!af.constrained_witness.contains(mul_quad.b)) {
                     // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
