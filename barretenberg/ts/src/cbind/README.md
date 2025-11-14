@@ -6,9 +6,9 @@ Derives bindings from the reported msgpack schema from bb.
 
 - `schema_compiler.ts` - Compiler that generates TypeScript types and API classes from msgpack schema
 - `generate.ts` - Script to fetch schema from bb binary and generate bindings
-- `bbapi_log.ts` - Core logging infrastructure (platform-agnostic)
-- `bbapi_log_browser.ts` - Browser-specific logging implementation
-- `bbapi_log_node.ts` - Node.js-specific logging implementation
+- `bbapi_log_shared.ts` - Shared logging infrastructure (platform-agnostic)
+- `browser/bbapi_log.ts` - Browser-specific logging utilities
+- `node/bbapi_log.ts` - Node.js-specific logging utilities
 - `generated/` - Auto-generated API bindings (do not edit directly)
   - `api_types.ts` - Type definitions and serialization functions
   - `async.ts` - Async API class

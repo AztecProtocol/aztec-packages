@@ -1,27 +1,49 @@
 /**
  * Shared BBAPI logging infrastructure
- * Initializes BBAPI_LOGGING global by calling shouldLogBbapi from the appropriate environment
+ * Uses dynamic imports to avoid bundling both browser and node implementations
  */
-
-// Import utilities based on environment
-//  These will be resolved at build time to the correct implementation
-import { shouldLogBbapi as shouldLogBbapiNode, saveBbapiLogs as saveBbapiLogsNode } from './node/bbapi_log.js';
-import { shouldLogBbapi as shouldLogBbapiBrowser, saveBbapiLogs as saveBbapiLogsBrowser } from './browser/bbapi_log.js';
 
 // Detect environment
 const isNode = typeof process !== 'undefined' && process.env;
 const isBrowser = typeof window !== 'undefined';
 
-// Initialize global BBAPI_LOGGING by calling shouldLogBbapi from correct environment
-let logPath: string | boolean | null = null;
+// Initialize global BBAPI_LOGGING by checking environment settings directly
+// This avoids needing to import shouldLogBbapi at module load time
+let logPath: string | null = null;
 
-if (isNode) {
-  logPath = shouldLogBbapiNode();
-} else if (isBrowser) {
-  logPath = shouldLogBbapiBrowser();
-}
+const BBAPI_LOGGING: boolean = (() => {
+  if (isNode && process.env.BBAPI_DEBUG_LOG) {
+    logPath = process.env.BBAPI_DEBUG_LOG;
+    console.log(`BBAPI logging enabled (node mode): ${logPath}`);
+    return true;
+  }
 
-export const BBAPI_LOGGING: boolean = logPath !== null && logPath !== false;
+  if (isBrowser) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const localStorageValue = localStorage.getItem('BBAPI_DEBUG_LOG');
+        if (localStorageValue && localStorageValue.length > 0) {
+          console.log('BBAPI logging enabled (browser mode)');
+          return true;
+        }
+      }
+
+      if (window.location) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('BBAPI_DEBUG_LOG')) {
+          console.log('BBAPI logging enabled (browser mode)');
+          return true;
+        }
+      }
+    } catch (e) {
+      // Silent fail
+    }
+  }
+
+  return false;
+})();
+
+export { BBAPI_LOGGING };
 
 // Global list of bbapi calls
 const BBAPI_CALL_LOG: Uint8Array[] = [];
@@ -43,20 +65,33 @@ export function logBbapiCall(msgpackBuffer: Uint8Array): void {
 
 /**
  * Save all logged BBAPI calls to a file.
- * This is called automatically in Backend destroy methods or in finally blocks.
+ * This is called automatically in Backend destroy methods.
+ * Uses dynamic import to avoid bundling both browser and node code.
  */
 export function flushBbapiLogs(): void {
-  if (!BBAPI_LOGGING || BBAPI_CALL_LOG.length === 0) {
+  if (BBAPI_CALL_LOG.length === 0) {
     return;
   }
 
-  // Call the appropriate save function based on environment
-  if (isNode && typeof logPath === 'string') {
-    saveBbapiLogsNode(BBAPI_CALL_LOG, logPath);
-    BBAPI_CALL_LOG.length = 0;
+  // Dynamically import the appropriate implementation to avoid bundling both
+  if (isNode && logPath) {
+    import('./node/bbapi_log.js')
+      .then(({ saveBbapiLogs }) => {
+        saveBbapiLogs(BBAPI_CALL_LOG, logPath!);
+        BBAPI_CALL_LOG.length = 0;
+      })
+      .catch(e => {
+        console.error('Failed to save BBAPI logs (node):', e);
+      });
   } else if (isBrowser) {
-    saveBbapiLogsBrowser(BBAPI_CALL_LOG);
-    BBAPI_CALL_LOG.length = 0;
+    import('./browser/bbapi_log.js')
+      .then(({ saveBbapiLogs }) => {
+        saveBbapiLogs(BBAPI_CALL_LOG);
+        BBAPI_CALL_LOG.length = 0;
+      })
+      .catch(e => {
+        console.error('Failed to save BBAPI logs (browser):', e);
+      });
   }
 }
 
