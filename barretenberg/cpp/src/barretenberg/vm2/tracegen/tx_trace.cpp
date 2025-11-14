@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx_context.hpp"
+#include "barretenberg/vm2/generated/relations/perms_tx.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -55,7 +56,7 @@ uint32_t get_phase_length(const PhaseLengths& phase_lengths, TransactionPhase ph
     }
 }
 
-constexpr size_t NUM_PHASES = static_cast<size_t>(TransactionPhase::LAST);
+constexpr size_t NUM_PHASES = static_cast<size_t>(TransactionPhase::LAST) + 1;
 
 bool is_revertible(TransactionPhase phase)
 {
@@ -370,16 +371,12 @@ std::vector<std::pair<Column, FF>> handle_cleanup()
 {
     return {
         // End state
+        { Column::tx_sel_read_trees_and_gas_used, 1 },
         { Column::tx_note_hash_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX },
-        { Column::tx_should_read_note_hash_tree, 1 },
         { Column::tx_nullifier_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX },
-        { Column::tx_should_read_nullifier_tree, 1 },
         { Column::tx_public_data_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX },
-        { Column::tx_should_read_public_data_tree, 1 },
         { Column::tx_l1_l2_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX },
-        { Column::tx_should_read_l1_l2_tree, 1 },
         { Column::tx_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX },
-        { Column::tx_should_read_gas_used, 1 },
         { Column::tx_reverted_pi_offset, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX },
         { Column::tx_array_length_note_hashes_pi_offset,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
@@ -397,16 +394,12 @@ std::vector<std::pair<Column, FF>> handle_first_row()
 {
     std::vector<std::pair<Column, FF>> columns = {
         { Column::tx_start_tx, 1 },
+        { Column::tx_sel_read_trees_and_gas_used, 1 },
         { Column::tx_note_hash_pi_offset, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX },
-        { Column::tx_should_read_note_hash_tree, 1 },
         { Column::tx_nullifier_pi_offset, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX },
-        { Column::tx_should_read_nullifier_tree, 1 },
         { Column::tx_public_data_pi_offset, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX },
-        { Column::tx_should_read_public_data_tree, 1 },
         { Column::tx_l1_l2_pi_offset, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX },
-        { Column::tx_should_read_l1_l2_tree, 1 },
         { Column::tx_gas_used_pi_offset, AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX },
-        { Column::tx_should_read_gas_used, 1 },
         { Column::tx_gas_limit_pi_offset, AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX },
         { Column::tx_should_read_gas_limit, 1 },
     };
@@ -466,18 +459,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     std::array<std::vector<const simulation::TxPhaseEvent*>, NUM_PHASES> phase_buckets = {};
     // We have the phases in iterable form so that in the main loop when we and empty phase
     // we can map back to this enum
-    std::array<TransactionPhase, NUM_PHASES> phase_array = { TransactionPhase::NR_NULLIFIER_INSERTION,
-                                                             TransactionPhase::NR_NOTE_INSERTION,
-                                                             TransactionPhase::NR_L2_TO_L1_MESSAGE,
-                                                             TransactionPhase::SETUP,
-                                                             TransactionPhase::R_NULLIFIER_INSERTION,
-                                                             TransactionPhase::R_NOTE_INSERTION,
-                                                             TransactionPhase::R_L2_TO_L1_MESSAGE,
-                                                             TransactionPhase::APP_LOGIC,
-                                                             TransactionPhase::TEARDOWN,
-                                                             TransactionPhase::COLLECT_GAS_FEES,
-                                                             TransactionPhase::TREE_PADDING,
-                                                             TransactionPhase::CLEANUP };
 
     std::optional<simulation::TxStartupEvent> startup_event;
     PhaseLengths phase_lengths{}; // Will be populated from startup event
@@ -490,8 +471,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             phase_lengths = startup_event.value().phase_lengths;
         } else {
             const simulation::TxPhaseEvent& tx_phase_event = std::get<simulation::TxPhaseEvent>(tx_event);
-            // Minus 1 since the enum is 1-indexed
-            phase_buckets[static_cast<uint8_t>(tx_phase_event.phase) - 1].push_back(&tx_phase_event);
+            phase_buckets[static_cast<uint8_t>(tx_phase_event.phase)].push_back(&tx_phase_event);
 
             // Set some flags for use when populating the discard column.
             if (tx_phase_event.reverted) {
@@ -534,7 +514,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             continue;
         }
 
-        TransactionPhase phase = phase_array[i];
+        TransactionPhase phase = static_cast<TransactionPhase>(i);
 
         bool discard = false;
         if (is_revertible(phase)) {
@@ -649,8 +629,8 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_calldata_hash_settings, InteractionType::LookupSequential>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_dispatch_exec_end_settings, InteractionType::LookupGeneric>()
+        .add<perm_tx_dispatch_exec_start_settings, InteractionType::Permutation>()
+        .add<perm_tx_dispatch_exec_end_settings, InteractionType::Permutation>()
         .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupGeneric>()

@@ -17,7 +17,6 @@ include "tx_discard.pil";
 // (e) Revertible TEARDOWN phase
 // (f) Non-Revertible Collect Gas Phase
 
-// Things that are still underconstrained - see issue tracker #14666
 namespace tx;
 
     pol commit sel;
@@ -37,12 +36,12 @@ namespace tx;
 
     // Sel can only become off after the last phase (cleanup)
     #[NO_EARLY_END]
-    sel * (1 - sel') * (1 - is_cleanup) = 0;
+    sel * (1 - sel') * (phase_value - constants.AVM_TX_PHASE_VALUE_LAST) = 0;
 
     // Most of transaction initial constraints are in tx_context.pil
-    pol commit start_tx;
+    pol commit start_tx; // @boolean
     #[START_WITH_SEL]
-    start_tx' = (1 - sel) * sel';
+    start_tx' = precomputed.first_row;
 
     pol commit phase_value;
     // if is_padded = 1, this is a padded row
@@ -62,8 +61,15 @@ namespace tx;
     pol NOT_LAST = sel' * sel; // Could probably use a different condition (i.e. COLLECT_GAS is last row - save this for optimisation)
     pol NOT_PHASE_END = NOT_LAST * (1 - end_phase);
 
+    // sel == 1 when start_tx, is_padded, reverted, start_phase or end_phase is 1
+    #[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS]
+    (start_tx + is_padded + reverted + start_phase + end_phase) * (1 - sel) = 0;
+
+    #[START_PHASE_VALUE_INITIALIZATION]
+    start_tx * (phase_value - constants.AVM_TX_PHASE_VALUE_START) = 0;
+
     #[START_FOLLOWS_END]
-    NOT_LAST * (start_phase' - (end_phase + precomputed.first_row)) = 0;
+    sel' * (start_phase' - end_phase - precomputed.first_row) = 0;
 
     // end_phase = 1, remaining_phase - 1 = 0;
     pol commit is_revertible;
@@ -71,10 +77,10 @@ namespace tx;
     pol commit reverted;
     reverted * (1 - reverted) = 0;
     #[END_PHASE_ON_REVERT]
-    sel * reverted * (1 - end_phase) = 0;
+    reverted * (1 - end_phase) = 0;
     // phase_value stays the same unless we are at end_phase or reverted
     #[PHASE_VALUE_CONTINUITY]
-    NOT_PHASE_END * (1 - precomputed.first_row) * (phase_value' - phase_value) = 0;
+    NOT_PHASE_END * (phase_value' - phase_value) = 0;
     // At the start of a new phase, we need to increment the phase value
     #[INCR_PHASE_VALUE_ON_END]
     NOT_LAST * (1 - reverted) * end_phase * (phase_value' - (phase_value + 1)) = 0;
@@ -102,6 +108,9 @@ namespace tx;
     // If remaining_phase_counter == 1, end_phase = 1
     #[REM_COUNT_IS_ONE]
     sel * (1 - reverted) * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
+
+    #[IS_PADDED_END_PHASE]
+    is_padded * (1 - end_phase) = 0;
 
     #[READ_PHASE_SPEC]
     sel {
@@ -152,6 +161,20 @@ namespace tx;
         precomputed.next_phase_on_revert
     };
 
+    // If is_public_call_request == 1 ==> sel == 1.
+    // Note that this implies that is_public_call_request is boolean as precomputed.is_public_call_request is boolean
+    // due to the #[READ_PHASE_SPEC] lookup when sel == 1. If sel == 0, the below constraint implies is_public_call_request == 0.
+    #[SEL_ACTIVE_ON_PUBLIC_CALL_REQUEST]
+    is_public_call_request * (1 - sel) = 0;
+
+    // If is_collect_fee == 1 ==> sel == 1. (implies boolean with same reasoning as above)
+    #[SEL_ACTIVE_ON_COLLECT_FEE]
+    is_collect_fee * (1 - sel) = 0;
+
+    // If is_cleanup == 1 ==> sel == 1. (implies boolean with same reasoning as above)
+    #[SEL_ACTIVE_ON_CLEANUP]
+    is_cleanup * (1 - sel) = 0;
+
     // If a phase reverts (when it is allowed to), it jumps to a known next phase
     #[PHASE_JUMP_ON_REVERT]
     reverted * (next_phase_on_revert - phase_value') = 0;
@@ -175,13 +198,13 @@ namespace tx;
 
     // Phase events decrement at each row
     #[DECR_REM_PHASE_EVENTS]
-    (1 - precomputed.first_row) * NOT_PHASE_END * (remaining_phase_counter' - (remaining_phase_counter - 1)) = 0;
+    NOT_PHASE_END * (remaining_phase_counter' - (remaining_phase_counter - 1)) = 0;
 
     #[READ_PI_OFFSET_INIT]
     start_phase * (read_pi_offset - read_pi_start_offset) = 0;
     // The read index increments at each row
-    #[READ_PI_OFFSET_INCREMENT]
-    NOT_PHASE_END * (read_pi_offset + 1 - read_pi_offset') = 0;
+    #[INCR_READ_PI_OFFSET]
+    NOT_PHASE_END * (read_pi_offset' - (read_pi_offset + 1)) = 0;
 
     // === Public Call Request Phase ===
     pol commit is_public_call_request;
@@ -272,7 +295,7 @@ namespace tx;
         prev_da_gas_used_sent_to_enqueued_call,
         l2_gas_limit,
         da_gas_limit
-    } in
+    } is
     execution.enqueued_call_start {
         execution.context_id, // next_context_id must be constrained in the execution trace on enqueued_call_start
         execution.discard,
@@ -332,7 +355,7 @@ namespace tx;
        // Gas Info
        next_l2_gas_used_sent_to_enqueued_call,
        next_da_gas_used_sent_to_enqueued_call
-    } in
+    } is
     execution.enqueued_call_end {
        execution.context_id,
        execution.next_context_id,
@@ -478,11 +501,10 @@ namespace tx;
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
     // If we are at the maximum emitted messages, we must revert
-    pol REMAINING_L2_TO_L1_MSG_WRITES = constants.MAX_L2_TO_L1_MSGS_PER_TX -
-        prev_num_l2_to_l1_messages;
+    pol REMAINING_L2_TO_L1_MSG_WRITES = constants.MAX_L2_TO_L1_MSGS_PER_TX - prev_num_l2_to_l1_messages;
     // Revert if REMAINING_L2_TO_L1_MSG_WRITES is 0
     #[MAX_L2_L1_MSG_WRITES_REACHED]
-    should_try_l2_l1_msg_append * (1 - is_padded) * (REMAINING_L2_TO_L1_MSG_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
+    should_try_l2_l1_msg_append * (REMAINING_L2_TO_L1_MSG_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
 
     pol commit should_l2_l1_msg_append;
     // A msg emit must be written to PI if it didn't revert, and is not discard.

@@ -244,8 +244,10 @@ export class PublicProcessor implements Traceable {
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
 
+        const txBlobFields = processedTx.txEffect.getNumBlobFields();
+
         // If the actual size of this tx would exceed block size, skip it
-        const txSize = processedTx.txEffect.getDASize();
+        const txSize = txBlobFields * Fr.SIZE_IN_BYTES;
         if (maxBlockSize !== undefined && totalSizeInBytes + txSize > maxBlockSize) {
           this.log.debug(`Skipping processed tx ${txHash} sized ${txSize} due to max block size.`, {
             txHash,
@@ -260,7 +262,6 @@ export class PublicProcessor implements Traceable {
         }
 
         // If the actual blob fields of this tx would exceed the limit, skip it
-        const txBlobFields = processedTx.txEffect.toBlobFields().length;
         if (maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
           this.log.debug(
             `Skipping processed tx ${txHash} with ${txBlobFields} blob fields due to max blob fields limit.`,

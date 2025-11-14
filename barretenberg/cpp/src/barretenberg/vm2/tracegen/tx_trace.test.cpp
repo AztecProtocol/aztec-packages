@@ -248,15 +248,12 @@ TEST(TxTraceGenTest, CleanupEvent)
               ROW_FIELD_EQ(tx_remaining_phase_counter, 1),
               ROW_FIELD_EQ(tx_remaining_phase_inv, 1),
               ROW_FIELD_EQ(tx_note_hash_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX),
-              ROW_FIELD_EQ(tx_should_read_note_hash_tree, 1),
+              ROW_FIELD_EQ(tx_sel_read_trees_and_gas_used, 1),
               ROW_FIELD_EQ(tx_nullifier_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX),
-              ROW_FIELD_EQ(tx_should_read_nullifier_tree, 1),
+              ROW_FIELD_EQ(tx_sel_read_trees_and_gas_used, 1),
               ROW_FIELD_EQ(tx_public_data_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX),
-              ROW_FIELD_EQ(tx_should_read_public_data_tree, 1),
               ROW_FIELD_EQ(tx_l1_l2_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX),
-              ROW_FIELD_EQ(tx_should_read_l1_l2_tree, 1),
               ROW_FIELD_EQ(tx_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX),
-              ROW_FIELD_EQ(tx_should_read_gas_used, 1),
               ROW_FIELD_EQ(tx_reverted_pi_offset, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX)));
 }
 
@@ -310,15 +307,11 @@ TEST(TxTraceGenTest, CleanupRevertedEvent)
               ROW_FIELD_EQ(tx_remaining_phase_counter, 1),
               ROW_FIELD_EQ(tx_remaining_phase_inv, 1),
               ROW_FIELD_EQ(tx_note_hash_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX),
-              ROW_FIELD_EQ(tx_should_read_note_hash_tree, 1),
+              ROW_FIELD_EQ(tx_sel_read_trees_and_gas_used, 1),
               ROW_FIELD_EQ(tx_nullifier_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX),
-              ROW_FIELD_EQ(tx_should_read_nullifier_tree, 1),
               ROW_FIELD_EQ(tx_public_data_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX),
-              ROW_FIELD_EQ(tx_should_read_public_data_tree, 1),
               ROW_FIELD_EQ(tx_l1_l2_pi_offset, AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX),
-              ROW_FIELD_EQ(tx_should_read_l1_l2_tree, 1),
               ROW_FIELD_EQ(tx_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX),
-              ROW_FIELD_EQ(tx_should_read_gas_used, 1),
               ROW_FIELD_EQ(tx_reverted_pi_offset, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX)));
 }
 

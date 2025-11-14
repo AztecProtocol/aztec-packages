@@ -7,11 +7,10 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { IFullNodeBlockBuilder, ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { BlockHeader, type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import {

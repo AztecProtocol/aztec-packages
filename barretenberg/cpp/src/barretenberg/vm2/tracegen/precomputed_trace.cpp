@@ -20,10 +20,10 @@
 
 namespace bb::avm2::tracegen {
 
+using C = Column;
+
 void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t num_rows)
 {
-    using C = Column;
-
     // First row.
     trace.set(C::precomputed_first_row, 0, 1);
 
@@ -37,8 +37,6 @@ void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t
 
 void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
 {
-    using C = Column;
-
     // 256 per input (a and b), and 3 different bitwise ops
     constexpr auto num_rows = 256 * 256 * 3;
     trace.reserve_column(C::precomputed_sel_bitwise, num_rows);
@@ -92,8 +90,6 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
  */
 void PrecomputedTraceBuilder::process_sel_range_8(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr auto num_rows = 1 << 8; // 256
     // Set this selector high for the first 2^8 rows
     // For these rows, clk will be 0...255
@@ -111,8 +107,6 @@ void PrecomputedTraceBuilder::process_sel_range_8(TraceContainer& trace)
  */
 void PrecomputedTraceBuilder::process_sel_range_16(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr auto num_rows = 1 << 16; // 2^16
     // Set this selector high for the first 2^16 rows
     // For these rows, clk will be 0...2^16-1
@@ -128,8 +122,6 @@ void PrecomputedTraceBuilder::process_sel_range_16(TraceContainer& trace)
  */
 void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr auto num_rows = 1 << 8; // 2^8 = 256
     trace.reserve_column(C::precomputed_power_of_2, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
@@ -139,8 +131,6 @@ void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
 
 void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr std::array<uint32_t, 64> round_constants{
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
         0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -163,7 +153,6 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
 
 void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
 {
-    using C = Column;
     using bb::avm2::MemoryTag;
 
     constexpr uint32_t NUM_TAGS = static_cast<uint32_t>(MemoryTag::MAX) + 1;
@@ -181,7 +170,6 @@ void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
 
 void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trace)
 {
-    using C = Column;
     const std::array<Column, NUM_OP_DC_SELECTORS> sel_op_dc_columns = {
         C::precomputed_sel_op_dc_0,  C::precomputed_sel_op_dc_1,  C::precomputed_sel_op_dc_2,
         C::precomputed_sel_op_dc_3,  C::precomputed_sel_op_dc_4,  C::precomputed_sel_op_dc_5,
@@ -229,8 +217,6 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
 
 void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr std::array<Column, AVM_MAX_REGISTERS> MEM_OP_REG_COLUMNS = {
         Column::precomputed_sel_mem_op_reg_0_, Column::precomputed_sel_mem_op_reg_1_,
         Column::precomputed_sel_mem_op_reg_2_, Column::precomputed_sel_mem_op_reg_3_,
@@ -300,8 +286,6 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
 
 void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 {
-    using C = Column;
-
     const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     trace.reserve_column(C::precomputed_sel_to_radix_p_limb_counts, p_limbs_per_radix.size());
@@ -319,8 +303,6 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 
 void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& trace)
 {
-    using C = Column;
-
     const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     uint32_t row = 0;
@@ -338,8 +320,6 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
 
 void PrecomputedTraceBuilder::process_memory_tag_range(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr uint32_t num_rows = 1 << 8; // 256
 
     for (uint32_t i = static_cast<uint32_t>(MemoryTag::MAX) + 1; i < num_rows; i++) {
@@ -349,8 +329,6 @@ void PrecomputedTraceBuilder::process_memory_tag_range(TraceContainer& trace)
 
 void PrecomputedTraceBuilder::process_addressing_gas(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr uint32_t num_rows = 1 << 16; // 65536
     trace.reserve_column(C::precomputed_sel_addressing_gas, num_rows);
     trace.reserve_column(C::precomputed_addressing_gas, num_rows);
@@ -399,8 +377,6 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 
 void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& trace)
 {
-    using C = Column;
-
     uint32_t row = 1;
     for (const auto& round_constant : simulation::keccak_round_constants) {
         trace.set(row,
@@ -417,8 +393,6 @@ void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& tra
  */
 void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr uint32_t NUM_ROWS = 1 << 8;
 
     // Start by flagging `invalid_envvar_enum` as 1 for all rows.
@@ -451,8 +425,6 @@ void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
  */
 void PrecomputedTraceBuilder::process_get_contract_instance_table(TraceContainer& trace)
 {
-    using C = Column;
-
     // Set valid rows based on the precomputed table
     for (uint8_t enum_value = 0; enum_value <= static_cast<uint8_t>(ContractInstanceMember::MAX); enum_value++) {
         const auto& spec = GetContractInstanceSpec::get_table(enum_value);

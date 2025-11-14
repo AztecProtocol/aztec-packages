@@ -11,7 +11,7 @@ use crate::{
         block_root_rollup_private_inputs::BlockRootRollupPrivateInputs,
         block_root_single_tx_first_rollup_private_inputs::BlockRootSingleTxFirstRollupPrivateInputs,
         block_root_single_tx_rollup_private_inputs::BlockRootSingleTxRollupPrivateInputs,
-        components::BlockRollupPublicInputsComposer,
+        components::block_blob_data::{create_block_end_marker, create_block_end_state_field},
     },
     tests::RollupFixtureBuilder,
 };
@@ -258,11 +258,22 @@ impl TestBuilder {
 
         assert_eq(pi.start_sponge_blob, left.start_sponge_blob);
 
-        let block_end_marker = BlockRollupPublicInputsComposer::create_block_end_marker(
-            self.num_left_txs + self.num_right_txs,
-        );
         let mut expected_end_sponge_blob = right.end_sponge_blob;
-        expected_end_sponge_blob.absorb([block_end_marker], 1);
+        let blob_data = [
+            create_block_end_marker(
+                left.constants.global_variables,
+                self.num_left_txs + self.num_right_txs,
+            ),
+            create_block_end_state_field(pi.end_state, pi.accumulated_mana_used),
+            pi.previous_archive.root,
+            pi.end_state.partial.note_hash_tree.root,
+            pi.end_state.partial.nullifier_tree.root,
+            pi.end_state.partial.public_data_tree.root,
+        ];
+        expected_end_sponge_blob.absorb(blob_data, blob_data.len());
+        if self.is_first_block_root {
+            expected_end_sponge_blob.absorb([pi.end_state.l1_to_l2_message_tree.root], 1);
+        }
         assert_eq(pi.end_sponge_blob, expected_end_sponge_blob);
 
         // --- Archive ---
