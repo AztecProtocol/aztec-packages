@@ -140,6 +140,49 @@ TEST(TxTraceGenTest, CollectFeeEvent)
                       ROW_FIELD_EQ(tx_uint32_max, 0xffffffff)));
 };
 
+TEST(TxTraceGenTest, BasicFirstPaddedRow)
+{
+    TestTraceContainer trace;
+    TxTraceBuilder builder;
+
+    simulation::TxStartupEvent startup_event = {
+        .gas_used = { 500, 1000 },
+        .gas_limit = { 1000, 2000 },
+        .teardown_gas_limit = { 0, 0 },
+    };
+
+    simulation::TxPhaseEvent empty_nr_nullifier_insertion_event = { .phase = TransactionPhase::NR_NULLIFIER_INSERTION,
+                                                                    .state_before = {},
+                                                                    .state_after = {},
+                                                                    .reverted = false,
+                                                                    .event = simulation::EmptyPhaseEvent{} };
+
+    builder.process({ startup_event, empty_nr_nullifier_insertion_event }, trace);
+
+    auto rows = trace.as_rows();
+    ASSERT_EQ(rows.size(), 2);
+
+    EXPECT_THAT(
+        rows[1],
+        AllOf(
+            ROW_FIELD_EQ(tx_sel, 1),
+            ROW_FIELD_EQ(tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION)),
+            ROW_FIELD_EQ(tx_is_padded, 1),
+            ROW_FIELD_EQ(tx_is_tree_insert_phase, 1),
+            ROW_FIELD_EQ(tx_sel_non_revertible_append_nullifier, 1),
+            ROW_FIELD_EQ(tx_sel_can_emit_nullifier, 1),
+            ROW_FIELD_EQ(tx_start_tx, 1),
+            ROW_FIELD_EQ(tx_should_read_gas_limit, 1),
+            ROW_FIELD_EQ(tx_gas_limit_pi_offset, AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX),
+            ROW_FIELD_EQ(tx_read_pi_start_offset,
+                         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX),
+            ROW_FIELD_EQ(tx_read_pi_offset,
+                         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX),
+            ROW_FIELD_EQ(tx_sel_read_phase_length, 1),
+            ROW_FIELD_EQ(tx_read_pi_length_offset,
+                         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX)));
+}
+
 TEST(TxTraceGenTest, PadTreesEvent)
 {
     TestTraceContainer trace;
