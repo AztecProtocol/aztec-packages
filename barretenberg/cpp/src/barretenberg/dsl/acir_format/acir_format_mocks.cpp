@@ -28,6 +28,7 @@ acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indice
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
     };
 }
@@ -91,6 +92,9 @@ void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
     }
     for (size_t i = 0; i < constraint_system.quad_constraints.size(); i++) {
         constraint_system.original_opcode_indices.quad_constraints.push_back(current_opcode++);
+    }
+    for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); i++) {
+        constraint_system.original_opcode_indices.big_quad_constraints.push_back(current_opcode++);
     }
     for (size_t i = 0; i < constraint_system.block_constraints.size(); i++) {
         std::vector<size_t> block_indices;
