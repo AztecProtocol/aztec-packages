@@ -38,7 +38,7 @@ struct PhaseLengths {
 };
 
 struct TxStartupEvent {
-    TxContextEvent state;
+    Gas gas_used;
     Gas gas_limit;
     Gas teardown_gas_limit;
     PhaseLengths phase_lengths;

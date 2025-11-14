@@ -31,7 +31,7 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
     auto calldata_hash = FF::random_element();
 
     simulation::TxStartupEvent startup_event = {
-        .state = { .gas_used = { 500, 1000 }, .tree_states = {}, .written_public_data_slots_tree_snapshot = {} },
+        .gas_used = { 500, 1000 },
         .gas_limit = { 1000, 2000 },
         .teardown_gas_limit = { 0, 0 },
         .phase_lengths = { .setup = 1 },
@@ -90,7 +90,7 @@ TEST(TxTraceGenTest, CollectFeeEvent)
     auto fee = effective_fee_per_da_gas * prev_da_gas_used + effective_fee_per_l2_gas * prev_l2_gas_used;
 
     simulation::TxStartupEvent startup_event = {
-        .state = { .gas_used = { 500, 1000 }, .tree_states = {}, .written_public_data_slots_tree_snapshot = {} },
+        .gas_used = { 500, 1000 },
         .gas_limit = { 1000, 2000 },
         .teardown_gas_limit = { 0, 0 },
     };
@@ -146,7 +146,7 @@ TEST(TxTraceGenTest, PadTreesEvent)
     TxTraceBuilder builder;
 
     simulation::TxStartupEvent startup_event = {
-        .state = { .gas_used = { 500, 1000 }, .tree_states = {}, .written_public_data_slots_tree_snapshot = {} },
+        .gas_used = { 500, 1000 },
         .gas_limit = { 1000, 2000 },
         .teardown_gas_limit = { 0, 0 },
     };
@@ -223,7 +223,7 @@ TEST(TxTraceGenTest, CleanupEvent)
     TxTraceBuilder builder;
 
     simulation::TxStartupEvent startup_event = {
-        .state = { .gas_used = { 500, 1000 }, .tree_states = {}, .written_public_data_slots_tree_snapshot = {} },
+        .gas_used = { 500, 1000 },
         .gas_limit = { 1000, 2000 },
         .teardown_gas_limit = { 0, 0 },
     };
@@ -263,7 +263,7 @@ TEST(TxTraceGenTest, CleanupRevertedEvent)
     TxTraceBuilder builder;
 
     simulation::TxStartupEvent startup_event = {
-        .state = { .gas_used = { 500, 1000 }, .tree_states = {}, .written_public_data_slots_tree_snapshot = {} },
+        .gas_used = { 500, 1000 },
         .gas_limit = { 1000, 2000 },
         .teardown_gas_limit = { 0, 0 },
     };

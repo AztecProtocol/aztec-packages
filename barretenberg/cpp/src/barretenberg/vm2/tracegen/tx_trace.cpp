@@ -270,7 +270,7 @@ std::vector<std::pair<C, FF>> handle_phase_spec(TransactionPhase phase)
 /**
  * @brief Populate the columns for the previous gas used.
  *
- * @param gas_used The gas used.
+ * @param prev_gas_used The previous gas used.
  * @return The relevant populated columns.
  */
 std::vector<std::pair<C, FF>> handle_prev_gas_used(const Gas& prev_gas_used)
@@ -301,9 +301,20 @@ std::vector<std::pair<C, FF>> handle_next_gas_used(const Gas& next_gas_used)
  * @param gas_limit The gas limit.
  * @return The relevant populated columns.
  */
-std::vector<std::pair<C, FF>> handle_gas_limit(const Gas& gas_limit)
+std::vector<std::pair<C, FF>> handle_gas_limit(TransactionPhase phase, const Gas& gas_limit, bool is_first_row)
 {
+    const bool is_phase_teardown = is_teardown(phase);
+
+    uint32_t gas_limit_pi_offset = 0;
+    if (is_phase_teardown) {
+        gas_limit_pi_offset = AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX;
+    } else if (is_first_row) {
+        gas_limit_pi_offset = AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX;
+    }
+
     return {
+        { C::tx_gas_limit_pi_offset, gas_limit_pi_offset },
+        { C::tx_should_read_gas_limit, (is_phase_teardown || is_first_row) ? 1 : 0 },
         { C::tx_da_gas_limit, gas_limit.da_gas },
         { C::tx_l2_gas_limit, gas_limit.l2_gas },
     };
@@ -316,7 +327,7 @@ std::vector<std::pair<C, FF>> handle_gas_limit(const Gas& gas_limit)
  * @param event The enqueued call event.
  * @return The relevant populated columns.
  */
-std::vector<std::pair<C, FF>> handle_enqueued_call_event(TransactionPhase phase, const EnqueuedCallEvent& event)
+std::vector<std::pair<C, FF>> handle_enqueued_call_event(const EnqueuedCallEvent& event)
 {
     return { { C::tx_should_process_call_request, 1 },
              { C::tx_msg_sender, event.msg_sender },
@@ -325,14 +336,10 @@ std::vector<std::pair<C, FF>> handle_enqueued_call_event(TransactionPhase phase,
              { C::tx_is_static, event.is_static },
              { C::tx_calldata_size, event.calldata_size },
              { C::tx_calldata_hash, event.calldata_hash },
-             { C::tx_reverted, !event.success },
              { C::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.da_gas },
              { C::tx_prev_l2_gas_used_sent_to_enqueued_call, event.start_gas.l2_gas },
              { C::tx_next_da_gas_used_sent_to_enqueued_call, event.end_gas.da_gas },
-             { C::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2_gas },
-             { C::tx_gas_limit_pi_offset,
-               is_teardown(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
-             { C::tx_should_read_gas_limit, is_teardown(phase) ? 1 : 0 } };
+             { C::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2_gas } };
 }
 
 /**
@@ -507,8 +514,6 @@ std::vector<std::pair<C, FF>> handle_first_row()
         { C::tx_public_data_pi_offset, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX },
         { C::tx_l1_l2_pi_offset, AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX },
         { C::tx_gas_used_pi_offset, AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX },
-        { C::tx_gas_limit_pi_offset, AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX },
-        { C::tx_should_read_gas_limit, 1 },
     };
 
     return columns;
@@ -527,10 +532,6 @@ std::vector<std::pair<C, FF>> handle_padded_row(TransactionPhase phase, const Ga
 {
     std::vector<std::pair<C, FF>> columns = {
         { C::tx_is_padded, 1 },
-        // Public call request specific
-        { C::tx_gas_limit_pi_offset,
-          is_teardown(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
-        { C::tx_should_read_gas_limit, is_teardown(phase) ? 1 : 0 },
     };
 
     // Gas used does not change in padding rows
@@ -650,7 +651,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     Gas current_gas_limit = startup_event_data.gas_limit;
     const Gas& teardown_gas_limit = startup_event_data.teardown_gas_limit;
     // Track the gas used over the course of the transaction.
-    Gas gas_used = startup_event_data.state.gas_used;
+    Gas gas_used = startup_event_data.gas_used;
     // Track whether this tx reverted
     bool tx_reverted = false;
 
@@ -719,7 +720,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
             // Pattern match on the variant event type and call the appropriate handler
             std::visit(overloaded{ [&](const EnqueuedCallEvent& event) {
-                                      trace.set(row, handle_enqueued_call_event(phase, event));
+                                      trace.set(row, handle_enqueued_call_event(event));
                                       // No explicit write counter for this phase
                                       trace.set(row, handle_pi_read(phase, phase_length, phase_counter));
 
@@ -753,7 +754,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                        tx_phase_event->event);
 
             trace.set(row, handle_next_gas_used(gas_used));
-            trace.set(row, handle_gas_limit(current_gas_limit));
+            trace.set(row, handle_gas_limit(phase, current_gas_limit, row == 1));
 
             phase_counter++; // Inner loop counter.
             row++;
