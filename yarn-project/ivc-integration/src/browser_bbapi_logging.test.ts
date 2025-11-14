@@ -36,21 +36,10 @@ describe('BBAPI Logging in Browser', () => {
     const downloadPromise = page.waitForEvent('download', { timeout: 5000 });
 
     const result = await page.evaluate(async () => {
-      // Dynamically import Barretenberg to use real BBAPI
-      const { Barretenberg } = await import('@aztec/bb.js');
-
-      // Create API instance (logging should be enabled)
-      const api = await Barretenberg.new({ threads: 1 });
-
-      // Make a real BBAPI call (e.g., get random field element)
       try {
-        // This will call msgpackCall internally, which should log the call
-        await api.grumpkinGetRandomFr({ dummy: 0 });
-
-        // Destroy will trigger flushBbapiLogs() which should save and download
-        await api.destroy();
-
-        return { success: true };
+        // Call the test function that's bundled and exposed on window
+        const testResult = await (window as any).testBbapiLoggingBasic();
+        return { success: true, callCount: testResult.callCount };
       } catch (e: any) {
         return { error: e?.message || String(e) };
       }
@@ -109,20 +98,10 @@ describe('BBAPI Logging in Browser', () => {
     const downloadPromise = page.waitForEvent('download', { timeout: 5000 });
 
     const result = await page.evaluate(async () => {
-      // Dynamically import Barretenberg
-      const { Barretenberg } = await import('@aztec/bb.js');
-
-      // Create API instance (logging should be enabled from URL param)
-      const api = await Barretenberg.new({ threads: 1 });
-
-      // Make multiple real BBAPI calls
       try {
-        await api.grumpkinGetRandomFr({ dummy: 0 });
-        await api.grumpkinGetRandomFr({ dummy: 0 });
-
-        // Destroy will trigger flushBbapiLogs() which should save and download
-        await api.destroy();
-        return { success: true };
+        // Call the test function that makes multiple BBAPI calls
+        const testResult = await (window as any).testBbapiLoggingMultiple();
+        return { success: true, callCount: testResult.callCount };
       } catch (e: any) {
         return { error: e?.message || String(e) };
       }
@@ -186,15 +165,10 @@ describe('BBAPI Logging in Browser', () => {
     const downloadPromise = page.waitForEvent('download', { timeout: 5000 });
 
     const result = await page.evaluate(async () => {
-      const { Barretenberg } = await import('@aztec/bb.js');
-      const api = await Barretenberg.new({ threads: 1 });
-
       try {
-        // Make some BBAPI calls that we can replay
-        await api.grumpkinGetRandomFr({ dummy: 0 });
-        await api.grumpkinGetRandomFr({ dummy: 0 });
-        await api.destroy();
-        return { success: true };
+        // Call the test function that makes multiple BBAPI calls
+        const testResult = await (window as any).testBbapiLoggingMultiple();
+        return { success: true, callCount: testResult.callCount };
       } catch (e: any) {
         return { error: e?.message || String(e) };
       }
@@ -274,14 +248,10 @@ describe('BBAPI Logging in Browser', () => {
     });
 
     const result = await page.evaluate(async () => {
-      const { Barretenberg } = await import('@aztec/bb.js');
-
-      const api = await Barretenberg.new({ threads: 1 });
-
       try {
-        await api.grumpkinGetRandomFr({ dummy: 0 });
-        await api.destroy();
-        return { success: true };
+        // Call the test function with logging disabled
+        const testResult = await (window as any).testBbapiLoggingBasic();
+        return { success: true, callCount: testResult.callCount };
       } catch (e: any) {
         return { error: e?.message || String(e) };
       }
