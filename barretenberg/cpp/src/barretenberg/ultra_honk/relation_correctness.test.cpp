@@ -216,7 +216,8 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     auto& prover_polynomials = prover_inst->polynomials;
     auto params = prover_inst->relation_parameters;
 
-    RelationChecker<Flavor>::check_all(prover_polynomials, params);
+    auto relation_failures = RelationChecker<Flavor>::check_all(prover_polynomials, params);
+    EXPECT_TRUE(relation_failures.empty());
 }
 
 TEST_F(UltraRelationCorrectnessTests, Mega)
@@ -253,5 +254,6 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     auto& prover_polynomials = prover_inst->polynomials;
     auto params = prover_inst->relation_parameters;
 
-    RelationChecker<Flavor>::check_all(prover_polynomials, params);
+    auto relation_failures = RelationChecker<Flavor>::check_all(prover_polynomials, params);
+    EXPECT_TRUE(relation_failures.empty());
 }
