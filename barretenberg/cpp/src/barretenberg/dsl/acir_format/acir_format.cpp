@@ -99,43 +99,73 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add arithmetic gates
     for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
         const auto& constraint = constraint_system.poly_triple_constraints.at(i);
-        builder.create_poly_gate(constraint);
+        builder.create_poly_gate(poly_triple{
+            .a = constraint.a == bb::stdlib::IS_CONSTANT ? 0 : constraint.a,
+            .b = constraint.b == bb::stdlib::IS_CONSTANT ? 0 : constraint.b,
+            .c = constraint.c == bb::stdlib::IS_CONSTANT ? 0 : constraint.c,
+            .q_m = constraint.q_m,
+            .q_l = constraint.q_l,
+            .q_r = constraint.q_r,
+            .q_o = constraint.q_o,
+            .q_c = constraint.q_c,
+        });
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.poly_triple_constraints.at(i));
     }
 
     for (size_t i = 0; i < constraint_system.quad_constraints.size(); ++i) {
         const auto& constraint = constraint_system.quad_constraints.at(i);
-        builder.create_big_mul_gate(constraint);
+        builder.create_big_mul_gate(mul_quad_<fr>{
+            .a = constraint.a == bb::stdlib::IS_CONSTANT ? 0 : constraint.a,
+            .b = constraint.b == bb::stdlib::IS_CONSTANT ? 0 : constraint.b,
+            .c = constraint.c == bb::stdlib::IS_CONSTANT ? 0 : constraint.c,
+            .d = constraint.d == bb::stdlib::IS_CONSTANT ? 0 : constraint.d,
+            .mul_scaling = constraint.mul_scaling,
+            .a_scaling = constraint.a_scaling,
+            .b_scaling = constraint.b_scaling,
+            .c_scaling = constraint.c_scaling,
+            .d_scaling = constraint.d_scaling,
+            .const_scaling = constraint.const_scaling,
+        });
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.quad_constraints.at(i));
     }
     // Oversize gates are a vector of mul_quad gates.
     for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); ++i) {
-        auto& big_constraint = constraint_system.big_quad_constraints.at(i);
+        const auto& big_constraint = constraint_system.big_quad_constraints.at(i);
         fr next_w4_wire_value = fr(0);
         // Define the 4th wire of these mul_quad gates, which is implicitly used by the previous gate.
         for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
+            mul_quad_<fr> quad_constraint = big_constraint[j];
+            quad_constraint.a = quad_constraint.a == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.a;
+            quad_constraint.b = quad_constraint.b == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.b;
+            quad_constraint.c = quad_constraint.c == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.c;
+            quad_constraint.d = quad_constraint.d == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.d;
             if (j == 0) {
-                next_w4_wire_value = builder.get_variable(big_constraint[0].d);
+                next_w4_wire_value = builder.get_variable(quad_constraint.d);
             } else {
                 uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
-                big_constraint[j].d = next_w4_wire;
-                big_constraint[j].d_scaling = fr(-1);
+                quad_constraint.d = next_w4_wire;
+                quad_constraint.d_scaling = fr(-1);
             }
-            builder.create_big_mul_add_gate(big_constraint[j], true);
-            next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
-                                     big_constraint[j].mul_scaling +
-                                 builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
-                                 builder.get_variable(big_constraint[j].b) * big_constraint[j].b_scaling +
-                                 builder.get_variable(big_constraint[j].c) * big_constraint[j].c_scaling +
-                                 next_w4_wire_value * big_constraint[j].d_scaling + big_constraint[j].const_scaling;
+            builder.create_big_mul_add_gate(quad_constraint, true);
+            next_w4_wire_value = builder.get_variable(quad_constraint.a) * builder.get_variable(quad_constraint.b) *
+                                     quad_constraint.mul_scaling +
+                                 builder.get_variable(quad_constraint.a) * quad_constraint.a_scaling +
+                                 builder.get_variable(quad_constraint.b) * quad_constraint.b_scaling +
+                                 builder.get_variable(quad_constraint.c) * quad_constraint.c_scaling +
+                                 next_w4_wire_value * quad_constraint.d_scaling + quad_constraint.const_scaling;
             next_w4_wire_value = -next_w4_wire_value;
         }
         uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
-        big_constraint.back().d = next_w4_wire;
-        big_constraint.back().d_scaling = fr(-1);
-        builder.create_big_mul_add_gate(big_constraint.back(), false);
+        mul_quad_<fr> quad_constraint = big_constraint.back();
+        quad_constraint.a = quad_constraint.a == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.a;
+        quad_constraint.b = quad_constraint.b == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.b;
+        quad_constraint.c = quad_constraint.c == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.c;
+        quad_constraint.d = quad_constraint.d == bb::stdlib::IS_CONSTANT ? 0 : quad_constraint.d;
+        quad_constraint.d = next_w4_wire;
+        quad_constraint.d_scaling = fr(-1);
+        builder.create_big_mul_add_gate(quad_constraint, false);
     }
 
     // Add logic constraint
@@ -261,8 +291,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // assert equals
     for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
-        const auto& constraint = constraint_system.assert_equalities.at(i);
-        builder.assert_equal(constraint.a, constraint.b);
+        const auto& [lhs, rhs] = constraint_system.assert_equalities.at(i);
+        builder.assert_equal(lhs, rhs);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.assert_equalities.at(i));
     }

@@ -263,10 +263,10 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
     int max_size = 4;
     bool done = false;
     // the intermediate 'big add' gates. The first one contains the constant term.
-    mul_quad_<fr> mul_gate = { .a = 0,
-                               .b = 0,
-                               .c = 0,
-                               .d = 0,
+    mul_quad_<fr> mul_gate = { .a = bb::stdlib::IS_CONSTANT,
+                               .b = bb::stdlib::IS_CONSTANT,
+                               .c = bb::stdlib::IS_CONSTANT,
+                               .d = bb::stdlib::IS_CONSTANT,
                                .mul_scaling = fr::zero(),
                                .a_scaling = fr::zero(),
                                .b_scaling = fr::zero(),
@@ -349,10 +349,10 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         // Index 4 of the next gate will be used
         max_size = 3;
         result.push_back(mul_gate);
-        mul_gate = { .a = 0,
-                     .b = 0,
-                     .c = 0,
-                     .d = 0,
+        mul_gate = { .a = bb::stdlib::IS_CONSTANT,
+                     .b = bb::stdlib::IS_CONSTANT,
+                     .c = bb::stdlib::IS_CONSTANT,
+                     .d = bb::stdlib::IS_CONSTANT,
                      .mul_scaling = fr::zero(),
                      .a_scaling = fr::zero(),
                      .b_scaling = fr::zero(),
@@ -366,16 +366,16 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
 
 mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
 {
-    mul_quad_<fr> quad{ .a = 0,
-                        .b = 0,
-                        .c = 0,
-                        .d = 0,
-                        .mul_scaling = 0,
-                        .a_scaling = 0,
-                        .b_scaling = 0,
-                        .c_scaling = 0,
-                        .d_scaling = 0,
-                        .const_scaling = 0 };
+    mul_quad_<fr> quad{ .a = bb::stdlib::IS_CONSTANT,
+                        .b = bb::stdlib::IS_CONSTANT,
+                        .c = bb::stdlib::IS_CONSTANT,
+                        .d = bb::stdlib::IS_CONSTANT,
+                        .mul_scaling = fr::zero(),
+                        .a_scaling = fr::zero(),
+                        .b_scaling = fr::zero(),
+                        .c_scaling = fr::zero(),
+                        .d_scaling = fr::zero(),
+                        .const_scaling = fr::zero() };
 
     // Flags indicating whether each witness index for the present mul_quad has been set
     bool a_set = false;
@@ -417,16 +417,16 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
             d_set = true;
         } else {
             // We cannot assign linear term to a constraint of width 4
-            return { .a = 0,
-                     .b = 0,
-                     .c = 0,
-                     .d = 0,
-                     .mul_scaling = 0,
-                     .a_scaling = 0,
-                     .b_scaling = 0,
-                     .c_scaling = 0,
-                     .d_scaling = 0,
-                     .const_scaling = 0 };
+            return { .a = bb::stdlib::IS_CONSTANT,
+                     .b = bb::stdlib::IS_CONSTANT,
+                     .c = bb::stdlib::IS_CONSTANT,
+                     .d = bb::stdlib::IS_CONSTANT,
+                     .mul_scaling = fr::zero(),
+                     .a_scaling = fr::zero(),
+                     .b_scaling = fr::zero(),
+                     .c_scaling = fr::zero(),
+                     .d_scaling = fr::zero(),
+                     .const_scaling = fr::zero() };
         }
     }
 
@@ -449,9 +449,9 @@ void constrain_witnesses(Acir::Opcode::AssertZero const& arg, AcirFormat& af)
     }
 }
 
-std::pair<uint32_t, uint32_t> is_assert_equal(Acir::Opcode::AssertZero const& arg,
-                                              poly_triple const& pt,
-                                              AcirFormat const& af)
+std::pair<uint32_t, uint32_t> is_assert_equal_(Acir::Opcode::AssertZero const& arg,
+                                               poly_triple const& pt,
+                                               AcirFormat const& af)
 {
     if (!arg.value.mul_terms.empty() || arg.value.linear_combinations.size() != 2) {
         return { 0, 0 };
@@ -465,86 +465,179 @@ std::pair<uint32_t, uint32_t> is_assert_equal(Acir::Opcode::AssertZero const& ar
     return { 0, 0 };
 }
 
+// NOTE: WE ONLY NEED TO HANDLE a AND b BECAUSE IF IT IS AN ASSERT EQUAL IT WILL ONLY HAVE TWO WITS AND THEY WILL BE
+// PLACED IN POSITION A AND B
+bool is_assert_equal(mul_quad_<fr> const& mul_quad, AcirFormat const& af)
+{
+    if (!af.constrained_witness.contains(mul_quad.a) && !af.constrained_witness.contains(mul_quad.b)) {
+        // If neither of the inputs is constrained, we need to add an arithmetic gate
+        return false;
+    }
+    if (mul_quad.a == 229 || mul_quad.b == 229) {
+        info("HELLO");
+    }
+    return mul_quad.mul_scaling == bb::fr::zero() && mul_quad.a_scaling == -mul_quad.b_scaling &&
+           mul_quad.a_scaling != bb::fr::zero() && mul_quad.const_scaling == bb::fr::zero() &&
+           mul_quad.c_scaling == bb::fr::zero() && mul_quad.d_scaling == bb::fr::zero();
+}
+
 void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
 {
-    // coefficient * witness1 * witness2 + coefficient * witness3 + coefficient * witness4 + constant = 0
-    // If the expression fits in a polytriple, we use it.
-    bool might_fit_in_polytriple = arg.value.linear_combinations.size() <= 3 && arg.value.mul_terms.size() <= 1;
-    bool needs_to_be_parsed_as_mul_quad = !might_fit_in_polytriple;
-    if (might_fit_in_polytriple) {
-        poly_triple pt = serialize_arithmetic_gate(arg.value);
+    /// NEED TO ADD PROTECTION AGAINST RETURNING ZERO GATES IN MULTIPLE QUAD CASE
+    /// SOME PROTECTION FOR ASSERT EQUALS?
+    ArithmeticGates gate_count = count_number_of_gates(arg);
+    switch (gate_count) {
+    case ArithmeticGates::Multiple: {
+        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value);
+        BB_ASSERT_GT(mul_quads.size(), 1U, "acir_format::handle_arithmetic: Expected multiple gates but found one.");
+        af.big_quad_constraints.push_back(mul_quads);
+        break;
+    }
+    case ArithmeticGates::Single: {
+        mul_quad_<fr> mul_quad = serialize_mul_quad_gate(arg.value);
+        bool is_non_zero_gate =
+            mul_quad.a != bb::stdlib::IS_CONSTANT || !(mul_quad.mul_scaling == fr(0)) || !(mul_quad.a_scaling == fr(0));
+        BB_ASSERT(is_non_zero_gate, "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
 
-        auto assert_equal = is_assert_equal(arg, pt, af);
-        uint32_t w1 = std::get<0>(assert_equal);
-        uint32_t w2 = std::get<1>(assert_equal);
-        if (w1 != 0) {
-            if (w1 != w2) {
-                if (!af.constrained_witness.contains(pt.a)) {
+        if (is_assert_equal(mul_quad, af) && (mul_quad.a != 0)) {
+            if (mul_quad.a != mul_quad.b) {
+                if (!af.constrained_witness.contains(mul_quad.a)) {
                     // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
-                    af.constrained_witness.insert(pt.a);
+                    af.constrained_witness.insert(mul_quad.a);
                     // swap the witnesses so that the first one is always properly constrained.
-                    auto tmp = pt.a;
-                    pt.a = pt.b;
-                    pt.b = tmp;
+                    auto tmp = mul_quad.a;
+                    mul_quad.a = mul_quad.b;
+                    mul_quad.b = tmp;
                 }
-                if (!af.constrained_witness.contains(pt.b)) {
+                if (!af.constrained_witness.contains(mul_quad.b)) {
                     // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
-                    af.constrained_witness.insert(pt.b);
+                    af.constrained_witness.insert(mul_quad.b);
                 }
                 // minimal_range of a witness is the smallest range of the witness and the witness that are
                 // 'assert_equal' to it
-                if (af.minimal_range.contains(pt.b) && af.minimal_range.contains(pt.a)) {
-                    if (af.minimal_range[pt.a] < af.minimal_range[pt.b]) {
-                        af.minimal_range[pt.a] = af.minimal_range[pt.b];
+                if (af.minimal_range.contains(mul_quad.b) && af.minimal_range.contains(mul_quad.a)) {
+                    if (af.minimal_range[mul_quad.a] < af.minimal_range[mul_quad.b]) {
+                        af.minimal_range[mul_quad.a] = af.minimal_range[mul_quad.b];
                     } else {
-                        af.minimal_range[pt.b] = af.minimal_range[pt.a];
+                        af.minimal_range[mul_quad.b] = af.minimal_range[mul_quad.a];
                     }
-                } else if (af.minimal_range.contains(pt.b)) {
-                    af.minimal_range[pt.a] = af.minimal_range[pt.b];
-                } else if (af.minimal_range.contains(pt.a)) {
-                    af.minimal_range[pt.b] = af.minimal_range[pt.a];
+                } else if (af.minimal_range.contains(mul_quad.b)) {
+                    af.minimal_range[mul_quad.a] = af.minimal_range[mul_quad.b];
+                } else if (af.minimal_range.contains(mul_quad.a)) {
+                    af.minimal_range[mul_quad.b] = af.minimal_range[mul_quad.a];
                 }
 
-                af.assert_equalities.push_back(pt);
+                af.assert_equalities.push_back({ mul_quad.a, mul_quad.b });
                 af.original_opcode_indices.assert_equalities.push_back(opcode_index);
             }
             return;
-        }
-        // Even if the number of linear terms is less than 3, we might not be able to fit it into a width-3 arithmetic
-        // gate. This is the case if the linear terms are all distinct witness from the multiplication term. In that
-        // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a width-4
-        // gate instead. We could probably always use a width-4 gate in fact.
-        if (pt != poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
-            af.poly_triple_constraints.push_back(pt);
-            af.original_opcode_indices.poly_triple_constraints.push_back(opcode_index);
         } else {
-            needs_to_be_parsed_as_mul_quad = true;
-        }
-    }
-    if (needs_to_be_parsed_as_mul_quad) {
-        std::vector<mul_quad_<fr>> mul_quads;
-        // We try to use a single mul_quad gate to represent the expression.
-        if (arg.value.mul_terms.size() <= 1) {
-            auto quad = serialize_mul_quad_gate(arg.value);
-            // add it to the result vector if it worked
-            if (quad.a != 0 || !(quad.mul_scaling == fr(0)) || !(quad.a_scaling == fr(0))) {
-                mul_quads.push_back(quad);
+            if (mul_quad.d == bb::stdlib::IS_CONSTANT) {
+                af.poly_triple_constraints.push_back(poly_triple{
+                    .a = mul_quad.a,
+                    .b = mul_quad.b,
+                    .c = mul_quad.c,
+                    .q_m = mul_quad.mul_scaling,
+                    .q_l = mul_quad.a_scaling,
+                    .q_r = mul_quad.b_scaling,
+                    .q_o = mul_quad.c_scaling,
+                    .q_c = mul_quad.const_scaling,
+                });
+                af.original_opcode_indices.poly_triple_constraints.push_back(opcode_index);
+            } else {
+                af.quad_constraints.push_back(mul_quad);
+                af.original_opcode_indices.quad_constraints.push_back(opcode_index);
             }
         }
-        if (mul_quads.empty()) {
-            // If not, we need to split the expression into multiple gates
-            mul_quads = split_into_mul_quad_gates(arg.value);
-        }
-        if (mul_quads.size() == 1) {
-            af.quad_constraints.push_back(mul_quads[0]);
-            af.original_opcode_indices.quad_constraints.push_back(opcode_index);
-        }
-        if (mul_quads.size() > 1) {
-            af.big_quad_constraints.push_back(mul_quads);
-        }
+        break;
+    }
     }
     constrain_witnesses(arg, af);
 }
+
+// void handle_arithmetic_(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
+// {
+//     // coefficient * witness1 * witness2 + coefficient * witness3 + coefficient * witness4 + constant = 0
+//     // If the expression fits in a polytriple, we use it.
+//     bool might_fit_in_polytriple = arg.value.linear_combinations.size() <= 3 && arg.value.mul_terms.size() <= 1;
+//     bool needs_to_be_parsed_as_mul_quad = !might_fit_in_polytriple;
+//     if (might_fit_in_polytriple) {
+//         poly_triple pt = serialize_arithmetic_gate(arg.value);
+
+//         auto assert_equal = is_assert_equal_(arg, pt, af);
+//         uint32_t w1 = std::get<0>(assert_equal);
+//         uint32_t w2 = std::get<1>(assert_equal);
+//         if (w1 != 0) {
+//             if (w1 != w2) {
+//                 if (!af.constrained_witness.contains(pt.a)) {
+//                     // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
+//                     af.constrained_witness.insert(pt.a);
+//                     // swap the witnesses so that the first one is always properly constrained.
+//                     auto tmp = pt.a;
+//                     pt.a = pt.b;
+//                     pt.b = tmp;
+//                 }
+//                 if (!af.constrained_witness.contains(pt.b)) {
+//                     // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
+//                     af.constrained_witness.insert(pt.b);
+//                 }
+//                 // minimal_range of a witness is the smallest range of the witness and the witness that are
+//                 // 'assert_equal' to it
+//                 if (af.minimal_range.contains(pt.b) && af.minimal_range.contains(pt.a)) {
+//                     if (af.minimal_range[pt.a] < af.minimal_range[pt.b]) {
+//                         af.minimal_range[pt.a] = af.minimal_range[pt.b];
+//                     } else {
+//                         af.minimal_range[pt.b] = af.minimal_range[pt.a];
+//                     }
+//                 } else if (af.minimal_range.contains(pt.b)) {
+//                     af.minimal_range[pt.a] = af.minimal_range[pt.b];
+//                 } else if (af.minimal_range.contains(pt.a)) {
+//                     af.minimal_range[pt.b] = af.minimal_range[pt.a];
+//                 }
+
+//                 af.assert_equalities.push_back(pt);
+//                 af.original_opcode_indices.assert_equalities.push_back(opcode_index);
+//             }
+//             return;
+//         }
+//         // Even if the number of linear terms is less than 3, we might not be able to fit it into a width-3
+//         arithmetic
+//         // gate. This is the case if the linear terms are all distinct witness from the multiplication term. In that
+//         // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a
+//         width-4
+//         // gate instead. We could probably always use a width-4 gate in fact.
+//         if (pt != poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
+//             af.poly_triple_constraints.push_back(pt);
+//             af.original_opcode_indices.poly_triple_constraints.push_back(opcode_index);
+//         } else {
+//             needs_to_be_parsed_as_mul_quad = true;
+//         }
+//     }
+//     if (needs_to_be_parsed_as_mul_quad) {
+//         std::vector<mul_quad_<fr>> mul_quads;
+//         // We try to use a single mul_quad gate to represent the expression.
+//         if (arg.value.mul_terms.size() <= 1) {
+//             auto quad = serialize_mul_quad_gate(arg.value);
+//             // add it to the result vector if it worked
+//             if (quad.a != 0 || !(quad.mul_scaling == fr(0)) || !(quad.a_scaling == fr(0))) {
+//                 mul_quads.push_back(quad);
+//             }
+//         }
+//         if (mul_quads.empty()) {
+//             // If not, we need to split the expression into multiple gates
+//             mul_quads = split_into_mul_quad_gates(arg.value);
+//         }
+//         if (mul_quads.size() == 1) {
+//             af.quad_constraints.push_back(mul_quads[0]);
+//             af.original_opcode_indices.quad_constraints.push_back(opcode_index);
+//         }
+//         if (mul_quads.size() > 1) {
+//             af.big_quad_constraints.push_back(mul_quads);
+//         }
+//     }
+//     constrain_witnesses(arg, af);
+// }
+
 uint32_t get_witness_from_function_input(Acir::FunctionInput input)
 {
     auto input_witness = std::get<Acir::FunctionInput::Witness>(input.value);
@@ -1036,6 +1129,53 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
     }();
 
     return { std::move(constraint_systems), std::move(witness_stack) };
+}
+
+ArithmeticGates count_number_of_gates(Acir::Opcode::AssertZero const& arg)
+{
+    static constexpr size_t MAX_NUMBER_DISTINCT_WITNESSES = 4; // Equal to the number of wires in the arithmetization
+    std::vector<uint32_t> distinct_witnesses;
+    distinct_witnesses.reserve(MAX_NUMBER_DISTINCT_WITNESSES + 1);
+
+    // Lambda to iterate over the distinct witnesses and add a new witness index if it has not been seen before
+    auto search_and_add = [&](uint32_t witness_idx) {
+        bool seen = false;
+        for (const auto& distinct_witness : distinct_witnesses) {
+            if (distinct_witness == witness_idx) {
+                seen = true;
+                break;
+            }
+        }
+        if (!seen) {
+            distinct_witnesses.emplace_back(witness_idx);
+        }
+    };
+
+    // If there is more than one multiplication gate, then we need multiple arithmetic gates
+    if (arg.value.mul_terms.size() > 1) {
+        return ArithmeticGates::Multiple;
+    }
+
+    if (!arg.value.mul_terms.empty()) {
+        uint32_t witness_idx_lhs = std::get<1>(arg.value.mul_terms[0]).value;
+        uint32_t witness_idx_rhs = std::get<2>(arg.value.mul_terms[0]).value;
+
+        distinct_witnesses.emplace_back(witness_idx_lhs);
+        // If the lhs witness index is different from the rhs one, we add the rhs
+        if (witness_idx_lhs != witness_idx_rhs) {
+            distinct_witnesses.emplace_back(witness_idx_rhs);
+        }
+    }
+
+    for (const auto& linear_term : arg.value.linear_combinations) {
+        uint32_t witness_idx = std::get<1>(linear_term).value;
+        search_and_add(witness_idx);
+        if (distinct_witnesses.size() > MAX_NUMBER_DISTINCT_WITNESSES) {
+            return ArithmeticGates::Multiple;
+        }
+    }
+
+    return ArithmeticGates::Single;
 }
 
 } // namespace acir_format

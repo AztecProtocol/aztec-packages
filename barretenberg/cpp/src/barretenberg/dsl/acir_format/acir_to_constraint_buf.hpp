@@ -34,4 +34,8 @@ std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t>&& buf);
 WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t>&& buf);
 
 AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path);
+
+enum class ArithmeticGates : uint8_t { Multiple, Single };
+
+ArithmeticGates count_number_of_gates(Acir::Opcode::AssertZero const& arg);
 } // namespace acir_format
