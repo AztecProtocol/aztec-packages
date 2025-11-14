@@ -536,9 +536,7 @@ class UltraFlavor {
                 poly = Polynomial(circuit_size / 2);
             }
         }
-        template <bool ProvPoly_HasZK>
-        PartiallyEvaluatedMultivariates_(const ProverPolynomials_<ProvPoly_HasZK>& full_polynomials,
-                                         size_t circuit_size)
+        PartiallyEvaluatedMultivariates_(const ProverPolynomials_<HasZK_>& full_polynomials, size_t circuit_size)
         {
             BB_BENCH_NAME("PartiallyEvaluatedMultivariates constructor");
             for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
