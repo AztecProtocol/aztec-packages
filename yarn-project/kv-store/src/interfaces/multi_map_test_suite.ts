@@ -61,6 +61,13 @@ export function describeAztecMultiMap(
         : await toArray((multiMap as AztecAsyncMultiMap<any, any>).getValuesAsync(key));
     }
 
+    async function getValueCount(
+      key: Key,
+      sut: AztecAsyncMultiMap<any, any> | AztecMultiMap<any, any> = multiMap,
+    ): Promise<number> {
+      return await (sut as AztecAsyncMultiMap<any, any>).getValueCountAsync(key);
+    }
+
     it('should be able to set and get values', async () => {
       await multiMap.set('foo', 'bar');
       await multiMap.set('baz', 'qux');
@@ -237,6 +244,99 @@ export function describeAztecMultiMap(
       expect(await keys({ start: 'b', limit: 1 })).to.deep.equal(['b']);
       expect(await keys({ start: 'b', reverse: true })).to.deep.equal(['d', 'c']);
       expect(await keys({ end: 'b', reverse: true })).to.deep.equal(['b', 'a']);
+    });
+
+    it('returns 0 for missing key', async () => {
+      expect(await getValueCount('missing')).to.equal(0);
+    });
+
+    it('counts a single value', async () => {
+      await multiMap.set('foo', 'bar');
+      expect(await getValueCount('foo')).to.equal(1);
+    });
+
+    it('counts multiple distinct values for same key', async () => {
+      await multiMap.set('foo', 'bar');
+      await multiMap.set('foo', 'baz');
+      await multiMap.set('foo', 'qux');
+      expect(await getValueCount('foo')).to.equal(3);
+    });
+
+    it('does not increase count for duplicate inserts', async () => {
+      await multiMap.set('foo', 'bar');
+      await multiMap.set('foo', 'bar');
+      await multiMap.set('foo', 'baz');
+      await multiMap.set('foo', 'baz');
+      expect(await getValueCount('foo')).to.equal(2);
+      expect(await getValues('foo')).to.have.members(['bar', 'baz']);
+    });
+
+    it('decrements when deleting a single value', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('foo', '3');
+      expect(await getValueCount('foo')).to.equal(3);
+      await multiMap.deleteValue('foo', '2');
+      expect(await getValueCount('foo')).to.equal(2);
+      expect(await getValues('foo')).to.have.members(['1', '3']);
+    });
+
+    it('does not change count when deleting a non-existent value', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '3');
+      expect(await getValueCount('foo')).to.equal(2);
+      await multiMap.deleteValue('foo', '2');
+      expect(await getValueCount('foo')).to.equal(2);
+    });
+
+    it('clears all values when deleting a key', async () => {
+      await multiMap.set('foo', 'bar');
+      await multiMap.set('foo', 'baz');
+      expect(await getValueCount('foo')).to.equal(2);
+      await multiMap.delete('foo');
+      expect(await getValueCount('foo')).to.equal(0);
+      expect(await getValues('foo')).to.deep.equal([]);
+    });
+
+    it('count equals enumerated values length', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      const vals = await getValues('foo');
+      expect(await getValueCount('foo')).to.equal(vals.length);
+    });
+
+    it('sum of per-key counts equals total size', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('bar', '3');
+      await multiMap.set('bar', '4');
+      await multiMap.set('baz', '5');
+
+      const allKeys = await keys();
+      const uniqueKeys = Array.from(new Set(allKeys));
+      const counts = await Promise.all(uniqueKeys.map(k => getValueCount(k)));
+      const sum = counts.reduce((s, n) => s + n, 0);
+      expect(sum).to.equal(await size());
+    });
+
+    it('supports sparse slots: delete middle, reinsert new, count remains correct', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('foo', '3');
+      expect(await getValueCount('foo')).to.equal(3);
+      await multiMap.deleteValue('foo', '2');
+      expect(await getValueCount('foo')).to.equal(2);
+      await multiMap.set('foo', '4');
+      expect(await getValueCount('foo')).to.equal(3);
+      expect(await getValues('foo')).to.have.members(['1', '3', '4']);
+    });
+
+    it('multiple keys are independent', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('bar', '3');
+      expect(await getValueCount('foo')).to.equal(2);
+      expect(await getValueCount('bar')).to.equal(1);
     });
   });
 }

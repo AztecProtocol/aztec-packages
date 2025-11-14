@@ -1,8 +1,10 @@
 import { Encoder } from 'msgpackr/pack';
+import { MAXIMUM_KEY, toBufferKey } from 'ordered-binary';
 
 import type { Key, Range, Value } from '../interfaces/common.js';
 import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
 import type { ReadTransaction } from './read_transaction.js';
+// eslint-disable-next-line import/no-cycle
 import { type AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
 import { deserializeKey, maxKey, minKey, serializeKey } from './utils.js';
 
@@ -137,5 +139,12 @@ export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncM
     for (const value of values) {
       yield this.encoder.unpack(value);
     }
+  }
+
+  getValueCountAsync(key: K): Promise<number> {
+    const startKey = serializeKey(this.prefix, key);
+    const endKey = toBufferKey([this.prefix, key, MAXIMUM_KEY]);
+
+    return execInReadTx(this.store, tx => tx.countEntriesIndex(startKey, endKey, false));
   }
 }

@@ -74,6 +74,8 @@ function mockAttestationPool(): AttestationPool {
     getBlockProposal: () => Promise.resolve(undefined),
     hasBlockProposal: () => Promise.resolve(false),
     hasAttestation: () => Promise.resolve(false),
+    canAddProposal: () => Promise.resolve(true),
+    canAddAttestation: () => Promise.resolve(true),
   };
 }
 

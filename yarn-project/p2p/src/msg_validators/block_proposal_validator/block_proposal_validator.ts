@@ -24,10 +24,26 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       }
 
       // Check if transactions are permitted when the proposal contains transaction hashes
-      if (!this.txsPermitted && block.txHashes.length > 0) {
+      const embeddedTxCount = block.txs?.length ?? 0;
+      if (!this.txsPermitted && (block.txHashes.length > 0 || embeddedTxCount > 0)) {
         this.logger.debug(
           `Penalizing peer for block proposal with ${block.txHashes.length} transaction(s) when transactions are not permitted`,
         );
+        return PeerErrorSeverity.MidToleranceError;
+      }
+
+      // If there are embedded txs, they must be listed in txHashes; if there are no txHashes, there must be no txs
+      const hashSet = new Set(block.txHashes.map(h => h.toString()));
+      const missingTxHashes =
+        embeddedTxCount > 0
+          ? block.txs!.filter(tx => !hashSet.has(tx.getTxHash().toString())).map(tx => tx.getTxHash().toString())
+          : [];
+      if (embeddedTxCount > 0 && missingTxHashes.length > 0) {
+        this.logger.warn('Penalizing peer for embedded transaction(s) not included in txHashes', {
+          embeddedTxCount,
+          txHashesLength: block.txHashes.length,
+          missingTxHashes,
+        });
         return PeerErrorSeverity.MidToleranceError;
       }
 
