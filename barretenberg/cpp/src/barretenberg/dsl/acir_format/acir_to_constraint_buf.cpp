@@ -494,7 +494,7 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
     case ArithmeticGates::Single: {
         mul_quad_<fr> mul_quad = serialize_mul_quad_gate(arg.value);
         bool is_non_zero_gate =
-            mul_quad.a != bb::stdlib::IS_CONSTANT || !(mul_quad.mul_scaling == fr(0)) || !(mul_quad.a_scaling == fr(0));
+            mul_quad.a != bb::stdlib::IS_CONSTANT && ((mul_quad.mul_scaling != fr(0)) || (mul_quad.a_scaling != fr(0)));
         BB_ASSERT(is_non_zero_gate, "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
 
         if (is_assert_equal(mul_quad, af) && (mul_quad.a != 0)) {
@@ -524,15 +524,11 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
                 } else if (af.minimal_range.contains(mul_quad.a)) {
                     af.minimal_range[mul_quad.b] = af.minimal_range[mul_quad.a];
                 }
-
-                af.assert_equalities.push_back({ mul_quad.a, mul_quad.b });
-                af.original_opcode_indices.assert_equalities.push_back(opcode_index);
             }
-            return;
-        } else {
-            af.quad_constraints.push_back(mul_quad);
-            af.original_opcode_indices.quad_constraints.push_back(opcode_index);
         }
+
+        af.quad_constraints.push_back(mul_quad);
+        af.original_opcode_indices.quad_constraints.push_back(opcode_index);
         break;
     }
     }
