@@ -1,4 +1,4 @@
-global N: u32 = 4;
+global N: u32 = 5;
 
 fn main(m: [[Field; N]; N], x: [Field; N]) -> pub [Field; N] {
     let mut result = [0; N];
