@@ -115,16 +115,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add arithmetic gates
     for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
         const auto& constraint = constraint_system.poly_triple_constraints.at(i);
-        builder.create_poly_gate(poly_triple{
-            .a = constraint.a == bb::stdlib::IS_CONSTANT ? 0 : constraint.a,
-            .b = constraint.b == bb::stdlib::IS_CONSTANT ? 0 : constraint.b,
-            .c = constraint.c == bb::stdlib::IS_CONSTANT ? 0 : constraint.c,
-            .q_m = constraint.q_m,
-            .q_l = constraint.q_l,
-            .q_r = constraint.q_r,
-            .q_o = constraint.q_o,
-            .q_c = constraint.q_c,
-        });
+        builder.create_poly_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.poly_triple_constraints.at(i));
     }

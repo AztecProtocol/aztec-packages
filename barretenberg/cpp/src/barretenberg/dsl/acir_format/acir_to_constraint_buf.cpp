@@ -530,22 +530,8 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
             }
             return;
         } else {
-            if (mul_quad.d == bb::stdlib::IS_CONSTANT) {
-                af.poly_triple_constraints.push_back(poly_triple{
-                    .a = mul_quad.a,
-                    .b = mul_quad.b,
-                    .c = mul_quad.c,
-                    .q_m = mul_quad.mul_scaling,
-                    .q_l = mul_quad.a_scaling,
-                    .q_r = mul_quad.b_scaling,
-                    .q_o = mul_quad.c_scaling,
-                    .q_c = mul_quad.const_scaling,
-                });
-                af.original_opcode_indices.poly_triple_constraints.push_back(opcode_index);
-            } else {
-                af.quad_constraints.push_back(mul_quad);
-                af.original_opcode_indices.quad_constraints.push_back(opcode_index);
-            }
+            af.quad_constraints.push_back(mul_quad);
+            af.original_opcode_indices.quad_constraints.push_back(opcode_index);
         }
         break;
     }
