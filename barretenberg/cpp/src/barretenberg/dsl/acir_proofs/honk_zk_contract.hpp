@@ -687,14 +687,15 @@ library ZKTranscriptLib {
             }
         }
 
-        p.libraEvaluation = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
-        boundary += FIELD_ELEMENT_SIZE;
 
         // Sumcheck evaluations (includes gemini_masking_poly eval at index 0 for ZK flavors)
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES_ZK; i++) {
             p.sumcheckEvaluations[i] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
             boundary += FIELD_ELEMENT_SIZE;
         }
+
+        p.libraEvaluation = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+        boundary += FIELD_ELEMENT_SIZE;
 
         p.libraCommitments[1] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
         boundary += GROUP_ELEMENT_SIZE;
@@ -1937,11 +1938,12 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // For ZK flavors, sumcheckEvaluations has 42 elements (includes gemini_masking_poly at index 0)
         // Relations only use elements at indices 1-41 (index 0 is gemini_masking_poly, not used in relations)
         Fr[NUMBER_OF_ENTITIES] memory relationsEvaluations;
-        Fr maskingPolyEval = proof.sumcheckEvaluations[0];
-        assembly {
-            mstore(0, maskingPolyEval)
-            revert(0, 32)
-        }
+
+        // Fr maskingPolyEval = proof.sumcheckEvaluations[0];
+        // assembly {
+        //     mstore(0, maskingPolyEval)
+        //     revert(0, 32)
+        // }
 
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
             relationsEvaluations[i] = proof.sumcheckEvaluations[i + 1];
