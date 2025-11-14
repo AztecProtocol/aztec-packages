@@ -76,7 +76,7 @@ export function flushBbapiLogs(): void {
 
   // Dynamically import the appropriate implementation to avoid bundling both
   if (isNode && logPath) {
-    import('./node/bbapi_log.js')
+    import(/* webpackMode: "eager" */ './node/bbapi_log.js')
       .then(({ saveBbapiLogs }) => {
         saveBbapiLogs(BBAPI_CALL_LOG, logPath!);
         BBAPI_CALL_LOG.length = 0;
@@ -85,7 +85,7 @@ export function flushBbapiLogs(): void {
         console.error('Failed to save BBAPI logs (node):', e);
       });
   } else if (isBrowser) {
-    import('./browser/bbapi_log.js')
+    import(/* webpackMode: "eager" */ './browser/bbapi_log.js')
       .then(({ saveBbapiLogs }) => {
         saveBbapiLogs(BBAPI_CALL_LOG);
         BBAPI_CALL_LOG.length = 0;
