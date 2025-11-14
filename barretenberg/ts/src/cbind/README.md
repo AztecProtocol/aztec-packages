@@ -164,6 +164,39 @@ When modifying the schema compiler or logging system:
 
 ### Testing Logging
 
+**Automated Tests:**
+
+The repository includes test scripts that can be run in CI or manually:
+
+```bash
+# From barretenberg/ts directory
+
+# Test basic BBAPI logging (creates log file)
+yarn test:bbapi-logging
+
+# Test msgpack replay with bb binary
+yarn test:bbapi-replay
+
+# Parse and view log file contents
+node parse_bbapi_logs.mjs /tmp/bbapi-test/bbapi-logs-*.msgpack
+```
+
+**Browser Tests:**
+
+Browser BBAPI logging tests are in `yarn-project/ivc-integration/src/browser_bbapi_logging.test.ts`:
+
+```bash
+# From yarn-project/ivc-integration
+yarn test:browser
+```
+
+These tests verify:
+- localStorage and URL parameter initialization
+- Msgpack file download
+- Replay compatibility with `bb msgpack run`
+
+**Manual Testing:**
+
 **Browser:**
 ```javascript
 // In browser console
