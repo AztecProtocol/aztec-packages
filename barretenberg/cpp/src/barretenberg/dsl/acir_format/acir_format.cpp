@@ -131,7 +131,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     // Oversize gates are a vector of mul_quad gates.
-    for (auto& big_constraint : constraint_system.big_quad_constraints) {
+    for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); ++i) {
+        auto big_constraint = constraint_system.big_quad_constraints.at(i);
         fr next_w4_wire_value = fr(0);
         // Define the 4th wire of these mul_quad gates, which is implicitly used by the previous gate.
         for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
@@ -169,6 +170,9 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     // Add range constraint
+
+    // AUDITTODO(federico): evaluate the minimal range optimization
+
     // preprocessing: remove range constraints if they are implied by memory operations
     for (auto const& index_range : constraint_system.index_range) {
         if (constraint_system.minimal_range[index_range.first] == index_range.second) {

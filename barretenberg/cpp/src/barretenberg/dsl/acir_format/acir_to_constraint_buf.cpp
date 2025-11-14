@@ -216,10 +216,6 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     return pt;
 }
 
-/// @brief
-
-/// @param scaling The scaling factor to apply to the linear term.
-/// @note This function is used internally to update the fields of a mul_quad_ gate with a linear term.
 /**
  * @brief Assigns a linear term to a specific index in a mul_quad_ gate.
  * @param gate The mul_quad_ gate to assign the linear term to.
@@ -228,7 +224,7 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
  * @return nothing, the input gate is modified in place.
  * @note It fails if index is 4 or more.
  */
-void assign_linear_term(mul_quad_<fr>& gate, int index, uint32_t witness_index, fr const& scaling)
+void assign_linear_term(mul_quad_<fr>& gate, size_t index, uint32_t witness_index, fr const& scaling)
 {
     switch (index) {
     case 0:
@@ -252,27 +248,33 @@ void assign_linear_term(mul_quad_<fr>& gate, int index, uint32_t witness_index, 
     }
 }
 
-/// Accumulate the input expression into a serie of quad gates
 std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg)
 {
     std::vector<mul_quad_<fr>> result;
     auto current_mul_term = arg.mul_terms.begin();
     auto current_linear_term = arg.linear_combinations.begin();
 
-    // number of wires to use in the intermediate gate
-    int max_size = 4;
+    // In the first gate, all 4 wires are available.
+    size_t NUM_AVAILABLE_WIRES = 4;
     bool done = false;
-    // the intermediate 'big add' gates. The first one contains the constant term.
-    mul_quad_<fr> mul_gate = { .a = bb::stdlib::IS_CONSTANT,
-                               .b = bb::stdlib::IS_CONSTANT,
-                               .c = bb::stdlib::IS_CONSTANT,
-                               .d = bb::stdlib::IS_CONSTANT,
-                               .mul_scaling = fr::zero(),
-                               .a_scaling = fr::zero(),
-                               .b_scaling = fr::zero(),
-                               .c_scaling = fr::zero(),
-                               .d_scaling = fr::zero(),
-                               .const_scaling = fr(from_be_bytes(arg.q_c)) };
+
+    // We initialize the mul_quad_ gate with invalid witness indices. Initializing a with an invalid witness index adds
+    // a safety check: when the gate is added to the builder's constraints we perform a check on the validity of the
+    // witness indices. The indices of b, c, and d are replaced with the zero index when the constraint is added to the
+    // builder, but a's index is not. If a's index has not been set (which means the gate is the zero gate), the builder
+    // construction will fail.
+    mul_quad_<fr> mul_gate = {
+        .a = bb::stdlib::IS_CONSTANT,
+        .b = bb::stdlib::IS_CONSTANT,
+        .c = bb::stdlib::IS_CONSTANT,
+        .d = bb::stdlib::IS_CONSTANT,
+        .mul_scaling = fr::zero(),
+        .a_scaling = fr::zero(),
+        .b_scaling = fr::zero(),
+        .c_scaling = fr::zero(),
+        .d_scaling = fr::zero(),
+        .const_scaling = fr(from_be_bytes(arg.q_c)), // The first gate contains the constant term
+    };
 
     // list of witnesses that are part of mul terms
     std::set<uint32_t> all_mul_terms;
@@ -284,7 +286,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
     std::set<uint32_t> processed_mul_terms;
 
     while (!done) {
-        int i = 0; // index of the current free wire in the new intermediate gate
+        size_t i = 0; // index of the current free wire in the new intermediate gate
 
         // we add a mul term (if there are some) to every intermediate gate
         if (current_mul_term != arg.mul_terms.end()) {
@@ -333,7 +335,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         while (current_linear_term != arg.linear_combinations.end()) {
             auto w = std::get<1>(*current_linear_term).value;
             if (!all_mul_terms.contains(w)) {
-                if (i < max_size) {
+                if (i < NUM_AVAILABLE_WIRES) {
                     assign_linear_term(
                         mul_gate, i, w, fr(from_be_bytes(std::get<0>(*current_linear_term)))); // * fr(-1)));
                     ++i;
@@ -347,7 +349,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         }
 
         // Index 4 of the next gate will be used
-        max_size = 3;
+        NUM_AVAILABLE_WIRES = 3;
         result.push_back(mul_gate);
         mul_gate = { .a = bb::stdlib::IS_CONSTANT,
                      .b = bb::stdlib::IS_CONSTANT,
@@ -364,8 +366,13 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
     return result;
 }
 
-mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
+mul_quad_<fr> serialize_single_quad_gate(Acir::Expression const& arg)
 {
+    // We initialize the mul_quad_ gate with invalid witness indices. Initializing a with an invalid witness index adds
+    // a safety check: when the gate is added to the builder's constraints we perform a check on the validity of the
+    // witness indices. The indices of b, c, and d are replaced with the zero index when the constraint is added to the
+    // builder, but a's index is not. If a's index has not been set (which means the gate is the zero gate), the builder
+    // construction will fail.
     mul_quad_<fr> quad{ .a = bb::stdlib::IS_CONSTANT,
                         .b = bb::stdlib::IS_CONSTANT,
                         .c = bb::stdlib::IS_CONSTANT,
@@ -392,7 +399,7 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
         a_set = true;
         b_set = true;
     }
-    // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
+    // If necessary, set values for linears terms a_scaling * a, b_scaling * b, c_scaling * c and d_scaling * d
     for (const auto& linear_term : arg.linear_combinations) {
         fr selector_value(from_be_bytes(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
@@ -416,17 +423,8 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
             quad.d_scaling += selector_value; // Accumulate coefficients for duplicate witnesses
             d_set = true;
         } else {
-            // We cannot assign linear term to a constraint of width 4
-            return { .a = bb::stdlib::IS_CONSTANT,
-                     .b = bb::stdlib::IS_CONSTANT,
-                     .c = bb::stdlib::IS_CONSTANT,
-                     .d = bb::stdlib::IS_CONSTANT,
-                     .mul_scaling = fr::zero(),
-                     .a_scaling = fr::zero(),
-                     .b_scaling = fr::zero(),
-                     .c_scaling = fr::zero(),
-                     .d_scaling = fr::zero(),
-                     .const_scaling = fr::zero() };
+            bb::assert_failure(
+                "acir_format:serialize_single_quad_gate: encountered a gate with at least five distinct witnesses.");
         }
     }
 
@@ -435,8 +433,6 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
     return quad;
 }
 
-// NOTE: WE ONLY NEED TO HANDLE a AND b BECAUSE IF IT IS AN ASSERT EQUAL IT WILL ONLY HAVE TWO WITS AND THEY WILL BE
-// PLACED IN POSITION A AND B
 bool is_assert_equal(mul_quad_<fr> const& mul_quad)
 {
     return mul_quad.mul_scaling == bb::fr::zero() && mul_quad.a_scaling == -mul_quad.b_scaling &&
@@ -446,21 +442,16 @@ bool is_assert_equal(mul_quad_<fr> const& mul_quad)
 
 void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
 {
-    /// NEED TO ADD PROTECTION AGAINST RETURNING ZERO GATES IN MULTIPLE QUAD CASE
-    /// SOME PROTECTION FOR ASSERT EQUALS?
-    ArithmeticGates gate_count = count_number_of_gates(arg);
-    switch (gate_count) {
-    case ArithmeticGates::Multiple: {
-        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value);
-        BB_ASSERT_GT(mul_quads.size(), 1U, "acir_format::handle_arithmetic: Expected multiple gates but found one.");
-        af.big_quad_constraints.push_back(mul_quads);
-        break;
-    }
-    case ArithmeticGates::Single: {
-        mul_quad_<fr> mul_quad = serialize_mul_quad_gate(arg.value);
-        bool is_non_zero_gate =
-            mul_quad.a != bb::stdlib::IS_CONSTANT && ((mul_quad.mul_scaling != fr(0)) || (mul_quad.a_scaling != fr(0)));
-        BB_ASSERT(is_non_zero_gate, "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
+    // Lambda to detect zero gates
+    auto is_zero_gate = [](const mul_quad_<fr>& gate) {
+        return ((gate.mul_scaling == fr(0)) && (gate.a_scaling == fr(0)) && (gate.b_scaling == fr(0)) &&
+                (gate.c_scaling == fr(0)) && (gate.d_scaling == fr(0)) && (gate.const_scaling == fr(0)));
+    };
+
+    bool is_single_gate = is_single_arithmetic_gate(arg);
+    if (is_single_gate) {
+        mul_quad_<fr> mul_quad = serialize_single_quad_gate(arg.value);
+        BB_ASSERT(!is_zero_gate(mul_quad), "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
 
         if (is_assert_equal(mul_quad) && (mul_quad.a != 0)) {
             if (mul_quad.a != mul_quad.b) {
@@ -482,8 +473,13 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
 
         af.quad_constraints.push_back(mul_quad);
         af.original_opcode_indices.quad_constraints.push_back(opcode_index);
-        break;
-    }
+    } else {
+        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value);
+        BB_ASSERT_GT(mul_quads.size(), 1U, "acir_format::handle_arithmetic: expected multiple gates but found one.");
+        for (auto const& mul_quad : mul_quads) {
+            BB_ASSERT(!is_zero_gate(mul_quad), "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
+        }
+        af.big_quad_constraints.push_back(mul_quads);
     }
 }
 
@@ -952,7 +948,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
     return { std::move(constraint_systems), std::move(witness_stack) };
 }
 
-ArithmeticGates count_number_of_gates(Acir::Opcode::AssertZero const& arg)
+bool is_single_arithmetic_gate(Acir::Opcode::AssertZero const& arg)
 {
     static constexpr size_t MAX_NUMBER_DISTINCT_WITNESSES = 4; // Equal to the number of wires in the arithmetization
     std::vector<uint32_t> distinct_witnesses;
@@ -974,7 +970,7 @@ ArithmeticGates count_number_of_gates(Acir::Opcode::AssertZero const& arg)
 
     // If there is more than one multiplication gate, then we need multiple arithmetic gates
     if (arg.value.mul_terms.size() > 1) {
-        return ArithmeticGates::Multiple;
+        return false;
     }
 
     if (!arg.value.mul_terms.empty()) {
@@ -992,11 +988,11 @@ ArithmeticGates count_number_of_gates(Acir::Opcode::AssertZero const& arg)
         uint32_t witness_idx = std::get<1>(linear_term).value;
         search_and_add(witness_idx);
         if (distinct_witnesses.size() > MAX_NUMBER_DISTINCT_WITNESSES) {
-            return ArithmeticGates::Multiple;
+            return false;
         }
     }
 
-    return ArithmeticGates::Single;
+    return true;
 }
 
 } // namespace acir_format
