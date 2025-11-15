@@ -1,4 +1,5 @@
 #include "secp256k1.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_secp256k1_impl.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <gtest/gtest.h>
 
@@ -421,6 +422,12 @@ TEST(secp256k1, DeriveGenerators)
         EXPECT_EQ(is_unique(result[k], k), true);
         EXPECT_EQ(result[k].on_curve(), true);
     }
+}
+
+TEST(secp256k1, CheckPrecomputedGenerators)
+{
+    ASSERT_TRUE((bb::check_precomputed_generators<secp256k1::g1, "biggroup offset generator", 1UL>()));
+    ASSERT_TRUE((bb::check_precomputed_generators<secp256k1::g1, "biggroup table offset generator", 1UL>()));
 }
 
 TEST(secp256k1, GetEndomorphismScalars)

@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_secp256k1_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_secp256r1_impl.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
