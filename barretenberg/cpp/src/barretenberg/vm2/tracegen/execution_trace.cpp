@@ -557,7 +557,7 @@ void ExecutionTraceBuilder::process(
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
-            const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(*exec_opcode);
+            const auto& dispatch_to_subtrace = get_subtrace_info_map().at(*exec_opcode);
             trace.set(row,
                       { {
                           { C::execution_sel_should_execute_opcode, 1 },
@@ -835,7 +835,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
     }
 
     // At this point we can assume instruction fetching succeeded, so this should never fail.
-    const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
+    const auto& dispatch_to_subtrace = get_subtrace_info_map().at(exec_opcode);
     trace.set(row,
               { {
                   { C::execution_subtrace_id, get_subtrace_id(dispatch_to_subtrace.subtrace_selector) },

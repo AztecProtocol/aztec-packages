@@ -183,7 +183,7 @@ std::vector<std::pair<Column, FF>> insert_side_effect_states(const TxContextEven
 // Helper to retrieve the read offset and populate the read and write counters
 std::vector<std::pair<Column, FF>> handle_pi_read(TransactionPhase phase, uint32_t phase_length, uint32_t read_counter)
 {
-    const auto& phase_spec = TX_PHASE_SPEC_MAP.at(phase);
+    const auto& phase_spec = get_tx_phase_spec_map().at(phase);
 
     const auto remaining_length = phase_length - read_counter;
 
@@ -198,7 +198,7 @@ std::vector<std::pair<Column, FF>> handle_pi_read(TransactionPhase phase, uint32
 
 std::vector<std::pair<Column, FF>> handle_phase_spec(TransactionPhase phase)
 {
-    const auto& phase_spec = TX_PHASE_SPEC_MAP.at(phase);
+    const auto& phase_spec = get_tx_phase_spec_map().at(phase);
     return {
         { Column::tx_phase_value, phase_spec.phase_value },
         { Column::tx_is_public_call_request, phase_spec.is_public_call_request },
@@ -416,7 +416,7 @@ std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, Gas
 
     // TODO: We should probably split this into multiple functions, that are called if the padded phase is a specific
     // phase.
-    const auto& phase_spec = TX_PHASE_SPEC_MAP.at(phase);
+    const auto& phase_spec = get_tx_phase_spec_map().at(phase);
     std::vector<std::pair<Column, FF>> columns = {
         { Column::tx_sel, 1 },
         { Column::tx_discard, discard ? 1 : 0 },

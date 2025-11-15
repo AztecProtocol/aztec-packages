@@ -276,7 +276,7 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
         }
 
         // Gadget / Subtrace Selectors / Decomposable selectors
-        auto dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
+        auto dispatch_to_subtrace = get_subtrace_info_map().at(exec_opcode);
         trace.set(static_cast<uint32_t>(exec_opcode),
                   { { { C::precomputed_subtrace_id, get_subtrace_id(dispatch_to_subtrace.subtrace_selector) },
                       { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
@@ -343,7 +343,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 {
     using C = Column;
 
-    for (const auto& [_, spec] : TX_PHASE_SPEC_MAP) {
+    for (const auto& [_, spec] : get_tx_phase_spec_map()) {
 
         const uint32_t row = static_cast<uint32_t>(spec.phase_value);
         // Populate all columns that are part of the #[READ_PHASE_SPEC] lookup in tx.pil.
