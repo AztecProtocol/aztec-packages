@@ -2,7 +2,7 @@
 
 namespace bb::crypto::merkle_tree {
 
-const fr& get_value(uint32_t index)
+const fr& get_value(size_t index)
 {
     static std::vector<fr> VALUES = create_values();
     return VALUES[index];

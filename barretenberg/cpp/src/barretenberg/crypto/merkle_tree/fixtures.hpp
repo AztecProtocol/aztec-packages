@@ -31,7 +31,7 @@ static auto create_values = [](uint32_t num_values = NUM_VALUES) {
     return values;
 };
 
-const fr& get_value(uint32_t index);
+const fr& get_value(size_t index);
 
 inline std::string random_string()
 {
