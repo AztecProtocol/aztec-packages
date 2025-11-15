@@ -425,4 +425,123 @@ describe('validator keys utilities', () => {
       ).rejects.toThrow(/--gse-address is required/);
     });
   });
+
+  describe('BUG: BLS keystore stores wrong derivation path', () => {
+    it('FAILS: cannot recreate BLS keys from mnemonic when using non-zero address-index', async () => {
+      const password = 'test-password';
+      const accountIndex = 0;
+      const addressIndex = 5; // Non-zero address index
+
+      // Step 1: Generate keys with address-index 5
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+      const keystorePath = join(tmp, 'bug-test-keystore.json');
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'bug-test-keystore.json',
+          count: 1,
+          publisherCount: 0,
+          mnemonic: TEST_MNEMONIC,
+          accountIndex,
+          addressIndex,
+          password,
+          outDir: tmp,
+          feeRecipient: ('0x' + 'aa'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      // Step 2: Extract the BLS keystore path and derivation info
+      const keystore: KeyStore = loadKeystoreFile(keystorePath);
+      const validator = keystore.validators![0];
+      const att = validator.attester as any;
+      const blsConfig = att.bls;
+
+      // Step 3: Load the BLS keystore file and check what path is stored
+      const blsKeystorePath = blsConfig.path;
+      const blsKeystoreContent = JSON.parse(readFileSync(blsKeystorePath, 'utf-8'));
+      const storedPath = blsKeystoreContent.path;
+
+      // Step 4: Compute what the ACTUAL derivation path should have been
+      const expectedPath = withValidatorIndex('m/12381/3600/0/0/0', addressIndex);
+
+      // Step 5: Decrypt the BLS key from the keystore
+      const decryptedKey = decryptBn254Keystore(blsKeystorePath, password);
+
+      // Step 6: Try to recreate the key using the mnemonic with the STORED path
+      const recreatedKeyUsingStoredPath = deriveBlsPrivateKey(TEST_MNEMONIC, undefined, storedPath);
+
+      // Step 7: Try to recreate the key using the mnemonic with the EXPECTED path
+      const recreatedKeyUsingExpectedPath = deriveBlsPrivateKey(TEST_MNEMONIC, undefined, expectedPath);
+
+      // BUG DEMONSTRATION:
+      // The keystore stores 'm/12381/3600/0/0/0' (storedPath)
+      // But the key was actually derived with 'm/12381/3600/5/0/0' (expectedPath)
+
+      console.log('Stored path in keystore:', storedPath);
+      console.log('Expected path for derivation:', expectedPath);
+      console.log('Are paths equal?', storedPath === expectedPath);
+      console.log('Decrypted key:', decryptedKey);
+      console.log('Recreated key using stored path:', recreatedKeyUsingStoredPath);
+      console.log('Recreated key using expected path:', recreatedKeyUsingExpectedPath);
+
+      // This assertion FAILS because the stored path is wrong!
+      // The keystore says the path is 'm/12381/3600/0/0/0'
+      // But it should say 'm/12381/3600/5/0/0'
+      expect(storedPath).toBe(expectedPath); // ❌ FAILS! Stored: m/12381/3600/0/0/0, Expected: m/12381/3600/5/0/0
+
+      // This assertion also FAILS because we can't recreate the key using the stored path
+      expect(recreatedKeyUsingStoredPath).toBe(decryptedKey); // ❌ FAILS! Wrong path = wrong key
+
+      // This assertion PASSES because using the correct path gives the correct key
+      expect(recreatedKeyUsingExpectedPath).toBe(decryptedKey); // ✅ PASSES but we don't know this path!
+    });
+
+    it('PASSES: can recreate BLS keys when using default indices (address-index=0)', async () => {
+      // This test PASSES because the hardcoded path happens to be correct when addressIndex is 0
+      const password = 'test-password';
+      const accountIndex = 0;
+      const addressIndex = 0;
+
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+      const keystorePath = join(tmp, 'working-keystore.json');
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'working-keystore.json',
+          count: 1,
+          publisherCount: 0,
+          mnemonic: TEST_MNEMONIC,
+          accountIndex,
+          addressIndex,
+          password,
+          outDir: tmp,
+          feeRecipient: ('0x' + 'cc'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      const keystore: KeyStore = loadKeystoreFile(keystorePath);
+      const validator = keystore.validators![0];
+      const att = validator.attester as any;
+      const blsConfig = att.bls;
+
+      const blsKeystorePath = blsConfig.path;
+      const blsKeystoreContent = JSON.parse(readFileSync(blsKeystorePath, 'utf-8'));
+      const storedPath = blsKeystoreContent.path;
+
+      const expectedPath = withValidatorIndex('m/12381/3600/0/0/0', addressIndex);
+      const decryptedKey = decryptBn254Keystore(blsKeystorePath, password);
+      const recreatedKey = deriveBlsPrivateKey(TEST_MNEMONIC, undefined, storedPath);
+
+      // This works because stored path 'm/12381/3600/0/0/0' matches expected path
+      expect(storedPath).toBe(expectedPath); // ✅ PASSES
+      expect(storedPath).toBe('m/12381/3600/0/0/0'); // ✅ PASSES
+      expect(recreatedKey).toBe(decryptedKey); // ✅ PASSES
+    });
+  });
 });
