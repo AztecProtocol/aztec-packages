@@ -36,7 +36,7 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     fundingAccount: fundingAccountOpt,
     remoteSigner: remoteSignerOpt,
     password,
-    outDir,
+    encryptedKeystoreDir,
   } = options;
 
   const validatorCount = typeof count === 'number' && Number.isFinite(count) && count > 0 ? Math.floor(count) : 1;
@@ -85,7 +85,11 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
   // If password provided, write ETH JSON V3 and BLS BN254 keystores and replace plaintext
   if (password !== undefined) {
     const targetDir =
-      outDir && outDir.length > 0 ? outDir : dataDir && dataDir.length > 0 ? dataDir : dirname(existing);
+      encryptedKeystoreDir && encryptedKeystoreDir.length > 0
+        ? encryptedKeystoreDir
+        : dataDir && dataDir.length > 0
+          ? dataDir
+          : dirname(existing);
     await writeEthJsonV3ToFile(keystore.validators, { outDir: targetDir, password });
     await writeBlsBn254ToFile(keystore.validators, { outDir: targetDir, password });
   }

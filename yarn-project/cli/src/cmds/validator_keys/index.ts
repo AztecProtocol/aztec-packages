@@ -33,7 +33,7 @@ export function injectCommands(program: Command, log: LogFn) {
       '--password <str>',
       'Password for writing keystore files (ETH JSON V3 and BLS EIP-2335). Empty string allowed',
     )
-    .option('--out-dir <dir>', 'Output directory for generated keystore file(s)')
+    .option('--encrypted-keystore-dir <dir>', 'Output directory for encrypted keystore files and staker outputs')
     .option('--json', 'Echo resulting JSON to stdout')
     .option('--staker-output', 'Generate staker output JSON files for each attester')
     .option('--gse-address <address>', 'GSE contract address (required with --staker-output)', parseEthereumAddress)
@@ -77,7 +77,7 @@ export function injectCommands(program: Command, log: LogFn) {
       '--password <str>',
       'Password for writing keystore files (ETH JSON V3 and BLS EIP-2335). Empty string allowed',
     )
-    .option('--out-dir <dir>', 'Output directory for generated keystore file(s)')
+    .option('--encrypted-keystore-dir <dir>', 'Output directory for encrypted keystore files')
     .option('--json', 'Echo resulting JSON to stdout')
     .requiredOption('--fee-recipient <address>', 'Aztec address that will receive fees', parseAztecAddress)
     .action(async (existing: string, options) => {
@@ -89,7 +89,7 @@ export function injectCommands(program: Command, log: LogFn) {
     .command('staker')
     .summary('Generate staking JSON from keystore')
     .description(
-      'Reads a validator keystore and outputs staking data with BLS public keys for each attester (skips mnemonics)',
+      'Reads a validator keystore and outputs staking data with BLS public keys for each attester (skips mnemonics). Generates one file per attester.',
     )
     .requiredOption('--from <keystore>', 'Path to keystore JSON file')
     .option('--password <password>', 'Password for decrypting encrypted keystores (if not specified in keystore file)')
@@ -98,7 +98,7 @@ export function injectCommands(program: Command, log: LogFn) {
       'http://localhost:8545',
     ])
     .option('-c, --l1-chain-id <number>', 'L1 chain ID', value => parseInt(value), 31337)
-    .option('--output <file>', 'Output file path (if not specified, JSON is written to stdout)')
+    .option('--output <dir>', 'Output directory for staker JSON files (defaults to keystore directory)')
     .action(async options => {
       const { generateStakerJson } = await import('./staker.js');
       await generateStakerJson(options, log);

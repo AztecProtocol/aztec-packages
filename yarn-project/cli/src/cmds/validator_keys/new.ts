@@ -34,7 +34,7 @@ export type NewValidatorKeystoreOptions = {
   ikm?: string;
   blsPath?: string;
   password?: string;
-  outDir?: string;
+  encryptedKeystoreDir?: string;
   json?: boolean;
   feeRecipient: AztecAddress;
   coinbase?: EthAddress;
@@ -63,7 +63,7 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     ikm,
     mnemonic: _mnemonic,
     password,
-    outDir,
+    encryptedKeystoreDir,
     stakerOutput,
     gseAddress,
     l1RpcUrls,
@@ -118,7 +118,8 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
 
   // If password provided, write ETH JSON V3 and BLS BN254 keystores and replace plaintext
   if (password !== undefined) {
-    const keystoreOutDir = outDir && outDir.length > 0 ? outDir : dirname(outputPath);
+    const keystoreOutDir =
+      encryptedKeystoreDir && encryptedKeystoreDir.length > 0 ? encryptedKeystoreDir : dirname(outputPath);
     await writeEthJsonV3ToFile(validators, { outDir: keystoreOutDir, password });
     await writeBlsBn254ToFile(validators, { outDir: keystoreOutDir, password });
   }
@@ -140,7 +141,8 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     });
     const gse = new GSEContract(publicClient, gseAddress);
 
-    const keystoreOutDir = outDir && outDir.length > 0 ? outDir : dirname(outputPath);
+    const keystoreOutDir =
+      encryptedKeystoreDir && encryptedKeystoreDir.length > 0 ? encryptedKeystoreDir : dirname(outputPath);
     // Extract keystore base name without extension for unique staker output filenames
     const keystoreBaseName = basename(outputPath, '.json');
 
@@ -178,7 +180,8 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
   } else {
     log(`Wrote validator keystore to ${outputPath}`);
     if (stakerOutput && allStakerOutputs.length > 0) {
-      const keystoreOutDir = outDir && outDir.length > 0 ? outDir : dirname(outputPath);
+      const keystoreOutDir =
+        encryptedKeystoreDir && encryptedKeystoreDir.length > 0 ? encryptedKeystoreDir : dirname(outputPath);
       log(`Wrote ${allStakerOutputs.length} staker output file(s) to ${keystoreOutDir}`);
       log('');
     }
