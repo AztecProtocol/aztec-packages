@@ -1,4 +1,4 @@
-import { deriveBlsPrivateKey } from '@aztec/foundation/crypto';
+import { deriveBlsKeyFromMnemonic, deriveBlsPrivateKey } from '@aztec/foundation/crypto';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { loadKeystoreFile } from '@aztec/node-keystore/loader';
 import type { KeyStore } from '@aztec/node-keystore/types';
@@ -471,10 +471,10 @@ describe('validator keys utilities', () => {
       const decryptedKey = decryptBn254Keystore(blsKeystorePath, password);
 
       // Step 6: Try to recreate the key using the mnemonic with the STORED path
-      const recreatedKeyUsingStoredPath = deriveBlsPrivateKey(TEST_MNEMONIC, undefined, storedPath);
+      const recreatedKeyUsingStoredPath = deriveBlsKeyFromMnemonic(TEST_MNEMONIC, storedPath);
 
       // Step 7: Try to recreate the key using the mnemonic with the EXPECTED path
-      const recreatedKeyUsingExpectedPath = deriveBlsPrivateKey(TEST_MNEMONIC, undefined, expectedPath);
+      const recreatedKeyUsingExpectedPath = deriveBlsKeyFromMnemonic(TEST_MNEMONIC, expectedPath);
 
       // BUG DEMONSTRATION:
       // The keystore stores 'm/12381/3600/0/0/0' (storedPath)
@@ -536,7 +536,7 @@ describe('validator keys utilities', () => {
 
       const expectedPath = withValidatorIndex('m/12381/3600/0/0/0', addressIndex);
       const decryptedKey = decryptBn254Keystore(blsKeystorePath, password);
-      const recreatedKey = deriveBlsPrivateKey(TEST_MNEMONIC, undefined, storedPath);
+      const recreatedKey = deriveBlsKeyFromMnemonic(TEST_MNEMONIC, storedPath);
 
       // This works because stored path 'm/12381/3600/0/0/0' matches expected path
       expect(storedPath).toBe(expectedPath); // ✅ PASSES
