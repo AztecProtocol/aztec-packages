@@ -490,11 +490,11 @@ describe('validator keys utilities', () => {
       // This assertion FAILS because the stored path is wrong!
       // The keystore says the path is 'm/12381/3600/0/0/0'
       // But it should say 'm/12381/3600/5/0/0'
-      expect(storedPath).toBe(expectedPath); // ❌ FAILS! Stored: m/12381/3600/0/0/0, Expected: m/12381/3600/5/0/0
 
       // This assertion also FAILS because we can't recreate the key using the stored path
       expect(recreatedKeyUsingStoredPath).toBe(decryptedKey); // ❌ FAILS! Wrong path = wrong key
 
+      expect(storedPath).toBe(expectedPath); // ❌ FAILS! Stored: m/12381/3600/0/0/0, Expected: m/12381/3600/5/0/0
       // This assertion PASSES because using the correct path gives the correct key
       expect(recreatedKeyUsingExpectedPath).toBe(decryptedKey); // ✅ PASSES but we don't know this path!
     });
