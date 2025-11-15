@@ -92,8 +92,10 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         emit_empty_phase(TransactionPhase::SETUP);
     } else {
         for (const auto& call : tx.setup_enqueued_calls) {
-            std::string fn_name = get_debug_function_name(call.request.contract_address, call.calldata);
-            vinfo("[SETUP] Executing enqueued call to ", call.request.contract_address, "::", fn_name);
+            vinfo("[SETUP] Executing enqueued call to ",
+                  call.request.contract_address,
+                  "::",
+                  get_debug_function_name(call.request.contract_address, call.calldata));
             const TxContextEvent state_before = tx_context.serialize_tx_context_event();
             const Gas start_gas =
                 tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
@@ -138,8 +140,10 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             emit_empty_phase(TransactionPhase::APP_LOGIC);
         } else {
             for (const auto& call : tx.app_logic_enqueued_calls) {
-                std::string fn_name = get_debug_function_name(call.request.contract_address, call.calldata);
-                vinfo("[APP_LOGIC] Executing enqueued call to ", call.request.contract_address, "::", fn_name);
+                vinfo("[APP_LOGIC] Executing enqueued call to ",
+                      call.request.contract_address,
+                      "::",
+                      get_debug_function_name(call.request.contract_address, call.calldata));
                 const TxContextEvent state_before = tx_context.serialize_tx_context_event();
                 const Gas start_gas =
                     tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
@@ -201,7 +205,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             vinfo("[TEARDOWN] Executing enqueued call to ",
                   teardown_enqueued_call.request.contract_address,
                   "::",
-                  get_debug_function_name(teardown_enqueued_call.request.contractAddress,
+                  get_debug_function_name(teardown_enqueued_call.request.contract_address,
                                           teardown_enqueued_call.calldata));
             // Teardown has its own gas limit and usage.
             constexpr Gas start_gas = { 0, 0 };
