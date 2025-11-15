@@ -79,13 +79,11 @@ AvmProvingInputs fix_hint_keys(AvmProvingInputs inputs)
     return inputs;
 };
 
-AvmProvingInputs avm_inputs_testdata =
-    fix_hint_keys(AvmProvingInputs::from(read_file("../src/barretenberg/vm2/testing/avm_inputs.testdata.bin")));
-
 class HintingDBsTestInputTest : public HintingDBsTest {
   protected:
     HintingDBsTestInputTest()
-        : HintingDBsTest(avm_inputs_testdata)
+        : HintingDBsTest(fix_hint_keys(
+              AvmProvingInputs::from(read_file("../src/barretenberg/vm2/testing/avm_inputs.testdata.bin"))))
     {}
 };
 
@@ -648,7 +646,7 @@ TEST_F(MockedHintingDBsTest, MerkleDBCheckpoints)
                     .state_before = mock_tree_info,
                     .state_after = mock_tree_info,
                 }));
-} // namespace
+}
 
 } // namespace
 } // namespace bb::avm2::simulation

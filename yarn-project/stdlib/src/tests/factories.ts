@@ -1426,7 +1426,7 @@ export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevert
   );
 }
 
-export function makeAvmContractDBCheckpointActionCreateCheckpointHint(seed = 0): AvmContractDbCreateCheckpointHint {
+export function makeAvmContractDbCheckpointActionCreateCheckpointHint(seed = 0): AvmContractDbCreateCheckpointHint {
   return new AvmContractDbCreateCheckpointHint(
     /*actionCounter=*/ seed,
     /*oldCheckpointId=*/ seed + 1,
@@ -1434,7 +1434,7 @@ export function makeAvmContractDBCheckpointActionCreateCheckpointHint(seed = 0):
   );
 }
 
-export function makeAvmContractDBCheckpointActionCommitCheckpointHint(seed = 0): AvmContractDbCommitCheckpointHint {
+export function makeAvmContractDbCheckpointActionCommitCheckpointHint(seed = 0): AvmContractDbCommitCheckpointHint {
   return new AvmContractDbCommitCheckpointHint(
     /*actionCounter=*/ seed,
     /*oldCheckpointId=*/ seed + 1,
@@ -1442,7 +1442,7 @@ export function makeAvmContractDBCheckpointActionCommitCheckpointHint(seed = 0):
   );
 }
 
-export function makeAvmContractDBCheckpointActionRevertCheckpointHint(seed = 0): AvmContractDbRevertCheckpointHint {
+export function makeAvmContractDbCheckpointActionRevertCheckpointHint(seed = 0): AvmContractDbRevertCheckpointHint {
   return new AvmContractDbRevertCheckpointHint(
     /*actionCounter=*/ seed,
     /*oldCheckpointId=*/ seed + 1,
@@ -1565,19 +1565,19 @@ export async function makeAvmExecutionHints(
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
     debugFunctionNames: makeArray(baseLength + 5, makeAvmDebugFunctionNameHint, seed + 0x4a00),
-    contractDBCreateCheckpointHints: makeArray(
+    contractDbCreateCheckpointHints: makeArray(
       baseLength + 5,
-      makeAvmContractDBCheckpointActionCreateCheckpointHint,
+      makeAvmContractDbCheckpointActionCreateCheckpointHint,
       seed + 0x5900,
     ),
-    contractDBCommitCheckpointHints: makeArray(
+    contractDbCommitCheckpointHints: makeArray(
       baseLength + 5,
-      makeAvmContractDBCheckpointActionCommitCheckpointHint,
+      makeAvmContractDbCheckpointActionCommitCheckpointHint,
       seed + 0x5b00,
     ),
-    contractDBRevertCheckpointHints: makeArray(
+    contractDbRevertCheckpointHints: makeArray(
       baseLength + 5,
-      makeAvmContractDBCheckpointActionRevertCheckpointHint,
+      makeAvmContractDbCheckpointActionRevertCheckpointHint,
       seed + 0x5d00,
     ),
     startingTreeRoots: makeTreeSnapshots(seed + 0x4900),
@@ -1615,9 +1615,9 @@ export async function makeAvmExecutionHints(
     fields.contractClasses,
     fields.bytecodeCommitments,
     fields.debugFunctionNames,
-    fields.contractDBCreateCheckpointHints,
-    fields.contractDBCommitCheckpointHints,
-    fields.contractDBRevertCheckpointHints,
+    fields.contractDbCreateCheckpointHints,
+    fields.contractDbCommitCheckpointHints,
+    fields.contractDbRevertCheckpointHints,
     fields.startingTreeRoots,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,
