@@ -571,8 +571,10 @@ ${conversions}
       imports.push(...this.config.imports);
     }
 
-    // For API modes, import from api_types
+    // For API modes, import from api_types and logging
     if (this.config.mode !== 'types') {
+      // Add BBAPI logging import - uses shared module
+      imports.push(`import { logBbapiCall, flushBbapiLogs } from '../bbapi_log_shared.js';`);
       const neededImports = new Set<string>();
 
       // Add types and conversion functions from function metadata
@@ -620,30 +622,23 @@ ${methods}
     // For sync API, don't implement BbApiBase since methods are synchronous
     const implementsClause = this.config.mode === 'sync' ? '' : ' implements BbApiBase';
 
-    // For tracing all calls to bb.
-    // const msgpackCallHelper =
-    //   `${this.config.mode === 'async' ? 'async ' : ''}function msgpackCall(backend: ${this.getBackendType()}, input: any[]) {\n` +
-    //   `  const commandName = input[0]?.[0] || 'unknown';\n` +
-    //   `  process.stderr.write(\`[BB MSGPACK ${this.config.mode === 'async' ? 'ASYNC' : 'SYNC'}] \${commandName}\\n\`);\n` +
-    //   `  const inputBuffer = new Encoder({ useRecords: false }).pack(input);\n` +
-    //   `  const encodedResult = ${this.config.mode === 'async' ? 'await ' : ''}backend.call(inputBuffer);\n` +
-    //   `  const result = new Decoder({ useRecords: false }).unpack(encodedResult);\n` +
-    //   `  process.stderr.write(\`[BB MSGPACK ${this.config.mode === 'async' ? 'ASYNC' : 'SYNC'}] \${commandName} => completed\\n\`);\n` +
-    //   `  return result;\n` +
-    //   `}\n`;
+    // msgpackCall helper with integrated BBAPI logging support
     const msgpackCallHelper =
       `${this.config.mode === 'async' ? 'async ' : ''}function msgpackCall(backend: ${this.getBackendType()}, input: any[]) {` +
       `  const inputBuffer = new Encoder({ useRecords: false }).pack(input);` +
+      `  logBbapiCall(inputBuffer);` +
       `  const encodedResult = ${this.config.mode === 'async' ? 'await ' : ''}backend.call(inputBuffer);` +
       `  return new Decoder({ useRecords: false }).unpack(encodedResult);` +
       `}\n`;
     const destroyMethod =
       this.config.mode === 'sync'
         ? `  destroy(): void {
+    flushBbapiLogs();
     if (this.backend.destroy) this.backend.destroy();
   }`
-        : `  destroy(): Promise<void> {
-    return this.backend.destroy ? this.backend.destroy() : Promise.resolve();
+        : `  async destroy(): Promise<void> {
+    flushBbapiLogs();
+    if (this.backend.destroy) await this.backend.destroy();
   }`;
 
     return (

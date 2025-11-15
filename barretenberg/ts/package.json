@@ -33,6 +33,8 @@
     "formatting:fix": "prettier -w ./src",
     "test": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",
     "test:debug": "NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules ./node_modules/.bin/jest --no-cache --passWithNoTests --runInBand",
+    "test:bbapi-logging": "BBAPI_DEBUG_LOG=/tmp/bbapi-test node test_bbapi_logging.mjs && ls -lh /tmp/bbapi-test/bbapi-logs-*.msgpack",
+    "test:bbapi-replay": "BBAPI_DEBUG_LOG=/tmp/bbapi-test node test_bbapi_replay.mjs && ../cpp/build/bin/bb msgpack run -i /tmp/bbapi-test/bbapi-logs-*.msgpack",
     "simple_test": "NODE_NO_WARNINGS=1 node ./src/examples/simple.rawtest.ts",
     "deploy": "npm publish --access public"
   },

@@ -1,6 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 
 import { proveThenVerifyAztecClient } from './prove_wasm.js';
+import { testBbapiLoggingBasic, testBbapiLoggingMultiple } from './test_bbapi_logging_browser.js';
 import { generateTestingIVCStack } from './witgen.js';
 
 const logger = createLogger('aztec:ivc-test');
@@ -79,6 +80,8 @@ function setupConsoleOutput() {
 }
 
 (window as any).proveThenVerifyAztecClient = proveThenVerifyAztecClient;
+(window as any).testBbapiLoggingBasic = testBbapiLoggingBasic;
+(window as any).testBbapiLoggingMultiple = testBbapiLoggingMultiple;
 
 document.addEventListener('DOMContentLoaded', function () {
   setupConsoleOutput(); // Initialize console output capture
