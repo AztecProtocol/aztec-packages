@@ -126,6 +126,8 @@ function check_toolchains {
 # Install pre-commit git hooks.
 function install_hooks {
   hooks_dir=$(git rev-parse --git-path hooks)
+  rm -f $hooks_dir/*
+
   cat <<EOF >$hooks_dir/pre-commit
 #!/usr/bin/env bash
 set -euo pipefail
