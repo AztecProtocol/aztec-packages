@@ -143,9 +143,6 @@ set -euo pipefail
 git submodule update --init --recursive
 EOF
   chmod +x $hooks_dir/post-merge
-
-  echo "(cd noir && ./postcheckout.sh \$@)" >$hooks_dir/post-checkout
-  chmod +x $hooks_dir/post-checkout
 }
 
 function sort_by_cpus {
