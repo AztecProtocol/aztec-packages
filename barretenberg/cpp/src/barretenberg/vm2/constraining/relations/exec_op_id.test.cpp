@@ -101,7 +101,7 @@ TEST(ExecOpIdConstrainingTest, WireOpcodeListCompleteness)
 {
     for (uint8_t opcode = 0; opcode < static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL); opcode++) {
         const auto wire_opcode = static_cast<WireOpCode>(opcode);
-        const auto& exec_opcode = WIRE_INSTRUCTION_SPEC.at(wire_opcode).exec_opcode;
+        const auto& exec_opcode = get_wire_instruction_spec().at(wire_opcode).exec_opcode;
 
         if (SUBTRACE_INFO_MAP.contains(exec_opcode)) {
             const auto& subtrace_info = SUBTRACE_INFO_MAP.at(exec_opcode);

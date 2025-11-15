@@ -293,7 +293,7 @@ TEST(ExecutionTraceGenTest, Gas)
         .addressing_event = { .instruction = instr },
     };
 
-    const auto& exec_instruction_spec = EXEC_INSTRUCTION_SPEC.at(instr.get_exec_opcode());
+    const auto& exec_instruction_spec = get_exec_instruction_spec().at(instr.get_exec_opcode());
 
     const uint32_t addressing_gas = 50;
     const uint32_t opcode_gas = exec_instruction_spec.gas_cost.opcode_gas;

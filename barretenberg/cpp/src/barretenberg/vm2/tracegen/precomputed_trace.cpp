@@ -194,7 +194,7 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
     trace.reserve_column(C::precomputed_instr_size, num_opcodes);
 
     // Fill the lookup tables with the operand decomposition selectors.
-    for (const auto& [wire_opcode, wire_instruction_spec] : WIRE_INSTRUCTION_SPEC) {
+    for (const auto& [wire_opcode, wire_instruction_spec] : get_wire_instruction_spec()) {
         for (size_t i = 0; i < NUM_OP_DC_SELECTORS; i++) {
             trace.set(sel_op_dc_columns.at(i),
                       static_cast<uint32_t>(wire_opcode),
@@ -244,7 +244,7 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
         Column::precomputed_sel_op_is_address_6_,
     };
 
-    for (const auto& [exec_opcode, exec_instruction_spec] : EXEC_INSTRUCTION_SPEC) {
+    for (const auto& [exec_opcode, exec_instruction_spec] : get_exec_instruction_spec()) {
         // Basic information.
         trace.set(static_cast<uint32_t>(exec_opcode),
                   { {
@@ -256,7 +256,7 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
                   } });
 
         // Register information.
-        const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
+        const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
         for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {
             trace.set(MEM_OP_REG_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_active(i) ? 1 : 0);
             trace.set(RW_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_write(i) ? 1 : 0);
