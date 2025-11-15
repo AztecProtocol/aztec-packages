@@ -84,12 +84,14 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
 
   // If password provided, write ETH JSON V3 and BLS BN254 keystores and replace plaintext
   if (password !== undefined) {
-    const targetDir =
-      encryptedKeystoreDir && encryptedKeystoreDir.length > 0
-        ? encryptedKeystoreDir
-        : dataDir && dataDir.length > 0
-          ? dataDir
-          : dirname(existing);
+    let targetDir: string;
+    if (encryptedKeystoreDir && encryptedKeystoreDir.length > 0) {
+      targetDir = encryptedKeystoreDir;
+    } else if (dataDir && dataDir.length > 0) {
+      targetDir = dataDir;
+    } else {
+      targetDir = dirname(existing);
+    }
     await writeEthJsonV3ToFile(keystore.validators, { outDir: targetDir, password });
     await writeBlsBn254ToFile(keystore.validators, { outDir: targetDir, password });
   }
