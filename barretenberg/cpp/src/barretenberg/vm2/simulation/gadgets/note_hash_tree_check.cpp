@@ -92,14 +92,14 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash_internal(FF note_hash
     }
 
     FF next_root =
-        merkle_check.write(0, note_hash, prev_snapshot.nextAvailableLeafIndex, sibling_path, prev_snapshot.root);
+        merkle_check.write(0, note_hash, prev_snapshot.next_available_leaf_index, sibling_path, prev_snapshot.root);
     AppendOnlyTreeSnapshot next_snapshot = AppendOnlyTreeSnapshot{
         .root = next_root,
-        .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1,
+        .next_available_leaf_index = prev_snapshot.next_available_leaf_index + 1,
     };
     events.emit(NoteHashTreeReadWriteEvent{ .note_hash = original_note_hash,
                                             .existing_leaf_value = 0,
-                                            .leaf_index = prev_snapshot.nextAvailableLeafIndex,
+                                            .leaf_index = prev_snapshot.next_available_leaf_index,
                                             .prev_snapshot = prev_snapshot,
                                             .append_data = NoteHashAppendData{
                                                 .siloing_data = siloing_data,

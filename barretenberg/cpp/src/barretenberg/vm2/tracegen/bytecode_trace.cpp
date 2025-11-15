@@ -218,7 +218,7 @@ void BytecodeTraceBuilder::process_retrieval(
     for (const auto& event : events) {
         uint64_t remaining_bytecodes = MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +
                                        AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE -
-                                       event.retrieved_bytecodes_snapshot_before.nextAvailableLeafIndex;
+                                       event.retrieved_bytecodes_snapshot_before.next_available_leaf_index;
         bool error = event.instance_not_found_error || event.limit_error;
         trace.set(
             row,
@@ -238,10 +238,10 @@ void BytecodeTraceBuilder::process_retrieval(
                 // Retrieved bytecodes tree state
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_before.root },
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_size,
-                  event.retrieved_bytecodes_snapshot_before.nextAvailableLeafIndex },
+                  event.retrieved_bytecodes_snapshot_before.next_available_leaf_index },
                 { C::bc_retrieval_next_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_after.root },
                 { C::bc_retrieval_next_retrieved_bytecodes_tree_size,
-                  event.retrieved_bytecodes_snapshot_after.nextAvailableLeafIndex },
+                  event.retrieved_bytecodes_snapshot_after.next_available_leaf_index },
 
                 // Instance existence determined by shared contract instance retrieval
                 { C::bc_retrieval_instance_exists, !event.instance_not_found_error },

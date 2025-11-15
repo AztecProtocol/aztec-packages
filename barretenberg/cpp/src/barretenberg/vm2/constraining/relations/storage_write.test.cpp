@@ -210,7 +210,7 @@ TEST(SStoreConstrainingTest, Interactions)
 
     AppendOnlyTreeSnapshot public_data_tree_before = AppendOnlyTreeSnapshot{
         .root = 42,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
     AppendOnlyTreeSnapshot written_slots_tree_before = written_public_data_slots_tree_check.get_snapshot();
 
@@ -255,18 +255,19 @@ TEST(SStoreConstrainingTest, Interactions)
             { C::execution_max_data_writes_reached, 0 },
             { C::execution_remaining_data_writes_inv,
               FF(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE -
-                 written_slots_tree_before.nextAvailableLeafIndex)
+                 written_slots_tree_before.next_available_leaf_index)
                   .invert() },
             { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SSTORE },
             { C::execution_sel_write_public_data, 1 },
             { C::execution_prev_public_data_tree_root, public_data_tree_before.root },
-            { C::execution_prev_public_data_tree_size, public_data_tree_before.nextAvailableLeafIndex },
+            { C::execution_prev_public_data_tree_size, public_data_tree_before.next_available_leaf_index },
             { C::execution_public_data_tree_root, public_data_tree_after.root },
-            { C::execution_public_data_tree_size, public_data_tree_after.nextAvailableLeafIndex },
+            { C::execution_public_data_tree_size, public_data_tree_after.next_available_leaf_index },
             { C::execution_prev_written_public_data_slots_tree_root, written_slots_tree_before.root },
-            { C::execution_prev_written_public_data_slots_tree_size, written_slots_tree_before.nextAvailableLeafIndex },
+            { C::execution_prev_written_public_data_slots_tree_size,
+              written_slots_tree_before.next_available_leaf_index },
             { C::execution_written_public_data_slots_tree_root, written_slots_tree_after.root },
-            { C::execution_written_public_data_slots_tree_size, written_slots_tree_after.nextAvailableLeafIndex },
+            { C::execution_written_public_data_slots_tree_size, written_slots_tree_after.next_available_leaf_index },
         },
     });
 

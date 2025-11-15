@@ -79,7 +79,7 @@ void WrittenPublicDataSlotsTreeCheck::insert(const AztecAddress& contract_addres
         validate_low_leaf_jumps_over_slot(low_leaf_preimage, leaf_slot);
         // Low leaf update
         WrittenPublicDataSlotsTreeLeafPreimage updated_low_leaf_preimage = low_leaf_preimage;
-        updated_low_leaf_preimage.nextIndex = prev_snapshot.nextAvailableLeafIndex;
+        updated_low_leaf_preimage.nextIndex = prev_snapshot.next_available_leaf_index;
         updated_low_leaf_preimage.nextKey = leaf_slot;
 
         FF updated_low_leaf_hash = poseidon2.hash(updated_low_leaf_preimage.get_hash_inputs());
@@ -93,11 +93,11 @@ void WrittenPublicDataSlotsTreeCheck::insert(const AztecAddress& contract_addres
         FF new_leaf_hash = poseidon2.hash(new_leaf_preimage.get_hash_inputs());
 
         FF write_root = merkle_check.write(
-            FF(0), new_leaf_hash, prev_snapshot.nextAvailableLeafIndex, insertion_sibling_path, intermediate_root);
+            FF(0), new_leaf_hash, prev_snapshot.next_available_leaf_index, insertion_sibling_path, intermediate_root);
 
         next_snapshot = AppendOnlyTreeSnapshot{
             .root = write_root,
-            .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1,
+            .next_available_leaf_index = prev_snapshot.next_available_leaf_index + 1,
         };
         assert(next_snapshot == tree.get_snapshot());
         append_data = SlotAppendData{
@@ -129,7 +129,8 @@ AppendOnlyTreeSnapshot WrittenPublicDataSlotsTreeCheck::get_snapshot() const
 uint32_t WrittenPublicDataSlotsTreeCheck::size() const
 {
     // -1 Since the tree has a prefill leaf at index 0.
-    return static_cast<uint32_t>(written_public_data_slots_tree_stack.top().get_snapshot().nextAvailableLeafIndex) - 1;
+    return static_cast<uint32_t>(written_public_data_slots_tree_stack.top().get_snapshot().next_available_leaf_index) -
+           1;
 }
 
 void WrittenPublicDataSlotsTreeCheck::create_checkpoint()

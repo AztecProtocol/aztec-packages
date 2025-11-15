@@ -347,70 +347,73 @@ void ExecutionTraceBuilder::process(
                 { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size },
                 { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
                 { C::execution_last_child_id, ex_event.after_context_event.last_child_id },
-                { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
-                { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
-                { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
-                { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
-                { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
-                { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
-                { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
-                { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
+                { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2_gas },
+                { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.da_gas },
+                { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2_gas },
+                { C::execution_da_gas_used, ex_event.after_context_event.gas_used.da_gas },
+                { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2_gas },
+                { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.da_gas },
+                { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2_gas },
+                { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.da_gas },
                 { C::execution_next_context_id, ex_event.next_context_id },
                 // Context - gas.
-                { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
-                { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
+                { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2_gas },
+                { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.da_gas },
                 // Context - tree states
                 // Context - tree states - Written public data slots tree
                 { C::execution_prev_written_public_data_slots_tree_root,
                   ex_event.before_context_event.written_public_data_slots_tree_snapshot.root },
                 { C::execution_prev_written_public_data_slots_tree_size,
-                  ex_event.before_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+                  ex_event.before_context_event.written_public_data_slots_tree_snapshot.next_available_leaf_index },
                 { C::execution_written_public_data_slots_tree_root,
                   ex_event.after_context_event.written_public_data_slots_tree_snapshot.root },
                 { C::execution_written_public_data_slots_tree_size,
-                  ex_event.after_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+                  ex_event.after_context_event.written_public_data_slots_tree_snapshot.next_available_leaf_index },
                 { C::execution_prev_public_data_tree_root,
-                  ex_event.before_context_event.tree_states.publicDataTree.tree.root },
+                  ex_event.before_context_event.tree_states.public_data_tree.tree.root },
                 { C::execution_prev_public_data_tree_size,
-                  ex_event.before_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+                  ex_event.before_context_event.tree_states.public_data_tree.tree.next_available_leaf_index },
                 // Context - tree states - Nullifier tree
                 { C::execution_prev_nullifier_tree_root,
-                  ex_event.before_context_event.tree_states.nullifierTree.tree.root },
+                  ex_event.before_context_event.tree_states.nullifier_tree.tree.root },
                 { C::execution_prev_nullifier_tree_size,
-                  ex_event.before_context_event.tree_states.nullifierTree.tree.nextAvailableLeafIndex },
+                  ex_event.before_context_event.tree_states.nullifier_tree.tree.next_available_leaf_index },
                 { C::execution_prev_num_nullifiers_emitted,
-                  ex_event.before_context_event.tree_states.nullifierTree.counter },
-                { C::execution_nullifier_tree_root, ex_event.after_context_event.tree_states.nullifierTree.tree.root },
+                  ex_event.before_context_event.tree_states.nullifier_tree.counter },
+                { C::execution_nullifier_tree_root, ex_event.after_context_event.tree_states.nullifier_tree.tree.root },
                 { C::execution_nullifier_tree_size,
-                  ex_event.after_context_event.tree_states.nullifierTree.tree.nextAvailableLeafIndex },
-                { C::execution_num_nullifiers_emitted, ex_event.after_context_event.tree_states.nullifierTree.counter },
+                  ex_event.after_context_event.tree_states.nullifier_tree.tree.next_available_leaf_index },
+                { C::execution_num_nullifiers_emitted,
+                  ex_event.after_context_event.tree_states.nullifier_tree.counter },
                 // Context - tree states - Public data tree
                 { C::execution_public_data_tree_root,
-                  ex_event.after_context_event.tree_states.publicDataTree.tree.root },
+                  ex_event.after_context_event.tree_states.public_data_tree.tree.root },
                 { C::execution_public_data_tree_size,
-                  ex_event.after_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+                  ex_event.after_context_event.tree_states.public_data_tree.tree.next_available_leaf_index },
                 // Context - tree states - Note hash tree
                 { C::execution_prev_note_hash_tree_root,
-                  ex_event.before_context_event.tree_states.noteHashTree.tree.root },
+                  ex_event.before_context_event.tree_states.note_hash_tree.tree.root },
                 { C::execution_prev_note_hash_tree_size,
-                  ex_event.before_context_event.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
+                  ex_event.before_context_event.tree_states.note_hash_tree.tree.next_available_leaf_index },
                 { C::execution_prev_num_note_hashes_emitted,
-                  ex_event.before_context_event.tree_states.noteHashTree.counter },
-                { C::execution_note_hash_tree_root, ex_event.after_context_event.tree_states.noteHashTree.tree.root },
+                  ex_event.before_context_event.tree_states.note_hash_tree.counter },
+                { C::execution_note_hash_tree_root, ex_event.after_context_event.tree_states.note_hash_tree.tree.root },
                 { C::execution_note_hash_tree_size,
-                  ex_event.after_context_event.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
-                { C::execution_num_note_hashes_emitted, ex_event.after_context_event.tree_states.noteHashTree.counter },
+                  ex_event.after_context_event.tree_states.note_hash_tree.tree.next_available_leaf_index },
+                { C::execution_num_note_hashes_emitted,
+                  ex_event.after_context_event.tree_states.note_hash_tree.counter },
                 // Context - tree states - L1 to L2 message tree
-                { C::execution_l1_l2_tree_root, ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.root },
+                { C::execution_l1_l2_tree_root,
+                  ex_event.after_context_event.tree_states.l1_to_l2_message_tree.tree.root },
                 // Context - tree states - Retrieved bytecodes tree
                 { C::execution_prev_retrieved_bytecodes_tree_root,
                   ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.root },
                 { C::execution_prev_retrieved_bytecodes_tree_size,
-                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.next_available_leaf_index },
                 { C::execution_retrieved_bytecodes_tree_root,
                   ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.root },
                 { C::execution_retrieved_bytecodes_tree_size,
-                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.next_available_leaf_index },
                 // Context - side effects
                 { C::execution_prev_num_unencrypted_log_fields, ex_event.before_context_event.numUnencryptedLogFields },
                 { C::execution_num_unencrypted_log_fields, ex_event.after_context_event.numUnencryptedLogFields },
@@ -572,18 +575,18 @@ void ExecutionTraceBuilder::process(
                 Gas gas_left = ex_event.after_context_event.gas_limit - ex_event.after_context_event.gas_used;
 
                 uint32_t allocated_l2_gas = registers[0].as<uint32_t>();
-                bool is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2Gas;
+                bool is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2_gas;
 
                 uint32_t allocated_da_gas = registers[1].as<uint32_t>();
-                bool is_da_gas_allocated_lt_left = allocated_da_gas < gas_left.daGas;
+                bool is_da_gas_allocated_lt_left = allocated_da_gas < gas_left.da_gas;
 
                 trace.set(row,
                           { {
                               { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
                               { C::execution_sel_execute_call, should_execute_call ? 1 : 0 },
                               { C::execution_sel_execute_static_call, should_execute_static_call ? 1 : 0 },
-                              { C::execution_l2_gas_left, gas_left.l2Gas },
-                              { C::execution_da_gas_left, gas_left.daGas },
+                              { C::execution_l2_gas_left, gas_left.l2_gas },
+                              { C::execution_da_gas_left, gas_left.da_gas },
                               { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                           } });
@@ -604,7 +607,7 @@ void ExecutionTraceBuilder::process(
                           ex_event.before_context_event.internal_call_return_id); // Will be inverted in batch later.
             } else if (exec_opcode == ExecutionOpCode::SSTORE) {
                 uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
-                                                 ex_event.before_context_event.tree_states.publicDataTree.counter;
+                                                 ex_event.before_context_event.tree_states.public_data_tree.counter;
 
                 trace.set(row,
                           { {
@@ -625,7 +628,7 @@ void ExecutionTraceBuilder::process(
                           } });
             } else if (exec_opcode == ExecutionOpCode::EMITNOTEHASH) {
                 uint32_t remaining_note_hashes =
-                    MAX_NOTE_HASHES_PER_TX - ex_event.before_context_event.tree_states.noteHashTree.counter;
+                    MAX_NOTE_HASHES_PER_TX - ex_event.before_context_event.tree_states.note_hash_tree.counter;
 
                 trace.set(row,
                           { {
@@ -648,7 +651,7 @@ void ExecutionTraceBuilder::process(
                 // no custom columns!
             } else if (exec_opcode == ExecutionOpCode::EMITNULLIFIER) {
                 uint32_t remaining_nullifiers =
-                    MAX_NULLIFIERS_PER_TX - ex_event.before_context_event.tree_states.nullifierTree.counter;
+                    MAX_NULLIFIERS_PER_TX - ex_event.before_context_event.tree_states.nullifier_tree.counter;
 
                 trace.set(row,
                           { {
@@ -855,8 +858,8 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
                   // Base gas.
                   { C::execution_addressing_gas, gas_event.addressing_gas },
                   // Dynamic gas.
-                  { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
-                  { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
+                  { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2_gas },
+                  { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.da_gas },
                   // Derived cumulative gas used.
                   { C::execution_total_gas_l2, gas_event.total_gas_used_l2 },
                   { C::execution_total_gas_da, gas_event.total_gas_used_da },

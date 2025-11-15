@@ -40,7 +40,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, ContainsNotExists)
     WrittenPublicDataSlotsTree initial_state = build_public_data_slots_tree();
 
     // Prefill will point to our new leaf
-    ASSERT_EQ(initial_state.get_snapshot().nextAvailableLeafIndex, 1);
+    ASSERT_EQ(initial_state.get_snapshot().next_available_leaf_index, 1);
     uint64_t low_leaf_index = 0;
     WrittenPublicDataSlotsTreeLeafPreimage low_leaf = initial_state.get_leaf_preimage(low_leaf_index);
 
@@ -87,7 +87,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, ContainsExists)
     AztecAddress contract_address = AztecAddress(27);
     FF leaf_slot = RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, contract_address, slot });
 
-    uint64_t low_leaf_index = initial_state.get_snapshot().nextAvailableLeafIndex;
+    uint64_t low_leaf_index = initial_state.get_snapshot().next_available_leaf_index;
     initial_state.insert_indexed_leaves({ { WrittenPublicDataSlotLeafValue(leaf_slot) } });
 
     WrittenPublicDataSlotsTreeLeafPreimage low_leaf = initial_state.get_leaf_preimage(low_leaf_index);
@@ -181,7 +181,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, InsertExists)
     FF leaf_slot = RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, contract_address, slot });
 
     WrittenPublicDataSlotsTree initial_state = build_public_data_slots_tree();
-    uint64_t low_leaf_index = initial_state.get_snapshot().nextAvailableLeafIndex;
+    uint64_t low_leaf_index = initial_state.get_snapshot().next_available_leaf_index;
     initial_state.insert_indexed_leaves({ { WrittenPublicDataSlotLeafValue(leaf_slot) } });
 
     WrittenPublicDataSlotsTreeLeafPreimage low_leaf = initial_state.get_leaf_preimage(low_leaf_index);
@@ -230,7 +230,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, InsertAppend)
 
     WrittenPublicDataSlotsTree initial_state = build_public_data_slots_tree();
     // Prefill will point to our new leaf
-    ASSERT_EQ(initial_state.get_snapshot().nextAvailableLeafIndex, 1);
+    ASSERT_EQ(initial_state.get_snapshot().next_available_leaf_index, 1);
     uint64_t low_leaf_index = 0;
     uint64_t new_leaf_index = 1;
     WrittenPublicDataSlotsTreeLeafPreimage low_leaf = initial_state.get_leaf_preimage(low_leaf_index);

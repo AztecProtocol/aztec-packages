@@ -28,7 +28,7 @@ TEST(AvmSimulationL1ToL2MessageTree, Read)
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
     AppendOnlyTreeSnapshot snapshot = {
         .root = 123456,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
 
     FF msg_hash = 42;

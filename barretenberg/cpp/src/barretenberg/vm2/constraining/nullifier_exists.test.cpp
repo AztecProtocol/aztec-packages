@@ -121,7 +121,7 @@ TEST(NullifierExistsConstrainingTest, Interactions)
 
     AppendOnlyTreeSnapshot nullifier_tree_snapshot = AppendOnlyTreeSnapshot{
         .root = 42,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
 
     nullifier_tree_check.assert_read(nullifier, address, true, {}, 0, {}, nullifier_tree_snapshot);

@@ -95,12 +95,12 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
 
     AppendOnlyTreeSnapshot snapshot_before = AppendOnlyTreeSnapshot{
         .root = FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT),
-        .nextAvailableLeafIndex = AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE,
+        .next_available_leaf_index = AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE,
     };
 
     AppendOnlyTreeSnapshot snapshot_after = AppendOnlyTreeSnapshot{
         .root = FF(42),
-        .nextAvailableLeafIndex = AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE + 1,
+        .next_available_leaf_index = AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE + 1,
     };
 
     // Read the tree of the retrieved bytecodes
@@ -163,13 +163,13 @@ TEST(BytecodeRetrievalConstrainingTest, TooManyBytecodes)
 
     AppendOnlyTreeSnapshot snapshot_before = AppendOnlyTreeSnapshot{
         .root = FF(42),
-        .nextAvailableLeafIndex =
+        .next_available_leaf_index =
             MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE,
     };
 
     AppendOnlyTreeSnapshot snapshot_after = AppendOnlyTreeSnapshot{
         .root = FF(42),
-        .nextAvailableLeafIndex =
+        .next_available_leaf_index =
             MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE,
     };
 

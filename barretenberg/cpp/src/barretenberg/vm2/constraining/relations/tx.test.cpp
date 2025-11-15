@@ -179,10 +179,10 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                           { C::tx_sel_can_emit_unencrypted_log, 1 },
                           { C::tx_sel_can_emit_l2_l1_msg, 1 },
                           // Public Input Loaded Values
-                          { C::tx_msg_sender, setup_call.msgSender },
-                          { C::tx_contract_addr, setup_call.contractAddress },
-                          { C::tx_is_static, setup_call.isStaticCall },
-                          { C::tx_calldata_hash, setup_call.calldataHash },
+                          { C::tx_msg_sender, setup_call.msg_sender },
+                          { C::tx_contract_addr, setup_call.contract_address },
+                          { C::tx_is_static, setup_call.is_static_call },
+                          { C::tx_calldata_hash, setup_call.calldata_hash },
                       } });
             calls_remaining--;
             read_pi_offset++;
@@ -279,10 +279,10 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                           { C::tx_sel_can_emit_l2_l1_msg, 1 },
                           { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                           // Public Input Loaded Values
-                          { C::tx_msg_sender, app_logic_call.msgSender },
-                          { C::tx_contract_addr, app_logic_call.contractAddress },
-                          { C::tx_is_static, app_logic_call.isStaticCall },
-                          { C::tx_calldata_hash, app_logic_call.calldataHash },
+                          { C::tx_msg_sender, app_logic_call.msg_sender },
+                          { C::tx_contract_addr, app_logic_call.contract_address },
+                          { C::tx_is_static, app_logic_call.is_static_call },
+                          { C::tx_calldata_hash, app_logic_call.calldata_hash },
                       } });
             calls_remaining--;
             read_pi_offset++;
@@ -364,9 +364,9 @@ TEST_F(TxExecutionConstrainingTestHelper, SimpleControlFlowRead)
                                   .rand_public_app_logic_call_requests(1)
                                   .build();
 
-    auto first_setup_call_request = test_public_inputs.publicSetupCallRequests[0];
-    auto second_setup_call_request = test_public_inputs.publicSetupCallRequests[1];
-    auto app_logic_call_request = test_public_inputs.publicAppLogicCallRequests[0];
+    auto first_setup_call_request = test_public_inputs.public_setup_call_requests[0];
+    auto second_setup_call_request = test_public_inputs.public_setup_call_requests[1];
+    auto app_logic_call_request = test_public_inputs.public_app_logic_call_requests[0];
 
     TestTraceContainer trace;
     set_initial_columns(trace, { first_setup_call_request, second_setup_call_request }, { app_logic_call_request });
@@ -398,10 +398,10 @@ TEST_F(TxExecutionConstrainingTestHelper, SimpleHandleRevert)
                                   .set_reverted(true)
                                   .build();
 
-    auto first_setup_call_request = test_public_inputs.publicSetupCallRequests[0];
-    auto second_setup_call_request = test_public_inputs.publicSetupCallRequests[1];
-    auto first_app_logic_call_request = test_public_inputs.publicAppLogicCallRequests[0];
-    auto second_app_logic_call_request = test_public_inputs.publicAppLogicCallRequests[1];
+    auto first_setup_call_request = test_public_inputs.public_setup_call_requests[0];
+    auto second_setup_call_request = test_public_inputs.public_setup_call_requests[1];
+    auto first_app_logic_call_request = test_public_inputs.public_app_logic_call_requests[0];
+    auto second_app_logic_call_request = test_public_inputs.public_app_logic_call_requests[1];
 
     TestTraceContainer trace;
     set_initial_columns(trace,
@@ -438,7 +438,7 @@ TEST_F(TxExecutionConstrainingTestHelper, JumpOnRevert)
     TestTraceContainer trace;
     set_initial_columns(
         trace,
-        { PublicCallRequest{ .msgSender = 0, .contractAddress = 0, .isStaticCall = false, .calldataHash = 0 } },
+        { PublicCallRequest{ .msg_sender = 0, .contract_address = 0, .is_static_call = false, .calldata_hash = 0 } },
         {});
 
     // Set reverted at row 7, message phase:
@@ -481,7 +481,7 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
 
           { C::tx_is_tree_insert_phase, 1 },
-          { C::tx_leaf_value, test_public_inputs.previousNonRevertibleAccumulatedData.nullifiers[0] },
+          { C::tx_leaf_value, test_public_inputs.previous_non_revertible_accumulated_data.nullifiers[0] },
           { C::tx_prev_num_nullifiers_emitted, 0 },
           { C::tx_next_num_nullifiers_emitted, 1 },
           { C::tx_end_phase, 1 } },
@@ -496,7 +496,7 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
 
           { C::tx_is_tree_insert_phase, 1 },
-          { C::tx_leaf_value, test_public_inputs.previousNonRevertibleAccumulatedData.noteHashes[0] },
+          { C::tx_leaf_value, test_public_inputs.previous_non_revertible_accumulated_data.note_hashes[0] },
           { C::tx_prev_num_note_hashes_emitted, 0 },
           { C::tx_next_num_note_hashes_emitted, 1 },
           { C::tx_end_phase, 1 } },
@@ -512,11 +512,11 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
 
           { C::tx_sel_non_revertible_append_l2_l1_msg, 1 },
           { C::tx_l2_l1_msg_content,
-            test_public_inputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.content },
+            test_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content },
           { C::tx_l2_l1_msg_recipient,
-            test_public_inputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.recipient },
+            test_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient },
           { C::tx_l2_l1_msg_contract_address,
-            test_public_inputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].contractAddress },
+            test_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address },
           { C::tx_end_phase, 1 } },
 
         // Row 4
@@ -538,7 +538,7 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
 
           { C::tx_is_tree_insert_phase, 1 },
-          { C::tx_leaf_value, test_public_inputs.previousRevertibleAccumulatedData.nullifiers[0] },
+          { C::tx_leaf_value, test_public_inputs.previous_revertible_accumulated_data.nullifiers[0] },
           { C::tx_prev_num_nullifiers_emitted, 1 },
           { C::tx_next_num_nullifiers_emitted, 2 },
           { C::tx_end_phase, 1 } },
@@ -553,7 +553,7 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
 
           { C::tx_is_tree_insert_phase, 1 },
-          { C::tx_leaf_value, test_public_inputs.previousRevertibleAccumulatedData.noteHashes[0] },
+          { C::tx_leaf_value, test_public_inputs.previous_revertible_accumulated_data.note_hashes[0] },
           { C::tx_prev_num_note_hashes_emitted, 1 },
           { C::tx_next_num_note_hashes_emitted, 2 },
           { C::tx_end_phase, 1 } },
@@ -570,11 +570,11 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
 
           { C::tx_sel_revertible_append_l2_l1_msg, 1 },
           { C::tx_l2_l1_msg_content,
-            test_public_inputs.previousRevertibleAccumulatedData.l2ToL1Msgs[0].message.content },
+            test_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs[0].message.content },
           { C::tx_l2_l1_msg_recipient,
-            test_public_inputs.previousRevertibleAccumulatedData.l2ToL1Msgs[0].message.recipient },
+            test_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient },
           { C::tx_l2_l1_msg_contract_address,
-            test_public_inputs.previousRevertibleAccumulatedData.l2ToL1Msgs[0].contractAddress },
+            test_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address },
           { C::tx_end_phase, 1 } },
 
         // App Logic
@@ -615,10 +615,10 @@ TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
                                   .rand_public_teardown_call_request()
                                   .build();
 
-    auto first_setup_call_request = test_public_inputs.publicSetupCallRequests[0];
-    auto second_setup_call_request = test_public_inputs.publicSetupCallRequests[1];
-    auto app_logic_call_request = test_public_inputs.publicAppLogicCallRequests[0];
-    auto teardown_call_request = test_public_inputs.publicTeardownCallRequest;
+    auto first_setup_call_request = test_public_inputs.public_setup_call_requests[0];
+    auto second_setup_call_request = test_public_inputs.public_setup_call_requests[1];
+    auto app_logic_call_request = test_public_inputs.public_app_logic_call_requests[0];
+    auto teardown_call_request = test_public_inputs.public_teardown_call_request;
 
     TestTraceContainer trace;
     set_initial_columns(trace, { first_setup_call_request, second_setup_call_request }, { app_logic_call_request });
@@ -686,10 +686,10 @@ TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
                   { C::tx_remaining_phase_counter, 1 },
                   { C::tx_remaining_phase_inv, 1 },
                   // Public Input Loaded Values
-                  { C::tx_msg_sender, teardown_call_request.msgSender },
-                  { C::tx_contract_addr, teardown_call_request.contractAddress },
-                  { C::tx_is_static, teardown_call_request.isStaticCall },
-                  { C::tx_calldata_hash, teardown_call_request.calldataHash },
+                  { C::tx_msg_sender, teardown_call_request.msg_sender },
+                  { C::tx_contract_addr, teardown_call_request.contract_address },
+                  { C::tx_is_static, teardown_call_request.is_static_call },
+                  { C::tx_calldata_hash, teardown_call_request.calldata_hash },
                   { C::tx_prev_da_gas_used, 4 },
                   { C::tx_prev_l2_gas_used, 400 },
                   { C::tx_prev_da_gas_used_sent_to_enqueued_call, 0 },
@@ -810,16 +810,16 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
     std::vector<FF> dummy_setup_calldata_preimage = dummy_setup_calldata;
     dummy_setup_calldata_preimage.insert(dummy_setup_calldata_preimage.begin(), GENERATOR_INDEX__PUBLIC_CALLDATA);
     FF dummy_setup_calldata_hash = poseidon2.hash(dummy_setup_calldata_preimage);
-    test_public_inputs.publicSetupCallRequests[0].calldataHash = dummy_setup_calldata_hash;
+    test_public_inputs.public_setup_call_requests[0].calldata_hash = dummy_setup_calldata_hash;
 
     std::vector<FF> non_empty_calldata = { 2, 3, 4 };
     std::vector<FF> non_empty_calldata_preimage = non_empty_calldata;
     non_empty_calldata_preimage.insert(non_empty_calldata_preimage.begin(), GENERATOR_INDEX__PUBLIC_CALLDATA);
     FF non_empty_calldata_hash = poseidon2.hash(non_empty_calldata_preimage);
-    test_public_inputs.publicAppLogicCallRequests[0].calldataHash = non_empty_calldata_hash;
+    test_public_inputs.public_app_logic_call_requests[0].calldata_hash = non_empty_calldata_hash;
 
     FF empty_calldata_hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_CALLDATA });
-    test_public_inputs.publicAppLogicCallRequests[1].calldataHash = empty_calldata_hash;
+    test_public_inputs.public_app_logic_call_requests[1].calldata_hash = empty_calldata_hash;
 
     std::vector<simulation::CalldataEvent> calldata_events = {
         { .context_id = 1,
@@ -831,9 +831,9 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
         { .context_id = 6, .calldata_size = 0, .calldata = {} }
     };
 
-    auto setup_call_request = test_public_inputs.publicSetupCallRequests[0];
-    auto non_empty_calldata_app_logic_call_request = test_public_inputs.publicAppLogicCallRequests[0];
-    auto empty_calldata_app_logic_call_request = test_public_inputs.publicAppLogicCallRequests[1];
+    auto setup_call_request = test_public_inputs.public_setup_call_requests[0];
+    auto non_empty_calldata_app_logic_call_request = test_public_inputs.public_app_logic_call_requests[0];
+    auto empty_calldata_app_logic_call_request = test_public_inputs.public_app_logic_call_requests[1];
 
     TestTraceContainer trace;
 

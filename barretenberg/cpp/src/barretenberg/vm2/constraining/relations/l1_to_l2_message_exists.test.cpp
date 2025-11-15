@@ -129,7 +129,7 @@ TEST(L1ToL2MessageExistsConstrainingTest, Interactions)
 
     AppendOnlyTreeSnapshot l1_to_l2_message_tree_snapshot = AppendOnlyTreeSnapshot{
         .root = 42,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
 
     greater_than.gt(L1_TO_L2_MSG_TREE_LEAF_COUNT, leaf_index);

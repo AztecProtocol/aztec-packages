@@ -108,10 +108,10 @@ TEST_F(SideEffectTrackingDBTest, GetTreeState)
 {
     SideEffectTrackingDB db(first_nullifier, mock_merkle_db, mock_tracker);
     TreeStates expected_states = {
-        .noteHashTree = { .tree = { .root = FF(1), .nextAvailableLeafIndex = 2 }, .counter = 2 },
-        .nullifierTree = { .tree = { .root = FF(3), .nextAvailableLeafIndex = 4 }, .counter = 4 },
-        .l1ToL2MessageTree = { .tree = { .root = FF(5), .nextAvailableLeafIndex = 6 }, .counter = 6 },
-        .publicDataTree = { .tree = { .root = FF(7), .nextAvailableLeafIndex = 8 }, .counter = 8 },
+        .note_hash_tree = { .tree = { .root = FF(1), .next_available_leaf_index = 2 }, .counter = 2 },
+        .nullifier_tree = { .tree = { .root = FF(3), .next_available_leaf_index = 4 }, .counter = 4 },
+        .l1_to_l2_message_tree = { .tree = { .root = FF(5), .next_available_leaf_index = 6 }, .counter = 6 },
+        .public_data_tree = { .tree = { .root = FF(7), .next_available_leaf_index = 8 }, .counter = 8 },
     };
 
     EXPECT_CALL(mock_merkle_db, get_tree_state()).WillOnce(Return(expected_states));

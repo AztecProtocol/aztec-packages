@@ -37,7 +37,7 @@ TEST(AvmSimulationRetrievedBytecodesTreeCheck, ContainsNotExists)
     RetrievedBytecodesTree initial_state = build_retrieved_bytecodes_tree();
 
     // Prefill will point to our new leaf
-    ASSERT_EQ(initial_state.get_snapshot().nextAvailableLeafIndex, 1);
+    ASSERT_EQ(initial_state.get_snapshot().next_available_leaf_index, 1);
     uint64_t low_leaf_index = 0;
     RetrievedBytecodesTreeLeafPreimage low_leaf = initial_state.get_leaf_preimage(low_leaf_index);
 
@@ -78,7 +78,7 @@ TEST(AvmSimulationRetrievedBytecodesTree, ContainsExists)
 
     FF class_id = 42;
 
-    uint64_t low_leaf_index = initial_state.get_snapshot().nextAvailableLeafIndex;
+    uint64_t low_leaf_index = initial_state.get_snapshot().next_available_leaf_index;
     initial_state.insert_indexed_leaves({ { ClassIdLeafValue(class_id) } });
 
     RetrievedBytecodesTreeLeafPreimage low_leaf = initial_state.get_leaf_preimage(low_leaf_index);
@@ -160,7 +160,7 @@ TEST(AvmSimulationRetrievedBytecodesTree, InsertExists)
     FF class_id = 42;
 
     RetrievedBytecodesTree initial_state = build_retrieved_bytecodes_tree();
-    uint64_t low_leaf_index = initial_state.get_snapshot().nextAvailableLeafIndex;
+    uint64_t low_leaf_index = initial_state.get_snapshot().next_available_leaf_index;
     initial_state.insert_indexed_leaves({ { ClassIdLeafValue(class_id) } });
 
     RetrievedBytecodesTreeLeafPreimage low_leaf = initial_state.get_leaf_preimage(low_leaf_index);
@@ -203,7 +203,7 @@ TEST(AvmSimulationRetrievedBytecodesTree, InsertAppend)
 
     RetrievedBytecodesTree initial_state = build_retrieved_bytecodes_tree();
     // Prefill will point to our new leaf
-    ASSERT_EQ(initial_state.get_snapshot().nextAvailableLeafIndex, 1);
+    ASSERT_EQ(initial_state.get_snapshot().next_available_leaf_index, 1);
     uint64_t low_leaf_index = 0;
     uint64_t new_leaf_index = 1;
     RetrievedBytecodesTreeLeafPreimage low_leaf = initial_state.get_leaf_preimage(low_leaf_index);

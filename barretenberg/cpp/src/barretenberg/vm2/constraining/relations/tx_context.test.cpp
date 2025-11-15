@@ -345,11 +345,11 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
 {
     Gas start_gas_used = { 1, 2 };
     Gas gas_limit = { 1000, 2000 };
-    GasSettings gas_settings = { .gasLimits = gas_limit };
-    TreeSnapshots tree_snapshots = { .l1ToL2MessageTree = { .root = 20, .nextAvailableLeafIndex = 19 },
-                                     .noteHashTree = { .root = 21, .nextAvailableLeafIndex = 20 },
-                                     .nullifierTree = { .root = 22, .nextAvailableLeafIndex = 21 },
-                                     .publicDataTree = { .root = 23, .nextAvailableLeafIndex = 22 } };
+    GasSettings gas_settings = { .gas_limits = gas_limit };
+    TreeSnapshots tree_snapshots = { .l1_to_l2_message_tree = { .root = 20, .next_available_leaf_index = 19 },
+                                     .note_hash_tree = { .root = 21, .next_available_leaf_index = 20 },
+                                     .nullifier_tree = { .root = 22, .next_available_leaf_index = 21 },
+                                     .public_data_tree = { .root = 23, .next_available_leaf_index = 22 } };
     auto public_inputs = PublicInputsBuilder()
                              .with_start_gas_used(start_gas_used)
                              .with_gas_settings(gas_settings)
@@ -365,21 +365,21 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
             // Row 1
             { C::tx_sel, 1 },
             { C::tx_start_tx, 1 },
-            { C::tx_prev_note_hash_tree_root, tree_snapshots.noteHashTree.root },
-            { C::tx_prev_note_hash_tree_size, tree_snapshots.noteHashTree.nextAvailableLeafIndex },
-            { C::tx_prev_nullifier_tree_root, tree_snapshots.nullifierTree.root },
-            { C::tx_prev_nullifier_tree_size, tree_snapshots.nullifierTree.nextAvailableLeafIndex },
-            { C::tx_prev_public_data_tree_root, tree_snapshots.publicDataTree.root },
-            { C::tx_prev_public_data_tree_size, tree_snapshots.publicDataTree.nextAvailableLeafIndex },
+            { C::tx_prev_note_hash_tree_root, tree_snapshots.note_hash_tree.root },
+            { C::tx_prev_note_hash_tree_size, tree_snapshots.note_hash_tree.next_available_leaf_index },
+            { C::tx_prev_nullifier_tree_root, tree_snapshots.nullifier_tree.root },
+            { C::tx_prev_nullifier_tree_size, tree_snapshots.nullifier_tree.next_available_leaf_index },
+            { C::tx_prev_public_data_tree_root, tree_snapshots.public_data_tree.root },
+            { C::tx_prev_public_data_tree_size, tree_snapshots.public_data_tree.next_available_leaf_index },
             { C::tx_prev_written_public_data_slots_tree_root, FF(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT) },
             { C::tx_prev_written_public_data_slots_tree_size, FF(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE) },
             { C::tx_prev_retrieved_bytecodes_tree_root, FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT) },
             { C::tx_prev_retrieved_bytecodes_tree_size, FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE) },
-            { C::tx_l1_l2_tree_root, tree_snapshots.l1ToL2MessageTree.root },
-            { C::tx_prev_l2_gas_used, start_gas_used.l2Gas },
-            { C::tx_prev_da_gas_used, start_gas_used.daGas },
-            { C::tx_l2_gas_limit, gas_limit.l2Gas },
-            { C::tx_da_gas_limit, gas_limit.daGas },
+            { C::tx_l1_l2_tree_root, tree_snapshots.l1_to_l2_message_tree.root },
+            { C::tx_prev_l2_gas_used, start_gas_used.l2_gas },
+            { C::tx_prev_da_gas_used, start_gas_used.da_gas },
+            { C::tx_l2_gas_limit, gas_limit.l2_gas },
+            { C::tx_da_gas_limit, gas_limit.da_gas },
             { C::tx_prev_num_unencrypted_log_fields, 0 },
             { C::tx_prev_num_l2_to_l1_messages, 0 },
             { C::tx_note_hash_pi_offset, FF(AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX) },
@@ -390,18 +390,18 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
             { C::tx_gas_used_pi_offset, FF(AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX) },
             { C::tx_gas_limit_pi_offset, FF(AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX) },
             { C::tx_should_read_gas_limit, 1 },
-            { C::tx_next_note_hash_tree_root, tree_snapshots.noteHashTree.root },
-            { C::tx_next_note_hash_tree_size, tree_snapshots.noteHashTree.nextAvailableLeafIndex },
-            { C::tx_next_nullifier_tree_root, tree_snapshots.nullifierTree.root },
-            { C::tx_next_nullifier_tree_size, tree_snapshots.nullifierTree.nextAvailableLeafIndex },
-            { C::tx_next_public_data_tree_root, tree_snapshots.publicDataTree.root },
-            { C::tx_next_public_data_tree_size, tree_snapshots.publicDataTree.nextAvailableLeafIndex },
+            { C::tx_next_note_hash_tree_root, tree_snapshots.note_hash_tree.root },
+            { C::tx_next_note_hash_tree_size, tree_snapshots.note_hash_tree.next_available_leaf_index },
+            { C::tx_next_nullifier_tree_root, tree_snapshots.nullifier_tree.root },
+            { C::tx_next_nullifier_tree_size, tree_snapshots.nullifier_tree.next_available_leaf_index },
+            { C::tx_next_public_data_tree_root, tree_snapshots.public_data_tree.root },
+            { C::tx_next_public_data_tree_size, tree_snapshots.public_data_tree.next_available_leaf_index },
             { C::tx_next_written_public_data_slots_tree_root, FF(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT) },
             { C::tx_next_written_public_data_slots_tree_size, FF(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE) },
             { C::tx_next_retrieved_bytecodes_tree_root, FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT) },
             { C::tx_next_retrieved_bytecodes_tree_size, FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE) },
-            { C::tx_next_l2_gas_used, start_gas_used.l2Gas },
-            { C::tx_next_da_gas_used, start_gas_used.daGas },
+            { C::tx_next_l2_gas_used, start_gas_used.l2_gas },
+            { C::tx_next_da_gas_used, start_gas_used.da_gas },
             { C::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
             { C::tx_next_context_id, 1 },
         },
@@ -433,19 +433,19 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
 TEST(TxContextConstrainingTest, EndStateChecks)
 {
     Gas end_gas_used = { 1, 2 };
-    TreeSnapshots tree_snapshots = { .l1ToL2MessageTree = { .root = 20, .nextAvailableLeafIndex = 19 },
-                                     .noteHashTree = { .root = 21, .nextAvailableLeafIndex = 20 },
-                                     .nullifierTree = { .root = 22, .nextAvailableLeafIndex = 21 },
-                                     .publicDataTree = { .root = 23, .nextAvailableLeafIndex = 22 } };
-    AvmAccumulatedDataArrayLengths array_lengths = { .noteHashes = 10, .nullifiers = 11, .l2ToL1Msgs = 12 };
+    TreeSnapshots tree_snapshots = { .l1_to_l2_message_tree = { .root = 20, .next_available_leaf_index = 19 },
+                                     .note_hash_tree = { .root = 21, .next_available_leaf_index = 20 },
+                                     .nullifier_tree = { .root = 22, .next_available_leaf_index = 21 },
+                                     .public_data_tree = { .root = 23, .next_available_leaf_index = 22 } };
+    AvmAccumulatedDataArrayLengths array_lengths = { .note_hashes = 10, .nullifiers = 11, .l2_to_l1_msgs = 12 };
 
     PublicLog log = {
         .fields = { FF(4), FF(5) },
-        .contractAddress = 11223,
+        .contract_address = 11223,
     };
     PublicLogs public_logs = {};
     public_logs.add_log(log);
-    AvmAccumulatedData accumulated_data = { .publicLogs = public_logs };
+    AvmAccumulatedData accumulated_data = { .public_logs = public_logs };
 
     auto public_inputs = PublicInputsBuilder()
                              .set_end_gas_used(end_gas_used)
@@ -463,19 +463,19 @@ TEST(TxContextConstrainingTest, EndStateChecks)
             // Row 1
             { C::tx_sel, 1 },
             { C::tx_is_cleanup, 1 },
-            { C::tx_prev_note_hash_tree_root, tree_snapshots.noteHashTree.root },
-            { C::tx_prev_note_hash_tree_size, tree_snapshots.noteHashTree.nextAvailableLeafIndex },
-            { C::tx_prev_num_note_hashes_emitted, array_lengths.noteHashes },
-            { C::tx_prev_nullifier_tree_root, tree_snapshots.nullifierTree.root },
-            { C::tx_prev_nullifier_tree_size, tree_snapshots.nullifierTree.nextAvailableLeafIndex },
+            { C::tx_prev_note_hash_tree_root, tree_snapshots.note_hash_tree.root },
+            { C::tx_prev_note_hash_tree_size, tree_snapshots.note_hash_tree.next_available_leaf_index },
+            { C::tx_prev_num_note_hashes_emitted, array_lengths.note_hashes },
+            { C::tx_prev_nullifier_tree_root, tree_snapshots.nullifier_tree.root },
+            { C::tx_prev_nullifier_tree_size, tree_snapshots.nullifier_tree.next_available_leaf_index },
             { C::tx_prev_num_nullifiers_emitted, array_lengths.nullifiers },
-            { C::tx_prev_public_data_tree_root, tree_snapshots.publicDataTree.root },
-            { C::tx_prev_public_data_tree_size, tree_snapshots.publicDataTree.nextAvailableLeafIndex },
-            { C::tx_l1_l2_tree_root, tree_snapshots.l1ToL2MessageTree.root },
-            { C::tx_prev_l2_gas_used, end_gas_used.l2Gas },
-            { C::tx_prev_da_gas_used, end_gas_used.daGas },
+            { C::tx_prev_public_data_tree_root, tree_snapshots.public_data_tree.root },
+            { C::tx_prev_public_data_tree_size, tree_snapshots.public_data_tree.next_available_leaf_index },
+            { C::tx_l1_l2_tree_root, tree_snapshots.l1_to_l2_message_tree.root },
+            { C::tx_prev_l2_gas_used, end_gas_used.l2_gas },
+            { C::tx_prev_da_gas_used, end_gas_used.da_gas },
             { C::tx_prev_num_unencrypted_log_fields, public_logs.length },
-            { C::tx_prev_num_l2_to_l1_messages, array_lengths.l2ToL1Msgs },
+            { C::tx_prev_num_l2_to_l1_messages, array_lengths.l2_to_l1_msgs },
             { C::tx_note_hash_pi_offset, FF(AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX) },
             { C::tx_sel_read_trees_and_gas_used, 1 },
             { C::tx_nullifier_pi_offset, FF(AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX) },
@@ -491,18 +491,18 @@ TEST(TxContextConstrainingTest, EndStateChecks)
               FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX) },
             { C::tx_fields_length_unencrypted_logs_pi_offset,
               FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX) },
-            { C::tx_next_note_hash_tree_root, tree_snapshots.noteHashTree.root },
-            { C::tx_next_note_hash_tree_size, tree_snapshots.noteHashTree.nextAvailableLeafIndex },
-            { C::tx_next_num_note_hashes_emitted, array_lengths.noteHashes },
-            { C::tx_next_nullifier_tree_root, tree_snapshots.nullifierTree.root },
-            { C::tx_next_nullifier_tree_size, tree_snapshots.nullifierTree.nextAvailableLeafIndex },
+            { C::tx_next_note_hash_tree_root, tree_snapshots.note_hash_tree.root },
+            { C::tx_next_note_hash_tree_size, tree_snapshots.note_hash_tree.next_available_leaf_index },
+            { C::tx_next_num_note_hashes_emitted, array_lengths.note_hashes },
+            { C::tx_next_nullifier_tree_root, tree_snapshots.nullifier_tree.root },
+            { C::tx_next_nullifier_tree_size, tree_snapshots.nullifier_tree.next_available_leaf_index },
             { C::tx_next_num_nullifiers_emitted, array_lengths.nullifiers },
-            { C::tx_next_public_data_tree_root, tree_snapshots.publicDataTree.root },
-            { C::tx_next_public_data_tree_size, tree_snapshots.publicDataTree.nextAvailableLeafIndex },
-            { C::tx_next_l2_gas_used, end_gas_used.l2Gas },
-            { C::tx_next_da_gas_used, end_gas_used.daGas },
+            { C::tx_next_public_data_tree_root, tree_snapshots.public_data_tree.root },
+            { C::tx_next_public_data_tree_size, tree_snapshots.public_data_tree.next_available_leaf_index },
+            { C::tx_next_l2_gas_used, end_gas_used.l2_gas },
+            { C::tx_next_da_gas_used, end_gas_used.da_gas },
             { C::tx_next_num_unencrypted_log_fields, public_logs.length },
-            { C::tx_next_num_l2_to_l1_messages, array_lengths.l2ToL1Msgs },
+            { C::tx_next_num_l2_to_l1_messages, array_lengths.l2_to_l1_msgs },
             { C::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
         },
     });

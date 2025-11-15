@@ -41,7 +41,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
 
     TreeStates tree_states = {};
-    tree_states.publicDataTree.tree.root = 42;
+    tree_states.public_data_tree.tree.root = 42;
 
     NiceMock<MockPoseidon2> poseidon2;
     NiceMock<MockHighLevelMerkleDB> merkle_db;
@@ -67,7 +67,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
                     .address = derived_address,
                     .current_class_id = instance.current_contract_class_id,
                     .original_class_id = instance.original_contract_class_id,
-                    .public_data_tree_root = tree_states.publicDataTree.tree.root,
+                    .public_data_tree_root = tree_states.public_data_tree.tree.root,
                     .current_timestamp = current_timestamp,
                     .update_hash = 0,
                     .update_preimage_metadata = 0,
@@ -184,7 +184,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     FF update_hash = poseidon2::hash(update_preimage);
 
     TreeStates tree_states = {};
-    tree_states.publicDataTree.tree.root = 42;
+    tree_states.public_data_tree.tree.root = 42;
 
     NiceMock<MockPoseidon2> poseidon2;
     NiceMock<MockHighLevelMerkleDB> merkle_db;
@@ -248,7 +248,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
                         .address = derived_address,
                         .current_class_id = instance.current_contract_class_id,
                         .original_class_id = instance.original_contract_class_id,
-                        .public_data_tree_root = tree_states.publicDataTree.tree.root,
+                        .public_data_tree_root = tree_states.public_data_tree.tree.root,
                         .current_timestamp = current_timestamp,
                         .update_hash = update_hash,
                         .update_preimage_metadata = update_metadata,

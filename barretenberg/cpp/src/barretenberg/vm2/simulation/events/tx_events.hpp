@@ -24,15 +24,15 @@ struct PhaseLengths {
     static PhaseLengths from_tx(const Tx& tx)
     {
         return PhaseLengths{
-            .nr_nullifier_insertion = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.nullifiers.size()),
-            .nr_note_insertion = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.noteHashes.size()),
-            .nr_l2_to_l1_message = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.l2ToL1Messages.size()),
-            .setup = static_cast<uint32_t>(tx.setupEnqueuedCalls.size()),
-            .r_nullifier_insertion = static_cast<uint32_t>(tx.revertibleAccumulatedData.nullifiers.size()),
-            .r_note_insertion = static_cast<uint32_t>(tx.revertibleAccumulatedData.noteHashes.size()),
-            .r_l2_to_l1_message = static_cast<uint32_t>(tx.revertibleAccumulatedData.l2ToL1Messages.size()),
-            .app_logic = static_cast<uint32_t>(tx.appLogicEnqueuedCalls.size()),
-            .teardown = tx.teardownEnqueuedCall.has_value() ? 1U : 0U,
+            .nr_nullifier_insertion = static_cast<uint32_t>(tx.non_revertible_accumulated_data.nullifiers.size()),
+            .nr_note_insertion = static_cast<uint32_t>(tx.non_revertible_accumulated_data.note_hashes.size()),
+            .nr_l2_to_l1_message = static_cast<uint32_t>(tx.non_revertible_accumulated_data.l2_to_l1_messages.size()),
+            .setup = static_cast<uint32_t>(tx.setup_enqueued_calls.size()),
+            .r_nullifier_insertion = static_cast<uint32_t>(tx.revertible_accumulated_data.nullifiers.size()),
+            .r_note_insertion = static_cast<uint32_t>(tx.revertible_accumulated_data.note_hashes.size()),
+            .r_l2_to_l1_message = static_cast<uint32_t>(tx.revertible_accumulated_data.l2_to_l1_messages.size()),
+            .app_logic = static_cast<uint32_t>(tx.app_logic_enqueued_calls.size()),
+            .teardown = tx.teardown_enqueued_call.has_value() ? 1U : 0U,
         };
     }
 };

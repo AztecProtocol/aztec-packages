@@ -131,7 +131,7 @@ TEST(IndexedMemoryTree, Append)
         unconstrained_root_from_path(Poseidon2::hash(inserted_leaf.get_hash_inputs()), 1, insertion_witness_data.path);
 
     EXPECT_EQ(snapshot_after.root, final_root);
-    EXPECT_EQ(snapshot_after.nextAvailableLeafIndex, 2);
+    EXPECT_EQ(snapshot_after.next_available_leaf_index, 2);
 }
 
 TEST(IndexedMemoryTree, Update)
@@ -169,7 +169,7 @@ TEST(IndexedMemoryTree, Update)
 
     // No insertion
     EXPECT_EQ(snapshot_after.root, intermediate_root);
-    EXPECT_EQ(snapshot_after.nextAvailableLeafIndex, 1);
+    EXPECT_EQ(snapshot_after.next_available_leaf_index, 1);
 }
 
 TEST(IndexedMemoryTree, GetLeaves)

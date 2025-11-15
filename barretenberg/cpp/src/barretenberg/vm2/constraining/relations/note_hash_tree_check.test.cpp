@@ -93,7 +93,7 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveExists)
         note_hash,
         leaf_index,
         sibling_path,
-        AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 }));
+        AppendOnlyTreeSnapshot{ .root = root, .next_available_leaf_index = 128 }));
 
     note_hash_tree_check_builder.process(note_hash_tree_check_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
@@ -144,7 +144,7 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveNotExists)
         actual_leaf_value,
         leaf_index,
         sibling_path,
-        AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 }));
+        AppendOnlyTreeSnapshot{ .root = root, .next_available_leaf_index = 128 }));
 
     note_hash_tree_check_builder.process(note_hash_tree_check_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
@@ -175,7 +175,7 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveWrite)
 
     EventEmitter<simulation::NoteHashTreeCheckEvent> note_hash_tree_check_event_emitter;
     NoteHashTreeCheck note_hash_tree_check_simulator(
-        test_public_inputs.previousNonRevertibleAccumulatedData.nullifiers[0],
+        test_public_inputs.previous_non_revertible_accumulated_data.nullifiers[0],
         poseidon2,
         merkle_check,
         note_hash_tree_check_event_emitter);
@@ -191,7 +191,7 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveWrite)
     }
 
     AppendOnlyTreeSnapshot prev_snapshot{ .root = unconstrained_root_from_path(0, 128, sibling_path),
-                                          .nextAvailableLeafIndex = 128 };
+                                          .next_available_leaf_index = 128 };
 
     note_hash_tree_check_simulator.append_note_hash(raw_note_hash, AztecAddress(7), 10, sibling_path, prev_snapshot);
 

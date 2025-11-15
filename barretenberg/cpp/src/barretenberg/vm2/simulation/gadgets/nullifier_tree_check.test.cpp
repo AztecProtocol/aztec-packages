@@ -36,7 +36,7 @@ TEST(AvmSimulationNullifierTree, ReadExists)
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
-    AppendOnlyTreeSnapshot snapshot = AppendOnlyTreeSnapshot{ .root = 123456, .nextAvailableLeafIndex = 128 };
+    AppendOnlyTreeSnapshot snapshot = AppendOnlyTreeSnapshot{ .root = 123456, .next_available_leaf_index = 128 };
 
     FF nullifier = 42;
 
@@ -77,7 +77,7 @@ TEST(AvmSimulationNullifierTree, ReadNotExistsLowPointsToInfinity)
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
-    AppendOnlyTreeSnapshot snapshot = AppendOnlyTreeSnapshot{ .root = 123456, .nextAvailableLeafIndex = 128 };
+    AppendOnlyTreeSnapshot snapshot = AppendOnlyTreeSnapshot{ .root = 123456, .next_available_leaf_index = 128 };
     FF nullifier = 42;
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
@@ -124,7 +124,7 @@ TEST(AvmSimulationNullifierTree, ReadNotExistsLowPointsToAnotherLeaf)
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
-    AppendOnlyTreeSnapshot snapshot = AppendOnlyTreeSnapshot{ .root = 123456, .nextAvailableLeafIndex = 128 };
+    AppendOnlyTreeSnapshot snapshot = AppendOnlyTreeSnapshot{ .root = 123456, .next_available_leaf_index = 128 };
     FF nullifier = 42;
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
@@ -172,7 +172,7 @@ TEST(AvmSimulationNullifierTree, WriteExists)
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
-    AppendOnlyTreeSnapshot snapshot = AppendOnlyTreeSnapshot{ .root = 123456, .nextAvailableLeafIndex = 128 };
+    AppendOnlyTreeSnapshot snapshot = AppendOnlyTreeSnapshot{ .root = 123456, .next_available_leaf_index = 128 };
 
     FF nullifier = 42;
 
@@ -222,7 +222,7 @@ TEST(AvmSimulationNullifierTree, Siloing)
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
-    AppendOnlyTreeSnapshot snapshot = AppendOnlyTreeSnapshot{ .root = 123456, .nextAvailableLeafIndex = 128 };
+    AppendOnlyTreeSnapshot snapshot = AppendOnlyTreeSnapshot{ .root = 123456, .next_available_leaf_index = 128 };
 
     EXPECT_CALL(poseidon2, hash(siloed_nullifier_hash_inputs)).WillRepeatedly(Return(FF(siloed_nullifier)));
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
@@ -284,26 +284,26 @@ TEST(AvmSimulationNullifierTree, WriteAppend)
     nullifier_tree.update_element(low_leaf_index, low_leaf_hash);
 
     AppendOnlyTreeSnapshot prev_snapshot =
-        AppendOnlyTreeSnapshot{ .root = nullifier_tree.root(), .nextAvailableLeafIndex = 128 };
+        AppendOnlyTreeSnapshot{ .root = nullifier_tree.root(), .next_available_leaf_index = 128 };
     std::vector<FF> low_leaf_sibling_path = nullifier_tree.get_sibling_path(low_leaf_index);
 
     NullifierTreeLeafPreimage updated_low_leaf = low_leaf;
-    updated_low_leaf.nextIndex = prev_snapshot.nextAvailableLeafIndex;
+    updated_low_leaf.nextIndex = prev_snapshot.next_available_leaf_index;
     updated_low_leaf.nextKey = nullifier;
     FF updated_low_leaf_hash = RawPoseidon2::hash(updated_low_leaf.get_hash_inputs());
     nullifier_tree.update_element(low_leaf_index, updated_low_leaf_hash);
 
     FF intermediate_root = nullifier_tree.root();
-    std::vector<FF> insertion_sibling_path = nullifier_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+    std::vector<FF> insertion_sibling_path = nullifier_tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
     NullifierTreeLeafPreimage new_leaf =
         NullifierTreeLeafPreimage(NullifierLeafValue(nullifier), low_leaf.nextIndex, low_leaf.nextKey);
     FF new_leaf_hash = RawPoseidon2::hash(new_leaf.get_hash_inputs());
-    nullifier_tree.update_element(prev_snapshot.nextAvailableLeafIndex, new_leaf_hash);
+    nullifier_tree.update_element(prev_snapshot.next_available_leaf_index, new_leaf_hash);
 
     AppendOnlyTreeSnapshot next_snapshot =
         AppendOnlyTreeSnapshot{ .root = nullifier_tree.root(),
-                                .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1 };
+                                .next_available_leaf_index = prev_snapshot.next_available_leaf_index + 1 };
 
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) {
         return RawPoseidon2::hash(input);
@@ -312,7 +312,8 @@ TEST(AvmSimulationNullifierTree, WriteAppend)
         .WillRepeatedly(Return(intermediate_root));
     EXPECT_CALL(field_gt, ff_gt(nullifier, low_leaf.leaf.nullifier)).WillRepeatedly(Return(true));
     EXPECT_CALL(field_gt, ff_gt(low_leaf.nextKey, nullifier)).WillRepeatedly(Return(true));
-    EXPECT_CALL(merkle_check, write(FF(0), new_leaf_hash, prev_snapshot.nextAvailableLeafIndex, _, intermediate_root))
+    EXPECT_CALL(merkle_check,
+                write(FF(0), new_leaf_hash, prev_snapshot.next_available_leaf_index, _, intermediate_root))
         .WillRepeatedly(Return(next_snapshot.root));
 
     AppendOnlyTreeSnapshot result_snapshot = nullifier_tree_check.write(nullifier,

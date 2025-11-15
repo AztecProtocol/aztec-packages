@@ -70,7 +70,7 @@ TEST(L1ToL2MessageTreeCheckConstrainingTests, PositiveExists)
                                            msg_hash,
                                            leaf_index,
                                            sibling_path,
-                                           AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 }));
+                                           AppendOnlyTreeSnapshot{ .root = root, .next_available_leaf_index = 128 }));
 
     l1_to_l2_message_tree_check_builder.process(l1_to_l2_message_tree_check_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
@@ -109,7 +109,7 @@ TEST(L1ToL2MessageTreeCheckConstrainingTests, PositiveNotExists)
                                            actual_leaf_value,
                                            leaf_index,
                                            sibling_path,
-                                           AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 }));
+                                           AppendOnlyTreeSnapshot{ .root = root, .next_available_leaf_index = 128 }));
 
     l1_to_l2_message_tree_check_builder.process(l1_to_l2_message_tree_check_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);

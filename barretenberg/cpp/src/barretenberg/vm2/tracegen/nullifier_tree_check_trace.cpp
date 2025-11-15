@@ -48,7 +48,7 @@ void NullifierTreeCheckTraceBuilder::process(
         bool append = event.append_data.has_value();
         if (append) {
             updated_low_leaf_next_key = siloed_nullifier;
-            updated_low_leaf_next_index = event.prev_snapshot.nextAvailableLeafIndex;
+            updated_low_leaf_next_index = event.prev_snapshot.next_available_leaf_index;
             updated_low_leaf_hash = event.append_data->updated_low_leaf_hash;
             new_leaf_hash = event.append_data->new_leaf_hash;
             intermediate_root = event.append_data->intermediate_root;
@@ -61,7 +61,7 @@ void NullifierTreeCheckTraceBuilder::process(
                       { C::nullifier_check_root, event.prev_snapshot.root },
                       { C::nullifier_check_exists, exists },
                       { C::nullifier_check_write_root, event.next_snapshot.root },
-                      { C::nullifier_check_tree_size_before_write, event.prev_snapshot.nextAvailableLeafIndex },
+                      { C::nullifier_check_tree_size_before_write, event.prev_snapshot.next_available_leaf_index },
                       { C::nullifier_check_discard, discard },
                       { C::nullifier_check_nullifier_index, event.nullifier_counter },
                       { C::nullifier_check_should_silo, event.siloing_data.has_value() },

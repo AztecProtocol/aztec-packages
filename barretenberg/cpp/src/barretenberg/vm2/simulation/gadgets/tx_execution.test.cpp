@@ -53,32 +53,32 @@ TEST_F(TxExecutionTest, simulateTx)
     // Create a mock transaction
     Tx tx = {
         .hash = "0x1234567890abcdef",
-        .nonRevertibleAccumulatedData =
+        .non_revertible_accumulated_data =
             AccumulatedData{
-                .noteHashes = testing::random_fields(5),
+                .note_hashes = testing::random_fields(5),
                 .nullifiers = testing::random_fields(6),
-                .l2ToL1Messages = testing::random_l2_to_l1_messages(2),
+                .l2_to_l1_messages = testing::random_l2_to_l1_messages(2),
             },
-        .revertibleAccumulatedData =
+        .revertible_accumulated_data =
             AccumulatedData{
-                .noteHashes = testing::random_fields(5),
+                .note_hashes = testing::random_fields(5),
                 .nullifiers = testing::random_fields(2),
-                .l2ToL1Messages = testing::random_l2_to_l1_messages(2),
+                .l2_to_l1_messages = testing::random_l2_to_l1_messages(2),
             },
-        .setupEnqueuedCalls = testing::random_enqueued_calls(1),
-        .appLogicEnqueuedCalls = testing::random_enqueued_calls(1),
-        .teardownEnqueuedCall = testing::random_enqueued_calls(1)[0],
+        .setup_enqueued_calls = testing::random_enqueued_calls(1),
+        .app_logic_enqueued_calls = testing::random_enqueued_calls(1),
+        .teardown_enqueued_call = testing::random_enqueued_calls(1)[0],
     };
 
     AppendOnlyTreeSnapshot dummy_snapshot = {
         .root = 0,
-        .nextAvailableLeafIndex = 0,
+        .next_available_leaf_index = 0,
     };
     TreeStates tree_state = {
-        .noteHashTree = { .tree = dummy_snapshot, .counter = 0 },
-        .nullifierTree = { .tree = dummy_snapshot, .counter = 0 },
-        .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
-        .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
+        .note_hash_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .nullifier_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .l1_to_l2_message_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .public_data_tree = { .tree = dummy_snapshot, .counter = 0 },
     };
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault(Return());
@@ -115,12 +115,12 @@ TEST_F(TxExecutionTest, simulateTx)
     // Check the event counts
     bool has_startup_event = false;
     auto expected_private_append_tree_events =
-        tx.nonRevertibleAccumulatedData.noteHashes.size() + tx.nonRevertibleAccumulatedData.nullifiers.size() +
-        tx.revertibleAccumulatedData.noteHashes.size() + tx.revertibleAccumulatedData.nullifiers.size();
+        tx.non_revertible_accumulated_data.note_hashes.size() + tx.non_revertible_accumulated_data.nullifiers.size() +
+        tx.revertible_accumulated_data.note_hashes.size() + tx.revertible_accumulated_data.nullifiers.size();
     auto actual_private_append_tree_events = 0;
 
-    auto expected_l2_l1_msg_events =
-        tx.nonRevertibleAccumulatedData.l2ToL1Messages.size() + tx.revertibleAccumulatedData.l2ToL1Messages.size();
+    auto expected_l2_l1_msg_events = tx.non_revertible_accumulated_data.l2_to_l1_messages.size() +
+                                     tx.revertible_accumulated_data.l2_to_l1_messages.size();
     auto actual_l2_l1_msg_events = 0;
 
     auto expected_public_call_events = 3; // setup, app logic, teardown
@@ -162,38 +162,38 @@ TEST_F(TxExecutionTest, NoteHashLimitReached)
     // Create a mock transaction
     Tx tx = {
         .hash = "0x1234567890abcdef",
-        .nonRevertibleAccumulatedData =
+        .non_revertible_accumulated_data =
             AccumulatedData{
-                .noteHashes = testing::random_fields(MAX_NOTE_HASHES_PER_TX),
+                .note_hashes = testing::random_fields(MAX_NOTE_HASHES_PER_TX),
                 .nullifiers = testing::random_fields(1),
             },
-        .revertibleAccumulatedData =
+        .revertible_accumulated_data =
             AccumulatedData{
-                .noteHashes = testing::random_fields(1),
+                .note_hashes = testing::random_fields(1),
             },
-        .appLogicEnqueuedCalls = testing::random_enqueued_calls(1),
+        .app_logic_enqueued_calls = testing::random_enqueued_calls(1),
     };
 
     AppendOnlyTreeSnapshot dummy_snapshot = {
         .root = 0,
-        .nextAvailableLeafIndex = 0,
+        .next_available_leaf_index = 0,
     };
     TreeStates tree_state = {
-        .noteHashTree = { .tree = dummy_snapshot, .counter = 0 },
-        .nullifierTree = { .tree = dummy_snapshot, .counter = 0 },
-        .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
-        .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
+        .note_hash_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .nullifier_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .l1_to_l2_message_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .public_data_tree = { .tree = dummy_snapshot, .counter = 0 },
     };
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([&](const auto& /*nullifier*/) {
-        tree_state.nullifierTree.counter++;
+        tree_state.nullifier_tree.counter++;
     });
     ON_CALL(merkle_db, siloed_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
-        tree_state.noteHashTree.counter++;
+        tree_state.note_hash_tree.counter++;
         return true;
     });
     ON_CALL(merkle_db, unique_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
-        tree_state.noteHashTree.counter++;
+        tree_state.note_hash_tree.counter++;
         return true;
     });
 
@@ -204,12 +204,12 @@ TEST_F(TxExecutionTest, NoteHashLimitReached)
     // Check the event counts
     bool has_startup_event = false;
     auto expected_private_append_tree_events =
-        tx.nonRevertibleAccumulatedData.noteHashes.size() + tx.nonRevertibleAccumulatedData.nullifiers.size() +
-        tx.revertibleAccumulatedData.noteHashes.size() + tx.revertibleAccumulatedData.nullifiers.size();
+        tx.non_revertible_accumulated_data.note_hashes.size() + tx.non_revertible_accumulated_data.nullifiers.size() +
+        tx.revertible_accumulated_data.note_hashes.size() + tx.revertible_accumulated_data.nullifiers.size();
     auto actual_private_append_tree_events = 0;
 
-    auto expected_l2_l1_msg_events =
-        tx.nonRevertibleAccumulatedData.l2ToL1Messages.size() + tx.revertibleAccumulatedData.l2ToL1Messages.size();
+    auto expected_l2_l1_msg_events = tx.non_revertible_accumulated_data.l2_to_l1_messages.size() +
+                                     tx.revertible_accumulated_data.l2_to_l1_messages.size();
     auto actual_l2_l1_msg_events = 0;
 
     auto expected_public_call_events = 0; // None, since we revert before the public call
@@ -257,38 +257,38 @@ TEST_F(TxExecutionTest, NullifierLimitReached)
     // Create a mock transaction
     Tx tx = {
         .hash = "0x1234567890abcdef",
-        .nonRevertibleAccumulatedData =
+        .non_revertible_accumulated_data =
             AccumulatedData{
                 .nullifiers = testing::random_fields(MAX_NOTE_HASHES_PER_TX),
             },
-        .revertibleAccumulatedData =
+        .revertible_accumulated_data =
             AccumulatedData{
                 .nullifiers = testing::random_fields(1),
             },
-        .appLogicEnqueuedCalls = testing::random_enqueued_calls(1),
+        .app_logic_enqueued_calls = testing::random_enqueued_calls(1),
     };
 
     AppendOnlyTreeSnapshot dummy_snapshot = {
         .root = 0,
-        .nextAvailableLeafIndex = 0,
+        .next_available_leaf_index = 0,
     };
     TreeStates tree_state = {
-        .noteHashTree = { .tree = dummy_snapshot, .counter = 0 },
-        .nullifierTree = { .tree = dummy_snapshot, .counter = 0 },
-        .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
-        .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
+        .note_hash_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .nullifier_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .l1_to_l2_message_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .public_data_tree = { .tree = dummy_snapshot, .counter = 0 },
     };
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([&](const auto& /*nullifier*/) {
-        tree_state.nullifierTree.counter++;
+        tree_state.nullifier_tree.counter++;
         return true;
     });
     ON_CALL(merkle_db, siloed_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
-        tree_state.noteHashTree.counter++;
+        tree_state.note_hash_tree.counter++;
         return true;
     });
     ON_CALL(merkle_db, unique_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
-        tree_state.noteHashTree.counter++;
+        tree_state.note_hash_tree.counter++;
         return true;
     });
 
@@ -299,12 +299,12 @@ TEST_F(TxExecutionTest, NullifierLimitReached)
     // Check the event counts
     bool has_startup_event = false;
     auto expected_private_append_tree_events =
-        tx.nonRevertibleAccumulatedData.noteHashes.size() + tx.nonRevertibleAccumulatedData.nullifiers.size() +
-        tx.revertibleAccumulatedData.noteHashes.size() + tx.revertibleAccumulatedData.nullifiers.size();
+        tx.non_revertible_accumulated_data.note_hashes.size() + tx.non_revertible_accumulated_data.nullifiers.size() +
+        tx.revertible_accumulated_data.note_hashes.size() + tx.revertible_accumulated_data.nullifiers.size();
     auto actual_private_append_tree_events = 0;
 
-    auto expected_l2_l1_msg_events =
-        tx.nonRevertibleAccumulatedData.l2ToL1Messages.size() + tx.revertibleAccumulatedData.l2ToL1Messages.size();
+    auto expected_l2_l1_msg_events = tx.non_revertible_accumulated_data.l2_to_l1_messages.size() +
+                                     tx.revertible_accumulated_data.l2_to_l1_messages.size();
     auto actual_l2_l1_msg_events = 0;
 
     auto expected_public_call_events = 0; // None, since we revert before the public call
@@ -352,39 +352,39 @@ TEST_F(TxExecutionTest, L2ToL1MessageLimitReached)
     // Create a mock transaction
     Tx tx = {
         .hash = "0x1234567890abcdef",
-        .nonRevertibleAccumulatedData =
+        .non_revertible_accumulated_data =
             AccumulatedData{
                 .nullifiers = testing::random_fields(1),
-                .l2ToL1Messages = testing::random_l2_to_l1_messages(MAX_L2_TO_L1_MSGS_PER_TX),
+                .l2_to_l1_messages = testing::random_l2_to_l1_messages(MAX_L2_TO_L1_MSGS_PER_TX),
             },
-        .revertibleAccumulatedData =
+        .revertible_accumulated_data =
             AccumulatedData{
-                .l2ToL1Messages = testing::random_l2_to_l1_messages(1),
+                .l2_to_l1_messages = testing::random_l2_to_l1_messages(1),
             },
-        .appLogicEnqueuedCalls = testing::random_enqueued_calls(1),
+        .app_logic_enqueued_calls = testing::random_enqueued_calls(1),
     };
 
     AppendOnlyTreeSnapshot dummy_snapshot = {
         .root = 0,
-        .nextAvailableLeafIndex = 0,
+        .next_available_leaf_index = 0,
     };
     TreeStates tree_state = {
-        .noteHashTree = { .tree = dummy_snapshot, .counter = 0 },
-        .nullifierTree = { .tree = dummy_snapshot, .counter = 0 },
-        .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
-        .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
+        .note_hash_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .nullifier_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .l1_to_l2_message_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .public_data_tree = { .tree = dummy_snapshot, .counter = 0 },
     };
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([&](const auto& /*nullifier*/) {
-        tree_state.nullifierTree.counter++;
+        tree_state.nullifier_tree.counter++;
         return true;
     });
     ON_CALL(merkle_db, siloed_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
-        tree_state.noteHashTree.counter++;
+        tree_state.note_hash_tree.counter++;
         return true;
     });
     ON_CALL(merkle_db, unique_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
-        tree_state.noteHashTree.counter++;
+        tree_state.note_hash_tree.counter++;
         return true;
     });
 
@@ -395,12 +395,12 @@ TEST_F(TxExecutionTest, L2ToL1MessageLimitReached)
     // Check the event counts
     bool has_startup_event = false;
     auto expected_private_append_tree_events =
-        tx.nonRevertibleAccumulatedData.noteHashes.size() + tx.nonRevertibleAccumulatedData.nullifiers.size() +
-        tx.revertibleAccumulatedData.noteHashes.size() + tx.revertibleAccumulatedData.nullifiers.size();
+        tx.non_revertible_accumulated_data.note_hashes.size() + tx.non_revertible_accumulated_data.nullifiers.size() +
+        tx.revertible_accumulated_data.note_hashes.size() + tx.revertible_accumulated_data.nullifiers.size();
     auto actual_private_append_tree_events = 0;
 
-    auto expected_l2_l1_msg_events =
-        tx.nonRevertibleAccumulatedData.l2ToL1Messages.size() + tx.revertibleAccumulatedData.l2ToL1Messages.size();
+    auto expected_l2_l1_msg_events = tx.non_revertible_accumulated_data.l2_to_l1_messages.size() +
+                                     tx.revertible_accumulated_data.l2_to_l1_messages.size();
     auto actual_l2_l1_msg_events = 0;
 
     auto expected_public_call_events = 0; // None, since we revert before the public call

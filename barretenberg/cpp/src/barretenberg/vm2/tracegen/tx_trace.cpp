@@ -111,48 +111,50 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
     return {
         // Previous Tree State
         // Note Hash
-        { Column::tx_prev_note_hash_tree_root, prev_state.tree_states.noteHashTree.tree.root },
-        { Column::tx_prev_note_hash_tree_size, prev_state.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
-        { Column::tx_prev_num_note_hashes_emitted, prev_state.tree_states.noteHashTree.counter },
+        { Column::tx_prev_note_hash_tree_root, prev_state.tree_states.note_hash_tree.tree.root },
+        { Column::tx_prev_note_hash_tree_size, prev_state.tree_states.note_hash_tree.tree.next_available_leaf_index },
+        { Column::tx_prev_num_note_hashes_emitted, prev_state.tree_states.note_hash_tree.counter },
         // Nullifier Tree Roots
-        { Column::tx_prev_nullifier_tree_root, prev_state.tree_states.nullifierTree.tree.root },
-        { Column::tx_prev_nullifier_tree_size, prev_state.tree_states.nullifierTree.tree.nextAvailableLeafIndex },
-        { Column::tx_prev_num_nullifiers_emitted, prev_state.tree_states.nullifierTree.counter },
+        { Column::tx_prev_nullifier_tree_root, prev_state.tree_states.nullifier_tree.tree.root },
+        { Column::tx_prev_nullifier_tree_size, prev_state.tree_states.nullifier_tree.tree.next_available_leaf_index },
+        { Column::tx_prev_num_nullifiers_emitted, prev_state.tree_states.nullifier_tree.counter },
         // Public Data Tree Roots
-        { Column::tx_prev_public_data_tree_root, prev_state.tree_states.publicDataTree.tree.root },
-        { Column::tx_prev_public_data_tree_size, prev_state.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+        { Column::tx_prev_public_data_tree_root, prev_state.tree_states.public_data_tree.tree.root },
+        { Column::tx_prev_public_data_tree_size,
+          prev_state.tree_states.public_data_tree.tree.next_available_leaf_index },
         // Written Public Data Slots Tree Roots
         { Column::tx_prev_written_public_data_slots_tree_root,
           prev_state.written_public_data_slots_tree_snapshot.root },
         { Column::tx_prev_written_public_data_slots_tree_size,
-          prev_state.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+          prev_state.written_public_data_slots_tree_snapshot.next_available_leaf_index },
         // L1 to L2 Message Tree Roots
-        { Column::tx_l1_l2_tree_root, prev_state.tree_states.l1ToL2MessageTree.tree.root },
+        { Column::tx_l1_l2_tree_root, prev_state.tree_states.l1_to_l2_message_tree.tree.root },
         // Retrieved bytecodes Tree Roots
         { Column::tx_prev_retrieved_bytecodes_tree_root, prev_state.retrieved_bytecodes_tree_snapshot.root },
         { Column::tx_prev_retrieved_bytecodes_tree_size,
-          prev_state.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
+          prev_state.retrieved_bytecodes_tree_snapshot.next_available_leaf_index },
 
         // Next Tree State
-        { Column::tx_next_note_hash_tree_root, next_state.tree_states.noteHashTree.tree.root },
-        { Column::tx_next_note_hash_tree_size, next_state.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
-        { Column::tx_next_num_note_hashes_emitted, next_state.tree_states.noteHashTree.counter },
+        { Column::tx_next_note_hash_tree_root, next_state.tree_states.note_hash_tree.tree.root },
+        { Column::tx_next_note_hash_tree_size, next_state.tree_states.note_hash_tree.tree.next_available_leaf_index },
+        { Column::tx_next_num_note_hashes_emitted, next_state.tree_states.note_hash_tree.counter },
         // Nullifier Tree Roots
-        { Column::tx_next_nullifier_tree_root, next_state.tree_states.nullifierTree.tree.root },
-        { Column::tx_next_nullifier_tree_size, next_state.tree_states.nullifierTree.tree.nextAvailableLeafIndex },
-        { Column::tx_next_num_nullifiers_emitted, next_state.tree_states.nullifierTree.counter },
+        { Column::tx_next_nullifier_tree_root, next_state.tree_states.nullifier_tree.tree.root },
+        { Column::tx_next_nullifier_tree_size, next_state.tree_states.nullifier_tree.tree.next_available_leaf_index },
+        { Column::tx_next_num_nullifiers_emitted, next_state.tree_states.nullifier_tree.counter },
         // Public Data Tree Roots
-        { Column::tx_next_public_data_tree_root, next_state.tree_states.publicDataTree.tree.root },
-        { Column::tx_next_public_data_tree_size, next_state.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+        { Column::tx_next_public_data_tree_root, next_state.tree_states.public_data_tree.tree.root },
+        { Column::tx_next_public_data_tree_size,
+          next_state.tree_states.public_data_tree.tree.next_available_leaf_index },
         // Written Public Data Slots Tree Roots
         { Column::tx_next_written_public_data_slots_tree_root,
           next_state.written_public_data_slots_tree_snapshot.root },
         { Column::tx_next_written_public_data_slots_tree_size,
-          next_state.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+          next_state.written_public_data_slots_tree_snapshot.next_available_leaf_index },
         // Retrieved bytecodes Tree Roots
         { Column::tx_next_retrieved_bytecodes_tree_root, next_state.retrieved_bytecodes_tree_snapshot.root },
         { Column::tx_next_retrieved_bytecodes_tree_size,
-          next_state.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
+          next_state.retrieved_bytecodes_tree_snapshot.next_available_leaf_index },
 
         // Prev sideffect state
         { Column::tx_prev_num_unencrypted_log_fields, prev_state.numUnencryptedLogFields },
@@ -225,24 +227,24 @@ std::vector<std::pair<Column, FF>> handle_phase_spec(TransactionPhase phase)
 std::vector<std::pair<Column, FF>> handle_prev_gas_used(Gas prev_gas_used)
 {
     return {
-        { Column::tx_prev_da_gas_used, prev_gas_used.daGas },
-        { Column::tx_prev_l2_gas_used, prev_gas_used.l2Gas },
+        { Column::tx_prev_da_gas_used, prev_gas_used.da_gas },
+        { Column::tx_prev_l2_gas_used, prev_gas_used.l2_gas },
     };
 }
 
 std::vector<std::pair<Column, FF>> handle_next_gas_used(Gas next_gas_used)
 {
     return {
-        { Column::tx_next_da_gas_used, next_gas_used.daGas },
-        { Column::tx_next_l2_gas_used, next_gas_used.l2Gas },
+        { Column::tx_next_da_gas_used, next_gas_used.da_gas },
+        { Column::tx_next_l2_gas_used, next_gas_used.l2_gas },
     };
 }
 
 std::vector<std::pair<Column, FF>> handle_gas_limit(Gas gas_limit)
 {
     return {
-        { Column::tx_da_gas_limit, gas_limit.daGas },
-        { Column::tx_l2_gas_limit, gas_limit.l2Gas },
+        { Column::tx_da_gas_limit, gas_limit.da_gas },
+        { Column::tx_l2_gas_limit, gas_limit.l2_gas },
     };
 }
 
@@ -257,10 +259,10 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
              { Column::tx_calldata_size, event.calldata_size },
              { Column::tx_calldata_hash, event.calldata_hash },
              { Column::tx_reverted, !event.success },
-             { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.daGas },
-             { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, event.start_gas.l2Gas },
-             { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.end_gas.daGas },
-             { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2Gas },
+             { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.da_gas },
+             { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, event.start_gas.l2_gas },
+             { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.end_gas.da_gas },
+             { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2_gas },
              { Column::tx_gas_limit_pi_offset,
                is_teardown(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
              { Column::tx_should_read_gas_limit, is_teardown(phase) } };
@@ -270,7 +272,7 @@ std::vector<std::pair<Column, FF>> handle_note_hash_append(const simulation::Pri
                                                            const TxContextEvent& state_before,
                                                            bool reverted)
 {
-    uint32_t remaining_note_hashes = MAX_NOTE_HASHES_PER_TX - state_before.tree_states.noteHashTree.counter;
+    uint32_t remaining_note_hashes = MAX_NOTE_HASHES_PER_TX - state_before.tree_states.note_hash_tree.counter;
 
     return {
         { Column::tx_is_tree_insert_phase, 1 },
@@ -286,7 +288,7 @@ std::vector<std::pair<Column, FF>> handle_nullifier_append(const simulation::Pri
                                                            const TxContextEvent& state_before,
                                                            bool reverted)
 {
-    uint32_t remaining_nullifiers = MAX_NULLIFIERS_PER_TX - state_before.tree_states.nullifierTree.counter;
+    uint32_t remaining_nullifiers = MAX_NULLIFIERS_PER_TX - state_before.tree_states.nullifier_tree.counter;
 
     return {
         { Column::tx_is_tree_insert_phase, 1 },
@@ -321,7 +323,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
         { Column::tx_should_try_l2_l1_msg_append, 1 },
         { Column::tx_remaining_side_effects_inv, remaining_l2_to_l1_msgs }, // Will be inverted in batch later
         { Column::tx_should_l2_l1_msg_append, remaining_l2_to_l1_msgs > 0 },
-        { Column::tx_l2_l1_msg_contract_address, event.scoped_msg.contractAddress },
+        { Column::tx_l2_l1_msg_contract_address, event.scoped_msg.contract_address },
         { Column::tx_l2_l1_msg_recipient, event.scoped_msg.message.recipient },
         { Column::tx_l2_l1_msg_content, event.scoped_msg.message.content },
         { Column::tx_write_pi_offset,
@@ -431,13 +433,13 @@ std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, Gas
         { Column::tx_should_read_gas_limit, is_teardown(phase) },
         // Gas used does not change in padding rows
         { Column::tx_prev_da_gas_used_sent_to_enqueued_call,
-          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.daGas : 0 },
+          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.da_gas : 0 },
         { Column::tx_prev_l2_gas_used_sent_to_enqueued_call,
-          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.l2Gas : 0 },
+          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.l2_gas : 0 },
         { Column::tx_next_da_gas_used_sent_to_enqueued_call,
-          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.daGas : 0 },
+          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.da_gas : 0 },
         { Column::tx_next_l2_gas_used_sent_to_enqueued_call,
-          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.l2Gas : 0 },
+          (phase_spec.is_public_call_request != 0) && phase != TransactionPhase::TEARDOWN ? gas_used.l2_gas : 0 },
     };
 
     return columns;

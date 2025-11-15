@@ -61,9 +61,9 @@ class TxExecutionException : public std::runtime_error {
  */
 TxExecutionResult TxExecution::simulate(const Tx& tx)
 {
-    const Gas& gas_limit = tx.gasSettings.gasLimits;
-    const Gas& teardown_gas_limit = tx.gasSettings.teardownGasLimits;
-    tx_context.gas_used = tx.gasUsedByPrivate;
+    const Gas& gas_limit = tx.gas_settings.gas_limits;
+    const Gas& teardown_gas_limit = tx.gas_settings.teardown_gas_limits;
+    tx_context.gas_used = tx.gas_used_by_private;
     std::optional<std::vector<FF>> app_logic_return_value;
 
     events.emit(TxStartupEvent{
@@ -76,11 +76,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     vinfo("Simulating tx ",
           tx.hash,
           " with ",
-          tx.setupEnqueuedCalls.size(),
+          tx.setup_enqueued_calls.size(),
           " setup enqueued calls, ",
-          tx.appLogicEnqueuedCalls.size(),
+          tx.app_logic_enqueued_calls.size(),
           " app logic enqueued calls, and ",
-          tx.teardownEnqueuedCall.has_value() ? "1 teardown enqueued call" : "no teardown enqueued call");
+          tx.teardown_enqueued_call.has_value() ? "1 teardown enqueued call" : "no teardown enqueued call");
 
     // Insert non-revertibles. This can throw if there is a nullifier collision or the maximum number of
     // nullifiers, note hashes, or l2_to_l1 messages is reached.
@@ -88,22 +88,22 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     insert_non_revertibles(tx);
 
     // Setup.
-    if (tx.setupEnqueuedCalls.empty()) {
+    if (tx.setup_enqueued_calls.empty()) {
         emit_empty_phase(TransactionPhase::SETUP);
     } else {
-        for (const auto& call : tx.setupEnqueuedCalls) {
+        for (const auto& call : tx.setup_enqueued_calls) {
             vinfo("[SETUP] Executing enqueued call to ",
-                  call.request.contractAddress,
+                  call.request.contract_address,
                   "::",
-                  get_debug_function_name(call.request.contractAddress, call.calldata));
+                  get_debug_function_name(call.request.contract_address, call.calldata));
             const TxContextEvent state_before = tx_context.serialize_tx_context_event();
             const Gas start_gas =
                 tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
-            auto context = context_provider.make_enqueued_context(call.request.contractAddress,
-                                                                  call.request.msgSender,
+            auto context = context_provider.make_enqueued_context(call.request.contract_address,
+                                                                  call.request.msg_sender,
                                                                   /*transaction_fee=*/FF(0),
                                                                   call.calldata,
-                                                                  call.request.isStaticCall,
+                                                                  call.request.is_static_call,
                                                                   gas_limit,
                                                                   start_gas,
                                                                   TransactionPhase::SETUP);
@@ -121,7 +121,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             if (!result.success) {
                 // This will result in an unprovable tx.
                 throw TxExecutionException(
-                    format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contractAddress, " failed"));
+                    format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contract_address, " failed"));
             }
         }
     }
@@ -136,22 +136,22 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         insert_revertibles(tx);
 
         // App logic.
-        if (tx.appLogicEnqueuedCalls.empty()) {
+        if (tx.app_logic_enqueued_calls.empty()) {
             emit_empty_phase(TransactionPhase::APP_LOGIC);
         } else {
-            for (const auto& call : tx.appLogicEnqueuedCalls) {
+            for (const auto& call : tx.app_logic_enqueued_calls) {
                 vinfo("[APP_LOGIC] Executing enqueued call to ",
-                      call.request.contractAddress,
+                      call.request.contract_address,
                       "::",
-                      get_debug_function_name(call.request.contractAddress, call.calldata));
+                      get_debug_function_name(call.request.contract_address, call.calldata));
                 const TxContextEvent state_before = tx_context.serialize_tx_context_event();
                 const Gas start_gas =
                     tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
-                auto context = context_provider.make_enqueued_context(call.request.contractAddress,
-                                                                      call.request.msgSender,
+                auto context = context_provider.make_enqueued_context(call.request.contract_address,
+                                                                      call.request.msg_sender,
                                                                       /*transaction_fee=*/FF(0),
                                                                       call.calldata,
-                                                                      call.request.isStaticCall,
+                                                                      call.request.is_static_call,
                                                                       gas_limit,
                                                                       start_gas,
                                                                       TransactionPhase::APP_LOGIC);
@@ -170,7 +170,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                 if (!result.success) {
                     // This exception should be handled and the tx be provable.
                     throw TxExecutionException(
-                        format("[APP_LOGIC] Enqueued call to ", call.request.contractAddress, " failed"));
+                        format("[APP_LOGIC] Enqueued call to ", call.request.contract_address, " failed"));
                 }
             }
         }
@@ -188,31 +188,33 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
 
     // Compute the transaction fee here so it can be passed to teardown
     const Gas& gas_used_before_teardown = tx_context.gas_used;
-    const uint128_t& fee_per_da_gas = tx.effectiveGasFees.feePerDaGas;
-    const uint128_t& fee_per_l2_gas = tx.effectiveGasFees.feePerL2Gas;
-    const FF fee = FF(fee_per_da_gas) * FF(gas_used_before_teardown.daGas) +
-                   FF(fee_per_l2_gas) * FF(gas_used_before_teardown.l2Gas);
+    const uint128_t& fee_per_da_gas = tx.effective_gas_fees.fee_per_da_gas;
+    const uint128_t& fee_per_l2_gas = tx.effective_gas_fees.fee_per_l2_gas;
+    const FF fee = FF(fee_per_da_gas) * FF(gas_used_before_teardown.da_gas) +
+                   FF(fee_per_l2_gas) * FF(gas_used_before_teardown.l2_gas);
 
     // Teardown.
     try {
-        if (!tx.teardownEnqueuedCall.has_value()) {
+        if (!tx.teardown_enqueued_call.has_value()) {
             emit_empty_phase(TransactionPhase::TEARDOWN);
         } else {
-            const auto& teardown_enqueued_call = tx.teardownEnqueuedCall.value();
+            const auto& teardown_enqueued_call = tx.teardown_enqueued_call.value();
 
+            std::string fn_name = get_debug_function_name(teardown_enqueued_call.request.contract_address,
+                                                          teardown_enqueued_call.calldata);
             vinfo("[TEARDOWN] Executing enqueued call to ",
-                  teardown_enqueued_call.request.contractAddress,
+                  teardown_enqueued_call.request.contract_address,
                   "::",
-                  get_debug_function_name(teardown_enqueued_call.request.contractAddress,
+                  get_debug_function_name(teardown_enqueued_call.request.contract_address,
                                           teardown_enqueued_call.calldata));
             // Teardown has its own gas limit and usage.
             constexpr Gas start_gas = { 0, 0 };
             const TxContextEvent state_before = tx_context.serialize_tx_context_event();
-            auto context = context_provider.make_enqueued_context(teardown_enqueued_call.request.contractAddress,
-                                                                  teardown_enqueued_call.request.msgSender,
+            auto context = context_provider.make_enqueued_context(teardown_enqueued_call.request.contract_address,
+                                                                  teardown_enqueued_call.request.msg_sender,
                                                                   fee,
                                                                   teardown_enqueued_call.calldata,
-                                                                  teardown_enqueued_call.request.isStaticCall,
+                                                                  teardown_enqueued_call.request.is_static_call,
                                                                   teardown_gas_limit,
                                                                   start_gas,
                                                                   TransactionPhase::TEARDOWN);
@@ -230,7 +232,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             if (!result.success) {
                 // This exception should be handled and the tx be provable.
                 throw TxExecutionException(
-                    format("[TEARDOWN] Enqueued call to ", teardown_enqueued_call.request.contractAddress, " failed"));
+                    format("[TEARDOWN] Enqueued call to ", teardown_enqueued_call.request.contract_address, " failed"));
             }
         }
 
@@ -248,7 +250,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     }
 
     // Fee payment
-    pay_fee(tx.feePayer, fee, fee_per_da_gas, fee_per_l2_gas);
+    pay_fee(tx.fee_payer, fee, fee_per_da_gas, fee_per_l2_gas);
 
     pad_trees();
 
@@ -294,12 +296,12 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
                               .state_after = state_after,
                               .reverted = !success,
                               .event = EnqueuedCallEvent{
-                                  .msg_sender = call.request.msgSender,
-                                  .contract_address = call.request.contractAddress,
+                                  .msg_sender = call.request.msg_sender,
+                                  .contract_address = call.request.contract_address,
                                   .transaction_fee = transaction_fee,
-                                  .is_static = call.request.isStaticCall,
+                                  .is_static = call.request.is_static_call,
                                   .calldata_size = static_cast<uint32_t>(call.calldata.size()),
-                                  .calldata_hash = call.request.calldataHash,
+                                  .calldata_hash = call.request.calldata_hash,
                                   .start_gas = start_gas,
                                   .end_gas = end_gas,
                                   .success = success,
@@ -320,7 +322,7 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
         revertible ? TransactionPhase::R_NULLIFIER_INSERTION : TransactionPhase::NR_NULLIFIER_INSERTION;
     const TxContextEvent state_before = tx_context.serialize_tx_context_event();
     try {
-        uint32_t prev_nullifier_count = merkle_db.get_tree_state().nullifierTree.counter;
+        uint32_t prev_nullifier_count = merkle_db.get_tree_state().nullifier_tree.counter;
 
         if (prev_nullifier_count == MAX_NULLIFIERS_PER_TX) {
             throw TxExecutionException("Maximum number of nullifiers reached");
@@ -366,7 +368,7 @@ void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
     const TxContextEvent state_before = tx_context.serialize_tx_context_event();
 
     try {
-        uint32_t prev_note_hash_count = merkle_db.get_tree_state().noteHashTree.counter;
+        uint32_t prev_note_hash_count = merkle_db.get_tree_state().note_hash_tree.counter;
 
         if (prev_note_hash_count == MAX_NOTE_HASHES_PER_TX) {
             throw TxExecutionException("Maximum number of note hashes reached");
@@ -415,7 +417,7 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
             throw TxExecutionException("Maximum number of L2 to L1 messages reached");
         }
         side_effect_tracker.add_l2_to_l1_message(
-            l2_to_l1_message.contractAddress, l2_to_l1_message.message.recipient, l2_to_l1_message.message.content);
+            l2_to_l1_message.contract_address, l2_to_l1_message.message.recipient, l2_to_l1_message.message.content);
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
@@ -444,43 +446,43 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
 void TxExecution::insert_non_revertibles(const Tx& tx)
 {
     vinfo("[NON_REVERTIBLE] Inserting ",
-          tx.nonRevertibleAccumulatedData.nullifiers.size(),
+          tx.non_revertible_accumulated_data.nullifiers.size(),
           " nullifiers, ",
-          tx.nonRevertibleAccumulatedData.noteHashes.size(),
+          tx.non_revertible_accumulated_data.note_hashes.size(),
           " note hashes, and ",
-          tx.nonRevertibleAccumulatedData.l2ToL1Messages.size(),
+          tx.non_revertible_accumulated_data.l2_to_l1_messages.size(),
           " L2 to L1 messages for tx ",
           tx.hash);
 
     // 1. Write the already siloed nullifiers.
-    if (tx.nonRevertibleAccumulatedData.nullifiers.empty()) {
+    if (tx.non_revertible_accumulated_data.nullifiers.empty()) {
         emit_empty_phase(TransactionPhase::NR_NULLIFIER_INSERTION);
     } else {
-        for (const auto& nullifier : tx.nonRevertibleAccumulatedData.nullifiers) {
+        for (const auto& nullifier : tx.non_revertible_accumulated_data.nullifiers) {
             emit_nullifier(false, nullifier);
         }
     }
 
     // 2. Write already unique note hashes.
-    if (tx.nonRevertibleAccumulatedData.noteHashes.empty()) {
+    if (tx.non_revertible_accumulated_data.note_hashes.empty()) {
         emit_empty_phase(TransactionPhase::NR_NOTE_INSERTION);
     } else {
-        for (const auto& unique_note_hash : tx.nonRevertibleAccumulatedData.noteHashes) {
+        for (const auto& unique_note_hash : tx.non_revertible_accumulated_data.note_hashes) {
             emit_note_hash(false, unique_note_hash);
         }
     }
 
     // 3. Write l2_l1 messages
-    if (tx.nonRevertibleAccumulatedData.l2ToL1Messages.empty()) {
+    if (tx.non_revertible_accumulated_data.l2_to_l1_messages.empty()) {
         emit_empty_phase(TransactionPhase::NR_L2_TO_L1_MESSAGE);
     } else {
-        for (const auto& l2_to_l1_msg : tx.nonRevertibleAccumulatedData.l2ToL1Messages) {
+        for (const auto& l2_to_l1_msg : tx.non_revertible_accumulated_data.l2_to_l1_messages) {
             emit_l2_to_l1_message(false, l2_to_l1_msg);
         }
     }
 
     // Add new contracts to the contracts DB so that their code may be found and called
-    contract_db.add_contracts(tx.nonRevertibleContractDeploymentData);
+    contract_db.add_contracts(tx.non_revertible_contract_deployment_data);
 }
 
 /**
@@ -494,43 +496,43 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
 void TxExecution::insert_revertibles(const Tx& tx)
 {
     vinfo("[REVERTIBLE] Inserting ",
-          tx.revertibleAccumulatedData.nullifiers.size(),
+          tx.revertible_accumulated_data.nullifiers.size(),
           " nullifiers, ",
-          tx.revertibleAccumulatedData.noteHashes.size(),
+          tx.revertible_accumulated_data.note_hashes.size(),
           " note hashes, and ",
-          tx.revertibleAccumulatedData.l2ToL1Messages.size(),
+          tx.revertible_accumulated_data.l2_to_l1_messages.size(),
           " L2 to L1 messages for tx ",
           tx.hash);
 
     // 1. Write the already siloed nullifiers.
-    if (tx.revertibleAccumulatedData.nullifiers.empty()) {
+    if (tx.revertible_accumulated_data.nullifiers.empty()) {
         emit_empty_phase(TransactionPhase::R_NULLIFIER_INSERTION);
     } else {
-        for (const auto& siloed_nullifier : tx.revertibleAccumulatedData.nullifiers) {
+        for (const auto& siloed_nullifier : tx.revertible_accumulated_data.nullifiers) {
             emit_nullifier(true, siloed_nullifier);
         }
     }
 
     // 2. Write the siloed non uniqued note hashes
-    if (tx.revertibleAccumulatedData.noteHashes.empty()) {
+    if (tx.revertible_accumulated_data.note_hashes.empty()) {
         emit_empty_phase(TransactionPhase::R_NOTE_INSERTION);
     } else {
-        for (const auto& siloed_note_hash : tx.revertibleAccumulatedData.noteHashes) {
+        for (const auto& siloed_note_hash : tx.revertible_accumulated_data.note_hashes) {
             emit_note_hash(true, siloed_note_hash);
         }
     }
 
     // 3. Write L2 to L1 messages.
-    if (tx.revertibleAccumulatedData.l2ToL1Messages.empty()) {
+    if (tx.revertible_accumulated_data.l2_to_l1_messages.empty()) {
         emit_empty_phase(TransactionPhase::R_L2_TO_L1_MESSAGE);
     } else {
-        for (const auto& l2_to_l1_msg : tx.revertibleAccumulatedData.l2ToL1Messages) {
+        for (const auto& l2_to_l1_msg : tx.revertible_accumulated_data.l2_to_l1_messages) {
             emit_l2_to_l1_message(true, l2_to_l1_msg);
         }
     }
 
     // Add new contracts to the contracts DB so that their functions may be found and called
-    contract_db.add_contracts(tx.revertibleContractDeploymentData);
+    contract_db.add_contracts(tx.revertible_contract_deployment_data);
 }
 
 /**

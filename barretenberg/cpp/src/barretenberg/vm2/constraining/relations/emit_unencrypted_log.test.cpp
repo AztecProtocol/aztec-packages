@@ -230,9 +230,9 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
     TrackedSideEffects side_effect_states = { .public_logs = {} };
     TrackedSideEffects side_effect_states_after = { .public_logs = PublicLogs{ { { log_fields, address } } } };
     AvmAccumulatedData accumulated_data = {};
-    accumulated_data.publicLogs.add_log({
+    accumulated_data.public_logs.add_log({
         .fields = { FF(4), FF(5) },
-        .contractAddress = address,
+        .contract_address = address,
     });
     auto public_inputs = PublicInputsBuilder().set_accumulated_data(accumulated_data).build();
 

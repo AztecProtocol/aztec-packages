@@ -667,9 +667,9 @@ export class AvmRevertCheckpointHint {
   }
 }
 
-export class AvmContractDBCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
-export class AvmContractDBCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
-export class AvmContractDBRevertCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDbCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDbCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDbRevertCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
 
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
@@ -859,9 +859,9 @@ export class AvmExecutionHints {
     public readonly contractClasses: AvmContractClassHint[] = [],
     public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
     public readonly debugFunctionNames: AvmDebugFunctionNameHint[] = [],
-    public readonly contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint[] = [],
-    public readonly contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint[] = [],
-    public readonly contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint[] = [],
+    public readonly contractDbCreateCheckpointHints: AvmContractDbCreateCheckpointHint[] = [],
+    public readonly contractDbCommitCheckpointHints: AvmContractDbCommitCheckpointHint[] = [],
+    public readonly contractDbRevertCheckpointHints: AvmContractDbRevertCheckpointHint[] = [],
     // Merkle DB hints.
     public startingTreeRoots: TreeSnapshots = TreeSnapshots.empty(),
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
@@ -896,9 +896,9 @@ export class AvmExecutionHints {
       obj.contractClasses?.map((c: any) => AvmContractClassHint.fromPlainObject(c)) || [],
       obj.bytecodeCommitments?.map((b: any) => AvmBytecodeCommitmentHint.fromPlainObject(b)) || [],
       obj.debugFunctionNames?.map((d: any) => AvmDebugFunctionNameHint.fromPlainObject(d)) || [],
-      obj.contractDBCreateCheckpointHints?.map((h: any) => AvmContractDBCreateCheckpointHint.fromPlainObject(h)) || [],
-      obj.contractDBCommitCheckpointHints?.map((h: any) => AvmContractDBCommitCheckpointHint.fromPlainObject(h)) || [],
-      obj.contractDBRevertCheckpointHints?.map((h: any) => AvmContractDBRevertCheckpointHint.fromPlainObject(h)) || [],
+      obj.contractDbCreateCheckpointHints?.map((h: any) => AvmContractDbCreateCheckpointHint.fromPlainObject(h)) || [],
+      obj.contractDbCommitCheckpointHints?.map((h: any) => AvmContractDbCommitCheckpointHint.fromPlainObject(h)) || [],
+      obj.contractDbRevertCheckpointHints?.map((h: any) => AvmContractDbRevertCheckpointHint.fromPlainObject(h)) || [],
       obj.startingTreeRoots ? TreeSnapshots.fromPlainObject(obj.startingTreeRoots) : TreeSnapshots.empty(),
       obj.getSiblingPathHints?.map((h: any) => AvmGetSiblingPathHint.fromPlainObject(h)) || [],
       obj.getPreviousValueIndexHints?.map((h: any) => AvmGetPreviousValueIndexHint.fromPlainObject(h)) || [],
@@ -935,9 +935,9 @@ export class AvmExecutionHints {
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
         debugFunctionNames: AvmDebugFunctionNameHint.schema.array(),
-        contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint.schema.array(),
-        contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint.schema.array(),
-        contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint.schema.array(),
+        contractDbCreateCheckpointHints: AvmContractDbCreateCheckpointHint.schema.array(),
+        contractDbCommitCheckpointHints: AvmContractDbCommitCheckpointHint.schema.array(),
+        contractDbRevertCheckpointHints: AvmContractDbRevertCheckpointHint.schema.array(),
         startingTreeRoots: TreeSnapshots.schema,
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
@@ -960,9 +960,9 @@ export class AvmExecutionHints {
           contractClasses,
           bytecodeCommitments,
           debugFunctionNames,
-          contractDBCreateCheckpointHints,
-          contractDBCommitCheckpointHints,
-          contractDBRevertCheckpointHints,
+          contractDbCreateCheckpointHints,
+          contractDbCommitCheckpointHints,
+          contractDbRevertCheckpointHints,
           startingTreeRoots,
           getSiblingPathHints,
           getPreviousValueIndexHints,
@@ -984,9 +984,9 @@ export class AvmExecutionHints {
             contractClasses,
             bytecodeCommitments,
             debugFunctionNames,
-            contractDBCreateCheckpointHints,
-            contractDBCommitCheckpointHints,
-            contractDBRevertCheckpointHints,
+            contractDbCreateCheckpointHints,
+            contractDbCommitCheckpointHints,
+            contractDbRevertCheckpointHints,
             startingTreeRoots,
             getSiblingPathHints,
             getPreviousValueIndexHints,

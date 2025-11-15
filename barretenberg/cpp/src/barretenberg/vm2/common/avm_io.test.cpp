@@ -52,88 +52,88 @@ TEST(AvmInputsTest, ValuesInColumns)
     PublicInputs pi;
 
     // Set global variables
-    pi.globalVariables.chainId = 123;
-    pi.globalVariables.version = 456;
-    pi.globalVariables.blockNumber = 12345;
-    pi.globalVariables.slotNumber = 67890;
-    pi.globalVariables.timestamp = 789000;
-    pi.globalVariables.coinbase = 123123;
-    pi.globalVariables.feeRecipient = 9876;
+    pi.global_variables.chain_id = 123;
+    pi.global_variables.version = 456;
+    pi.global_variables.block_number = 12345;
+    pi.global_variables.slot_number = 67890;
+    pi.global_variables.timestamp = 789000;
+    pi.global_variables.coinbase = 123123;
+    pi.global_variables.fee_recipient = 9876;
 
     // Set gas fees
-    pi.globalVariables.gasFees.feePerDaGas = 111;
-    pi.globalVariables.gasFees.feePerL2Gas = 222;
+    pi.global_variables.gas_fees.fee_per_da_gas = 111;
+    pi.global_variables.gas_fees.fee_per_l2_gas = 222;
 
     // Set start tree snapshots
-    pi.startTreeSnapshots.l1ToL2MessageTree.root = 1000;
-    pi.startTreeSnapshots.l1ToL2MessageTree.nextAvailableLeafIndex = 2000;
-    pi.startTreeSnapshots.noteHashTree.root = 3000;
-    pi.startTreeSnapshots.noteHashTree.nextAvailableLeafIndex = 4000;
-    pi.startTreeSnapshots.nullifierTree.root = 5000;
-    pi.startTreeSnapshots.nullifierTree.nextAvailableLeafIndex = 6000;
-    pi.startTreeSnapshots.publicDataTree.root = 7000;
-    pi.startTreeSnapshots.publicDataTree.nextAvailableLeafIndex = 8000;
+    pi.start_tree_snapshots.l1_to_l2_message_tree.root = 1000;
+    pi.start_tree_snapshots.l1_to_l2_message_tree.next_available_leaf_index = 2000;
+    pi.start_tree_snapshots.note_hash_tree.root = 3000;
+    pi.start_tree_snapshots.note_hash_tree.next_available_leaf_index = 4000;
+    pi.start_tree_snapshots.nullifier_tree.root = 5000;
+    pi.start_tree_snapshots.nullifier_tree.next_available_leaf_index = 6000;
+    pi.start_tree_snapshots.public_data_tree.root = 7000;
+    pi.start_tree_snapshots.public_data_tree.next_available_leaf_index = 8000;
 
     // Set gas used
-    pi.startGasUsed.daGas = 100;
-    pi.startGasUsed.l2Gas = 200;
+    pi.start_gas_used.da_gas = 100;
+    pi.start_gas_used.l2_gas = 200;
 
     // Set gas settings
-    pi.gasSettings.gasLimits.daGas = 1234;
-    pi.gasSettings.gasLimits.l2Gas = 5678;
-    pi.gasSettings.teardownGasLimits.daGas = 9012;
-    pi.gasSettings.teardownGasLimits.l2Gas = 3456;
-    pi.gasSettings.maxFeesPerGas.feePerDaGas = 7890;
-    pi.gasSettings.maxFeesPerGas.feePerL2Gas = 1234;
-    pi.gasSettings.maxPriorityFeesPerGas.feePerDaGas = 5678;
-    pi.gasSettings.maxPriorityFeesPerGas.feePerL2Gas = 9012;
+    pi.gas_settings.gas_limits.da_gas = 1234;
+    pi.gas_settings.gas_limits.l2_gas = 5678;
+    pi.gas_settings.teardown_gas_limits.da_gas = 9012;
+    pi.gas_settings.teardown_gas_limits.l2_gas = 3456;
+    pi.gas_settings.max_fees_per_gas.fee_per_da_gas = 7890;
+    pi.gas_settings.max_fees_per_gas.fee_per_l2_gas = 1234;
+    pi.gas_settings.max_priority_fees_per_gas.fee_per_da_gas = 5678;
+    pi.gas_settings.max_priority_fees_per_gas.fee_per_l2_gas = 9012;
 
     // Set fee payer
-    pi.feePayer = 12345;
+    pi.fee_payer = 12345;
 
     // Set Public Call Request Array Lengths
-    pi.publicCallRequestArrayLengths.setupCalls = 2;
-    pi.publicCallRequestArrayLengths.appLogicCalls = 3;
-    pi.publicCallRequestArrayLengths.teardownCall = true;
+    pi.public_call_request_array_lengths.setup_calls = 2;
+    pi.public_call_request_array_lengths.app_logic_calls = 3;
+    pi.public_call_request_array_lengths.teardown_call = true;
 
     // Set call requests (using all 4 columns)
-    pi.publicSetupCallRequests[0].msgSender = 1111;
-    pi.publicSetupCallRequests[0].contractAddress = 2222;
-    pi.publicSetupCallRequests[0].isStaticCall = true;
-    pi.publicSetupCallRequests[0].calldataHash = 3333;
+    pi.public_setup_call_requests[0].msg_sender = 1111;
+    pi.public_setup_call_requests[0].contract_address = 2222;
+    pi.public_setup_call_requests[0].is_static_call = true;
+    pi.public_setup_call_requests[0].calldata_hash = 3333;
 
-    pi.publicAppLogicCallRequests[1].msgSender = 4444;
-    pi.publicAppLogicCallRequests[1].contractAddress = 5555;
-    pi.publicAppLogicCallRequests[1].isStaticCall = false;
-    pi.publicAppLogicCallRequests[1].calldataHash = 6666;
+    pi.public_app_logic_call_requests[1].msg_sender = 4444;
+    pi.public_app_logic_call_requests[1].contract_address = 5555;
+    pi.public_app_logic_call_requests[1].is_static_call = false;
+    pi.public_app_logic_call_requests[1].calldata_hash = 6666;
 
-    pi.publicTeardownCallRequest.msgSender = 7777;
-    pi.publicTeardownCallRequest.contractAddress = 8888;
-    pi.publicTeardownCallRequest.isStaticCall = true;
-    pi.publicTeardownCallRequest.calldataHash = 9999;
+    pi.public_teardown_call_request.msg_sender = 7777;
+    pi.public_teardown_call_request.contract_address = 8888;
+    pi.public_teardown_call_request.is_static_call = true;
+    pi.public_teardown_call_request.calldata_hash = 9999;
 
     // Set accumulated data array lengths
-    pi.previousNonRevertibleAccumulatedDataArrayLengths.noteHashes = 10;
-    pi.previousNonRevertibleAccumulatedDataArrayLengths.nullifiers = 20;
-    pi.previousNonRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs = 30;
+    pi.previous_non_revertible_accumulated_data_array_lengths.note_hashes = 10;
+    pi.previous_non_revertible_accumulated_data_array_lengths.nullifiers = 20;
+    pi.previous_non_revertible_accumulated_data_array_lengths.l2_to_l1_msgs = 30;
 
-    pi.previousRevertibleAccumulatedDataArrayLengths.noteHashes = 40;
-    pi.previousRevertibleAccumulatedDataArrayLengths.nullifiers = 50;
-    pi.previousRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs = 60;
+    pi.previous_revertible_accumulated_data_array_lengths.note_hashes = 40;
+    pi.previous_revertible_accumulated_data_array_lengths.nullifiers = 50;
+    pi.previous_revertible_accumulated_data_array_lengths.l2_to_l1_msgs = 60;
 
     // Set l2 to l1 messages (using 3 columns)
-    pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.recipient = 1234;
-    pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.content = 1357;
-    pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].contractAddress = 3579;
+    pi.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient = 1234;
+    pi.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content = 1357;
+    pi.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address = 3579;
 
     // Set accumulated data elements
-    pi.accumulatedData.noteHashes[2] = 54321;
-    pi.accumulatedData.nullifiers[3] = 98765;
+    pi.accumulated_data.note_hashes[2] = 54321;
+    pi.accumulated_data.nullifiers[3] = 98765;
 
     // Set l2 to l1 messages in accumulated data
-    pi.accumulatedData.l2ToL1Msgs[1].message.recipient = 3333;
-    pi.accumulatedData.l2ToL1Msgs[1].message.content = 7531;
-    pi.accumulatedData.l2ToL1Msgs[1].contractAddress = 9753;
+    pi.accumulated_data.l2_to_l1_msgs[1].message.recipient = 3333;
+    pi.accumulated_data.l2_to_l1_msgs[1].message.content = 7531;
+    pi.accumulated_data.l2_to_l1_msgs[1].contract_address = 9753;
 
     // Set public logs (spans multiple rows per log)
     std::vector<FF> public_log_fields;
@@ -141,37 +141,37 @@ TEST(AvmInputsTest, ValuesInColumns)
     for (size_t j = 0; j < 3; ++j) {
         public_log_fields.push_back(10000 + j);
     }
-    pi.accumulatedData.publicLogs.add_log({
+    pi.accumulated_data.public_logs.add_log({
         .fields = public_log_fields,
-        .contractAddress = 11223,
+        .contract_address = 11223,
     });
 
     // Set public data writes
-    pi.accumulatedData.publicDataWrites[1].leafSlot = 5555;
-    pi.accumulatedData.publicDataWrites[1].value = 6666;
+    pi.accumulated_data.public_data_writes[1].leaf_slot = 5555;
+    pi.accumulated_data.public_data_writes[1].value = 6666;
 
     // Set end gas used
-    pi.endGasUsed.daGas = 5000;
-    pi.endGasUsed.l2Gas = 7000;
+    pi.end_gas_used.da_gas = 5000;
+    pi.end_gas_used.l2_gas = 7000;
 
     // Set end tree snapshots
-    pi.endTreeSnapshots.l1ToL2MessageTree.root = 10000;
-    pi.endTreeSnapshots.l1ToL2MessageTree.nextAvailableLeafIndex = 20000;
-    pi.endTreeSnapshots.noteHashTree.root = 30000;
-    pi.endTreeSnapshots.noteHashTree.nextAvailableLeafIndex = 40000;
-    pi.endTreeSnapshots.nullifierTree.root = 50000;
-    pi.endTreeSnapshots.nullifierTree.nextAvailableLeafIndex = 60000;
-    pi.endTreeSnapshots.publicDataTree.root = 70000;
-    pi.endTreeSnapshots.publicDataTree.nextAvailableLeafIndex = 80000;
+    pi.end_tree_snapshots.l1_to_l2_message_tree.root = 10000;
+    pi.end_tree_snapshots.l1_to_l2_message_tree.next_available_leaf_index = 20000;
+    pi.end_tree_snapshots.note_hash_tree.root = 30000;
+    pi.end_tree_snapshots.note_hash_tree.next_available_leaf_index = 40000;
+    pi.end_tree_snapshots.nullifier_tree.root = 50000;
+    pi.end_tree_snapshots.nullifier_tree.next_available_leaf_index = 60000;
+    pi.end_tree_snapshots.public_data_tree.root = 70000;
+    pi.end_tree_snapshots.public_data_tree.next_available_leaf_index = 80000;
 
     // Set transaction fee
-    pi.transactionFee = 9876;
+    pi.transaction_fee = 9876;
 
     // Set accumulated data array lengths
-    pi.accumulatedDataArrayLengths.noteHashes = 3;
-    pi.accumulatedDataArrayLengths.nullifiers = 4;
-    pi.accumulatedDataArrayLengths.l2ToL1Msgs = 2;
-    pi.accumulatedDataArrayLengths.publicDataWrites = 5;
+    pi.accumulated_data_array_lengths.note_hashes = 3;
+    pi.accumulated_data_array_lengths.nullifiers = 4;
+    pi.accumulated_data_array_lengths.l2_to_l1_msgs = 2;
+    pi.accumulated_data_array_lengths.public_data_writes = 5;
 
     // Set reverted flag
     pi.reverted = true;
@@ -192,173 +192,174 @@ TEST(AvmInputsTest, ValuesInColumns)
     // Verify that some specific values are at the expected positions
 
     // Global variables
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX], pi.globalVariables.chainId);
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX], pi.globalVariables.version);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX], pi.global_variables.chain_id);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX], pi.global_variables.version);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX],
-              pi.globalVariables.blockNumber);
+              pi.global_variables.block_number);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX],
-              pi.globalVariables.slotNumber);
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX], pi.globalVariables.timestamp);
+              pi.global_variables.slot_number);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX], pi.global_variables.timestamp);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_FEE_RECIPIENT_ROW_IDX],
-              pi.globalVariables.feeRecipient);
+              pi.global_variables.fee_recipient);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX],
-              pi.globalVariables.gasFees.feePerDaGas);
+              pi.global_variables.gas_fees.fee_per_da_gas);
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX],
-              pi.globalVariables.gasFees.feePerL2Gas);
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_COINBASE_ROW_IDX], pi.globalVariables.coinbase);
+              pi.global_variables.gas_fees.fee_per_l2_gas);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_COINBASE_ROW_IDX], pi.global_variables.coinbase);
 
     // Start tree snapshots
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX],
-              pi.startTreeSnapshots.l1ToL2MessageTree.root);
+              pi.start_tree_snapshots.l1_to_l2_message_tree.root);
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX],
-              pi.startTreeSnapshots.l1ToL2MessageTree.nextAvailableLeafIndex);
+              pi.start_tree_snapshots.l1_to_l2_message_tree.next_available_leaf_index);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX],
-              pi.startTreeSnapshots.noteHashTree.root);
+              pi.start_tree_snapshots.note_hash_tree.root);
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX],
-              pi.startTreeSnapshots.noteHashTree.nextAvailableLeafIndex);
+              pi.start_tree_snapshots.note_hash_tree.next_available_leaf_index);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX],
-              pi.startTreeSnapshots.nullifierTree.root);
+              pi.start_tree_snapshots.nullifier_tree.root);
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX],
-              pi.startTreeSnapshots.nullifierTree.nextAvailableLeafIndex);
+              pi.start_tree_snapshots.nullifier_tree.next_available_leaf_index);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX],
-              pi.startTreeSnapshots.publicDataTree.root);
+              pi.start_tree_snapshots.public_data_tree.root);
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX],
-              pi.startTreeSnapshots.publicDataTree.nextAvailableLeafIndex);
+              pi.start_tree_snapshots.public_data_tree.next_available_leaf_index);
 
     // Gas used
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX], pi.startGasUsed.daGas);
-    EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX], pi.startGasUsed.l2Gas);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX], pi.start_gas_used.da_gas);
+    EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX], pi.start_gas_used.l2_gas);
 
     // Gas settings
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX], pi.gasSettings.gasLimits.daGas);
-    EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX], pi.gasSettings.gasLimits.l2Gas);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX], pi.gas_settings.gas_limits.da_gas);
+    EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX], pi.gas_settings.gas_limits.l2_gas);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX],
-              pi.gasSettings.teardownGasLimits.daGas);
+              pi.gas_settings.teardown_gas_limits.da_gas);
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX],
-              pi.gasSettings.teardownGasLimits.l2Gas);
+              pi.gas_settings.teardown_gas_limits.l2_gas);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX],
-              pi.gasSettings.maxFeesPerGas.feePerDaGas);
+              pi.gas_settings.max_fees_per_gas.fee_per_da_gas);
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX],
-              pi.gasSettings.maxFeesPerGas.feePerL2Gas);
+              pi.gas_settings.max_fees_per_gas.fee_per_l2_gas);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX],
-              pi.gasSettings.maxPriorityFeesPerGas.feePerDaGas);
+              pi.gas_settings.max_priority_fees_per_gas.fee_per_da_gas);
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX],
-              pi.gasSettings.maxPriorityFeesPerGas.feePerL2Gas);
+              pi.gas_settings.max_priority_fees_per_gas.fee_per_l2_gas);
 
     // Fee payer
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX], pi.feePayer);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX], pi.fee_payer);
 
     // Public Call Request Array Lengths
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX],
-              pi.publicCallRequestArrayLengths.setupCalls);
+              pi.public_call_request_array_lengths.setup_calls);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX],
-              pi.publicCallRequestArrayLengths.appLogicCalls);
+              pi.public_call_request_array_lengths.app_logic_calls);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX],
-              static_cast<uint8_t>(pi.publicCallRequestArrayLengths.teardownCall));
+              static_cast<uint8_t>(pi.public_call_request_array_lengths.teardown_call));
 
     // Public call requests (testing use of all 4 columns)
     size_t setup_row = AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX;
-    EXPECT_EQ(flat[col0_offset + setup_row], pi.publicSetupCallRequests[0].msgSender);
-    EXPECT_EQ(flat[col1_offset + setup_row], pi.publicSetupCallRequests[0].contractAddress);
-    EXPECT_EQ(flat[col2_offset + setup_row], static_cast<uint8_t>(pi.publicSetupCallRequests[0].isStaticCall));
-    EXPECT_EQ(flat[col3_offset + setup_row], pi.publicSetupCallRequests[0].calldataHash);
+    EXPECT_EQ(flat[col0_offset + setup_row], pi.public_setup_call_requests[0].msg_sender);
+    EXPECT_EQ(flat[col1_offset + setup_row], pi.public_setup_call_requests[0].contract_address);
+    EXPECT_EQ(flat[col2_offset + setup_row], static_cast<uint8_t>(pi.public_setup_call_requests[0].is_static_call));
+    EXPECT_EQ(flat[col3_offset + setup_row], pi.public_setup_call_requests[0].calldata_hash);
 
     size_t app_logic_row = AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX + 1; // Using the second one
-    EXPECT_EQ(flat[col0_offset + app_logic_row], pi.publicAppLogicCallRequests[1].msgSender);
-    EXPECT_EQ(flat[col1_offset + app_logic_row], pi.publicAppLogicCallRequests[1].contractAddress);
-    EXPECT_EQ(flat[col2_offset + app_logic_row], static_cast<uint8_t>(pi.publicAppLogicCallRequests[1].isStaticCall));
-    EXPECT_EQ(flat[col3_offset + app_logic_row], pi.publicAppLogicCallRequests[1].calldataHash);
+    EXPECT_EQ(flat[col0_offset + app_logic_row], pi.public_app_logic_call_requests[1].msg_sender);
+    EXPECT_EQ(flat[col1_offset + app_logic_row], pi.public_app_logic_call_requests[1].contract_address);
+    EXPECT_EQ(flat[col2_offset + app_logic_row],
+              static_cast<uint8_t>(pi.public_app_logic_call_requests[1].is_static_call));
+    EXPECT_EQ(flat[col3_offset + app_logic_row], pi.public_app_logic_call_requests[1].calldata_hash);
 
     size_t teardown_row = AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX;
-    EXPECT_EQ(flat[col0_offset + teardown_row], pi.publicTeardownCallRequest.msgSender);
-    EXPECT_EQ(flat[col1_offset + teardown_row], pi.publicTeardownCallRequest.contractAddress);
-    EXPECT_EQ(flat[col2_offset + teardown_row], static_cast<uint8_t>(pi.publicTeardownCallRequest.isStaticCall));
-    EXPECT_EQ(flat[col3_offset + teardown_row], pi.publicTeardownCallRequest.calldataHash);
+    EXPECT_EQ(flat[col0_offset + teardown_row], pi.public_teardown_call_request.msg_sender);
+    EXPECT_EQ(flat[col1_offset + teardown_row], pi.public_teardown_call_request.contract_address);
+    EXPECT_EQ(flat[col2_offset + teardown_row], static_cast<uint8_t>(pi.public_teardown_call_request.is_static_call));
+    EXPECT_EQ(flat[col3_offset + teardown_row], pi.public_teardown_call_request.calldata_hash);
 
     // Test previous accumulated data array lengths
     EXPECT_EQ(flat[col0_offset +
                    AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX],
-              pi.previousNonRevertibleAccumulatedDataArrayLengths.noteHashes);
+              pi.previous_non_revertible_accumulated_data_array_lengths.note_hashes);
     EXPECT_EQ(
         flat[col0_offset + AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX],
-        pi.previousNonRevertibleAccumulatedDataArrayLengths.nullifiers);
+        pi.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
     EXPECT_EQ(flat[col0_offset +
                    AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX],
-              pi.previousNonRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs);
+              pi.previous_non_revertible_accumulated_data_array_lengths.l2_to_l1_msgs);
 
     // Test previous revertible accumulated data array lengths
     EXPECT_EQ(
         flat[col0_offset + AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX],
-        pi.previousRevertibleAccumulatedDataArrayLengths.noteHashes);
+        pi.previous_revertible_accumulated_data_array_lengths.note_hashes);
     EXPECT_EQ(
         flat[col0_offset + AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX],
-        pi.previousRevertibleAccumulatedDataArrayLengths.nullifiers);
+        pi.previous_revertible_accumulated_data_array_lengths.nullifiers);
     EXPECT_EQ(
         flat[col0_offset + AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX],
-        pi.previousRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs);
+        pi.previous_revertible_accumulated_data_array_lengths.l2_to_l1_msgs);
 
     // Accumulated Data Array Lengths
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX],
-              pi.accumulatedDataArrayLengths.noteHashes);
+              pi.accumulated_data_array_lengths.note_hashes);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX],
-              pi.accumulatedDataArrayLengths.nullifiers);
+              pi.accumulated_data_array_lengths.nullifiers);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX],
-              pi.accumulatedDataArrayLengths.l2ToL1Msgs);
+              pi.accumulated_data_array_lengths.l2_to_l1_msgs);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX],
-              pi.accumulatedDataArrayLengths.publicDataWrites);
+              pi.accumulated_data_array_lengths.public_data_writes);
 
-    // Test l2ToL1Msgs (which use 3 columns)
+    // Test l2_to_l1_msgs (which use 3 columns)
     size_t l2_to_l1_msg_row = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
     EXPECT_EQ(flat[col0_offset + l2_to_l1_msg_row],
-              pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.recipient);
+              pi.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient);
     EXPECT_EQ(flat[col1_offset + l2_to_l1_msg_row],
-              pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.content);
+              pi.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content);
     EXPECT_EQ(flat[col2_offset + l2_to_l1_msg_row],
-              pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].contractAddress);
+              pi.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address);
 
     // End tree snapshots
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX],
-              pi.endTreeSnapshots.l1ToL2MessageTree.root);
+              pi.end_tree_snapshots.l1_to_l2_message_tree.root);
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX],
-              pi.endTreeSnapshots.l1ToL2MessageTree.nextAvailableLeafIndex);
+              pi.end_tree_snapshots.l1_to_l2_message_tree.next_available_leaf_index);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX],
-              pi.endTreeSnapshots.noteHashTree.root);
+              pi.end_tree_snapshots.note_hash_tree.root);
     EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX],
-              pi.endTreeSnapshots.noteHashTree.nextAvailableLeafIndex);
+              pi.end_tree_snapshots.note_hash_tree.next_available_leaf_index);
 
     // End gas used
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], pi.endGasUsed.daGas);
-    EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], pi.endGasUsed.l2Gas);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], pi.end_gas_used.da_gas);
+    EXPECT_EQ(flat[col1_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], pi.end_gas_used.l2_gas);
 
     // Test note hashes and nullifiers
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 2],
-              pi.accumulatedData.noteHashes[2]);
+              pi.accumulated_data.note_hashes[2]);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + 3],
-              pi.accumulatedData.nullifiers[3]);
+              pi.accumulated_data.nullifiers[3]);
 
-    // Test accumulated l2ToL1Msgs
+    // Test accumulated l2_to_l1_msgs
     size_t acc_l2_to_l1_msg_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + 1; // Using second one
-    EXPECT_EQ(flat[col0_offset + acc_l2_to_l1_msg_row], pi.accumulatedData.l2ToL1Msgs[1].message.recipient);
-    EXPECT_EQ(flat[col1_offset + acc_l2_to_l1_msg_row], pi.accumulatedData.l2ToL1Msgs[1].message.content);
-    EXPECT_EQ(flat[col2_offset + acc_l2_to_l1_msg_row], pi.accumulatedData.l2ToL1Msgs[1].contractAddress);
+    EXPECT_EQ(flat[col0_offset + acc_l2_to_l1_msg_row], pi.accumulated_data.l2_to_l1_msgs[1].message.recipient);
+    EXPECT_EQ(flat[col1_offset + acc_l2_to_l1_msg_row], pi.accumulated_data.l2_to_l1_msgs[1].message.content);
+    EXPECT_EQ(flat[col2_offset + acc_l2_to_l1_msg_row], pi.accumulated_data.l2_to_l1_msgs[1].contract_address);
 
     // Test public logs
     size_t public_logs_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
     // Header
-    EXPECT_EQ(flat[col0_offset + public_logs_row], pi.accumulatedData.publicLogs.length);
+    EXPECT_EQ(flat[col0_offset + public_logs_row], pi.accumulated_data.public_logs.length);
     // Payload
     for (size_t j = 0; j < 3; ++j) {
         EXPECT_EQ(flat[col0_offset + public_logs_row + FLAT_PUBLIC_LOGS_HEADER_LENGTH + j],
-                  pi.accumulatedData.publicLogs.payload[j]);
+                  pi.accumulated_data.public_logs.payload[j]);
     }
 
     // Public data writes (uses 2 columns)
     size_t public_data_write_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + 1;
-    EXPECT_EQ(flat[col0_offset + public_data_write_row], pi.accumulatedData.publicDataWrites[1].leafSlot);
-    EXPECT_EQ(flat[col1_offset + public_data_write_row], pi.accumulatedData.publicDataWrites[1].value);
+    EXPECT_EQ(flat[col0_offset + public_data_write_row], pi.accumulated_data.public_data_writes[1].leaf_slot);
+    EXPECT_EQ(flat[col1_offset + public_data_write_row], pi.accumulated_data.public_data_writes[1].value);
 
     // Transaction fee
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX], pi.transactionFee);
+    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX], pi.transaction_fee);
 
     // Reverted status
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX], static_cast<uint8_t>(pi.reverted));

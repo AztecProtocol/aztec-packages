@@ -236,34 +236,34 @@ TEST_F(ExecutionSimulationTest, Call)
     MemoryValue cd_size = MemoryValue::from<uint32_t>(8);
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot = AppendOnlyTreeSnapshot{
         .root = 0x12345678,
-        .nextAvailableLeafIndex = 10,
+        .next_available_leaf_index = 10,
     };
     TreeStates tree_states = TreeStates {
-        .noteHashTree = {
+        .note_hash_tree = {
             .tree = {
                 .root = 10,
-                .nextAvailableLeafIndex = 9,
+                .next_available_leaf_index = 9,
             },
             .counter = 8,
         },
-        .nullifierTree = {
+        .nullifier_tree = {
             .tree = {
                 .root = 7,
-                .nextAvailableLeafIndex = 6,
+                .next_available_leaf_index = 6,
             },
             .counter = 5,
         },
-        .l1ToL2MessageTree = {
+        .l1_to_l2_message_tree = {
             .tree = {
                 .root = 4,
-                .nextAvailableLeafIndex = 3,
+                .next_available_leaf_index = 3,
             },
             .counter = 0,
         },
-        .publicDataTree = {
+        .public_data_tree = {
             .tree = {
                 .root = 2,
-                .nextAvailableLeafIndex = 1,
+                .next_available_leaf_index = 1,
             },
             .counter = 1,
         }
@@ -271,11 +271,11 @@ TEST_F(ExecutionSimulationTest, Call)
     TrackedSideEffects side_effect_states = {
         .l2_to_l1_messages = { {
                                    .message = { .recipient = EthAddress(0x12345678), .content = 0x12345678 },
-                                   .contractAddress = parent_address,
+                                   .contract_address = parent_address,
                                },
                                {
                                    .message = { .recipient = EthAddress(0x333333), .content = 0x12345678 },
-                                   .contractAddress = parent_address,
+                                   .contract_address = parent_address,
                                } },
         .public_logs = PublicLogs{ { { { 4 }, parent_address } } },
     };
@@ -342,21 +342,21 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
     MemoryValue cd_size = MemoryValue::from<uint32_t>(8);
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot = AppendOnlyTreeSnapshot{
         .root = 0x12345678,
-        .nextAvailableLeafIndex = 10,
+        .next_available_leaf_index = 10,
     };
     TreeStates tree_states =
-        TreeStates{ .noteHashTree = { .tree = { .root = 10, .nextAvailableLeafIndex = 9 }, .counter = 8 },
-                    .nullifierTree = { .tree = { .root = 7, .nextAvailableLeafIndex = 6 }, .counter = 5 },
-                    .l1ToL2MessageTree = { .tree = { .root = 4, .nextAvailableLeafIndex = 3 }, .counter = 0 },
-                    .publicDataTree = { .tree = { .root = 2, .nextAvailableLeafIndex = 1 }, .counter = 1 } };
+        TreeStates{ .note_hash_tree = { .tree = { .root = 10, .next_available_leaf_index = 9 }, .counter = 8 },
+                    .nullifier_tree = { .tree = { .root = 7, .next_available_leaf_index = 6 }, .counter = 5 },
+                    .l1_to_l2_message_tree = { .tree = { .root = 4, .next_available_leaf_index = 3 }, .counter = 0 },
+                    .public_data_tree = { .tree = { .root = 2, .next_available_leaf_index = 1 }, .counter = 1 } };
     TrackedSideEffects side_effect_states = {
         .l2_to_l1_messages = { {
                                    .message = { .recipient = EthAddress(0x12345678), .content = 0x12345678 },
-                                   .contractAddress = parent_address,
+                                   .contract_address = parent_address,
                                },
                                {
                                    .message = { .recipient = EthAddress(0x333333), .content = 0x12345678 },
-                                   .contractAddress = parent_address,
+                                   .contract_address = parent_address,
                                } },
         .public_logs = PublicLogs{ { { { 4 }, parent_address } } },
     };
@@ -503,7 +503,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarAddress)
 TEST_F(ExecutionSimulationTest, GetEnvVarChainId)
 {
     GlobalVariables globals;
-    globals.chainId = 1;
+    globals.chain_id = 1;
     EXPECT_CALL(context, get_globals).WillOnce(ReturnRef(globals));
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
@@ -661,7 +661,7 @@ TEST_F(ExecutionSimulationTest, SStoreLimitReached)
     auto slot = MemoryValue::from<FF>(42);
     auto value = MemoryValue::from<FF>(7);
     TreeStates tree_state = {};
-    tree_state.publicDataTree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
+    tree_state.public_data_tree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
     EXPECT_CALL(context, get_memory);
 
     EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
@@ -685,7 +685,7 @@ TEST_F(ExecutionSimulationTest, SStoreLimitReachedSquashed)
     auto slot = MemoryValue::from<FF>(42);
     auto value = MemoryValue::from<FF>(7);
     TreeStates tree_state = {};
-    tree_state.publicDataTree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
+    tree_state.public_data_tree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
     EXPECT_CALL(context, get_memory);
 
     EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
@@ -795,7 +795,7 @@ TEST_F(ExecutionSimulationTest, EmitNoteHashLimitReached)
     auto note_hash = MemoryValue::from<FF>(42);
     AztecAddress address = 0xdeadbeef;
     TreeStates tree_state = {};
-    tree_state.noteHashTree.counter = MAX_NOTE_HASHES_PER_TX;
+    tree_state.note_hash_tree.counter = MAX_NOTE_HASHES_PER_TX;
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(memory, get(note_hash_addr)).WillOnce(ReturnRef(note_hash));
@@ -924,7 +924,7 @@ TEST_F(ExecutionSimulationTest, EmitNullifierLimitReached)
     auto nullifier = MemoryValue::from<FF>(42);
     AztecAddress address = 0xdeadbeef;
     TreeStates tree_state = {};
-    tree_state.nullifierTree.counter = MAX_NULLIFIERS_PER_TX;
+    tree_state.nullifier_tree.counter = MAX_NULLIFIERS_PER_TX;
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(memory, get(nullifier_addr)).WillOnce(ReturnRef(nullifier));
@@ -1105,7 +1105,7 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
     auto content_value = MemoryValue::from<FF>(content);
 
     ScopedL2ToL1Message dummy_msg = { .message = { .recipient = recipient_address, .content = content },
-                                      .contractAddress = contract_address };
+                                      .contract_address = contract_address };
     TrackedSideEffects side_effects_states;
     for (int i = 0; i < MAX_L2_TO_L1_MSGS_PER_TX - 1; i++) {
         side_effects_states.l2_to_l1_messages.push_back(dummy_msg);
@@ -1164,8 +1164,9 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
 
     TrackedSideEffects side_effects_states;
     for (int i = 0; i < MAX_L2_TO_L1_MSGS_PER_TX; i++) {
-        side_effects_states.l2_to_l1_messages.push_back(ScopedL2ToL1Message{
-            .message = { .recipient = EthAddress(0x12345678), .content = 0x12345678 }, .contractAddress = 0x12345678 });
+        side_effects_states.l2_to_l1_messages.push_back(
+            ScopedL2ToL1Message{ .message = { .recipient = EthAddress(0x12345678), .content = 0x12345678 },
+                                 .contract_address = 0x12345678 });
     }
 
     EXPECT_CALL(context, get_memory);

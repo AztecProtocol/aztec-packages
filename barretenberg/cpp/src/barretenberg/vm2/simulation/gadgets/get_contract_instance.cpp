@@ -35,8 +35,8 @@ void GetContractInstance::get_contract_instance(MemoryInterface& memory,
         .dst_offset = dst_offset,
         .member_enum = member_enum,
         .space_id = memory.get_space_id(),
-        .nullifier_tree_root = tree_state.nullifierTree.tree.root,
-        .public_data_tree_root = tree_state.publicDataTree.tree.root,
+        .nullifier_tree_root = tree_state.nullifier_tree.tree.root,
+        .public_data_tree_root = tree_state.public_data_tree.tree.root,
     };
 
     // Memory bounds checking for dst_offset+1

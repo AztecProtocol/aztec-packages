@@ -1,5 +1,3 @@
-// NOTE: names are in camel-case because they matter to messagepack.
-// DO NOT use camel-case outside of these structures.
 #pragma once
 
 #include <cstdint>
@@ -28,29 +26,29 @@ namespace bb::avm2 {
 struct PublicInputs {
     ///////////////////////////////////
     // Inputs
-    GlobalVariables globalVariables;
-    ProtocolContracts protocolContracts;
-    TreeSnapshots startTreeSnapshots;
-    Gas startGasUsed;
-    GasSettings gasSettings;
-    GasFees effectiveGasFees;
-    AztecAddress feePayer;
-    FF proverId;
-    PublicCallRequestArrayLengths publicCallRequestArrayLengths;
-    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests{};
-    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests{};
-    PublicCallRequest publicTeardownCallRequest;
-    PrivateToAvmAccumulatedDataArrayLengths previousNonRevertibleAccumulatedDataArrayLengths;
-    PrivateToAvmAccumulatedDataArrayLengths previousRevertibleAccumulatedDataArrayLengths;
-    PrivateToAvmAccumulatedData previousNonRevertibleAccumulatedData;
-    PrivateToAvmAccumulatedData previousRevertibleAccumulatedData;
+    GlobalVariables global_variables;
+    ProtocolContracts protocol_contracts;
+    TreeSnapshots start_tree_snapshots;
+    Gas start_gas_used;
+    GasSettings gas_settings;
+    GasFees effective_gas_fees;
+    AztecAddress fee_payer;
+    FF prover_id;
+    PublicCallRequestArrayLengths public_call_request_array_lengths;
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_setup_call_requests{};
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_app_logic_call_requests{};
+    PublicCallRequest public_teardown_call_request;
+    PrivateToAvmAccumulatedDataArrayLengths previous_non_revertible_accumulated_data_array_lengths;
+    PrivateToAvmAccumulatedDataArrayLengths previous_revertible_accumulated_data_array_lengths;
+    PrivateToAvmAccumulatedData previous_non_revertible_accumulated_data;
+    PrivateToAvmAccumulatedData previous_revertible_accumulated_data;
     ///////////////////////////////////
     // Outputs
-    TreeSnapshots endTreeSnapshots;
-    Gas endGasUsed;
-    AvmAccumulatedDataArrayLengths accumulatedDataArrayLengths;
-    AvmAccumulatedData accumulatedData;
-    FF transactionFee;
+    TreeSnapshots end_tree_snapshots;
+    Gas end_gas_used;
+    AvmAccumulatedDataArrayLengths accumulated_data_array_lengths;
+    AvmAccumulatedData accumulated_data;
+    FF transaction_fee;
     bool reverted;
 
     static PublicInputs from(const std::vector<uint8_t>& data);
@@ -88,89 +86,89 @@ struct PublicInputs {
 
     bool operator==(const PublicInputs& other) const = default;
 
-    MSGPACK_FIELDS(globalVariables,
-                   protocolContracts,
-                   startTreeSnapshots,
-                   startGasUsed,
-                   gasSettings,
-                   effectiveGasFees,
-                   feePayer,
-                   proverId,
-                   publicCallRequestArrayLengths,
-                   publicSetupCallRequests,
-                   publicAppLogicCallRequests,
-                   publicTeardownCallRequest,
-                   previousNonRevertibleAccumulatedDataArrayLengths,
-                   previousRevertibleAccumulatedDataArrayLengths,
-                   previousNonRevertibleAccumulatedData,
-                   previousRevertibleAccumulatedData,
-                   endTreeSnapshots,
-                   endGasUsed,
-                   accumulatedDataArrayLengths,
-                   accumulatedData,
-                   transactionFee,
-                   reverted);
+    MSGPACK_CAMEL_CASE_FIELDS(global_variables,
+                              protocol_contracts,
+                              start_tree_snapshots,
+                              start_gas_used,
+                              gas_settings,
+                              effective_gas_fees,
+                              fee_payer,
+                              prover_id,
+                              public_call_request_array_lengths,
+                              public_setup_call_requests,
+                              public_app_logic_call_requests,
+                              public_teardown_call_request,
+                              previous_non_revertible_accumulated_data_array_lengths,
+                              previous_revertible_accumulated_data_array_lengths,
+                              previous_non_revertible_accumulated_data,
+                              previous_revertible_accumulated_data,
+                              end_tree_snapshots,
+                              end_gas_used,
+                              accumulated_data_array_lengths,
+                              accumulated_data,
+                              transaction_fee,
+                              reverted);
 };
 
 ////////////////////////////////////////////////////////////////////////////
 // Hints (contracts)
 ////////////////////////////////////////////////////////////////////////////
 struct PublicKeysHint {
-    AffinePoint masterNullifierPublicKey;
-    AffinePoint masterIncomingViewingPublicKey;
-    AffinePoint masterOutgoingViewingPublicKey;
-    AffinePoint masterTaggingPublicKey;
+    AffinePoint master_nullifier_public_key;
+    AffinePoint master_incoming_viewing_public_key;
+    AffinePoint master_outgoing_viewing_public_key;
+    AffinePoint master_tagging_public_key;
 
     bool operator==(const PublicKeysHint& other) const = default;
 
-    MSGPACK_FIELDS(masterNullifierPublicKey,
-                   masterIncomingViewingPublicKey,
-                   masterOutgoingViewingPublicKey,
-                   masterTaggingPublicKey);
+    MSGPACK_CAMEL_CASE_FIELDS(master_nullifier_public_key,
+                              master_incoming_viewing_public_key,
+                              master_outgoing_viewing_public_key,
+                              master_tagging_public_key);
 };
 
 struct ContractInstanceHint {
-    uint32_t hintKey;
+    uint32_t hint_key;
     AztecAddress address;
     FF salt;
     AztecAddress deployer;
-    ContractClassId currentContractClassId;
-    ContractClassId originalContractClassId;
-    FF initializationHash;
-    PublicKeysHint publicKeys;
+    ContractClassId current_contract_class_id;
+    ContractClassId original_contract_class_id;
+    FF initialization_hash;
+    PublicKeysHint public_keys;
 
     bool operator==(const ContractInstanceHint& other) const = default;
 
-    MSGPACK_FIELDS(hintKey,
-                   address,
-                   salt,
-                   deployer,
-                   currentContractClassId,
-                   originalContractClassId,
-                   initializationHash,
-                   publicKeys);
+    MSGPACK_CAMEL_CASE_FIELDS(hint_key,
+                              address,
+                              salt,
+                              deployer,
+                              current_contract_class_id,
+                              original_contract_class_id,
+                              initialization_hash,
+                              public_keys);
 };
 
 struct ContractClassHint {
-    uint32_t hintKey;
-    FF classId;
-    FF artifactHash;
-    FF privateFunctionsRoot;
-    std::vector<uint8_t> packedBytecode;
+    uint32_t hint_key;
+    FF class_id;
+    FF artifact_hash;
+    FF private_functions_root;
+    std::vector<uint8_t> packed_bytecode;
 
     bool operator==(const ContractClassHint& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode);
+    MSGPACK_CAMEL_CASE_FIELDS(hint_key, class_id, artifact_hash, private_functions_root, packed_bytecode);
 };
 
 struct BytecodeCommitmentHint {
-    uint32_t hintKey;
-    FF classId;
+    uint32_t hint_key;
+    FF class_id;
     FF commitment;
 
     bool operator==(const BytecodeCommitmentHint& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, classId, commitment);
+    MSGPACK_CAMEL_CASE_FIELDS(hint_key, class_id, commitment);
 };
 
 struct DebugFunctionNameHint {
@@ -187,97 +185,97 @@ struct DebugFunctionNameHint {
 // Hints (merkle db)
 ////////////////////////////////////////////////////////////////////////////
 struct GetSiblingPathHint {
-    AppendOnlyTreeSnapshot hintKey;
+    AppendOnlyTreeSnapshot hint_key;
     // params
-    world_state::MerkleTreeId treeId;
+    world_state::MerkleTreeId tree_id;
     uint64_t index;
     // return
     std::vector<FF> path;
 
     bool operator==(const GetSiblingPathHint& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, treeId, index, path);
+    MSGPACK_CAMEL_CASE_FIELDS(hint_key, tree_id, index, path);
 };
 
 struct GetPreviousValueIndexHint {
-    AppendOnlyTreeSnapshot hintKey;
+    AppendOnlyTreeSnapshot hint_key;
     // params
-    world_state::MerkleTreeId treeId;
+    world_state::MerkleTreeId tree_id;
     FF value;
     // return
     uint64_t index;
-    bool alreadyPresent;
+    bool already_present;
 
     bool operator==(const GetPreviousValueIndexHint& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, treeId, value, index, alreadyPresent);
+    MSGPACK_CAMEL_CASE_FIELDS(hint_key, tree_id, value, index, already_present);
 };
 
 template <typename LeafPreimage_> struct GetLeafPreimageHint {
-    AppendOnlyTreeSnapshot hintKey;
+    AppendOnlyTreeSnapshot hint_key;
     // params (tree id will be implicit)
     uint64_t index;
     // return
-    LeafPreimage_ leafPreimage;
+    LeafPreimage_ leaf_preimage;
 
     bool operator==(const GetLeafPreimageHint<LeafPreimage_>& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, index, leafPreimage);
+    MSGPACK_CAMEL_CASE_FIELDS(hint_key, index, leaf_preimage);
 };
 
 struct GetLeafValueHint {
-    AppendOnlyTreeSnapshot hintKey;
+    AppendOnlyTreeSnapshot hint_key;
     // params
-    world_state::MerkleTreeId treeId;
+    world_state::MerkleTreeId tree_id;
     uint64_t index;
     // return
     FF value;
 
     bool operator==(const GetLeafValueHint& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, treeId, index, value);
+    MSGPACK_CAMEL_CASE_FIELDS(hint_key, tree_id, index, value);
 };
 
 template <typename Leaf> struct SequentialInsertHint {
-    AppendOnlyTreeSnapshot hintKey;
+    AppendOnlyTreeSnapshot hint_key;
     // params
-    world_state::MerkleTreeId treeId;
+    world_state::MerkleTreeId tree_id;
     Leaf leaf;
     // return
-    crypto::merkle_tree::LeafUpdateWitnessData<Leaf> lowLeavesWitnessData;
-    crypto::merkle_tree::LeafUpdateWitnessData<Leaf> insertionWitnessData;
+    crypto::merkle_tree::LeafUpdateWitnessData<Leaf> low_leaves_witness_data;
+    crypto::merkle_tree::LeafUpdateWitnessData<Leaf> insertion_witness_data;
     // evolved state
-    AppendOnlyTreeSnapshot stateAfter;
+    AppendOnlyTreeSnapshot state_after;
 
     bool operator==(const SequentialInsertHint<Leaf>& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, treeId, leaf, lowLeavesWitnessData, insertionWitnessData, stateAfter);
+    MSGPACK_CAMEL_CASE_FIELDS(hint_key, tree_id, leaf, low_leaves_witness_data, insertion_witness_data, state_after);
 };
 
 // Hint for MerkleTreeDB.appendLeaves.
 // Note: only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE.
 struct AppendLeavesHint {
-    AppendOnlyTreeSnapshot hintKey;
-    AppendOnlyTreeSnapshot stateAfter;
+    AppendOnlyTreeSnapshot hint_key;
+    AppendOnlyTreeSnapshot state_after;
     // params
-    world_state::MerkleTreeId treeId;
+    world_state::MerkleTreeId tree_id;
     std::vector<FF> leaves;
 
     bool operator==(const AppendLeavesHint& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, stateAfter, treeId, leaves);
+    MSGPACK_CAMEL_CASE_FIELDS(hint_key, state_after, tree_id, leaves);
 };
 
 struct CheckpointActionNoStateChangeHint {
     // key
-    uint32_t actionCounter;
+    uint32_t action_counter;
     // current checkpoint evolution
-    uint32_t oldCheckpointId;
-    uint32_t newCheckpointId;
+    uint32_t old_checkpoint_id;
+    uint32_t new_checkpoint_id;
 
     bool operator==(const CheckpointActionNoStateChangeHint& other) const = default;
 
-    MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId);
+    MSGPACK_CAMEL_CASE_FIELDS(action_counter, old_checkpoint_id, new_checkpoint_id);
 };
 
 using CreateCheckpointHint = CheckpointActionNoStateChangeHint;
@@ -285,17 +283,17 @@ using CommitCheckpointHint = CheckpointActionNoStateChangeHint;
 
 struct RevertCheckpointHint {
     // key
-    uint32_t actionCounter;
+    uint32_t action_counter;
     // current checkpoint evolution
-    uint32_t oldCheckpointId;
-    uint32_t newCheckpointId;
+    uint32_t old_checkpoint_id;
+    uint32_t new_checkpoint_id;
     // state evolution
-    TreeSnapshots stateBefore;
-    TreeSnapshots stateAfter;
+    TreeSnapshots state_before;
+    TreeSnapshots state_after;
 
     bool operator==(const RevertCheckpointHint& other) const = default;
 
-    MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter);
+    MSGPACK_CAMEL_CASE_FIELDS(action_counter, old_checkpoint_id, new_checkpoint_id, state_before, state_after);
 };
 
 using ContractDBCreateCheckpointHint = CheckpointActionNoStateChangeHint;
@@ -317,145 +315,146 @@ struct PublicCallRequestWithCalldata {
 
 struct AccumulatedData {
     // TODO: add as needed.
-    std::vector<FF> noteHashes;
+    std::vector<FF> note_hashes;
     std::vector<FF> nullifiers;
-    std::vector<ScopedL2ToL1Message> l2ToL1Messages;
+    std::vector<ScopedL2ToL1Message> l2_to_l1_messages;
 
     bool operator==(const AccumulatedData& other) const = default;
 
-    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Messages);
+    MSGPACK_CAMEL_CASE_FIELDS(note_hashes, nullifiers, l2_to_l1_messages);
 };
 
 // We are currently using this structure as the input to TX simulation.
 // That's why I'm not calling it TxHint. We can reconsider if the inner types seem to dirty.
 struct Tx {
     std::string hash;
-    GasSettings gasSettings;
-    GasFees effectiveGasFees;
-    ContractDeploymentData nonRevertibleContractDeploymentData;
-    ContractDeploymentData revertibleContractDeploymentData;
-    AccumulatedData nonRevertibleAccumulatedData;
-    AccumulatedData revertibleAccumulatedData;
-    std::vector<PublicCallRequestWithCalldata> setupEnqueuedCalls;
-    std::vector<PublicCallRequestWithCalldata> appLogicEnqueuedCalls;
-    std::optional<PublicCallRequestWithCalldata> teardownEnqueuedCall;
-    Gas gasUsedByPrivate;
-    AztecAddress feePayer;
+    GasSettings gas_settings;
+    GasFees effective_gas_fees;
+    ContractDeploymentData non_revertible_contract_deployment_data;
+    ContractDeploymentData revertible_contract_deployment_data;
+    AccumulatedData non_revertible_accumulated_data;
+    AccumulatedData revertible_accumulated_data;
+    std::vector<PublicCallRequestWithCalldata> setup_enqueued_calls;
+    std::vector<PublicCallRequestWithCalldata> app_logic_enqueued_calls;
+    std::optional<PublicCallRequestWithCalldata> teardown_enqueued_call;
+    Gas gas_used_by_private;
+    AztecAddress fee_payer;
     bool operator==(const Tx& other) const = default;
 
-    MSGPACK_FIELDS(hash,
-                   gasSettings,
-                   effectiveGasFees,
-                   nonRevertibleContractDeploymentData,
-                   revertibleContractDeploymentData,
-                   nonRevertibleAccumulatedData,
-                   revertibleAccumulatedData,
-                   setupEnqueuedCalls,
-                   appLogicEnqueuedCalls,
-                   teardownEnqueuedCall,
-                   gasUsedByPrivate,
-                   feePayer);
+    MSGPACK_CAMEL_CASE_FIELDS(hash,
+                              gas_settings,
+                              effective_gas_fees,
+                              non_revertible_contract_deployment_data,
+                              revertible_contract_deployment_data,
+                              non_revertible_accumulated_data,
+                              revertible_accumulated_data,
+                              setup_enqueued_calls,
+                              app_logic_enqueued_calls,
+                              teardown_enqueued_call,
+                              gas_used_by_private,
+                              fee_payer);
 };
 
 struct ExecutionHints {
-    GlobalVariables globalVariables;
+    GlobalVariables global_variables;
     Tx tx;
     // Protocol Contracts
-    ProtocolContracts protocolContracts;
+    ProtocolContracts protocol_contracts;
     // Contracts.
-    std::vector<ContractInstanceHint> contractInstances;
-    std::vector<ContractClassHint> contractClasses;
-    std::vector<BytecodeCommitmentHint> bytecodeCommitments;
-    std::vector<DebugFunctionNameHint> debugFunctionNames;
-    std::vector<ContractDBCreateCheckpointHint> contractDBCreateCheckpointHints;
-    std::vector<ContractDBCommitCheckpointHint> contractDBCommitCheckpointHints;
-    std::vector<ContractDBRevertCheckpointHint> contractDBRevertCheckpointHints;
+    std::vector<ContractInstanceHint> contract_instances;
+    std::vector<ContractClassHint> contract_classes;
+    std::vector<BytecodeCommitmentHint> bytecode_commitments;
+    std::vector<DebugFunctionNameHint> debug_function_names;
+    std::vector<ContractDBCreateCheckpointHint> contract_db_create_checkpoint_hints;
+    std::vector<ContractDBCommitCheckpointHint> contract_db_commit_checkpoint_hints;
+    std::vector<ContractDBRevertCheckpointHint> contract_db_revert_checkpoint_hints;
     // Merkle DB.
-    TreeSnapshots startingTreeRoots;
-    std::vector<GetSiblingPathHint> getSiblingPathHints;
-    std::vector<GetPreviousValueIndexHint> getPreviousValueIndexHints;
+    TreeSnapshots starting_tree_roots;
+    std::vector<GetSiblingPathHint> get_sibling_path_hints;
+    std::vector<GetPreviousValueIndexHint> get_previous_value_index_hints;
     std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>>>
-        getLeafPreimageHintsPublicDataTree;
+        get_leaf_preimage_hints_public_data_tree;
     std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>>>
-        getLeafPreimageHintsNullifierTree;
-    std::vector<GetLeafValueHint> getLeafValueHints;
-    std::vector<SequentialInsertHint<crypto::merkle_tree::PublicDataLeafValue>> sequentialInsertHintsPublicDataTree;
-    std::vector<SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>> sequentialInsertHintsNullifierTree;
-    std::vector<AppendLeavesHint> appendLeavesHints;
-    std::vector<CreateCheckpointHint> createCheckpointHints;
-    std::vector<CommitCheckpointHint> commitCheckpointHints;
-    std::vector<RevertCheckpointHint> revertCheckpointHints;
+        get_leaf_preimage_hints_nullifier_tree;
+    std::vector<GetLeafValueHint> get_leaf_value_hints;
+    std::vector<SequentialInsertHint<crypto::merkle_tree::PublicDataLeafValue>>
+        sequential_insert_hints_public_data_tree;
+    std::vector<SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>> sequential_insert_hints_nullifier_tree;
+    std::vector<AppendLeavesHint> append_leaves_hints;
+    std::vector<CreateCheckpointHint> create_checkpoint_hints;
+    std::vector<CommitCheckpointHint> commit_checkpoint_hints;
+    std::vector<RevertCheckpointHint> revert_checkpoint_hints;
 
     bool operator==(const ExecutionHints& other) const = default;
 
-    MSGPACK_FIELDS(globalVariables,
-                   tx,
-                   protocolContracts,
-                   contractInstances,
-                   contractClasses,
-                   bytecodeCommitments,
-                   debugFunctionNames,
-                   contractDBCreateCheckpointHints,
-                   contractDBCommitCheckpointHints,
-                   contractDBRevertCheckpointHints,
-                   startingTreeRoots,
-                   getSiblingPathHints,
-                   getPreviousValueIndexHints,
-                   getLeafPreimageHintsPublicDataTree,
-                   getLeafPreimageHintsNullifierTree,
-                   getLeafValueHints,
-                   sequentialInsertHintsPublicDataTree,
-                   sequentialInsertHintsNullifierTree,
-                   appendLeavesHints,
-                   createCheckpointHints,
-                   commitCheckpointHints,
-                   revertCheckpointHints);
+    MSGPACK_CAMEL_CASE_FIELDS(global_variables,
+                              tx,
+                              protocol_contracts,
+                              contract_instances,
+                              contract_classes,
+                              bytecode_commitments,
+                              debug_function_names,
+                              contract_db_create_checkpoint_hints,
+                              contract_db_commit_checkpoint_hints,
+                              contract_db_revert_checkpoint_hints,
+                              starting_tree_roots,
+                              get_sibling_path_hints,
+                              get_previous_value_index_hints,
+                              get_leaf_preimage_hints_public_data_tree,
+                              get_leaf_preimage_hints_nullifier_tree,
+                              get_leaf_value_hints,
+                              sequential_insert_hints_public_data_tree,
+                              sequential_insert_hints_nullifier_tree,
+                              append_leaves_hints,
+                              create_checkpoint_hints,
+                              commit_checkpoint_hints,
+                              revert_checkpoint_hints);
 };
 
 ////////////////////////////////////////////////////////////////////////////
 // AVM Inputs
 ////////////////////////////////////////////////////////////////////////////
 struct AvmProvingInputs {
-    PublicInputs publicInputs;
+    PublicInputs public_inputs;
     ExecutionHints hints;
 
     static AvmProvingInputs from(const std::vector<uint8_t>& data);
     bool operator==(const AvmProvingInputs& other) const = default;
 
-    MSGPACK_FIELDS(publicInputs, hints);
+    MSGPACK_CAMEL_CASE_FIELDS(public_inputs, hints);
 };
 
 struct PublicSimulatorConfig {
-    FF proverId = 0;
-    bool skipFeeEnforcement = false;
-    bool collectCallMetadata = false;
-    bool collectHints = false;
-    bool collectDebugLogs = false;
-    uint32_t maxDebugLogMemoryReads = 0;
-    bool collectStatistics = false;
+    FF prover_id = 0;
+    bool skip_fee_enforcement = false;
+    bool collect_call_metadata = false;
+    bool collect_hints = false;
+    bool collect_debug_logs = false;
+    uint32_t max_debug_log_memory_reads = 0;
+    bool collect_statistics = false;
 
     bool operator==(const PublicSimulatorConfig& other) const = default;
 
-    MSGPACK_FIELDS(proverId,
-                   skipFeeEnforcement,
-                   collectCallMetadata,
-                   collectHints,
-                   collectDebugLogs,
-                   maxDebugLogMemoryReads,
-                   collectStatistics);
+    MSGPACK_CAMEL_CASE_FIELDS(prover_id,
+                              skip_fee_enforcement,
+                              collect_call_metadata,
+                              collect_hints,
+                              collect_debug_logs,
+                              max_debug_log_memory_reads,
+                              collect_statistics);
 };
 
 struct AvmFastSimulationInputs {
-    world_state::WorldStateRevision wsRevision;
+    world_state::WorldStateRevision ws_revision;
     PublicSimulatorConfig config;
     Tx tx;
-    GlobalVariables globalVariables;
-    ProtocolContracts protocolContracts;
+    GlobalVariables global_variables;
+    ProtocolContracts protocol_contracts;
 
     static AvmFastSimulationInputs from(const std::vector<uint8_t>& data);
     bool operator==(const AvmFastSimulationInputs& other) const = default;
 
-    MSGPACK_FIELDS(wsRevision, config, tx, globalVariables, protocolContracts);
+    MSGPACK_CAMEL_CASE_FIELDS(ws_revision, config, tx, global_variables, protocol_contracts);
 };
 
 ////////////////////////////////////////////////////////////////////////////
