@@ -299,7 +299,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         uint8_t tag_value = 0;
 
         if (wire_opcode_in_range) {
-            const auto& wire_instr_spec = WIRE_INSTRUCTION_SPEC.at(static_cast<WireOpCode>(wire_opcode));
+            const auto& wire_instr_spec = get_wire_instruction_spec().at(static_cast<WireOpCode>(wire_opcode));
             size_in_bytes = wire_instr_spec.size_in_bytes;
             exec_opcode = wire_instr_spec.exec_opcode;
             op_dc_selectors = wire_instr_spec.op_dc_selectors;

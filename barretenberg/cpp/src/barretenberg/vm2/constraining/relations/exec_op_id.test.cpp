@@ -25,8 +25,8 @@ namespace {
 using simulation::ExecutionEvent;
 using testing::InstructionBuilder;
 using tracegen::ExecutionTraceBuilder;
+using tracegen::get_subtrace_info_map;
 using tracegen::PrecomputedTraceBuilder;
-using tracegen::SUBTRACE_INFO_MAP;
 using tracegen::SubtraceSel;
 
 using tracegen::TestTraceContainer;
@@ -101,10 +101,10 @@ TEST(ExecOpIdConstrainingTest, WireOpcodeListCompleteness)
 {
     for (uint8_t opcode = 0; opcode < static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL); opcode++) {
         const auto wire_opcode = static_cast<WireOpCode>(opcode);
-        const auto& exec_opcode = WIRE_INSTRUCTION_SPEC.at(wire_opcode).exec_opcode;
+        const auto& exec_opcode = get_wire_instruction_spec().at(wire_opcode).exec_opcode;
 
-        if (SUBTRACE_INFO_MAP.contains(exec_opcode)) {
-            const auto& subtrace_info = SUBTRACE_INFO_MAP.at(exec_opcode);
+        if (get_subtrace_info_map().contains(exec_opcode)) {
+            const auto& subtrace_info = get_subtrace_info_map().at(exec_opcode);
             if (subtrace_info.subtrace_selector == SubtraceSel::EXECUTION) {
                 EXPECT_TRUE(std::ranges::find(WIRE_OPCODES.begin(), WIRE_OPCODES.end(), wire_opcode) !=
                             WIRE_OPCODES.end());

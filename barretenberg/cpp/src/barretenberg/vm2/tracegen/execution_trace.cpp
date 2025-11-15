@@ -557,7 +557,7 @@ void ExecutionTraceBuilder::process(
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
-            const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(*exec_opcode);
+            const auto& dispatch_to_subtrace = get_subtrace_info_map().at(*exec_opcode);
             trace.set(row,
                       { {
                           { C::execution_sel_should_execute_opcode, 1 },
@@ -804,7 +804,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
 {
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     ExecutionOpCode exec_opcode = ex_event.wire_instruction.get_exec_opcode();
-    const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
+    const auto& exec_spec = get_exec_instruction_spec().at(exec_opcode);
     const auto& gas_cost = exec_spec.gas_cost;
 
     // Gas.
@@ -835,7 +835,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
     }
 
     // At this point we can assume instruction fetching succeeded, so this should never fail.
-    const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
+    const auto& dispatch_to_subtrace = get_subtrace_info_map().at(exec_opcode);
     trace.set(row,
               { {
                   { C::execution_subtrace_id, get_subtrace_id(dispatch_to_subtrace.subtrace_selector) },
@@ -865,7 +865,7 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
                   { C::execution_total_gas_da, gas_event.total_gas_used_da },
               } });
 
-    const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
+    const auto& exec_spec = get_exec_instruction_spec().at(exec_opcode);
     if (exec_spec.dyn_gas_id != 0) {
         trace.set(get_dyn_gas_selector(exec_spec.dyn_gas_id), row, 1);
     }
@@ -878,7 +878,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 {
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     ExecutionOpCode exec_opcode = instruction.get_exec_opcode();
-    const ExecInstructionSpec& ex_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
+    const ExecInstructionSpec& ex_spec = get_exec_instruction_spec().at(exec_opcode);
 
     auto resolution_info_vec = addr_event.resolution_info;
     assert(resolution_info_vec.size() <= AVM_MAX_OPERANDS);
@@ -1043,7 +1043,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
 {
     assert(registers.size() == AVM_MAX_REGISTERS);
     // At this point we can assume instruction fetching succeeded, so this should never fail.
-    const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
+    const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
 
     // Registers.
     size_t input_counter = 0;
@@ -1106,7 +1106,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
 
 void ExecutionTraceBuilder::process_registers_write(ExecutionOpCode exec_opcode, TraceContainer& trace, uint32_t row)
 {
-    const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
+    const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
     trace.set(C::execution_sel_should_write_registers, row, 1);
 
     for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {
