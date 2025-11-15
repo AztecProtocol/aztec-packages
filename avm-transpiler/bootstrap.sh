@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
-export GIT_COMMIT="$(cat ../noir/noir-repo-ref | head -n1)-aztec"
+export GIT_COMMIT=$(git -C ../noir/noir-repo rev-parse HEAD)
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"

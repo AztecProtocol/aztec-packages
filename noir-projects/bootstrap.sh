@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-export NOIR_HASH=${NOIR_HASH-$(../noir/bootstrap.sh hash)}
-
 function build {
   echo_header "noir-projects build"
 

@@ -5,7 +5,6 @@ export BB=${BB:-../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../avm-transpiler/target/release/avm-transpiler}
 export BB_HASH=${BB_HASH:-$(../barretenberg/cpp/bootstrap.sh hash)}
-export NOIR_HASH=${NOIR_HASH:-$(../noir/bootstrap.sh hash)}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.

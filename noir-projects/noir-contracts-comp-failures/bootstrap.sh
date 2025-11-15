@@ -3,7 +3,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # nargo command path relative to the individual contract directory
 export NARGO=${NARGO:-../../../../noir/noir-repo/target/release/nargo}
-export NOIR_HASH=${NOIR_HASH:- $(../../noir/bootstrap.sh hash)}
 
 # Function to check if compilation error matches expected error
 check_compilation_error() {
@@ -52,7 +51,7 @@ test() {
 }
 
 function test_cmds {
-    hash=$(hash_str $NOIR_HASH $(cache_content_hash ^noir-projects/noir-contracts-comp-failures))
+    hash=$(hash_str $(../../noir/bootstrap.sh hash) $(cache_content_hash ^noir-projects/noir-contracts-comp-failures))
     echo "$hash ./noir-projects/noir-contracts-comp-failures/bootstrap.sh test"
 }
 

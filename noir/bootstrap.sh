@@ -3,6 +3,9 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 set -eou pipefail
 
+noir_commit=$(git -C noir-repo rev-parse HEAD)
+export hash=$(hash_str $noir_commit $(cache_content_hash .rebuild_patterns))
+
 # Must be in dependency order for releasing.
 export js_projects="
   @noir-lang/types
@@ -13,85 +16,24 @@ export js_projects="
 "
 export js_include=$(printf " --include %s" $js_projects)
 
-# Update the noir-repo and compute hashes.
-function noir_sync {
-  # Don't send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
-  dump_fail "scripts/sync.sh init && scripts/sync.sh update" >&2
-}
-
-# Get the cache content hash. It should only be based on files committed to `aztec-packages`
-# in order to be able to support using `AZTEC_CACHE_COMMIT` for historical queries.
-function noir_content_hash {
-  # Currently we don't make a distinction between test and non-test hash
-  tests=${1:-0}
-
-  # If there are changes in the noir-repo which aren't just due to the patch applied to it,
-  # then just disable the cache, unless the noir-repo is in an evolving feature branch.
-  noir_hash=$(cache_content_hash .rebuild_patterns)
-
-  if [ "${AZTEC_CACHE_COMMIT:-HEAD}" != "HEAD" ]; then
-    # Ignore the current content of noir-repo, it doesn't support history anyway.
-    echo $noir_hash
-  else
-    cache_mode=$(scripts/sync.sh cache-mode)
-    case "$cache_mode" in
-      "noir")
-        echo $noir_hash
-        ;;
-      "noir-repo")
-        echo $(hash_str $noir_hash $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests))
-        ;;
-      *)
-        echo $cache_mode
-        ;;
-    esac
-  fi
-}
-
-if [ ! -v NOIR_HASH ] && [ "${1:-}" != "clean" ]; then
-  noir_sync
-  export NOIR_HASH=$(noir_content_hash)
-fi
-
-# Get the actual commit hash from the noir-repo-ref file
-export GIT_COMMIT="$(git -C noir-repo rev-list --max-count 1 "$(cat noir-repo-ref)")-aztec"
+export GIT_COMMIT=$noir_commit
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
-# Calculate the content hash for caching, taking into account that `noir-repo`
-# is not part of the `aztec-packages` repo itself, so the `git ls-tree` used
-# by `cache_content_hash` would not take those files into account.
-function noir_repo_content_hash {
-  echo $(REPO_PATH=./noir-repo AZTEC_CACHE_COMMIT=HEAD cache_content_hash $@)
-}
-
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  local hash=$NOIR_HASH
 
-  if ! dpkg -l pkg-config libssl-dev >/dev/null 2>&1; then
-    sudo apt update && sudo apt install -y pkg-config libssl-dev
+  if ! cache_download noir-$hash.tar.gz; then
+    (cd noir-repo && cargo build --locked --release --target-dir target)
+    cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,acvm,noir-profiler}
   fi
-
-  if cache_download noir-$hash.tar.gz; then
-    return
-  fi
-
-  cd noir-repo
-  parallel --tag --line-buffer --halt now,fail=1 ::: \
-    "cargo fmt --all --check" \
-    "cargo build --locked --release --target-dir target" \
-    "cargo clippy --target-dir target/clippy --workspace --locked --release"
-  cd ..
-  cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,acvm,noir-profiler}
 }
 
 # Builds js packages.
 function build_packages {
   set -euo pipefail
-  local hash=$NOIR_HASH
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
@@ -143,64 +85,18 @@ function install_deps {
   just --justfile ./noir-repo/justfile install-js-tools
 }
 
-export -f build_native build_packages noir_content_hash install_deps
+export -f build_native build_packages install_deps
 
 function build {
   echo_header "noir build"
+
+  if semver check $REF_NAME && ! git -C noir-repo describe --tags --exact-match HEAD &>/dev/null; then
+    echo_stderr "We're building a release but the noir-repo HEAD is not an official release."
+    exit 1
+  fi
+
   denoise "retry install_deps"
   parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_packages
-  # if [ -x ./scripts/fix_incremental_ts.sh ]; then
-  #   ./scripts/fix_incremental_ts.sh
-  # fi
-}
-
-function test {
-  echo_header "noir test"
-  test_cmds | filter_test_cmds | parallelize
-}
-
-# Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
-function test_cmds {
-  local test_hash=$NOIR_HASH
-  cd noir-repo
-
-  # I'm turning these off. We do zero development of noir in this repository so if they're failing then it's because
-  # aztec CI is borked.
-
-  # NOIR_TEST_FILTER="not (package(noir_ast_fuzzer_fuzz) or package(noir_ast_fuzzer))"
-  # cargo nextest list --workspace --locked --release -Tjson-pretty -E "$NOIR_TEST_FILTER" 2>/dev/null | \
-  #     jq -r '
-  #       .["rust-suites"][] |
-  #       .testcases as $tests |
-  #       .["binary-path"] as $binary |
-  #       $tests |
-  #       to_entries[] |
-  #       select(.value.ignored == false and .value["filter-match"].status == "matches") |
-  #       "noir/scripts/run_test.sh \($binary) \(.key)"' | \
-  #     sed "s|$PWD/target/release/deps/||" | \
-  #     awk "{print \"$test_hash \" \$0 }"
-  # # The test below is de-activated because it is failing with serialization changes,
-  # # probably due to some cache issue. There is not much value in testing the Noir repo here.
-  # # echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo" \
-  # #   "yarn workspaces foreach -A --parallel --topological-dev --verbose $js_include run test"
-
-  # # This is a test as it runs over our test programs (format is usually considered a build step).
-  # echo "$test_hash noir/bootstrap.sh format --check"
-}
-
-function format {
-  # Check format of noir programs in the noir repo.
-  export PATH="$(pwd)/noir-repo/target/release:${PATH}"
-  arg=${1:-}
-  cd noir-repo/test_programs
-  if [ "$arg" = "--check" ]; then
-    # different passing of check than nargo fmt
-    ./format.sh check
-  else
-    ./format.sh
-  fi
-  cd ../noir_stdlib
-  nargo fmt $arg
 }
 
 function release {
@@ -221,31 +117,6 @@ function release {
   done
 }
 
-# Bump the Noir repo reference on a given branch to a given ref.
-# The branch might already exist, e.g. this could be a daily job bumping the version to the
-# latest nightly, and we might have to deal with updating the patch file because the latest
-# Noir code conflicts with the contents of the patch, or we're debugging some integration
-# test failure on CI. In that case just push another commit to the branch to bump the version
-# further without losing any other commit on the branch.
-function bump_noir_repo_ref {
-  branch=$1
-  ref=$2
-  git fetch --depth 1 origin $branch || true
-  git checkout --track origin/$branch || git checkout $branch || git checkout -b $branch
-  scripts/sync.sh write-noir-repo-ref $ref
-  git add noir-repo-ref
-
-  # Update the Cargo.lock file in the transpiler to match the new ref.
-  cargo update --workspace --manifest-path="../avm-transpiler/Cargo.toml"
-
-  # Build nargo and run formatter on `noir-projects`
-  build_native
-  ../noir-projects/bootstrap.sh format
-  git add ../avm-transpiler
-  git commit -m "chore: Update noir-repo-ref to $ref" || true
-  do_or_dryrun git push --set-upstream origin $branch
-}
-
 case "$cmd" in
   "clean")
     # Double `f` needed to delete the nested git repository.
@@ -255,19 +126,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $NOIR_HASH
-    ;;
-  "make-patch")
-    scripts/sync.sh make-patch
-    ;;
-  "noir-sync")
-    # Noop, we synced above.
-    ;;
-  "noir-sync")
-    # Noop, we synced above.
-    ;;
-  "noir-sync")
-    # Noop, we synced above.
+    echo $hash
     ;;
   *)
     default_cmd_handler "$@"
