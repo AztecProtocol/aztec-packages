@@ -57,9 +57,9 @@ import {
   AvmCircuitPublicInputs,
   AvmCommitCheckpointHint,
   AvmContractClassHint,
-  AvmContractDBCommitCheckpointHint,
-  AvmContractDBCreateCheckpointHint,
-  AvmContractDBRevertCheckpointHint,
+  AvmContractDbCommitCheckpointHint,
+  AvmContractDbCreateCheckpointHint,
+  AvmContractDbRevertCheckpointHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
   AvmDebugFunctionNameHint,
@@ -1426,24 +1426,24 @@ export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevert
   );
 }
 
-export function makeAvmContractDBCheckpointActionCreateCheckpointHint(seed = 0): AvmContractDBCreateCheckpointHint {
-  return new AvmContractDBCreateCheckpointHint(
+export function makeAvmContractDBCheckpointActionCreateCheckpointHint(seed = 0): AvmContractDbCreateCheckpointHint {
+  return new AvmContractDbCreateCheckpointHint(
     /*actionCounter=*/ seed,
     /*oldCheckpointId=*/ seed + 1,
     /*newCheckpointId=*/ seed + 2,
   );
 }
 
-export function makeAvmContractDBCheckpointActionCommitCheckpointHint(seed = 0): AvmContractDBCommitCheckpointHint {
-  return new AvmContractDBCommitCheckpointHint(
+export function makeAvmContractDBCheckpointActionCommitCheckpointHint(seed = 0): AvmContractDbCommitCheckpointHint {
+  return new AvmContractDbCommitCheckpointHint(
     /*actionCounter=*/ seed,
     /*oldCheckpointId=*/ seed + 1,
     /*newCheckpointId=*/ seed + 2,
   );
 }
 
-export function makeAvmContractDBCheckpointActionRevertCheckpointHint(seed = 0): AvmContractDBRevertCheckpointHint {
-  return new AvmContractDBRevertCheckpointHint(
+export function makeAvmContractDBCheckpointActionRevertCheckpointHint(seed = 0): AvmContractDbRevertCheckpointHint {
+  return new AvmContractDbRevertCheckpointHint(
     /*actionCounter=*/ seed,
     /*oldCheckpointId=*/ seed + 1,
     /*newCheckpointId=*/ seed + 2,
