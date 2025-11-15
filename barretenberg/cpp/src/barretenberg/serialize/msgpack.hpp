@@ -147,14 +147,24 @@ inline constexpr std::string camel_case(std::string_view name)
     return result;
 }
 
+// Helper to unwrap reference_wrappers or pass through values
+template <typename T> constexpr decltype(auto) unwrap_ref(T& t)
+{
+    if constexpr (requires { t.get(); }) {
+        return t.get();
+    } else {
+        return t;
+    }
+}
+
 } // namespace msgpack_detail
 
 // Same as MSGPACK_FIELDS but expecting the serialized names to be in camelCase.
-// NOTE: We create an intermediate variable because `pack_fn` requires lvalues, and since `camel_case` returns a
-// std::string things get weird.
+// NOTE: We use std::ref for fields to preserve references, store strings as values,
+// then unwrap reference_wrappers to get actual references while keeping strings as-is.
 #define MSGPACK_CAMEL_CASE_FIELDS(...)                                                                                 \
     void msgpack(auto pack_fn)                                                                                         \
     {                                                                                                                  \
-        auto args = std::make_tuple(NVPFG(::msgpack_detail::camel_case, , __VA_ARGS__));                               \
-        std::apply(pack_fn, args);                                                                                     \
+        auto temp_args = std::make_tuple(NVPFG(::msgpack_detail::camel_case, std::ref, __VA_ARGS__));                  \
+        std::apply([&](auto&... args) { pack_fn(::msgpack_detail::unwrap_ref(args)...); }, temp_args);                 \
     }
