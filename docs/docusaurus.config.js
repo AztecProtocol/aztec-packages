@@ -20,9 +20,9 @@ const macros = require("./src/katex-macros.js");
 const versions = require("./versions.json");
 
 // Find specific versions dynamically to avoid array index issues
-const nightlyVersion = versions.find(v => v.includes("nightly"));
-const devnetVersion = versions.find(v => v.includes("devnet"));
-const ignitionVersion = versions.find(v => v.includes("ignition"));
+const nightlyVersion = versions.find((v) => v.includes("nightly"));
+const devnetVersion = versions.find((v) => v.includes("devnet"));
+const ignitionVersion = versions.find((v) => v.includes("ignition"));
 
 const config = {
   title: "Privacy-first zkRollup | Aztec Documentation",
@@ -94,8 +94,8 @@ const config = {
               label: "Testnet (v2.1.4)",
               banner: "none",
             },
-            "v2.1.4-ignition": {
-              label: "Ignition (v2.1.4)",
+            "v2.1.5-ignition": {
+              label: "Ignition (v2.1.5)",
               banner: "none",
             },
             ...(process.env.CONTEXT !== "production" && {
@@ -139,7 +139,9 @@ const config = {
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
-        docsDir: devnetVersion ? `versioned_docs/version-${devnetVersion}/` : `versioned_docs/version-${versions[0]}/`,
+        docsDir: devnetVersion
+          ? `versioned_docs/version-${devnetVersion}/`
+          : `versioned_docs/version-${versions[0]}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
         version: devnetVersion || versions[0],
