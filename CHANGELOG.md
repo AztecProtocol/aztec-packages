@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.6](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.5...v2.1.6) (2025-11-16)
+
+
+### Bug Fixes
+
+* Bump failed viem install ([#18444](https://github.com/AztecProtocol/aztec-packages/issues/18444)) ([2c1ba82](https://github.com/AztecProtocol/aztec-packages/commit/2c1ba82632f6ae4f72e716bfb2591e5db19e79d9))
+
+
+### Miscellaneous
+
+* fix helm from cache ([#18446](https://github.com/AztecProtocol/aztec-packages/issues/18446)) ([1074b96](https://github.com/AztecProtocol/aztec-packages/commit/1074b9640f2342f98d71dd04ffb2304f28a977e8))
+
 ## [2.1.5](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.4...v2.1.5) (2025-11-15)
 
 
