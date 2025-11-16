@@ -11,6 +11,9 @@
   "../bb-pilcom/powdr": {
     "rev": "c3006c11819d9b53fb183c9c12a10b83481bb631"
   },
+  "../noir/noir-repo": {
+    "rev": "1fce7cac1b6b116b6af98875580b5122eb9fe051"
+  },
   "lib/circuits": {
     "rev": "e47bcd526f5e38f9603d07d0791984ec53efd254"
   },

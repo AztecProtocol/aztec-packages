@@ -379,13 +379,10 @@ function release {
     boxes
     aztec-up
     playground
-    # docs # released as part of ci
     release-image
   )
   if [ $(arch) == arm64 ]; then
-    echo "Only releasing packages with platform-specific binaries on arm64."
     projects=(
-      barretenberg/cpp
       release-image
     )
   fi

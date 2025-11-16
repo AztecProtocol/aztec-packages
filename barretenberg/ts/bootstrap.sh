@@ -52,7 +52,12 @@ function test {
 }
 
 function release {
+  cross_copy
   retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
+}
+
+function cross_copy {
+  ./scripts/copy_cross.sh
 }
 
 case "$cmd" in
