@@ -1,6 +1,5 @@
 #pragma once
 
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -27,7 +26,7 @@ namespace bb::avm2::simulation {
 struct TxExecutionResult {
     GasUsed gas_used;
     RevertCode revert_code = RevertCode::OK;
-    std::optional<std::vector<FF>> app_logic_return_value;
+    std::vector<CallStackMetadata> app_logic_return_values;
 };
 
 // In charge of executing a transaction.

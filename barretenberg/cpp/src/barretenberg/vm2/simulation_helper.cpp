@@ -453,11 +453,11 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
         // Simulation.
         .gas_used = tx_execution_result.gas_used,
         .revert_code = tx_execution_result.revert_code,
-        .app_logic_return_value = tx_execution_result.app_logic_return_value,
+        .app_logic_return_values = std::move(tx_execution_result.app_logic_return_values),
         .logs = debug_log_component->dump_logs(),
         // Proving request data.
         .public_inputs = public_inputs_builder.build(),
-        .hints = std::nullopt, // TODO: add execution hints, optionally.
+        .hints = std::nullopt, // NOTE: hints are injected by the caller.
     };
 }
 
