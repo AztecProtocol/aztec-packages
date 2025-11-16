@@ -162,8 +162,12 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                 // This call should not throw unless it's an unexpected unrecoverable failure.
                 EnqueuedCallResult result = call_execution.execute(std::move(context));
                 tx_context.gas_used = result.gas_used;
-                app_logic_return_values.push_back(
-                    CallStackMetadata{ .calldata = call.calldata, .values = std::move(result.output) });
+
+                if (collect_call_metadata) {
+                    app_logic_return_values.push_back(
+                        CallStackMetadata{ .calldata = call.calldata, .values = std::move(result.output) });
+                }
+
                 emit_public_call_request(call,
                                          TransactionPhase::APP_LOGIC,
                                          /*transaction_fee=*/FF(0),

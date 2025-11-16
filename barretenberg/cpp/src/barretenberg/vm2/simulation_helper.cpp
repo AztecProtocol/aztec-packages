@@ -433,7 +433,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                              side_effect_tracker,
                              field_gt,
                              poseidon2,
-                             tx_event_emitter);
+                             tx_event_emitter,
+                             config.collect_call_metadata);
 
     PublicInputsBuilder public_inputs_builder;
     public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, config.prover_id, raw_merkle_db);
