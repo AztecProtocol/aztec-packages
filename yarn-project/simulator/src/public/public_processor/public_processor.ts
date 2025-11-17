@@ -34,7 +34,6 @@ import {
   type ProcessedTx,
   StateReference,
   Tx,
-  TxExecutionPhase,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/stdlib/tx';
@@ -522,21 +521,13 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { hints, publicInputs, gasUsed, revertCode, revertReason, processedPhases } =
+    const { hints, publicInputs, gasUsed, revertCode, revertReason, appLogicReturnValues } =
       await this.publicTxSimulator.simulate(tx);
 
     if (!hints) {
       this.metrics.recordFailedTx();
       throw new Error('Avm proving result was not generated.');
     }
-
-    processedPhases?.forEach(phase => {
-      if (phase.reverted) {
-        this.metrics.recordRevertedPhase(phase.phase);
-      } else {
-        this.metrics.recordPhaseDuration(phase.phase, phase.durationMs ?? 0);
-      }
-    });
 
     const contractClassLogs = revertCode.isOK()
       ? tx.getContractClassLogs()
@@ -547,7 +538,8 @@ export class PublicProcessor implements Traceable {
         .map(log => ContractClassPublishedEvent.fromLog(log)),
     );
 
-    const phaseCount = processedPhases?.length ?? 0;
+    // TODO(fcarreiro): remove phase count metric.
+    const phaseCount = 1;
     const durationMs = timer.ms();
     this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
 
@@ -559,9 +551,7 @@ export class PublicProcessor implements Traceable {
       revertReason,
     );
 
-    const returnValues = processedPhases?.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
-
-    return [processedTx, returnValues];
+    return [processedTx, appLogicReturnValues ?? []];
   }
 
   /**
