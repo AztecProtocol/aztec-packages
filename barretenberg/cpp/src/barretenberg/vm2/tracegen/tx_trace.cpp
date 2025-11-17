@@ -331,7 +331,7 @@ std::vector<std::pair<C, FF>> handle_enqueued_call_event(const EnqueuedCallEvent
              { C::tx_msg_sender, event.msg_sender },
              { C::tx_contract_addr, event.contract_address },
              { C::tx_fee, event.transaction_fee },
-             { C::tx_is_static, event.is_static },
+             { C::tx_is_static, event.is_static ? 1 : 0 },
              { C::tx_calldata_size, event.calldata_size },
              { C::tx_calldata_hash, event.calldata_hash },
              { C::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.da_gas },
@@ -357,7 +357,7 @@ std::vector<std::pair<C, FF>> handle_note_hash_append(const PrivateAppendTreeEve
         { C::tx_leaf_value, event.leaf_value },
         { C::tx_remaining_side_effects_inv, remaining_note_hashes }, // Will be inverted in batch later
         { C::tx_should_try_note_hash_append, 1 },
-        { C::tx_should_note_hash_append, remaining_note_hashes > 0 },
+        { C::tx_should_note_hash_append, remaining_note_hashes > 0 ? 1 : 0 },
     };
 }
 
@@ -420,7 +420,7 @@ std::vector<std::pair<C, FF>> handle_l2_l1_msg_event(const PrivateEmitL2L1Messag
     return {
         { C::tx_should_try_l2_l1_msg_append, 1 },
         { C::tx_remaining_side_effects_inv, remaining_l2_to_l1_msgs }, // Will be inverted in batch later
-        { C::tx_should_l2_l1_msg_append, remaining_l2_to_l1_msgs > 0 },
+        { C::tx_should_l2_l1_msg_append, remaining_l2_to_l1_msgs > 0 ? 1 : 0 },
         { C::tx_l2_l1_msg_contract_address, event.scoped_msg.contract_address },
         { C::tx_l2_l1_msg_recipient, event.scoped_msg.message.recipient },
         { C::tx_l2_l1_msg_content, event.scoped_msg.message.content },

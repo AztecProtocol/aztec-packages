@@ -18,7 +18,7 @@ namespace tx; // virtual to tx.pil
     #[skippable_if]
     sel = 0; // from tx.pil.
 
-    pol commit discard;
+    pol commit discard; // @boolean
     discard * (1 - discard) = 0;
 
     // If discard == 1, is_revertible must be 1
@@ -26,7 +26,7 @@ namespace tx; // virtual to tx.pil
     #[CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES]
     discard * (1 - is_revertible) = 0;
 
-    // If failure == 1, discard must be 1
+    // If reverted == 1, discard must be 1
     #[FAILURE_MUST_DISCARD]
     reverted * (1 - discard) = 0;
 

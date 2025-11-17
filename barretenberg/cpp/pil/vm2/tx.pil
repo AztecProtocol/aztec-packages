@@ -23,7 +23,7 @@ include "ff_gt.pil";
 
 namespace tx;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
     #[skippable_if]
     sel = 0;
@@ -35,15 +35,13 @@ namespace tx;
     #[NO_EXTRANEOUS_ROWS]
     (1 - sel) * sel' * (1 - precomputed.first_row) = 0;
     // You MUST turn on sel after the first row
-    #[SEL_ON_FIRST_ROW]
-    precomputed.first_row * (1 - sel') = 0;
 
     // Sel can only become off after the last phase (cleanup)
     #[NO_EARLY_END]
     sel * (1 - sel') * (phase_value - constants.AVM_TX_PHASE_VALUE_LAST) = 0;
 
     // Most of transaction initial constraints are in tx_context.pil
-    pol commit start_tx; // @boolean
+    pol commit start_tx; // @boolean by definition
     #[START_WITH_SEL]
     start_tx' = precomputed.first_row;
 
@@ -52,14 +50,14 @@ namespace tx;
     // A padded row exists for a phase (refer to a to f above for the phases) that is unused for this transaction
     // This means that the length of values to read for it is 0. We still need to perform some check to prevent
     // malicious skipping of valid phases.
-    pol commit is_padded;
+    pol commit is_padded; // @boolean
     is_padded * (1 - is_padded) = 0;
     // A padded row can't revert
     is_padded * reverted = 0;
 
-    pol commit start_phase;
+    pol commit start_phase; // @boolean
     start_phase * (1 - start_phase) = 0;
-    pol commit end_phase;
+    pol commit end_phase; // @boolean
     end_phase * (1 - end_phase) = 0;
 
     pol NOT_LAST = sel' * sel; // Could probably use a different condition (i.e. COLLECT_GAS is last row - save this for optimisation)
@@ -78,9 +76,9 @@ namespace tx;
     sel' * (start_phase' - end_phase - precomputed.first_row) = 0;
 
     // end_phase = 1, remaining_phase - 1 = 0;
-    pol commit is_revertible;
+    pol commit is_revertible; // @boolean (on any active row guaranteed by #[READ_PHASE_SPEC])
     // Whether this phase reverted
-    pol commit reverted;
+    pol commit reverted; // @boolean
     reverted * (1 - reverted) = 0;
     #[END_PHASE_ON_REVERT]
     reverted * (1 - end_phase) = 0;
@@ -103,7 +101,6 @@ namespace tx;
 
     pol commit remaining_phase_inv;
     pol commit remaining_phase_counter;
-    pol commit remaining_phase_minus_one_inv;
     // If remaining_phase_counter == 0, is_padded = 1
     // Leaves end_phase unconstrained but the prover has no choice since if he doesn't activate end_phase
     // remaining_phase_counter will become p-1 and he'll never be able to complete a run.
@@ -111,6 +108,7 @@ namespace tx;
     sel * (remaining_phase_counter * (is_padded * (1 - remaining_phase_inv) + remaining_phase_inv) - 1 + is_padded) = 0;
 
     pol REM_COUNT_MINUS_1 = remaining_phase_counter - 1;
+    pol commit remaining_phase_minus_one_inv;
     // If remaining_phase_counter == 1, end_phase = 1
     #[REM_COUNT_IS_ONE]
     sel * (1 - reverted) * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
@@ -190,7 +188,7 @@ namespace tx;
 
     pol IS_ONE_SHOT_PHASE = is_collect_fee + is_tree_padding + is_cleanup;
 
-    pol commit sel_read_phase_length;
+    pol commit sel_read_phase_length; // @boolean (follows from definition)
     // Read length if start phase and not one shot phase
     #[READ_PI_LENGTH_SEL]
     sel_read_phase_length = start_phase * (1 - IS_ONE_SHOT_PHASE);
@@ -213,10 +211,11 @@ namespace tx;
     NOT_PHASE_END * (read_pi_offset' - (read_pi_offset + 1)) = 0;
 
     // === Public Call Request Phase ===
-    pol commit is_public_call_request;
+    pol commit is_public_call_request; // @boolean (follows from #[READ_PHASE_SPEC] and #[SEL_ACTIVE_ON_PUBLIC_CALL_REQUEST])
     pol commit msg_sender;
     pol commit contract_addr;
-    pol commit is_static;
+    pol commit is_static; // @boolean
+    is_static * (1 - is_static) = 0;
     pol commit calldata_size;
     pol commit calldata_hash;
 
@@ -249,11 +248,10 @@ namespace tx;
         public_inputs.cols[3]
     };
 
-    pol commit should_process_call_request;
+    pol commit should_process_call_request; // @boolean (follows from definition)
     should_process_call_request = is_public_call_request * (1 - is_padded);
 
-    pol commit is_teardown;
-    is_teardown * (1 - is_teardown) = 0;
+    pol commit is_teardown; // @boolean (on active row guaranteed by #[READ_PHASE_SPEC])
 
     pol commit prev_l2_gas_used_sent_to_enqueued_call;
     pol commit prev_da_gas_used_sent_to_enqueued_call;
@@ -390,14 +388,17 @@ namespace tx;
     };
 
     // === PRIVATE SIDE EFFECT INSERTIONS ===
-    pol commit sel_revertible_append_note_hash;
-    pol commit sel_non_revertible_append_note_hash;
-    pol commit sel_revertible_append_nullifier;
-    pol commit sel_non_revertible_append_nullifier;
-    pol commit sel_revertible_append_l2_l1_msg;
-    pol commit sel_non_revertible_append_l2_l1_msg;
+    pol commit sel_revertible_append_note_hash; // @boolean
+    pol commit sel_non_revertible_append_note_hash; // @boolean
+    pol commit sel_revertible_append_nullifier; // @boolean
+    pol commit sel_non_revertible_append_nullifier; // @boolean
+    pol commit sel_revertible_append_l2_l1_msg; // @boolean
+    pol commit sel_non_revertible_append_l2_l1_msg; // @boolean
+    // The 6 above selectors are booleans thanks to #[READ_PHASE_SPEC] and #[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS].
+    // Furthermore, phase spec guarantees that they are mutually exclusive.
+
     // A tree selector means we need to get the tree value
-    pol commit is_tree_insert_phase;
+    pol commit is_tree_insert_phase; // @boolean (follows from mutual exclusivity of the 6 above selectors)
     is_tree_insert_phase = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
     pol commit leaf_value;
     // Shared column to track the inverse of the remaining side effects for note hashes, nullifiers and l2 to l1 messages
@@ -410,7 +411,7 @@ namespace tx;
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     // ===== NOTE HASHES =====
-    pol commit should_try_note_hash_append;
+    pol commit should_try_note_hash_append; // @boolean (follows from definition)
     should_try_note_hash_append = (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
 
     // If we are at the maximum emitted note hashes, we must revert
@@ -420,7 +421,7 @@ namespace tx;
     should_try_note_hash_append * (REMAINING_NOTE_HASH_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
 
     // Commited since it's used in the lookup
-    pol commit should_note_hash_append;
+    pol commit should_note_hash_append; // @boolean (follows from definition)
     should_note_hash_append = should_try_note_hash_append * (1 - reverted);
 
     #[NOTE_HASH_APPEND]
@@ -450,10 +451,10 @@ namespace tx;
     should_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
 
     // ===== NULLIFIERS =====
-    pol commit should_try_nullifier_append;
+    pol commit should_try_nullifier_append; // @boolean (follows from definition)
     should_try_nullifier_append = (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
 
-    pol commit nullifier_limit_error;
+    pol commit nullifier_limit_error; // @boolean
     nullifier_limit_error * (1 - nullifier_limit_error) = 0;
 
     // If we are at the maximum emitted nullifiers, we must disable the lookup
@@ -465,7 +466,7 @@ namespace tx;
     // If over the limit, reverted=1, else, reverted is constrained by the lookup
     should_try_nullifier_append * nullifier_limit_error * (1 - reverted) = 0;
 
-    pol commit should_nullifier_append;
+    pol commit should_nullifier_append; // @boolean (follows from definition)
     should_nullifier_append = should_try_nullifier_append * (1 - nullifier_limit_error);
 
     #[NULLIFIER_APPEND]
@@ -495,7 +496,7 @@ namespace tx;
     should_nullifier_append * (1 - reverted) * (prev_num_nullifiers_emitted + 1 - next_num_nullifiers_emitted) = 0;
 
     // ===== L2 - L1 Messages =====
-    pol commit should_try_l2_l1_msg_append;
+    pol commit should_try_l2_l1_msg_append; // @boolean (follows from definition)
     should_try_l2_l1_msg_append = (1 - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
 
     pol commit l2_l1_msg_contract_address;
@@ -512,7 +513,7 @@ namespace tx;
     #[MAX_L2_L1_MSG_WRITES_REACHED]
     should_try_l2_l1_msg_append * (REMAINING_L2_TO_L1_MSG_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
 
-    pol commit should_l2_l1_msg_append;
+    pol commit should_l2_l1_msg_append; // @boolean (follows from definition)
     // A msg emit must be written to PI if it didn't revert, and is not discard.
     should_l2_l1_msg_append = should_try_l2_l1_msg_append * (1 - reverted) * (1 - discard);
     // discard is from tx_discard.pil virtual trace
@@ -528,7 +529,7 @@ namespace tx;
     should_try_l2_l1_msg_append * (1 - reverted) * (prev_num_l2_to_l1_messages + 1 - next_num_l2_to_l1_messages) = 0;
 
     // Collect Gas
-    pol commit is_collect_fee;
+    pol commit is_collect_fee; // @boolean (follows from #[READ_PHASE_SPEC] and #[SEL_ACTIVE_ON_COLLECT_FEE])
     pol commit effective_fee_per_da_gas;
     pol commit effective_fee_per_l2_gas;
 
@@ -640,7 +641,7 @@ namespace tx;
     in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     // ===== TREE PADDING =====
-    pol commit is_tree_padding;
+    pol commit is_tree_padding; // @boolean (on active rows follows from #[READ_PHASE_SPEC])
 
     // Roots and num emitted don't change, only size changes.
     // Necessary since we are allowed in this phase to change tree roots, sizes and emitted counts.
@@ -659,4 +660,4 @@ namespace tx;
 
     // ===== CLEANUP =====
     // Most constraints for this phase are located in tx_context.pil
-    pol commit is_cleanup;
+    pol commit is_cleanup; // @boolean (follows from #[READ_PHASE_SPEC] and #[SEL_ACTIVE_ON_CLEANUP])

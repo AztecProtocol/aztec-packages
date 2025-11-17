@@ -38,7 +38,7 @@ using tx_context = bb::avm2::tx_context<FF>;
 
 TEST(TxExecutionConstrainingTest, NegativeEmptyTrace)
 {
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(testing::empty_trace()), "SEL_ON_FIRST_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(testing::empty_trace()), "START_WITH_SEL");
 }
 
 TEST(TxExecutionConstrainingTest, NegativeEarlyEnd)

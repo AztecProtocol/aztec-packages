@@ -142,7 +142,7 @@ namespace tx;
 
     // Gas limit is read twice, but not on start and end, but rather on start and teardown.
     // On start we read the general tx gas limit, and on teardown we read the teardown gas limit.
-    pol commit should_read_gas_limit;
+    pol commit should_read_gas_limit; // @boolean (follows from definition and mutual exclusivity of start_tx and is_teardown)
     should_read_gas_limit = start_tx + is_teardown;
 
     #[PUBLIC_INPUTS_READ_GAS_LIMIT]
@@ -159,7 +159,7 @@ namespace tx;
     // Read reverted from PI
 
     // Whether this tx reverted
-    pol commit tx_reverted;
+    pol commit tx_reverted; // @boolean (on active rows due to #[INIT_TX_REVERTED] and #[TX_REVERTED_CONTINUITY])
     #[INIT_TX_REVERTED]
     start_tx * (reverted - tx_reverted) = 0;
     // If reverted == 1, tx_reverted == 1, otherwise it must be continuous (see #[TX_REVERTED_CONTINUITY])
@@ -298,11 +298,12 @@ namespace tx;
     NOT_LAST_ROW * (1 - is_teardown') * (da_gas_limit - da_gas_limit') = 0;
 
     // Selectors to allow prev => next state changes on the different phases
-    pol commit sel_can_emit_note_hash;
-    pol commit sel_can_emit_nullifier;
-    pol commit sel_can_write_public_data;
-    pol commit sel_can_emit_unencrypted_log;
-    pol commit sel_can_emit_l2_l1_msg;
+    pol commit sel_can_emit_note_hash; // @boolean
+    pol commit sel_can_emit_nullifier; // @boolean
+    pol commit sel_can_write_public_data; // @boolean
+    pol commit sel_can_emit_unencrypted_log; // @boolean
+    pol commit sel_can_emit_l2_l1_msg; // @boolean
+    // The 5 above selectors are booleans on active rows due to #[READ_PHASE_SPEC].
 
 
     #[NOTE_HASH_ROOT_IMMUTABILITY]
@@ -375,7 +376,8 @@ namespace tx;
     #[DA_GAS_USED_IMMUTABILITY]
     (1 - should_process_call_request) * (prev_da_gas_used - next_da_gas_used) = 0;
 
-    // Write end counters to PI
+
+    // ===== WRITE END COUNTERS TO PI =====
 
     // Write note hash count to PI
     pol commit array_length_note_hashes_pi_offset;

@@ -14,9 +14,9 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 68> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 4, 3, 4, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 6, 3, 5, 7, 3, 3, 3, 3, 3, 3, 3, 5, 3, 5, 3, 3, 4, 4, 4,
-        4, 2, 3, 5, 3, 3, 3, 3, 3, 5, 4, 3, 4, 4, 3, 5, 4, 3, 4, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+    static constexpr std::array<size_t, 67> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 4, 4, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 6, 3, 5, 7, 3, 3, 3, 3, 3, 3, 3, 5, 3, 5, 3, 3, 4, 4, 4, 4,
+        2, 3, 5, 3, 3, 3, 3, 3, 5, 4, 3, 4, 4, 3, 5, 4, 3, 4, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -39,48 +39,45 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_NO_EXTRANEOUS_ROWS = 1;
-    static constexpr size_t SR_SEL_ON_FIRST_ROW = 2;
-    static constexpr size_t SR_NO_EARLY_END = 3;
-    static constexpr size_t SR_START_WITH_SEL = 4;
-    static constexpr size_t SR_SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS = 9;
-    static constexpr size_t SR_START_PHASE_VALUE_INITIALIZATION = 10;
-    static constexpr size_t SR_START_FOLLOWS_END = 11;
-    static constexpr size_t SR_END_PHASE_ON_REVERT = 13;
-    static constexpr size_t SR_PHASE_VALUE_CONTINUITY = 14;
-    static constexpr size_t SR_INCR_PHASE_VALUE_ON_END = 15;
-    static constexpr size_t SR_REM_COUNT_IS_ZERO = 17;
-    static constexpr size_t SR_REM_COUNT_IS_ONE = 18;
-    static constexpr size_t SR_IS_PADDED_END_PHASE = 19;
-    static constexpr size_t SR_SEL_ACTIVE_ON_PUBLIC_CALL_REQUEST = 20;
-    static constexpr size_t SR_SEL_ACTIVE_ON_COLLECT_FEE = 21;
-    static constexpr size_t SR_SEL_ACTIVE_ON_CLEANUP = 22;
-    static constexpr size_t SR_PHASE_JUMP_ON_REVERT = 23;
-    static constexpr size_t SR_READ_PI_LENGTH_SEL = 24;
-    static constexpr size_t SR_ONE_SHOT_REMAINING_PHASE_COUNTER_ONE = 25;
-    static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 26;
-    static constexpr size_t SR_READ_PI_OFFSET_INIT = 27;
-    static constexpr size_t SR_INCR_READ_PI_OFFSET = 28;
-    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 37;
-    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 43;
-    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 49;
-    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 52;
-    static constexpr size_t SR_COMPUTE_FEE = 54;
-    static constexpr size_t SR_TEARDOWN_GETS_FEE = 55;
-    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 56;
-    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING = 62;
-    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 63;
-    static constexpr size_t SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING = 64;
-    static constexpr size_t SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING = 65;
-    static constexpr size_t SR_PAD_NULLIFIER_TREE = 66;
-    static constexpr size_t SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING = 67;
+    static constexpr size_t SR_NO_EARLY_END = 2;
+    static constexpr size_t SR_START_WITH_SEL = 3;
+    static constexpr size_t SR_SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS = 8;
+    static constexpr size_t SR_START_PHASE_VALUE_INITIALIZATION = 9;
+    static constexpr size_t SR_START_FOLLOWS_END = 10;
+    static constexpr size_t SR_END_PHASE_ON_REVERT = 12;
+    static constexpr size_t SR_PHASE_VALUE_CONTINUITY = 13;
+    static constexpr size_t SR_INCR_PHASE_VALUE_ON_END = 14;
+    static constexpr size_t SR_REM_COUNT_IS_ZERO = 16;
+    static constexpr size_t SR_REM_COUNT_IS_ONE = 17;
+    static constexpr size_t SR_IS_PADDED_END_PHASE = 18;
+    static constexpr size_t SR_SEL_ACTIVE_ON_PUBLIC_CALL_REQUEST = 19;
+    static constexpr size_t SR_SEL_ACTIVE_ON_COLLECT_FEE = 20;
+    static constexpr size_t SR_SEL_ACTIVE_ON_CLEANUP = 21;
+    static constexpr size_t SR_PHASE_JUMP_ON_REVERT = 22;
+    static constexpr size_t SR_READ_PI_LENGTH_SEL = 23;
+    static constexpr size_t SR_ONE_SHOT_REMAINING_PHASE_COUNTER_ONE = 24;
+    static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 25;
+    static constexpr size_t SR_READ_PI_OFFSET_INIT = 26;
+    static constexpr size_t SR_INCR_READ_PI_OFFSET = 27;
+    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 36;
+    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 42;
+    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 48;
+    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 51;
+    static constexpr size_t SR_COMPUTE_FEE = 53;
+    static constexpr size_t SR_TEARDOWN_GETS_FEE = 54;
+    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 55;
+    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING = 61;
+    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 62;
+    static constexpr size_t SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING = 63;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING = 64;
+    static constexpr size_t SR_PAD_NULLIFIER_TREE = 65;
+    static constexpr size_t SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING = 66;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
         case SR_NO_EXTRANEOUS_ROWS:
             return "NO_EXTRANEOUS_ROWS";
-        case SR_SEL_ON_FIRST_ROW:
-            return "SEL_ON_FIRST_ROW";
         case SR_NO_EARLY_END:
             return "NO_EARLY_END";
         case SR_START_WITH_SEL:
