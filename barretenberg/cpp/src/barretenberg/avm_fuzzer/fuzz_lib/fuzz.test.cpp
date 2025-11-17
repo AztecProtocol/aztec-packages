@@ -819,9 +819,9 @@ TEST(fuzz, SstoreThenSload)
     // M[10] = 10
     auto set_value_instruction = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 10, .value = 10 };
     // S[10] = M[10]
-    auto sstore_instruction = SSTORE_Instruction{ .untagged_src_offset_index = 0, .untagged_slot_offset_index = 0 };
+    auto sstore_instruction = SSTORE_Instruction{ .src_offset_index = 0, .slot_offset_index = 0 };
     // M[2] = S[10], FF tag
-    auto sload_instruction = SLOAD_Instruction{ .untagged_slot_offset_index = 0, .result_offset = 2 };
+    auto sload_instruction = SLOAD_Instruction{ .slot_offset_index = 0, .result_offset = 2 };
     // M[10] = 11
     auto set_value_instruction2 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 10, .value = 11 };
 

@@ -633,8 +633,8 @@ void ProgramBlock::process_cast_16_instruction(CAST_16_Instruction instruction)
 
 void ProgramBlock::process_sstore_instruction(SSTORE_Instruction instruction)
 {
-    auto src_addr = memory_manager.get_untagged_address(instruction.untagged_src_offset_index);
-    auto slot_addr = memory_manager.get_untagged_address(instruction.untagged_slot_offset_index);
+    auto src_addr = memory_manager.get_memory_offset_16_bit(bb::avm2::MemoryTag::FF, instruction.src_offset_index);
+    auto slot_addr = memory_manager.get_memory_offset_16_bit(bb::avm2::MemoryTag::FF, instruction.slot_offset_index);
     if (!src_addr.has_value() || !slot_addr.has_value()) {
         return;
     }
@@ -648,7 +648,7 @@ void ProgramBlock::process_sstore_instruction(SSTORE_Instruction instruction)
 
 void ProgramBlock::process_sload_instruction(SLOAD_Instruction instruction)
 {
-    auto slot_addr = memory_manager.get_untagged_address(instruction.untagged_slot_offset_index);
+    auto slot_addr = memory_manager.get_memory_offset_16_bit(bb::avm2::MemoryTag::FF, instruction.slot_offset_index);
     if (!slot_addr.has_value()) {
         return;
     }

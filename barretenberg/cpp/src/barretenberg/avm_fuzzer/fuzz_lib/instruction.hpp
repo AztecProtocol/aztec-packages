@@ -388,16 +388,16 @@ struct CAST_16_Instruction {
 
 /// @brief SSTORE: S[M[slotOffset]] = M[srcOffset]
 struct SSTORE_Instruction {
-    uint16_t untagged_src_offset_index;
-    uint16_t untagged_slot_offset_index;
-    MSGPACK_FIELDS(untagged_src_offset_index, untagged_slot_offset_index);
+    uint16_t src_offset_index;
+    uint16_t slot_offset_index;
+    MSGPACK_FIELDS(src_offset_index, slot_offset_index);
 };
 
 /// @brief SLOAD: M[result_offset] = S[M[slotOffset]]
 struct SLOAD_Instruction {
-    uint16_t untagged_slot_offset_index;
+    uint16_t slot_offset_index;
     uint16_t result_offset;
-    MSGPACK_FIELDS(untagged_slot_offset_index, result_offset);
+    MSGPACK_FIELDS(slot_offset_index, result_offset);
 };
 
 using FuzzInstruction = std::variant<ADD_8_Instruction,
@@ -604,11 +604,10 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                           << arg.dst_offset;
                    },
                    [&](SSTORE_Instruction arg) {
-                       os << "SSTORE_Instruction " << arg.untagged_src_offset_index << " "
-                          << arg.untagged_slot_offset_index;
+                       os << "SSTORE_Instruction " << arg.src_offset_index << " " << arg.slot_offset_index;
                    },
                    [&](SLOAD_Instruction arg) {
-                       os << "SLOAD_Instruction " << arg.untagged_slot_offset_index << " " << arg.result_offset;
+                       os << "SLOAD_Instruction " << arg.slot_offset_index << " " << arg.result_offset;
                    },
                    [&](auto) { os << "Unknown instruction"; },
                },
