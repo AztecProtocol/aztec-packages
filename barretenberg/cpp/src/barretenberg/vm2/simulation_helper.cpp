@@ -444,7 +444,9 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     TxExecutionResult tx_execution_result = tx_execution.simulate(tx);
 
     public_inputs_builder.extract_outputs(raw_merkle_db,
-                                          tx_execution_result.gas_used.total_gas,
+                                          // TODO(MW): Use of billed_gas is a bit misleading - we want public + private
+                                          // - teardown, which is stored as billed gas here/in ts:
+                                          tx_execution_result.gas_used.billed_gas,
                                           tx_execution_result.transaction_fee,
                                           tx_execution_result.revert_code != RevertCode::OK,
                                           side_effect_tracker.get_side_effects());

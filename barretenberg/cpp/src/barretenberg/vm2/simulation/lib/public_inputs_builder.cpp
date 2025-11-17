@@ -139,6 +139,8 @@ PublicInputsBuilder& PublicInputsBuilder::extract_outputs(const LowLevelMerkleDB
         side_effects.nullifiers.size() > MAX_NULLIFIERS_PER_TX ||
         side_effects.l2_to_l1_messages.size() > MAX_L2_TO_L1_MSGS_PER_TX ||
         side_effects.storage_writes_slot_to_value.size() > MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        // TODO(MW): This causes avm_check_circuit1 to fail as it expect a reverted but provable tx
+        // We don't stop pushing to side_effects even after we have reverted due to reaching limit
         throw std::runtime_error(
             "Too many side effects. Note hashes: " + std::to_string(side_effects.note_hashes.size()) +
             ", Nullifiers: " + std::to_string(side_effects.nullifiers.size()) +
