@@ -1,11 +1,15 @@
 include "public_inputs.pil";
-include "execution.pil";
 include "precomputed.pil";
+include "constants_gen.pil";
+include "execution.pil";
 include "trees/note_hash_tree_check.pil";
+include "trees/nullifier_check.pil";
+include "trees/public_data_check.pil";
 include "poseidon2_hash.pil";
 include "calldata_hashing.pil";
 include "tx_context.pil";
 include "tx_discard.pil";
+include "ff_gt.pil";
 
 // Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
 // The tx trace manages the various phases that a transaction will undergo while it is being executed.
