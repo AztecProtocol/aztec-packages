@@ -4,16 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_refname
 source $ci3/source_redis
 
-case "${1:-}" in
-  "ci")
-    # Forces yarn immutability, jest snapshot immutability, etc.
-    export CI=1
-    # Being in CI implies use of cache, and enables denoising.
-    export DENOISE=${DENOISE:-1}
-    ;;
-  "full")
-    export NO_CACHE=${NO_CACHE:-1}
-    ;;
+cmd=${1:-}
+[ -n "$cmd" ] && shift
+
+case "$cmd" in
   release)
     if ! semver check $REF_NAME; then
       echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
@@ -23,3 +17,20 @@ case "${1:-}" in
     set -x
     ;;
 esac
+
+# Default clean function available to all bootstrap scripts.
+function clean {
+  git clean -fdx
+  exit 0
+}
+
+# Default command handler available to all bootstrap scripts.
+# If the bootstrap scripts command handler doesn't specifically specify, we will execute a matching function.
+function default_cmd_handler {
+  if declare -f $cmd >/dev/null 2>&1; then
+    $cmd "$@"
+  else
+    echo "Unknown command: $cmd"
+    exit 1
+  fi
+}

@@ -61,7 +61,7 @@ export class PublicDataWrite {
     return new PublicDataWrite(reader.readField(), reader.readField());
   }
 
-  toBlobFields(): Fr[] {
+  toBlobFields(): [Fr, Fr] {
     return [this.leafSlot, this.value];
   }
 

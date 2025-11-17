@@ -2,24 +2,25 @@ import { commitmentToFields, computeBlobFieldsHash } from '@aztec/blob-lib';
 import { Fr } from '@aztec/foundation/fields';
 import { toInlineStrArray } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
-import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
-import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { buildBlobHints } from './block-building-helpers.js';
 
 describe('buildBlobHints', () => {
   it('correctly builds hints for 1 blob', async () => {
-    const txEffect0 = TxEffect.empty();
-    txEffect0.txHash = new TxHash(new Fr(42));
-    txEffect0.transactionFee = new Fr(0x2a);
-    txEffect0.nullifiers[0] = new Fr(0x123);
-    const txEffect1 = TxEffect.empty();
-    txEffect1.txHash = new TxHash(new Fr(43));
-    txEffect1.transactionFee = new Fr(0x3b);
-    txEffect1.noteHashes[0] = new Fr(0x6789);
-    txEffect1.nullifiers[0] = new Fr(0x45);
-    const blobFields = getCheckpointBlobFields([[txEffect0, txEffect1]]);
-    expect(blobFields.length).toBe(1 + 4 + 5 + 1); // +1 for the checkpoint prefix, +4 for txEffect0, +5 for txEffect1, +1 for block end marker.
+    // Only the first field needs to be the actual length of the blob fields. The rest is arbitrary.
+    const blobFields = [
+      new Fr(11),
+      Fr.fromString('0x00000074785f7374617274000000010000000000000000000000000000000004'),
+      new Fr(42),
+      new Fr(0x2a),
+      new Fr(0x123),
+      Fr.fromString('0x00000074785f7374617274000100010000000000000000000000000000000005'),
+      new Fr(43),
+      new Fr(0x3b),
+      new Fr(0x6789),
+      new Fr(0x45),
+      Fr.fromString('0x000000000000000000000000000000000000000000626c6f636b5f656e640002'),
+    ];
 
     const { blobCommitments, blobsHash, blobs } = buildBlobHints(blobFields);
 

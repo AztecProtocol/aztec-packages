@@ -141,7 +141,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
     {
         std::vector<RecursionConstraint> honk_recursion_constraints;
 
-        SlabVector<fr> witness;
+        std::vector<fr> witness;
 
         for (auto& inner_circuit : inner_circuits) {
 

@@ -3,10 +3,14 @@
 #include "../bool/bool.hpp"
 #include "../field/field.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uintx/uintx.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <vector>
 
@@ -44,6 +48,7 @@ template <typename _Curve, bool _use_bigfield = false> struct TestType {
 
 STANDARD_TESTING_TAGS
 template <typename TestType> class stdlib_biggroup : public testing::Test {
+  public:
     using Curve = typename TestType::Curve;
     using element_ct = typename TestType::element_ct;
     using scalar_ct = typename TestType::scalar_ct;
@@ -73,10 +78,14 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     }
 
     // Create a random point as a constant
-    static std::pair<affine_element, element_ct> get_random_constant_point([[maybe_unused]] Builder* builder)
+    static std::pair<affine_element, element_ct> get_random_constant_point(Builder* builder)
     {
         affine_element point_native(element::random_element());
-        element_ct point_ct(point_native);
+        // Create constant coordinates with builder context
+        using Fq = typename element_ct::BaseField;
+        Fq x_const(builder, uint256_t(point_native.x));
+        Fq y_const(builder, uint256_t(point_native.y));
+        element_ct point_ct(x_const, y_const);
         return std::make_pair(point_native, point_ct);
     }
 
@@ -214,7 +223,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
                 // Manipulate the limbs to create an invalid value
                 // Set the highest limb to a very large value that would make the total >= modulus
-                x_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, fr(uint256_t(1) << 68));
+                x_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68));
                 x_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
 
                 element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
@@ -234,7 +243,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
                 // Manipulate the limbs to create an invalid value
                 // Set the highest limb to a very large value that would make the total >= modulus
-                y_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, fr(uint256_t(1) << 68));
+                y_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68));
                 y_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
 
                 element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
@@ -611,6 +620,121 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_dbl_with_infinity()
+    {
+        Builder builder;
+        {
+            // Case 1: Doubling point at infinity should return point at infinity
+            affine_element input_infinity(element::random_element());
+            input_infinity.self_set_infinity();
+            element_ct a_infinity = element_ct::from_witness(&builder, input_infinity);
+            a_infinity.set_origin_tag(submitted_value_origin_tag);
+
+            element_ct result_infinity = a_infinity.dbl();
+
+            // Check that the tag is preserved
+            EXPECT_EQ(result_infinity.get_origin_tag(), submitted_value_origin_tag);
+
+            // Result should be point at infinity
+            EXPECT_TRUE(result_infinity.is_point_at_infinity().get_value());
+        }
+        {
+            // Case 2: Doubling a normal point should not result in infinity
+            affine_element input_normal(element::random_element());
+            element_ct a_normal = element_ct::from_witness(&builder, input_normal);
+            a_normal.set_origin_tag(submitted_value_origin_tag);
+
+            element_ct result_normal = a_normal.dbl();
+
+            // Check that the tag is preserved
+            EXPECT_EQ(result_normal.get_origin_tag(), submitted_value_origin_tag);
+
+            // Result should not be point at infinity (with overwhelming probability)
+            EXPECT_FALSE(result_normal.is_point_at_infinity().get_value());
+
+            // Verify correctness
+            affine_element expected_normal(element(input_normal).dbl());
+            uint256_t result_x = result_normal.x().get_value().lo;
+            uint256_t result_y = result_normal.y().get_value().lo;
+            fq expected_x(result_x);
+            fq expected_y(result_y);
+            EXPECT_EQ(expected_x, expected_normal.x);
+            EXPECT_EQ(expected_y, expected_normal.y);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_dbl_with_y_zero()
+    {
+        Builder builder;
+
+        // For bn254 curve: y^2 = x^3 + 3
+        // We need a point where y = 0, which means x^3 = -3
+        // For most curves, there may not be a rational point with y = 0
+        // So we test the logic by creating a witness point with y = 0 explicitly
+        // Even if it's not on the curve, we can test the doubling logic
+        affine_element test_point(element::random_element());
+
+        // Create a point with y = 0 (may not be on curve, but tests the edge case)
+        auto x_coord = element_ct::BaseField::from_witness(&builder, test_point.x);
+        auto y_coord = element_ct::BaseField::from_witness(&builder, fq(0));
+        element_ct a(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+
+        a.set_origin_tag(submitted_value_origin_tag);
+
+        // With the new assertion, attempting to double a point with y = 0 should throw
+        // because for valid curves like bn254, y = 0 cannot occur on the curve
+        EXPECT_THROW_OR_ABORT(a.dbl(), "Attempting to dbl a point with y = 0, not allowed.");
+    }
+
+    static void test_add_equals_dbl()
+    {
+        // Test that P + P equals P.dbl()
+        Builder builder;
+        size_t num_repetitions = 5;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, InputType::WITNESS);
+
+            element_ct sum = a + a;
+            element_ct doubled = a.dbl();
+
+            // Results should match
+            uint256_t sum_x = sum.x().get_value().lo;
+            uint256_t sum_y = sum.y().get_value().lo;
+            uint256_t dbl_x = doubled.x().get_value().lo;
+            uint256_t dbl_y = doubled.y().get_value().lo;
+
+            EXPECT_EQ(fq(sum_x), fq(dbl_x));
+            EXPECT_EQ(fq(sum_y), fq(dbl_y));
+            EXPECT_EQ(sum.is_point_at_infinity().get_value(), doubled.is_point_at_infinity().get_value());
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_sub_neg_equals_double()
+    {
+        // Test that P - (-P) equals 2P
+        Builder builder;
+        size_t num_repetitions = 5;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [input_a, a] = get_random_point(&builder, InputType::WITNESS);
+
+            element_ct neg_a = -a;
+            element_ct result = a - neg_a;
+            element_ct expected = a.dbl();
+
+            // P - (-P) = P + P = 2P
+            uint256_t result_x = result.x().get_value().lo;
+            uint256_t result_y = result.y().get_value().lo;
+            uint256_t expected_x = expected.x().get_value().lo;
+            uint256_t expected_y = expected.y().get_value().lo;
+
+            EXPECT_EQ(fq(result_x), fq(expected_x));
+            EXPECT_EQ(fq(result_y), fq(expected_y));
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_chain_add(InputType a_type = InputType::WITNESS,
                                InputType b_type = InputType::WITNESS,
                                InputType c_type = InputType::WITNESS)
@@ -728,8 +852,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         element_ct neg_a = -a;
 
         affine_element expected = affine_element(-element(input_a));
-        uint256_t neg_x = neg_a.x().get_value().lo;
-        uint256_t neg_y = neg_a.y().get_value().lo;
+        uint512_t neg_x_u512 = uint512_t(neg_a.x().get_value()) % uint512_t(fq::modulus);
+        uint512_t neg_y_u512 = uint512_t(neg_a.y().get_value()) % uint512_t(fq::modulus);
+        uint256_t neg_x = neg_x_u512.lo;
+        uint256_t neg_y = neg_y_u512.lo;
 
         EXPECT_EQ(fq(neg_x), expected.x);
         EXPECT_EQ(fq(neg_y), expected.y);
@@ -876,7 +1002,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             affine_element input_a(element::random_element());
 
             // Create a point with the same x coordinate but different y
-            // For an elliptic curve y^2 = x^3 + ax + b, if (x, y) is on the curve, then (x, -y) is also on the curve
+            // For an elliptic curve y^2 = x^3 + ax + b, if (x, y) is on the curve, then (x, -y) is also on the
+            // curve
             affine_element input_b = input_a;
             input_b.y = -input_a.y; // Negate y to get a different point with same x
 
@@ -988,7 +1115,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_compute_naf_zero()
     {
         Builder builder = Builder();
-        size_t length = 254;
+        size_t length = fr::modulus.get_msb() + 1;
 
         // Our algorithm for input 0 outputs the NAF representation of r (the field modulus)
         fr scalar_val(0);
@@ -1053,31 +1180,42 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     {
         Builder builder;
 
-        const auto run_mul_and_check = [&](element_ct& P, scalar_ct& x) {
+        const auto run_mul_and_check = [&](element_ct& P, scalar_ct& x, const affine_element& expected) {
             // Set input tags
             x.set_origin_tag(challenge_origin_tag);
             P.set_origin_tag(submitted_value_origin_tag);
 
             // Perform multiplication
-            element_ct c = P * x;
+            element_ct result = P * x;
 
-            // Check the result of the multiplication has a tag that's the union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            fq c_x_result(c.x().get_value().lo);
-            fq c_y_result(c.y().get_value().lo);
+            // Check the result tag
+            EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
 
-            // Result must be a point at infinity
-            EXPECT_EQ(c.is_point_at_infinity().get_value(), true);
+            // Check if result is infinity
+            bool result_is_inf = result.is_point_at_infinity().get_value();
+            bool expected_is_inf = expected.is_point_at_infinity();
+
+            EXPECT_EQ(result_is_inf, expected_is_inf);
+
+            // If not infinity, check if the coordinates match
+            if (!expected_is_inf) {
+                uint256_t result_x = result.x().get_value().lo;
+                uint256_t result_y = result.y().get_value().lo;
+
+                EXPECT_EQ(fq(result_x), expected.x);
+                EXPECT_EQ(fq(result_y), expected.y);
+            }
         };
 
-        // Case 1: P * 0
+        // Case 1: P * 0 = ∞
         {
             auto [input, P] = get_random_point(&builder, point_type);
             scalar_ct x = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, fr(0))
                                                               : scalar_ct(&builder, fr(0));
-            run_mul_and_check(P, x);
+            affine_element expected_infinity = affine_element(element::infinity());
+            run_mul_and_check(P, x, expected_infinity);
         }
-        // Case 2: (∞) * k
+        // Case 2: (∞) * k = ∞
         {
             auto [input, P] = get_random_point(&builder, point_type);
             if (point_type == InputType::CONSTANT) {
@@ -1085,8 +1223,31 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             } else {
                 P.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
             }
+
+            // For mega circuit builder, we need to ensure the point at infinity is (0, 0)
+            if constexpr (IsMegaBuilder<Builder>) {
+                P = P.get_standard_form();
+            }
+
             auto [scalar, x] = get_random_scalar(&builder, scalar_type, /*even*/ true);
-            run_mul_and_check(P, x);
+            affine_element expected_infinity = affine_element(element::infinity());
+            run_mul_and_check(P, x, expected_infinity);
+        }
+        // Case 3: P * 1 = P
+        {
+            auto [input, P] = get_random_point(&builder, point_type);
+            scalar_ct one = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, fr(1))
+                                                                : scalar_ct(&builder, fr(1));
+            run_mul_and_check(P, one, input);
+        }
+        // Case 4: P * (-1) = -P
+        {
+            auto [input, P] = get_random_point(&builder, point_type);
+            fr neg_one = -fr(1);
+            scalar_ct neg_one_ct = (scalar_type == InputType::WITNESS) ? scalar_ct::from_witness(&builder, neg_one)
+                                                                       : scalar_ct(&builder, neg_one);
+            affine_element expected = affine_element(-element(input));
+            run_mul_and_check(P, neg_one_ct, expected);
         }
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
@@ -1139,9 +1300,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_short_scalar_mul_infinity()
     {
-        // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against a
-        // short scalar and also check that the number of gates in this case is more than the number of gates spent on a
-        // finite point.
+        // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against
+        // a short scalar and also check that the number of gates in this case is more than the number of gates
+        // spent on a finite point.
 
         // Populate test points.
         std::vector<element> points(2);
@@ -1312,50 +1473,71 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             points.emplace_back(point);
         }
 
-        {
-            // If with_edgecases = true, should handle linearly dependent points correctly
-            // Define masking scalar (128 bits)
-            const auto get_128_bit_scalar = []() {
-                uint256_t scalar_u256(0, 0, 0, 0);
-                scalar_u256.data[0] = engine.get_random_uint64();
-                scalar_u256.data[1] = engine.get_random_uint64();
-                fr scalar(scalar_u256);
-                return scalar;
-            };
-            fr masking_scalar = get_128_bit_scalar();
-            scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
-            element_ct c = element_ct::batch_mul(points,
-                                                 scalars,
-                                                 /*max_num_bits*/ 128,
-                                                 /*with_edgecases*/ true,
-                                                 /*masking_scalar*/ masking_scalar_ct);
+        // If with_edgecases = true, should handle linearly dependent points correctly
+        // Define masking scalar (128 bits)
+        const auto get_128_bit_scalar = []() {
+            uint256_t scalar_u256(0, 0, 0, 0);
+            scalar_u256.data[0] = engine.get_random_uint64();
+            scalar_u256.data[1] = engine.get_random_uint64();
+            fr scalar(scalar_u256);
+            return scalar;
+        };
+        fr masking_scalar = get_128_bit_scalar();
+        scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
+        element_ct c = element_ct::batch_mul(points,
+                                             scalars,
+                                             /*max_num_bits*/ 128,
+                                             /*with_edgecases*/ true,
+                                             /*masking_scalar*/ masking_scalar_ct);
 
-            // Check that the result tag is a union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), tag_union);
-            element input_e = (element(input_P_a) * scalar_a);
-            element input_f = (element(input_P_b) * scalar_b);
-            element input_g = (element(input_P_c) * scalar_c);
+        // Check that the result tag is a union of inputs' tags
+        EXPECT_EQ(c.get_origin_tag(), tag_union);
+        element input_e = (element(input_P_a) * scalar_a);
+        element input_f = (element(input_P_b) * scalar_b);
+        element input_g = (element(input_P_c) * scalar_c);
 
-            affine_element expected(input_e + input_f + input_g);
-            fq c_x_result(c.x().get_value().lo);
-            fq c_y_result(c.y().get_value().lo);
+        affine_element expected(input_e + input_f + input_g);
+        fq c_x_result(c.x().get_value().lo);
+        fq c_y_result(c.y().get_value().lo);
 
-            EXPECT_EQ(c_x_result, expected.x);
-            EXPECT_EQ(c_y_result, expected.y);
+        EXPECT_EQ(c_x_result, expected.x);
+        EXPECT_EQ(c_y_result, expected.y);
 
-            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_batch_mul_linearly_dependent_generators_failure()
+    {
+        Builder builder;
+        affine_element input_P(element::random_element());
+
+        affine_element input_P_a = affine_element(element(input_P) + element(input_P));     // 2P
+        affine_element input_P_b = affine_element(element(input_P_a) + element(input_P));   // 3P
+        affine_element input_P_c = affine_element(element(input_P_a) + element(input_P_b)); // 5P
+        std::vector<affine_element> input_points = { input_P_a, input_P_b, input_P_c };
+
+        // Choose scalars similar to the previous test
+        fr scalar_a(11);
+        fr scalar_b(14);
+        fr scalar_c(6);
+        std::vector<fr> input_scalars = { scalar_a, scalar_b, scalar_c };
+
+        std::vector<scalar_ct> scalars;
+        std::vector<element_ct> points;
+        for (size_t i = 0; i < 3; ++i) {
+            const element_ct point = element_ct::from_witness(&builder, input_points[i]);
+            points.emplace_back(point);
+
+            const scalar_ct scalar = scalar_ct::from_witness(&builder, input_scalars[i]);
+            scalars.emplace_back(scalar);
         }
-        {
-            // If with_edgecases = false, the lookup table cannot be created as we encounter
-            // a point at infinity during the table construction.
-            element_ct c = element_ct::batch_mul(points, scalars, /*max_num_bits*/ 4, /*with_edgecases*/ false);
 
-            // Check that the result tag is a union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), tag_union);
+        // with_edgecases = false should fail due to linearly dependent points
+        // This will fail only while using ultra builder
+        element_ct::batch_mul(points, scalars, /*max_num_bits*/ 4, /*with_edgecases*/ false);
 
-            EXPECT_CIRCUIT_CORRECTNESS(builder, false);
-            EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
-        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+        EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
     }
 
     static void test_one()
@@ -2025,9 +2207,29 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     }
 };
 
-enum UseBigfield { No, Yes };
-using TestTypes = testing::Types<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, UseBigfield::Yes>,
-                                 TestType<stdlib::bn254<bb::MegaCircuitBuilder>, UseBigfield::No>>;
+// bn254 with ultra arithmetisation where scalar field is native field, base field is non-native field (bigfield)
+using bn254_with_ultra = stdlib_biggroup<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, /*_use_bigfield=*/false>>;
+
+// bn254 with ultra arithmetisation where both scalar and base fields are non-native fields
+using bn254_with_ultra_scalar_bigfield =
+    stdlib_biggroup<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+
+// bn254 with mega arithmetisation where scalar field is native field, base field is non-native field
+using bn254_with_mega = stdlib_biggroup<TestType<stdlib::bn254<bb::MegaCircuitBuilder>, /*_use_bigfield=*/false>>;
+
+// secp256r1 with ultra arithmetisation where both scalar and base fields are (naturally) non-native fields
+using secp256r1_with_ultra =
+    stdlib_biggroup<TestType<stdlib::secp256r1<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+
+// secp256k1 with ultra arithmetisation where both scalar and base fields are (naturally) non-native fields
+using secp256k1_with_ultra =
+    stdlib_biggroup<TestType<stdlib::secp256k1<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+
+using TestTypes = testing::Types<bn254_with_ultra,
+                                 bn254_with_ultra_scalar_bigfield,
+                                 bn254_with_mega,
+                                 secp256r1_with_ultra,
+                                 secp256k1_with_ultra>;
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
@@ -2044,18 +2246,13 @@ TYPED_TEST(stdlib_biggroup, assert_coordinates_in_field)
 // Addition tests
 TYPED_TEST(stdlib_biggroup, add)
 {
-
     TestFixture::test_add();
 }
 TYPED_TEST(stdlib_biggroup, add_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_add(InputType::WITNESS, InputType::CONSTANT);  // w + c
-        TestFixture::test_add(InputType::CONSTANT, InputType::WITNESS);  // c + w
-        TestFixture::test_add(InputType::CONSTANT, InputType::CONSTANT); // c + c
-    }
+    TestFixture::test_add(InputType::WITNESS, InputType::CONSTANT);  // w + c
+    TestFixture::test_add(InputType::CONSTANT, InputType::WITNESS);  // c + w
+    TestFixture::test_add(InputType::CONSTANT, InputType::CONSTANT); // c + c
 }
 TYPED_TEST(stdlib_biggroup, add_points_at_infinity)
 {
@@ -2073,17 +2270,12 @@ TYPED_TEST(stdlib_biggroup, sub)
 }
 TYPED_TEST(stdlib_biggroup, sub_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_sub(InputType::WITNESS, InputType::CONSTANT);  // w - c
-        TestFixture::test_sub(InputType::CONSTANT, InputType::WITNESS);  // c - w
-        TestFixture::test_sub(InputType::CONSTANT, InputType::CONSTANT); // c - c
-    }
+    TestFixture::test_sub(InputType::WITNESS, InputType::CONSTANT);  // w - c
+    TestFixture::test_sub(InputType::CONSTANT, InputType::WITNESS);  // c - w
+    TestFixture::test_sub(InputType::CONSTANT, InputType::CONSTANT); // c - c
 }
 TYPED_TEST(stdlib_biggroup, sub_points_at_infinity)
 {
-
     TestFixture::test_sub_points_at_infinity();
 }
 TYPED_TEST(stdlib_biggroup, dbl)
@@ -2092,18 +2284,34 @@ TYPED_TEST(stdlib_biggroup, dbl)
 }
 TYPED_TEST(stdlib_biggroup, dbl_with_constant)
 {
+    TestFixture::test_dbl(InputType::CONSTANT); // dbl(c)
+}
+TYPED_TEST(stdlib_biggroup, dbl_with_infinity)
+{
+    TestFixture::test_dbl_with_infinity();
+}
+TYPED_TEST(stdlib_biggroup, dbl_with_y_zero)
+{
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+        GTEST_SKIP() << "mega builder does not support this edge case";
     } else {
-        TestFixture::test_dbl(InputType::CONSTANT); // dbl(c)
+        TestFixture::test_dbl_with_y_zero();
     }
+}
+TYPED_TEST(stdlib_biggroup, add_equals_dbl)
+{
+    TestFixture::test_add_equals_dbl();
+}
+TYPED_TEST(stdlib_biggroup, sub_neg_equals_double)
+{
+    TestFixture::test_sub_neg_equals_double();
 }
 
 // Test chain_add
 HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+        GTEST_SKIP() << "mega builder does not implement chain_add function";
     } else {
         TestFixture::test_chain_add();
     };
@@ -2111,7 +2319,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
 HEAVY_TYPED_TEST(stdlib_biggroup, chain_add_with_constants)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
+        GTEST_SKIP() << "mega builder does not implement chain_add function";
     } else {
         TestFixture::test_chain_add(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w, w, c
         TestFixture::test_chain_add(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w, c, w
@@ -2128,7 +2336,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
 {
 
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+        GTEST_SKIP() << "mega builder does not implement multiple_montgomery_ladder function";
     } else {
         TestFixture::test_multiple_montgomery_ladder();
     };
@@ -2141,11 +2349,7 @@ TYPED_TEST(stdlib_biggroup, normalize)
 }
 TYPED_TEST(stdlib_biggroup, normalize_constant)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_normalize(InputType::CONSTANT);
-    }
+    TestFixture::test_normalize(InputType::CONSTANT);
 }
 
 // Test reduce
@@ -2155,11 +2359,7 @@ TYPED_TEST(stdlib_biggroup, reduce)
 }
 TYPED_TEST(stdlib_biggroup, reduce_constant)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_reduce(InputType::CONSTANT);
-    }
+    TestFixture::test_reduce(InputType::CONSTANT);
 }
 
 // Test unary negation
@@ -2170,11 +2370,7 @@ TYPED_TEST(stdlib_biggroup, unary_negate)
 
 TYPED_TEST(stdlib_biggroup, unary_negate_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_unary_negate(InputType::CONSTANT);
-    }
+    TestFixture::test_unary_negate(InputType::CONSTANT);
 }
 
 // Test operator+=
@@ -2185,12 +2381,8 @@ TYPED_TEST(stdlib_biggroup, add_assign)
 
 TYPED_TEST(stdlib_biggroup, add_assign_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_add_assign(InputType::WITNESS, InputType::CONSTANT); // w += c
-        TestFixture::test_add_assign(InputType::CONSTANT, InputType::WITNESS); // c += w
-    }
+    TestFixture::test_add_assign(InputType::WITNESS, InputType::CONSTANT); // w += c
+    TestFixture::test_add_assign(InputType::CONSTANT, InputType::WITNESS); // c += w
 }
 
 // Test operator-=
@@ -2200,12 +2392,8 @@ TYPED_TEST(stdlib_biggroup, sub_assign)
 }
 TYPED_TEST(stdlib_biggroup, sub_assign_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_sub_assign(InputType::WITNESS, InputType::CONSTANT); // w -= c
-        TestFixture::test_sub_assign(InputType::CONSTANT, InputType::WITNESS); // c -= w
-    }
+    TestFixture::test_sub_assign(InputType::WITNESS, InputType::CONSTANT); // w -= c
+    TestFixture::test_sub_assign(InputType::CONSTANT, InputType::WITNESS); // c -= w
 }
 // Test checked_unconditional_add
 TYPED_TEST(stdlib_biggroup, checked_unconditional_add)
@@ -2214,13 +2402,9 @@ TYPED_TEST(stdlib_biggroup, checked_unconditional_add)
 }
 TYPED_TEST(stdlib_biggroup, checked_unconditional_add_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_checked_unconditional_add(InputType::WITNESS, InputType::CONSTANT);  // w + c
-        TestFixture::test_checked_unconditional_add(InputType::CONSTANT, InputType::WITNESS);  // c + w
-        TestFixture::test_checked_unconditional_add(InputType::CONSTANT, InputType::CONSTANT); // c + c
-    }
+    TestFixture::test_checked_unconditional_add(InputType::WITNESS, InputType::CONSTANT);  // w + c
+    TestFixture::test_checked_unconditional_add(InputType::CONSTANT, InputType::WITNESS);  // c + w
+    TestFixture::test_checked_unconditional_add(InputType::CONSTANT, InputType::CONSTANT); // c + c
 }
 // Test checked_unconditional_subtract
 TYPED_TEST(stdlib_biggroup, checked_unconditional_subtract)
@@ -2229,14 +2413,9 @@ TYPED_TEST(stdlib_biggroup, checked_unconditional_subtract)
 }
 TYPED_TEST(stdlib_biggroup, checked_unconditional_subtract_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_checked_unconditional_subtract(InputType::WITNESS, InputType::CONSTANT); // w - c
-        TestFixture::test_checked_unconditional_subtract(InputType::CONSTANT, InputType::WITNESS); // c - w
-        TestFixture::test_checked_unconditional_subtract(InputType::CONSTANT,
-                                                         InputType::CONSTANT); // c - c
-    }
+    TestFixture::test_checked_unconditional_subtract(InputType::WITNESS, InputType::CONSTANT);  // w - c
+    TestFixture::test_checked_unconditional_subtract(InputType::CONSTANT, InputType::WITNESS);  // c - w
+    TestFixture::test_checked_unconditional_subtract(InputType::CONSTANT, InputType::CONSTANT); // c - c
 }
 // Test checked_unconditional_add_sub
 TYPED_TEST(stdlib_biggroup, checked_unconditional_add_sub)
@@ -2245,13 +2424,9 @@ TYPED_TEST(stdlib_biggroup, checked_unconditional_add_sub)
 }
 TYPED_TEST(stdlib_biggroup, checked_unconditional_add_sub_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_checked_unconditional_add_sub(InputType::WITNESS, InputType::CONSTANT);  // w, c
-        TestFixture::test_checked_unconditional_add_sub(InputType::CONSTANT, InputType::WITNESS);  // c, w
-        TestFixture::test_checked_unconditional_add_sub(InputType::CONSTANT, InputType::CONSTANT); // c, c
-    }
+    TestFixture::test_checked_unconditional_add_sub(InputType::WITNESS, InputType::CONSTANT);  // w, c
+    TestFixture::test_checked_unconditional_add_sub(InputType::CONSTANT, InputType::WITNESS);  // c, w
+    TestFixture::test_checked_unconditional_add_sub(InputType::CONSTANT, InputType::CONSTANT); // c, c
 }
 // Test conditional_negate
 TYPED_TEST(stdlib_biggroup, conditional_negate)
@@ -2260,13 +2435,9 @@ TYPED_TEST(stdlib_biggroup, conditional_negate)
 }
 TYPED_TEST(stdlib_biggroup, conditional_negate_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_conditional_negate(InputType::WITNESS, InputType::CONSTANT);  // w, c
-        TestFixture::test_conditional_negate(InputType::CONSTANT, InputType::WITNESS);  // c, w
-        TestFixture::test_conditional_negate(InputType::CONSTANT, InputType::CONSTANT); // c, c
-    }
+    TestFixture::test_conditional_negate(InputType::WITNESS, InputType::CONSTANT);  // w, c
+    TestFixture::test_conditional_negate(InputType::CONSTANT, InputType::WITNESS);  // c, w
+    TestFixture::test_conditional_negate(InputType::CONSTANT, InputType::CONSTANT); // c, c
 }
 // Test conditional_select
 TYPED_TEST(stdlib_biggroup, conditional_select)
@@ -2275,17 +2446,13 @@ TYPED_TEST(stdlib_biggroup, conditional_select)
 }
 TYPED_TEST(stdlib_biggroup, conditional_select_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_conditional_select(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w, w, c
-        TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w, c, w
-        TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::CONSTANT);  // w, c, c
-        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);   // c, w, w
-        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::WITNESS);  // c, c, w
-        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);  // c, w, c
-        TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT); // c, c, c
-    }
+    TestFixture::test_conditional_select(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w, w, c
+    TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w, c, w
+    TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::CONSTANT);  // w, c, c
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);   // c, w, w
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::WITNESS);  // c, c, w
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);  // c, w, c
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT); // c, c, c
 }
 TYPED_TEST(stdlib_biggroup, incomplete_assert_equal)
 {
@@ -2308,7 +2475,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
             TestFixture::test_compute_naf();
         }
     } else {
-        GTEST_SKIP();
+        GTEST_SKIP() << "mega builder does not implement compute_naf function";
     }
 }
 
@@ -2317,7 +2484,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_zero)
     if constexpr (!HasGoblinBuilder<TypeParam>) {
         TestFixture::test_compute_naf_zero();
     } else {
-        GTEST_SKIP();
+        GTEST_SKIP() << "mega builder does not implement compute_naf function";
     }
 }
 
@@ -2327,13 +2494,9 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, mul_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_mul(InputType::WITNESS, InputType::CONSTANT);  // w * c
-        TestFixture::test_mul(InputType::CONSTANT, InputType::WITNESS);  // c * w
-        TestFixture::test_mul(InputType::CONSTANT, InputType::CONSTANT); // c * c
-    }
+    TestFixture::test_mul(InputType::WITNESS, InputType::CONSTANT);  // w * c
+    TestFixture::test_mul(InputType::CONSTANT, InputType::WITNESS);  // c * w
+    TestFixture::test_mul(InputType::CONSTANT, InputType::CONSTANT); // c * c
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases)
 {
@@ -2341,19 +2504,15 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, mul_edge_cases_with_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_mul_edge_cases(InputType::WITNESS, InputType::CONSTANT);  // w * c
-        TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::WITNESS);  // c * w
-        TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::CONSTANT); // c * c
-    }
+    TestFixture::test_mul_edge_cases(InputType::WITNESS, InputType::CONSTANT);  // w * c
+    TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::WITNESS);  // c * w
+    TestFixture::test_mul_edge_cases(InputType::CONSTANT, InputType::CONSTANT); // c * c
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_with_bit_lengths)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
+        GTEST_SKIP() << "mega builder does not implement scalar_mul function";
     } else {
         TestFixture::test_short_scalar_mul_with_bit_lengths();
     }
@@ -2362,7 +2521,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_with_bit_lengths)
 HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_infinity)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
+        GTEST_SKIP() << "mega builder does not implement scalar_mul function";
     } else {
         TestFixture::test_short_scalar_mul_infinity();
     }
@@ -2394,12 +2553,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_short_scalars_with_edgecases)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_twin_mixed_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_helper_batch_mul({ InputType::WITNESS, InputType::CONSTANT },
-                                           { InputType::CONSTANT, InputType::WITNESS });
-    }
+    TestFixture::test_helper_batch_mul({ InputType::WITNESS, InputType::CONSTANT },
+                                       { InputType::CONSTANT, InputType::WITNESS });
 }
 
 // 3 points - Base case only
@@ -2433,13 +2588,9 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_short_scalars_with_edgecases)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_five_mixed_constants)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "mega builder does not support operations with constant elements";
-    } else {
-        TestFixture::test_helper_batch_mul(
-            { InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT },
-            { InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT });
-    }
+    TestFixture::test_helper_batch_mul(
+        { InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT },
+        { InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT });
 }
 
 // 6 points - Base case only
@@ -2450,35 +2601,33 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_six)
 
 HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_twin_mul();
-    };
+    TestFixture::test_twin_mul();
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul_with_infinity)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_twin_mul_with_infinity();
-    };
+    TestFixture::test_twin_mul_with_infinity();
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_linearly_dependent_generators)
 {
+    TestFixture::test_batch_mul_linearly_dependent_generators();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_linearly_dependent_generators_failure)
+{
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+        GTEST_SKIP() << "this failure test is designed for ultra builder only";
     } else {
-        TestFixture::test_batch_mul_linearly_dependent_generators();
-    };
+        TestFixture::test_batch_mul_linearly_dependent_generators_failure();
+    }
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, one)
 {
     TestFixture::test_one();
 }
+
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul)
 {
     TestFixture::test_batch_mul();
@@ -2486,11 +2635,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul)
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edgecase_equivalence)
 {
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
-    } else {
-        TestFixture::test_batch_mul_edgecase_equivalence();
-    }
+    TestFixture::test_batch_mul_edgecase_equivalence();
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set1)
 {
@@ -2530,12 +2675,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_cancellation)
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_mixed_constant_witness)
 {
-    // Skip for goblin case - causes segfault with mixed constant/witness points
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
-    } else {
-        TestFixture::test_batch_mul_mixed_constant_witness();
-    }
+    TestFixture::test_batch_mul_mixed_constant_witness();
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_large_number_of_points)

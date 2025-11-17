@@ -24,17 +24,18 @@ std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const 
     if (instance.has_value()) {
         GetContractInstanceKey key = { checkpoint_action_counter, address };
         contract_hints.contract_instances[key] = ContractInstanceHint{
-            .hintKey = checkpoint_action_counter,
+            .hint_key = checkpoint_action_counter,
             .address = address,
             .salt = instance->salt,
             .deployer = instance->deployer,
-            .currentContractClassId = instance->current_contract_class_id,
-            .originalContractClassId = instance->original_contract_class_id,
-            .initializationHash = instance->initialization_hash,
-            .publicKeys = PublicKeysHint{ .masterNullifierPublicKey = instance->public_keys.nullifier_key,
-                                          .masterIncomingViewingPublicKey = instance->public_keys.incoming_viewing_key,
-                                          .masterOutgoingViewingPublicKey = instance->public_keys.outgoing_viewing_key,
-                                          .masterTaggingPublicKey = instance->public_keys.tagging_key }
+            .current_contract_class_id = instance->current_contract_class_id,
+            .original_contract_class_id = instance->original_contract_class_id,
+            .initialization_hash = instance->initialization_hash,
+            .public_keys =
+                PublicKeysHint{ .master_nullifier_public_key = instance->public_keys.nullifier_key,
+                                .master_incoming_viewing_public_key = instance->public_keys.incoming_viewing_key,
+                                .master_outgoing_viewing_public_key = instance->public_keys.outgoing_viewing_key,
+                                .master_tagging_public_key = instance->public_keys.tagging_key }
 
         };
     }
@@ -50,12 +51,12 @@ std::optional<ContractClass> HintingContractsDB::get_contract_class(const Contra
     if (klass.has_value()) {
         GetContractClassKey key = { checkpoint_action_counter, class_id };
         contract_hints.contract_classes[key] = ContractClassHint{
-            .hintKey = checkpoint_action_counter,
-            .classId = class_id,
-            .artifactHash = klass->artifact_hash,
-            .privateFunctionsRoot = klass->private_functions_root,
+            .hint_key = checkpoint_action_counter,
+            .class_id = class_id,
+            .artifact_hash = klass->artifact_hash,
+            .private_functions_root = klass->private_functions_root,
             // TODO(fcarreiro): find out why moving things here breaks things
-            .packedBytecode = klass->packed_bytecode,
+            .packed_bytecode = klass->packed_bytecode,
         };
     }
 
@@ -67,8 +68,8 @@ std::optional<FF> HintingContractsDB::get_bytecode_commitment(const ContractClas
     std::optional<FF> commitment = db.get_bytecode_commitment(class_id);
     if (commitment.has_value()) {
         GetBytecodeCommitmentKey key = { checkpoint_action_counter, class_id };
-        contract_hints.bytecode_commitments[key] = BytecodeCommitmentHint{ .hintKey = checkpoint_action_counter,
-                                                                           .classId = class_id,
+        contract_hints.bytecode_commitments[key] = BytecodeCommitmentHint{ .hint_key = checkpoint_action_counter,
+                                                                           .class_id = class_id,
                                                                            .commitment = commitment.value() };
     }
 
@@ -103,9 +104,9 @@ void HintingContractsDB::create_checkpoint()
     checkpoint_stack.push(next_checkpoint_id++);
     // Store hint:
     contract_hints.create_checkpoint_hints[checkpoint_action_counter] = {
-        .actionCounter = checkpoint_action_counter,
-        .oldCheckpointId = old_checkpoint_id,
-        .newCheckpointId = get_checkpoint_id(),
+        .action_counter = checkpoint_action_counter,
+        .old_checkpoint_id = old_checkpoint_id,
+        .new_checkpoint_id = get_checkpoint_id(),
     };
 
     // Update this db:
@@ -121,9 +122,9 @@ void HintingContractsDB::commit_checkpoint()
     checkpoint_stack.pop();
     // Store hint:
     contract_hints.commit_checkpoint_hints[checkpoint_action_counter] = {
-        .actionCounter = checkpoint_action_counter,
-        .oldCheckpointId = old_checkpoint_id,
-        .newCheckpointId = get_checkpoint_id(),
+        .action_counter = checkpoint_action_counter,
+        .old_checkpoint_id = old_checkpoint_id,
+        .new_checkpoint_id = get_checkpoint_id(),
     };
 
     // Update this db:
@@ -139,9 +140,9 @@ void HintingContractsDB::revert_checkpoint()
     checkpoint_stack.pop();
     // Store hint:
     contract_hints.revert_checkpoint_hints[checkpoint_action_counter] = {
-        .actionCounter = checkpoint_action_counter,
-        .oldCheckpointId = old_checkpoint_id,
-        .newCheckpointId = get_checkpoint_id(),
+        .action_counter = checkpoint_action_counter,
+        .old_checkpoint_id = old_checkpoint_id,
+        .new_checkpoint_id = get_checkpoint_id(),
     };
 
     // Update this db:
@@ -156,34 +157,34 @@ uint32_t HintingContractsDB::get_checkpoint_id() const
 void HintingContractsDB::dump_hints(ExecutionHints& hints)
 {
     std::ranges::transform(contract_hints.contract_instances,
-                           std::back_inserter(hints.contractInstances),
+                           std::back_inserter(hints.contract_instances),
                            [](const auto& mapped_contract_instance) { return mapped_contract_instance.second; });
 
     std::ranges::transform(contract_hints.contract_classes,
-                           std::back_inserter(hints.contractClasses),
+                           std::back_inserter(hints.contract_classes),
                            [](const auto& mapped_contract_class) { return mapped_contract_class.second; });
 
     std::ranges::transform(contract_hints.bytecode_commitments,
-                           std::back_inserter(hints.bytecodeCommitments),
+                           std::back_inserter(hints.bytecode_commitments),
                            [](const auto& mapped_bytecode_commitment) { return mapped_bytecode_commitment.second; });
 
     std::ranges::transform(contract_hints.debug_function_names,
-                           std::back_inserter(hints.debugFunctionNames),
+                           std::back_inserter(hints.debug_function_names),
                            [](const auto& mapped_debug_function_name) { return mapped_debug_function_name.second; });
 
     std::ranges::transform(
         contract_hints.create_checkpoint_hints,
-        std::back_inserter(hints.contractDBCreateCheckpointHints),
+        std::back_inserter(hints.contract_db_create_checkpoint_hints),
         [](const auto& mapped_create_checkpoint_hint) { return mapped_create_checkpoint_hint.second; });
 
     std::ranges::transform(
         contract_hints.commit_checkpoint_hints,
-        std::back_inserter(hints.contractDBCommitCheckpointHints),
+        std::back_inserter(hints.contract_db_commit_checkpoint_hints),
         [](const auto& mapped_commit_checkpoint_hint) { return mapped_commit_checkpoint_hint.second; });
 
     std::ranges::transform(
         contract_hints.revert_checkpoint_hints,
-        std::back_inserter(hints.contractDBRevertCheckpointHints),
+        std::back_inserter(hints.contract_db_revert_checkpoint_hints),
         [](const auto& mapped_revert_checkpoint_hint) { return mapped_revert_checkpoint_hint.second; });
 }
 
@@ -200,7 +201,7 @@ SiblingPath HintingRawDB::get_sibling_path(world_state::MerkleTreeId tree_id, in
     SiblingPath path = db.get_sibling_path(tree_id, leaf_index);
     GetSiblingPathKey key = { tree_info, tree_id, leaf_index };
     merkle_hints.get_sibling_path_hints[key] =
-        GetSiblingPathHint{ .hintKey = tree_info, .treeId = tree_id, .index = leaf_index, .path = path };
+        GetSiblingPathHint{ .hint_key = tree_info, .tree_id = tree_id, .index = leaf_index, .path = path };
 
     return path;
 }
@@ -211,11 +212,11 @@ GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::Merkle
     GetLowIndexedLeafResponse resp = db.get_low_indexed_leaf(tree_id, value);
     GetPreviousValueIndexKey key = { tree_info, tree_id, value };
     merkle_hints.get_previous_value_index_hints[key] = GetPreviousValueIndexHint{
-        .hintKey = tree_info,
-        .treeId = tree_id,
+        .hint_key = tree_info,
+        .tree_id = tree_id,
         .value = value,
         .index = resp.index,
-        .alreadyPresent = resp.is_already_present,
+        .already_present = resp.is_already_present,
     };
 
     // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
@@ -242,7 +243,7 @@ FF HintingRawDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_
     FF value = db.get_leaf_value(tree_id, leaf_index);
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
     merkle_hints.get_leaf_value_hints[key] =
-        GetLeafValueHint{ .hintKey = tree_info, .treeId = tree_id, .index = leaf_index, .value = value };
+        GetLeafValueHint{ .hint_key = tree_info, .tree_id = tree_id, .index = leaf_index, .value = value };
     // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(tree_id, leaf_index);
     return value;
@@ -255,7 +256,7 @@ IndexedLeaf<PublicDataLeafValue> HintingRawDB::get_leaf_preimage_public_data_tre
 
     GetLeafPreimageKey key = { tree_info, leaf_index };
     merkle_hints.get_leaf_preimage_hints_public_data_tree[key] = GetLeafPreimageHint<PublicDataTreeLeafPreimage>{
-        .hintKey = tree_info, .index = leaf_index, .leafPreimage = preimage
+        .hint_key = tree_info, .index = leaf_index, .leaf_preimage = preimage
     };
     // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_index);
@@ -268,7 +269,7 @@ IndexedLeaf<NullifierLeafValue> HintingRawDB::get_leaf_preimage_nullifier_tree(i
     IndexedLeaf<NullifierLeafValue> preimage = db.get_leaf_preimage_nullifier_tree(leaf_index);
     GetLeafPreimageKey key = { tree_info, leaf_index };
     merkle_hints.get_leaf_preimage_hints_nullifier_tree[key] = GetLeafPreimageHint<NullifierTreeLeafPreimage>{
-        .hintKey = tree_info, .index = leaf_index, .leafPreimage = preimage
+        .hint_key = tree_info, .index = leaf_index, .leaf_preimage = preimage
     };
     // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(world_state::MerkleTreeId::NULLIFIER_TREE, leaf_index);
@@ -281,16 +282,16 @@ SequentialInsertionResult<PublicDataLeafValue> HintingRawDB::insert_indexed_leav
     AppendOnlyTreeSnapshot tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
     SequentialInsertionResult<PublicDataLeafValue> result = db.insert_indexed_leaves_public_data_tree(leaf_value);
     // The underlying db should update its state post insertion:
-    AppendOnlyTreeSnapshot state_after = db.get_tree_roots().publicDataTree;
+    AppendOnlyTreeSnapshot state_after = db.get_tree_roots().public_data_tree;
 
     SequentialInsertHintPublicDataTreeKey key = { tree_info, world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_value };
     SequentialInsertHint<PublicDataLeafValue> sequential_insert_hint = {
-        .hintKey = tree_info,
-        .treeId = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
+        .hint_key = tree_info,
+        .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
         .leaf = leaf_value,
-        .lowLeavesWitnessData = result.low_leaf_witness_data.back(),
-        .insertionWitnessData = result.insertion_witness_data.back(),
-        .stateAfter = state_after
+        .low_leaves_witness_data = result.low_leaf_witness_data.back(),
+        .insertion_witness_data = result.insertion_witness_data.back(),
+        .state_after = state_after
     };
     merkle_hints.sequential_insert_hints_public_data_tree[key] = sequential_insert_hint;
 
@@ -303,16 +304,16 @@ SequentialInsertionResult<NullifierLeafValue> HintingRawDB::insert_indexed_leave
     AppendOnlyTreeSnapshot tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
     SequentialInsertionResult<NullifierLeafValue> result = db.insert_indexed_leaves_nullifier_tree(leaf_value);
     // The underlying db should update its state post insertion:
-    auto stateAfter = db.get_tree_roots().nullifierTree;
+    auto state_after = db.get_tree_roots().nullifier_tree;
 
     SequentialInsertHintNullifierTreeKey key = { tree_info, world_state::MerkleTreeId::NULLIFIER_TREE, leaf_value };
     SequentialInsertHint<NullifierLeafValue> sequential_insert_hint = {
-        .hintKey = tree_info,
-        .treeId = world_state::MerkleTreeId::NULLIFIER_TREE,
+        .hint_key = tree_info,
+        .tree_id = world_state::MerkleTreeId::NULLIFIER_TREE,
         .leaf = leaf_value,
-        .lowLeavesWitnessData = result.low_leaf_witness_data.back(),
-        .insertionWitnessData = result.insertion_witness_data.back(),
-        .stateAfter = stateAfter
+        .low_leaves_witness_data = result.low_leaf_witness_data.back(),
+        .insertion_witness_data = result.insertion_witness_data.back(),
+        .state_after = state_after
     };
     merkle_hints.sequential_insert_hints_nullifier_tree[key] = sequential_insert_hint;
 
@@ -327,9 +328,9 @@ void HintingRawDB::create_checkpoint()
 
     // Store hint:
     merkle_hints.create_checkpoint_hints[checkpoint_action_counter] = {
-        .actionCounter = checkpoint_action_counter,
-        .oldCheckpointId = old_checkpoint_id,
-        .newCheckpointId = db.get_checkpoint_id(),
+        .action_counter = checkpoint_action_counter,
+        .old_checkpoint_id = old_checkpoint_id,
+        .new_checkpoint_id = db.get_checkpoint_id(),
     };
 
     // Update this db:
@@ -343,9 +344,9 @@ void HintingRawDB::commit_checkpoint()
     db.commit_checkpoint();
     // Store hint:
     merkle_hints.commit_checkpoint_hints[checkpoint_action_counter] = {
-        .actionCounter = checkpoint_action_counter,
-        .oldCheckpointId = old_checkpoint_id,
-        .newCheckpointId = db.get_checkpoint_id(),
+        .action_counter = checkpoint_action_counter,
+        .old_checkpoint_id = old_checkpoint_id,
+        .new_checkpoint_id = db.get_checkpoint_id(),
     };
 
     // Update this db:
@@ -361,11 +362,11 @@ void HintingRawDB::revert_checkpoint()
     TreeSnapshots state_after = db.get_tree_roots();
     // Store hint:
     merkle_hints.revert_checkpoint_hints[checkpoint_action_counter] = {
-        .actionCounter = checkpoint_action_counter,
-        .oldCheckpointId = old_checkpoint_id,
-        .newCheckpointId = db.get_checkpoint_id(),
-        .stateBefore = state_before,
-        .stateAfter = state_after,
+        .action_counter = checkpoint_action_counter,
+        .old_checkpoint_id = old_checkpoint_id,
+        .new_checkpoint_id = db.get_checkpoint_id(),
+        .state_before = state_before,
+        .state_after = state_after,
     };
 
     // Update this db:
@@ -407,15 +408,16 @@ AppendOnlyTreeSnapshot HintingRawDB::appendLeafInternal(const AppendOnlyTreeSnap
     // appendLeaves returns the sibling paths.
     AppendLeavesHintKey append_key = { state_before, tree_id, { leaf } };
     AppendOnlyTreeSnapshot state_after = { .root = root_after,
-                                           .nextAvailableLeafIndex = state_before.nextAvailableLeafIndex + 1 };
-    merkle_hints.append_leaves_hints[append_key] =
-        AppendLeavesHint{ .hintKey = state_before, .stateAfter = state_after, .treeId = tree_id, .leaves = { leaf } };
+                                           .next_available_leaf_index = state_before.next_available_leaf_index + 1 };
+    merkle_hints.append_leaves_hints[append_key] = AppendLeavesHint{
+        .hint_key = state_before, .state_after = state_after, .tree_id = tree_id, .leaves = { leaf }
+    };
     // TODO(MW): Storing sibling path hint manually using the result since a get_sibling_path() call here will use the
     // /current/ db.get_tree_info() (post full append_leaves), which may not match that at result.root. We may not care
     // about this (see comment in PureRawMerkleDB::append_leaves())
-    GetSiblingPathKey path_key = { state_after, tree_id, state_before.nextAvailableLeafIndex };
+    GetSiblingPathKey path_key = { state_after, tree_id, state_before.next_available_leaf_index };
     merkle_hints.get_sibling_path_hints[path_key] = GetSiblingPathHint{
-        .hintKey = state_after, .treeId = tree_id, .index = state_before.nextAvailableLeafIndex, .path = path
+        .hint_key = state_after, .tree_id = tree_id, .index = state_before.next_available_leaf_index, .path = path
     };
     return state_after;
 }
@@ -424,55 +426,55 @@ void HintingRawDB::dump_hints(ExecutionHints& hints)
 {
     std::ranges::transform(
         merkle_hints.get_sibling_path_hints,
-        std::back_inserter(hints.getSiblingPathHints),
+        std::back_inserter(hints.get_sibling_path_hints),
         [](const auto& mapped_get_sibling_path_hint) { return mapped_get_sibling_path_hint.second; });
 
     std::ranges::transform(
         merkle_hints.get_previous_value_index_hints,
-        std::back_inserter(hints.getPreviousValueIndexHints),
+        std::back_inserter(hints.get_previous_value_index_hints),
         [](const auto& mapped_get_previous_value_index_hint) { return mapped_get_previous_value_index_hint.second; });
 
     std::ranges::transform(
         merkle_hints.get_leaf_preimage_hints_public_data_tree,
-        std::back_inserter(hints.getLeafPreimageHintsPublicDataTree),
+        std::back_inserter(hints.get_leaf_preimage_hints_public_data_tree),
         [](const auto& mapped_get_leaf_preimage_hint) { return mapped_get_leaf_preimage_hint.second; });
 
     std::ranges::transform(
         merkle_hints.get_leaf_preimage_hints_nullifier_tree,
-        std::back_inserter(hints.getLeafPreimageHintsNullifierTree),
+        std::back_inserter(hints.get_leaf_preimage_hints_nullifier_tree),
         [](const auto& mapped_get_leaf_preimage_hint) { return mapped_get_leaf_preimage_hint.second; });
 
     std::ranges::transform(merkle_hints.get_leaf_value_hints,
-                           std::back_inserter(hints.getLeafValueHints),
+                           std::back_inserter(hints.get_leaf_value_hints),
                            [](const auto& mapped_get_leaf_value_hint) { return mapped_get_leaf_value_hint.second; });
 
     std::ranges::transform(
         merkle_hints.sequential_insert_hints_public_data_tree,
-        std::back_inserter(hints.sequentialInsertHintsPublicDataTree),
+        std::back_inserter(hints.sequential_insert_hints_public_data_tree),
         [](const auto& mapped_sequential_insert_hint) { return mapped_sequential_insert_hint.second; });
 
     std::ranges::transform(
         merkle_hints.sequential_insert_hints_nullifier_tree,
-        std::back_inserter(hints.sequentialInsertHintsNullifierTree),
+        std::back_inserter(hints.sequential_insert_hints_nullifier_tree),
         [](const auto& mapped_sequential_insert_hint) { return mapped_sequential_insert_hint.second; });
 
     std::ranges::transform(merkle_hints.append_leaves_hints,
-                           std::back_inserter(hints.appendLeavesHints),
+                           std::back_inserter(hints.append_leaves_hints),
                            [](const auto& mapped_append_leaves_hint) { return mapped_append_leaves_hint.second; });
 
     std::ranges::transform(
         merkle_hints.create_checkpoint_hints,
-        std::back_inserter(hints.createCheckpointHints),
+        std::back_inserter(hints.create_checkpoint_hints),
         [](const auto& mapped_create_checkpoint_hint) { return mapped_create_checkpoint_hint.second; });
 
     std::ranges::transform(
         merkle_hints.commit_checkpoint_hints,
-        std::back_inserter(hints.commitCheckpointHints),
+        std::back_inserter(hints.commit_checkpoint_hints),
         [](const auto& mapped_commit_checkpoint_hint) { return mapped_commit_checkpoint_hint.second; });
 
     std::ranges::transform(
         merkle_hints.revert_checkpoint_hints,
-        std::back_inserter(hints.revertCheckpointHints),
+        std::back_inserter(hints.revert_checkpoint_hints),
         [](const auto& mapped_revert_checkpoint_hint) { return mapped_revert_checkpoint_hint.second; });
 }
 

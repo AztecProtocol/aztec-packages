@@ -83,14 +83,7 @@ async function initSimulator() {
   const contractsDb = new PublicContractsDB(contractDataSource);
   const trace = new SideEffectTrace();
   const firstNullifier = new Fr(420000);
-  STATE_MANAGER = PublicPersistableStateManager.create(
-    treesDb,
-    contractsDb,
-    trace,
-    /*doMerkleOperations=*/ false,
-    firstNullifier,
-    DEFAULT_TIMESTAMP,
-  );
+  STATE_MANAGER = PublicPersistableStateManager.create(treesDb, contractsDb, trace, firstNullifier, DEFAULT_TIMESTAMP);
 }
 
 async function getSimulator(calldata: (typeof Fr)[]) {

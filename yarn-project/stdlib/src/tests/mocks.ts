@@ -1,10 +1,21 @@
-import { MAX_ENQUEUED_CALLS_PER_TX, MAX_INCLUDE_BY_TIMESTAMP_DURATION } from '@aztec/constants';
+import {
+  FIXED_DA_GAS,
+  FIXED_L2_GAS,
+  MAX_ENQUEUED_CALLS_PER_TX,
+  MAX_INCLUDE_BY_TIMESTAMP_DURATION,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+} from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { times } from '@aztec/foundation/collection';
+import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { ContractArtifact } from '../abi/abi.js';
+import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
+import { PublicDataWrite } from '../avm/public_data_write.js';
+import { RevertCode } from '../avm/revert_code.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { CommitteeAttestation, L1PublishedData, L2BlockHeader } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
@@ -14,16 +25,21 @@ import { computeContractAddressFromInstance } from '../contract/contract_address
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { SerializableContractInstance } from '../contract/contract_instance.js';
 import type { ContractInstanceWithAddress } from '../contract/index.js';
+import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
+import type { GasUsed } from '../gas/gas_used.js';
+import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { Nullifier } from '../kernel/nullifier.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
 } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
+import { PrivateToAvmAccumulatedData } from '../kernel/private_to_avm_accumulated_data.js';
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
+import { PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
 import { Note } from '../note/note.js';
 import { UniqueNote } from '../note/unique_note.js';
 import { BlockAttestation } from '../p2p/block_attestation.js';
@@ -31,12 +47,38 @@ import { BlockProposal } from '../p2p/block_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
-import { HashedValues, PrivateCallExecutionResult, PrivateExecutionResult, StateReference, Tx } from '../tx/index.js';
+import { ProvingRequestType } from '../proofs/proving_request_type.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import {
+  BlockHeader,
+  GlobalVariables,
+  HashedValues,
+  PrivateCallExecutionResult,
+  PrivateExecutionResult,
+  ProtocolContracts,
+  StateReference,
+  Tx,
+  TxConstantData,
+  makeProcessedTxFromPrivateOnlyTx,
+  makeProcessedTxFromTxWithPublicCalls,
+} from '../tx/index.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { TxSimulationResult } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { makeGas, makeGlobalVariables, makeL2BlockHeader, makePublicCallRequest } from './factories.js';
+import {
+  makeAvmCircuitInputs,
+  makeAztecAddress,
+  makeGas,
+  makeGlobalVariables,
+  makeHeader,
+  makeL2BlockHeader,
+  makePrivateToPublicAccumulatedData,
+  makePrivateToRollupAccumulatedData,
+  makeProtocolContracts,
+  makePublicCallRequest,
+  makePublicDataWrite,
+} from './factories.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
 
@@ -158,6 +200,156 @@ export const mockTx = async (
 
 export const mockTxForRollup = (seed = 1, opts: Parameters<typeof mockTx>[1] = {}) =>
   mockTx(seed, { ...opts, numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
+
+/** Mock a processed tx for testing purposes. */
+export async function mockProcessedTx({
+  seed = 1,
+  anchorBlockHeader,
+  db,
+  chainId = Fr.ZERO,
+  version = Fr.ZERO,
+  gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
+  vkTreeRoot = Fr.ZERO,
+  protocolContracts = makeProtocolContracts(seed + 0x100),
+  globalVariables = GlobalVariables.empty(),
+  newL1ToL2Snapshot = AppendOnlyTreeSnapshot.empty(),
+  feePayer,
+  feePaymentPublicDataWrite,
+  // The default gasUsed is the tx overhead.
+  gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS }),
+  privateOnly = false,
+  ...mockTxOpts
+}: {
+  seed?: number;
+  anchorBlockHeader?: BlockHeader;
+  db?: MerkleTreeReadOperations;
+  gasSettings?: GasSettings;
+  globalVariables?: GlobalVariables;
+  newL1ToL2Snapshot?: AppendOnlyTreeSnapshot;
+  protocolContracts?: ProtocolContracts;
+  feePaymentPublicDataWrite?: PublicDataWrite;
+  privateOnly?: boolean;
+} & Parameters<typeof mockTx>[1] = {}) {
+  seed *= 0x1000; // Avoid clashing with the previous mock values if seed only increases by 1.
+  anchorBlockHeader ??= db?.getInitialHeader() ?? makeHeader(seed);
+  feePayer ??= makeAztecAddress(seed + 0x100);
+  feePaymentPublicDataWrite ??= makePublicDataWrite(seed + 0x200);
+
+  const txConstantData = TxConstantData.empty();
+  txConstantData.anchorBlockHeader = anchorBlockHeader;
+  txConstantData.txContext.chainId = chainId;
+  txConstantData.txContext.version = version;
+  txConstantData.txContext.gasSettings = gasSettings;
+  txConstantData.vkTreeRoot = vkTreeRoot;
+  txConstantData.protocolContractsHash = await protocolContracts.hash();
+
+  const tx = !privateOnly
+    ? await mockTx(seed, { feePayer, gasUsed, ...mockTxOpts })
+    : await mockTx(seed, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 0,
+        feePayer,
+        gasUsed,
+        ...mockTxOpts,
+      });
+  tx.data.constants = txConstantData;
+
+  const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
+
+  if (privateOnly) {
+    const data = makePrivateToRollupAccumulatedData(seed + 0x1000, { numContractClassLogs: 0 });
+
+    tx.data.forRollup!.end = data;
+
+    await tx.recomputeHash();
+    return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
+  } else {
+    const dataFromPrivate = tx.data.forPublic!;
+
+    const nonRevertibleData = dataFromPrivate.nonRevertibleAccumulatedData;
+
+    // Create revertible data.
+    const revertibleData = makePrivateToPublicAccumulatedData(seed + 0x1000, { numContractClassLogs: 0 });
+    revertibleData.nullifiers[MAX_NULLIFIERS_PER_TX - 1] = Fr.ZERO; // Leave one space for the tx hash nullifier in nonRevertibleAccumulatedData.
+    dataFromPrivate.revertibleAccumulatedData = revertibleData;
+
+    // Create avm output.
+    const avmOutput = AvmCircuitPublicInputs.empty();
+    // Assign data from hints.
+    avmOutput.protocolContracts = protocolContracts;
+    avmOutput.startTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
+    avmOutput.endTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
+    avmOutput.effectiveGasFees = computeEffectiveGasFees(globalVariables.gasFees, gasSettings);
+    // Assign data from private.
+    avmOutput.globalVariables = globalVariables;
+    avmOutput.startGasUsed = tx.data.gasUsed;
+    avmOutput.gasSettings = gasSettings;
+    avmOutput.feePayer = feePayer;
+    avmOutput.publicCallRequestArrayLengths = new PublicCallRequestArrayLengths(
+      tx.data.numberOfNonRevertiblePublicCallRequests(),
+      tx.data.numberOfRevertiblePublicCallRequests(),
+      tx.data.hasTeardownPublicCallRequest(),
+    );
+    avmOutput.publicSetupCallRequests = dataFromPrivate.nonRevertibleAccumulatedData.publicCallRequests;
+    avmOutput.publicAppLogicCallRequests = dataFromPrivate.revertibleAccumulatedData.publicCallRequests;
+    avmOutput.publicTeardownCallRequest = dataFromPrivate.publicTeardownCallRequest;
+    avmOutput.previousNonRevertibleAccumulatedData = new PrivateToAvmAccumulatedData(
+      dataFromPrivate.nonRevertibleAccumulatedData.noteHashes,
+      dataFromPrivate.nonRevertibleAccumulatedData.nullifiers,
+      dataFromPrivate.nonRevertibleAccumulatedData.l2ToL1Msgs,
+    );
+    avmOutput.previousNonRevertibleAccumulatedDataArrayLengths =
+      avmOutput.previousNonRevertibleAccumulatedData.getArrayLengths();
+    avmOutput.previousRevertibleAccumulatedData = new PrivateToAvmAccumulatedData(
+      dataFromPrivate.revertibleAccumulatedData.noteHashes,
+      dataFromPrivate.revertibleAccumulatedData.nullifiers,
+      dataFromPrivate.revertibleAccumulatedData.l2ToL1Msgs,
+    );
+    avmOutput.previousRevertibleAccumulatedDataArrayLengths =
+      avmOutput.previousRevertibleAccumulatedData.getArrayLengths();
+    // Assign final data emitted from avm.
+    avmOutput.accumulatedData.noteHashes = revertibleData.noteHashes;
+    avmOutput.accumulatedData.nullifiers = padArrayEnd(
+      nonRevertibleData.nullifiers.concat(revertibleData.nullifiers).filter(n => !n.isEmpty()),
+      Fr.ZERO,
+      MAX_NULLIFIERS_PER_TX,
+    );
+    avmOutput.accumulatedData.l2ToL1Msgs = revertibleData.l2ToL1Msgs;
+    avmOutput.accumulatedData.publicDataWrites = makeTuple(
+      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      i => new PublicDataWrite(new Fr(i), new Fr(i + 10)),
+      seed + 0x2000,
+    );
+    avmOutput.accumulatedData.publicDataWrites[0] = feePaymentPublicDataWrite;
+    avmOutput.accumulatedDataArrayLengths = avmOutput.accumulatedData.getArrayLengths();
+    avmOutput.gasSettings = gasSettings;
+    // Note: The fee is computed from the tx's gas used, which only includes the gas used in private. But this shouldn't
+    // be a problem for the tests.
+    avmOutput.transactionFee = transactionFee;
+
+    const avmCircuitInputs = await makeAvmCircuitInputs(seed + 0x3000, { publicInputs: avmOutput });
+    avmCircuitInputs.hints.startingTreeRoots.l1ToL2MessageTree = newL1ToL2Snapshot;
+
+    const gasUsed = {
+      totalGas: Gas.empty(),
+      teardownGas: Gas.empty(),
+      publicGas: Gas.empty(),
+      billedGas: Gas.empty(),
+    } satisfies GasUsed;
+
+    await tx.recomputeHash();
+    return makeProcessedTxFromTxWithPublicCalls(
+      tx,
+      {
+        type: ProvingRequestType.PUBLIC_VM,
+        inputs: avmCircuitInputs,
+      },
+      gasUsed,
+      RevertCode.OK,
+      undefined /* revertReason */,
+    );
+  }
+}
 
 const emptyPrivateCallExecutionResult = () =>
   new PrivateCallExecutionResult(

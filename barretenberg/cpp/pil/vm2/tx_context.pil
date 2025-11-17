@@ -41,16 +41,17 @@ namespace tx;
     // ==== READ START/END STATE FROM PI ====
     // TODO: Consider making this mechanism generic - might not be worth it in a short trace like the tx one.
 
+    // Selector used to read trees and gas used from PI.
+    pol commit sel_read_trees_and_gas_used; // @boolean Because start_tx and is_cleanup are disjoint and booleans.
+    sel_read_trees_and_gas_used = start_tx + is_cleanup;
+
     // Read start/end state of the note hash tree from PI
     pol commit note_hash_pi_offset;
-    start_tx * (constants.AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX - note_hash_pi_offset) = 0;
-    is_cleanup * (constants.AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX - note_hash_pi_offset) = 0;
-
-    pol commit should_read_note_hash_tree;
-    should_read_note_hash_tree = start_tx + is_cleanup;
+    note_hash_pi_offset = start_tx   * constants.AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX
+                        + is_cleanup * constants.AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX;
 
     #[PUBLIC_INPUTS_NOTE_HASH_TREE]
-    should_read_note_hash_tree {
+    sel_read_trees_and_gas_used {
         note_hash_pi_offset,
         prev_note_hash_tree_root,
         prev_note_hash_tree_size
@@ -64,14 +65,11 @@ namespace tx;
 
     // Read start/end state of the nullifier tree from PI
     pol commit nullifier_pi_offset;
-    start_tx * (constants.AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX - nullifier_pi_offset) = 0;
-    is_cleanup * (constants.AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX - nullifier_pi_offset) = 0;
-
-    pol commit should_read_nullifier_tree;
-    should_read_nullifier_tree = start_tx + is_cleanup;
+    nullifier_pi_offset = start_tx   * constants.AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX
+                        + is_cleanup * constants.AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX;
 
     #[PUBLIC_INPUTS_NULLIFIER_TREE]
-    should_read_nullifier_tree {
+    sel_read_trees_and_gas_used {
         nullifier_pi_offset,
         prev_nullifier_tree_root,
         prev_nullifier_tree_size
@@ -85,14 +83,11 @@ namespace tx;
 
     // Read start/end state of the public data tree from PI
     pol commit public_data_pi_offset;
-    start_tx * (constants.AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX - public_data_pi_offset) = 0;
-    is_cleanup * (constants.AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX - public_data_pi_offset) = 0;
-
-    pol commit should_read_public_data_tree;
-    should_read_public_data_tree = start_tx + is_cleanup;
+    public_data_pi_offset = start_tx   * constants.AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX
+                          + is_cleanup * constants.AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX;
 
     #[PUBLIC_INPUTS_PUBLIC_DATA_TREE]
-    should_read_public_data_tree {
+    sel_read_trees_and_gas_used {
         public_data_pi_offset,
         prev_public_data_tree_root,
         prev_public_data_tree_size
@@ -108,14 +103,11 @@ namespace tx;
 
     // Read the state of the l1 to l2 message tree from PI
     pol commit l1_l2_pi_offset;
-    start_tx * (constants.AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX - l1_l2_pi_offset) = 0;
-    is_cleanup * (constants.AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX - l1_l2_pi_offset) = 0;
-
-    pol commit should_read_l1_l2_tree;
-    should_read_l1_l2_tree = start_tx + is_cleanup;
+    l1_l2_pi_offset = start_tx   * constants.AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX
+                    + is_cleanup * constants.AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX;
 
     #[PUBLIC_INPUTS_L1_L2_TREE]
-    should_read_l1_l2_tree {
+    sel_read_trees_and_gas_used {
         l1_l2_pi_offset,
         l1_l2_tree_root
     } in public_inputs.sel {
@@ -129,14 +121,11 @@ namespace tx;
 
     // Read start/end state of gas used from PI
     pol commit gas_used_pi_offset;
-    start_tx * (constants.AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX - gas_used_pi_offset) = 0;
-    is_cleanup * (constants.AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX - gas_used_pi_offset) = 0;
-
-    pol commit should_read_gas_used;
-    should_read_gas_used = start_tx + is_cleanup;
+    gas_used_pi_offset = start_tx   * constants.AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX
+                       + is_cleanup * constants.AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX;
 
     #[PUBLIC_INPUTS_GAS_USED]
-    should_read_gas_used {
+    sel_read_trees_and_gas_used {
         gas_used_pi_offset,
         prev_da_gas_used,
         prev_l2_gas_used
@@ -263,7 +252,7 @@ namespace tx;
     NOT_LAST_ROW * (1 - reverted') * (tx_reverted - tx_reverted') = 0;
 
     pol commit setup_phase_value;
-    sel * (4 - setup_phase_value) = 0;
+    sel * (constants.AVM_TX_PHASE_VALUE_SETUP - setup_phase_value) = 0;
 
     #[RESTORE_STATE_ON_REVERT]
     reverted {
@@ -353,34 +342,34 @@ namespace tx;
 
     // Padded rows are not allowed to change the state
     #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
+    is_padded * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
     #[NOTE_HASH_SIZE_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
+    is_padded * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
     #[NOTE_HASH_COUNT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
+    is_padded * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
 
     #[NULLIFIER_ROOT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
+    is_padded * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
     #[NULLIFIER_SIZE_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
+    is_padded * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
     #[NULLIFIER_COUNT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
+    is_padded * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
 
     #[PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
+    is_padded * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
     #[PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
+    is_padded * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
+    is_padded * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
+    is_padded * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
 
     // The retrieved bytecodes tree is already immutable except for nonpadded call request rows
 
     #[UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
+    is_padded * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
     #[L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
+    is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[L2_GAS_USED_IMMUTABILITY]
     sel * (1 - should_process_call_request) * (prev_l2_gas_used - next_l2_gas_used) = 0;

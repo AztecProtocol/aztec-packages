@@ -130,7 +130,7 @@ TEST(NoteHashExistsConstrainingTest, Interactions)
 
     AppendOnlyTreeSnapshot note_hash_tree_snapshot = AppendOnlyTreeSnapshot{
         .root = 42,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
 
     greater_than.gt(NOTE_HASH_TREE_LEAF_COUNT, leaf_index);

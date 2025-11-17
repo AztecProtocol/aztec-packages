@@ -217,12 +217,8 @@ get_all_projects() {
     done
 }
 
-# Main logic
-cmd=${1:-}
-shift || true
-
 case "$cmd" in
-    ""|"full"|"fast")
+    "")
         # Validate all projects in parallel
         echo_header "Validating TypeScript examples"
 

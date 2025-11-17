@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib::element_goblin {
 
@@ -41,7 +42,10 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
                                                                      [[maybe_unused]] const bool handle_edge_cases,
                                                                      [[maybe_unused]] const Fr& masking_scalar)
 {
-    auto builder = points[0].get_context();
+    auto builder = validate_context<C>(validate_context<C>(points), validate_context<C>(scalars));
+
+    BB_ASSERT(builder != nullptr, "biggroup_goblin: builder context is invalid.");
+    BB_ASSERT(points.size() == scalars.size(), "biggroup_goblin: points and scalars lengths not equal.");
 
     // Check that the internal accumulator is zero?
     BB_ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
