@@ -260,7 +260,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::SHL_16, 1 },    { InstructionGenerationOptions::SHR_16, 1 },
     { InstructionGenerationOptions::CAST_8, 1 },    { InstructionGenerationOptions::CAST_16, 1 },
     { InstructionGenerationOptions::SSTORE, 1 },    { InstructionGenerationOptions::SLOAD, 1 },
-    { InstructionGenerationOptions::GETENVVAR, 1 },
+    { InstructionGenerationOptions::GETENVVAR, 0 },
 });
 
 enum class SStoreMutationOptions { src_offset_index, slot_offset_index };
