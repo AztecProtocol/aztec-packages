@@ -134,24 +134,21 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
-  local avm_flag=$(../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && echo "no-avm" || echo "avm")
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
-    # If AVM is disabled, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
-    # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
-    if [[ $avm_flag == "no-avm" && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
-      continue
-    fi
-
     local prefix=$hash
     local cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts)/ ]]; then
+    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser) ]]; then
       prefix+=":ISOLATE=1:NAME=$test"
+    fi
+
+    if [[ "$test" =~ ^ivc-integration/src/chonk_browser ]]; then
+      prefix+=":NET=1"
     fi
 
     # Boost some tests resources.

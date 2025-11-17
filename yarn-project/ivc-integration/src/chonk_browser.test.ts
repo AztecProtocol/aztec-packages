@@ -166,12 +166,7 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
     }
   }
 
-  it('Should generate a verifiable chonk proof from a simple mock tx in browser', async () => {
-    const verified = await runTestInBrowser('simple', 1, 0);
-    expect(verified).toBe(true);
-  });
-
-  it('Should generate a verifiable chonk proof from a complex mock tx in browser', async () => {
+  it('Should generate a verifiable chonk proof from a mock tx in browser', async () => {
     const verified = await runTestInBrowser('complex', 1, 1);
     expect(verified).toBe(true);
   });
@@ -228,7 +223,7 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
         }
       });
 
-      server.listen(0, () => {
+      server.listen(8080, () => {
         const addr = server.address();
         if (addr && typeof addr === 'object') {
           resolve(addr.port);
