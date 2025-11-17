@@ -98,8 +98,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     globals?: GlobalVariables,
     metrics?: TestExecutorMetrics,
   ) {
-    // TODO(MW): Change below to false once testing complete
-    super(merkleTrees, contractDataSource, globals, metrics, /*useCppSimulator=*/ true);
+    super(merkleTrees, contractDataSource, globals, metrics);
   }
 
   static async new(

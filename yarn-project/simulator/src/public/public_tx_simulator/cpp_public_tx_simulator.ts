@@ -162,9 +162,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     });
 
     // TODO(dbanks12): C++ should return PublicTxResult (or something similar)
-    // TODO(MW): Remove 'return cppResult;' after testing (hints will expectedly not match)
     return tsResult;
-    //return cppResult;
   }
 }
 

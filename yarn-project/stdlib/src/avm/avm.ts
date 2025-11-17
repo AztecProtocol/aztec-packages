@@ -1086,17 +1086,17 @@ export class PublicTxResult {
         logs: NullishToUndefined(DebugLog.schema.array()),
         // For the proving request.
         publicInputs: AvmCircuitPublicInputs.schema,
-        executionHints: NullishToUndefined(AvmExecutionHints.schema),
+        hints: NullishToUndefined(AvmExecutionHints.schema),
       })
       .transform(
-        ({ gasUsed, revertCode, revertReason, appLogicReturnValues, logs, executionHints, publicInputs }) =>
+        ({ gasUsed, revertCode, revertReason, appLogicReturnValues, logs, hints, publicInputs }) =>
           new PublicTxResult(
             gasUsed,
             revertCode as RevertCode,
             revertReason,
             appLogicReturnValues,
             logs,
-            executionHints,
+            hints,
             publicInputs,
           ),
       );
