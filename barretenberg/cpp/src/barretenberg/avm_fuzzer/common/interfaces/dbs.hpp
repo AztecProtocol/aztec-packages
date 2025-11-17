@@ -45,9 +45,16 @@ class FuzzerLowLevelDB : public bb::avm2::simulation::LowLevelMerkleDBInterface 
 
     // Stored leaves sorted by value
     std::vector<std::pair<FF, index_t>> nullifier_values{ { 0, 0 } };
+    std::vector<std::pair<FF, index_t>> public_data_values{ { 0, 0 } };
     // Stored leaves with their indices
     std::unordered_map<index_t, NullifierLeafValue> nullifier_leaves{ { 0, NullifierLeafValue(0) } };
+    std::unordered_map<index_t, PublicDataLeafValue> public_data_leaves{ { 0, PublicDataLeafValue(0, 0) } };
+    std::vector<FF> note_hash_leaves;
+
+    // Indices
     uint64_t next_available_nullifier_index = 1;
+    uint64_t next_available_public_data_index = 1;
+    uint64_t next_available_note_hash_index = 0;
 };
 
 class FuzzerContractDB : public simulation::ContractDBInterface {
