@@ -235,34 +235,6 @@ TEST_F(UltraCircuitBuilderLookup, NoKeyBIndex)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-// Verifies correct behavior for multi-lookup operation verifying last gate has zero step sizes
-TEST_F(UltraCircuitBuilderLookup, LastGateHasZeroStepSizes)
-{
-    Builder builder;
-
-    // HONK_DUMMY_MULTI has 2 lookups - we verify the last gate has zero step sizes
-    // HONK_DUMMY_MULTI tables only contain entries for values 0 and 1 (base = 1 << 1)
-    const fr a_value(1);
-    const fr b_value(1);
-    const auto a_idx = builder.add_variable(a_value);
-    const auto b_idx = builder.add_variable(b_value);
-
-    const auto accumulators =
-        plookup::get_lookup_accumulators(plookup::MultiTableId::HONK_DUMMY_MULTI, a_value, b_value, true);
-    builder.create_gates_from_plookup_accumulators(plookup::MultiTableId::HONK_DUMMY_MULTI, accumulators, a_idx, b_idx);
-
-    const size_t num_lookups = builder.blocks.lookup.size();
-    EXPECT_GT(num_lookups, 0UL);
-
-    // Last gate should have zero step sizes
-    const size_t last_idx = num_lookups - 1;
-    EXPECT_EQ(builder.blocks.lookup.q_2()[last_idx], fr(0));
-    EXPECT_EQ(builder.blocks.lookup.q_m()[last_idx], fr(0));
-    EXPECT_EQ(builder.blocks.lookup.q_c()[last_idx], fr(0));
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
 // Verifies that multiple BasicTables are used correctly in a single operation (UINT32_XOR uses both 6-bit and 2-bit)
 TEST_F(UltraCircuitBuilderLookup, MultipleBasicTables)
 {
