@@ -16,6 +16,7 @@ using namespace bb;
  * create_big_mul_add_gate      (q_arith=1, 4-wire mul+add without w_4_shift)
  * create_big_mul_add_gate      (q_arith=2, 4-wire mul+add with w_4_shift)
  * create_arithmetic_gate       (q_arith=1, general arithmetic gate)
+ * create_bool_gate             (q_arith=1, boolean constraint x² - x = 0)
  *
  */
 class UltraCircuitBuilderArithmetic : public ::testing::Test {
@@ -24,11 +25,6 @@ class UltraCircuitBuilderArithmetic : public ::testing::Test {
     struct AddTripleData {
         fr a, b, c;
         fr a_scaling, b_scaling, c_scaling, const_scaling;
-    };
-
-    struct MulTripleData {
-        fr a, b, c;
-        fr mul_scaling, c_scaling, const_scaling;
     };
 
     struct AddQuadData {
@@ -295,8 +291,6 @@ TEST_F(UltraCircuitBuilderArithmetic, ArithmeticGateComplexExpression)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-// ===== Q_ARITH MODE TESTS =====
-
 // Verifies that q_arith = 2 mode (with w_4_shift) works correctly
 // In this mode, the constraint includes the w_4 value from the NEXT row
 // Constraint: 2 * [q_m * w_1 * w_2 + \sum_{i=1..4} q_i * w_i + q_c + w_4_shift] = 0
@@ -320,9 +314,8 @@ TEST_F(UltraCircuitBuilderArithmetic, BigAddGateWithNextRowW4)
     uint32_t dummy_idx = builder.add_variable(fr(13));
 
     // First gate with use_next_gate_w_4 = true (sets q_arith = 2)
-    // Note: The scalings are automatically adjusted by the builder for q_arith = 2 mode
     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(1), fr(0) },
-                                true /* use_next_gate_w_4 */);
+                                /* use_next_gate_w_4 */ true);
 
     // Second gate to provide the w_4 value
     builder.create_big_add_gate({ dummy_idx, dummy_idx, dummy_idx, next_w_4_idx, fr(0), fr(0), fr(0), fr(0), fr(0) });
@@ -350,7 +343,7 @@ TEST_F(UltraCircuitBuilderArithmetic, BigAddGateWithNextRowW4Failure)
     uint32_t dummy_idx = builder.add_variable(fr(13));
 
     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(1), fr(0) },
-                                true /* use_next_gate_w_4 */);
+                                /* use_next_gate_w_4 */ true);
 
     builder.create_big_add_gate({ dummy_idx, dummy_idx, dummy_idx, next_w_4_idx, fr(0), fr(0), fr(0), fr(0), fr(0) });
 
@@ -375,7 +368,7 @@ TEST_F(UltraCircuitBuilderArithmetic, BigMulAddGate)
 
     // create_big_mul_add_gate with include_next_gate_w_4=false uses q_arith=1
     builder.create_big_mul_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(0), fr(0), fr(1), fr(1), fr(0) },
-                                    false /* use_next_gate_w_4 */);
+                                    /* use_next_gate_w_4 */ false);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -403,7 +396,7 @@ TEST_F(UltraCircuitBuilderArithmetic, BigMulAddGateFailure)
                                           data.c_scaling,
                                           data.d_scaling,
                                           data.const_scaling },
-                                        false /* use_next_gate_w_4 */);
+                                        /* use_next_gate_w_4 */ false);
 
         EXPECT_FALSE(CircuitChecker::check(builder));
     };
@@ -444,7 +437,7 @@ TEST_F(UltraCircuitBuilderArithmetic, BigMulAddGateWithNextRowW4)
 
     // Note: mul_scaling is also adjusted for q_arith = 2 mode
     builder.create_big_mul_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(0), fr(0), fr(1), fr(1), fr(0) },
-                                    true /* use_next_gate_w_4 */);
+                                    /* use_next_gate_w_4 */ true);
 
     builder.create_big_add_gate({ dummy_idx, dummy_idx, dummy_idx, next_w_4_idx, fr(0), fr(0), fr(0), fr(0), fr(0) });
 
@@ -471,9 +464,49 @@ TEST_F(UltraCircuitBuilderArithmetic, BigMulAddGateWithNextRowW4Failure)
     uint32_t dummy_idx = builder.add_variable(fr(13));
 
     builder.create_big_mul_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(0), fr(0), fr(1), fr(1), fr(0) },
-                                    true /* use_next_gate_w_4 */);
+                                    /* use_next_gate_w_4 */ true);
 
     builder.create_big_add_gate({ dummy_idx, dummy_idx, dummy_idx, next_w_4_idx, fr(0), fr(0), fr(0), fr(0), fr(0) });
 
     EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+// Verifies that create_bool_gate works for boolean values (0 and 1)
+TEST_F(UltraCircuitBuilderArithmetic, BoolGate)
+{
+    // Test that 0 passes
+    {
+        UltraCircuitBuilder builder;
+        uint32_t zero_idx = builder.add_variable(fr(0));
+        builder.create_bool_gate(zero_idx);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    // Test that 1 passes
+    {
+        UltraCircuitBuilder builder;
+        uint32_t one_idx = builder.add_variable(fr(1));
+        builder.create_bool_gate(one_idx);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+}
+
+// Verifies that create_bool_gate fails for non-boolean values
+TEST_F(UltraCircuitBuilderArithmetic, BoolGateFailure)
+{
+    // Test that 2 fails
+    {
+        UltraCircuitBuilder builder;
+        uint32_t two_idx = builder.add_variable(fr(2));
+        builder.create_bool_gate(two_idx);
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+
+    // Test that -1 fails
+    {
+        UltraCircuitBuilder builder;
+        uint32_t neg_one_idx = builder.add_variable(fr(-1));
+        builder.create_bool_gate(neg_one_idx);
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
 }
