@@ -278,7 +278,7 @@ Within the **CHONK** proving system, the Merge Protocol achieves zero-knowledge 
 **Copy-Constrained Commitments:** Merge and Translator use the **same commitment** $[M_j]$ (not separate commitments). Shifted evaluations $M_{j, \text{shifted}}(u)$ re-use $[M_j]$. Here $u^\prime$ is the Translator sumcheck evaluation challenge.
 
 **Total Randomness Available:**
-- 4 wires (op queue columns), each with 10 random coefficients (4 from $L_j$ hiding kernel, 6 from $R_j$ tail kernel)
+- 4 $M_j$ wires (op queue columns), each with 10 random coefficients (4 from $L_j$ hiding kernel, 6 from $R_j$ tail kernel)
 - **Total: 40 random coefficients**
 
 **Per-Wire DoF Consumption:**
@@ -287,8 +287,8 @@ For each wire $j \in \{1, 2, 3, 4\}$:
 
 1. **Commitments** (copy-constrained between Merge and Translator):
    - $[L_j]$, $[R_j]$, $[M_j]$ → 3 commitments per wire
-   - KZG computational hiding: -1 DoF per commitment
-   - **Per wire: -3 DoF**
+   - **Per $L_j$: -1 DoF**
+   - **Per $R_j$: -2 DoF** (WLOG assuming that $M_j$ uses randmoness from $R_j$.)
 
 2. **Independent evaluation constraints:**
    - Merge: $L_j(\kappa)$ → **-1 DoF**
@@ -297,47 +297,36 @@ For each wire $j \in \{1, 2, 3, 4\}$:
    - MegaZK: $L_j(u)$ (as `ecc_op_wire`) → **-1 DoF**
    - Translator: $M_j(u^\prime)$ → **-1 DoF**
    - Translator: $M_{j, \text{shifted}}(u^\prime)$ → **-1 DoF**
-   - **Per wire: -5 DoF** for evaluations
+   - **Per $L_j$: -2 DoF**
+   - **Per $R_j$: -3 DoF** (WLOG assuming that $M_j$ uses randmoness from $R_j$ for its evaluations at challenges.)
 
-**Per-Wire Subtotal:** $-3$ (commitments) $-5$ (evaluations) $= -8$ DoF per wire
 
-**Per-Wire Balance:**
-- Available: 10 random coefficients per wire
-- Consumed: 8 DoF per wire
-- **Residual per wire: 2 DoF** ✓
+**Per-Wire Subtotal:** $-3$ per $L_j$; $-5$ per $R_j$.
 
 **Cross-Wire Shared Operations:**
 
 These operations batch across all 4 wires and draw from the **residual pool** of $2 \times 4 = 8$ DoF:
 
 1. **Degree check polynomial** $G(X) = X^{k-1} \cdot \sum_{i=1}^{4} \alpha_i L_i(X)$:
-   - Commitment $[G]$ → **-1 DoF** (shared across all wires)
-   - Evaluation $G(\kappa^{-1})$ → **-1 DoF** (shared)
+   - Commitment $[G]$ → **-1 DoF** (shared across $L_i$ wires)
+   - Evaluation $G(\kappa^{-1})$ → **-1 DoF** (shared across $L_i$ wires)
    - Verification: $\sum_i \alpha_i L_i(\kappa) = G(\kappa^{-1}) \cdot \kappa^{k-1}$ (consistency check, not new constraint)
-   - **Total: -2 DoF** (shared)
+   - **Total: -2 DoF** (shared across $L_j$).
 
 2. **Shplonk batching:**
    - Batches all 13 opening claims (4 × 3 for $L, R, M$ plus $G$)
-   - Quotient commitment $[Q]$ → **-1 DoF** shared
+   - Quotient commitment $[Q]$ → **-1 DoF** shared across $L_j$ and $R_j$.
 
 3. **KZG Quotient:**
-   - Verifies Shplonk quotient opening → **-1 DoF** (shared)
+   - Verifies Shplonk quotient opening → **-1 DoF** (shared across $L_j$ and $R_j$)
 
-**Shared Operations Total:** $-2$ (degree check used) $-1$ (Shplonk) $-1$ (KZG) $= -4$ DoF
+**Shared Operations Total:** $L_j$ wires loose $2$ shared DoFs, $R_j$ wires loose 2 shared DoFs.
 
 
 **Final Balance:**
-- Residual available: 8 DoF (from per-wire surplus)
-- Shared consumed: 4 DoF
-- **Net surplus: 4 DoF** ✓
+- $$2$ shared DoFs across $L_j$ wires, $2$ shared DoFs across $R_j$ wires✓
 
-**Conclusion:** The 5 random non-ops provide computational hiding with a 4 DoF surplus (40 random coefficients, 36 consumed). The 4-wire structure allows per-wire surplus to cover shared batched operations. This is sufficient but with minimal margin.
-
-##### Remaining Considerations
-
-**Caveats:**
-1. Analysis is heuristic (assumes ~1 DoF per commitment under DLog)
-2. 4 DoF margin is thin
+**Conclusion:** 3 + 2 random non-ops are sufficient for hiding with a minimal margin.
 
 **Implementation references:**
 - `Chonk::hide_op_queue_content_in_tail()`, `Chonk::hide_op_queue_content_in_hiding()`, `Chonk::hide_op_queue_accumulation_result()`
