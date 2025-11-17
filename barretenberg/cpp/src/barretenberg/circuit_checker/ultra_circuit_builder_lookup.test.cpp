@@ -60,7 +60,7 @@ TEST_F(UltraCircuitBuilderLookup, StepSizeCoefficients)
     const auto& multi_table = plookup::get_multitable(plookup::MultiTableId::UINT32_XOR);
     const size_t num_lookups = multi_table.column_1_step_sizes.size();
 
-    // Check non-last gates have negative step sizes
+    // Check that step sizes have been populated correctly in the the corresponding selectors
     for (size_t i = 0; i < num_lookups - 1; ++i) {
         EXPECT_EQ(builder.blocks.lookup.q_2()[i], -multi_table.column_1_step_sizes[i + 1]);
         EXPECT_EQ(builder.blocks.lookup.q_m()[i], -multi_table.column_2_step_sizes[i + 1]);
@@ -73,7 +73,7 @@ TEST_F(UltraCircuitBuilderLookup, StepSizeCoefficients)
     EXPECT_EQ(builder.blocks.lookup.q_m()[last_idx], fr(0));
     EXPECT_EQ(builder.blocks.lookup.q_c()[last_idx], fr(0));
 
-    // Check all gates have correct constant selector values
+    // Sanity check: unused selectors are set to 0
     for (size_t i = 0; i < num_lookups; ++i) {
         EXPECT_EQ(builder.blocks.lookup.q_1()[i], fr(0));
         EXPECT_EQ(builder.blocks.lookup.q_4()[i], fr(0));
@@ -82,40 +82,38 @@ TEST_F(UltraCircuitBuilderLookup, StepSizeCoefficients)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-// Verifies that get_table creates a new table on first call and returns the same table on subsequent calls
-TEST_F(UltraCircuitBuilderLookup, GetTableCreatesAndReuses)
-{
-    Builder builder;
-
-    const auto table_id = plookup::BasicTableId::UINT_XOR_SLICE_6_ROTATE_0;
-
-    // First call should create the table
-    const size_t initial_table_count = builder.get_num_lookup_tables();
-    auto& table1 = builder.get_table(table_id);
-    EXPECT_EQ(builder.get_num_lookup_tables(), initial_table_count + 1);
-    EXPECT_EQ(table1.id, table_id);
-
-    // Second call should return the same table (no new table created)
-    auto& table2 = builder.get_table(table_id);
-    EXPECT_EQ(builder.get_num_lookup_tables(), initial_table_count + 1);
-    EXPECT_EQ(&table1, &table2); // Same reference
-}
-
 // Verifies that different tables get unique indices
 TEST_F(UltraCircuitBuilderLookup, DifferentTablesGetUniqueIndices)
 {
     Builder builder;
 
-    auto& table1 = builder.get_table(plookup::BasicTableId::UINT_XOR_SLICE_6_ROTATE_0);
-    auto& table2 = builder.get_table(plookup::BasicTableId::UINT_XOR_SLICE_2_ROTATE_0);
-    auto& table3 = builder.get_table(plookup::BasicTableId::UINT_AND_SLICE_6_ROTATE_0);
+    // Specify three different table IDs
+    const auto table_id1 = plookup::BasicTableId::UINT_XOR_SLICE_6_ROTATE_0;
+    const auto table_id2 = plookup::BasicTableId::UINT_XOR_SLICE_2_ROTATE_0;
+    const auto table_id3 = plookup::BasicTableId::UINT_AND_SLICE_6_ROTATE_0;
+
+    // Construct tables, using table_id1 twice
+    auto& table1 = builder.get_table(table_id1);
+    auto& table2 = builder.get_table(table_id2);
+    auto& table1_again = builder.get_table(table_id1);
+    auto& table3 = builder.get_table(table_id3);
+
+    // table1 and table1_again should be the same reference
+    EXPECT_EQ(&table1, &table1_again);
+
+    // Table IDs should be set correctly
+    EXPECT_EQ(table1.id, table_id1);
+    EXPECT_EQ(table2.id, table_id2);
+    EXPECT_EQ(table1_again.id, table_id1);
+    EXPECT_EQ(table3.id, table_id3);
 
     // Tables should have `table_index` based on order of creation
     EXPECT_EQ(table1.table_index, 0UL);
     EXPECT_EQ(table2.table_index, 1UL);
+    EXPECT_EQ(table1_again.table_index, 0UL);
     EXPECT_EQ(table3.table_index, 2UL);
 
-    // Three different tables should have been created
+    // Exactly three different tables should have been created
     EXPECT_EQ(builder.get_num_lookup_tables(), 3UL);
 }
 
