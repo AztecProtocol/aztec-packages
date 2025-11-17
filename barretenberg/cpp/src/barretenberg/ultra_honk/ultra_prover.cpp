@@ -96,10 +96,10 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
     generate_gate_challenges();
 
     // Run sumcheck
-    execute_relation_check_rounds();
+    execute_sumcheck_iop();
     vinfo("finished relation check rounds");
     // Execute Shplemini PCS
-    execute_pcs_rounds();
+    execute_pcs();
     vinfo("finished PCS rounds");
 
     return export_proof();
@@ -110,7 +110,7 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
  * challenges and all evaluations at u being calculated.
  *
  */
-template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_relation_check_rounds()
+template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
 {
     const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
 
@@ -144,7 +144,7 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_relation_
  * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  *
  */
-template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_pcs_rounds()
+template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_pcs()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;

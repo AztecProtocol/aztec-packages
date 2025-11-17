@@ -61,8 +61,8 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
 
     explicit UltraProver_(Builder&&, const std::shared_ptr<HonkVK>&);
 
-    BB_PROFILE void execute_relation_check_rounds();
-    BB_PROFILE void execute_pcs_rounds();
+    BB_PROFILE void execute_sumcheck_iop();
+    BB_PROFILE void execute_pcs();
 
     BB_PROFILE void generate_gate_challenges();
 
