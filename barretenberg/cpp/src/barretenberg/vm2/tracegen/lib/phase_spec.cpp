@@ -16,7 +16,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
     static const std::unordered_map<TransactionPhase, TxPhaseSpec> TX_PHASE_SPEC_MAP = { {
         { TransactionPhase::NR_NULLIFIER_INSERTION,
           {
-                  .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
+              .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
               .non_revertible_append_nullifier = true,
@@ -24,7 +24,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
           } },
         { TransactionPhase::NR_NOTE_INSERTION,
           {
-                  .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
+              .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
               .non_revertible_append_note_hash = true,
@@ -32,7 +32,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
           } },
         { TransactionPhase::NR_L2_TO_L1_MESSAGE,
           {
-                  .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
+              .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
               .non_revertible_append_l2_l1_msg = true,
@@ -40,7 +40,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
           } },
         { TransactionPhase::SETUP,
           {
-                  .is_public_call_request = true,
+              .is_public_call_request = true,
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX,
               .read_pi_length_offset = AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX,
               .can_emit_note_hash = true,
@@ -51,7 +51,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
           } },
         { TransactionPhase::R_NULLIFIER_INSERTION,
           {
-                  .is_revertible = true,
+              .is_revertible = true,
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
@@ -61,7 +61,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
           } },
         { TransactionPhase::R_NOTE_INSERTION,
           {
-                  .is_revertible = true,
+              .is_revertible = true,
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
@@ -71,7 +71,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
           } },
         { TransactionPhase::R_L2_TO_L1_MESSAGE,
           {
-                  .is_revertible = true,
+              .is_revertible = true,
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
@@ -81,7 +81,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
           } },
         { TransactionPhase::APP_LOGIC,
           {
-                  .is_public_call_request = true,
+              .is_public_call_request = true,
               .is_revertible = true,
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX,
               .read_pi_length_offset = AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX,
@@ -94,7 +94,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
           } },
         { TransactionPhase::TEARDOWN,
           {
-                  .is_public_call_request = true,
+              .is_public_call_request = true,
               .is_teardown = true,
               .is_revertible = true,
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX,
@@ -108,19 +108,19 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
           } },
         { TransactionPhase::COLLECT_GAS_FEES,
           {
-                  .is_collect_fee = true,
+              .is_collect_fee = true,
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX,
               .can_write_public_data = true,
           } },
         { TransactionPhase::TREE_PADDING,
           {
-                  .is_tree_padding = true,
+              .is_tree_padding = true,
               .can_emit_note_hash = true,
               .can_emit_nullifier = true,
           } },
         { TransactionPhase::CLEANUP,
           {
-                  .is_cleanup = true,
+              .is_cleanup = true,
           } },
     } };
     return TX_PHASE_SPEC_MAP;

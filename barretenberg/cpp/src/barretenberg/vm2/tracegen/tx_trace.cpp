@@ -75,7 +75,7 @@ constexpr size_t NUM_PHASES = static_cast<size_t>(TransactionPhase::LAST) + 1;
  */
 bool is_revertible(TransactionPhase phase)
 {
-    return TX_PHASE_SPEC_MAP.at(phase).is_revertible;
+    return get_tx_phase_spec_map().at(phase).is_revertible;
 }
 
 /**
@@ -86,8 +86,8 @@ bool is_revertible(TransactionPhase phase)
  */
 bool is_note_hash_insert_phase(TransactionPhase phase)
 {
-    return TX_PHASE_SPEC_MAP.at(phase).non_revertible_append_note_hash ||
-           TX_PHASE_SPEC_MAP.at(phase).revertible_append_note_hash;
+    return get_tx_phase_spec_map().at(phase).non_revertible_append_note_hash ||
+           get_tx_phase_spec_map().at(phase).revertible_append_note_hash;
 }
 
 /**
@@ -98,8 +98,8 @@ bool is_note_hash_insert_phase(TransactionPhase phase)
  */
 bool is_nullifier_insert_phase(TransactionPhase phase)
 {
-    return TX_PHASE_SPEC_MAP.at(phase).non_revertible_append_nullifier ||
-           TX_PHASE_SPEC_MAP.at(phase).revertible_append_nullifier;
+    return get_tx_phase_spec_map().at(phase).non_revertible_append_nullifier ||
+           get_tx_phase_spec_map().at(phase).revertible_append_nullifier;
 }
 
 /**
@@ -111,8 +111,8 @@ bool is_nullifier_insert_phase(TransactionPhase phase)
  */
 bool is_one_shot_phase(TransactionPhase phase)
 {
-    return TX_PHASE_SPEC_MAP.at(phase).is_collect_fee || TX_PHASE_SPEC_MAP.at(phase).is_tree_padding ||
-           TX_PHASE_SPEC_MAP.at(phase).is_cleanup;
+    return get_tx_phase_spec_map().at(phase).is_collect_fee || get_tx_phase_spec_map().at(phase).is_tree_padding ||
+           get_tx_phase_spec_map().at(phase).is_cleanup;
 }
 
 /**
@@ -123,7 +123,7 @@ bool is_one_shot_phase(TransactionPhase phase)
  */
 bool is_teardown(TransactionPhase phase)
 {
-    return TX_PHASE_SPEC_MAP.at(phase).is_teardown;
+    return get_tx_phase_spec_map().at(phase).is_teardown;
 }
 
 /**
@@ -147,8 +147,7 @@ std::vector<std::pair<C, FF>> insert_tree_state(const TxContextEvent& prev_state
         { C::tx_prev_num_nullifiers_emitted, prev_state.tree_states.nullifier_tree.counter },
         // Public Data Tree Roots
         { C::tx_prev_public_data_tree_root, prev_state.tree_states.public_data_tree.tree.root },
-        { C::tx_prev_public_data_tree_size,
-          prev_state.tree_states.public_data_tree.tree.next_available_leaf_index },
+        { C::tx_prev_public_data_tree_size, prev_state.tree_states.public_data_tree.tree.next_available_leaf_index },
         // Written Public Data Slots Tree Roots
         { C::tx_prev_written_public_data_slots_tree_root, prev_state.written_public_data_slots_tree_snapshot.root },
         { C::tx_prev_written_public_data_slots_tree_size,
@@ -170,8 +169,7 @@ std::vector<std::pair<C, FF>> insert_tree_state(const TxContextEvent& prev_state
         { C::tx_next_num_nullifiers_emitted, next_state.tree_states.nullifier_tree.counter },
         // Public Data Tree Roots
         { C::tx_next_public_data_tree_root, next_state.tree_states.public_data_tree.tree.root },
-        { C::tx_next_public_data_tree_size,
-          next_state.tree_states.public_data_tree.tree.next_available_leaf_index },
+        { C::tx_next_public_data_tree_size, next_state.tree_states.public_data_tree.tree.next_available_leaf_index },
         // Written Public Data Slots Tree Roots
         { C::tx_next_written_public_data_slots_tree_root, next_state.written_public_data_slots_tree_snapshot.root },
         { C::tx_next_written_public_data_slots_tree_size,

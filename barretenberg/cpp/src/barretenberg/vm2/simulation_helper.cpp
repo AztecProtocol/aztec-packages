@@ -163,8 +163,10 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
         throw std::runtime_error("Non-revertible nullifiers are empty in the transaction.");
     }
 
-    NoteHashTreeCheck note_hash_tree_check(
-        hints.tx.non_revertible_accumulated_data.nullifiers.at(0), poseidon2, merkle_check, note_hash_tree_check_emitter);
+    NoteHashTreeCheck note_hash_tree_check(hints.tx.non_revertible_accumulated_data.nullifiers.at(0),
+                                           poseidon2,
+                                           merkle_check,
+                                           note_hash_tree_check_emitter);
     L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
     EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
