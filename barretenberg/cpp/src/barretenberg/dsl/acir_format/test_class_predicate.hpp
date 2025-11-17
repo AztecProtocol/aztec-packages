@@ -110,8 +110,7 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
      */
     static void update_witness_based_on_predicate(AcirConstraint& constraint,
                                                   WitnessVector& witness_values,
-                                                  const Predicate<InvalidWitnessTarget>& mode,
-                                                  [[maybe_unused]] const bool forced_invalidation = false)
+                                                  const Predicate<InvalidWitnessTarget>& mode)
     {
         switch (mode.test_case) {
         case PredicateTestCase::ConstantTrue:
@@ -132,13 +131,12 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
     /**
      * @brief Generate constraints and witness values based on the predicate and the invalidation target.
      */
-    static std::pair<AcirConstraint, WitnessVector> generate_constraints(const Predicate<InvalidWitnessTarget>& mode,
-                                                                         const bool forced_invalidation = false)
+    static std::pair<AcirConstraint, WitnessVector> generate_constraints(const Predicate<InvalidWitnessTarget>& mode)
     {
         AcirConstraint constraint;
         WitnessVector witness_values;
         Base::generate_constraints(constraint, witness_values);
-        update_witness_based_on_predicate(constraint, witness_values, mode, forced_invalidation);
+        update_witness_based_on_predicate(constraint, witness_values, mode);
 
         return { constraint, witness_values };
     }
@@ -147,12 +145,11 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
      * @brief General purpose testing function. It generates the test based on the predicate and invalidation target.
      */
     static std::tuple<bool, bool, std::string> test_constraints(const PredicateTestCase& test_case,
-                                                                const InvalidWitnessTarget& invalid_witness_target,
-                                                                const bool forced_invalidation = false)
+                                                                const InvalidWitnessTarget& invalid_witness_target)
     {
         Predicate<InvalidWitnessTarget> predicate = { .test_case = test_case,
                                                       .invalid_witness = invalid_witness_target };
-        auto [constraint, witness_values] = generate_constraints(predicate, forced_invalidation);
+        auto [constraint, witness_values] = generate_constraints(predicate);
 
         AcirFormat constraint_system = {
             .varnum = static_cast<uint32_t>(witness_values.size()),
@@ -331,7 +328,7 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
      *
      * For each invalid witness target:
      * 1. First pass (predicate = false): Verifies the circuit succeeds with invalid witnesses when predicate is false
-     * 2. Second pass (predicate = true, forced invalidation): Verifies the SAME invalid witness configuration would
+     * 2. Second pass (predicate = true): Verifies the SAME invalid witness configuration would
      *    fail if the predicate were true
      *
      * The second pass validates that our invalidation logic is actually creating invalid inputs. Useful for debugging.
@@ -352,8 +349,8 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             // Only validate witness true failure for actual invalidation targets (skip None)
             if (invalid_witness_target != InvalidWitnessTarget::None) {
                 // Check that the same configuration would have failed if the predicate was witness true
-                auto [circuit_checker_result, builder_failed, builder_err] = test_constraints(
-                    PredicateTestCase::WitnessTrue, invalid_witness_target, /*forced_invalidation=*/true);
+                auto [circuit_checker_result, builder_failed, builder_err] =
+                    test_constraints(PredicateTestCase::WitnessTrue, invalid_witness_target);
 
                 // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the
                 // CircuitChecker failed, or the builder error resulted from an assert_eq.

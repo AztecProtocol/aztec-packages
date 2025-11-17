@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
 version="3.0"
 arch=$(arch)
 branch=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}

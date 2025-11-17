@@ -797,11 +797,11 @@ describe('Private Execution test suite', () => {
   });
 
   describe('enqueued calls', () => {
-    it.each([false, true])('parent should enqueue call to child (internal %p)', async isInternal => {
+    it.each([false, true])('parent should enqueue call to child (is #[only_self]: %p)', async isOnlySelf => {
       const childContractArtifact = structuredClone(ChildContractArtifact);
       const childFunctionArtifact = childContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(childFunctionArtifact).toBeDefined();
-      childFunctionArtifact.isInternal = isInternal;
+      childFunctionArtifact.isOnlySelf = isOnlySelf;
 
       const childAddress = await AztecAddress.random();
       await mockContractInstance(childContractArtifact, childAddress);

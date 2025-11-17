@@ -19,6 +19,11 @@ const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const versions = require("./versions.json");
 
+// Find specific versions dynamically to avoid array index issues
+const nightlyVersion = versions.find((v) => v.includes("nightly"));
+const devnetVersion = versions.find((v) => v.includes("devnet"));
+const ignitionVersion = versions.find((v) => v.includes("ignition"));
+
 const config = {
   title: "Privacy-first zkRollup | Aztec Documentation",
   tagline:
@@ -58,7 +63,7 @@ const config = {
           sidebarPath: "./sidebars.js",
           editUrl: (params) => {
             return (
-              `https://github.com/AztecProtocol/aztec-packages/edit/master/docs/docs/` +
+              `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs/` +
               params.docPath
             );
           },
@@ -68,22 +73,30 @@ const config = {
           // Hide current version in Netlify production, show in dev and PR previews
           // Netlify sets CONTEXT
           includeCurrentVersion: process.env.CONTEXT !== "production",
-          // Testnet should be the default version
-          lastVersion: versions[2],
+          // Ignition should be the default version
+          lastVersion: ignitionVersion,
           versions: {
-            [versions[0]]: {
-              ...(versions[0].includes("nightly") && {
+            ...(nightlyVersion && {
+              [nightlyVersion]: {
                 path: "nightly",
                 banner: "unreleased",
-              }),
-            },
-            [versions[1]]: {
-              label: "Devnet (v3.0.0-devnet.4)",
-              path: "devnet",
+              },
+            }),
+            ...(devnetVersion && {
+              [devnetVersion]: {
+                label: "Devnet (v3.0.0-devnet.5)",
+                path: "devnet",
+                banner: "none",
+              },
+            }),
+            "v2.1.4": {
+              path: "testnet",
+              label: "Testnet (v2.1.4)",
               banner: "none",
             },
-            "v2.1.2": {
-              label: "RC (v2.1.2)",
+            "v2.1.5-ignition": {
+              label: "Ignition (v2.1.5)",
+              banner: "none",
             },
             ...(process.env.CONTEXT !== "production" && {
               current: {
@@ -126,10 +139,12 @@ const config = {
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
-        docsDir: `versioned_docs/version-${versions[0]}/`,
+        docsDir: devnetVersion
+          ? `versioned_docs/version-${devnetVersion}/`
+          : `versioned_docs/version-${versions[0]}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
-        version: versions[0],
+        version: devnetVersion || versions[0],
         pathTransformation: {
           ignorePaths: ["docs"],
         },
@@ -203,14 +218,14 @@ const config = {
             position: "left",
             label: "Run a node",
           },
+          // {
+          //   to: "/try_testnet",
+          //   label: "Try Testnet",
+          //   position: "right",
+          // },
           {
-            to: "/developers/getting_started_on_sandbox",
-            label: "Install Sandbox",
-            position: "right",
-          },
-          {
-            to: "/try_testnet",
-            label: "Try Testnet",
+            to: "/ignition_info",
+            label: "Ignition Info",
             position: "right",
           },
           {
@@ -308,10 +323,6 @@ const config = {
               {
                 label: "Introduction",
                 to: "/",
-              },
-              {
-                label: "Developer Getting Started",
-                to: "/developers/getting_started",
               },
               {
                 label: "Aztec.nr",

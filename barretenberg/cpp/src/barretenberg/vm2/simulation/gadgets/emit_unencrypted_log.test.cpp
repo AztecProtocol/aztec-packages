@@ -165,7 +165,7 @@ TEST(EmitUnencryptedLogTest, NegativeTooManyLogs)
     TrackedSideEffects side_effect_states = {
         .public_logs = PublicLogs{ { { .fields = testing::random_fields(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH -
                                                                         FLAT_PUBLIC_LOGS_HEADER_LENGTH - 3),
-                                       .contractAddress = 0xdeadbeef } } }
+                                       .contract_address = 0xdeadbeef } } }
     };
     // No change to side effect states due to failure.
     const TrackedSideEffects& side_effect_states_after = side_effect_states;

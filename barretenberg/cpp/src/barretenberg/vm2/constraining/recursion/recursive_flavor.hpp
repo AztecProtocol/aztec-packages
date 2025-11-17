@@ -88,8 +88,8 @@ class AvmRecursiveFlavor {
         }
 
         std::vector<FF> to_field_elements() const override { throw_or_abort("Not intended to be used."); }
-        FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
-                                   [[maybe_unused]] Transcript& transcript) const override
+        FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                    [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

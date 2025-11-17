@@ -100,8 +100,8 @@ createAccountButton.addEventListener('click', async (e) => {
 });
 
 // Connect a test account
-// Sandbox comes with some test accounts. This can be used instead of creating new ones
-// when building against the Sandbox.
+// Local network comes with some test accounts. This can be used instead of creating new ones
+// when building against the local network.
 connectTestAccountButton.addEventListener('click', async (e) => {
   e.preventDefault();
   const button = e.target as HTMLButtonElement;

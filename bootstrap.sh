@@ -13,14 +13,6 @@ export DENOISE=${DENOISE:-1}
 # Number of TXE servers to run when testing.
 export NUM_TXES=8
 
-cmd=${1:-}
-[ -n "$cmd" ] && shift
-
-if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
-  export NOIR_HASH=$(./noir/bootstrap.sh hash)
-  [ -n "$NOIR_HASH" ]
-fi
-
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
 }
@@ -134,17 +126,25 @@ function check_toolchains {
 # Install pre-commit git hooks.
 function install_hooks {
   hooks_dir=$(git rev-parse --git-path hooks)
+  rm -f $hooks_dir/*
+
   cat <<EOF >$hooks_dir/pre-commit
 #!/usr/bin/env bash
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
 ./yarn-project/precommit.sh
+./noir/precommit.sh
 ./noir-projects/precommit.sh
 ./yarn-project/constants/precommit.sh
 EOF
   chmod +x $hooks_dir/pre-commit
-  echo "(cd noir && ./postcheckout.sh \$@)" >$hooks_dir/post-checkout
-  chmod +x $hooks_dir/post-checkout
+
+  cat <<EOF >$hooks_dir/post-merge
+#!/usr/bin/env bash
+set -euo pipefail
+git submodule update --init --recursive
+EOF
+  chmod +x $hooks_dir/post-merge
 }
 
 function sort_by_cpus {
@@ -169,7 +169,7 @@ function sort_by_cpus {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir docs
+    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
@@ -220,10 +220,18 @@ function test {
   echo "$tests" | parallelize
 }
 
-function build {
+function pull_submodules {
   echo_header "pull submodules"
-  denoise "git submodule update --init --recursive"
+  # If it's an old standalone noir clone, nuke it.
+  if [ -d "noir/noir-repo/.git" ]; then
+    echo "Removing old noir clone..."
+    rm -rf noir/noir-repo
+  fi
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8"
+}
 
+function build {
+  pull_submodules
   check_toolchains
 
   # Ensure we have yarn set up.
@@ -278,7 +286,7 @@ function build {
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/sol barretenberg/acir_tests noir-projects/noir-protocol-circuits l1-contracts
+    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/sol noir-projects/noir-protocol-circuits l1-contracts
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
 }
@@ -301,7 +309,8 @@ function bench_merge {
     dir=${dir#./}; \
     dir=${dir%/bench-out*}; \
     jq --arg prefix "$dir/" '\''map(.name |= "\($prefix)\(.)")'\'' "$1"
-  ' _ {} | jq -s add > bench-out/bench.json
+  ' _ {} | jq -s "add // []" > bench-out/bench.json
+
 }
 
 function bench {
@@ -370,13 +379,10 @@ function release {
     boxes
     aztec-up
     playground
-    # docs # released as part of ci
     release-image
   )
   if [ $(arch) == arm64 ]; then
-    echo "Only releasing packages with platform-specific binaries on arm64."
     projects=(
-      barretenberg/cpp
       release-image
     )
   fi
@@ -414,7 +420,7 @@ case "$cmd" in
     check_toolchains
     echo "Toolchains look good! 🎉"
   ;;
-  ""|"fast"|"full")
+  "")
     install_hooks
     build
   ;;
@@ -426,6 +432,14 @@ case "$cmd" in
     test
     ;;
   "ci-full")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=1
+    build
+    test
+    bench
+    ;;
+  "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
@@ -465,11 +479,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
-  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)
-    $cmd "$@"
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
-  ;;
+    default_cmd_handler "$@"
+    ;;
 esac

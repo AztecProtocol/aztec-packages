@@ -66,6 +66,14 @@ fn is_not_private_only() {
 
 // --- claimed_first_nullifier ---
 
+#[test(should_fail_with = "TX must create at least one nullifier")]
+fn no_nullifiers() {
+    let mut builder = TestBuilder::new();
+    builder.previous_kernel.nullifiers = BoundedVec::new();
+    builder.previous_kernel.claimed_first_nullifier = 0;
+    let _ = builder.execute();
+}
+
 #[test(should_fail_with = "First nullifier claim was not satisfied")]
 fn first_nullifier_validation() {
     let mut builder = TestBuilder::new();

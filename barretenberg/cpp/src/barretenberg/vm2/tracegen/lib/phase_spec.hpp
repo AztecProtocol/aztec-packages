@@ -11,6 +11,7 @@ namespace bb::avm2::tracegen {
 struct TxPhaseSpec {
     uint8_t phase_value = 0;
     uint8_t is_public_call_request = 0;
+    uint8_t is_teardown = 0;
     uint8_t is_collect_fee = 0;
     uint8_t is_tree_padding = 0;
     uint8_t is_cleanup = 0;
@@ -31,6 +32,7 @@ struct TxPhaseSpec {
     uint8_t next_phase_on_revert = 0;
 };
 
-extern const std::unordered_map<TransactionPhase, TxPhaseSpec> TX_PHASE_SPEC_MAP;
+// Lazy-initialized function to avoid expensive startup initialization
+const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map();
 
 } // namespace bb::avm2::tracegen

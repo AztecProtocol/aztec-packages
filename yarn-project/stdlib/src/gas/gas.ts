@@ -48,6 +48,20 @@ export class Gas {
     return new Gas(fields.daGas ?? 0, fields.l2Gas ?? 0);
   }
 
+  /**
+   * Creates a Gas instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing Gas fields
+   * @returns A Gas instance
+   */
+  static fromPlainObject(obj: any): Gas {
+    if (obj instanceof Gas) {
+      return obj;
+    }
+    return Gas.from(obj);
+  }
+
   static empty() {
     return new Gas(0, 0);
   }

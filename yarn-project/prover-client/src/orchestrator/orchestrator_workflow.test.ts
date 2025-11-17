@@ -1,11 +1,9 @@
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { timesAsync } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
-import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
@@ -20,7 +18,6 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { TestContext } from '../mocks/test_context.js';
-import { buildBlobDataFromTxs, buildFinalBlobChallenges } from './block-building-helpers.js';
 import type { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-workflow');
@@ -44,7 +41,16 @@ describe('prover/orchestrator', () => {
 
       it('calls root parity circuit only when ready', async () => {
         // create a custom L2 to L1 message
-        const message = Fr.random();
+        const numL1ToL2Messages = 1;
+        const {
+          constants,
+          blocks: [{ header }],
+          l1ToL2Messages,
+          totalNumBlobFields,
+          previousBlockHeader,
+        } = await context.makeCheckpoint(1, { numTxsPerBlock: 0, numL1ToL2Messages });
+
+        const message = l1ToL2Messages[0];
 
         // and delay its proof
         const pendingBaseParityResult =
@@ -77,19 +83,20 @@ describe('prover/orchestrator', () => {
           }
         });
 
-        const blobFields = getCheckpointBlobFields([[]]);
-        const finalBlobChallenges = await buildFinalBlobChallenges([blobFields]);
-
+        const finalBlobChallenges = await context.getFinalBlobChallenges();
         orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
-          context.getCheckpointConstants(),
+          constants,
           [message],
           1,
-          blobFields.length,
-          context.getPreviousBlockHeader(),
+          totalNumBlobFields,
+          previousBlockHeader,
         );
-        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, 1);
+
+        const { blockNumber, timestamp } = header.globalVariables;
+        await orchestrator.startNewBlock(blockNumber, timestamp, 0 /* numTxs */);
 
         // the prover broker deduplicates jobs, so the base parity proof
         // for the three sets empty messages is called only once. so total
@@ -118,28 +125,34 @@ describe('prover/orchestrator', () => {
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
-        const { txs } = await context.makePendingBlock(2);
+        const numBlocks = 1;
         const {
-          blobFieldsLengths: [blobFieldsLength],
-          finalBlobChallenges,
-        } = await buildBlobDataFromTxs([txs]);
+          constants,
+          blocks: [{ header, txs }],
+          totalNumBlobFields,
+          previousBlockHeader,
+        } = await context.makeCheckpoint(numBlocks);
+
+        const finalBlobChallenges = await context.getFinalBlobChallenges();
         orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
-          context.getCheckpointConstants(),
+          constants,
           [],
-          1, // numBlocks
-          blobFieldsLength,
-          context.getPreviousBlockHeader(),
+          numBlocks,
+          totalNumBlobFields,
+          previousBlockHeader,
         );
-        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
-        await orchestrator.addTxs(txs);
+
+        const { blockNumber, timestamp } = header.globalVariables;
+        await orchestrator.startNewBlock(blockNumber, timestamp, txs.length);
 
         // wait for the block root proof to try to be enqueued
         await sleep(1000);
 
         // now finish the block
-        await orchestrator.setBlockCompleted(context.blockNumber);
+        await orchestrator.setBlockCompleted(blockNumber);
 
         const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
@@ -147,40 +160,52 @@ describe('prover/orchestrator', () => {
 
       it('can start chonk verifier proofs before adding processed txs', async () => {
         const getChonkVerifierSpy = jest.spyOn(prover, 'getPublicChonkVerifierProof');
-        const { txs: processedTxs } = await context.makePendingBlock(2);
+
+        const numBlocks = 1;
         const {
-          blobFieldsLengths: [blobFieldsLength],
-          finalBlobChallenges,
-        } = await buildBlobDataFromTxs([processedTxs]);
+          constants,
+          blocks: [{ header, txs }],
+          totalNumBlobFields,
+          previousBlockHeader,
+        } = await context.makeCheckpoint(numBlocks, {
+          numTxsPerBlock: 2,
+          makeProcessedTxOpts: () => ({ privateOnly: false }), // The chonk verifier circuit is only used for public txs.
+        });
+
+        const finalBlobChallenges = await context.getFinalBlobChallenges();
         orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
-          context.getCheckpointConstants(),
+          constants,
           [],
-          1, // numBlocks
-          blobFieldsLength,
-          context.getPreviousBlockHeader(),
+          numBlocks,
+          totalNumBlobFields,
+          previousBlockHeader,
         );
 
-        processedTxs.forEach(tx => (tx.chonkProof = ChonkProof.random()));
-        const txs = processedTxs.map(tx =>
-          Tx.from({
-            txHash: tx.hash,
-            data: tx.data,
-            chonkProof: tx.chonkProof,
-            contractClassLogFields: [],
-            publicFunctionCalldata: [],
-          }),
+        txs.forEach(tx => (tx.chonkProof = ChonkProof.random()));
+        await orchestrator.startChonkVerifierCircuits(
+          txs.map(tx =>
+            Tx.from({
+              txHash: tx.hash,
+              data: tx.data,
+              chonkProof: tx.chonkProof,
+              contractClassLogFields: [],
+              publicFunctionCalldata: [],
+            }),
+          ),
         );
-        await orchestrator.startChonkVerifierCircuits(txs);
 
         await sleep(100);
         expect(getChonkVerifierSpy).toHaveBeenCalledTimes(2);
         getChonkVerifierSpy.mockReset();
 
-        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, processedTxs.length);
-        await orchestrator.addTxs(processedTxs);
-        await orchestrator.setBlockCompleted(context.blockNumber);
+        const { blockNumber, timestamp } = header.globalVariables;
+        await orchestrator.startNewBlock(blockNumber, timestamp, txs.length);
+        await orchestrator.addTxs(txs);
+        await orchestrator.setBlockCompleted(blockNumber);
+
         const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
         expect(getChonkVerifierSpy).toHaveBeenCalledTimes(0);
@@ -190,26 +215,26 @@ describe('prover/orchestrator', () => {
         const numCheckpoints = 3;
         const numBlocksPerCheckpoint = 2;
         const numTxsPerBlock = 2;
-        const checkpoints = await timesAsync(numCheckpoints, i =>
-          context.makePendingBlocksInCheckpoint(numBlocksPerCheckpoint, {
-            checkpointIndex: i,
+        const checkpoints = await timesAsync(numCheckpoints, () =>
+          context.makeCheckpoint(numBlocksPerCheckpoint, {
             numTxsPerBlock,
           }),
         );
-        const finalBlobChallenges = await buildFinalBlobChallenges(checkpoints.map(c => c.blobFields));
 
+        const finalBlobChallenges = await context.getFinalBlobChallenges();
         context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
         // Start checkpoint in reverse order.
         for (let checkpointIndex = numCheckpoints - 1; checkpointIndex >= 0; checkpointIndex--) {
-          const { blocks, blobFields, l1ToL2Messages } = checkpoints[checkpointIndex];
+          const { constants, blocks, l1ToL2Messages, totalNumBlobFields, previousBlockHeader } =
+            checkpoints[checkpointIndex];
           await context.orchestrator.startNewCheckpoint(
             checkpointIndex,
-            context.getCheckpointConstants(checkpointIndex),
+            constants,
             l1ToL2Messages,
             blocks.length,
-            blobFields.length,
-            context.getPreviousBlockHeader(blocks[0].header.globalVariables.blockNumber),
+            totalNumBlobFields,
+            previousBlockHeader,
           );
 
           // Blocks in a checkpoint need to be started in order.
@@ -225,6 +250,41 @@ describe('prover/orchestrator', () => {
         logger.info('Finalizing epoch');
         const epoch = await context.orchestrator.finalizeEpoch();
         expect(epoch.proof).toBeDefined();
+      });
+
+      it('can add checkpoints asynchronously', async () => {
+        const numCheckpoints = 4;
+        const numBlocksPerCheckpoint = 2;
+        const numTxsPerBlock = 1;
+        const checkpoints = await timesAsync(numCheckpoints, () =>
+          context.makeCheckpoint(numBlocksPerCheckpoint, { numTxsPerBlock }),
+        );
+
+        const finalBlobChallenges = await context.getFinalBlobChallenges();
+        context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
+
+        await Promise.all(
+          checkpoints.map(async (checkpoint, checkpointIndex) => {
+            const { constants, blocks, l1ToL2Messages, totalNumBlobFields, previousBlockHeader } = checkpoint;
+            await context.orchestrator.startNewCheckpoint(
+              checkpointIndex,
+              constants,
+              l1ToL2Messages,
+              blocks.length,
+              totalNumBlobFields,
+              previousBlockHeader,
+            );
+
+            // Blocks in a checkpoint need to be added in order.
+            for (const block of blocks) {
+              const { txs } = block;
+              const { blockNumber, timestamp } = block.header.globalVariables;
+              await context.orchestrator.startNewBlock(blockNumber, timestamp, txs.length);
+              await context.orchestrator.addTxs(txs);
+              await context.orchestrator.setBlockCompleted(blockNumber);
+            }
+          }),
+        );
       });
     });
   });
