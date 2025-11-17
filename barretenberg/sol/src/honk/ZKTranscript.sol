@@ -119,11 +119,6 @@ library ZKTranscriptLib {
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
 
         (etaThree,) = splitChallenge(previousChallenge);
-
-        // Debug: Print eta challenges
-        logFr("verifier eta", eta);
-        logFr("verifier eta_two", etaTwo);
-        logFr("verifier eta_three", etaThree);
     }
 
     function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.ZKProof memory proof)
