@@ -595,7 +595,7 @@ class TranslatorFlavor {
      * @brief Container for ZK entities (gemini masking polynomial for ZK-PCS)
      * @details Translator is always ZK, so this always contains the masking polynomial
      */
-    template <typename DataType> class ZKEntities {
+    template <typename DataType> class MaskingEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, gemini_masking_poly)
     };
@@ -606,15 +606,15 @@ class TranslatorFlavor {
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
      * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
      *
-     * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + ShiftedEntities + ZKEntities.
+     * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + ShiftedEntities + MaskingEntities.
      */
     template <typename DataType>
-    class AllEntities : public ZKEntities<DataType>,
+    class AllEntities : public MaskingEntities<DataType>,
                         public PrecomputedEntities<DataType>,
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(ZKEntities<DataType>,
+        DEFINE_COMPOUND_GET_ALL(MaskingEntities<DataType>,
                                 PrecomputedEntities<DataType>,
                                 WitnessEntities<DataType>,
                                 ShiftedEntities<DataType>)
@@ -634,14 +634,14 @@ class TranslatorFlavor {
 
         auto get_unshifted() const
         {
-            return concatenate(ZKEntities<DataType>::get_all(),
+            return concatenate(MaskingEntities<DataType>::get_all(),
                                PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities<DataType>::get_unshifted());
         }
 
         auto get_unshifted_without_interleaved()
         {
-            return concatenate(ZKEntities<DataType>::get_all(),
+            return concatenate(MaskingEntities<DataType>::get_all(),
                                PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities<DataType>::get_unshifted_without_interleaved());
         }

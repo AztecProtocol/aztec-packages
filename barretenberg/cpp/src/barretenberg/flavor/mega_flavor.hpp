@@ -233,7 +233,7 @@ class MegaFlavor {
      * @brief ZK-specific entities (only used when HasZK = true)
      * @details Contains the Gemini masking polynomial used for zero-knowledge
      */
-    template <typename DataType, bool EnableZK = false> class ZKEntities {
+    template <typename DataType, bool HasZK_ = false> class MaskingEntities {
       public:
         // When ZK is disabled, this class is empty
         auto get_all() { return RefArray<DataType, 0>{}; }
@@ -242,7 +242,7 @@ class MegaFlavor {
     };
 
     // Specialization for when ZK is enabled
-    template <typename DataType> class ZKEntities<DataType, true> {
+    template <typename DataType> class MaskingEntities<DataType, true> {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, gemini_masking_poly)
     };
@@ -337,19 +337,19 @@ class MegaFlavor {
      * implemented as such, but we have this now.
      */
     template <typename DataType, bool HasZK_ = HasZK>
-    class AllEntities_ : public ZKEntities<DataType, HasZK_>,
+    class AllEntities_ : public MaskingEntities<DataType, HasZK_>,
                          public PrecomputedEntities<DataType>,
                          public WitnessEntities_<DataType>,
                          public ShiftedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(ZKEntities<DataType, HasZK_>,
+        DEFINE_COMPOUND_GET_ALL(MaskingEntities<DataType, HasZK_>,
                                 PrecomputedEntities<DataType>,
                                 WitnessEntities_<DataType>,
                                 ShiftedEntities<DataType>)
 
         auto get_unshifted()
         {
-            return concatenate(ZKEntities<DataType, HasZK_>::get_all(),
+            return concatenate(MaskingEntities<DataType, HasZK_>::get_all(),
                                PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities_<DataType>::get_all());
         };

@@ -254,7 +254,7 @@ class ECCVMFlavor {
      * @brief Container for ZK entities (gemini masking polynomial for ZK-PCS)
      * @details ECCVM is always ZK, so this always contains the masking polynomial
      */
-    template <typename DataType> class ZKEntities {
+    template <typename DataType> class MaskingEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, gemini_masking_poly)
     };
@@ -410,18 +410,18 @@ class ECCVMFlavor {
      * updating usage sites.
      */
     template <typename DataType>
-    class AllEntities : public ZKEntities<DataType>,
+    class AllEntities : public MaskingEntities<DataType>,
                         public PrecomputedEntities<DataType>,
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(ZKEntities<DataType>,
+        DEFINE_COMPOUND_GET_ALL(MaskingEntities<DataType>,
                                 PrecomputedEntities<DataType>,
                                 WitnessEntities<DataType>,
                                 ShiftedEntities<DataType>)
         auto get_unshifted()
         {
-            return concatenate(ZKEntities<DataType>::get_all(),
+            return concatenate(MaskingEntities<DataType>::get_all(),
                                PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities<DataType>::get_all());
         };
