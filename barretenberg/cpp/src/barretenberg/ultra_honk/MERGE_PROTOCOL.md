@@ -171,13 +171,13 @@ Use KZG to verify the batched opening claim for ALL commitments:
 
 Without degree checks, $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ doesn't guarantee non-overlapping subtables, allowing malicious apps to influence kernel-delegated ops during folding.
 
-**Method:** Use reversed polynomial identity (based on Thakur's degree check protocol [[6](#ref-thakur)], Section 6.2). For $\deg(L_j) < k$:
-$$L_j^*(X) = X^{k-1} \cdot L_j(X^{-1}) \implies L_j^*(\kappa^{-1}) = \kappa^{-(k-1)} \cdot L_j(\kappa)$$
+**Method:** Use reversed polynomial identity (based on Thakur's degree check protocol [[6](#ref-thakur)], Section 6.2). For $\deg(L_j) < \ell$:
+$$L_j^*(X) = X^{\ell-1} \cdot L_j(X^{-1}) \implies L_j^*(\kappa^{-1}) = \kappa^{-(\ell-1)} \cdot L_j(\kappa)$$
 
 **Batching:** Check all 4 columns simultaneously:
-$$G(X) = X^{k-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X)$$
+$$G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X)$$
 
-**Verification:** Check $g = \sum_{i=1}^{4} \alpha_i \cdot l_i \cdot \kappa^{-(k-1)}$. If any $\deg(L_i) \geq k$, this fails with overwhelming probability.
+**Verification:** Check $g = \sum_{i=1}^{4} \alpha_i \cdot l_i \cdot \kappa^{-(\ell-1)}$. If any $\deg(L_i) \geq \ell$, this fails with overwhelming probability.
 
 **Implementation** (`merge_prover.cpp`):
 ```cpp
@@ -307,10 +307,10 @@ For each wire $j \in \{1, 2, 3, 4\}$:
 
 These operations batch across all 4 wires and draw from the **residual pool** of $2 \times 4 = 8$ DoF:
 
-1. **Degree check polynomial** $G(X) = X^{k-1} \cdot \sum_{i=1}^{4} \alpha_i L_i(X)$:
+1. **Degree check polynomial** $G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i L_i(X)$:
    - Commitment $[G]$ → **-1 DoF** (shared across $L_i$ wires)
    - Evaluation $G(\kappa^{-1})$ → **-1 DoF** (shared across $L_i$ wires)
-   - Verification: $\sum_i \alpha_i L_i(\kappa) = G(\kappa^{-1}) \cdot \kappa^{k-1}$ (consistency check, not new constraint)
+   - Verification: $\sum_i \alpha_i L_i(\kappa) = G(\kappa^{-1}) \cdot \kappa^{\ell-1}$ (consistency check, not new constraint)
    - **Total: -2 DoF** (shared across $L_j$).
 
 2. **Shplonk batching:**
@@ -320,7 +320,7 @@ These operations batch across all 4 wires and draw from the **residual pool** of
 3. **KZG Quotient:**
    - Verifies Shplonk quotient opening → **-1 DoF** (shared across $L_j$ and $R_j$)
 
-**Shared Operations Total:** $L_j$ wires lose $2$ shared DoFs, $R_j$ wires lose 2 shared DoFs.
+**Shared Operations Total:** $L_j$ wires lose $2$ shared DoFs, $R_j$ wires lose $2$ shared DoFs.
 
 
 **Final Balance:**
