@@ -386,6 +386,20 @@ struct CAST_16_Instruction {
     MSGPACK_FIELDS(src_tag, src_offset_index, dst_offset, target_tag);
 };
 
+/// @brief SSTORE: S[M[slotOffset]] = M[srcOffset]
+struct SSTORE_Instruction {
+    uint16_t untagged_src_offset_index;
+    uint16_t untagged_slot_offset_index;
+    MSGPACK_FIELDS(untagged_src_offset_index, untagged_slot_offset_index);
+};
+
+/// @brief SLOAD: M[result_offset] = S[M[slotOffset]]
+struct SLOAD_Instruction {
+    uint16_t untagged_slot_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(untagged_slot_offset_index, result_offset);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -423,7 +437,9 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      SHL_16_Instruction,
                                      SHR_16_Instruction,
                                      CAST_8_Instruction,
-                                     CAST_16_Instruction>;
+                                     CAST_16_Instruction,
+                                     SSTORE_Instruction,
+                                     SLOAD_Instruction>;
 
 template <class... Ts> struct overloaded_instruction : Ts... {
     using Ts::operator()...;
@@ -586,6 +602,13 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    [&](MOV_16_Instruction arg) {
                        os << "MOV_16_Instruction " << arg.value_tag << " " << arg.src_offset_index << " "
                           << arg.dst_offset;
+                   },
+                   [&](SSTORE_Instruction arg) {
+                       os << "SSTORE_Instruction " << arg.untagged_src_offset_index << " "
+                          << arg.untagged_slot_offset_index;
+                   },
+                   [&](SLOAD_Instruction arg) {
+                       os << "SLOAD_Instruction " << arg.untagged_slot_offset_index << " " << arg.result_offset;
                    },
                    [&](auto) { os << "Unknown instruction"; },
                },

@@ -812,3 +812,35 @@ TEST(fuzz, JumpIfToNewBlockWithReturn)
     EXPECT_EQ(result_false.output.at(0), expected_u128_value);
 }
 } // namespace control_flow
+
+namespace public_storage {
+TEST(fuzz, SstoreThenSload)
+{
+    // M[10] = 10
+    auto set_value_instruction = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 10, .value = 10 };
+    // S[10] = M[10]
+    auto sstore_instruction = SSTORE_Instruction{ .untagged_src_offset_index = 0, .untagged_slot_offset_index = 0 };
+    // M[2] = S[10], FF tag
+    auto sload_instruction = SLOAD_Instruction{ .untagged_slot_offset_index = 0, .result_offset = 2 };
+    // M[10] = 11
+    auto set_value_instruction2 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 10, .value = 11 };
+
+    auto set_sstore_sload_block = std::vector<FuzzInstruction>{
+        set_value_instruction, sstore_instruction, sload_instruction, set_value_instruction2
+    };
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ set_sstore_sload_block };
+    // FF should be set via sload instruction
+    auto return_options = ReturnOptions{ .return_size = 1,
+                                         .return_value_tag = bb::avm2::MemoryTag::FF,
+                                         .return_value_offset_index = 1 /* after sload instruction */ };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    std::cout << "Bytecode: " << bytecode << std::endl;
+    std::cout << "Reverted: " << result.reverted << std::endl;
+    EXPECT_EQ(result.output.at(0), 10);
+}
+} // namespace public_storage

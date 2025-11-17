@@ -14,6 +14,9 @@ class MemoryManager {
     // inverse map MemoryAddress -> Tag
     std::map<uint16_t, bb::avm2::MemoryTag> memory_address_to_tag;
 
+    // Public Storage used addresses
+    std::vector<uint16_t> storage_addresses;
+
   public:
     MemoryManager() = default;
     MemoryManager(const MemoryManager& other) = default;
@@ -25,4 +28,7 @@ class MemoryManager {
     std::optional<uint16_t> get_memory_offset_16_bit(bb::avm2::MemoryTag tag, uint16_t address_index);
     std::optional<uint8_t> get_memory_offset_8_bit(bb::avm2::MemoryTag tag, uint16_t address_index);
     bool is_memory_address_set(uint16_t address);
+
+    // Get used address from memory_address_to_tag map
+    std::optional<uint16_t> get_untagged_address(uint16_t index);
 };

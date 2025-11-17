@@ -631,6 +631,36 @@ void ProgramBlock::process_cast_16_instruction(CAST_16_Instruction instruction)
     memory_manager.set_memory_address(instruction.target_tag.value, instruction.dst_offset);
 }
 
+void ProgramBlock::process_sstore_instruction(SSTORE_Instruction instruction)
+{
+    auto src_addr = memory_manager.get_untagged_address(instruction.untagged_src_offset_index);
+    auto slot_addr = memory_manager.get_untagged_address(instruction.untagged_slot_offset_index);
+    if (!src_addr.has_value() || !slot_addr.has_value()) {
+        return;
+    }
+
+    auto sstore_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SSTORE)
+                                  .operand(src_addr.value())
+                                  .operand(slot_addr.value())
+                                  .build();
+    instructions.push_back(sstore_instruction);
+}
+
+void ProgramBlock::process_sload_instruction(SLOAD_Instruction instruction)
+{
+    auto slot_addr = memory_manager.get_untagged_address(instruction.untagged_slot_offset_index);
+    if (!slot_addr.has_value()) {
+        return;
+    }
+
+    auto sload_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SLOAD)
+                                 .operand(slot_addr.value())
+                                 .operand(instruction.result_offset)
+                                 .build();
+    instructions.push_back(sload_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, instruction.result_offset);
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -740,6 +770,8 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                    [this](SHR_16_Instruction instruction) { return this->process_shr_16_instruction(instruction); },
                    [this](CAST_8_Instruction instruction) { return this->process_cast_8_instruction(instruction); },
                    [this](CAST_16_Instruction instruction) { return this->process_cast_16_instruction(instruction); },
+                   [this](SSTORE_Instruction instruction) { return this->process_sstore_instruction(instruction); },
+                   [this](SLOAD_Instruction instruction) { return this->process_sload_instruction(instruction); },
                    [](auto) { throw std::runtime_error("Unknown instruction"); },
                },
                instruction);

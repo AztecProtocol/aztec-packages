@@ -71,6 +71,8 @@ class ProgramBlock {
     void process_shr_16_instruction(SHR_16_Instruction instruction);
     void process_cast_8_instruction(CAST_8_Instruction instruction);
     void process_cast_16_instruction(CAST_16_Instruction instruction);
+    void process_sstore_instruction(SSTORE_Instruction instruction);
+    void process_sload_instruction(SLOAD_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;
