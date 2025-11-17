@@ -60,7 +60,7 @@ void add_constraint_to_acir_format(AcirFormat& acir_format, const ConstraintType
     } else if constexpr (std::is_same_v<ConstraintType, BlockConstraint>) {
         acir_format.block_constraints.push_back(constraint);
     } else if constexpr (std::is_same_v<ConstraintType, AcirFormat::PolyTripleConstraint>) {
-        acir_format.poly_triple_constraints.push_back(constraint);
+        acir_format.arithmetic_triple_constraints.push_back(constraint);
     } else if constexpr (std::is_same_v<ConstraintType, bb::mul_quad_<bb::curve::BN254::ScalarField>>) {
         acir_format.quad_constraints.push_back(constraint);
     } else if constexpr (std::is_same_v<ConstraintType, std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>>) {

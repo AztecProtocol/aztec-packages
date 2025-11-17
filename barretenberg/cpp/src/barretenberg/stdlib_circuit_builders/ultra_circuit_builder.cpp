@@ -342,7 +342,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
  * @param in Structure containing variables and witness selectors
  */
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_poly_gate(const poly_triple_<FF>& in)
+void UltraCircuitBuilder_<ExecutionTrace>::create_arithmetic_gate(const arithmetic_triple_<FF>& in)
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 

@@ -54,7 +54,7 @@ template <typename FF> struct mul_triple_ {
     FF c_scaling;
     FF const_scaling;
 };
-template <typename FF> struct poly_triple_ {
+template <typename FF> struct arithmetic_triple_ {
     uint32_t a;
     uint32_t b;
     uint32_t c;
@@ -64,9 +64,9 @@ template <typename FF> struct poly_triple_ {
     FF q_o;
     FF q_c;
 
-    friend bool operator==(poly_triple_<FF> const& lhs, poly_triple_<FF> const& rhs) = default;
+    friend bool operator==(arithmetic_triple_<FF> const& lhs, arithmetic_triple_<FF> const& rhs) = default;
 };
-using poly_triple = poly_triple_<bb::fr>;
+using arithmetic_triple = arithmetic_triple_<bb::fr>;
 struct ecc_op_tuple {
     uint32_t op;
     uint32_t x_lo;
@@ -78,7 +78,7 @@ struct ecc_op_tuple {
     bool return_is_infinity;
 };
 
-template <typename B, typename FF> inline void read(B& buf, poly_triple_<FF>& constraint)
+template <typename B, typename FF> inline void read(B& buf, arithmetic_triple_<FF>& constraint)
 {
     using serialize::read;
     read(buf, constraint.a);
@@ -90,7 +90,7 @@ template <typename B, typename FF> inline void read(B& buf, poly_triple_<FF>& co
     read(buf, constraint.q_o);
     read(buf, constraint.q_c);
 }
-template <typename B, typename FF> inline void write(B& buf, poly_triple_<FF> const& constraint)
+template <typename B, typename FF> inline void write(B& buf, arithmetic_triple_<FF> const& constraint)
 {
     using serialize::write;
     write(buf, constraint.a);

@@ -97,11 +97,11 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     GateCounter gate_counter{ &builder, collect_gates_per_opcode };
 
     // Add arithmetic gates
-    for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.poly_triple_constraints.at(i);
-        builder.create_poly_gate(constraint);
+    for (size_t i = 0; i < constraint_system.arithmetic_triple_constraints.size(); ++i) {
+        const auto& constraint = constraint_system.arithmetic_triple_constraints.at(i);
+        builder.create_arithmetic_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.poly_triple_constraints.at(i));
+                                constraint_system.original_opcode_indices.arithmetic_triple_constraints.at(i));
     }
 
     for (size_t i = 0; i < constraint_system.quad_constraints.size(); ++i) {

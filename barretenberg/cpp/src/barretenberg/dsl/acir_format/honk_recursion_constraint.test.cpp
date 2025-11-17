@@ -61,7 +61,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             .num_bits = 32,
             .is_xor_gate = 1,
         };
-        poly_triple expr_a{
+        arithmetic_triple expr_a{
             .a = 2,
             .b = 3,
             .c = 0,
@@ -71,7 +71,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             .q_o = 0,
             .q_c = -10,
         };
-        poly_triple expr_b{
+        arithmetic_triple expr_b{
             .a = 3,
             .b = 4,
             .c = 5,
@@ -81,7 +81,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             .q_o = -1,
             .q_c = 0,
         };
-        poly_triple expr_c{
+        arithmetic_triple expr_c{
             .a = 3,
             .b = 5,
             .c = 3,
@@ -92,7 +92,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             .q_c = 0,
 
         };
-        poly_triple expr_d{
+        arithmetic_triple expr_d{
             .a = 5,
             .b = 0,
             .c = 0,
@@ -109,7 +109,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             .public_inputs = { 1, 2 },
             .logic_constraints = { logic_constraint },
             .range_constraints = { range_a, range_b },
-            .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
+            .arithmetic_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
             .original_opcode_indices = create_empty_original_opcode_indices(),
         };
         mock_opcode_indices(constraint_system);

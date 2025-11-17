@@ -70,9 +70,9 @@ TEST(UltraCircuitBuilder, CheckCircuitShowcase)
     uint32_t a = builder.add_variable(fr(0xdead));
     uint32_t b = builder.add_variable(fr(0xbeef));
     // Let's create 2 gates that will bind these 2 variables to be one these two values
-    builder.create_poly_gate(
+    builder.create_arithmetic_gate(
         { a, a, builder.zero_idx(), fr(1), -fr(0xdead) - fr(0xbeef), 0, 0, fr(0xdead) * fr(0xbeef) });
-    builder.create_poly_gate(
+    builder.create_arithmetic_gate(
         { b, b, builder.zero_idx(), fr(1), -fr(0xdead) - fr(0xbeef), 0, 0, fr(0xdead) * fr(0xbeef) });
 
     // We can check if this works

@@ -16,7 +16,7 @@ using namespace bb;
  * create_big_mul_gate          (q_arith=1, 4-wire multiplication)
  * create_big_mul_add_gate      (q_arith=1, 4-wire mul+add without w_4_shift)
  * create_big_mul_add_gate      (q_arith=2, 4-wire mul+add with w_4_shift)
- * create_poly_gate             (q_arith=1, general polynomial gate)
+ * create_arithmetic_gate       (q_arith=1, general arithmetic gate)
  *
  */
 class UltraCircuitBuilderArithmetic : public ::testing::Test {
@@ -42,7 +42,7 @@ class UltraCircuitBuilderArithmetic : public ::testing::Test {
         fr mul_scaling, a_scaling, b_scaling, c_scaling, d_scaling, const_scaling;
     };
 
-    struct PolyTripleData {
+    struct ArithTripleData {
         fr a, b, c;
         fr q_m, q_l, q_r, q_o, q_c;
     };
@@ -77,7 +77,7 @@ class UltraCircuitBuilderArithmetic : public ::testing::Test {
     }
 
     // Create gate that enforces: c = a * b + 2a + 3b
-    static PolyTripleData create_poly_triple_data(uint64_t a_val = 5, uint64_t b_val = 7)
+    static ArithTripleData create_arithmetic_triple_data(uint64_t a_val = 5, uint64_t b_val = 7)
     {
         fr a(a_val);
         fr b(b_val);
@@ -254,49 +254,49 @@ TEST_F(UltraCircuitBuilderArithmetic, BigMulGateFailure)
     test_invalid([](MulQuadData& d) { d.const_scaling += fr(1); });
 }
 
-// Verifies that a valid polynomial gate passes the circuit checker
-TEST_F(UltraCircuitBuilderArithmetic, PolyGate)
+// Verifies that a valid arithmetic gate passes the circuit checker
+TEST_F(UltraCircuitBuilderArithmetic, ArithmeticGate)
 {
     UltraCircuitBuilder builder;
-    auto data = create_poly_triple_data(5, 7);
+    auto data = create_arithmetic_triple_data(5, 7);
 
     uint32_t a_idx = builder.add_variable(data.a);
     uint32_t b_idx = builder.add_variable(data.b);
     uint32_t c_idx = builder.add_variable(data.c);
 
-    builder.create_poly_gate({ a_idx, b_idx, c_idx, data.q_m, data.q_l, data.q_r, data.q_o, data.q_c });
+    builder.create_arithmetic_gate({ a_idx, b_idx, c_idx, data.q_m, data.q_l, data.q_r, data.q_o, data.q_c });
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-// Verifies that invalidating any variable or selector coefficient in a poly gate causes failure
-TEST_F(UltraCircuitBuilderArithmetic, PolyGateFailure)
+// Verifies that invalidating any variable or selector coefficient in a arithmetic gate causes failure
+TEST_F(UltraCircuitBuilderArithmetic, ArithmeticGateFailure)
 {
     auto test_invalid = [](auto modify_data) {
         UltraCircuitBuilder builder;
-        auto data = create_poly_triple_data(5, 7);
+        auto data = create_arithmetic_triple_data(5, 7);
         modify_data(data);
 
         uint32_t a_idx = builder.add_variable(data.a);
         uint32_t b_idx = builder.add_variable(data.b);
         uint32_t c_idx = builder.add_variable(data.c);
 
-        builder.create_poly_gate({ a_idx, b_idx, c_idx, data.q_m, data.q_l, data.q_r, data.q_o, data.q_c });
+        builder.create_arithmetic_gate({ a_idx, b_idx, c_idx, data.q_m, data.q_l, data.q_r, data.q_o, data.q_c });
 
         EXPECT_FALSE(CircuitChecker::check(builder));
     };
 
     // Test witness failures
-    test_invalid([](PolyTripleData& d) { d.a += fr(1); });
-    test_invalid([](PolyTripleData& d) { d.b += fr(1); });
-    test_invalid([](PolyTripleData& d) { d.c += fr(1); });
+    test_invalid([](ArithTripleData& d) { d.a += fr(1); });
+    test_invalid([](ArithTripleData& d) { d.b += fr(1); });
+    test_invalid([](ArithTripleData& d) { d.c += fr(1); });
 
     // Test selector coefficient failures
-    test_invalid([](PolyTripleData& d) { d.q_m += fr(1); });
-    test_invalid([](PolyTripleData& d) { d.q_l += fr(1); });
-    test_invalid([](PolyTripleData& d) { d.q_r += fr(1); });
-    test_invalid([](PolyTripleData& d) { d.q_o += fr(1); });
-    test_invalid([](PolyTripleData& d) { d.q_c += fr(1); });
+    test_invalid([](ArithTripleData& d) { d.q_m += fr(1); });
+    test_invalid([](ArithTripleData& d) { d.q_l += fr(1); });
+    test_invalid([](ArithTripleData& d) { d.q_r += fr(1); });
+    test_invalid([](ArithTripleData& d) { d.q_o += fr(1); });
+    test_invalid([](ArithTripleData& d) { d.q_c += fr(1); });
 }
 
 // Verifies that multiple independent gates can coexist in a circuit
@@ -307,7 +307,7 @@ TEST_F(UltraCircuitBuilderArithmetic, MultipleGates)
     // Create three independent operations
     auto add_data = create_add_triple_data(5, 7);
     auto big_mul_data = create_mul_quad_data(3, 4);
-    auto poly_data = create_poly_triple_data(2, 6);
+    auto arith_data = create_arithmetic_triple_data(2, 6);
 
     // Add gate
     uint32_t add_a = builder.add_variable(add_data.a);
@@ -334,18 +334,18 @@ TEST_F(UltraCircuitBuilderArithmetic, MultipleGates)
                                       big_mul_data.const_scaling },
                                     /* use_next_gate_w_4 */ false);
 
-    // Poly gate
-    uint32_t poly_a = builder.add_variable(poly_data.a);
-    uint32_t poly_b = builder.add_variable(poly_data.b);
-    uint32_t poly_c = builder.add_variable(poly_data.c);
-    builder.create_poly_gate(
-        { poly_a, poly_b, poly_c, poly_data.q_m, poly_data.q_l, poly_data.q_r, poly_data.q_o, poly_data.q_c });
+    // Arithmetic gate
+    uint32_t arith_a = builder.add_variable(arith_data.a);
+    uint32_t arith_b = builder.add_variable(arith_data.b);
+    uint32_t arith_c = builder.add_variable(arith_data.c);
+    builder.create_arithmetic_gate(
+        { arith_a, arith_b, arith_c, arith_data.q_m, arith_data.q_l, arith_data.q_r, arith_data.q_o, arith_data.q_c });
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-// Verifies that poly_gate can handle complex multi-term expressions
-TEST_F(UltraCircuitBuilderArithmetic, PolyGateComplexExpression)
+// Verifies that arithmetic_gate can handle complex multi-term expressions
+TEST_F(UltraCircuitBuilderArithmetic, ArithmeticGateComplexExpression)
 {
     UltraCircuitBuilder builder;
 
@@ -358,7 +358,7 @@ TEST_F(UltraCircuitBuilderArithmetic, PolyGateComplexExpression)
     uint32_t b_idx = builder.add_variable(b);
     uint32_t c_idx = builder.add_variable(c);
 
-    builder.create_poly_gate({ a_idx, b_idx, c_idx, fr(3), fr(5), fr(-2), fr(-1), fr(0) });
+    builder.create_arithmetic_gate({ a_idx, b_idx, c_idx, fr(3), fr(5), fr(-2), fr(-1), fr(0) });
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

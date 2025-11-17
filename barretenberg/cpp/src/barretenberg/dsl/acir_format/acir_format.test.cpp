@@ -21,7 +21,7 @@ class AcirFormatTests : public ::testing::Test {
 TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
 {
 
-    poly_triple constraint{
+    arithmetic_triple constraint{
         .a = 0,
         .b = 1,
         .c = 2,
@@ -36,7 +36,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .varnum = 4,
         .num_acir_opcodes = 1,
         .public_inputs = {},
-        .poly_triple_constraints = { constraint },
+        .arithmetic_triple_constraints = { constraint },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
@@ -78,7 +78,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .num_bits = 32,
         .is_xor_gate = 1,
     };
-    poly_triple expr_a{
+    arithmetic_triple expr_a{
         .a = 2,
         .b = 3,
         .c = 0,
@@ -88,7 +88,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .q_o = 0,
         .q_c = -10,
     };
-    poly_triple expr_b{
+    arithmetic_triple expr_b{
         .a = 3,
         .b = 4,
         .c = 5,
@@ -98,7 +98,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .q_o = -1,
         .q_c = 0,
     };
-    poly_triple expr_c{
+    arithmetic_triple expr_c{
         .a = 3,
         .b = 5,
         .c = 3,
@@ -109,7 +109,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .q_c = 0,
 
     };
-    poly_triple expr_d{
+    arithmetic_triple expr_d{
         .a = 5,
         .b = 0,
         .c = 0,
@@ -129,7 +129,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .public_inputs = { 1 },
         .logic_constraints = { logic_constraint },
         .range_constraints = { range_a, range_b },
-        .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
+        .arithmetic_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
@@ -202,7 +202,7 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
 {
 
     // Witness 0 + witness 1 = witness 2
-    poly_triple first_gate{
+    arithmetic_triple first_gate{
         .a = 0,
         .b = 1,
         .c = 2,
@@ -214,7 +214,7 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
     };
 
     // Witness 1 = 27
-    poly_triple second_gate{
+    arithmetic_triple second_gate{
         .a = 1,
         .b = 0,
         .c = 0,
@@ -229,7 +229,7 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
         .varnum = 4,
         .num_acir_opcodes = 2,
         .public_inputs = {},
-        .poly_triple_constraints = { first_gate, second_gate },
+        .arithmetic_triple_constraints = { first_gate, second_gate },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
@@ -315,7 +315,7 @@ TEST_F(AcirFormatTests, TestBigAdd)
     };
 
     auto res_x = fr(91);
-    auto assert_equal = poly_triple{
+    auto assert_equal = arithmetic_triple{
         .a = 14,
         .b = 0,
         .c = 0,
@@ -331,7 +331,7 @@ TEST_F(AcirFormatTests, TestBigAdd)
         .varnum = static_cast<uint32_t>(num_variables + 1),
         .num_acir_opcodes = 1,
         .public_inputs = {},
-        .poly_triple_constraints = { assert_equal },
+        .arithmetic_triple_constraints = { assert_equal },
         .big_quad_constraints = { quad_constraint },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -363,15 +363,15 @@ std::vector<uint8_t> to_bytes_be(uint256_t value)
  *  - 3 additional linear terms using distinct witnesses (w2, w3, w4)
  *
  *  Such expressions have ≤3 linear combinations and ≤1 mul term, appearing to fit in a
- *  poly_triple (width-3) gate. However, with all 5 witnesses distinct, serialize_arithmetic_gate
+ *  arithmetic_triple (width-3) gate. However, with all 5 witnesses distinct, serialize_arithmetic_gate
  *  correctly returns all zeros, indicating it cannot fit in a width-3 gate.
  *
- *  The bug: old code would check if poly_triple was all zeros, and if so, directly add to
+ *  The bug: old code would check if arithmetic_triple was all zeros, and if so, directly add to
  *  quad_constraints via serialize_mul_quad_gate. But it did this inside the initial
  *  might_fit_in_polytriple check, so it would never properly go through the mul_quad processing
  *  logic that handles the general case with >4 witnesses.
  *
- *  The fix: now uses a needs_to_be_parsed_as_mul_quad flag that is set when poly_triple fails,
+ *  The fix: now uses a needs_to_be_parsed_as_mul_quad flag that is set when arithmetic_triple fails,
  *  and processes through the proper mul_quad logic path, which splits into multiple gates.
  *
  *  Expression: w0 * w1 + w2 + w3 + w4 = 10
@@ -406,9 +406,9 @@ TEST_F(AcirFormatTests, TestArithmeticGateWithDistinctWitnessesRegression)
     // Process through circuit_buf_to_acir_format (this calls handle_arithmetic internally)
     AcirFormat constraint_system = circuit_buf_to_acir_format(std::move(program_bytes));
 
-    // The key assertion: this expression should end up in big_quad_constraints, not poly_triple_constraints
+    // The key assertion: this expression should end up in big_quad_constraints, not arithmetic_triple_constraints
     // or single quad_constraints, because it needs 5 witness slots (all distinct)
-    EXPECT_EQ(constraint_system.poly_triple_constraints.size(), 0);
+    EXPECT_EQ(constraint_system.arithmetic_triple_constraints.size(), 0);
     EXPECT_EQ(constraint_system.quad_constraints.size(), 0);
     EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1);
 

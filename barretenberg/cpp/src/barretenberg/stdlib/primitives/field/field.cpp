@@ -275,14 +275,14 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         result.witness_index = ctx->add_variable(result_value);
         // Constrain
         //    a.v * b.v * q_m + a.v * q_l + b_v * q_r + q_c + result.v * q_o = 0
-        ctx->create_poly_gate({ .a = witness_index,
-                                .b = other.witness_index,
-                                .c = result.witness_index,
-                                .q_m = q_m,
-                                .q_l = q_l,
-                                .q_r = q_r,
-                                .q_o = bb::fr::neg_one(),
-                                .q_c = q_c });
+        ctx->create_arithmetic_gate({ .a = witness_index,
+                                      .b = other.witness_index,
+                                      .c = result.witness_index,
+                                      .q_m = q_m,
+                                      .q_l = q_l,
+                                      .q_r = q_r,
+                                      .q_o = bb::fr::neg_one(),
+                                      .q_c = q_c });
     }
     result.tag = OriginTag(tag, other.tag);
     return result;
@@ -357,7 +357,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
 
             bb::fr out(numerator * denominator_inv);
             result.witness_index = ctx->add_variable(out);
-            // Define non-zero selector values for a `poly` gate
+            // Define non-zero selector values for an arithmetic gate
             // q_m := b.mul
             // q_l := b.add
             // q_c := a     (= a.add, since a is constant)
@@ -366,16 +366,16 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
             bb::fr q_c = -get_value();
             // The value of the quotient q = a / b has to satisfy
             //      q * (b.v * b.mul +  b.add) = a
-            // Create a `poly` gate to constrain the quotient.
+            // Create an arithmetic gate to constrain the quotient.
             // q * b.v * q_m +  q * q_l + 0 * b + 0 * c + q_c = 0
-            ctx->create_poly_gate({ .a = result.witness_index,
-                                    .b = other.witness_index,
-                                    .c = result.witness_index,
-                                    .q_m = q_m,
-                                    .q_l = q_l,
-                                    .q_r = 0,
-                                    .q_o = 0,
-                                    .q_c = q_c });
+            ctx->create_arithmetic_gate({ .a = result.witness_index,
+                                          .b = other.witness_index,
+                                          .c = result.witness_index,
+                                          .q_m = q_m,
+                                          .q_l = q_l,
+                                          .q_r = 0,
+                                          .q_o = 0,
+                                          .q_c = q_c });
         }
     } else {
         // Both numerator and denominator are circuit variables. Create a new circuit variable with the value a / b.
@@ -388,9 +388,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
 
         // The value of the quotient q = a / b has to satisfy
         //      q * (b.v * b.mul +  b.add) = a.v * a.mul + a.add
-        // Create a `poly` gate to constrain the quotient
+        // Create an arithmetic gate to constrain the quotient
         //  	q * b.v * q_m +  q * q_l + 0 * c + a.v * q_o + q_c = 0,
-        // where the `poly_gate` selector values are defined as follows:
+        // where the selector values are defined as follows:
         //  	q_m = b.mul;
         //      q_l = b.add;
         //      q_r = 0;
@@ -402,14 +402,14 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
         bb::fr q_o = -multiplicative_constant;
         bb::fr q_c = -additive_constant;
 
-        ctx->create_poly_gate({ .a = result.witness_index,
-                                .b = other.witness_index,
-                                .c = witness_index,
-                                .q_m = q_m,
-                                .q_l = q_l,
-                                .q_r = q_r,
-                                .q_o = q_o,
-                                .q_c = q_c });
+        ctx->create_arithmetic_gate({ .a = result.witness_index,
+                                      .b = other.witness_index,
+                                      .c = witness_index,
+                                      .q_m = q_m,
+                                      .q_l = q_l,
+                                      .q_r = q_r,
+                                      .q_o = q_o,
+                                      .q_c = q_c });
     }
     result.tag = OriginTag(tag, other.tag);
     return result;
@@ -687,12 +687,12 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
     if ((get_value() != bb::fr::zero()) && !context->failed()) {
         context->failure(msg);
     }
-    // Aim of a new `poly` gate: constrain this.v * this.mul + this.add == 0
+    // Aim of a new arithmetic gate: constrain this.v * this.mul + this.add == 0
     // I.e.:
     // this.v * 0 * [ 0 ] + this.v * [this.mul] + 0 * [ 0 ] + 0 * [ 0 ] + [this.add] == 0
     // this.v * 0 * [q_m] + this.v * [   q_l  ] + 0 * [q_r] + 0 * [q_o] + [   q_c  ] == 0
 
-    context->create_poly_gate({
+    context->create_arithmetic_gate({
         .a = witness_index,
         .b = context->zero_idx(),
         .c = context->zero_idx(),
@@ -727,14 +727,14 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
     // and it won't be used anymore, so it's needed to add this element in used witnesses
     mark_witness_as_used(inverse);
 
-    // Aim of a new `poly` gate: `this` has an inverse (hence is not zero).
+    // Aim of a new arithmetic gate: `this` has an inverse (hence is not zero).
     // I.e.:
     //     (this.v * this.mul + this.add) * inverse.v == 1;
     // <=> this.v * inverse.v * [this.mul] + this.v * [ 0 ] + inverse.v * [this.add] + 0 * [ 0 ] + [ -1] == 0
     // <=> this.v * inverse.v * [   q_m  ] + this.v * [q_l] + inverse.v * [   q_r  ] + 0 * [q_o] + [q_c] == 0
 
     // (a * mul_const + add_const) * b - 1 = 0
-    context->create_poly_gate({
+    context->create_arithmetic_gate({
         .a = witness_index,             // input value
         .b = inverse.witness_index,     // inverse
         .c = context->zero_idx(),       // no output

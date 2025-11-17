@@ -289,7 +289,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_big_mul_gate(const mul_quad_<FF>& in);
 
     void create_bool_gate(const uint32_t a);
-    void create_poly_gate(const poly_triple_<FF>& in);
+    void create_arithmetic_gate(const arithmetic_triple_<FF>& in);
     void create_ecc_add_gate(const ecc_add_gate_<FF>& in);
     void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
 
@@ -317,7 +317,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
              *    num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM is correctly enforced in the circuit.
              *    Longer term, as Zac says, we would need to refactor the composer to fix this.
              **/
-            create_poly_gate(poly_triple_<FF>{
+            create_arithmetic_gate(arithmetic_triple_<FF>{
                 .a = variable_index,
                 .b = variable_index,
                 .c = variable_index,
