@@ -18,12 +18,33 @@
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
+#include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
+#include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
+#include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
+#include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
+#include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/context.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/interfaces/alu.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
+#include "barretenberg/vm2/simulation/interfaces/call_stack_metadata_collector.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
+#include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
+#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
+#include "barretenberg/vm2/simulation/interfaces/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
+#include "barretenberg/vm2/simulation/interfaces/get_contract_instance.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/interfaces/sha256.hpp"
+#include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
+#include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -1066,6 +1087,11 @@ void Execution::sha256_compression(ContextInterface& context,
 EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
 {
     BB_BENCH_NAME("Execution::execute");
+    call_stack_metadata_collector.notify_enter_call(enqueued_call_context->get_address(),
+                                                    0,
+                                                    make_calldata_provider(*enqueued_call_context),
+                                                    enqueued_call_context->get_is_static(),
+                                                    enqueued_call_context->get_gas_limit());
     external_call_stack.push(std::move(enqueued_call_context));
 
     while (!external_call_stack.empty()) {
@@ -1169,13 +1195,19 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
     return {
         .success = result.success,
         .gas_used = result.gas_used,
-        .output = std::nullopt, // The gadgets do not need to return data.
     };
 }
 
 void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
 {
     const auto& side_effects = parent_context.get_side_effect_tracker().get_side_effects();
+
+    // Optionally collect call stack metadata.
+    call_stack_metadata_collector.notify_enter_call(child_context->get_address(),
+                                                    parent_context.get_pc(),
+                                                    make_calldata_provider(*child_context),
+                                                    child_context->get_is_static(),
+                                                    child_context->get_gas_limit());
 
     ctx_stack_events.emit({
         .id = parent_context.get_context_id(),
@@ -1208,8 +1240,14 @@ void Execution::handle_exit_call()
 
     // NOTE: the current (child) context should not be modified here, since it was already emitted.
     std::unique_ptr<ContextInterface> child_context = std::move(external_call_stack.top());
-    external_call_stack.pop();
+
     const ExecutionResult& result = get_execution_result();
+
+    // Optionally collect call stack metadata.
+    call_stack_metadata_collector.notify_exit_call(
+        result.success, child_context->get_pc(), make_return_data_provider(*child_context));
+
+    external_call_stack.pop();
 
     // We only handle reverting/committing of nested calls. Enqueued calls are handled by TX execution.
     if (!external_call_stack.empty()) {

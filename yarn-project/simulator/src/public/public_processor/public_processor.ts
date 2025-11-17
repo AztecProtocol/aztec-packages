@@ -34,6 +34,7 @@ import {
   type ProcessedTx,
   StateReference,
   Tx,
+  TxExecutionPhase,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/stdlib/tx';
@@ -521,8 +522,7 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { hints, publicInputs, gasUsed, revertCode, revertReason, appLogicReturnValues } =
-      await this.publicTxSimulator.simulate(tx);
+    const { hints, publicInputs, gasUsed, revertCode, callStackMetadata } = await this.publicTxSimulator.simulate(tx);
 
     if (!hints) {
       this.metrics.recordFailedTx();
@@ -539,9 +539,19 @@ export class PublicProcessor implements Traceable {
     );
 
     // TODO(fcarreiro): remove phase count metric.
-    const phaseCount = 1;
     const durationMs = timer.ms();
-    this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
+    this.metrics.recordTx(/*phaseCount=*/ 1, durationMs, gasUsed.publicGas);
+
+    const appLogicCallStackMetadata = callStackMetadata.filter(
+      metadata => metadata.phase === TxExecutionPhase.APP_LOGIC,
+    );
+    // Extract the return values from the call stack metadata.
+    const appLogicReturnValues = appLogicCallStackMetadata.map(
+      metadata => new NestedProcessReturnValues(metadata.output),
+    );
+    // Extract the revert reason from the call stack metadata. The assumption is that IF there is a revert,
+    // then it will be the last call.
+    const revertReason = appLogicCallStackMetadata[appLogicCallStackMetadata.length - 1]?.findRevertReason();
 
     const processedTx = makeProcessedTxFromTxWithPublicCalls(
       tx,
@@ -551,7 +561,7 @@ export class PublicProcessor implements Traceable {
       revertReason,
     );
 
-    return [processedTx, appLogicReturnValues ?? []];
+    return [processedTx, appLogicReturnValues];
   }
 
   /**

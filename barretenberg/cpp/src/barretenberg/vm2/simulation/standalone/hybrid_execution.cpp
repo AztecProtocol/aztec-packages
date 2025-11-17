@@ -1,6 +1,15 @@
 #include "barretenberg/vm2/simulation/standalone/hybrid_execution.hpp"
 
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/vm2/simulation/events/addressing_event.hpp"
+#include "barretenberg/vm2/simulation/events/gas_event.hpp"
+#include "barretenberg/vm2/simulation/interfaces/addressing.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context.hpp"
+#include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -9,8 +18,12 @@ namespace bb::avm2::simulation {
 EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
 {
     BB_BENCH_NAME("HybridExecution::execute");
+    call_stack_metadata_collector.notify_enter_call(enqueued_call_context->get_address(),
+                                                    0,
+                                                    make_calldata_provider(*enqueued_call_context),
+                                                    enqueued_call_context->get_is_static(),
+                                                    enqueued_call_context->get_gas_limit());
     external_call_stack.push(std::move(enqueued_call_context));
-    std::vector<FF> enqueued_call_output;
 
     while (!external_call_stack.empty()) {
         // We fix the context at this point. Even if the opcode changes the stack
@@ -81,12 +94,6 @@ EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> en
         // If the context has halted, we need to exit the external call.
         // The external call stack is expected to be popped.
         if (context.halted()) {
-            // If this is the top-level enqueued call (only one context left), capture the return data
-            // before the context and its memory are destroyed by handle_exit_call.
-            // NOTE: Simulation for witgen does not attempt to do this.
-            if (external_call_stack.size() == 1) {
-                enqueued_call_output = extract_return_data(context);
-            }
             handle_exit_call();
         }
     }
@@ -95,28 +102,7 @@ EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> en
     return {
         .success = result.success,
         .gas_used = result.gas_used,
-        .output = std::move(enqueued_call_output),
     };
-}
-
-// TODO: this is a DOS vector if the return data is large. This is also a problem in TS.
-std::vector<FF> HybridExecution::extract_return_data(ContextInterface& context)
-{
-    auto& memory = context.get_memory();
-    const auto& result = get_execution_result();
-    std::vector<FF> output;
-
-    try {
-        output.reserve(result.rd_size);
-        // TODO: perform checks.
-        for (uint32_t addr = result.rd_offset; addr < result.rd_offset + result.rd_size; addr++) {
-            output.push_back(memory.get(addr).as_ff());
-        }
-        return output;
-    } catch (const std::exception& e) {
-        vinfo("HybridExecution::extract_return_data: error extracting return data: ", e.what());
-        return {};
-    }
 }
 
 } // namespace bb::avm2::simulation

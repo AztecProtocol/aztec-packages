@@ -86,6 +86,9 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
           " app logic enqueued calls, and ",
           tx.teardown_enqueued_call.has_value() ? "1 teardown enqueued call" : "no teardown enqueued call");
 
+    // Let the metadata collector know that we are entering the SETUP phase.
+    call_stack_metadata_collector.set_phase(CoarseTransactionPhase::SETUP);
+
     // Insert non-revertibles. This can throw if there is a nullifier collision or the maximum number of
     // nullifiers, note hashes, or l2_to_l1 messages is reached.
     // That would result in an unprovable tx.
@@ -134,6 +137,9 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     merkle_db.create_checkpoint();
     contract_db.create_checkpoint();
 
+    // Let the metadata collector know that we are entering the APP_LOGIC phase.
+    call_stack_metadata_collector.set_phase(CoarseTransactionPhase::APP_LOGIC);
+
     try {
         // Insert revertibles. This can throw if there is a nullifier collision.
         // Such an exception should be handled and the tx be provable.
@@ -151,6 +157,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                 const TxContextEvent state_before = tx_context.serialize_tx_context_event();
                 const Gas start_gas =
                     tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
+
                 auto context = context_provider.make_enqueued_context(call.request.contract_address,
                                                                       call.request.msg_sender,
                                                                       /*transaction_fee=*/FF(0),
@@ -162,11 +169,6 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                 // This call should not throw unless it's an unexpected unrecoverable failure.
                 EnqueuedCallResult result = call_execution.execute(std::move(context));
                 tx_context.gas_used = result.gas_used;
-
-                if (collect_call_metadata) {
-                    app_logic_return_values.push_back(
-                        CallStackMetadata{ .calldata = call.calldata, .values = std::move(result.output) });
-                }
 
                 emit_public_call_request(call,
                                          TransactionPhase::APP_LOGIC,
@@ -194,6 +196,9 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         merkle_db.create_checkpoint();
         contract_db.create_checkpoint();
     }
+
+    // Let the metadata collector know that we are entering the teardown phase.
+    call_stack_metadata_collector.set_phase(CoarseTransactionPhase::TEARDOWN);
 
     // Compute the transaction fee here so it can be passed to teardown
     const uint128_t& fee_per_da_gas = tx.effective_gas_fees.fee_per_da_gas;
@@ -274,7 +279,6 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         },
         .revert_code = tx_context.revert_code,
         .transaction_fee = fee,
-        .app_logic_return_values = std::move(app_logic_return_values),
     };
 }
 

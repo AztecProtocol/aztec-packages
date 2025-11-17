@@ -14,28 +14,33 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
-#include "barretenberg/vm2/simulation/gadgets/alu.hpp"
-#include "barretenberg/vm2/simulation/gadgets/bitwise.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context_provider.hpp"
-#include "barretenberg/vm2/simulation/gadgets/data_copy.hpp"
-#include "barretenberg/vm2/simulation/gadgets/ecc.hpp"
-#include "barretenberg/vm2/simulation/gadgets/emit_unencrypted_log.hpp"
-#include "barretenberg/vm2/simulation/gadgets/execution_components.hpp"
-#include "barretenberg/vm2/simulation/gadgets/get_contract_instance.hpp"
-#include "barretenberg/vm2/simulation/gadgets/internal_call_stack_manager.hpp"
-#include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
-#include "barretenberg/vm2/simulation/gadgets/sha256.hpp"
-#include "barretenberg/vm2/simulation/interfaces/db.hpp"
-#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
+
+// Forward declaration.
+class CallStackMetadataCollectorInterface;
+class AluInterface;
+class BitwiseInterface;
+class DataCopyInterface;
+class Poseidon2Interface;
+class EccInterface;
+class ToRadixInterface;
+class Sha256Interface;
+class ExecutionComponentsProviderInterface;
+class ContextProviderInterface;
+class InstructionInfoDBInterface;
+class ExecutionIdManagerInterface;
+class KeccakF1600Interface;
+class GreaterThanInterface;
+class GetContractInstanceInterface;
+class EmitUnencryptedLogInterface;
+class DebugLoggerInterface;
+class HighLevelMerkleDBInterface;
+class GasTrackerInterface;
 
 // In charge of executing a single enqueued call.
 class Execution : public ExecutionInterface {
@@ -58,7 +63,8 @@ class Execution : public ExecutionInterface {
               GetContractInstanceInterface& get_contract_instance_component,
               EmitUnencryptedLogInterface& emit_unencrypted_log_component,
               DebugLoggerInterface& debug_log_component,
-              HighLevelMerkleDBInterface& merkle_db)
+              HighLevelMerkleDBInterface& merkle_db,
+              CallStackMetadataCollectorInterface& call_stack_metadata_collector)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
@@ -78,6 +84,7 @@ class Execution : public ExecutionInterface {
         , merkle_db(merkle_db)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
+        , call_stack_metadata_collector(call_stack_metadata_collector)
     {}
 
     EnqueuedCallResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
@@ -233,6 +240,7 @@ class Execution : public ExecutionInterface {
 
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
+    CallStackMetadataCollectorInterface& call_stack_metadata_collector;
 
     ExecutionResult exec_result;
 
