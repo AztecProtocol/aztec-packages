@@ -43,9 +43,9 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     auto accumulators = plookup::get_lookup_accumulators(UINT32_XOR, left, right, /*is_2_to_1_lookup*/ true);
     builder.create_gates_from_plookup_accumulators(UINT32_XOR, accumulators, left_idx, right_idx);
 
-    EXPECT_EQ(builder.lookup_tables.size(), 2);       // we only used two tables, first for 6 bits, second for 2 bits
-    EXPECT_EQ(builder.lookup_tables[0].size(), 4096); // first table has size 64*64 (6 bit operands)
-    EXPECT_EQ(builder.lookup_tables[1].size(), 16);   // first table has size 4*4 (2 bit operands)
+    EXPECT_EQ(builder.get_num_lookup_tables(), 2); // we only used two tables, first for 6 bits, second for 2 bits
+    EXPECT_EQ(builder.get_lookup_tables()[0].size(), 4096); // first table has size 64*64 (6 bit operands)
+    EXPECT_EQ(builder.get_lookup_tables()[1].size(), 16);   // first table has size 4*4 (2 bit operands)
 
     size_t circuit_size = 8192;
 

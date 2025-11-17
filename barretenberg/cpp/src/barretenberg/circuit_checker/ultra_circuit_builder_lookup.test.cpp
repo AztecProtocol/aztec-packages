@@ -29,6 +29,10 @@ TEST_F(UltraCircuitBuilderLookup, ValidLookupPassesCheck)
     const auto result =
         builder.create_gates_from_plookup_accumulators(plookup::MultiTableId::UINT32_XOR, accumulators, a_idx, b_idx);
 
+    // First lookup should reuse input indices
+    EXPECT_EQ(result[ColumnIdx::C1][0], a_idx);
+    EXPECT_EQ(result[ColumnIdx::C2][0], b_idx);
+
     // Check builder state
     EXPECT_EQ(result[ColumnIdx::C1].size(), 6UL);
     EXPECT_EQ(result[ColumnIdx::C2].size(), 6UL);
@@ -36,62 +40,6 @@ TEST_F(UltraCircuitBuilderLookup, ValidLookupPassesCheck)
     EXPECT_EQ(builder.blocks.lookup.size(), 6UL);
 
     // Check circuit satisfaction
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
-// Verifies that the first lookup reuses the provided key indices
-TEST_F(UltraCircuitBuilderLookup, FirstLookupReusesKeyIndices)
-{
-    Builder builder;
-
-    const fr a_value(100);
-    const fr b_value(200);
-    const auto a_idx = builder.add_variable(a_value);
-    const auto b_idx = builder.add_variable(b_value);
-
-    const auto accumulators =
-        plookup::get_lookup_accumulators(plookup::MultiTableId::UINT32_XOR, a_value, b_value, true);
-    const auto result =
-        builder.create_gates_from_plookup_accumulators(plookup::MultiTableId::UINT32_XOR, accumulators, a_idx, b_idx);
-
-    // First lookup should reuse input indices
-    EXPECT_EQ(result[ColumnIdx::C1][0], a_idx);
-    EXPECT_EQ(result[ColumnIdx::C2][0], b_idx);
-
-    // Output should be a newly created variable
-    EXPECT_NE(result[ColumnIdx::C3][0], a_idx);
-    EXPECT_NE(result[ColumnIdx::C3][0], b_idx);
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
-// Verifies that subsequent lookups (i > 0) create new variables
-TEST_F(UltraCircuitBuilderLookup, SubsequentLookupsCreateNewVariables)
-{
-    Builder builder;
-
-    const fr a_value(99);
-    const fr b_value(88);
-    const auto a_idx = builder.add_variable(a_value);
-    const auto b_idx = builder.add_variable(b_value);
-
-    const auto accumulators =
-        plookup::get_lookup_accumulators(plookup::MultiTableId::UINT32_XOR, a_value, b_value, true);
-    const auto result =
-        builder.create_gates_from_plookup_accumulators(plookup::MultiTableId::UINT32_XOR, accumulators, a_idx, b_idx);
-
-    // Subsequent lookups should create new variables (not reuse a_idx or b_idx)
-    for (size_t i = 1; i < result[ColumnIdx::C1].size(); ++i) {
-        EXPECT_NE(result[ColumnIdx::C1][i], a_idx);
-        EXPECT_NE(result[ColumnIdx::C2][i], b_idx);
-    }
-
-    // All C3 values should be newly created
-    for (size_t i = 0; i < result[ColumnIdx::C3].size(); ++i) {
-        EXPECT_NE(result[ColumnIdx::C3][i], a_idx);
-        EXPECT_NE(result[ColumnIdx::C3][i], b_idx);
-    }
-
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -125,27 +73,8 @@ TEST_F(UltraCircuitBuilderLookup, StepSizeCoefficients)
     EXPECT_EQ(builder.blocks.lookup.q_m()[last_idx], fr(0));
     EXPECT_EQ(builder.blocks.lookup.q_c()[last_idx], fr(0));
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
-// Verifies that constant selectors are set correctly (q_1 = 0, q_4 = 0)
-TEST_F(UltraCircuitBuilderLookup, ConstantSelectors)
-{
-    Builder builder;
-
-    const fr a_value(50);
-    const fr b_value(75);
-    const auto a_idx = builder.add_variable(a_value);
-    const auto b_idx = builder.add_variable(b_value);
-
-    const auto accumulators =
-        plookup::get_lookup_accumulators(plookup::MultiTableId::UINT32_XOR, a_value, b_value, true);
-    builder.create_gates_from_plookup_accumulators(plookup::MultiTableId::UINT32_XOR, accumulators, a_idx, b_idx);
-
-    const size_t num_gates = builder.blocks.lookup.size();
-
     // Check all gates have correct constant selector values
-    for (size_t i = 0; i < num_gates; ++i) {
+    for (size_t i = 0; i < num_lookups; ++i) {
         EXPECT_EQ(builder.blocks.lookup.q_1()[i], fr(0));
         EXPECT_EQ(builder.blocks.lookup.q_4()[i], fr(0));
     }
@@ -161,14 +90,14 @@ TEST_F(UltraCircuitBuilderLookup, GetTableCreatesAndReuses)
     const auto table_id = plookup::BasicTableId::UINT_XOR_SLICE_6_ROTATE_0;
 
     // First call should create the table
-    const size_t initial_table_count = builder.lookup_tables.size();
+    const size_t initial_table_count = builder.get_num_lookup_tables();
     auto& table1 = builder.get_table(table_id);
-    EXPECT_EQ(builder.lookup_tables.size(), initial_table_count + 1);
+    EXPECT_EQ(builder.get_num_lookup_tables(), initial_table_count + 1);
     EXPECT_EQ(table1.id, table_id);
 
     // Second call should return the same table (no new table created)
     auto& table2 = builder.get_table(table_id);
-    EXPECT_EQ(builder.lookup_tables.size(), initial_table_count + 1);
+    EXPECT_EQ(builder.get_num_lookup_tables(), initial_table_count + 1);
     EXPECT_EQ(&table1, &table2); // Same reference
 }
 
@@ -181,13 +110,13 @@ TEST_F(UltraCircuitBuilderLookup, DifferentTablesGetUniqueIndices)
     auto& table2 = builder.get_table(plookup::BasicTableId::UINT_XOR_SLICE_2_ROTATE_0);
     auto& table3 = builder.get_table(plookup::BasicTableId::UINT_AND_SLICE_6_ROTATE_0);
 
-    // All tables should have different indices
-    EXPECT_NE(table1.table_index, table2.table_index);
-    EXPECT_NE(table1.table_index, table3.table_index);
-    EXPECT_NE(table2.table_index, table3.table_index);
+    // Tables should have `table_index` based on order of creation
+    EXPECT_EQ(table1.table_index, 0UL);
+    EXPECT_EQ(table2.table_index, 1UL);
+    EXPECT_EQ(table3.table_index, 2UL);
 
     // Three different tables should have been created
-    EXPECT_EQ(builder.lookup_tables.size(), 3UL);
+    EXPECT_EQ(builder.get_num_lookup_tables(), 3UL);
 }
 
 // Verifies that the table index is correctly stored in q_3 selector

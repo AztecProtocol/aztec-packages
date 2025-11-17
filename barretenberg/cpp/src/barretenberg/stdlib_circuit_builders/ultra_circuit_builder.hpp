@@ -14,6 +14,7 @@
 
 #include "circuit_builder_base.hpp"
 #include "rom_ram_logic.hpp"
+#include <deque>
 #include <optional>
 #include <unordered_set>
 
@@ -180,14 +181,16 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         };
     };
 
+  private:
+    // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
+    std::deque<plookup::BasicTable> lookup_tables;
+
+  public:
     // Storage for wires and selectors for all gate types
     ExecutionTrace blocks;
 
     // The set of variables which have been constrained to a particular value via an arithmetic gate
     std::unordered_map<FF, uint32_t> constant_variable_indices;
-
-    // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
-    std::vector<plookup::BasicTable> lookup_tables;
 
     // Rom/Ram logic
     RomRamLogic rom_ram_logic;
@@ -406,6 +409,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      **/
     plookup::BasicTable& get_table(const plookup::BasicTableId id);
     plookup::MultiTable& get_multitable(const plookup::MultiTableId id);
+
+    // Accessors for lookup tables
+    const std::deque<plookup::BasicTable>& get_lookup_tables() const { return lookup_tables; }
+    std::deque<plookup::BasicTable>& get_lookup_tables() { return lookup_tables; }
+    size_t get_num_lookup_tables() const { return lookup_tables.size(); }
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         const plookup::MultiTableId& id,

@@ -50,7 +50,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
 
     // Construct a hash table for lookup table entries to efficiently determine if a lookup gate is valid
     LookupHashTable lookup_hash_table;
-    for (const auto& table : builder.lookup_tables) {
+    for (const auto& table : builder.get_lookup_tables()) {
         const FF table_index(table.table_index);
         for (size_t i = 0; i < table.size(); ++i) {
             lookup_hash_table.insert({ table.column_1[i], table.column_2[i], table.column_3[i], table_index });
