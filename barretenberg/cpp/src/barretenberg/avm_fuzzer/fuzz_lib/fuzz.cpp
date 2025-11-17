@@ -37,6 +37,7 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
     // If the results does not match
     if (!compare_simulator_results(cpp_result, js_result)) {
         log_result(cpp_result, fuzzer_data, bytecode);
+        log_result(js_result, fuzzer_data, bytecode);
         throw std::runtime_error("Simulator results are different");
     }
     bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;

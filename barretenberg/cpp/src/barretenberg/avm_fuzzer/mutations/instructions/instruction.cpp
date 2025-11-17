@@ -178,6 +178,15 @@ FuzzInstruction generate_instruction(std::mt19937_64& rng)
                                     .src_offset_index = generate_random_uint16(rng),
                                     .dst_offset = generate_random_uint16(rng),
                                     .target_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION) };
+    case InstructionGenerationOptions::SSTORE:
+        return SSTORE_Instruction{ .src_offset_index = generate_random_uint16(rng),
+                                   .slot_offset_index = generate_random_uint16(rng) };
+    case InstructionGenerationOptions::SLOAD:
+        return SLOAD_Instruction{ .slot_offset_index = generate_random_uint16(rng),
+                                  .result_offset = generate_random_uint16(rng) };
+    case InstructionGenerationOptions::GETENVVAR:
+        return GETENVVAR_Instruction{ .result_offset = generate_random_uint16(rng),
+                                      .type = generate_random_uint8(rng) };
     }
 }
 template <typename BinaryInstructionType>
@@ -389,44 +398,86 @@ void mutate_cast_16_instruction(CAST_16_Instruction& instruction, std::mt19937_6
     }
 }
 
+void mutate_sstore_instruction(SSTORE_Instruction& instruction, std::mt19937_64& rng)
+{
+    SStoreMutationOptions option = BASIC_SSTORE_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case SStoreMutationOptions::src_offset_index:
+        mutate_uint16_t(instruction.src_offset_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case SStoreMutationOptions::slot_offset_index:
+        mutate_uint16_t(instruction.slot_offset_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    }
+}
+
+void mutate_sload_instruction(SLOAD_Instruction& instruction, std::mt19937_64& rng)
+{
+    SLoadMutationOptions option = BASIC_SLOAD_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case SLoadMutationOptions::slot_offset_index:
+        mutate_uint16_t(instruction.slot_offset_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case SLoadMutationOptions::result_offset:
+        mutate_uint16_t(instruction.result_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    }
+}
+
+void mutate_getenvvar_instruction(GETENVVAR_Instruction& instruction, std::mt19937_64& rng)
+{
+    GetEnvVarMutationOptions option = BASIC_GETENVVAR_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case GetEnvVarMutationOptions::result_offset:
+        mutate_uint16_t(instruction.result_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case GetEnvVarMutationOptions::type:
+        mutate_uint8_t(instruction.type, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
+        break;
+    }
+}
 void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
 {
-    std::visit(overloaded_instruction{ [&rng](ADD_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](SUB_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](MUL_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](DIV_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](EQ_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](LT_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](LTE_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](AND_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](OR_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](XOR_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](SHL_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](SHR_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](SET_8_Instruction& instr) { mutate_set_8_instruction(instr, rng); },
-                                       [&rng](SET_16_Instruction& instr) { mutate_set_16_instruction(instr, rng); },
-                                       [&rng](SET_32_Instruction& instr) { mutate_set_32_instruction(instr, rng); },
-                                       [&rng](SET_64_Instruction& instr) { mutate_set_64_instruction(instr, rng); },
-                                       [&rng](SET_128_Instruction& instr) { mutate_set_128_instruction(instr, rng); },
-                                       [&rng](SET_FF_Instruction& instr) { mutate_set_ff_instruction(instr, rng); },
-                                       [&rng](FDIV_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
-                                       [&rng](NOT_8_Instruction& instr) { mutate_not_8_instruction(instr, rng); },
-                                       [&rng](ADD_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](SUB_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](MUL_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](DIV_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](FDIV_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](EQ_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](LT_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](LTE_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](AND_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](OR_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](XOR_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](NOT_16_Instruction& instr) { mutate_not_16_instruction(instr, rng); },
-                                       [&rng](SHL_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](SHR_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
-                                       [&rng](CAST_8_Instruction& instr) { mutate_cast_8_instruction(instr, rng); },
-                                       [&rng](CAST_16_Instruction& instr) { mutate_cast_16_instruction(instr, rng); },
-                                       [](auto&) { throw std::runtime_error("Unknown instruction"); } },
-               instruction);
+    std::visit(
+        overloaded_instruction{ [&rng](ADD_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](SUB_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](MUL_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](DIV_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](EQ_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](LT_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](LTE_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](AND_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](OR_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](XOR_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](SHL_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](SHR_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](SET_8_Instruction& instr) { mutate_set_8_instruction(instr, rng); },
+                                [&rng](SET_16_Instruction& instr) { mutate_set_16_instruction(instr, rng); },
+                                [&rng](SET_32_Instruction& instr) { mutate_set_32_instruction(instr, rng); },
+                                [&rng](SET_64_Instruction& instr) { mutate_set_64_instruction(instr, rng); },
+                                [&rng](SET_128_Instruction& instr) { mutate_set_128_instruction(instr, rng); },
+                                [&rng](SET_FF_Instruction& instr) { mutate_set_ff_instruction(instr, rng); },
+                                [&rng](FDIV_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
+                                [&rng](NOT_8_Instruction& instr) { mutate_not_8_instruction(instr, rng); },
+                                [&rng](ADD_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](SUB_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](MUL_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](DIV_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](FDIV_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](EQ_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](LT_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](LTE_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](AND_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](OR_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](XOR_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](NOT_16_Instruction& instr) { mutate_not_16_instruction(instr, rng); },
+                                [&rng](SHL_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](SHR_16_Instruction& instr) { mutate_binary_instruction_16(instr, rng); },
+                                [&rng](CAST_8_Instruction& instr) { mutate_cast_8_instruction(instr, rng); },
+                                [&rng](CAST_16_Instruction& instr) { mutate_cast_16_instruction(instr, rng); },
+                                [&rng](SSTORE_Instruction& instr) { mutate_sstore_instruction(instr, rng); },
+                                [&rng](SLOAD_Instruction& instr) { mutate_sload_instruction(instr, rng); },
+                                [&rng](GETENVVAR_Instruction& instr) { mutate_getenvvar_instruction(instr, rng); },
+                                [](auto&) { throw std::runtime_error("Unknown instruction"); } },
+        instruction);
 }

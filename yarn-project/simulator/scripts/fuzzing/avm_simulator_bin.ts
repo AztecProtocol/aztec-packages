@@ -1,6 +1,9 @@
+var { GasFees } = require('@aztec/stdlib/gas');
+
 var { createInstrumenter } = require('istanbul-lib-instrument');
 var { hookRequire } = require('istanbul-lib-hook');
 var { gzipSync } = require('zlib');
+
 const INSTRUMENTER = createInstrumenter({ compact: true });
 
 hookRequire(
@@ -89,15 +92,25 @@ async function initSimulator() {
 async function getSimulator(calldata: (typeof Fr)[]) {
   await initSimulator();
 
+  const globalVariables = GlobalVariables.empty();
+  globalVariables.chainId = new Fr(1);
+  globalVariables.version = new Fr(1);
+  globalVariables.blockNumber = 1;
+  globalVariables.slotNumber = new Fr(1);
+  globalVariables.timestamp = 1000000;
+  globalVariables.coinbase = AztecAddress.ZERO;
+  globalVariables.feeRecipient = AztecAddress.ZERO;
+  globalVariables.gasFees = new GasFees(1, 1);
+
   const simulator = await AvmSimulator.create(
     STATE_MANAGER!,
-    AztecAddress.zero(),
-    AztecAddress.zero(),
-    new Fr(0),
-    GlobalVariables.empty(),
-    false,
+    AztecAddress.fromNumber(42), // address
+    AztecAddress.fromNumber(100), // sender
+    new Fr(0), // transaction fee
+    globalVariables,
+    false, // is static call
     calldata,
-    { l2Gas: DEFAULT_L2_GAS_LIMIT, daGas: DEFAULT_DA_GAS_LIMIT },
+    { l2Gas: 1000000, daGas: 1000000 },
   );
   return simulator;
 }

@@ -234,28 +234,57 @@ enum class InstructionGenerationOptions {
     SHR_16,
     CAST_8,
     CAST_16,
+    SSTORE,
+    SLOAD,
+    GETENVVAR,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 34>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 37>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
-    { InstructionGenerationOptions::ADD_8, 1 },   { InstructionGenerationOptions::SUB_8, 1 },
-    { InstructionGenerationOptions::MUL_8, 1 },   { InstructionGenerationOptions::DIV_8, 1 },
-    { InstructionGenerationOptions::EQ_8, 1 },    { InstructionGenerationOptions::LT_8, 1 },
-    { InstructionGenerationOptions::LTE_8, 1 },   { InstructionGenerationOptions::AND_8, 1 },
-    { InstructionGenerationOptions::OR_8, 1 },    { InstructionGenerationOptions::XOR_8, 1 },
-    { InstructionGenerationOptions::SHL_8, 1 },   { InstructionGenerationOptions::SHR_8, 1 },
-    { InstructionGenerationOptions::SET_8, 1 },   { InstructionGenerationOptions::SET_16, 1 },
-    { InstructionGenerationOptions::SET_32, 1 },  { InstructionGenerationOptions::SET_64, 1 },
-    { InstructionGenerationOptions::SET_128, 1 }, { InstructionGenerationOptions::SET_FF, 1 },
-    { InstructionGenerationOptions::ADD_16, 1 },  { InstructionGenerationOptions::SUB_16, 1 },
-    { InstructionGenerationOptions::MUL_16, 1 },  { InstructionGenerationOptions::DIV_16, 1 },
-    { InstructionGenerationOptions::FDIV_16, 1 }, { InstructionGenerationOptions::EQ_16, 1 },
-    { InstructionGenerationOptions::LT_16, 1 },   { InstructionGenerationOptions::LTE_16, 1 },
-    { InstructionGenerationOptions::AND_16, 1 },  { InstructionGenerationOptions::OR_16, 1 },
-    { InstructionGenerationOptions::XOR_16, 1 },  { InstructionGenerationOptions::NOT_16, 1 },
-    { InstructionGenerationOptions::SHL_16, 1 },  { InstructionGenerationOptions::SHR_16, 1 },
-    { InstructionGenerationOptions::CAST_8, 1 },  { InstructionGenerationOptions::CAST_16, 1 },
+    { InstructionGenerationOptions::ADD_8, 1 },     { InstructionGenerationOptions::SUB_8, 1 },
+    { InstructionGenerationOptions::MUL_8, 1 },     { InstructionGenerationOptions::DIV_8, 1 },
+    { InstructionGenerationOptions::EQ_8, 1 },      { InstructionGenerationOptions::LT_8, 1 },
+    { InstructionGenerationOptions::LTE_8, 1 },     { InstructionGenerationOptions::AND_8, 1 },
+    { InstructionGenerationOptions::OR_8, 1 },      { InstructionGenerationOptions::XOR_8, 1 },
+    { InstructionGenerationOptions::SHL_8, 1 },     { InstructionGenerationOptions::SHR_8, 1 },
+    { InstructionGenerationOptions::SET_8, 1 },     { InstructionGenerationOptions::SET_16, 1 },
+    { InstructionGenerationOptions::SET_32, 1 },    { InstructionGenerationOptions::SET_64, 1 },
+    { InstructionGenerationOptions::SET_128, 1 },   { InstructionGenerationOptions::SET_FF, 1 },
+    { InstructionGenerationOptions::ADD_16, 1 },    { InstructionGenerationOptions::SUB_16, 1 },
+    { InstructionGenerationOptions::MUL_16, 1 },    { InstructionGenerationOptions::DIV_16, 1 },
+    { InstructionGenerationOptions::FDIV_16, 1 },   { InstructionGenerationOptions::EQ_16, 1 },
+    { InstructionGenerationOptions::LT_16, 1 },     { InstructionGenerationOptions::LTE_16, 1 },
+    { InstructionGenerationOptions::AND_16, 1 },    { InstructionGenerationOptions::OR_16, 1 },
+    { InstructionGenerationOptions::XOR_16, 1 },    { InstructionGenerationOptions::NOT_16, 1 },
+    { InstructionGenerationOptions::SHL_16, 1 },    { InstructionGenerationOptions::SHR_16, 1 },
+    { InstructionGenerationOptions::CAST_8, 1 },    { InstructionGenerationOptions::CAST_16, 1 },
+    { InstructionGenerationOptions::SSTORE, 1 },    { InstructionGenerationOptions::SLOAD, 1 },
+    { InstructionGenerationOptions::GETENVVAR, 1 },
+});
+
+enum class SStoreMutationOptions { src_offset_index, slot_offset_index };
+using SStoreMutationConfig = WeightedSelectionConfig<SStoreMutationOptions, 2>;
+
+constexpr SStoreMutationConfig BASIC_SSTORE_MUTATION_CONFIGURATION = SStoreMutationConfig({
+    { SStoreMutationOptions::src_offset_index, 1 },
+    { SStoreMutationOptions::slot_offset_index, 1 },
+});
+
+enum class SLoadMutationOptions { slot_offset_index, result_offset };
+using SLoadMutationConfig = WeightedSelectionConfig<SLoadMutationOptions, 2>;
+
+constexpr SLoadMutationConfig BASIC_SLOAD_MUTATION_CONFIGURATION = SLoadMutationConfig({
+    { SLoadMutationOptions::slot_offset_index, 1 },
+    { SLoadMutationOptions::result_offset, 1 },
+});
+
+enum class GetEnvVarMutationOptions { result_offset, type };
+using GetEnvVarMutationConfig = WeightedSelectionConfig<GetEnvVarMutationOptions, 2>;
+
+constexpr GetEnvVarMutationConfig BASIC_GETENVVAR_MUTATION_CONFIGURATION = GetEnvVarMutationConfig({
+    { GetEnvVarMutationOptions::result_offset, 1 },
+    { GetEnvVarMutationOptions::type, 1 },
 });
 
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };
