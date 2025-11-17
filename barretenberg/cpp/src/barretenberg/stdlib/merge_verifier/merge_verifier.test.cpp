@@ -1,10 +1,10 @@
-#include "barretenberg/ultra_honk/merge_verifier.hpp"
+#include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
+#include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/ultra_honk/merge_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 

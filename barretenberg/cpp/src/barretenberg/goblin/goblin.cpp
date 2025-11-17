@@ -9,10 +9,10 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
-#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include <utility>
 
 namespace bb {

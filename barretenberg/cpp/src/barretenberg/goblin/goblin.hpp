@@ -10,12 +10,12 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/goblin/merge_prover.hpp"
+#include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
-#include "barretenberg/ultra_honk/merge_prover.hpp"
-#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 namespace bb {
