@@ -92,7 +92,7 @@ namespace bc_hashing;
     // a) the row is not latched, in which case the next pc is zero
     // b) we are not at start, in which case we only read 2 fields, and => only increment pc by 31*2=62
     #[PC_INCREMENTS]
-    (sel + precomputed.first_row) * (pc_index' - ((1 - LATCH_CONDITION) * (62 + pc_index + sel_not_start * 31))) = 0;
+    sel' * (pc_index' - ((1 - LATCH_CONDITION) * (62 + pc_index + sel_not_start * 31))) = 0;
     // At start, we need packed_fields[0] = sep:
     #[PC_INCREMENTS_1]
     sel * ( pc_index_1 - start * pc_index - sel_not_start * ( pc_index + 31 )) = 0;

@@ -66,12 +66,11 @@ void bc_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // PC_INCREMENTS
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp =
-            (static_cast<View>(in.get(C::bc_hashing_sel)) + static_cast<View>(in.get(C::precomputed_first_row))) *
-            (static_cast<View>(in.get(C::bc_hashing_pc_index_shift)) -
-             (FF(1) - CView(bc_hashing_LATCH_CONDITION)) *
-                 (FF(62) + static_cast<View>(in.get(C::bc_hashing_pc_index)) +
-                  static_cast<View>(in.get(C::bc_hashing_sel_not_start)) * FF(31)));
+        auto tmp = static_cast<View>(in.get(C::bc_hashing_sel_shift)) *
+                   (static_cast<View>(in.get(C::bc_hashing_pc_index_shift)) -
+                    (FF(1) - CView(bc_hashing_LATCH_CONDITION)) *
+                        (FF(62) + static_cast<View>(in.get(C::bc_hashing_pc_index)) +
+                         static_cast<View>(in.get(C::bc_hashing_sel_not_start)) * FF(31)));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     { // PC_INCREMENTS_1
