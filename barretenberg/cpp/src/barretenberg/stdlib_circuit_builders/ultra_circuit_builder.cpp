@@ -223,18 +223,16 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
  */
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_add_gate(const add_triple_<FF>& in)
 {
-    this->assert_valid_variables({ in.a, in.b, in.c });
-
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx());
-    blocks.arithmetic.q_m().emplace_back(0);
-    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
-    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
-    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
-    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
+    // Delegate to create_big_add_gate with 4th wire set to zero
+    create_big_add_gate({ .a = in.a,
+                          .b = in.b,
+                          .c = in.c,
+                          .d = this->zero_idx(),
+                          .a_scaling = in.a_scaling,
+                          .b_scaling = in.b_scaling,
+                          .c_scaling = in.c_scaling,
+                          .d_scaling = 0,
+                          .const_scaling = in.const_scaling });
 }
 
 /**
