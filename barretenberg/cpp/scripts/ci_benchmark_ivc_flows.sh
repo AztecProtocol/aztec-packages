@@ -184,26 +184,20 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]] && [[ "$sh
       if ! git diff --staged --quiet; then
         git commit -m "Add ${runtime} benchmark breakdown for ${flow_name} at ${current_sha:0:7}"
 
-        # Retry push up to 10 times with exponential backoff and jitter to handle concurrent pushes
-        for push_attempt in {1..10}; do
+        # Retry push with limited attempts and fixed short delays to avoid CI timeouts
+        # Max time: 5 attempts * 3s = 15s total
+        for push_attempt in {1..5}; do
           if git push 2>&1; then
             echo "Successfully pushed breakdown to gh-pages"
             break
           else
-            echo "Push failed (attempt $push_attempt/10), pulling with rebase and retrying..."
+            echo "Push failed (attempt $push_attempt/5), pulling with rebase and retrying..."
             # Pull with rebase to get latest changes and replay our commit on top
             if git pull --rebase origin gh-pages; then
-              # Exponential backoff with random jitter: base_delay * 2^attempt + random(0-1s)
-              base_delay=1
-              backoff_delay=$((base_delay * (1 << (push_attempt - 1))))
-              # Cap max delay at 30 seconds
-              if [ $backoff_delay -gt 30 ]; then
-                backoff_delay=30
-              fi
-              # Add random jitter (0-1 second) to avoid thundering herd
+              # Fixed delay with small jitter: 2s + random(0-1s)
               jitter=$((RANDOM % 1000))
-              jitter_ms=$(printf "0.%03d" $jitter)
-              total_delay=$(echo "$backoff_delay + $jitter_ms" | bc)
+              jitter_sec=$(echo "scale=3; $jitter / 1000" | bc)
+              total_delay=$(echo "2 + $jitter_sec" | bc)
               echo "Waiting ${total_delay}s before retry..."
               sleep "$total_delay"
             else
