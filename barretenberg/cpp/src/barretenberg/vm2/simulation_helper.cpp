@@ -434,6 +434,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                              field_gt,
                              poseidon2,
                              tx_event_emitter,
+                             config.skip_fee_enforcement,
                              config.collect_call_metadata);
 
     PublicInputsBuilder public_inputs_builder;
