@@ -14,10 +14,10 @@ namespace bb::avm2::fuzzer {
 TreeSnapshots FuzzerLowLevelDB::get_tree_roots() const
 {
     return {
-        .l1ToL2MessageTree = { .root = FF(0), .nextAvailableLeafIndex = 0 },
-        .noteHashTree = { .root = FF(0), .nextAvailableLeafIndex = 0 },
-        .nullifierTree = { .root = FF(0), .nextAvailableLeafIndex = 0 },
-        .publicDataTree = { .root = FF(0), .nextAvailableLeafIndex = 0 },
+        .l1_to_l2_message_tree = { .root = FF(0), .next_available_leaf_index = 0 },
+        .note_hash_tree = { .root = FF(0), .next_available_leaf_index = 0 },
+        .nullifier_tree = { .root = FF(0), .next_available_leaf_index = 0 },
+        .public_data_tree = { .root = FF(0), .next_available_leaf_index = 0 },
     };
 }
 
