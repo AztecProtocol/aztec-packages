@@ -7,7 +7,6 @@
 #pragma once
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
-#include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 class ChonkRecursiveVerifier {

@@ -12,7 +12,6 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/ultra_honk/decider_verifier.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
@@ -22,7 +21,6 @@ template <typename Flavor> class UltraVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
     using VerifierInstance = VerifierInstance_<Flavor>;
-    using DeciderVerifier = DeciderVerifier_<Flavor>;
     using PublicInputs = std::vector<FF>;
     using Proof = typename Transcript::Proof;
 
