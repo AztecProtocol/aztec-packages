@@ -24,6 +24,10 @@ class UltraZKFlavor : public UltraFlavor {
   public:
     // This flavor runs with ZK Sumcheck
     static constexpr bool HasZK = true;
+
+    // The number of entities added for ZK (gemini_masking_poly)
+    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
+
     // Determine the number of evaluations of Prover and Libra Polynomials that the Prover sends to the Verifier in
     // the rounds of ZK Sumcheck.
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
@@ -31,6 +35,27 @@ class UltraZKFlavor : public UltraFlavor {
                   "LIBRA_UNIVARIATES_LENGTH must be equal to UltraZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
+
+    // Override AllEntities to use ZK version (includes gemini_masking_poly via MaskingEntities)
+    template <typename DataType> using AllEntities = UltraFlavor::AllEntities_<DataType, HasZK>;
+
+    // NUM_WITNESS_ENTITIES includes gemini_masking_poly
+    static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS;
+    // NUM_ALL_ENTITIES includes gemini_masking_poly
+    static constexpr size_t NUM_ALL_ENTITIES = UltraFlavor::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
+
+    // Override OINK_PROOF_LENGTH to include gemini_masking_poly commitment (sent via commit_to_masking_poly)
+    static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments (includes gemini_masking_poly) */ (NUM_WITNESS_ENTITIES * num_frs_comm);
+
+    using AllValues = UltraFlavor::AllValues_<HasZK>;
+    using ProverPolynomials = UltraFlavor::ProverPolynomials_<HasZK>;
+    using PartiallyEvaluatedMultivariates = UltraFlavor::PartiallyEvaluatedMultivariates_<HasZK>;
+    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
+
+    // Override ProverUnivariates and ExtendedEdges to include gemini_masking_poly
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     // Proof length formula method
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
@@ -44,15 +69,13 @@ class UltraZKFlavor : public UltraFlavor {
                /* 6. Libra claimed evaluation */ (num_frs_fr) +
                /* 7. Libra grand sum commitment */ (num_frs_comm) +
                /* 8. Libra quotient commitment */ (num_frs_comm) +
-               /* 9. Gemini masking commitment */ (num_frs_comm) +
-               /* 10. Gemini masking evaluation */ (num_frs_fr) +
-               /* 11. virtual_log_n - 1 Gemini Fold commitments */
+               /* 9. virtual_log_n - 1 Gemini Fold commitments */
                ((virtual_log_n - 1) * num_frs_comm) +
-               /* 12. virtual_log_n Gemini a evaluations */
+               /* 10. virtual_log_n Gemini a evaluations */
                (virtual_log_n * num_frs_fr) +
-               /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-               /* 14. Shplonk Q commitment */ (num_frs_comm) +
-               /* 15. KZG W commitment */ (num_frs_comm);
+               /* 11. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+               /* 12. Shplonk Q commitment */ (num_frs_comm) +
+               /* 13. KZG W commitment */ (num_frs_comm);
     }
 
     /**
@@ -63,6 +86,8 @@ class UltraZKFlavor : public UltraFlavor {
     class Transcript_ : public UltraFlavor::Transcript {
       public:
         using Base = UltraFlavor::Transcript::Base;
+        // Override sumcheck_evaluations to use the correct size for ZK flavor
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         // Note: we have a different vector of univariates because the degree for ZK flavors differs
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
         Commitment libra_concatenation_commitment;
@@ -105,6 +130,7 @@ class UltraZKFlavor : public UltraFlavor {
             for (size_t i = 0; i < num_public_inputs; ++i) {
                 this->public_inputs.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
+            hiding_polynomial_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             this->w_l_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             this->w_r_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             this->w_o_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -128,8 +154,6 @@ class UltraZKFlavor : public UltraFlavor {
                 Base::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
             libra_grand_sum_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_quotient_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            hiding_polynomial_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            hiding_polynomial_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
             for (size_t i = 0; i < virtual_log_n - 1; ++i) {
                 this->gemini_fold_comms.push_back(
                     Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
@@ -160,6 +184,7 @@ class UltraZKFlavor : public UltraFlavor {
             for (const auto& input : this->public_inputs) {
                 Base::serialize_to_buffer(input, proof_data);
             }
+            Base::serialize_to_buffer(hiding_polynomial_commitment, proof_data);
             Base::serialize_to_buffer(this->w_l_comm, proof_data);
             Base::serialize_to_buffer(this->w_r_comm, proof_data);
             Base::serialize_to_buffer(this->w_o_comm, proof_data);
@@ -179,8 +204,6 @@ class UltraZKFlavor : public UltraFlavor {
             Base::serialize_to_buffer(this->sumcheck_evaluations, proof_data);
             Base::serialize_to_buffer(libra_grand_sum_commitment, proof_data);
             Base::serialize_to_buffer(libra_quotient_commitment, proof_data);
-            Base::serialize_to_buffer(hiding_polynomial_commitment, proof_data);
-            Base::serialize_to_buffer(hiding_polynomial_eval, proof_data);
             for (size_t i = 0; i < virtual_log_n - 1; ++i) {
                 Base::serialize_to_buffer(this->gemini_fold_comms[i], proof_data);
             }

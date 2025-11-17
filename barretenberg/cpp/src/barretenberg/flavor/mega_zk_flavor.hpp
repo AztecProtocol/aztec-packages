@@ -16,12 +16,37 @@ namespace bb {
 */
 class MegaZKFlavor : public bb::MegaFlavor {
   public:
-    // Indicates that this flavor runs with non-ZK Sumcheck.
+    // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+
+    // The number of entities added for ZK (gemini_masking_poly)
+    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
+
     // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
+
+    // Override AllEntities to use ZK version (includes gemini_masking_poly via MaskingEntities)
+    template <typename DataType> using AllEntities = MegaFlavor::AllEntities_<DataType, HasZK>;
+
+    // NUM_WITNESS_ENTITIES includes gemini_masking_poly
+    static constexpr size_t NUM_WITNESS_ENTITIES = MegaFlavor::NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS;
+    // NUM_ALL_ENTITIES includes gemini_masking_poly
+    static constexpr size_t NUM_ALL_ENTITIES = MegaFlavor::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
+
+    // Override OINK_PROOF_LENGTH to include gemini_masking_poly commitment (sent via commit_to_masking_poly)
+    static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments (includes gemini_masking_poly) */ (NUM_WITNESS_ENTITIES * num_frs_comm);
+
+    using AllValues = MegaFlavor::AllValues_<HasZK>;
+    using ProverPolynomials = MegaFlavor::ProverPolynomials_<HasZK>;
+    using PartiallyEvaluatedMultivariates = MegaFlavor::PartiallyEvaluatedMultivariates_<HasZK>;
+    using VerifierCommitments = MegaFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
+
+    // Override ProverUnivariates and ExtendedEdges to include gemini_masking_poly
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = MegaFlavor::VIRTUAL_LOG_N)
@@ -35,15 +60,13 @@ class MegaZKFlavor : public bb::MegaFlavor {
                /* 6. Libra claimed evaluation */ (num_frs_fr) +
                /* 7. Libra grand sum commitment */ (num_frs_comm) +
                /* 8. Libra quotient commitment */ (num_frs_comm) +
-               /* 9. Gemini masking commitment */ (num_frs_comm) +
-               /* 10. Gemini masking evaluation */ (num_frs_fr) +
-               /* 11. virtual_log_n - 1 Gemini Fold commitments */
+               /* 9. virtual_log_n - 1 Gemini Fold commitments */
                ((virtual_log_n - 1) * num_frs_comm) +
-               /* 12. virtual_log_n Gemini a evaluations */
+               /* 10. virtual_log_n Gemini a evaluations */
                (virtual_log_n * num_frs_fr) +
-               /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-               /* 14. Shplonk Q commitment */ (num_frs_comm) +
-               /* 15. KZG W commitment */ (num_frs_comm);
+               /* 11. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+               /* 12. Shplonk Q commitment */ (num_frs_comm) +
+               /* 13. KZG W commitment */ (num_frs_comm);
     }
 
     using Transcript = NativeTranscript;

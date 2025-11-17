@@ -70,6 +70,12 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     const std::vector<FF>& public_inputs = verifier_instance->public_inputs;
 
     VerifierCommitments commitments{ verifier_instance->vk_and_hash->vk, verifier_instance->witness_commitments };
+
+    // For ZK flavors: set gemini_masking_poly commitment from verifier instance
+    if constexpr (Flavor::HasZK) {
+        commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
+    }
+
     static constexpr size_t VIRTUAL_LOG_N = Flavor::NativeFlavor::VIRTUAL_LOG_N;
     // Get the gate challenges for sumcheck computation
     verifier_instance->gate_challenges =

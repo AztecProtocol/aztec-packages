@@ -29,6 +29,11 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify()
 {
     // Execute the Verifier rounds
     execute_preamble_round();
+    // For ZK flavors: receive Gemini masking polynomial commitment
+    if constexpr (Flavor::HasZK) {
+        verifier_instance->gemini_masking_commitment =
+            transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+    }
     execute_wire_commitments_round();
     execute_sorted_list_accumulator_round();
     execute_log_derivative_inverse_round();

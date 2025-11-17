@@ -58,26 +58,11 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed size.
     const size_t virtual_log_n = multilinear_challenge.size();
     const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
-    const size_t n = 1 << log_n;
-
-    // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
-    if (has_zk) {
-        Polynomial random_polynomial = Polynomial::random(n);
-        transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key.commit(random_polynomial));
-        // In the provers, the size of multilinear_challenge is `virtual_log_n`, but we need to evaluate the
-        // hiding polynomial as multilinear in log_n variables
-        transcript->send_to_verifier("Gemini:masking_poly_eval",
-                                     random_polynomial.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
-        // Initialize batched unshifted poly with the random masking poly so that the full batched poly is masked
-        polynomial_batcher.set_random_polynomial(std::move(random_polynomial));
-    }
 
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
-    Fr running_scalar = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
-
-    Polynomial A_0 = polynomial_batcher.compute_batched(rho, running_scalar);
+    Polynomial A_0 = polynomial_batcher.compute_batched(rho);
 
     // Construct the d-1 Gemini foldings of A₀(X)
     std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0, has_zk);

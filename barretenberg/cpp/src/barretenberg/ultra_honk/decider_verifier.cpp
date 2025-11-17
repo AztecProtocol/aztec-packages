@@ -46,6 +46,11 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
 
     VerifierCommitments commitments{ accumulator->vk, accumulator->witness_commitments };
 
+    // For ZK flavors: set gemini_masking_poly commitment from accumulator
+    if constexpr (Flavor::HasZK) {
+        commitments.gemini_masking_poly = accumulator->gemini_masking_commitment;
+    }
+
     const size_t log_circuit_size = static_cast<size_t>(accumulator->vk->log_circuit_size);
 
     const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : log_circuit_size;
@@ -58,7 +63,7 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
     }
 
     SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alpha, virtual_log_n);
-    // For MegaZKFlavor: receive commitments to Libra masking polynomials
+    // For ZK flavors: receive commitment to Libra concatenation polynomial
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
@@ -66,7 +71,7 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges, padding_indicator_array);
 
-    // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
+    // For ZK flavors: receive Libra commitments and Gemini evaluation after sumcheck
     if constexpr (Flavor::HasZK) {
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");

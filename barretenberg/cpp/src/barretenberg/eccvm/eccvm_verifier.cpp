@@ -37,6 +37,8 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
+    // Receive Gemini masking polynomial commitment (for ZK-PCS)
+    commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }

@@ -126,6 +126,9 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
 
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
+    // Receive Gemini masking polynomial commitment (for ZK-PCS)
+    commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+
     // Get commitments to wires and the ordered range constraints that do not require additional challenges
     for (auto [comm, label] : zip_view(commitments.get_wires_and_ordered_range_constraints(),
                                        commitment_labels.get_wires_and_ordered_range_constraints())) {

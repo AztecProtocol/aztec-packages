@@ -230,12 +230,30 @@ class MegaFlavor {
     };
 
     /**
+     * @brief ZK-specific entities (only used when HasZK = true)
+     * @details Contains the Gemini masking polynomial used for zero-knowledge
+     */
+    template <typename DataType, bool HasZK_ = false> class MaskingEntities {
+      public:
+        // When ZK is disabled, this class is empty
+        auto get_all() { return RefArray<DataType, 0>{}; }
+        auto get_all() const { return RefArray<const DataType, 0>{}; }
+        static auto get_labels() { return std::vector<std::string>{}; }
+    };
+
+    // Specialization for when ZK is enabled
+    template <typename DataType> class MaskingEntities<DataType, true> {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType, gemini_masking_poly)
+    };
+
+    /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
-     * Combines WireEntities + DerivedEntities.
+     * Combines WireEntities + DerivedEntities. ZK entities are added separately in AllEntities_.
      */
     template <typename DataType>
-    class WitnessEntities : public WireEntities<DataType>, public DerivedEntities<DataType> {
+    class WitnessEntities_ : public WireEntities<DataType>, public DerivedEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedEntities<DataType>)
 
@@ -292,6 +310,9 @@ class MegaFlavor {
                        this->return_data_inverses);
     };
 
+    // Default WitnessEntities alias
+    template <typename DataType> using WitnessEntities = WitnessEntities_<DataType>;
+
     /**
      * @brief Class for ShiftedEntities, containing the shifted witness polynomials.
      */
@@ -315,52 +336,63 @@ class MegaFlavor {
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    template <typename DataType>
-    class AllEntities : public PrecomputedEntities<DataType>,
-                        public WitnessEntities<DataType>,
-                        public ShiftedEntities<DataType> {
+    template <typename DataType, bool HasZK_ = HasZK>
+    class AllEntities_ : public MaskingEntities<DataType, HasZK_>,
+                         public PrecomputedEntities<DataType>,
+                         public WitnessEntities_<DataType>,
+                         public ShiftedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
+        DEFINE_COMPOUND_GET_ALL(MaskingEntities<DataType, HasZK_>,
+                                PrecomputedEntities<DataType>,
+                                WitnessEntities_<DataType>,
+                                ShiftedEntities<DataType>)
 
         auto get_unshifted()
         {
-            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
+            return concatenate(MaskingEntities<DataType, HasZK_>::get_all(),
+                               PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities_<DataType>::get_all());
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
-        auto get_witness() { return WitnessEntities<DataType>::get_all(); };
-        auto get_witness() const { return WitnessEntities<DataType>::get_all(); };
+        auto get_witness() { return WitnessEntities_<DataType>::get_all(); };
+        auto get_witness() const { return WitnessEntities_<DataType>::get_all(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
+
+    // Default AllEntities alias (no ZK)
+    template <typename DataType> using AllEntities = AllEntities_<DataType, HasZK>;
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
      * at one point.
      */
-    class AllValues : public AllEntities<FF> {
+    template <bool HasZK_ = HasZK> class AllValues_ : public AllEntities_<FF, HasZK_> {
       public:
-        using Base = AllEntities<FF>;
+        using Base = AllEntities_<FF, HasZK_>;
         using Base::Base;
     };
+
+    using AllValues = AllValues_<HasZK>;
 
     /**
      * @brief A container for the prover polynomials handles.
      */
-    class ProverPolynomials : public AllEntities<Polynomial> {
+    template <bool HasZK_ = HasZK> class ProverPolynomials_ : public AllEntities_<Polynomial, HasZK_> {
       public:
         // Define all operations as default, except copy construction/assignment
-        ProverPolynomials() = default;
+        ProverPolynomials_() = default;
         // fully-formed constructor
-        ProverPolynomials(size_t circuit_size)
+        ProverPolynomials_(size_t circuit_size)
         {
             BB_BENCH_NAME("ProverPolynomials(size_t)");
 
-            for (auto& poly : get_to_be_shifted()) {
+            for (auto& poly : this->get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ circuit_size - 1,
                                    /*largest possible index*/ circuit_size,
                                    /* offset */ 1 };
             }
             // catch-all with fully formed polynomials
-            for (auto& poly : get_unshifted()) {
+            for (auto& poly : this->get_unshifted()) {
                 if (poly.is_empty()) {
                     // Not set above
                     poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
@@ -368,31 +400,31 @@ class MegaFlavor {
             }
             set_shifted();
         }
-        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
-        ProverPolynomials(const ProverPolynomials& o) = delete;
-        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
-        ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
-        ~ProverPolynomials() = default;
-        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
-        [[nodiscard]] AllValues get_row(size_t row_idx) const
+        ProverPolynomials_& operator=(const ProverPolynomials_&) = delete;
+        ProverPolynomials_(const ProverPolynomials_& o) = delete;
+        ProverPolynomials_(ProverPolynomials_&& o) noexcept = default;
+        ProverPolynomials_& operator=(ProverPolynomials_&& o) noexcept = default;
+        ~ProverPolynomials_() = default;
+        [[nodiscard]] size_t get_polynomial_size() const { return this->q_c.size(); }
+        [[nodiscard]] AllValues_<HasZK_> get_row(size_t row_idx) const
         {
-            AllValues result;
+            AllValues_<HasZK_> result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
             }
             return result;
         }
 
-        [[nodiscard]] AllValues get_row_for_permutation_arg(size_t row_idx)
+        [[nodiscard]] AllValues_<HasZK_> get_row_for_permutation_arg(size_t row_idx)
         {
-            AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.get_sigmas(), get_sigmas())) {
+            AllValues_<HasZK_> result;
+            for (auto [result_field, polynomial] : zip_view(result.get_sigmas(), this->get_sigmas())) {
                 result_field = polynomial[row_idx];
             }
-            for (auto [result_field, polynomial] : zip_view(result.get_ids(), get_ids())) {
+            for (auto [result_field, polynomial] : zip_view(result.get_ids(), this->get_ids())) {
                 result_field = polynomial[row_idx];
             }
-            for (auto [result_field, polynomial] : zip_view(result.get_wires(), get_wires())) {
+            for (auto [result_field, polynomial] : zip_view(result.get_wires(), this->get_wires())) {
                 result_field = polynomial[row_idx];
             }
             return result;
@@ -400,7 +432,7 @@ class MegaFlavor {
 
         void set_shifted()
         {
-            for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
+            for (auto [shifted, to_be_shifted] : zip_view(this->get_shifted(), this->get_to_be_shifted())) {
                 shifted = to_be_shifted.shifted();
             }
         }
@@ -412,6 +444,8 @@ class MegaFlavor {
             }
         }
     };
+
+    using ProverPolynomials = ProverPolynomials_<HasZK>;
 
     using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
@@ -462,26 +496,28 @@ class MegaFlavor {
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
+    template <bool HasZK_ = HasZK> class PartiallyEvaluatedMultivariates_ : public AllEntities_<Polynomial, HasZK_> {
 
       public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const size_t circuit_size)
+        PartiallyEvaluatedMultivariates_() = default;
+        PartiallyEvaluatedMultivariates_(const size_t circuit_size)
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
             for (auto& poly : this->get_all()) {
                 poly = Polynomial(circuit_size / 2);
             }
         }
-        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
+        PartiallyEvaluatedMultivariates_(const ProverPolynomials_<HasZK_>& full_polynomials, size_t circuit_size)
         {
-            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+            for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
                 // After the initial sumcheck round, the new size is CEIL(size/2).
                 size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
                 poly = Polynomial(desired_size, circuit_size / 2);
             }
         }
     };
+
+    using PartiallyEvaluatedMultivariates = PartiallyEvaluatedMultivariates_<HasZK>;
 
     /**
      * @brief A container for univariates used in sumcheck.
@@ -570,8 +606,8 @@ class MegaFlavor {
     /**
      * Note: Made generic for use in MegaRecursive.
      **/
-    template <typename Commitment, typename VerificationKey>
-    class VerifierCommitments_ : public AllEntities<Commitment> {
+    template <typename Commitment, typename VerificationKey, bool HasZK_ = HasZK>
+    class VerifierCommitments_ : public AllEntities_<Commitment, HasZK_> {
       public:
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key,
                              const std::optional<WitnessEntities<Commitment>>& witness_commitments = std::nullopt)
@@ -598,7 +634,7 @@ class MegaFlavor {
         }
     };
     // Specialize for Mega (general case used in MegaRecursive).
-    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 };
 
 } // namespace bb
