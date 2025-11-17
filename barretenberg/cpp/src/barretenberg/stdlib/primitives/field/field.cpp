@@ -553,7 +553,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
 
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
-    ctx->create_big_mul_gate({
+    ctx->create_big_mul_add_gate({
         .a = is_constant() ? ctx->zero_idx() : witness_index,
         .b = to_mul.is_constant() ? ctx->zero_idx() : to_mul.witness_index,
         .c = to_add.is_constant() ? ctx->zero_idx() : to_add.witness_index,
@@ -612,7 +612,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     result.witness_index = ctx->add_variable(out);
 
     // Constrain the result
-    ctx->create_big_mul_gate({
+    ctx->create_big_mul_add_gate({
         .a = is_constant() ? ctx->zero_idx() : witness_index,
         .b = add_b.is_constant() ? ctx->zero_idx() : add_b.witness_index,
         .c = add_c.is_constant() ? ctx->zero_idx() : add_c.witness_index,
@@ -1144,7 +1144,7 @@ void field_t<Builder>::evaluate_polynomial_identity(
     bb::fr d_scaling = d.multiplicative_constant;
     bb::fr const_scaling = a.additive_constant * b.additive_constant + c.additive_constant + d.additive_constant;
 
-    ctx->create_big_mul_gate({
+    ctx->create_big_mul_add_gate({
         .a = a.is_constant() ? ctx->zero_idx() : a.witness_index,
         .b = b.is_constant() ? ctx->zero_idx() : b.witness_index,
         .c = c.is_constant() ? ctx->zero_idx() : c.witness_index,

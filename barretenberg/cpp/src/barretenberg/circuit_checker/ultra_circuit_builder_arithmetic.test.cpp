@@ -13,7 +13,6 @@ using namespace bb;
  * create_add_gate              (q_arith=1, 3-wire addition)
  * create_big_add_gate          (q_arith=1, 4-wire addition)
  * create_big_add_gate          (q_arith=2, 4-wire addition with w_4_shift)
- * create_big_mul_gate          (q_arith=1, 4-wire multiplication)
  * create_big_mul_add_gate      (q_arith=1, 4-wire mul+add without w_4_shift)
  * create_big_mul_add_gate      (q_arith=2, 4-wire mul+add with w_4_shift)
  * create_arithmetic_gate       (q_arith=1, general arithmetic gate)
@@ -185,73 +184,6 @@ TEST_F(UltraCircuitBuilderArithmetic, BigAddGateFailure)
     test_invalid([](AddQuadData& d) { d.c_scaling += fr(1); });
     test_invalid([](AddQuadData& d) { d.d_scaling += fr(1); });
     test_invalid([](AddQuadData& d) { d.const_scaling += fr(1); });
-}
-
-// Verifies that a valid 4-wire multiplication gate passes the circuit checker
-TEST_F(UltraCircuitBuilderArithmetic, BigMulGate)
-{
-    UltraCircuitBuilder builder;
-    auto data = create_mul_quad_data(5, 7, 3);
-
-    uint32_t a_idx = builder.add_variable(data.a);
-    uint32_t b_idx = builder.add_variable(data.b);
-    uint32_t c_idx = builder.add_variable(data.c);
-    uint32_t d_idx = builder.add_variable(data.d);
-
-    builder.create_big_mul_gate({ a_idx,
-                                  b_idx,
-                                  c_idx,
-                                  d_idx,
-                                  data.mul_scaling,
-                                  data.a_scaling,
-                                  data.b_scaling,
-                                  data.c_scaling,
-                                  data.d_scaling,
-                                  data.const_scaling });
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
-// Verifies that invalidating any variable or scaling coefficient in a big mul gate causes failure
-TEST_F(UltraCircuitBuilderArithmetic, BigMulGateFailure)
-{
-    auto test_invalid = [](auto modify_data) {
-        UltraCircuitBuilder builder;
-        auto data = create_mul_quad_data(5, 7, 3);
-        modify_data(data);
-
-        uint32_t a_idx = builder.add_variable(data.a);
-        uint32_t b_idx = builder.add_variable(data.b);
-        uint32_t c_idx = builder.add_variable(data.c);
-        uint32_t d_idx = builder.add_variable(data.d);
-
-        builder.create_big_mul_gate({ a_idx,
-                                      b_idx,
-                                      c_idx,
-                                      d_idx,
-                                      data.mul_scaling,
-                                      data.a_scaling,
-                                      data.b_scaling,
-                                      data.c_scaling,
-                                      data.d_scaling,
-                                      data.const_scaling });
-
-        EXPECT_FALSE(CircuitChecker::check(builder));
-    };
-
-    // Test witness failures
-    test_invalid([](MulQuadData& d) { d.a += fr(1); });
-    test_invalid([](MulQuadData& d) { d.b += fr(1); });
-    test_invalid([](MulQuadData& d) { d.c += fr(1); });
-    test_invalid([](MulQuadData& d) { d.d += fr(1); });
-
-    // Test scaling coefficient failures
-    test_invalid([](MulQuadData& d) { d.mul_scaling += fr(1); });
-    test_invalid([](MulQuadData& d) { d.a_scaling += fr(1); });
-    test_invalid([](MulQuadData& d) { d.b_scaling += fr(1); });
-    test_invalid([](MulQuadData& d) { d.c_scaling += fr(1); });
-    test_invalid([](MulQuadData& d) { d.d_scaling += fr(1); });
-    test_invalid([](MulQuadData& d) { d.const_scaling += fr(1); });
 }
 
 // Verifies that a valid arithmetic gate passes the circuit checker
@@ -517,4 +449,31 @@ TEST_F(UltraCircuitBuilderArithmetic, BigMulAddGateWithNextRowW4)
     builder.create_big_add_gate({ dummy_idx, dummy_idx, dummy_idx, next_w_4_idx, fr(0), fr(0), fr(0), fr(0), fr(0) });
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+// Verifies that q_arith = 2 mode fails when w_4_shift value is incorrect for big_mul_add_gate
+TEST_F(UltraCircuitBuilderArithmetic, BigMulAddGateWithNextRowW4Failure)
+{
+    UltraCircuitBuilder builder;
+
+    // Set up the same as above but with WRONG d value
+    fr a(3);
+    fr b(5);
+    fr c(7);
+    fr next_w_4(11);
+    fr d = -(a * b + c + next_w_4) + fr(1); // INCORRECT: off by 1
+
+    uint32_t a_idx = builder.add_variable(a);
+    uint32_t b_idx = builder.add_variable(b);
+    uint32_t c_idx = builder.add_variable(c);
+    uint32_t d_idx = builder.add_variable(d);
+    uint32_t next_w_4_idx = builder.add_variable(next_w_4);
+    uint32_t dummy_idx = builder.add_variable(fr(13));
+
+    builder.create_big_mul_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(0), fr(0), fr(1), fr(1), fr(0) },
+                                    true /* use_next_gate_w_4 */);
+
+    builder.create_big_add_gate({ dummy_idx, dummy_idx, dummy_idx, next_w_4_idx, fr(0), fr(0), fr(0), fr(0), fr(0) });
+
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }

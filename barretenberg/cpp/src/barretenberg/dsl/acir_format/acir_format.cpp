@@ -106,7 +106,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     for (size_t i = 0; i < constraint_system.quad_constraints.size(); ++i) {
         const auto& constraint = constraint_system.quad_constraints.at(i);
-        builder.create_big_mul_gate(constraint);
+        builder.create_big_mul_add_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.quad_constraints.at(i));
     }
