@@ -1,4 +1,3 @@
-import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { avmSimulate, avmSimulateWithHintedDbs } from '@aztec/native';

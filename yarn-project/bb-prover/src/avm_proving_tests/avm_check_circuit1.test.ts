@@ -35,8 +35,7 @@ describe('AVM check-circuit – unhappy paths 1', () => {
     await worldStateService.close();
   });
 
-  // TODO(MW): Unskip - see comment in public_inputs_builder.cpp
-  it.skip(
+  it(
     'perform too many storage writes and revert',
     async () => {
       await tester.simProveVerifyAppLogic(
