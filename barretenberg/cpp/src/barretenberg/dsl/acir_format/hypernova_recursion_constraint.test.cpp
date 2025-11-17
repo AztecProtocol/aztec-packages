@@ -27,7 +27,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
     using VerifierInputs = Chonk::VerifierInputs;
     using QUEUE_TYPE = Chonk::QUEUE_TYPE;
     using VerificationQueue = Chonk::VerificationQueue;
-    using ArithmeticConstraint = AcirFormat::PolyTripleConstraint;
+    using ArithmeticConstraint = AcirFormat::ArithTripleConstraint;
     using PairingPoints = Chonk::PairingPoints;
 
     static constexpr size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
