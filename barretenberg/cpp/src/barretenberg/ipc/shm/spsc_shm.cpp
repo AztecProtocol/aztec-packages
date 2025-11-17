@@ -3,9 +3,11 @@
 #include "utilities.hpp"
 #include <atomic>
 #include <cerrno>
+#include <climits>
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <sys/mman.h>
@@ -307,21 +309,33 @@ void* SpscShm::peek(size_t* n)
         uint64_t till_end = cap - pos;
         size_t grant = static_cast<size_t>((avail <= till_end) ? avail : till_end);
 
-        // Check for padding marker (zero-length message)
-        if (grant >= sizeof(uint32_t)) {
-            uint32_t marker = 0;
-            std::memcpy(&marker, buf_ + pos, sizeof(uint32_t));
-            if (marker == 0) {
-                // This is padding - skip it by releasing and continuing
-                ctrl_->tail.store(tail + grant, std::memory_order_release);
+        // If we don't have enough bytes to even read a padding marker, treat as implicit padding
+        // This happens when the producer wrapped back to the start of the ring buffer and left < 4 bytes at the end.
+        if (grant < sizeof(uint32_t)) {
+            // Skip to wrap point
+            ctrl_->tail.store(tail + grant, std::memory_order_release);
 
-                // Wake producer if ring was full
-                if (avail == cap) {
-                    ctrl_->space_seq.fetch_add(1, std::memory_order_release);
-                    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->space_seq), 1);
-                }
-                continue; // Try again from wrapped position
+            // Wake producer if ring was full
+            if (avail == cap) {
+                ctrl_->space_seq.fetch_add(1, std::memory_order_release);
+                futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->space_seq), 1);
             }
+            continue; // Try again from wrapped position
+        }
+
+        // Check for explicit padding marker (zero-length message)
+        uint32_t marker = 0;
+        std::memcpy(&marker, buf_ + pos, sizeof(uint32_t));
+        if (marker == 0) {
+            // This is padding - skip it by releasing and continuing
+            ctrl_->tail.store(tail + grant, std::memory_order_release);
+
+            // Wake producer if ring was full
+            if (avail == cap) {
+                ctrl_->space_seq.fetch_add(1, std::memory_order_release);
+                futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->space_seq), 1);
+            }
+            continue; // Try again from wrapped position
         }
 
         // Not padding - return the data
@@ -348,13 +362,19 @@ void SpscShm::release(size_t n)
     }
 }
 
-bool SpscShm::wait_for_data(uint32_t spin_ns)
+bool SpscShm::wait_for_data(uint32_t timeout_ns)
 {
     if (available() > 0) {
         return true;
     }
 
-    if (spin_ns > 0) {
+    // Hardcoded 10ms spin phase
+    constexpr uint64_t SPIN_NS = 10000000; // 10ms
+    uint64_t spin_duration = (timeout_ns < SPIN_NS) ? timeout_ns : SPIN_NS;
+    uint64_t remaining_timeout = (timeout_ns > SPIN_NS) ? (timeout_ns - SPIN_NS) : 0;
+
+    // Spin phase
+    if (spin_duration > 0) {
         uint64_t start = mono_ns_now();
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
@@ -362,27 +382,41 @@ bool SpscShm::wait_for_data(uint32_t spin_ns)
                 return true;
             }
             IPC_PAUSE();
-        } while ((mono_ns_now() - start) < spin_ns);
+        } while ((mono_ns_now() - start) < spin_duration);
     }
 
+    // Check again after spin
     if (available() > 0) {
         return true;
     }
+
+    // If timeout already expired during spin, return false
+    if (remaining_timeout == 0) {
+        return false;
+    }
+
+    // Futex wait with timeout for remaining duration
     uint32_t seq = ctrl_->data_seq.load(std::memory_order_acquire);
     if (available() > 0) {
         return true;
     }
-    futex_wait(reinterpret_cast<volatile uint32_t*>(&ctrl_->data_seq), seq);
+    futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->data_seq), seq, remaining_timeout);
     return available() > 0;
 }
 
-bool SpscShm::wait_for_space(size_t need, uint32_t spin_ns)
+bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
 {
     if (free_space() >= need) {
         return true;
     }
 
-    if (spin_ns > 0) {
+    // Hardcoded 10ms spin phase
+    constexpr uint64_t SPIN_NS = 10000000; // 10ms
+    uint64_t spin_duration = (timeout_ns < SPIN_NS) ? timeout_ns : SPIN_NS;
+    uint64_t remaining_timeout = (timeout_ns > SPIN_NS) ? (timeout_ns - SPIN_NS) : 0;
+
+    // Spin phase
+    if (spin_duration > 0) {
         uint64_t start = mono_ns_now();
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
@@ -390,18 +424,34 @@ bool SpscShm::wait_for_space(size_t need, uint32_t spin_ns)
                 return true;
             }
             IPC_PAUSE();
-        } while ((mono_ns_now() - start) < spin_ns);
+        } while ((mono_ns_now() - start) < spin_duration);
     }
 
+    // Check again after spin
     if (free_space() >= need) {
         return true;
     }
+
+    // If timeout already expired during spin, return false
+    if (remaining_timeout == 0) {
+        return false;
+    }
+
+    // Futex wait with timeout for remaining duration
     uint32_t seq = ctrl_->space_seq.load(std::memory_order_acquire);
     if (free_space() >= need) {
         return true;
     }
-    futex_wait(reinterpret_cast<volatile uint32_t*>(&ctrl_->space_seq), seq);
+    futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->space_seq), seq, remaining_timeout);
     return free_space() >= need;
+}
+
+void SpscShm::wakeup_all()
+{
+    // Wake any consumer blocked on data_seq
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->data_seq), INT_MAX);
+    // Wake any producer blocked on space_seq
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->space_seq), INT_MAX);
 }
 
 } // namespace bb::ipc

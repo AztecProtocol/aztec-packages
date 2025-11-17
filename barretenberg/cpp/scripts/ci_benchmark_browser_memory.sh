@@ -14,12 +14,6 @@ export PORT=9339
 
 set -x
 
-# Run server.
-yarn --cwd ../acir_tests/browser-test-app serve &
-server_pid=$!
-trap "kill $server_pid 2>/dev/null" EXIT SIGINT
-sleep 2 # Give server time to start
-
 # Run the benchmark.
 name_path="app-proving/$flow/chrome-wasm"
 output="bench-out/$name_path"

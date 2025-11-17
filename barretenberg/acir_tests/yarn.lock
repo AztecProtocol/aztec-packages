@@ -1217,6 +1217,7 @@ __metadata:
     html-webpack-plugin: "npm:^5.6.0"
     pako: "npm:^2.1.0"
     pino: "npm:^9.5.0"
+    process: "npm:^0.11.10"
     serve: "npm:^14.2.1"
     ts-loader: "npm:^9.5.1"
     typescript: "npm:^5.4.2"
@@ -4013,6 +4014,13 @@ __metadata:
   version: 5.0.0
   resolution: "process-warning@npm:5.0.0"
   checksum: 10c0/941f48863d368ec161e0b5890ba0c6af94170078f3d6b5e915c19b36fb59edb0dc2f8e834d25e0d375a8bf368a49d490f080508842168832b93489d17843ec29
+  languageName: node
+  linkType: hard
+
+"process@npm:^0.11.10":
+  version: 0.11.10
+  resolution: "process@npm:0.11.10"
+  checksum: 10c0/40c3ce4b7e6d4b8c3355479df77aeed46f81b279818ccdc500124e6a5ab882c0cc81ff7ea16384873a95a74c4570b01b120f287abbdd4c877931460eca6084b3
   languageName: node
   linkType: hard
 

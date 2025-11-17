@@ -20,7 +20,7 @@ export class Grumpkin {
    * @returns Result of the multiplication.
    */
   public static async mul(point: Point, scalar: GrumpkinScalar): Promise<Point> {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.grumpkinMul({
       point: { x: point.x.toBuffer(), y: point.y.toBuffer() },
@@ -36,7 +36,7 @@ export class Grumpkin {
    * @returns Result of the addition.
    */
   public static async add(a: Point, b: Point): Promise<Point> {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.grumpkinAdd({
       pointA: { x: a.x.toBuffer(), y: a.y.toBuffer() },
@@ -52,7 +52,7 @@ export class Grumpkin {
    * @returns Points multiplied by the scalar.
    */
   public static async batchMul(points: Point[], scalar: GrumpkinScalar) {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.grumpkinBatchMul({
       points: points.map(p => ({ x: p.x.toBuffer(), y: p.y.toBuffer() })),
@@ -67,7 +67,7 @@ export class Grumpkin {
    * @returns Random field element.
    */
   public static async getRandomFr(): Promise<Fr> {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.grumpkinGetRandomFr({ dummy: 0 });
     return Fr.fromBuffer(Buffer.from(response.value));
@@ -79,7 +79,7 @@ export class Grumpkin {
    * @returns Buffer representation of the field element.
    */
   public static async reduce512BufferToFr(uint512Buf: Buffer): Promise<Fr> {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.grumpkinReduce512({ input: uint512Buf });
     return Fr.fromBuffer(Buffer.from(response.value));

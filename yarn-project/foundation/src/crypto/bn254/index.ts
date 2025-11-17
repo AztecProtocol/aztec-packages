@@ -68,6 +68,9 @@ export class Bn254G1Point {
    * in the most significant bit.
    */
   static async fromCompressed(compressed: Buffer): Promise<Bn254G1Point> {
+    if (compressed.length !== 32) {
+      throw new Error('Invalid compressed point length');
+    }
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
 

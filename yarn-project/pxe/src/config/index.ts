@@ -11,15 +11,6 @@ import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 export { getPackageInfo } from './package_info.js';
 
 /**
- * Temporary configuration until WASM can be used instead of native
- */
-export interface BBProverConfig {
-  bbWorkingDirectory?: string;
-  bbBinaryPath?: string;
-  bbSkipCleanup?: boolean;
-}
-
-/**
  * Configuration settings for the prover factory
  */
 export interface KernelProverConfig {
@@ -35,7 +26,7 @@ export interface SynchronizerConfig {
   l2BlockBatchSize: number;
 }
 
-export type PXEConfig = KernelProverConfig & BBProverConfig & DataStoreConfig & ChainConfig & SynchronizerConfig;
+export type PXEConfig = KernelProverConfig & DataStoreConfig & ChainConfig & SynchronizerConfig;
 
 export type CliPXEOptions = {
   /** Custom Aztec Node URL to connect to  */
@@ -50,19 +41,13 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
     ...numberConfigHelper(50),
     description: 'Maximum amount of blocks to pull from the stream in one request when synchronizing',
   },
-  bbBinaryPath: {
-    env: 'BB_BINARY_PATH',
-    description: 'Path to the BB binary',
-  },
-  bbWorkingDirectory: {
-    env: 'BB_WORKING_DIRECTORY',
-    description: 'Working directory for the BB binary',
-  },
-  bbSkipCleanup: {
-    env: 'BB_SKIP_CLEANUP',
-    description: 'True to skip cleanup of temporary files for debugging purposes',
-    ...booleanConfigHelper(),
-  },
+  // TODO: We're losing this feature in moving to bb.js api.
+  // Reimplement it as a setting that dumps the msgpack data on the bb.js backend if needed.
+  // bbSkipCleanup: {
+  //   env: 'BB_SKIP_CLEANUP',
+  //   description: 'True to skip cleanup of temporary files for debugging purposes',
+  //   ...booleanConfigHelper(),
+  // },
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
     description: 'Enable real proofs',

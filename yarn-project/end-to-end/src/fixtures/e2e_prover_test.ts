@@ -10,6 +10,7 @@ import {
   QueuedIVCVerifier,
   TestCircuitVerifier,
 } from '@aztec/bb-prover';
+import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
@@ -183,9 +184,7 @@ export class FullProverTest {
       this.acvmConfigCleanup = acvmConfig.cleanup;
       this.bbConfigCleanup = bbConfig.cleanup;
 
-      if (!bbConfig?.bbWorkingDirectory || !bbConfig?.bbBinaryPath) {
-        throw new Error(`Test must be run with BB native configuration`);
-      }
+      await Barretenberg.initSingleton({ backend: BackendType.NativeUnixSocket });
 
       const verifier = await BBCircuitVerifier.new(bbConfig);
       this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier);
@@ -212,11 +211,7 @@ export class FullProverTest {
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
       this.aztecNode,
-      {
-        proverEnabled: this.realProofs,
-        bbBinaryPath: bbConfig?.bbBinaryPath,
-        bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
-      },
+      { proverEnabled: this.realProofs },
       undefined,
       true,
     );
@@ -321,6 +316,7 @@ export class FullProverTest {
     // clean up the full prover node
     await this.proverNode.stop();
 
+    await Barretenberg.destroySingleton();
     await this.bbConfigCleanup?.();
     await this.acvmConfigCleanup?.();
   }

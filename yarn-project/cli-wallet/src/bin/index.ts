@@ -2,6 +2,7 @@ import { computeSecretHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
+import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
@@ -9,10 +10,8 @@ import type { PXEConfig } from '@aztec/pxe/config';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { Argument, Command, Option } from 'commander';
-import { mkdirSync } from 'fs';
 import { homedir } from 'os';
-import { dirname, join, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 
 import { injectCommands } from '../cmds/index.js';
 import { Aliases, WalletDB } from '../storage/wallet_db.js';
@@ -104,18 +103,17 @@ async function main() {
 
       const proverEnabled = prover !== 'none';
 
-      const bbBinaryPath =
-        prover === 'native'
-          ? (process.env.BB_BINARY_PATH ??
-            resolve(dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/cpp/build/bin/bb'))
-          : undefined;
-      const bbWorkingDirectory = dataDir + '/bb';
-      mkdirSync(bbWorkingDirectory, { recursive: true });
+      switch (prover) {
+        case 'native':
+          await Barretenberg.initSingleton({ backend: BackendType.NativeUnixSocket });
+          break;
+        case 'wasm':
+          await Barretenberg.initSingleton({ backend: BackendType.Wasm });
+          break;
+      }
 
       const overridePXEConfig: Partial<PXEConfig> = {
         proverEnabled,
-        bbBinaryPath: prover === 'native' ? bbBinaryPath : undefined,
-        bbWorkingDirectory: prover === 'native' ? bbWorkingDirectory : undefined,
         dataDirectory: join(dataDir, 'pxe'),
       };
 
@@ -147,6 +145,8 @@ async function main() {
   injectCommands(program, userLog, debugLogger, walletAndNodeWrapper, db);
   injectInternalCommands(program, userLog, db);
   await program.parseAsync(process.argv);
+
+  await Barretenberg.destroySingleton();
 }
 
 main().catch(err => {

@@ -64,7 +64,8 @@ Napi::Value MsgpackClientWrapper::call(const Napi::CallbackInfo& info)
 
     // Send request (timeout 0 = infinite)
     if (!client_->send(input_data, input_len, 0)) {
-        throw Napi::Error::New(env, "Failed to send msgpack request");
+        throw Napi::Error::New(
+            env, "Failed to send msgpack request. Input data probably too large. Consider --request-ring-size.");
     }
 
     // Receive response using pre-allocated buffer

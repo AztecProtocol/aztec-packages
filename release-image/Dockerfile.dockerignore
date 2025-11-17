@@ -3,6 +3,7 @@
 !/avm-transpiler/target/release/avm-transpiler
 !/barretenberg/cpp/build/bin/bb-avm
 !/barretenberg/ts/dest/
+!/barretenberg/ts/build/
 !/barretenberg/ts/package.json
 !/noir/noir-repo/target/release/nargo
 !/noir/noir-repo/target/release/acvm

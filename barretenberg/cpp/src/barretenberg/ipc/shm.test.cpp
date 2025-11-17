@@ -16,10 +16,7 @@ namespace {
 
 class ShmTest : public ::testing::Test {
   protected:
-    // NOTE: MAX_CLIENTS must be > number of concurrent test clients
-    // TearDown creates an additional wake_client to unblock the server thread,
-    // so we need at least num_clients + 1 slots available.
-    static constexpr size_t MAX_CLIENTS = 4;
+    static constexpr size_t MAX_CLIENTS = 3;
     std::string shm_name;
 
     std::unique_ptr<IpcServer> server;
@@ -43,22 +40,25 @@ class ShmTest : public ::testing::Test {
         server_running.store(true, std::memory_order_release);
         server_thread = std::thread([this]() {
             // Echo server: receive message and send it back
-            std::vector<uint8_t> buffer(16UL * 1024 * 1024); // 16MB buffer
 
             while (server_running.load(std::memory_order_acquire)) {
                 // Try to accept connections first (non-blocking)
                 server->accept(0);
 
-                int client_id = server->wait_for_data(100000000); // 100ms timeout
+                int client_id = server->wait_for_data(100000000);
                 if (client_id < 0) {
                     continue; // Timeout, check running flag
                 }
 
-                ssize_t n = server->recv(client_id, buffer.data(), buffer.size());
-                if (n > 0) {
+                // Receive message (zero-copy for SHM!)
+                auto request = server->receive(client_id);
+                if (!request.empty()) {
                     // Echo the message back
-                    server->send(client_id, buffer.data(), static_cast<size_t>(n));
+                    server->send(client_id, request.data(), request.size());
                     requests_processed.fetch_add(1, std::memory_order_relaxed);
+
+                    // Release the message
+                    server->release(client_id, request.size());
                 }
             }
         });
@@ -72,19 +72,13 @@ class ShmTest : public ::testing::Test {
         // Stop server
         server_running.store(false, std::memory_order_release);
 
-        // Wake up server thread if it's blocked in wait_for_data by sending a dummy message
-        // This ensures the thread wakes up and checks the server_running flag
+        // Request shutdown (wakes blocked threads)
         if (server_thread.joinable()) {
-            // Create a temporary client to wake the server
-            auto wake_client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
-            if (wake_client && wake_client->connect()) {
-                uint8_t dummy = 0;
-                wake_client->send(&dummy, 1, 0);
-                wake_client->close();
-            }
-
+            server->request_shutdown();
             server_thread.join();
         }
+
+        // Clean up resources
         server->close();
         server.reset();
     }

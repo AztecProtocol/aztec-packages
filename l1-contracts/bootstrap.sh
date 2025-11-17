@@ -13,7 +13,7 @@ function build_src {
   echo_header "l1-contracts build_src"
 
   # Deps install
-  yarn
+  npm_install_deps
 
   local artifact=l1-contracts-src-$hash.tar.gz
   if ! cache_download $artifact; then

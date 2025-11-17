@@ -1,5 +1,5 @@
 import { BackendType, Barretenberg, BarretenbergSync } from './index.js';
-import { Fr } from '../types/index.js';
+import { Fr } from './testing/fields.js';
 
 describe('blake2s async', () => {
   let api: Barretenberg;

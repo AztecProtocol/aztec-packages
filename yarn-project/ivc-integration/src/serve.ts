@@ -1,11 +1,26 @@
+import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
-import { proveThenVerifyAztecClient } from './prove_wasm.js';
-import { generateTestingIVCStack } from './witgen.js';
+import {
+  MockAppCreatorCircuit,
+  MockHidingCircuit,
+  MockPrivateKernelInitCircuit,
+  MockPrivateKernelTailCircuit,
+  generateTestingIVCStack,
+} from './witgen.js';
 
 const logger = createLogger('aztec:ivc-test');
 
 /* eslint-disable no-console */
+
+// Expose APIs on window for browser testing
+(window as any).Barretenberg = Barretenberg;
+(window as any).AztecClientBackend = AztecClientBackend;
+(window as any).generateTestingIVCStack = generateTestingIVCStack;
+(window as any).MockAppCreatorCircuit = MockAppCreatorCircuit;
+(window as any).MockPrivateKernelInitCircuit = MockPrivateKernelInitCircuit;
+(window as any).MockPrivateKernelTailCircuit = MockPrivateKernelTailCircuit;
+(window as any).MockHidingCircuit = MockHidingCircuit;
 
 // Function to set up the output element and redirect all console output
 function setupConsoleOutput() {
@@ -78,20 +93,32 @@ function setupConsoleOutput() {
   };
 }
 
-(window as any).proveThenVerifyAztecClient = proveThenVerifyAztecClient;
+// Only set up the interactive UI if this is not being used for automated testing
+if (!document.getElementById('status')) {
+  document.addEventListener('DOMContentLoaded', function () {
+    setupConsoleOutput(); // Initialize console output capture
 
-document.addEventListener('DOMContentLoaded', function () {
-  setupConsoleOutput(); // Initialize console output capture
+    const button = document.createElement('button');
+    button.innerText = 'Run Test';
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    button.addEventListener('click', async () => {
+      logger.info(`generating circuit and witness...`);
+      const [bytecodes, witnessStack, _publicInputs, precomputedVks] = await generateTestingIVCStack(1, 0);
+      logger.info(`done. proving and verifying...`);
 
-  const button = document.createElement('button');
-  button.innerText = 'Run Test';
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  button.addEventListener('click', async () => {
-    logger.info(`generating circuit and witness...`);
-    const [bytecodes, witnessStack, _publicInputs, precomputedVks] = await generateTestingIVCStack(1, 0);
-    logger.info(`done. proving and verifying...`);
-    const verified = await proveThenVerifyAztecClient(bytecodes, witnessStack, precomputedVks);
-    logger.info(`verified? ${verified}`);
+      const barretenberg = await Barretenberg.initSingleton({
+        threads: 16,
+        logger: (m: string) => logger.info(m),
+      });
+
+      const backend = new AztecClientBackend(bytecodes, barretenberg);
+      const [, proof, vk] = await backend.prove(witnessStack, precomputedVks);
+      const verified = await backend.verify(proof, vk);
+
+      logger.info(`verified? ${verified}`);
+
+      await Barretenberg.destroySingleton();
+    });
+    document.body.appendChild(button);
   });
-  document.body.appendChild(button);
-});
+}

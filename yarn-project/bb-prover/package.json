@@ -4,9 +4,9 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./client/wasm/bundle": "./dest/prover/client/wasm/bundle.js",
-    "./client/wasm/lazy": "./dest/prover/client/wasm/lazy.js",
-    "./client/native": "./dest/prover/client/native/bb_native_private_kernel_prover.js",
+    "./client/bundle": "./dest/prover/client/bundle.js",
+    "./client/lazy": "./dest/prover/client/lazy.js",
+    "./client": "./dest/prover/client/bb_private_kernel_prover.js",
     "./verifier": "./dest/verifier/index.js",
     "./test": "./dest/test/index.js",
     "./config": "./dest/config.js"

@@ -12,7 +12,7 @@ export async function pedersenCommit(input: Buffer[], offset = 0) {
     throw new Error('All Pedersen Commit input buffers must be <= 32 bytes.');
   }
   input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));
-  await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+  await BarretenbergSync.initSingleton();
   const api = BarretenbergSync.getSingleton();
   const response = api.pedersenCommit({
     inputs: input,
@@ -29,7 +29,7 @@ export async function pedersenCommit(input: Buffer[], offset = 0) {
  */
 export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
   const inputFields = serializeToFields(input);
-  await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+  await BarretenbergSync.initSingleton();
   const api = BarretenbergSync.getSingleton();
   const response = api.pedersenHash({
     inputs: inputFields.map(i => i.toBuffer()),
@@ -42,7 +42,7 @@ export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
  * Create a pedersen hash from an arbitrary length buffer.
  */
 export async function pedersenHashBuffer(input: Buffer, index = 0) {
-  await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+  await BarretenbergSync.initSingleton();
   const api = BarretenbergSync.getSingleton();
   const response = api.pedersenHashBuffer({
     input,

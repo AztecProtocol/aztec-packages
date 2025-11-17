@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ipc/ipc_server.hpp"
 #include "barretenberg/ipc/shm/mpsc_shm.hpp"
 #include "barretenberg/ipc/shm/spsc_shm.hpp"
@@ -7,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
+#include <iostream>
 #include <optional>
 #include <string>
 #include <sys/mman.h>
@@ -27,10 +29,14 @@ class ShmServer : public IpcServer {
   public:
     static constexpr size_t DEFAULT_RING_SIZE = 1 << 20; // 1MB
 
-    ShmServer(std::string base_name, size_t max_clients, size_t ring_size = DEFAULT_RING_SIZE)
+    ShmServer(std::string base_name,
+              size_t max_clients,
+              size_t request_ring_size = DEFAULT_RING_SIZE,
+              size_t response_ring_size = DEFAULT_RING_SIZE)
         : base_name_(std::move(base_name))
         , max_clients_(max_clients)
-        , ring_size_(ring_size)
+        , request_ring_size_(request_ring_size)
+        , response_ring_size_(response_ring_size)
     {}
 
     ~ShmServer() override { close_internal(); }
@@ -58,7 +64,7 @@ class ShmServer : public IpcServer {
 
         try {
             // Create MPSC consumer for requests
-            consumer_ = MpscConsumer::create(base_name_, max_clients_, ring_size_);
+            consumer_ = MpscConsumer::create(base_name_, max_clients_, request_ring_size_);
 
             // Create client ID allocator in shared memory
             int id_fd = shm_open(id_name.c_str(), O_CREAT | O_RDWR, 0666);
@@ -92,7 +98,7 @@ class ShmServer : public IpcServer {
             response_rings_.reserve(max_clients_);
             for (size_t i = 0; i < max_clients_; i++) {
                 std::string resp_name = base_name_ + "_response_" + std::to_string(i);
-                response_rings_.push_back(SpscShm::create(resp_name, ring_size_));
+                response_rings_.push_back(SpscShm::create(resp_name, response_ring_size_));
             }
 
             return true;
@@ -108,28 +114,41 @@ class ShmServer : public IpcServer {
             return -1;
         }
 
-        uint64_t timeout_us = timeout_ns > 0 ? timeout_ns / 1000 : 100000; // Default 100ms
-        return consumer_->wait_for_data(static_cast<uint32_t>(timeout_us));
+        // Pass timeout directly in nanoseconds
+        return consumer_->wait_for_data(static_cast<uint32_t>(timeout_ns));
     }
 
-    ssize_t recv(int client_id, void* buffer, size_t max_len) override
+    std::span<const uint8_t> receive(int client_id) override
     {
         if (!consumer_.has_value() || client_id < 0) {
-            return -1;
+            return {};
         }
         const auto client_idx = static_cast<size_t>(client_id);
         if (client_idx >= max_clients_) {
-            return -1;
+            return {};
         }
 
-        // Peek now skips padding automatically
+        // Wait for data to be available (blocks until data present)
+        consumer_->wait_for_data(100000); // Spin for 100ms before yielding
+
+        // Peek at data in ring buffer (zero-copy!)
         size_t n = 0;
         void* data = consumer_->peek(client_idx, &n);
-        if (data == nullptr || n < sizeof(uint32_t)) {
-            if (n > 0) {
-                consumer_->release(client_idx, n);
+
+        if (data == nullptr) {
+            return {}; // Client disconnected or error
+        }
+
+        // Handle implicit padding: if we get less than 4 bytes, it's padding at ring wrap boundary
+        // Release it and retry
+        if (n < sizeof(uint32_t)) {
+            consumer_->release(client_idx, n);
+            // Retry peek after releasing padding
+            data = consumer_->peek(client_idx, &n);
+            if (data == nullptr || n < sizeof(uint32_t)) {
+                // Still no valid data after skipping padding
+                return {};
             }
-            return -1;
         }
 
         // Read length prefix
@@ -137,20 +156,26 @@ class ShmServer : public IpcServer {
         std::memcpy(&msg_len, data, sizeof(uint32_t));
 
         if (n < sizeof(uint32_t) + msg_len) {
-            consumer_->release(client_idx, n);
-            return -1; // Incomplete message
+            throw_or_abort("Ring buffer corruption: incomplete message (protocol violation)");
         }
 
-        if (msg_len > max_len) {
-            consumer_->release(client_idx, sizeof(uint32_t) + msg_len);
-            return -1; // Buffer too small
+        // Return span directly into ring buffer (skip 4-byte length prefix, zero-copy!)
+        return std::span<const uint8_t>(static_cast<const uint8_t*>(data) + sizeof(uint32_t), msg_len);
+    }
+
+    void release(int client_id, size_t message_size) override
+    {
+        if (!consumer_.has_value() || client_id < 0) {
+            return;
+        }
+        const auto client_idx = static_cast<size_t>(client_id);
+        if (client_idx >= max_clients_) {
+            return;
         }
 
-        // Copy message data (skip length prefix)
-        std::memcpy(buffer, static_cast<const uint8_t*>(data) + sizeof(uint32_t), msg_len);
-        consumer_->release(client_idx, sizeof(uint32_t) + msg_len);
-
-        return static_cast<ssize_t>(msg_len);
+        // Release the entire message (length prefix + data)
+        size_t total_size = sizeof(uint32_t) + message_size;
+        consumer_->release(client_idx, total_size);
     }
 
     bool send(int client_id, const void* data, size_t len) override
@@ -190,6 +215,19 @@ class ShmServer : public IpcServer {
 
     void close() override { close_internal(); }
 
+    void wakeup_all() override
+    {
+        // Wake consumer blocked in wait_for_data
+        if (consumer_.has_value()) {
+            consumer_->wakeup_all();
+        }
+
+        // Wake any clients blocked in response rings
+        for (auto& ring : response_rings_) {
+            ring.wakeup_all();
+        }
+    }
+
   private:
     void close_internal()
     {
@@ -211,7 +249,8 @@ class ShmServer : public IpcServer {
 
     std::string base_name_;
     size_t max_clients_;
-    size_t ring_size_;
+    size_t request_ring_size_;
+    size_t response_ring_size_;
     std::optional<MpscConsumer> consumer_;
     std::vector<SpscShm> response_rings_;
 };

@@ -171,7 +171,6 @@ container_script=$(
   export -f run
 
   set +e
-  set -x
   $run_cmd
   code=\${PIPESTATUS[0]}
 
@@ -306,6 +305,7 @@ function run {
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \
         --pids-limit=32768 \
+        --shm-size=2g \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
     }
 

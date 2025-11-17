@@ -81,6 +81,12 @@ class MpscConsumer {
      */
     void release(size_t ring_idx, size_t n);
 
+    /**
+     * @brief Wake all blocked threads (for graceful shutdown)
+     * Wakes consumer blocked on doorbell and all producers blocked on their rings
+     */
+    void wakeup_all();
+
   private:
     MpscConsumer(std::vector<SpscShm>&& rings, int doorbell_fd, size_t doorbell_len, MpscDoorbell* doorbell);
 
