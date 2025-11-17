@@ -314,28 +314,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_gate(const mul_quad_<F
 }
 
 /**
- * @brief Create a multiplication gate with q_m * a * b + q_3 * c + q_const = 0
- *
- * @details q_arith == 1
- *
- * @param in Structure containing variables and witness selectors
- */
-template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_mul_gate(const mul_triple_<FF>& in)
-{
-    this->assert_valid_variables({ in.a, in.b, in.c });
-
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx());
-    blocks.arithmetic.q_m().emplace_back(in.mul_scaling);
-    blocks.arithmetic.q_1().emplace_back(0);
-    blocks.arithmetic.q_2().emplace_back(0);
-    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
-    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
-}
-/**
  * @brief Generate an arithmetic gate equivalent to x^2 - x = 0, which forces x to be 0 or 1
  *
  * @param variable_index the variable which needs to be constrained
