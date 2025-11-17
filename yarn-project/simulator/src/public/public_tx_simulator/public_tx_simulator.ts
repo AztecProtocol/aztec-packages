@@ -1,4 +1,4 @@
-import { AVM_MAX_PROCESSABLE_L2_GAS, DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
+import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
@@ -7,8 +7,8 @@ import {
   AvmExecutionHints,
   AvmTxHint,
   type ProcessedPhase,
+  PublicSimulatorConfig,
   PublicTxResult,
-  type PublicTxSimulatorConfig,
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas } from '@aztec/stdlib/gas';
@@ -75,21 +75,15 @@ class TxSimTeardownRevert extends Error {
 
 export class PublicTxSimulator implements PublicTxSimulatorInterface {
   protected log: Logger;
-  private config: PublicTxSimulatorConfig;
+  protected readonly config: PublicSimulatorConfig;
 
   constructor(
     protected merkleTree: MerkleTreeWriteOperations,
     protected contractsDB: PublicContractsDB,
     protected globalVariables: GlobalVariables,
-    config?: Partial<PublicTxSimulatorConfig>,
+    config?: Partial<PublicSimulatorConfig>,
   ) {
-    this.config = {
-      proverId: config?.proverId ?? Fr.ZERO,
-      doMerkleOperations: config?.doMerkleOperations ?? false,
-      skipFeeEnforcement: config?.skipFeeEnforcement ?? false,
-      clientInitiatedSimulation: config?.clientInitiatedSimulation ?? false,
-      maxDebugLogMemoryReads: config?.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
-    };
+    this.config = PublicSimulatorConfig.from(config ?? {});
     this.log = createLogger(`simulator:public_tx_simulator`);
   }
 
@@ -118,7 +112,6 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       tx,
       this.globalVariables,
       ProtocolContractsList, // imported from file
-      this.config.doMerkleOperations,
       this.config.proverId,
     );
 
@@ -342,8 +335,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       request.isStaticCall,
       calldata,
       allocatedGas,
-      this.config.clientInitiatedSimulation,
-      this.config.maxDebugLogMemoryReads,
+      this.config,
     );
     const avmCallResult = await simulator.execute();
     return avmCallResult.finalize();

@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 export RAYON_NUM_THREADS=1
 
 tests_tar=barretenberg-acir-tests-$(hash_str \
-  $(../../noir/bootstrap.sh hash-tests) \
+  $(../../noir/bootstrap.sh tests) \
   $(cache_content_hash \
     ./.rebuild_patterns \
     ../cpp/.rebuild_patterns \
@@ -14,7 +13,7 @@ tests_tar=barretenberg-acir-tests-$(hash_str \
     )).tar.gz
 
 tests_hash=$(hash_str \
-  $(../../noir/bootstrap.sh hash-tests) \
+  $(../../noir/bootstrap.sh tests) \
   $(../cpp/bootstrap.sh hash) \
   $(cache_content_hash \
     ^barretenberg/acir_tests/ \
@@ -223,26 +222,13 @@ function bench {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  "ci")
-    build
-    test
-    ;;
-  ""|"fast"|"full")
+  "")
     build
     ;;
   "hash")
     echo $tests_hash
     ;;
-  "compile")
-    compile
-    ;;
-  test|test_cmds|bench|bench_cmds)
-    $cmd
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

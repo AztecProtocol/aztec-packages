@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockNew } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type {
   IndexedTreeId,
@@ -176,7 +176,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async handleL2BlockAndMessages(
-    l2Block: L2Block,
+    l2Block: L2Block | L2BlockNew,
     l1ToL2Messages: Fr[],
     // TODO(#17027)
     // Temporary hack to only insert l1 to l2 messages for the first block in a checkpoint.
@@ -208,7 +208,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         WorldStateMessageType.SYNC_BLOCK,
         {
           blockNumber: l2Block.number,
-          blockHeaderHash: await l2Block.getBlockHeader().hash(),
+          blockHeaderHash: await l2Block.hash(),
           paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
           paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
           paddedNullifiers: paddedNullifiers.map(serializeLeaf),

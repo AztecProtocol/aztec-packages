@@ -284,7 +284,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, ProtocolContractInstanceExists)
     const auto public_data_tree_root = FF(0xfacefeedUL);
     ProtocolContracts protocol_contracts = {};
     uint32_t protocol_contract_index = static_cast<uint32_t>(contract_address - 1);
-    protocol_contracts.derivedAddresses[protocol_contract_index] = derived_address;
+    protocol_contracts.derived_addresses[protocol_contract_index] = derived_address;
 
     auto public_inputs = PublicInputsBuilder().set_protocol_contracts(protocol_contracts).build();
 

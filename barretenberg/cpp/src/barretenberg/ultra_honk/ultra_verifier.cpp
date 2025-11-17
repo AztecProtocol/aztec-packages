@@ -45,6 +45,10 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
 
     // Get the witness commitments that the verifier needs to verify
     VerifierCommitments commitments{ verifier_instance->vk, verifier_instance->witness_commitments };
+    // For ZK flavors: set gemini_masking_poly commitment from accumulator
+    if constexpr (Flavor::HasZK) {
+        commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
+    }
 
     // Construct the padding indicator array
     std::vector<FF> padding_indicator_array(log_n, 1);

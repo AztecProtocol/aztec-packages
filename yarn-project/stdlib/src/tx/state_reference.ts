@@ -7,6 +7,7 @@ import {
 import type { ViemStateReference } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 import { z } from 'zod';
@@ -36,6 +37,14 @@ export class StateReference {
 
   getSize() {
     return this.l1ToL2MessageTree.getSize() + this.partial.getSize();
+  }
+
+  static getFields(fields: FieldsOf<StateReference>) {
+    return [fields.l1ToL2MessageTree, fields.partial] as const;
+  }
+
+  static from(fields: FieldsOf<StateReference>) {
+    return new StateReference(...StateReference.getFields(fields));
   }
 
   toBuffer() {

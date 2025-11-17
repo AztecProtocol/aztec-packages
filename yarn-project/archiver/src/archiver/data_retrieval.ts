@@ -1,4 +1,10 @@
-import { BlobDeserializationError, SpongeBlob, getBlobFieldsInCheckpoint } from '@aztec/blob-lib';
+import {
+  BlobDeserializationError,
+  type CheckpointBlobData,
+  SpongeBlob,
+  decodeCheckpointBlobDataFromBlobs,
+  encodeBlockBlobData,
+} from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type {
   EpochProofPublicInputArgs,
@@ -19,7 +25,7 @@ import { Body, CommitteeAttestation, L2Block, L2BlockHeader, PublishedL2Block } 
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { GlobalVariables, StateReference } from '@aztec/stdlib/tx';
+import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 
 import {
   type GetContractEventsReturnType,
@@ -37,70 +43,103 @@ import type { InboxMessage } from './structs/inbox_message.js';
 import type { L1PublishedData } from './structs/published.js';
 
 export type RetrievedL2Block = {
-  l2BlockNumber: number;
   archiveRoot: Fr;
   stateReference: StateReference;
   header: CheckpointHeader;
-  blobFields: Fr[];
+  checkpointBlobData: CheckpointBlobData;
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
   attestations: CommitteeAttestation[];
 };
 
-export async function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): Promise<PublishedL2Block> {
-  const {
-    l2BlockNumber,
-    archiveRoot,
-    stateReference,
-    header: checkpointHeader,
-    blobFields,
-    l1,
-    chainId,
-    version,
-    attestations,
-  } = retrievedBlock;
+export async function retrievedBlockToPublishedL2Block({
+  archiveRoot,
+  stateReference,
+  header: checkpointHeader,
+  checkpointBlobData,
+  l1,
+  chainId,
+  version,
+  attestations,
+}: RetrievedL2Block): Promise<PublishedL2Block> {
+  const { totalNumBlobFields, blocks: blocksBlobData } = checkpointBlobData;
 
-  const archive = new AppendOnlyTreeSnapshot(
-    archiveRoot,
-    l2BlockNumber + 1, // nextAvailableLeafIndex
-  );
+  // The lastArchiveRoot of a block is the new archive for the previous block.
+  const newArchiveRoots = blocksBlobData
+    .map(b => b.lastArchiveRoot)
+    .slice(1)
+    .concat([archiveRoot]);
 
-  const globalVariables = GlobalVariables.from({
-    chainId,
-    version,
-    blockNumber: l2BlockNumber,
-    slotNumber: checkpointHeader.slotNumber,
-    timestamp: checkpointHeader.timestamp,
-    coinbase: checkpointHeader.coinbase,
-    feeRecipient: checkpointHeader.feeRecipient,
-    gasFees: checkpointHeader.gasFees,
-  });
+  // `blocksBlobData` is created from `decodeCheckpointBlobDataFromBlobs`. An error will be thrown if it can't read a
+  // field for the `l1ToL2MessageRoot` of the first block. So below we can safely assume it exists:
+  const l1toL2MessageTreeRoot = blocksBlobData[0].l1ToL2MessageRoot!;
+
+  const spongeBlob = await SpongeBlob.init(totalNumBlobFields);
+  const l2Blocks: L2Block[] = [];
+  for (let i = 0; i < blocksBlobData.length; i++) {
+    const blockBlobData = blocksBlobData[i];
+    const { blockEndMarker, blockEndStateField, lastArchiveRoot, noteHashRoot, nullifierRoot, publicDataRoot } =
+      blockBlobData;
+
+    const l2BlockNumber = blockEndMarker.blockNumber;
+
+    const globalVariables = GlobalVariables.from({
+      chainId,
+      version,
+      blockNumber: l2BlockNumber,
+      slotNumber: checkpointHeader.slotNumber,
+      timestamp: blockEndMarker.timestamp,
+      coinbase: checkpointHeader.coinbase,
+      feeRecipient: checkpointHeader.feeRecipient,
+      gasFees: checkpointHeader.gasFees,
+    });
+
+    const state = StateReference.from({
+      l1ToL2MessageTree: new AppendOnlyTreeSnapshot(
+        l1toL2MessageTreeRoot,
+        blockEndStateField.l1ToL2MessageNextAvailableLeafIndex,
+      ),
+      partial: PartialStateReference.from({
+        noteHashTree: new AppendOnlyTreeSnapshot(noteHashRoot, blockEndStateField.noteHashNextAvailableLeafIndex),
+        nullifierTree: new AppendOnlyTreeSnapshot(nullifierRoot, blockEndStateField.nullifierNextAvailableLeafIndex),
+        publicDataTree: new AppendOnlyTreeSnapshot(publicDataRoot, blockEndStateField.publicDataNextAvailableLeafIndex),
+      }),
+    });
+
+    const body = Body.fromTxBlobData(checkpointBlobData.blocks[0].txs);
+
+    const blobFields = encodeBlockBlobData(blockBlobData);
+    await spongeBlob.absorb(blobFields);
+
+    const clonedSpongeBlob = spongeBlob.clone();
+    const spongeBlobHash = await clonedSpongeBlob.squeeze();
+
+    const header = L2BlockHeader.from({
+      lastArchive: new AppendOnlyTreeSnapshot(lastArchiveRoot, l2BlockNumber),
+      contentCommitment: checkpointHeader.contentCommitment,
+      state,
+      globalVariables,
+      totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
+      totalManaUsed: new Fr(blockEndStateField.totalManaUsed),
+      spongeBlobHash,
+    });
+
+    const newArchive = new AppendOnlyTreeSnapshot(newArchiveRoots[i], l2BlockNumber + 1);
+
+    l2Blocks.push(new L2Block(newArchive, header, body));
+  }
+
+  const lastBlock = l2Blocks[l2Blocks.length - 1];
+  if (!lastBlock.header.state.equals(stateReference)) {
+    throw new Error(
+      'The claimed state reference submitted to L1 does not match the state reference of the last block.',
+    );
+  }
 
   // TODO(#17027)
-  // This works when there's only one block in the checkpoint.
-  // If there's more than one block, we need to build the spongeBlob from the endSpongeBlob of the previous block.
-  const spongeBlob = await SpongeBlob.init(blobFields.length);
-  // Skip the first field which is the checkpoint prefix indicating the number of total blob fields in a checkpoint.
-  const blockBlobFields = blobFields.slice(1);
-  await spongeBlob.absorb(blockBlobFields);
-  const spongeBlobHash = await spongeBlob.squeeze();
-
-  const body = Body.fromBlobFields(blockBlobFields);
-
-  const header = L2BlockHeader.from({
-    lastArchive: new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, l2BlockNumber),
-    contentCommitment: checkpointHeader.contentCommitment,
-    state: stateReference,
-    globalVariables,
-    totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
-    totalManaUsed: checkpointHeader.totalManaUsed,
-    spongeBlobHash,
-  });
-
-  const block = new L2Block(archive, header, body);
-
-  return PublishedL2Block.fromFields({ block, l1, attestations });
+  // There's only one block per checkpoint at the moment.
+  return PublishedL2Block.fromFields({ block: l2Blocks[0], l1, attestations });
 }
 
 /**
@@ -358,13 +397,10 @@ async function getBlockFromRollupTx(
     throw new NoBlobBodiesFoundError(l2BlockNumber);
   }
 
-  let blobFields: Fr[];
+  let checkpointBlobData: CheckpointBlobData;
   try {
-    // Get the fields that were actually added in the checkpoint. And check the encoding of the fields.
-    blobFields = getBlobFieldsInCheckpoint(
-      blobBodies.map(b => b.blob),
-      true /* checkEncoding */,
-    );
+    // Attempt to decode the checkpoint blob data.
+    checkpointBlobData = decodeCheckpointBlobDataFromBlobs(blobBodies.map(b => b.blob));
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);
@@ -379,11 +415,10 @@ async function getBlockFromRollupTx(
   const stateReference = StateReference.fromViem(decodedArgs.stateReference);
 
   return {
-    l2BlockNumber,
     archiveRoot,
     stateReference,
     header,
-    blobFields,
+    checkpointBlobData,
     attestations,
   };
 }

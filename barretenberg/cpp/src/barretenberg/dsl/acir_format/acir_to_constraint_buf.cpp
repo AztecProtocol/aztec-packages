@@ -541,6 +541,7 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
         }
         if (mul_quads.size() > 1) {
             af.big_quad_constraints.push_back(mul_quads);
+            af.original_opcode_indices.big_quad_constraints.push_back(opcode_index);
         }
     }
     constrain_witnesses(arg, af);

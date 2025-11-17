@@ -293,31 +293,31 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
         result = TaggedValue::from<FF>(context.get_transaction_fee());
         break;
     case EnvironmentVariable::CHAINID:
-        result = TaggedValue::from<FF>(context.get_globals().chainId);
+        result = TaggedValue::from<FF>(context.get_globals().chain_id);
         break;
     case EnvironmentVariable::VERSION:
         result = TaggedValue::from<FF>(context.get_globals().version);
         break;
     case EnvironmentVariable::BLOCKNUMBER:
-        result = TaggedValue::from<uint32_t>(context.get_globals().blockNumber);
+        result = TaggedValue::from<uint32_t>(context.get_globals().block_number);
         break;
     case EnvironmentVariable::TIMESTAMP:
         result = TaggedValue::from<uint64_t>(context.get_globals().timestamp);
         break;
     case EnvironmentVariable::BASEFEEPERL2GAS:
-        result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerL2Gas);
+        result = TaggedValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_l2_gas);
         break;
     case EnvironmentVariable::BASEFEEPERDAGAS:
-        result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerDaGas);
+        result = TaggedValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_da_gas);
         break;
     case EnvironmentVariable::ISSTATICCALL:
         result = TaggedValue::from<uint1_t>(context.get_is_static() ? 1 : 0);
         break;
     case EnvironmentVariable::L2GASLEFT:
-        result = TaggedValue::from<uint32_t>(context.gas_left().l2Gas);
+        result = TaggedValue::from<uint32_t>(context.gas_left().l2_gas);
         break;
     case EnvironmentVariable::DAGASLEFT:
-        result = TaggedValue::from<uint32_t>(context.gas_left().daGas);
+        result = TaggedValue::from<uint32_t>(context.gas_left().da_gas);
         break;
     default:
         throw OpcodeExecutionException("Invalid environment variable enum value");
@@ -443,7 +443,7 @@ void Execution::cd_copy(ContextInterface& context,
     auto cd_offset_read = memory.get(cd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { cd_copy_size, cd_offset_read });
 
-    get_gas_tracker().consume_gas({ .l2Gas = cd_copy_size.as<uint32_t>(), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2_gas = cd_copy_size.as<uint32_t>(), .da_gas = 0 });
 
     try {
         data_copy.cd_copy(context, cd_copy_size.as<uint32_t>(), cd_offset_read.as<uint32_t>(), dst_addr);
@@ -464,7 +464,7 @@ void Execution::rd_copy(ContextInterface& context,
     auto rd_offset_read = memory.get(rd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { rd_copy_size, rd_offset_read });
 
-    get_gas_tracker().consume_gas({ .l2Gas = rd_copy_size.as<uint32_t>(), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2_gas = rd_copy_size.as<uint32_t>(), .da_gas = 0 });
 
     try {
         data_copy.rd_copy(context, rd_copy_size.as<uint32_t>(), rd_offset_read.as<uint32_t>(), dst_addr);
@@ -628,7 +628,7 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
     // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
 
     try {
         MemoryValue c = bitwise.and_op(a, b);
@@ -650,7 +650,7 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
     // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
 
     try {
         MemoryValue c = bitwise.or_op(a, b);
@@ -672,7 +672,7 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
     // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
 
     try {
         MemoryValue c = bitwise.xor_op(a, b);
@@ -714,14 +714,14 @@ void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, Memory
 
     bool was_slot_written_before = merkle_db.was_storage_written(context.get_address(), slot.as_ff());
     uint32_t da_gas_factor = static_cast<uint32_t>(!was_slot_written_before);
-    get_gas_tracker().consume_gas({ .l2Gas = 0, .daGas = da_gas_factor });
+    get_gas_tracker().consume_gas({ .l2_gas = 0, .da_gas = da_gas_factor });
 
     if (context.get_is_static()) {
         throw OpcodeExecutionException("SSTORE: Cannot write to storage in static context");
     }
 
     if (!was_slot_written_before &&
-        merkle_db.get_tree_state().publicDataTree.counter == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        merkle_db.get_tree_state().public_data_tree.counter == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
         throw OpcodeExecutionException("SSTORE: Maximum number of data writes reached");
     }
 
@@ -800,7 +800,7 @@ void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifie
         throw OpcodeExecutionException("EMITNULLIFIER: Cannot emit nullifier in static context");
     }
 
-    if (merkle_db.get_tree_state().nullifierTree.counter == MAX_NULLIFIERS_PER_TX) {
+    if (merkle_db.get_tree_state().nullifier_tree.counter == MAX_NULLIFIERS_PER_TX) {
         throw OpcodeExecutionException("EMITNULLIFIER: Maximum number of nullifiers reached");
     }
 
@@ -854,7 +854,7 @@ void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_has
         throw OpcodeExecutionException("EMITNOTEHASH: Cannot emit note hash in static context");
     }
 
-    if (merkle_db.get_tree_state().noteHashTree.counter == MAX_NOTE_HASHES_PER_TX) {
+    if (merkle_db.get_tree_state().note_hash_tree.counter == MAX_NOTE_HASHES_PER_TX) {
         throw OpcodeExecutionException("EMITNOTEHASH: Maximum number of note hashes reached");
     }
 
@@ -981,9 +981,9 @@ void Execution::to_radix_be(ContextInterface& context,
 
     // Compute the dynamic gas factor - done this way to trigger relevant circuit interactions
     if (greater_than.gt(num_limbs.as<uint32_t>(), num_p_limbs)) {
-        get_gas_tracker().consume_gas({ .l2Gas = num_limbs.as<uint32_t>(), .daGas = 0 });
+        get_gas_tracker().consume_gas({ .l2_gas = num_limbs.as<uint32_t>(), .da_gas = 0 });
     } else {
-        get_gas_tracker().consume_gas({ .l2Gas = num_p_limbs, .daGas = 0 });
+        get_gas_tracker().consume_gas({ .l2_gas = num_p_limbs, .da_gas = 0 });
     }
 
     try {
@@ -1009,7 +1009,7 @@ void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress lo
     set_and_validate_inputs(opcode, { log_size });
     uint32_t log_size_int = log_size.as<uint32_t>();
 
-    get_gas_tracker().consume_gas({ .l2Gas = log_size_int, .daGas = log_size_int });
+    get_gas_tracker().consume_gas({ .l2_gas = log_size_int, .da_gas = log_size_int });
 
     // Call the dedicated opcode component to emit the log
     try {

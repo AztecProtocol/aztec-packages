@@ -85,12 +85,11 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(element&& other) noexcep
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) const
 {
-
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
-    // Our curve has the form y^2 = x^3 + b.
-    // If (x_1, y_1), (x_2, y_2) have x_1 == x_2, and the generic formula for lambda has a division by 0.
-    // Then y_1 == y_2 (i.e. we are doubling) or y_2 == y_1 (the sum is infinity).
-    // The cases have a special addition formula. The following booleans allow us to handle these cases uniformly.
+    // Our curve has the form y² = x³ + ax + b (or y² = x³ + b when a = 0).
+    // If (x₁, y₁), (x₂, y₂) have x₁ == x₂, the generic formula for lambda has a division by 0.
+    // Then y₁ == y₂ (i.e. we are doubling) or y₂ == -y₁ (the sum is infinity).
+    // These cases have special addition formulae. The following booleans allow us to handle these cases uniformly.
     const bool_ct x_coordinates_match = other._x == _x;
     const bool_ct y_coordinates_match = (_y == other._y);
     const bool_ct infinity_predicate = (x_coordinates_match && !y_coordinates_match);
@@ -99,27 +98,42 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     const bool_ct rhs_infinity = other.is_point_at_infinity();
     const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
-    // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
+    // NOTE: For valid points on the curve, specifically for bn254 or secp256k1 or secp256r1, y = 0 cannot occur.
+    // For points not on the curve, having y = 0 will lead to a failure while performing the division below.
+    // We could enforce in circuit that y = 0 results in point at infinity, or that y != 0 always.
+    // However, this would be an unnecessary constraint for valid points on the curve.
+    // So we perform a native check here to catch any accidental misuse of this function.
+    const typename G::Fq y_value = uint256_t(_y.get_value());
+    BB_ASSERT_EQ((y_value == 0), false, "Attempting to add a point with y = 0, not allowed.");
+
+    // Compute the gradient λ. If we add, λ = (y₂ - y₁)/(x₂ - x₁)
+    // For doubling: λ = (3x₁² + a)/(2y₁) if curve has 'a', else λ = 3x₁²/(2y₁)
     const Fq add_lambda_numerator = other._y - _y;
     const Fq xx = _x * _x;
-    const Fq dbl_lambda_numerator = xx + xx + xx;
+    Fq dbl_lambda_numerator = xx + xx + xx; // 3x²
+    if constexpr (G::has_a) {
+        // Curve equation: y² = x³ + ax + b
+        // Doubling formula numerator: 3x² + a
+        const Fq a(get_context(), uint256_t(G::curve_a));
+        dbl_lambda_numerator = dbl_lambda_numerator + a;
+    }
     const Fq lambda_numerator = Fq::conditional_assign(double_predicate, dbl_lambda_numerator, add_lambda_numerator);
 
     const Fq add_lambda_denominator = other._x - _x;
     const Fq dbl_lambda_denominator = _y + _y;
     Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
-    // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger a
-    // divide by zero error.
-    // Note: if either inputs are points at infinity we will not use the result of this computation.
-    Fq safe_edgecase_denominator = Fq(1);
-    lambda_denominator =
-        Fq::conditional_assign(has_infinity_input || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
+
+    // If either input is a point at infinity, or if the result would be infinity, set lambda_denominator to 1
+    // to prevent division by zero. Cases where result is infinity: x₁ == x₂ but y₁ != y₂ (points are inverses)
+    const bool_ct safe_denominator_needed = has_infinity_input || infinity_predicate;
+    lambda_denominator = Fq::conditional_assign(safe_denominator_needed, Fq(1), lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
+    // Compute resulting point coordinates: x₃ = λ² - x₁ - x₂, y₃ = λ(x₁ - x₃) - y₁
     const Fq x3 = lambda.sqradd({ -other._x, -_x });
     const Fq y3 = lambda.madd(_x - x3, { -_y });
-
     element result(x3, y3);
+
     // if lhs infinity, return rhs
     result._x = Fq::conditional_assign(lhs_infinity, other._x, result._x);
     result._y = Fq::conditional_assign(lhs_infinity, other._y, result._y);
@@ -127,10 +141,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     result._x = Fq::conditional_assign(rhs_infinity, _x, result._x);
     result._y = Fq::conditional_assign(rhs_infinity, _y, result._y);
 
-    // is result point at infinity?
-    // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
-    // yes = lhs_infinity && rhs_infinity
-    // n.b. can likely optimize this
+    // Determine if result is point at infinity:
+    // - If x₁ == x₂ and y₁ == -y₂ (i.e., points are inverses), result is ∞
+    // - If both inputs are ∞, result is ∞
     bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
 
@@ -160,9 +173,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) const
 {
-
-    // if x_coordinates match, lambda triggers a divide by zero error.
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
+    // Our curve has the form y² = x³ + ax + b (or y² = x³ + b when a = 0).
+    // If (x₁, y₁), (x₂, y₂) have x₁ == x₂, the generic formula for lambda has a division by 0.
+    // For subtraction P₁ - P₂ = P₁ + (-P₂), where -P₂ = (x₂, -y₂):
+    // - If y₁ == -y₂ (i.e., x₁ == x₂ and y₁ == -y₂), this becomes doubling: P₁ + P₁
+    // - If y₁ == y₂ (i.e., x₁ == x₂ and y₁ == y₂), result is infinity: P₁ - P₁ = ∞
+    // These cases have special addition formulae. The following booleans allow us to handle these cases uniformly.
     const bool_ct x_coordinates_match = other._x == _x;
     const bool_ct y_coordinates_match = (_y == other._y);
     const bool_ct infinity_predicate = (x_coordinates_match && y_coordinates_match);
@@ -171,38 +188,43 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     const bool_ct rhs_infinity = other.is_point_at_infinity();
     const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
-    // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
+    // Compute the gradient λ. For subtraction, λ = (-y₂ - y₁)/(x₂ - x₁)
+    // For doubling: λ = (3x₁² + a)/(2y₁) if curve has 'a', else λ = 3x₁²/(2y₁)
     const Fq add_lambda_numerator = -other._y - _y;
     const Fq xx = _x * _x;
-    const Fq dbl_lambda_numerator = xx + xx + xx;
+    Fq dbl_lambda_numerator = xx + xx + xx; // 3x²
+    if constexpr (G::has_a) {
+        // Curve equation: y² = x³ + ax + b
+        // Doubling formula numerator: 3x² + a
+        const Fq a(get_context(), uint256_t(G::curve_a));
+        dbl_lambda_numerator = dbl_lambda_numerator + a;
+    }
     const Fq lambda_numerator = Fq::conditional_assign(double_predicate, dbl_lambda_numerator, add_lambda_numerator);
 
     const Fq add_lambda_denominator = other._x - _x;
     const Fq dbl_lambda_denominator = _y + _y;
     Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
-    // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger
-    // a divide by zero error. (if either inputs are points at infinity we will not use the result of this
-    // computation)
-    Fq safe_edgecase_denominator = Fq(1);
-    lambda_denominator =
-        Fq::conditional_assign(has_infinity_input || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
+
+    // If either input is a point at infinity, or if the result would be infinity (x₁ == x₂ and y₁ == y₂),
+    // set lambda_denominator to 1 to prevent division by zero. The lambda value won't be used in these cases.
+    lambda_denominator = Fq::conditional_assign(has_infinity_input || infinity_predicate, Fq(1), lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
+    // Compute resulting point coordinates: x₃ = λ² - x₁ - x₂, y₃ = λ(x₁ - x₃) - y₁
     const Fq x3 = lambda.sqradd({ -other._x, -_x });
     const Fq y3 = lambda.madd(_x - x3, { -_y });
-
     element result(x3, y3);
-    // if lhs infinity, return rhs
+
+    // if lhs infinity, return -rhs (negated rhs point)
     result._x = Fq::conditional_assign(lhs_infinity, other._x, result._x);
     result._y = Fq::conditional_assign(lhs_infinity, -other._y, result._y);
     // if rhs infinity, return lhs
     result._x = Fq::conditional_assign(rhs_infinity, _x, result._x);
     result._y = Fq::conditional_assign(rhs_infinity, _y, result._y);
 
-    // is result point at infinity?
-    // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
-    // yes = lhs_infinity && rhs_infinity
-    // n.b. can likely optimize this
+    // Determine if result is point at infinity:
+    // - If x₁ == x₂ and y₁ == y₂ (i.e., P₁ - P₁), result is ∞
+    // - If both inputs are ∞, result is ∞
     bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
 
     result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
@@ -246,7 +268,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(cons
  * @param other
  * @return std::array<element<C, Fq, Fr, G>, 2>
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/657): This function is untested
 template <typename C, class Fq, class Fr, class G>
 std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other) const
 {
@@ -268,42 +289,59 @@ std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditiona
 
 template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl() const
 {
+    // NOTE: For valid points on the curve, specifically for bn254 or secp256k1 or secp256r1, y = 0 cannot occur.
+    // For points not on the curve, having y = 0 will lead to a failure while performing the division below.
+    // We could enforce in circuit that y = 0 results in point at infinity, or that y != 0 always.
+    // However, this would be an unnecessary constraint for valid points on the curve.
+    // So we perform a native check here to catch any accidental misuse of this function.
+    const typename G::Fq y_value = uint256_t(_y.get_value());
+    BB_ASSERT_EQ((y_value == 0), false, "Attempting to dbl a point with y = 0, not allowed.");
 
     Fq two_x = _x + _x;
     if constexpr (G::has_a) {
+        // Curve equation: y² = x³ + ax + b
         Fq a(get_context(), uint256_t(G::curve_a));
+
+        // Compute neg_lambda = -λ = -(3x² + a) / (2y)
+        // msub_div computes: -(Σᵢ aᵢ·bᵢ + Σⱼ cⱼ) / d = -(x·(3x) + a) / (2y) = -(3x² + a) / (2y)
         Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, (_y + _y), { a }, /*enable_divisor_nz_check*/ false);
+
+        // Compute x₃ = λ² - 2x
+        // Since neg_lambda = -λ, we have: (-λ)² - 2x = λ² - 2x
         Fq x_3 = neg_lambda.sqradd({ -(two_x) });
+
+        // Compute y₃ = λ(x - x₃) - y
+        // Using neg_lambda = -λ: (-λ)(x₃ - x) + (-y) = -λ(x₃ - x) - y = λ(x - x₃) - y
         Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
-        // TODO(suyash): do we handle the point at infinity case here?
-        return element(x_3, y_3);
+
+        element result(x_3, y_3);
+        result.set_point_at_infinity(is_point_at_infinity(), /* add_to_used_witnesses */ true);
+        return result;
     }
-    // TODO(): handle y = 0 case.
+
+    // Curve equation when a = 0: y² = x³ + b
+    // Compute neg_lambda = -λ = -3x² / (2y)
+    // msub_div computes: -(Σᵢ aᵢ·bᵢ) / d = -(x·(3x)) / (2y) = -3x² / (2y)
     Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, (_y + _y), {}, /*enable_divisor_nz_check*/ false);
+
+    // Compute x₃ = λ² - 2x
+    // Since neg_lambda = -λ, we have: (-λ)² - 2x = λ² - 2x
     Fq x_3 = neg_lambda.sqradd({ -(two_x) });
+
+    // Compute y₃ = λ(x - x₃) - y
+    // Using neg_lambda = -λ: (-λ)(x₃ - x) + (-y) = -λ(x₃ - x) - y = λ(x - x₃) - y
     Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
+
     element result = element(x_3, y_3);
-    result.set_point_at_infinity(is_point_at_infinity());
+    result.set_point_at_infinity(is_point_at_infinity(), /* add_to_used_witnesses */ true);
     return result;
 }
 
 /**
- * Evaluate a chain addition!
- *
- * When adding a set of points P_1 + ... + P_N, we do not need to compute the y-coordinate of intermediate
- *addition terms.
- *
- * i.e. we substitute `acc.y` with `acc.y = acc.lambda_prev * (acc.x1_prev - acc.x) - acc.y1_prev`
- *
- * `lambda_prev, x1_prev, y1_prev` are the `lambda, x1, y1` terms from the previous addition operation.
- *
- * `chain_add` requires 1 less non-native field reduction than a regular add operation.
- **/
-
-/**
- * begin a chain of additions
- * input points p1 p2
- * output accumulator = x3_prev (output x coordinate), x1_prev, y1_prev (p1), lambda_prev (y2 - y1) / (x2 - x1)
+ * @brief Begin a chain of additions
+ * @param p1 First point (x₁, y₁)
+ * @param p2 Second point (x₂, y₂)
+ * @return Accumulator containing: x3_prev = λ² - x₁ - x₂, x1_prev = x₁, y1_prev = y₁, lambda_prev = (y₂ - y₁)/(x₂ - x₁)
  **/
 template <typename C, class Fq, class Fr, class G>
 typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::chain_add_start(const element& p1,
@@ -313,52 +351,68 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
     output.x1_prev = p1._x;
     output.y1_prev = p1._y;
 
+    // Require x₁ ≠ x₂ for incomplete addition formula
     p1._x.assert_is_not_equal(p2._x);
+
+    // Compute λ = (y₂ - y₁)/(x₂ - x₁)
     const Fq lambda = Fq::div_without_denominator_check({ p2._y, -p1._y }, (p2._x - p1._x));
 
+    // Compute x₃ = λ² - x₁ - x₂
     const Fq x3 = lambda.sqradd({ -p2._x, -p1._x });
     output.x3_prev = x3;
     output.lambda_prev = lambda;
     return output;
 }
 
+/**
+ * @brief Evaluate a chain addition using incomplete addition formulae
+ * @param p1 Point to add (x₁, y₁)
+ * @param acc Accumulator from previous addition
+ * @return Updated accumulator with new x3_prev, and previous x1_prev, y1_prev, lambda_prev
+ *
+ * @details When adding a set of points P₁ + ... + Pₙ, we can optimize by not computing the y-coordinate
+ * of intermediate addition terms. Instead, we substitute:
+ *     acc.y = acc.lambda_prev * (acc.x1_prev - acc.x) - acc.y1_prev
+ *
+ * The accumulator stores (lambda_prev, x1_prev, y1_prev, x3_prev) from the previous addition operation,
+ * allowing us to defer y-coordinate computation until the end.
+ *
+ * `chain_add` requires 1 less non-native field reduction than a regular add operation.
+ *
+ * @warning: These functions use INCOMPLETE addition formulae and require x₁ ≠ x₂ for all inputs.
+ **/
 template <typename C, class Fq, class Fr, class G>
 typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::chain_add(const element& p1,
                                                                                        const chain_add_accumulator& acc)
 {
-    // use `chain_add_start` to start an addition chain (i.e. if acc has a y-coordinate)
+    // If accumulator has a full y-coordinate, use chain_add_start instead
     if (acc.is_full_element) {
         return chain_add_start(p1, element(acc.x3_prev, acc.y3_prev));
     }
-    // validate we can use incomplete addition formulae
+
+    // Require x₁ ≠ x₂ for incomplete addition formula
     p1._x.assert_is_not_equal(acc.x3_prev);
 
-    // lambda = (y2 - y1) / (x2 - x1)
-    // but we don't have y2!
-    // however, we do know that y2 = lambda_prev * (x1_prev - x2) - y1_prev
-    // => lambda * (x2 - x1) = lambda_prev * (x1_prev - x2) - y1_prev - y1
-    // => lambda * (x2 - x1) + lambda_prev * (x2 - x1_prev) + y1 + y1_pev = 0
-    // => lambda = lambda_prev * (x1_prev - x2) - y1_prev - y1 / (x2 - x1)
-    // => lambda = - (lambda_prev * (x2 - x1_prev) + y1_prev + y1) / (x2 - x1)
-
-    /**
-     *
-     * We compute the following terms:
-     *
-     * lambda = acc.lambda_prev * (acc.x1_prev - acc.x) - acc.y1_prev - p1.y / acc.x - p1.x
-     * x3 = lambda * lambda - acc.x - p1.x
-     *
-     * Requires only 2 non-native field reductions
-     **/
+    // Compute λ = (y₂ - y₁)/(x₂ - x₁), but we don't have y₂!
+    // We know that y₂ = lambda_prev * (x1_prev - x₂) - y1_prev from the previous addition.
+    //
+    // Derivation:
+    //   λ(x₂ - x₁) = y₂ - y₁
+    //   λ(x₂ - x₁) = lambda_prev * (x1_prev - x₂) - y1_prev - y₁
+    //   λ(x₂ - x₁) = -lambda_prev * (x₂ - x1_prev) - y1_prev - y₁
+    //   λ = -(lambda_prev * (x₂ - x1_prev) + y1_prev + y₁) / (x₂ - x₁)
+    //
     auto& x2 = acc.x3_prev;
-    const auto lambda =
-        Fq::msub_div({ acc.lambda_prev },
-                     { (x2 - acc.x1_prev) },
-                     (x2 - p1._x),
-                     { acc.y1_prev, p1._y },
-                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x2 != p1.x is enforced
+    const auto lambda = Fq::msub_div({ acc.lambda_prev },
+                                     { (x2 - acc.x1_prev) },
+                                     (x2 - p1._x),
+                                     { acc.y1_prev, p1._y },
+                                     /*enable_divisor_nz_check*/ false); // Divisor is non-zero as x₂ ≠ x₁ is enforced
+
+    // Compute x₃ = λ² - x₂ - x₁
     const auto x3 = lambda.sqradd({ -x2, -p1._x });
 
+    // Update the accumulator
     chain_add_accumulator output;
     output.x3_prev = x3;
     output.x1_prev = p1._x;
@@ -369,14 +423,20 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
 }
 
 /**
- * End an addition chain. Produces a full output group element with a y-coordinate
+ * @brief End an addition chain and compute the final y-coordinate
+ * @param acc The chain accumulator from the last addition
+ * @return Complete point (x₃, y₃) with both coordinates
  **/
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accumulator& acc)
 {
+    // If accumulator already has a full y-coordinate, return it directly
     if (acc.is_full_element) {
         return element(acc.x3_prev, acc.y3_prev);
     }
+
+    // Compute y₃ = λ(x₁ - x₃) - y₁
+    // where λ, x₁, y₁ are from the previous addition stored in the accumulator
     auto& x3 = acc.x3_prev;
     auto& lambda = acc.lambda_prev;
 

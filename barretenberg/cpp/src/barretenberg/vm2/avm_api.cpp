@@ -22,7 +22,7 @@ std::pair<AvmAPI::AvmProof, AvmAPI::AvmVerificationKey> AvmAPI::prove(const AvmA
     info("Generating trace...");
     AvmTraceGenHelper tracegen_helper;
     auto trace =
-        AVM_TRACK_TIME_V("tracegen/all", tracegen_helper.generate_trace(std::move(events), inputs.publicInputs));
+        AVM_TRACK_TIME_V("tracegen/all", tracegen_helper.generate_trace(std::move(events), inputs.public_inputs));
 
     // Prove.
     info("Proving...");
@@ -47,7 +47,7 @@ bool AvmAPI::check_circuit(const AvmAPI::ProvingInputs& inputs)
     info("Generating trace...");
     AvmTraceGenHelper tracegen_helper;
     tracegen::TraceContainer trace;
-    AVM_TRACK_TIME("tracegen/all", tracegen_helper.fill_trace_columns(trace, std::move(events), inputs.publicInputs));
+    AVM_TRACK_TIME("tracegen/all", tracegen_helper.fill_trace_columns(trace, std::move(events), inputs.public_inputs));
 
     // Go into interactive debug mode if requested.
     if (getenv("AVM_DEBUG") != nullptr) {

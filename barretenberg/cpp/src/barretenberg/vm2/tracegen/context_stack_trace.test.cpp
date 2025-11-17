@@ -20,31 +20,31 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
     ContextStackTraceBuilder builder;
 
     TreeStates tree_states = TreeStates{
-        .noteHashTree = {
+        .note_hash_tree = {
             .tree = {
                 .root = 10,
-                .nextAvailableLeafIndex = 9,
+                .next_available_leaf_index = 9,
             },
             .counter = 8,
         },
-        .nullifierTree = {
+        .nullifier_tree = {
             .tree = {
                 .root = 7,
-                .nextAvailableLeafIndex = 6,
+                .next_available_leaf_index = 6,
             },
             .counter = 5,
         },
-        .l1ToL2MessageTree = {
+        .l1_to_l2_message_tree = {
             .tree = {
                 .root = 4,
-                .nextAvailableLeafIndex = 3,
+                .next_available_leaf_index = 3,
             },
             .counter = 0,
         },
-        .publicDataTree = {
+        .public_data_tree = {
             .tree = {
                 .root = 2,
-                .nextAvailableLeafIndex = 1,
+                .next_available_leaf_index = 1,
             },
             .counter = 1,
         }
@@ -52,7 +52,7 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
 
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot = AppendOnlyTreeSnapshot{
         .root = 0x12345678,
-        .nextAvailableLeafIndex = 10,
+        .next_available_leaf_index = 10,
     };
 
     builder.process({ {
@@ -69,32 +69,32 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
                     } },
                     trace);
 
-    EXPECT_THAT(
-        trace.as_rows(),
-        ElementsAre(
-            // Only one row.
-            AllOf(
-                ROW_FIELD_EQ(context_stack_context_id, 1),
-                ROW_FIELD_EQ(context_stack_parent_id, 0),
-                ROW_FIELD_EQ(context_stack_next_pc, 20),
-                ROW_FIELD_EQ(context_stack_msg_sender, 30),
-                ROW_FIELD_EQ(context_stack_contract_address, 40),
-                ROW_FIELD_EQ(context_stack_is_static, false),
-                ROW_FIELD_EQ(context_stack_note_hash_tree_root, tree_states.noteHashTree.tree.root),
-                ROW_FIELD_EQ(context_stack_note_hash_tree_size, tree_states.noteHashTree.tree.nextAvailableLeafIndex),
-                ROW_FIELD_EQ(context_stack_num_note_hashes_emitted, tree_states.noteHashTree.counter),
-                ROW_FIELD_EQ(context_stack_nullifier_tree_root, tree_states.nullifierTree.tree.root),
-                ROW_FIELD_EQ(context_stack_nullifier_tree_size, tree_states.nullifierTree.tree.nextAvailableLeafIndex),
-                ROW_FIELD_EQ(context_stack_num_nullifiers_emitted, tree_states.nullifierTree.counter),
-                ROW_FIELD_EQ(context_stack_public_data_tree_root, tree_states.publicDataTree.tree.root),
-                ROW_FIELD_EQ(context_stack_public_data_tree_size,
-                             tree_states.publicDataTree.tree.nextAvailableLeafIndex),
-                ROW_FIELD_EQ(context_stack_written_public_data_slots_tree_root,
-                             written_public_data_slots_tree_snapshot.root),
-                ROW_FIELD_EQ(context_stack_written_public_data_slots_tree_size,
-                             written_public_data_slots_tree_snapshot.nextAvailableLeafIndex),
-                ROW_FIELD_EQ(context_stack_num_unencrypted_log_fields, 1),
-                ROW_FIELD_EQ(context_stack_num_l2_to_l1_messages, 2))));
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // Only one row.
+                    AllOf(ROW_FIELD_EQ(context_stack_context_id, 1),
+                          ROW_FIELD_EQ(context_stack_parent_id, 0),
+                          ROW_FIELD_EQ(context_stack_next_pc, 20),
+                          ROW_FIELD_EQ(context_stack_msg_sender, 30),
+                          ROW_FIELD_EQ(context_stack_contract_address, 40),
+                          ROW_FIELD_EQ(context_stack_is_static, false),
+                          ROW_FIELD_EQ(context_stack_note_hash_tree_root, tree_states.note_hash_tree.tree.root),
+                          ROW_FIELD_EQ(context_stack_note_hash_tree_size,
+                                       tree_states.note_hash_tree.tree.next_available_leaf_index),
+                          ROW_FIELD_EQ(context_stack_num_note_hashes_emitted, tree_states.note_hash_tree.counter),
+                          ROW_FIELD_EQ(context_stack_nullifier_tree_root, tree_states.nullifier_tree.tree.root),
+                          ROW_FIELD_EQ(context_stack_nullifier_tree_size,
+                                       tree_states.nullifier_tree.tree.next_available_leaf_index),
+                          ROW_FIELD_EQ(context_stack_num_nullifiers_emitted, tree_states.nullifier_tree.counter),
+                          ROW_FIELD_EQ(context_stack_public_data_tree_root, tree_states.public_data_tree.tree.root),
+                          ROW_FIELD_EQ(context_stack_public_data_tree_size,
+                                       tree_states.public_data_tree.tree.next_available_leaf_index),
+                          ROW_FIELD_EQ(context_stack_written_public_data_slots_tree_root,
+                                       written_public_data_slots_tree_snapshot.root),
+                          ROW_FIELD_EQ(context_stack_written_public_data_slots_tree_size,
+                                       written_public_data_slots_tree_snapshot.next_available_leaf_index),
+                          ROW_FIELD_EQ(context_stack_num_unencrypted_log_fields, 1),
+                          ROW_FIELD_EQ(context_stack_num_l2_to_l1_messages, 2))));
 }
 
 } // namespace

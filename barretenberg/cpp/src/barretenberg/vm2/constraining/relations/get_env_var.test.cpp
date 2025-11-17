@@ -342,9 +342,9 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_is_l2gasleft, 0 },
           { C::execution_is_dagasleft, 0 },
           // output, looked up from PIs
-          { C::execution_register_0_, test_public_inputs.globalVariables.chainId },
+          { C::execution_register_0_, test_public_inputs.global_variables.chain_id },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.chainId },
+          { C::execution_value_from_pi, test_public_inputs.global_variables.chain_id },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) } },
         // version
         { { C::execution_sel, 1 },
@@ -364,9 +364,9 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_is_l2gasleft, 0 },
           { C::execution_is_dagasleft, 0 },
           // output, looked up from PIs
-          { C::execution_register_0_, test_public_inputs.globalVariables.version },
+          { C::execution_register_0_, test_public_inputs.global_variables.version },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.version },
+          { C::execution_value_from_pi, test_public_inputs.global_variables.version },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) } },
         // block number
         { { C::execution_sel, 1 },
@@ -386,9 +386,9 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_is_l2gasleft, 0 },
           { C::execution_is_dagasleft, 0 },
           // output, looked up from PIs
-          { C::execution_register_0_, test_public_inputs.globalVariables.blockNumber },
+          { C::execution_register_0_, test_public_inputs.global_variables.block_number },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.blockNumber },
+          { C::execution_value_from_pi, test_public_inputs.global_variables.block_number },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U32) } },
         // timestamp
         { { C::execution_sel, 1 },
@@ -408,11 +408,11 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_is_l2gasleft, 0 },
           { C::execution_is_dagasleft, 0 },
           // output, looked up from PIs
-          { C::execution_register_0_, test_public_inputs.globalVariables.timestamp },
+          { C::execution_register_0_, test_public_inputs.global_variables.timestamp },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.timestamp },
+          { C::execution_value_from_pi, test_public_inputs.global_variables.timestamp },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U64) } },
-        // feePerL2Gas
+        // fee_per_l2_gas
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERL2GAS) },
           { C::execution_sel_should_execute_opcode, 1 },
@@ -430,11 +430,11 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_is_l2gasleft, 0 },
           { C::execution_is_dagasleft, 0 },
           // output, looked up from PIs
-          { C::execution_register_0_, test_public_inputs.globalVariables.gasFees.feePerL2Gas },
+          { C::execution_register_0_, test_public_inputs.global_variables.gas_fees.fee_per_l2_gas },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.gasFees.feePerL2Gas },
+          { C::execution_value_from_pi, test_public_inputs.global_variables.gas_fees.fee_per_l2_gas },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U128) } },
-        // feePerDaGas
+        // fee_per_da_gas
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERDAGAS) },
           { C::execution_sel_should_execute_opcode, 1 },
@@ -452,11 +452,11 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_is_l2gasleft, 0 },
           { C::execution_is_dagasleft, 0 },
           // output, looked up from PIs
-          { C::execution_register_0_, test_public_inputs.globalVariables.gasFees.feePerDaGas },
+          { C::execution_register_0_, test_public_inputs.global_variables.gas_fees.fee_per_da_gas },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.gasFees.feePerDaGas },
+          { C::execution_value_from_pi, test_public_inputs.global_variables.gas_fees.fee_per_da_gas },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U128) } },
-        // isStaticCall
+        // is_static_call
         { { C::execution_sel, 1 },
           { C::execution_is_static, is_static_call },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL) },
@@ -595,9 +595,9 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTests)
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // output, looked up from PIs
-          { C::execution_register_0_, test_public_inputs.globalVariables.chainId },
+          { C::execution_register_0_, test_public_inputs.global_variables.chain_id },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.chainId },
+          { C::execution_value_from_pi, test_public_inputs.global_variables.chain_id },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) } },
     });
 
@@ -624,12 +624,12 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTests)
     trace.set(C::execution_rop_1_, 0, static_cast<uint8_t>(EnvironmentVariable::CHAINID));
 
     // corrupt the value so it doesn't match the public input
-    trace.set(C::execution_value_from_pi, 0, test_public_inputs.globalVariables.chainId + 1);
+    trace.set(C::execution_value_from_pi, 0, test_public_inputs.global_variables.chain_id + 1);
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_get_env_var_read_from_public_inputs_col0_settings>(trace)),
         "Failed.*GET_ENV_VAR_READ_FROM_PUBLIC_INPUTS_COL0. Could not find tuple in destination.");
     // reset/uncorrupt
-    trace.set(C::execution_value_from_pi, 0, test_public_inputs.globalVariables.chainId);
+    trace.set(C::execution_value_from_pi, 0, test_public_inputs.global_variables.chain_id);
 }
 
 TEST(GetEnvVarConstrainingTest, NegativeInteractionTestsPICol1)
@@ -653,9 +653,9 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTestsPICol1)
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // output, looked up from PIs
-          { C::execution_register_0_, test_public_inputs.globalVariables.gasFees.feePerL2Gas },
+          { C::execution_register_0_, test_public_inputs.global_variables.gas_fees.fee_per_l2_gas },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.gasFees.feePerL2Gas },
+          { C::execution_value_from_pi, test_public_inputs.global_variables.gas_fees.fee_per_l2_gas },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U128) } },
     });
 
@@ -674,12 +674,12 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTestsPICol1)
     check_interaction<ExecutionTraceBuilder, lookup_get_env_var_read_from_public_inputs_col1_settings>(trace);
 
     // corrupt the value so it doesn't match the public input
-    trace.set(C::execution_value_from_pi, 0, test_public_inputs.globalVariables.gasFees.feePerL2Gas + 1);
+    trace.set(C::execution_value_from_pi, 0, test_public_inputs.global_variables.gas_fees.fee_per_l2_gas + 1);
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_get_env_var_read_from_public_inputs_col1_settings>(trace)),
         "Failed.*GET_ENV_VAR_READ_FROM_PUBLIC_INPUTS_COL1. Could not find tuple in destination.");
     // reset/uncorrupt
-    trace.set(C::execution_value_from_pi, 0, test_public_inputs.globalVariables.gasFees.feePerL2Gas);
+    trace.set(C::execution_value_from_pi, 0, test_public_inputs.global_variables.gas_fees.fee_per_l2_gas);
 }
 
 } // namespace

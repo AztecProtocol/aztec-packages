@@ -27,7 +27,7 @@ export class Secp256k1 {
    * @returns Result of the multiplication.
    */
   public async mul(point: Uint8Array, scalar: Uint8Array) {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.secp256k1Mul({
       point: { x: point.subarray(0, 32), y: point.subarray(32, 64) },
@@ -41,7 +41,7 @@ export class Secp256k1 {
    * @returns Random field element.
    */
   public async getRandomFr() {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.secp256k1GetRandomFr({ dummy: 0 });
     return Buffer.from(response.value);
@@ -53,7 +53,7 @@ export class Secp256k1 {
    * @returns Buffer representation of the field element.
    */
   public async reduce512BufferToFr(uint512Buf: Buffer) {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.secp256k1Reduce512({ input: uint512Buf });
     return Buffer.from(response.value);

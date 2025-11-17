@@ -190,21 +190,21 @@ TEST_F(NullifierTreeCheckTracegenTest, WriteWithInteractions)
     nullifier_tree.update_element(low_leaf_index, low_leaf_hash);
 
     AppendOnlyTreeSnapshot prev_snapshot =
-        AppendOnlyTreeSnapshot{ .root = nullifier_tree.root(), .nextAvailableLeafIndex = 128 };
+        AppendOnlyTreeSnapshot{ .root = nullifier_tree.root(), .next_available_leaf_index = 128 };
     std::vector<FF> low_leaf_sibling_path = nullifier_tree.get_sibling_path(low_leaf_index);
 
     NullifierTreeLeafPreimage updated_low_leaf = low_leaf;
-    updated_low_leaf.nextIndex = prev_snapshot.nextAvailableLeafIndex;
+    updated_low_leaf.nextIndex = prev_snapshot.next_available_leaf_index;
     updated_low_leaf.nextKey = siloed_nullifier;
     FF updated_low_leaf_hash = RawPoseidon2::hash(updated_low_leaf.get_hash_inputs());
     nullifier_tree.update_element(low_leaf_index, updated_low_leaf_hash);
 
-    std::vector<FF> insertion_sibling_path = nullifier_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+    std::vector<FF> insertion_sibling_path = nullifier_tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
     NullifierTreeLeafPreimage new_leaf =
         NullifierTreeLeafPreimage(NullifierLeafValue(siloed_nullifier), low_leaf.nextIndex, low_leaf.nextKey);
     FF new_leaf_hash = RawPoseidon2::hash(new_leaf.get_hash_inputs());
-    nullifier_tree.update_element(prev_snapshot.nextAvailableLeafIndex, new_leaf_hash);
+    nullifier_tree.update_element(prev_snapshot.next_available_leaf_index, new_leaf_hash);
 
     nullifier_tree_check_simulator.write(nullifier,
                                          contract_address,

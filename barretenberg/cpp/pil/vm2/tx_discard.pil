@@ -4,7 +4,7 @@
  * Design Document: https://docs.google.com/document/d/1xz5sZSxTu841K8uvnT8U-nO2X5ZjY8o0TjOYKfT9b6o
  *
  * This subtrace is focused on managing the changes to the discard column.
- * It is a virtual gadget, which is part of the execution trace.
+ * It is a virtual gadget, which is part of the tx trace.
  *
  * 1. Propagate discard by default.
  * 2. Discard and reverted must be 0 for all rows of startup, non-revertibles, setup, fee-payment/tree-padding/cleanup.

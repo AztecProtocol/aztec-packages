@@ -89,6 +89,10 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), data_types_per_Frs);
         }
 
+        // For ZK flavors: Gemini masking polynomial commitment is sent at end of oink
+        if constexpr (Flavor::HasZK) {
+            manifest_expected.add_entry(round, "Gemini:masking_poly_comm", data_types_per_G);
+        }
         manifest_expected.add_entry(round, "W_L", data_types_per_G);
         manifest_expected.add_entry(round, "W_R", data_types_per_G);
         manifest_expected.add_entry(round, "W_O", data_types_per_G);
@@ -131,8 +135,6 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "Libra:claimed_evaluation", data_types_per_Frs);
             manifest_expected.add_entry(round, "Libra:grand_sum_commitment", data_types_per_G);
             manifest_expected.add_entry(round, "Libra:quotient_commitment", data_types_per_G);
-            manifest_expected.add_entry(round, "Gemini:masking_poly_comm", data_types_per_G);
-            manifest_expected.add_entry(round, "Gemini:masking_poly_eval", data_types_per_Frs);
         }
 
         manifest_expected.add_challenge(round, "rho");

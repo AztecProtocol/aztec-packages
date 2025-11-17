@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-[ -n "$cmd" ] && shift
-
 function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
@@ -190,7 +187,6 @@ function test_cmds {
 
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
-  echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
@@ -240,7 +236,7 @@ function release {
 
 case "$cmd" in
   "clean")
-    [ -n "${2:-}" ] && cd $2
+    [ -n "${1:-}" ] && cd $1
     git clean -fdx
     ;;
   "clean-lite")
@@ -249,11 +245,7 @@ case "$cmd" in
       echo "$files" | xargs rm -rf
     fi
     ;;
-  "ci")
-    build
-    test
-    ;;
-  ""|"fast")
+  "")
     build
     ;;
   "full")
@@ -295,14 +287,7 @@ case "$cmd" in
     trap cleanup_instrumentation EXIT
     eval "$cmd"
     ;;
-  lint|format)
-    $cmd "$@"
-    ;;
-  test|test_cmds|bench_cmds|hash|release|format)
-    $cmd
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
-  ;;
+    default_cmd_handler "$@"
+    ;;
 esac

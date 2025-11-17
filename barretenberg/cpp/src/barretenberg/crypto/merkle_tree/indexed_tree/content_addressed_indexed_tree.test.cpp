@@ -416,7 +416,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_size)
 
     // We assume that the first leaf is already filled with (0, 0, 0).
     for (uint32_t i = 0; i < 4; i++) {
-        add_value(tree, NullifierLeafValue(VALUES[i]));
+        add_value(tree, NullifierLeafValue(get_value(i)));
         check_size(tree, ++current_size);
     }
 }
@@ -446,7 +446,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_tree_is_ove
 
     std::vector<NullifierLeafValue> values;
     for (uint32_t i = 0; i < 14; i++) {
-        values.emplace_back(VALUES[i]);
+        values.emplace_back(get_value(i));
     }
     add_values(tree, values);
 
@@ -459,7 +459,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_tree_is_ove
         EXPECT_EQ(response.message, ss.str());
         signal.signal_level();
     };
-    tree.add_or_update_value(NullifierLeafValue(VALUES[16]), add_completion);
+    tree.add_or_update_value(NullifierLeafValue(get_value(16)), add_completion);
     signal.wait_for_level();
 }
 
@@ -480,15 +480,15 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_get_sibling_path)
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 
-    memdb.update_element(VALUES[1000]);
-    add_value(tree, NullifierLeafValue(VALUES[1000]));
+    memdb.update_element(get_value(1000));
+    add_value(tree, NullifierLeafValue(get_value(1000)));
 
     check_size(tree, ++current_size);
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
     check_sibling_path(tree, 1, memdb.get_sibling_path(1));
 
-    memdb.update_element(VALUES[1001]);
-    add_value(tree, NullifierLeafValue(VALUES[1001]));
+    memdb.update_element(get_value(1001));
+    add_value(tree, NullifierLeafValue(get_value(1001)));
 
     check_size(tree, ++current_size);
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
@@ -497,9 +497,10 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_get_sibling_path)
     uint32_t num_to_append = 512;
 
     for (uint32_t i = 0; i < num_to_append; i += 2) {
-        memdb.update_element(VALUES[i]);
-        memdb.update_element(VALUES[i + 1]);
-        add_values<NullifierLeafValue>(tree, { NullifierLeafValue(VALUES[i]), NullifierLeafValue(VALUES[i + 1]) });
+        memdb.update_element(get_value(i));
+        memdb.update_element(get_value(i + 1));
+        add_values<NullifierLeafValue>(tree,
+                                       { NullifierLeafValue(get_value(i)), NullifierLeafValue(get_value(i + 1)) });
     }
     check_size(tree, num_to_append + current_size);
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
@@ -590,7 +591,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
         check_root(tree, memdb.root());
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 
-        add_value(tree, NullifierLeafValue(VALUES[512]));
+        add_value(tree, NullifierLeafValue(get_value(512)));
 
         // Committed data should not have changed
         check_size(tree, current_size, false);
@@ -598,7 +599,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
         check_sibling_path(tree, 0, memdb.get_sibling_path(0), false);
         check_sibling_path(tree, 1, memdb.get_sibling_path(1), false);
 
-        memdb.update_element(VALUES[512]);
+        memdb.update_element(get_value(512));
 
         // Uncommitted data should have changed
         check_size(tree, current_size + 1, true);
@@ -889,7 +890,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_batch_conta
 
     std::vector<NullifierLeafValue> values;
     for (uint32_t i = 0; i < 16; i++) {
-        values.emplace_back(VALUES[i]);
+        values.emplace_back(get_value(i));
     }
     values[8] = values[0];
 
@@ -1288,7 +1289,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
     constexpr size_t depth = 10;
     NullifierMemoryTree<HashPolicy> memdb(10);
     fr_sibling_path initial_path = memdb.get_sibling_path(0);
-    memdb.update_element(VALUES[0]);
+    memdb.update_element(get_value(0));
     fr_sibling_path final_sibling_path = memdb.get_sibling_path(0);
 
     uint32_t num_reads = 16 * 1024;
@@ -1309,7 +1310,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
             auto commit_completion = [&](const TypedResponse<CommitResponse>&) { signal.signal_decrement(); };
             tree.commit(commit_completion);
         };
-        tree.add_or_update_value(VALUES[0], add_completion);
+        tree.add_or_update_value(get_value(0), add_completion);
 
         for (size_t i = 0; i < num_reads; i++) {
             auto completion = [&, i](const TypedResponse<GetSiblingPathResponse>& response) {
