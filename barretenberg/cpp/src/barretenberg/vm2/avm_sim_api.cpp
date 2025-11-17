@@ -22,8 +22,7 @@ TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
                                                                              inputs.config,
                                                                              inputs.tx,
                                                                              inputs.global_variables,
-                                                                             inputs.protocol_contracts,
-                                                                             inputs.prover_id)); // TODO(MW): use config
+                                                                             inputs.protocol_contracts));
 }
 
 TxSimulationResult AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inputs)

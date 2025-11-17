@@ -1164,7 +1164,6 @@ export class AvmFastSimulationInputs {
     public tx: AvmTxHint,
     public globalVariables: GlobalVariables,
     public protocolContracts: ProtocolContracts,
-    public proverId: Fr,
   ) {}
 
   static empty() {
@@ -1174,7 +1173,6 @@ export class AvmFastSimulationInputs {
       AvmTxHint.empty(),
       GlobalVariables.empty(),
       ProtocolContracts.empty(),
-      Fr.zero(),
     );
   }
 
@@ -1186,11 +1184,10 @@ export class AvmFastSimulationInputs {
         tx: AvmTxHint.schema,
         globalVariables: GlobalVariables.schema,
         protocolContracts: ProtocolContracts.schema,
-        proverId: schemas.Fr,
       })
       .transform(
-        ({ wsRevision, config, tx, globalVariables, protocolContracts, proverId }) =>
-          new AvmFastSimulationInputs(wsRevision, config, tx, globalVariables, protocolContracts, proverId),
+        ({ wsRevision, config, tx, globalVariables, protocolContracts }) =>
+          new AvmFastSimulationInputs(wsRevision, config, tx, globalVariables, protocolContracts),
       );
   }
 

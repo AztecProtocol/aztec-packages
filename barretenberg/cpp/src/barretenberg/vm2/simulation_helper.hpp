@@ -20,8 +20,7 @@ class AvmSimulationHelper {
                                                       const PublicSimulatorConfig& config,
                                                       const Tx& tx,
                                                       const GlobalVariables& global_variables,
-                                                      const ProtocolContracts& protocol_contracts,
-                                                      const FF& prover_id); // TODO(MW): use config
+                                                      const ProtocolContracts& protocol_contracts);
 
     TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
 
@@ -32,8 +31,7 @@ class AvmSimulationHelper {
                                      const PublicSimulatorConfig& config,
                                      const Tx& tx,
                                      const GlobalVariables& global_variables,
-                                     const ProtocolContracts& protocol_contracts,
-                                     const FF& proverId); // TODO(MW): use config
+                                     const ProtocolContracts& protocol_contracts);
 };
 
 } // namespace bb::avm2

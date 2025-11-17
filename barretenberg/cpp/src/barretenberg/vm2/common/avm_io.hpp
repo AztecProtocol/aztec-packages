@@ -450,12 +450,11 @@ struct AvmFastSimulationInputs {
     Tx tx;
     GlobalVariables global_variables;
     ProtocolContracts protocol_contracts;
-    FF prover_id;
 
     static AvmFastSimulationInputs from(const std::vector<uint8_t>& data);
     bool operator==(const AvmFastSimulationInputs& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(ws_revision, config, tx, global_variables, protocol_contracts, prover_id);
+    MSGPACK_CAMEL_CASE_FIELDS(ws_revision, config, tx, global_variables, protocol_contracts);
 };
 
 ////////////////////////////////////////////////////////////////////////////

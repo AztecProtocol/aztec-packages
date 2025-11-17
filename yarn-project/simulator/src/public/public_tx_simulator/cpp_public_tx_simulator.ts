@@ -37,7 +37,6 @@ import type {
  */
 export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxSimulatorInterface {
   protected override log: Logger;
-  private proverId: Fr; // TODO(MW): Temp - use config/getter on PublicTxSimulator class
 
   constructor(
     merkleTree: MerkleTreeWriteOperations,
@@ -46,8 +45,6 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     config?: Partial<PublicSimulatorConfig>,
   ) {
     super(merkleTree, contractsDB, globalVariables, config);
-    // TODO(MW): Temp - use config/getter on PublicTxSimulator class
-    this.proverId = config?.proverId ?? Fr.ZERO;
     this.log = createLogger(`simulator:cpp_public_tx_simulator`);
   }
 
@@ -110,7 +107,6 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
       txHint,
       this.globalVariables,
       protocolContracts,
-      this.proverId,
     );
 
     // Create contract provider for callbacks to TypeScript PublicContractsDB from C++
