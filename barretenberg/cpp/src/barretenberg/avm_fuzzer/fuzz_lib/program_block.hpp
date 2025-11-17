@@ -73,6 +73,7 @@ class ProgramBlock {
     void process_cast_16_instruction(CAST_16_Instruction instruction);
     void process_sstore_instruction(SSTORE_Instruction instruction);
     void process_sload_instruction(SLOAD_Instruction instruction);
+    void process_getenvvar_instruction(GETENVVAR_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;

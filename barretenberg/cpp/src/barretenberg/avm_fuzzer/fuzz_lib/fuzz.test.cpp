@@ -839,8 +839,43 @@ TEST(fuzz, SstoreThenSload)
     auto bytecode = control_flow.build_bytecode(return_options);
     auto cpp_simulator = CppSimulator();
     auto result = cpp_simulator.simulate(bytecode, {});
-    std::cout << "Bytecode: " << bytecode << std::endl;
-    std::cout << "Reverted: " << result.reverted << std::endl;
     EXPECT_EQ(result.output.at(0), 10);
 }
 } // namespace public_storage
+
+namespace execution_environment {
+FF getenvvar_helper(uint8_t type, bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::FF)
+{
+    auto getenvvar_instruction = GETENVVAR_Instruction{ .result_offset = 0, .type = type };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { getenvvar_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 0 };
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    if (type == 1) {
+        std::cout << "Bytecode: " << bytecode << std::endl;
+        std::cout << "Result: " << result.output.at(0) << std::endl;
+        std::cout << "Reverted: " << result.reverted << std::endl;
+    }
+    return result.output.at(0);
+}
+
+TEST(fuzz, GetEnvVarSmoke)
+{
+    EXPECT_EQ(getenvvar_helper(0), 42);                                // address, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(1), 100);                               // sender, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(2), 0);                                 // transaction fee, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(3), 1);                                 // chain id, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(4), 1);                                 // version, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(5), 1);                                 // block number, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(6, bb::avm2::MemoryTag::U64), 1000000); // timestamp, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(7), 1);                                 // FEEPERL2GAS = 1, see simulator.cpp gas_fees
+    EXPECT_EQ(getenvvar_helper(8), 1);                                 // FEEPERDAGAS = 1, see simulator.cpp gas_fees
+    EXPECT_EQ(getenvvar_helper(9), 0);                                 // is static call is always false
+    EXPECT_EQ(getenvvar_helper(10), 1000000 - 2 * 6);                  // L2GASLEFT, gas spent on getenvvar + return
+    EXPECT_EQ(getenvvar_helper(11), 1000000);                          // DAGASLEFT, see simulator.cpp
+}
+} // namespace execution_environment

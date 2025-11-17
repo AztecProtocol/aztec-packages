@@ -400,6 +400,16 @@ struct SLOAD_Instruction {
     MSGPACK_FIELDS(slot_offset_index, result_offset);
 };
 
+/// @brief GETENVVAR: M[result_offset] = getenvvar(type)
+struct GETENVVAR_Instruction {
+    uint16_t result_offset;
+    // msgpack cannot pack enum classes, so we pack that as a uint8_t
+    // 0 -> ADDRESS, 1 -> SENDER, 2 -> TRANSACTIONFEE, 3 -> CHAINID, 4 -> VERSION, 5 -> BLOCKNUMBER, 6 -> TIMESTAMP,
+    // 7 -> BASEFEEPERDAGAS, 8 -> BASEFEEPERL2GAS, 9 -> ISSTATICCALL, 10 -> L2GASLEFT, 11 -> DAGASLEFT
+    uint8_t type;
+    MSGPACK_FIELDS(result_offset, type);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -439,7 +449,8 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      CAST_8_Instruction,
                                      CAST_16_Instruction,
                                      SSTORE_Instruction,
-                                     SLOAD_Instruction>;
+                                     SLOAD_Instruction,
+                                     GETENVVAR_Instruction>;
 
 template <class... Ts> struct overloaded_instruction : Ts... {
     using Ts::operator()...;
@@ -608,6 +619,9 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    },
                    [&](SLOAD_Instruction arg) {
                        os << "SLOAD_Instruction " << arg.slot_offset_index << " " << arg.result_offset;
+                   },
+                   [&](GETENVVAR_Instruction arg) {
+                       os << "GETENVVAR_Instruction " << arg.result_offset << " " << static_cast<int>(arg.type);
                    },
                    [&](auto) { os << "Unknown instruction"; },
                },

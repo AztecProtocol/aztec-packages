@@ -661,6 +661,22 @@ void ProgramBlock::process_sload_instruction(SLOAD_Instruction instruction)
     memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, instruction.result_offset);
 }
 
+void ProgramBlock::process_getenvvar_instruction(GETENVVAR_Instruction instruction)
+{
+    auto instruction_type = static_cast<uint8_t>(instruction.type % 12);
+    auto getenvvar_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::GETENVVAR_16)
+                                     .operand(instruction.result_offset)
+                                     .operand(instruction_type)
+                                     .build();
+    instructions.push_back(getenvvar_instruction);
+    // special case for timestamp, it returns a 64-bit value
+    if (instruction_type == 6) {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::U64, instruction.result_offset);
+    } else {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, instruction.result_offset);
+    }
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -731,50 +747,52 @@ bool ProgramBlock::is_memory_address_set(uint16_t address)
 
 void ProgramBlock::process_instruction(FuzzInstruction instruction)
 {
-    std::visit(overloaded_instruction{
-                   [this](ADD_8_Instruction instruction) { return this->process_add_8_instruction(instruction); },
-                   [this](SUB_8_Instruction instruction) { return this->process_sub_8_instruction(instruction); },
-                   [this](MUL_8_Instruction instruction) { return this->process_mul_8_instruction(instruction); },
-                   [this](DIV_8_Instruction instruction) { return this->process_div_8_instruction(instruction); },
-                   [this](EQ_8_Instruction instruction) { return this->process_eq_8_instruction(instruction); },
-                   [this](LT_8_Instruction instruction) { return this->process_lt_8_instruction(instruction); },
-                   [this](LTE_8_Instruction instruction) { return this->process_lte_8_instruction(instruction); },
-                   [this](AND_8_Instruction instruction) { return this->process_and_8_instruction(instruction); },
-                   [this](OR_8_Instruction instruction) { return this->process_or_8_instruction(instruction); },
-                   [this](XOR_8_Instruction instruction) { return this->process_xor_8_instruction(instruction); },
-                   [this](SHL_8_Instruction instruction) { return this->process_shl_8_instruction(instruction); },
-                   [this](SHR_8_Instruction instruction) { return this->process_shr_8_instruction(instruction); },
-                   [this](SET_8_Instruction instruction) { return this->process_set_8_instruction(instruction); },
-                   [this](SET_16_Instruction instruction) { return this->process_set_16_instruction(instruction); },
-                   [this](SET_32_Instruction instruction) { return this->process_set_32_instruction(instruction); },
-                   [this](SET_64_Instruction instruction) { return this->process_set_64_instruction(instruction); },
-                   [this](SET_128_Instruction instruction) { return this->process_set_128_instruction(instruction); },
-                   [this](SET_FF_Instruction instruction) { return this->process_set_ff_instruction(instruction); },
-                   [this](MOV_8_Instruction instruction) { return this->process_mov_8_instruction(instruction); },
-                   [this](MOV_16_Instruction instruction) { return this->process_mov_16_instruction(instruction); },
-                   [this](FDIV_8_Instruction instruction) { return this->process_fdiv_8_instruction(instruction); },
-                   [this](NOT_8_Instruction instruction) { return this->process_not_8_instruction(instruction); },
-                   [this](ADD_16_Instruction instruction) { return this->process_add_16_instruction(instruction); },
-                   [this](SUB_16_Instruction instruction) { return this->process_sub_16_instruction(instruction); },
-                   [this](MUL_16_Instruction instruction) { return this->process_mul_16_instruction(instruction); },
-                   [this](DIV_16_Instruction instruction) { return this->process_div_16_instruction(instruction); },
-                   [this](FDIV_16_Instruction instruction) { return this->process_fdiv_16_instruction(instruction); },
-                   [this](EQ_16_Instruction instruction) { return this->process_eq_16_instruction(instruction); },
-                   [this](LT_16_Instruction instruction) { return this->process_lt_16_instruction(instruction); },
-                   [this](LTE_16_Instruction instruction) { return this->process_lte_16_instruction(instruction); },
-                   [this](AND_16_Instruction instruction) { return this->process_and_16_instruction(instruction); },
-                   [this](OR_16_Instruction instruction) { return this->process_or_16_instruction(instruction); },
-                   [this](XOR_16_Instruction instruction) { return this->process_xor_16_instruction(instruction); },
-                   [this](NOT_16_Instruction instruction) { return this->process_not_16_instruction(instruction); },
-                   [this](SHL_16_Instruction instruction) { return this->process_shl_16_instruction(instruction); },
-                   [this](SHR_16_Instruction instruction) { return this->process_shr_16_instruction(instruction); },
-                   [this](CAST_8_Instruction instruction) { return this->process_cast_8_instruction(instruction); },
-                   [this](CAST_16_Instruction instruction) { return this->process_cast_16_instruction(instruction); },
-                   [this](SSTORE_Instruction instruction) { return this->process_sstore_instruction(instruction); },
-                   [this](SLOAD_Instruction instruction) { return this->process_sload_instruction(instruction); },
-                   [](auto) { throw std::runtime_error("Unknown instruction"); },
-               },
-               instruction);
+    std::visit(
+        overloaded_instruction{
+            [this](ADD_8_Instruction instruction) { return this->process_add_8_instruction(instruction); },
+            [this](SUB_8_Instruction instruction) { return this->process_sub_8_instruction(instruction); },
+            [this](MUL_8_Instruction instruction) { return this->process_mul_8_instruction(instruction); },
+            [this](DIV_8_Instruction instruction) { return this->process_div_8_instruction(instruction); },
+            [this](EQ_8_Instruction instruction) { return this->process_eq_8_instruction(instruction); },
+            [this](LT_8_Instruction instruction) { return this->process_lt_8_instruction(instruction); },
+            [this](LTE_8_Instruction instruction) { return this->process_lte_8_instruction(instruction); },
+            [this](AND_8_Instruction instruction) { return this->process_and_8_instruction(instruction); },
+            [this](OR_8_Instruction instruction) { return this->process_or_8_instruction(instruction); },
+            [this](XOR_8_Instruction instruction) { return this->process_xor_8_instruction(instruction); },
+            [this](SHL_8_Instruction instruction) { return this->process_shl_8_instruction(instruction); },
+            [this](SHR_8_Instruction instruction) { return this->process_shr_8_instruction(instruction); },
+            [this](SET_8_Instruction instruction) { return this->process_set_8_instruction(instruction); },
+            [this](SET_16_Instruction instruction) { return this->process_set_16_instruction(instruction); },
+            [this](SET_32_Instruction instruction) { return this->process_set_32_instruction(instruction); },
+            [this](SET_64_Instruction instruction) { return this->process_set_64_instruction(instruction); },
+            [this](SET_128_Instruction instruction) { return this->process_set_128_instruction(instruction); },
+            [this](SET_FF_Instruction instruction) { return this->process_set_ff_instruction(instruction); },
+            [this](MOV_8_Instruction instruction) { return this->process_mov_8_instruction(instruction); },
+            [this](MOV_16_Instruction instruction) { return this->process_mov_16_instruction(instruction); },
+            [this](FDIV_8_Instruction instruction) { return this->process_fdiv_8_instruction(instruction); },
+            [this](NOT_8_Instruction instruction) { return this->process_not_8_instruction(instruction); },
+            [this](ADD_16_Instruction instruction) { return this->process_add_16_instruction(instruction); },
+            [this](SUB_16_Instruction instruction) { return this->process_sub_16_instruction(instruction); },
+            [this](MUL_16_Instruction instruction) { return this->process_mul_16_instruction(instruction); },
+            [this](DIV_16_Instruction instruction) { return this->process_div_16_instruction(instruction); },
+            [this](FDIV_16_Instruction instruction) { return this->process_fdiv_16_instruction(instruction); },
+            [this](EQ_16_Instruction instruction) { return this->process_eq_16_instruction(instruction); },
+            [this](LT_16_Instruction instruction) { return this->process_lt_16_instruction(instruction); },
+            [this](LTE_16_Instruction instruction) { return this->process_lte_16_instruction(instruction); },
+            [this](AND_16_Instruction instruction) { return this->process_and_16_instruction(instruction); },
+            [this](OR_16_Instruction instruction) { return this->process_or_16_instruction(instruction); },
+            [this](XOR_16_Instruction instruction) { return this->process_xor_16_instruction(instruction); },
+            [this](NOT_16_Instruction instruction) { return this->process_not_16_instruction(instruction); },
+            [this](SHL_16_Instruction instruction) { return this->process_shl_16_instruction(instruction); },
+            [this](SHR_16_Instruction instruction) { return this->process_shr_16_instruction(instruction); },
+            [this](CAST_8_Instruction instruction) { return this->process_cast_8_instruction(instruction); },
+            [this](CAST_16_Instruction instruction) { return this->process_cast_16_instruction(instruction); },
+            [this](SSTORE_Instruction instruction) { return this->process_sstore_instruction(instruction); },
+            [this](SLOAD_Instruction instruction) { return this->process_sload_instruction(instruction); },
+            [this](GETENVVAR_Instruction instruction) { return this->process_getenvvar_instruction(instruction); },
+            [](auto) { throw std::runtime_error("Unknown instruction"); },
+        },
+        instruction);
 }
 
 std::vector<bb::avm2::simulation::Instruction> ProgramBlock::get_instructions()
