@@ -67,5 +67,6 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
  * @param field The field element whose witness should be marked as used
  */
 template <typename Builder> void mark_witness_as_used(const field_t<Builder>& field);
+template <typename Builder> void mark_witness_as_logic(const field_t<Builder>& field);
 
 } // namespace bb::stdlib

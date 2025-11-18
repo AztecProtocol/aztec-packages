@@ -22,9 +22,16 @@ void create_logic_gate(Builder& builder,
     field_ct left = to_field_ct(a, builder);
     field_ct right = to_field_ct(b, builder);
 
+<<<<<<< HEAD
     field_ct computed_result = bb::stdlib::logic<Builder>::create_logic_constraint(left, right, num_bits, is_xor_gate);
     field_ct acir_result = field_ct::from_witness_index(&builder, result);
     computed_result.assert_equal(acir_result);
+=======
+    field_ct res = bb::stdlib::logic<Builder>::create_logic_constraint(left, right, num_bits, is_xor_gate);
+    field_ct our_res = field_ct::from_witness_index(&builder, result);
+    bb::stdlib::mark_witness_as_logic(res);
+    res.assert_equal(our_res);
+>>>>>>> bb354fad10 (first step in logic constraints processing)
 }
 
 template void create_logic_gate<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,

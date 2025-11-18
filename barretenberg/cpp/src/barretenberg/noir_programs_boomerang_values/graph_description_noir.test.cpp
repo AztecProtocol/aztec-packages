@@ -18,15 +18,21 @@ static std::string common_preffix =
 void test_acir(std::vector<uint8_t>& bytecode)
 {
     auto tool = StaticAnalyzerAcir(bytecode);
-    auto [variables_in_one_gate, unconstrained_vars] = tool.analyze_acir(/*debug_info=*/true);
+    auto [variables_in_one_gate, unconstrained_vars] = tool.analyze_acir();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
     if (unconstrained_vars.size() > 0) {
+        info("print variables that weren't constrained properly");
         for (const auto& elem : unconstrained_vars) {
             info("elem == ", elem);
         }
     }
+    if (variables_in_one_gate.size() > 0) {
+        info("print variables in one gate");
+        for (const auto& elem: variables_in_one_gate) {
+            tool.print_variable_info(elem);
+        }
+    }
 }
-
 
 TEST(BoomerangAcirCircuitBuilder, InitCase)
 {
@@ -68,10 +74,24 @@ TEST(BoomerangAcirCircuitBuilder, FibCase)
     test_acir(vector_bytecode);
 }
 
-TEST(BoomerangAcirCircuitBuilder, FirstCase)
+TEST(BoomerangAcirCircuitBuilder, AESCase)
 {
-    std::string init_bytecode_path = "first/target/first.json";
+    std::string init_bytecode_path = "aes/target/blackbox.json";
     std::string bytecode_file = common_preffix + init_bytecode_path;
     std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
-    test_acir_circuit_builder(vector_bytecode);
+    test_acir(vector_bytecode);
+}
+
+TEST(BoomerangAcirCircuitBuilder, EqualCase) {
+    std::string init_bytecode_path = "equiv/target/equiv.json";
+    std::string bytecode_file = common_preffix + init_bytecode_path;
+    std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
+    test_acir(vector_bytecode);
+}
+
+TEST(BoomerangAcirCircuitBuilder, BlackBoxAndXorCase) {
+    std::string init_bytecode_path = "blackbox_and_xor/target/blackbox_and_xor.json";
+    std::string bytecode_file = common_preffix + init_bytecode_path;
+    std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
+    test_acir(vector_bytecode);
 }

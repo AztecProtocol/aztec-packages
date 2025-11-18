@@ -17,7 +17,10 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     std::unordered_set<uint32_t> get_unconstrained_variables();
     void filter_false_positives(std::unordered_set<uint32_t>& variables_in_one_gate);
     bool is_inverse_gate(size_t block_idx, size_t gate_idx);
-    std::pair<std::unordered_set<uint32_t>, std::unordered_set<uint32_t>> analyze_acir(bool debug_info = false);
+    std::pair<std::unordered_set<uint32_t>, std::unordered_set<uint32_t>> analyze_acir();
+    void print_variable_info(uint32_t var_idx) {analyzer.print_variable_info(var_idx);};
+
+    void process_logic_constraints();
 
   private:
     acir_format::AcirFormat constraint_system;

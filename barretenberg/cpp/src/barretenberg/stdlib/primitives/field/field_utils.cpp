@@ -102,6 +102,13 @@ template <typename Builder> void mark_witness_as_used(const field_t<Builder>& fi
     }
 }
 
+template <typename Builder> void mark_witness_as_logic(const field_t<Builder>& field)
+{
+    if (!field.is_constant()) {
+        field.get_context()->update_logic_witnesses(field.witness_index);
+    }
+}
+
 // Explicit instantiations for split_unique
 template std::pair<field_t<bb::UltraCircuitBuilder>, field_t<bb::UltraCircuitBuilder>> split_unique(
     const field_t<bb::UltraCircuitBuilder>& field, const size_t lo_bits, const bool skip_range_constraints);
@@ -121,5 +128,6 @@ template void validate_split_in_field_unsafe(const field_t<bb::MegaCircuitBuilde
 // Explicit instantiations for mark_witness_as_used
 template void mark_witness_as_used(const field_t<bb::UltraCircuitBuilder>& field);
 template void mark_witness_as_used(const field_t<bb::MegaCircuitBuilder>& field);
-
+template void mark_witness_as_logic(const field_t<bb::UltraCircuitBuilder>& field);
+template void mark_witness_as_logic(const field_t<bb::MegaCircuitBuilder>& field);
 } // namespace bb::stdlib

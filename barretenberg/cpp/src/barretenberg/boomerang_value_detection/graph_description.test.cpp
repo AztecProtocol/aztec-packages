@@ -384,7 +384,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_arithm
     }
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
-    auto variables_gate_counts = graph.get_variables_gate_counts();
+    auto variables_gate_counts = graph.get_variable_gate_count();
     bool result = true;
     for (const auto pair : variables_gate_counts) {
         result = result && (pair.first > 0 ? (pair.second == 1) : (pair.second == 0));
@@ -421,7 +421,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_arithm
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     bool result = true;
-    auto variables_gate_counts = graph.get_variables_gate_counts();
+    auto variables_gate_counts = graph.get_variable_gate_count();
     for (const auto& pair : variables_gate_counts) {
         if (pair.first > 0) {
             result = result && (pair.first % 4 == 0 && pair.first != 4 ? (pair.second == 2) : (pair.second == 1));
@@ -450,7 +450,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_boolea
     }
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
-    auto variables_gate_counts = graph.get_variables_gate_counts();
+    auto variables_gate_counts = graph.get_variable_gate_count();
     bool result = true;
     for (const auto& part : variables_gate_counts) {
         result = result && (part.first == 0 ? (part.second == 0) : (part.second == 1));
@@ -490,7 +490,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted
     circuit_constructor.enforce_small_deltas({ e_idx, f_idx, g_idx, h_idx });
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
-    auto variables_gate_counts = graph.get_variables_gate_counts();
+    auto variables_gate_counts = graph.get_variable_gate_count();
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 2);
     bool result = true;
@@ -530,7 +530,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted
     circuit_constructor.create_sort_constraint_with_edges(var_idx2, vars2[0], vars2[vars2.size() - 1]);
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
-    auto variables_gate_counts = graph.get_variables_gate_counts();
+    auto variables_gate_counts = graph.get_variable_gate_count();
     EXPECT_EQ(connected_components.size(), 2);
     bool result = true;
     for (size_t i = 0; i < var_idx1.size(); i++) {
@@ -571,7 +571,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_ad
     circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
-    auto variables_gate_counts = graph.get_variables_gate_counts();
+    auto variables_gate_counts = graph.get_variable_gate_count();
     auto connected_components = graph.find_connected_components();
     auto variable_indices = connected_components[0].vars();
     bool result =
@@ -607,7 +607,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_db
     circuit_constructor.create_ecc_dbl_gate({ x1, y1, x3, y3 });
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
-    auto variables_gate_counts = graph.get_variables_gate_counts();
+    auto variables_gate_counts = graph.get_variable_gate_count();
     auto connected_components = graph.find_connected_components();
 
     auto vars = connected_components[0].vars();
