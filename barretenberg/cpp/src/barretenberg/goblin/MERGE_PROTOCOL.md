@@ -380,8 +380,8 @@ Each kernel processes a **verification queue** containing circuits to verify. Th
 - Sets `kernel_i.public_inputs.ecc_op_tables` $= [M_{1}], \ldots, [M_{4}]$ (final merged commitments)
 
 **Example: Intermediate kernel $K_1$ (queue size 2):**
-- **Iteration 1:** Verifies $K_0$, produces $[M^{(1)}_j]$, updates $[T_{\text{prev},j}] \leftarrow [M^{(1)}_j]$
-- **Iteration 2:** Verifies $A_1$ using updated $[T_{\text{prev},j}]$, produces final $[M_j]$
+- **Iteration 1:** Verifies $K_0$ , produces $[M^{(1)}_j]$ , updates $[T_{\text{prev},j}] \leftarrow [M^{(1)}_j]$
+- **Iteration 2:** Verifies $A_1$ using updated $[T_{\text{prev},j}]$ , produces final $[M_j]$
 - **Output:** `kernel_1.public_inputs.ecc_op_tables` $= [M_{1}], \ldots, [M_{4}]$
 
 **Mathematical description of intermediate kernel merge result:**
@@ -430,7 +430,7 @@ This shows the hierarchical structure: the current app's ops, followed by the pr
 
 The complete merged table has the following structure:
 
-$$M_{\text{final},j} = [\text{no-op} \mid 3 \text{ random} \mid \text{tail\_ops} \mid \text{apps} \mid \text{hiding} \mid 2 \text{ random}]$$
+$$M_{\text{final},j} = [\text{no-op} \mid 3 \text{ random} \mid \text{tail-ops} \mid \text{apps} \mid \text{hiding} \mid 2 \text{ random}]$$
 
 **ZK:**
 - 3 random non-ops at **START** (from tail kernel, prepended)
@@ -459,13 +459,13 @@ $$M^{(i)}_j = t_{A_i,j} + X^{\ell_{A_i}} \cdot M^{(i,1)}_j$$
 
 $$M^{\text{tail}}_j = t_{\text{tail},j} + X^{\ell_{\text{tail}}} \cdot M^{(n)}_j$$
 
-where $t_{\text{tail},j} = [\text{no-op} \mid 3 \text{ random} \mid \text{tail\_ops}]$
+where $t_{\text{tail},j} = [\text{no-op} \mid 3 \text{ random} \mid \text{tail-ops}]$
 
 **Final result after hiding kernel (APPEND mode):**
 
 $$M^{\text{final}}_j = M^{\text{tail}}_j + X^{|M^{\text{tail}}_j|} \cdot t_{\text{hiding},j}$$
 
-where $t_{\text{hiding},j} = [\text{hiding\_ops} \mid 2 \text{ random}]$
+where $t_{\text{hiding},j} = [\text{hiding-ops} \mid 2 \text{ random}]$
 
 **Fully expanded form** (showing all components):
 
