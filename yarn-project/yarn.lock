@@ -1097,6 +1097,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/bb.js": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -1218,6 +1219,7 @@ __metadata:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/bb.js": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"

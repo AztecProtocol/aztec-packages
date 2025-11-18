@@ -1,17 +1,11 @@
-import { randomBytes } from '../random/index.js';
+import { randomBytes } from '../../random/index.js';
 import {
   buffer32BytesToBigIntBE,
   uint8ArrayToBigIntBE,
   bigIntToBufferBE,
   bigIntToUint8ArrayBE,
-} from '../bigint-array/index.js';
+} from './bigint-buffer.js';
 
-/**
- * Internal Fr field class for tests.
- * @dev This minimal implementation is provided for testing barretenberg directly.
- * Projects using bb.js should create their own field abstraction using the curve constants
- * exported from the barretenberg binary (see CurveConstants generation).
- */
 export class Fr {
   static ZERO = new Fr(0n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
@@ -41,24 +35,6 @@ export class Fr {
     return new this(r);
   }
 
-  static fromBuffer(buffer: Uint8Array | Buffer) {
-    if (buffer.length !== this.SIZE_IN_BYTES) {
-      throw new Error(`Expected ${this.SIZE_IN_BYTES} bytes, got ${buffer.length}`);
-    }
-    return new this(buffer);
-  }
-
-  static fromBufferReduce(buffer: Uint8Array | Buffer) {
-    if (buffer.length !== this.SIZE_IN_BYTES) {
-      throw new Error(`Expected ${this.SIZE_IN_BYTES} bytes, got ${buffer.length}`);
-    }
-    return new this(uint8ArrayToBigIntBE(buffer instanceof Buffer ? new Uint8Array(buffer) : buffer) % Fr.MODULUS);
-  }
-
-  static fromString(str: string) {
-    return this.fromBuffer(Buffer.from(str.replace(/^0x/i, ''), 'hex'));
-  }
-
   toBuffer() {
     return this.value;
   }
@@ -73,5 +49,15 @@ export class Fr {
 
   isZero() {
     return this.value.every(v => v === 0);
+  }
+
+  static fromBuffer(value: Uint8Array): Fr {
+    return Fr.fromBufferReduce(value);
+  }
+
+  static fromBufferReduce(value: Uint8Array): Fr {
+    const valueBigInt = uint8ArrayToBigIntBE(value);
+    const reducedValue = valueBigInt % Fr.MODULUS;
+    return new Fr(reducedValue);
   }
 }

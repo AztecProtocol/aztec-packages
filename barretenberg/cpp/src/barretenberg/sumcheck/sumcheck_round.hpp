@@ -647,31 +647,35 @@ template <typename Flavor> class SumcheckProverRound {
                                              ExtendedUnivariate& result,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators)
     {
-        ExtendedUnivariate extended_random_polynomial;
         // Pow-Factor  \f$ (1-X) + X\beta_i \f$
         auto random_polynomial = bb::Univariate<FF, 2>({ 1, gate_separators.current_element() });
-        extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
+        ExtendedUnivariate extended_random_polynomial =
+            random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
 
-        auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
-            auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
+        constexpr_for<0, std::tuple_size_v<TupleOfTuplesOfUnivariates>, 1>([&]<size_t relation_idx>() {
+            const auto& outer_element = std::get<relation_idx>(tuple);
+            constexpr_for<0, std::tuple_size_v<std::decay_t<decltype(outer_element)>>, 1>(
+                [&]<size_t subrelation_idx>() {
+                    const auto& element = std::get<subrelation_idx>(outer_element);
+                    auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
 
-            using Relation = typename std::tuple_element_t<relation_idx, Relations>;
-            constexpr bool is_subrelation_linearly_independent =
-                bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
-            // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence we
-            // multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
-            // verifier, we additionally need a univariate contribution from the pow polynomial which is the
-            // extended_random_polynomial which is the
-            if constexpr (!is_subrelation_linearly_independent) {
-                result += extended;
-            } else {
-                // Multiply by the pow polynomial univariate contribution and the partial
-                // evaluation result c_i (i.e. \f$ pow(u_0,...,u_{l-1})) \f$ where \f$(u_0,...,u_{i-1})\f$ are the
-                // verifier challenges from previous rounds.
-                result += extended * extended_random_polynomial * gate_separators.partial_evaluation_result;
-            }
-        };
-        Utils::apply_to_tuple_of_tuples(tuple, extend_and_sum);
+                    using Relation = typename std::tuple_element_t<relation_idx, Relations>;
+                    constexpr bool is_subrelation_linearly_independent =
+                        bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
+                    // Except from the log derivative subrelation, each other subrelation in part is required to be 0
+                    // hence we multiply by the power polynomial. As the sumcheck prover is required to send a
+                    // univariate to the verifier, we additionally need a univariate contribution from the pow
+                    // polynomial which is the extended_random_polynomial which is the
+                    if constexpr (!is_subrelation_linearly_independent) {
+                        result += extended;
+                    } else {
+                        // Multiply by the pow polynomial univariate contribution and the partial
+                        // evaluation result c_i (i.e. \f$ pow(u_0,...,u_{l-1})) \f$ where \f$(u_0,...,u_{i-1})\f$ are
+                        // the verifier challenges from previous rounds.
+                        result += extended * extended_random_polynomial * gate_separators.partial_evaluation_result;
+                    }
+                });
+        });
     }
 
     /**
@@ -807,8 +811,8 @@ template <typename Flavor> class SumcheckVerifierRound {
 
     /**
      * @brief Check that the round target sum is correct
-     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
-     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) +
+     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i
+     * = 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) +
      * \tilde{S}^i(1) \f$
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *

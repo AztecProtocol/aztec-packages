@@ -90,9 +90,12 @@ export -f build_native build_packages install_deps
 function build {
   echo_header "noir build"
 
-  if semver check $REF_NAME && ! git -C noir-repo describe --tags --exact-match HEAD &>/dev/null; then
-    echo_stderr "We're building a release but the noir-repo HEAD is not an official release."
-    exit 1
+  if semver check $REF_NAME; then
+    git -C noir-repo fetch --tags
+    if ! git -C noir-repo describe --tags --exact-match HEAD &>/dev/null; then
+      echo_stderr "We're building a release but the noir-repo HEAD is not an official release."
+      exit 1
+    fi
   fi
 
   denoise "retry install_deps"

@@ -48,6 +48,9 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
+    // For ZK flavors: commitment to Gemini masking polynomial
+    Commitment gemini_masking_commitment;
+
     RecursiveVerifierInstance_(Builder* builder)
         : builder(builder) {};
 
@@ -96,6 +99,12 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
             relation_parameters.gamma = FF::from_witness(builder, verification_key->relation_parameters.gamma);
             relation_parameters.public_input_delta =
                 FF::from_witness(builder, verification_key->relation_parameters.public_input_delta);
+
+            // For ZK flavors: convert gemini_masking_commitment
+            if constexpr (NativeFlavor::HasZK) {
+                gemini_masking_commitment =
+                    Commitment::from_witness(builder, verification_key->gemini_masking_commitment);
+            }
         }
     }
 
@@ -139,6 +148,12 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
         verifier_inst.relation_parameters.beta = relation_parameters.beta.get_value();
         verifier_inst.relation_parameters.gamma = relation_parameters.gamma.get_value();
         verifier_inst.relation_parameters.public_input_delta = relation_parameters.public_input_delta.get_value();
+
+        // For ZK flavors: convert gemini_masking_commitment back to native
+        if constexpr (NativeFlavor::HasZK) {
+            verifier_inst.gemini_masking_commitment = gemini_masking_commitment.get_value();
+        }
+
         return verifier_inst;
     }
 };
