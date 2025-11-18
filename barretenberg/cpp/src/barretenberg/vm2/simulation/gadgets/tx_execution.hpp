@@ -1,6 +1,5 @@
 #pragma once
 
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -27,7 +26,7 @@ namespace bb::avm2::simulation {
 struct TxExecutionResult {
     GasUsed gas_used;
     RevertCode revert_code = RevertCode::OK;
-    std::optional<std::vector<FF>> app_logic_return_value;
+    std::vector<CallStackMetadata> app_logic_return_values;
 };
 
 // In charge of executing a transaction.
@@ -42,7 +41,8 @@ class TxExecution final {
                 SideEffectTrackerInterface& side_effect_tracker,
                 FieldGreaterThanInterface& field_gt,
                 Poseidon2Interface& poseidon2,
-                EventEmitterInterface<TxEvent>& event_emitter)
+                EventEmitterInterface<TxEvent>& event_emitter,
+                bool collect_call_metadata = false)
         : call_execution(call_execution)
         , context_provider(context_provider)
         , contract_db(contract_db)
@@ -55,6 +55,7 @@ class TxExecution final {
                      retrieved_bytecodes_tree,
                      context_provider,
                      side_effect_tracker)
+        , collect_call_metadata(collect_call_metadata)
     {}
 
     TxExecutionResult simulate(const Tx& tx);
@@ -71,6 +72,7 @@ class TxExecution final {
     EventEmitterInterface<TxEvent>& events;
 
     TxContext tx_context;
+    bool collect_call_metadata;
 
     // This function can throw if there is a nullifier collision.
     void insert_non_revertibles(const Tx& tx);

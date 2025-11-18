@@ -180,7 +180,7 @@ source ~/.bashrc
 Install the correct version for the current testnet:
 
 ```bash
-aztec-up v#include_testnet_version
+aztec-up #include_testnet_version
 ```
 
 Verify the version:

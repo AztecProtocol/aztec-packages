@@ -1,6 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
-import type { ProcessedPhase, PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
+import type { PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -51,7 +51,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
     this.metrics.recordPrivateEffectsInsertion(timer.us(), 'revertible');
   }
 
-  protected override async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
+  protected override async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext) {
     const timer = new Timer();
     const result = await super.simulatePhase(phase, context);
     result.durationMs = timer.ms();

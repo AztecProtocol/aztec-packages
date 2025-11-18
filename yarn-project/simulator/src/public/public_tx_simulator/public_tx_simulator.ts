@@ -3,13 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import {
-  AvmExecutionHints,
-  AvmTxHint,
-  type ProcessedPhase,
-  PublicSimulatorConfig,
-  PublicTxResult,
-} from '@aztec/stdlib/avm';
+import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -72,6 +66,15 @@ class TxSimTeardownRevert extends Error {
     this.name = 'TxSimTeardownRevert';
   }
 }
+
+/** Only used internally. */
+type ProcessedPhase = {
+  phase: TxExecutionPhase;
+  durationMs?: number;
+  returnValues: NestedProcessReturnValues[];
+  reverted: boolean;
+  revertReason?: SimulationError;
+};
 
 export class PublicTxSimulator implements PublicTxSimulatorInterface {
   protected log: Logger;
@@ -197,6 +200,10 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     const publicInputs = await context.generateAvmCircuitPublicInputs();
     const revertCode = context.getFinalRevertCode();
 
+    // We only return the app logic phase information.
+    const appLogicReturnValues =
+      processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
+
     return new PublicTxResult(
       /*gasUsed=*/ {
         totalGas: context.getActualGasUsed(),
@@ -206,7 +213,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       },
       /*revertCode=*/ revertCode,
       /*revertReason=*/ context.revertReason,
-      /*processedPhases=*/ processedPhases,
+      /*appLogicReturnValues=*/ appLogicReturnValues,
       /*logs=*/ context.state.getActiveStateManager().getLogs(),
       /*hints=*/ hints,
       /*publicInputs=*/ publicInputs,

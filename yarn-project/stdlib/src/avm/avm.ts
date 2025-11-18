@@ -27,7 +27,6 @@ import {
   PublicCallRequestWithCalldata,
   TreeSnapshots,
   type Tx,
-  TxExecutionPhase,
 } from '../tx/index.js';
 import { WorldStateRevision } from '../world-state/world_state_revision.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
@@ -1043,14 +1042,6 @@ export class AvmCircuitInputs {
   }
 }
 
-export type ProcessedPhase = {
-  phase: TxExecutionPhase;
-  durationMs?: number;
-  returnValues: NestedProcessReturnValues[];
-  reverted: boolean;
-  revertReason?: SimulationError;
-};
-
 export class PublicTxResult {
   constructor(
     // Simulation result.
@@ -1058,7 +1049,10 @@ export class PublicTxResult {
     public revertCode: RevertCode,
     public revertReason: SimulationError | undefined, // Revert reason, if any
     // These are only guaranteed to be present if the simulator is configured to collect them.
-    public processedPhases: ProcessedPhase[] | undefined,
+    // NOTE: This list will be populated with one NestedProcessReturnValues per app logic enqueued call.
+    // IMPORTANT: The nesting will only be 1 level deep! You will get one result per enqueued call
+    // but no information about nested calls. This can be added later.
+    public appLogicReturnValues: NestedProcessReturnValues[], // One per enqueued call.
     public logs: DebugLog[] | undefined,
     // For the proving request.
     public hints: AvmExecutionHints | undefined,
@@ -1075,7 +1069,7 @@ export class PublicTxResult {
       },
       RevertCode.OK,
       /*revertReason=*/ undefined,
-      /*processedPhases=*/ [],
+      /*appLogicReturnValues=*/ [],
       /*logs=*/ [],
       /*hints=*/ AvmExecutionHints.empty(),
       /*publicInputs=*/ AvmCircuitPublicInputs.empty(),
@@ -1088,20 +1082,19 @@ export class PublicTxResult {
         gasUsed: schemas.GasUsed,
         revertCode: RevertCode.schema,
         revertReason: NullishToUndefined(SimulationError.schema),
-        // TODO(fcarreiro): Use actual Phases type schema.
-        processedPhases: NullishToUndefined(z.any().array()),
+        appLogicReturnValues: NestedProcessReturnValues.schema.array(),
         logs: NullishToUndefined(DebugLog.schema.array()),
         // For the proving request.
         publicInputs: AvmCircuitPublicInputs.schema,
         hints: NullishToUndefined(AvmExecutionHints.schema),
       })
       .transform(
-        ({ gasUsed, revertCode, revertReason, processedPhases, logs, hints, publicInputs }) =>
+        ({ gasUsed, revertCode, revertReason, appLogicReturnValues, logs, hints, publicInputs }) =>
           new PublicTxResult(
             gasUsed,
             revertCode as RevertCode,
             revertReason,
-            processedPhases,
+            appLogicReturnValues,
             logs,
             hints,
             publicInputs,
@@ -1114,7 +1107,7 @@ export class PublicTxResult {
       GasUsed.fromPlainObject(obj.gasUsed),
       RevertCode.fromPlainObject(obj.revertCode),
       /*revertReason=*/ undefined, // TODO(fcarreiro/mwood): add.
-      /*processedPhases=*/ [], // TODO(fcarreiro/mwood): add.
+      /*appLogicReturnValues=*/ obj.appLogicReturnValues.map(NestedProcessReturnValues.fromPlainObject),
       obj.logs?.map(DebugLog.fromPlainObject),
       obj.hints ? AvmExecutionHints.fromPlainObject(obj.hints) : undefined,
       AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs),
@@ -1126,7 +1119,7 @@ export class PublicSimulatorConfig {
   constructor(
     public readonly proverId: Fr,
     public readonly skipFeeEnforcement: boolean,
-    public readonly collectCallMetadata: boolean, // processedPhases.
+    public readonly collectCallMetadata: boolean, // appLogicReturnValues.
     public readonly collectHints: boolean, // hints.
     public readonly collectDebugLogs: boolean, // logs.
     public readonly maxDebugLogMemoryReads: number,

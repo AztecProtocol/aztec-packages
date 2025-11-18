@@ -64,7 +64,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     const Gas& gas_limit = tx.gas_settings.gas_limits;
     const Gas& teardown_gas_limit = tx.gas_settings.teardown_gas_limits;
     tx_context.gas_used = tx.gas_used_by_private;
-    std::optional<std::vector<FF>> app_logic_return_value;
+
+    // NOTE: This vector will be populated with one CallStackMetadata per app logic enqueued call.
+    // IMPORTANT: The nesting will only be 1 level deep! You will get one result per enqueued call
+    // but no information about nested calls. This can be added later.
+    std::vector<CallStackMetadata> app_logic_return_values;
 
     events.emit(TxStartupEvent{
         .state = tx_context.serialize_tx_context_event(),
@@ -158,7 +162,12 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                 // This call should not throw unless it's an unexpected unrecoverable failure.
                 EnqueuedCallResult result = call_execution.execute(std::move(context));
                 tx_context.gas_used = result.gas_used;
-                app_logic_return_value = std::move(result.output);
+
+                if (collect_call_metadata) {
+                    app_logic_return_values.push_back(
+                        CallStackMetadata{ .calldata = call.calldata, .values = std::move(result.output) });
+                }
+
                 emit_public_call_request(call,
                                          TransactionPhase::APP_LOGIC,
                                          /*transaction_fee=*/FF(0),
@@ -199,9 +208,6 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             emit_empty_phase(TransactionPhase::TEARDOWN);
         } else {
             const auto& teardown_enqueued_call = tx.teardown_enqueued_call.value();
-
-            std::string fn_name = get_debug_function_name(teardown_enqueued_call.request.contract_address,
-                                                          teardown_enqueued_call.calldata);
             vinfo("[TEARDOWN] Executing enqueued call to ",
                   teardown_enqueued_call.request.contract_address,
                   "::",
@@ -265,7 +271,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             .billed_gas = { 0, 0 },
         },
         .revert_code = tx_context.revert_code,
-        .app_logic_return_value = std::move(app_logic_return_value),
+        .app_logic_return_values = std::move(app_logic_return_values),
     };
 }
 

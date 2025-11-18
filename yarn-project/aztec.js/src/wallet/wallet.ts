@@ -16,7 +16,6 @@ import {
   ContractClassWithIdSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
-  type ContractInstantiationData,
   type ContractMetadata,
 } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
@@ -35,7 +34,6 @@ import type { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
-import type { Contract } from '../contract/contract.js';
 import type {
   FeeEstimationOptions,
   GasSettingsOption,
@@ -58,11 +56,6 @@ export type Aliased<T> = {
    */
   item: T;
 };
-
-/**
- * A reduced representation of a Contract, only including its instance and artifact
- */
-export type ContractInstanceAndArtifact = Pick<Contract, 'artifact' | 'instance'>;
 
 /**
  * Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with
@@ -157,17 +150,9 @@ export type Wallet = {
   getAddressBook(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
   registerContract(
-    instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
-  ): Promise<ContractInstanceWithAddress>;
-  // Overloaded definition to avoid zod issues
-  registerContract(
-    instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
-    artifact: ContractArtifact,
-  ): Promise<ContractInstanceWithAddress>;
-  registerContract(
-    instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
-    artifact: ContractArtifact | undefined,
-    secretKey: Fr | undefined,
+    instance: ContractInstanceWithAddress,
+    artifact?: ContractArtifact,
+    secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
   simulateUtility(
@@ -326,7 +311,7 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
     .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
   registerContract: z
     .function()
-    .args(InstanceDataSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
+    .args(ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
     .returns(ContractInstanceWithAddressSchema),
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
   simulateUtility: z

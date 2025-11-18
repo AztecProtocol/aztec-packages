@@ -68,20 +68,6 @@ where
         // returns hash is empty as per the protocol rules.
         returns_hash.get_preimage()
     }
-
-    /// TODO(F-130): Drop this function. This should be present only on PrivateStaticCallInterface.
-    pub fn view(self, context: &mut PrivateContext) -> T {
-        execution_cache::store(self.args, self.args_hash);
-        let returns_hash = context.call_private_function_with_args_hash(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            true,
-        );
-        // If T is () (i.e. if the function does not return anything) then `get_preimage` will constrain that the
-        // returns hash is empty as per the protocol rules.
-        returns_hash.get_preimage()
-    }
 }
 
 impl<let M: u32, T> CallInterface<M> for PrivateCallInterface<M, T> {
@@ -234,19 +220,6 @@ where
         Deserialize::deserialize(returns.as_array())
     }
 
-    /// TODO(F-130): Drop this function. This should be present only on PublicStaticCallInterface.
-    pub unconstrained fn view(self, context: PublicContext) -> T {
-        let returns = context.static_call_public_function(
-            self.target_contract,
-            self.selector,
-            self.args,
-            self.gas_opts,
-        );
-        // If T is () (i.e. if the function does not return anything) then `as_array` will constrain that `returns` has
-        // a length of 0 (since that is ()'s deserialization length).
-        Deserialize::deserialize(returns.as_array())
-    }
-
     /// **[DEPRECATED]**
     /// This function is deprecated. Please use the new contract API:
     /// `self.enqueue(MyContract::at(address).my_public_function(...args))`
@@ -261,16 +234,6 @@ where
     /// instead of manually constructing and calling `PublicCallInterface`.
     pub fn enqueue_incognito(self, context: &mut PrivateContext) {
         self.enqueue_impl(context, false, true)
-    }
-
-    /// TODO(F-130): Drop this function. This should be present only on PublicStaticCallInterface.
-    pub fn enqueue_view(self, context: &mut PrivateContext) {
-        self.enqueue_impl(context, true, false)
-    }
-
-    /// TODO(F-130): Drop this function. This should be present only on PublicStaticCallInterface.
-    pub fn enqueue_view_incognito(self, context: &mut PrivateContext) {
-        self.enqueue_impl(context, true, true)
     }
 
     fn enqueue_impl(

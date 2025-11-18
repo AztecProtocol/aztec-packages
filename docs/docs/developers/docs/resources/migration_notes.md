@@ -17,9 +17,13 @@ The sandbox command has been renamed and remapped to "local network". We believe
 
 - `aztec start --sandbox`: now `aztec start --local-network`
 
-## [Aztec.nr]
+### [Aztec.nr] - Contract API redesign
 
-### Renaming #[internal] as #[only_self]
+In this release we decided to largely redesign our contract API. Most of the changes here are not a breaking change
+(only renaming of original `#[internal]` to `#[only_self]` and `storage` now being available on the newly introduced
+`self` struct are a breaking change).
+
+#### 1. Renaming of original #[internal] as #[only_self]
 
 We want for internal to mean the same as in Solidity where internal function can be called only from the same contract
 and is also inlined (EVM JUMP opcode and not EVM CALL). The original implementation of our `#[internal]` macro also
@@ -43,11 +47,27 @@ fn _deduct_public_balance(owner: AztecAddress, amount: u64) {
 }
 ```
 
-### Introducing `self` in contracts
+#### 2. Introducing of new #[internal]
 
-Aztec contracts now automatically inject a `self` parameter into every contract function, providing a unified interface for accessing the contract's address, storage, and execution context.
+Same as in Solidity internal functions are functions that are callable from inside the contract. Unlike #[only_self]
+functions, internal functions are inlined (e.g. akin to EVM's JUMP and not EVM's CALL).
 
-#### What is `self`?
+Internal function can be called using the following API which leverages the new `self` struct (see change 3 below for
+details):
+
+```noir
+self.internal.my_internal_function(...)
+```
+
+Private internal functions can only be called from other private external or internal functions.
+Public internal functions can only be called from other public external or internal functions.
+
+#### 3. Introducing `self` in contracts and a new call interface
+
+Aztec contracts now automatically inject a `self` parameter into every contract function, providing a unified interface
+for accessing the contract's address, storage, calling of function and an execution context.
+
+##### What is `self`?
 
 `self` is an instance of `ContractSelf<Context, Storage>` that provides:
 
@@ -56,12 +76,27 @@ Aztec contracts now automatically inject a `self` parameter into every contract 
 - `self.context` - The execution context (private, public, or utility)
 - `self.msg_sender()` - Get the address of the caller
 - `self.emit(...)` - Emit events
+- `self.call(...)` - Call an external function
+- `self.view(...)` - Call an external function statically
+- `self.enqueue(...)` - Enqueue a call to an external function
+- `self.enqueue_view(...)` - Enqueue a call to an external function
+- `self.enqueue_incognito(...)` - Enqueue a call to an external function but hides the `msg_sender`
+- `self.enqueue_view_incognito(...)` - Enqueue a static call to an external function but hides the `msg_sender`
+- `self.set_as_teardown(...)` - Enqueue a call to an external public function and sets the call as teardown
+- `self.set_as_teardown_incognito(...)` - Enqueue a call to an external public function and sets the call as teardown
+  and hides the `msg_sender`
+- `self.internal.my_internal_fn(...)` - Call an internal function
 
-And soon to be implemented also:
+`self` also provides you with convenience API to call and enqueue calls to external functions from within the same
+contract (this is just a convenience API as `self.call(MyContract::at(self.address).my_external_fn(...))` would also
+work):
 
-- `self.call(...)` - Make contract calls
+- `self.call_self.my_external_fn(...)` - Call external function from within the same contract
+- `self.enqueue_self.my_public_external_fn(...)`
+- `self.call_self_static.my_static_external_fn(...)`
+- `self.enqueue_self_static.my_static_external_public_fn(...)`
 
-#### How it works
+##### How it works
 
 The `#[external(...)]` macro automatically injects `self` into your function. When you write:
 
@@ -76,7 +111,7 @@ fn transfer(amount: u128, recipient: AztecAddress) {
 
 The macro transforms it to initialize `self` with the context and storage before your code executes.
 
-#### Migration guide
+##### Migration guide
 
 **Before:** Access context and storage as separate parameters
 
@@ -99,7 +134,7 @@ fn new_transfer(amount: u128, recipient: AztecAddress) {
 }
 ```
 
-#### Key changes
+##### Key changes
 
 1. **Storage and context access:**
 
@@ -147,7 +182,16 @@ Note that `context` is expected to be use only when needing to access a low-leve
    + self.emit(event);
    ```
 
-#### Example: Full contract migration
+5. **Calling functions:**
+
+   In private functions:
+
+   ```diff
+   - Token::at(stable_coin).mint_to_public(to, amount).call(&mut context);
+   + self.call(Token::at(stable_coin).mint_to_public(to, amount));
+   ```
+
+##### Example: Full contract migration
 
 **Before:**
 
@@ -178,7 +222,19 @@ fn withdraw(amount: u128, recipient: AztecAddress) {
 }
 ```
 
-## [`aztec` command] Moving functionality of `aztec-nargo` to `aztec` command
+#### No-longer allowing calling of non-view function statically via the old higher-level API
+
+We used to allow calling of non-view function statically as follows:
+
+```noir
+MyContract::at(address).my_non_view_function(...).view(context);
+MyContract::at(address).my_non_view_function(...).enqueue_view(context);
+```
+
+This is no-longer allowed and if you will want to call a function statically you will need to mark the function with
+`#[view]`.
+
+### [`aztec` command] Moving functionality of `aztec-nargo` to `aztec` command
 
 `aztec-nargo` has been deprecated and all workflows should now migrate to the `aztec` command that fully replaces `aztec-nargo`:
 
