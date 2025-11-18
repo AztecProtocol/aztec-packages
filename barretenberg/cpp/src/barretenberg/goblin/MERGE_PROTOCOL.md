@@ -496,7 +496,7 @@ The complete Goblin proof consists of **three protocols**:
    - Proves BN254 ↔ Grumpkin translation correctness
    - Uses **same commitments** $[M_j]$ as Merge (copy-constrained)
    - All 6 random ops contribute to ZK
-   - **Enforces degree bound**: $\deg(M_j) < \text{MINI_CIRCUIT_SIZE}$
+   - **Enforces degree bound**: $\deg(M_j) <$ `MINI_CIRCUIT_SIZE`
 
 3. **ECCVM PROTOCOL**
    - Proves ECC operations executed correctly
@@ -511,7 +511,7 @@ The complete Goblin proof consists of **three protocols**:
 Merge protocol Degree Checks do **NOT** bound the cumulative size of all accumulated operations, which is criticial for preventing the Chonk prover from accumulating more ops than Translator VM can handle at a given fixed size.
 
 **Translator Protocol Degree Bound**:
-- **Critical constraint**: $\deg(M_{\text{final},j}) < \text{MINI_CIRCUIT_SIZE}$ for Translator soundness
+- **Critical constraint**: $\deg(M_{\text{final},j}) <$ `MINI_CIRCUIT_SIZE` for Translator soundness
 - Enforced by `TranslatorZeroConstraintsRelationImpl` in `translator_extra_relations_impl.hpp` and the fact that $M_{\text{final},j}$ is opened at a **random** point, which implies that it is zero outside of the Translator circuit bounds (see [A note on the soundness of an optimized gemini variant](https://eprint.iacr.org/2025/1793.pdf)).
 
 
