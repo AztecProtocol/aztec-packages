@@ -971,7 +971,7 @@ class element_test_accessor {
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, element<C, Fq, Fr, G> const& v)
 {
-    return os << "{ " << v._x << " , " << v._y << " }";
+    return os << "{ " << v.x() << " , " << v.y() << " }";
 }
 } // namespace bb::stdlib::element_default
 

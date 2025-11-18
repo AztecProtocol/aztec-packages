@@ -453,7 +453,7 @@ using BiggroupGoblin = goblin_element<bb::MegaCircuitBuilder,
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, goblin_element<C, Fq, Fr, G> const& v)
 {
-    return os << "{ " << v._x << " , " << v._y << " }";
+    return os << "{ " << v.x() << " , " << v.y() << " }";
 }
 } // namespace bb::stdlib::element_goblin
 
