@@ -34,16 +34,10 @@ template <typename FF_> class CircuitBuilderBase {
 
     bool _public_inputs_finalized = false; // Addition of new public inputs disallowed after this is set to true.
 
-    // true if we have dummy witnesses (in the write_vk case)
-    bool _has_dummy_witnesses = false;
-
     // index of next variable in equivalence class (=REAL_VARIABLE if you're last)
     std::vector<uint32_t> next_var_index;
     // index of  previous variable in equivalence class (=FIRST if you're in a cycle alone)
     std::vector<uint32_t> prev_var_index;
-
-    bool _failed = false;
-    std::string _err;
 
     static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
     static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
@@ -61,8 +55,6 @@ template <typename FF_> class CircuitBuilderBase {
     void update_real_variable_indices(uint32_t index, uint32_t new_real_index);
 
   protected:
-    std::unordered_map<uint32_t, std::string> variable_names;
-
     void set_zero_idx(uint32_t value) { _zero_idx = value; }
 
     /**
@@ -90,12 +82,6 @@ template <typename FF_> class CircuitBuilderBase {
 
   public:
     /**
-     * @brief PairingPoints tagging tool, used to ensure that all pairing points created in this circuit are aggregated
-     * together. This is not related to circuit logic.
-     */
-    mutable PairingPointsTagging pairing_points_tagging;
-
-    /**
      * @brief Map from witness index to real variable index
      * @details The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib
      * object) to an index into the variables array. This extra layer of indirection is used to support copy
@@ -114,8 +100,6 @@ template <typename FF_> class CircuitBuilderBase {
     CircuitBuilderBase& operator=(const CircuitBuilderBase& other) = default;
     CircuitBuilderBase& operator=(CircuitBuilderBase&& other) noexcept = default;
     virtual ~CircuitBuilderBase() = default;
-
-    bool has_dummy_witnesses() const { return _has_dummy_witnesses; }
 
     bool operator==(const CircuitBuilderBase& other) const = default;
 
@@ -199,20 +183,6 @@ template <typename FF_> class CircuitBuilderBase {
     template <typename OT> uint32_t add_variable(const OT& in) = delete;
 
     /**
-     * @brief Assign a name to a variable (equivalence class)
-     * @details Should be one name per equivalence class
-     * @param index Index of the variable you want to name
-     * @param name Name of the variable
-     */
-    virtual void set_variable_name(uint32_t index, const std::string& name);
-
-    /**
-     * @brief Export the existing circuit as msgpack compatible buffer
-     * @return msgpack compatible buffer
-     */
-    virtual msgpack::sbuffer export_circuit();
-
-    /**
      * @brief Add a public variable to variables
      * @details The only difference between this and add_variable is that here it is also added to the public_inputs
      * vector
@@ -237,10 +207,47 @@ template <typename FF_> class CircuitBuilderBase {
 
     size_t num_public_inputs() const { return _public_inputs.size(); }
 
+    // ========================================================================================
+    // TOOLING: Debug, Error Tracking, and Circuit Export
+    // ========================================================================================
+
+  private:
+    bool _failed = false;
+    std::string _err;
+
+    // True if we have dummy witnesses; Used to disable certain warnings in the write_vk context
+    bool _has_dummy_witnesses = false;
+
+  protected:
+    std::unordered_map<uint32_t, std::string> variable_names;
+
+  public:
+    /**
+     * @brief Assign a name to a variable (equivalence class)
+     * @details Should be one name per equivalence class
+     * @param index Index of the variable you want to name
+     * @param name Name of the variable
+     */
+    virtual void set_variable_name(uint32_t index, const std::string& name);
+
+    /**
+     * @brief Export the existing circuit as msgpack compatible buffer
+     * @return msgpack compatible buffer
+     */
+    virtual msgpack::sbuffer export_circuit();
+
     bool failed() const;
     const std::string& err() const;
 
     void failure(std::string msg);
+
+    /**
+     * @brief PairingPoints tagging tool, used to ensure that all pairing points created in this circuit are aggregated
+     * together. This is not related to circuit logic.
+     */
+    mutable PairingPointsTagging pairing_points_tagging;
+
+    bool has_dummy_witnesses() const { return _has_dummy_witnesses; }
 };
 
 /**
@@ -294,6 +301,7 @@ template <typename FF> struct CircuitSchemaInternal {
                    ram_states,
                    circuit_finalized);
 };
+// ========================================================================================
 } // namespace bb
 
 // TODO(#217)(Cody): This will need updating based on the approach we take to ensure no multivariate is zero.

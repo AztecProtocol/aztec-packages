@@ -5,7 +5,6 @@ import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import { jest } from '@jest/globals';
 
 import { TestContext } from '../mocks/test_context.js';
-import { buildBlobDataFromTxs } from './block-building-helpers.js';
 import type { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-failures');
@@ -29,49 +28,66 @@ describe('prover/orchestrator/failures', () => {
       ({ prover, orchestrator } = context);
     });
 
-    const run = async (message: string) => {
-      // We need at least 3 blocks, 3 txs, and 1 message to ensure all circuits are used
-      // We generate them and add them as part of the pending chain
-      const blocks = await timesAsync(3, i =>
-        context.makePendingBlock(3, {
-          numL1ToL2Messages: 1,
-          blockNumber: i + 1,
-          makeProcessedTxOpts: j => ({ privateOnly: j === 1 }),
+    const run = async (
+      message: string,
+      {
+        numCheckpoints = 1,
+        numBlocksPerCheckpoint = 1,
+        numTxsPerBlock = 0,
+        numL1ToL2Messages = 0,
+        privateOnly = true,
+      }: {
+        numCheckpoints?: number;
+        numBlocksPerCheckpoint?: number;
+        numTxsPerBlock?: number;
+        numL1ToL2Messages?: number;
+        privateOnly?: boolean;
+      } = {},
+    ) => {
+      const checkpoints = await timesAsync(numCheckpoints, () =>
+        context.makeCheckpoint(numBlocksPerCheckpoint, {
+          numTxsPerBlock,
+          numL1ToL2Messages,
+          makeProcessedTxOpts: () => ({ privateOnly }),
         }),
       );
 
-      const { blobFieldsLengths, finalBlobChallenges } = await buildBlobDataFromTxs(blocks.map(b => b.txs));
+      const finalBlobChallenges = await context.getFinalBlobChallenges();
+      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
 
-      const numCheckpoints = blocks.length;
-      orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
-
-      for (let i = 0; i < blocks.length; i++) {
-        const { block, txs, l1ToL2Messages } = blocks[i];
+      for (let checkpointIndex = 0; checkpointIndex < checkpoints.length; checkpointIndex++) {
+        const { constants, blocks, l1ToL2Messages, totalNumBlobFields, previousBlockHeader } =
+          checkpoints[checkpointIndex];
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
           await orchestrator.startNewCheckpoint(
-            i, // checkpointIndex
-            context.getCheckpointConstants(i),
+            checkpointIndex,
+            constants,
             l1ToL2Messages,
-            1, // numBlocks
-            blobFieldsLengths[i],
-            context.getPreviousBlockHeader(block.number),
+            blocks.length,
+            totalNumBlobFields,
+            previousBlockHeader,
           );
-          await orchestrator.startNewBlock(block.number, block.header.globalVariables.timestamp, txs.length);
-          let allTxsAdded = true;
-          try {
-            await orchestrator.addTxs(txs);
-          } catch {
-            allTxsAdded = false;
-            break;
-          }
 
-          if (!allTxsAdded) {
-            await expect(orchestrator.setBlockCompleted(block.number)).rejects.toThrow(
-              `Block proving failed: ${message}`,
-            );
-          } else {
-            await orchestrator.setBlockCompleted(block.number);
+          for (const block of blocks) {
+            const { blockNumber, timestamp } = block.header.globalVariables;
+            await orchestrator.startNewBlock(blockNumber, timestamp, block.txs.length);
+
+            let allTxsAdded = true;
+            try {
+              await orchestrator.addTxs(block.txs);
+            } catch {
+              allTxsAdded = false;
+              break;
+            }
+
+            if (!allTxsAdded) {
+              await expect(orchestrator.setBlockCompleted(blockNumber)).rejects.toThrow(
+                `Block proving failed: ${message}`,
+              );
+            } else {
+              await orchestrator.setBlockCompleted(blockNumber);
+            }
           }
         } catch {
           break;
@@ -92,30 +108,69 @@ describe('prover/orchestrator/failures', () => {
       [
         'Private Base Rollup Failed',
         (msg: string) => jest.spyOn(prover, 'getPrivateTxBaseRollupProof').mockRejectedValue(msg),
+        { numTxsPerBlock: 1, privateOnly: true },
       ],
       [
         'Public Base Rollup Failed',
         (msg: string) => jest.spyOn(prover, 'getPublicTxBaseRollupProof').mockRejectedValue(msg),
+        { numTxsPerBlock: 1, privateOnly: false },
       ],
-      ['Tx Merge Rollup Failed', (msg: string) => jest.spyOn(prover, 'getTxMergeRollupProof').mockRejectedValue(msg)],
+      [
+        'Tx Merge Rollup Failed',
+        (msg: string) => jest.spyOn(prover, 'getTxMergeRollupProof').mockRejectedValue(msg),
+        { numTxsPerBlock: 3 }, // Need at least 3 txs to use a tx merge rollup.
+      ],
+      [
+        'Block Root First Empty Tx Rollup Failed',
+        (msg: string) => jest.spyOn(prover, 'getBlockRootEmptyTxFirstRollupProof').mockRejectedValue(msg),
+        { numTxsPerBlock: 0, numL1ToL2Messages: 1 },
+      ],
+      [
+        'Block Root First Single Tx Rollup Failed',
+        (msg: string) => jest.spyOn(prover, 'getBlockRootSingleTxFirstRollupProof').mockRejectedValue(msg),
+        { numTxsPerBlock: 1 },
+      ],
       [
         'Block Root First Rollup Failed',
         (msg: string) => jest.spyOn(prover, 'getBlockRootFirstRollupProof').mockRejectedValue(msg),
+        { numTxsPerBlock: 2 }, // Need at least 2 txs to use a block root first rollup.
       ],
       [
         'Checkpoint Root Single Block Rollup Failed',
         (msg: string) => jest.spyOn(prover, 'getCheckpointRootSingleBlockRollupProof').mockRejectedValue(msg),
       ],
       [
+        'Checkpoint Root Rollup Failed',
+        (msg: string) => jest.spyOn(prover, 'getCheckpointRootRollupProof').mockRejectedValue(msg),
+        { numBlocksPerCheckpoint: 2, numTxsPerBlock: 1 },
+      ],
+      [
         'Checkpoint Merge Rollup Failed',
         (msg: string) => jest.spyOn(prover, 'getCheckpointMergeRollupProof').mockRejectedValue(msg),
+        { numCheckpoints: 3 }, // Need at least 3 checkpoints to use a checkpoint merge rollup.
       ],
       ['Root Rollup Failed', (msg: string) => jest.spyOn(prover, 'getRootRollupProof').mockRejectedValue(msg)],
-      ['Base Parity Failed', (msg: string) => jest.spyOn(prover, 'getBaseParityProof').mockRejectedValue(msg)],
-      ['Root Parity Failed', (msg: string) => jest.spyOn(prover, 'getRootParityProof').mockRejectedValue(msg)],
+      [
+        'Base Parity Failed',
+        (msg: string) => jest.spyOn(prover, 'getBaseParityProof').mockRejectedValue(msg),
+        {
+          numL1ToL2Messages: 1,
+        },
+      ],
+      [
+        'Root Parity Failed',
+        (msg: string) => jest.spyOn(prover, 'getRootParityProof').mockRejectedValue(msg),
+        {
+          numL1ToL2Messages: 1,
+        },
+      ],
     ] as const)(
       'handles a %s error',
-      async (message: string, makeFailedProof: (msg: string) => void) => {
+      async (
+        message: string,
+        makeFailedProof: (msg: string) => void,
+        opts: Partial<Parameters<typeof run>[1]> = {},
+      ) => {
         /**
          * NOTE: these tests start a new epoch with N blocks. Each block will have M txs in it.
          * Txs are proven in parallel and as soon as one fails (which is what this test is setting up to happen)
@@ -127,7 +182,7 @@ describe('prover/orchestrator/failures', () => {
          */
         makeFailedProof(message);
 
-        await run(message);
+        await run(message, opts);
 
         await expect(() => orchestrator.finalizeEpoch()).rejects.toThrow();
       },

@@ -44,7 +44,7 @@ TEST(AvmSimulationPublicDataTree, ReadExists)
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
     AppendOnlyTreeSnapshot snapshot = {
         .root = 123456,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
     FF value = 27;
 
@@ -97,7 +97,7 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToInfinity)
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
     AppendOnlyTreeSnapshot snapshot = {
         .root = 123456,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
     FF value = 0;
 
@@ -155,7 +155,7 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToAnotherLeaf)
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
     AppendOnlyTreeSnapshot snapshot = {
         .root = 123456,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
     FF value = 0;
 
@@ -218,7 +218,7 @@ TEST(AvmSimulationPublicDataTree, WriteExists)
     public_data_tree.update_element(low_leaf_index, low_leaf_hash);
 
     AppendOnlyTreeSnapshot prev_snapshot =
-        AppendOnlyTreeSnapshot{ .root = public_data_tree.root(), .nextAvailableLeafIndex = 128 };
+        AppendOnlyTreeSnapshot{ .root = public_data_tree.root(), .next_available_leaf_index = 128 };
     std::vector<FF> low_leaf_sibling_path = public_data_tree.get_sibling_path(low_leaf_index);
 
     PublicDataTreeLeafPreimage updated_low_leaf = low_leaf;
@@ -227,12 +227,12 @@ TEST(AvmSimulationPublicDataTree, WriteExists)
     public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
 
     FF intermediate_root = public_data_tree.root();
-    std::vector<FF> insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+    std::vector<FF> insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
     // No insertion happens
     AppendOnlyTreeSnapshot next_snapshot =
         AppendOnlyTreeSnapshot{ .root = intermediate_root,
-                                .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex };
+                                .next_available_leaf_index = prev_snapshot.next_available_leaf_index };
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) {
@@ -297,26 +297,26 @@ TEST(AvmSimulationPublicDataTree, WriteAndUpdate)
     public_data_tree.update_element(low_leaf_index, low_leaf_hash);
 
     AppendOnlyTreeSnapshot prev_snapshot =
-        AppendOnlyTreeSnapshot{ .root = public_data_tree.root(), .nextAvailableLeafIndex = 128 };
+        AppendOnlyTreeSnapshot{ .root = public_data_tree.root(), .next_available_leaf_index = 128 };
     std::vector<FF> low_leaf_sibling_path = public_data_tree.get_sibling_path(low_leaf_index);
 
     PublicDataTreeLeafPreimage updated_low_leaf = low_leaf;
-    updated_low_leaf.nextIndex = prev_snapshot.nextAvailableLeafIndex;
+    updated_low_leaf.nextIndex = prev_snapshot.next_available_leaf_index;
     updated_low_leaf.nextKey = leaf_slot;
     FF updated_low_leaf_hash = RawPoseidon2::hash(updated_low_leaf.get_hash_inputs());
     public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
 
     FF intermediate_root = public_data_tree.root();
-    std::vector<FF> insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+    std::vector<FF> insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
     PublicDataTreeLeafPreimage new_leaf =
         PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, new_value), low_leaf.nextIndex, low_leaf.nextKey);
     FF new_leaf_hash = RawPoseidon2::hash(new_leaf.get_hash_inputs());
-    public_data_tree.update_element(prev_snapshot.nextAvailableLeafIndex, new_leaf_hash);
+    public_data_tree.update_element(prev_snapshot.next_available_leaf_index, new_leaf_hash);
 
     AppendOnlyTreeSnapshot next_snapshot =
         AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
-                                .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1 };
+                                .next_available_leaf_index = prev_snapshot.next_available_leaf_index + 1 };
 
     uint32_t execution_id = 1;
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly([&]() { return execution_id++; });
@@ -327,7 +327,8 @@ TEST(AvmSimulationPublicDataTree, WriteAndUpdate)
     EXPECT_CALL(merkle_check, write(low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
         .WillRepeatedly(Return(intermediate_root));
     EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.leaf.slot)).WillRepeatedly(Return(true));
-    EXPECT_CALL(merkle_check, write(FF(0), new_leaf_hash, prev_snapshot.nextAvailableLeafIndex, _, intermediate_root))
+    EXPECT_CALL(merkle_check,
+                write(FF(0), new_leaf_hash, prev_snapshot.next_available_leaf_index, _, intermediate_root))
         .WillRepeatedly(Return(next_snapshot.root));
 
     AppendOnlyTreeSnapshot snapshot_after_write = public_data_tree_check.write(slot,
@@ -359,7 +360,7 @@ TEST(AvmSimulationPublicDataTree, WriteAndUpdate)
         .execution_id = 1,
     };
 
-    low_leaf_index = prev_snapshot.nextAvailableLeafIndex;
+    low_leaf_index = prev_snapshot.next_available_leaf_index;
     prev_snapshot = snapshot_after_write;
 
     low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, new_value), 0, 0);
@@ -375,11 +376,11 @@ TEST(AvmSimulationPublicDataTree, WriteAndUpdate)
     public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
 
     intermediate_root = public_data_tree.root();
-    insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+    insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
     // No insertion happens
     next_snapshot = AppendOnlyTreeSnapshot{ .root = intermediate_root,
-                                            .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex };
+                                            .next_available_leaf_index = prev_snapshot.next_available_leaf_index };
 
     EXPECT_CALL(merkle_check, write(low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
         .WillRepeatedly(Return(intermediate_root));

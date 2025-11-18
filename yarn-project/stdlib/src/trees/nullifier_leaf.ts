@@ -36,6 +36,24 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
       .transform(({ leaf, nextKey, nextIndex }) => new NullifierLeafPreimage(leaf, nextKey, nextIndex));
   }
 
+  /**
+   * Creates a NullifierLeafPreimage from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing NullifierLeafPreimage fields
+   * @returns A NullifierLeafPreimage instance
+   */
+  static fromPlainObject(obj: any): NullifierLeafPreimage {
+    if (obj instanceof NullifierLeafPreimage) {
+      return obj;
+    }
+    return new NullifierLeafPreimage(
+      NullifierLeaf.fromPlainObject(obj.leaf),
+      Fr.fromPlainObject(obj.nextKey),
+      typeof obj.nextIndex === 'bigint' ? obj.nextIndex : BigInt(obj.nextIndex),
+    );
+  }
+
   static get leafSchema() {
     return NullifierLeaf.schema;
   }
@@ -156,5 +174,19 @@ export class NullifierLeaf implements IndexedTreeLeaf {
 
   static get schema() {
     return z.object({ nullifier: schemas.Fr }).transform(({ nullifier }) => new NullifierLeaf(nullifier));
+  }
+
+  /**
+   * Creates a NullifierLeaf from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing NullifierLeaf fields
+   * @returns A NullifierLeaf instance
+   */
+  static fromPlainObject(obj: any): NullifierLeaf {
+    if (obj instanceof NullifierLeaf) {
+      return obj;
+    }
+    return new NullifierLeaf(Fr.fromPlainObject(obj.nullifier));
   }
 }

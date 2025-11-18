@@ -25,8 +25,8 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     BytecodeRetrievalEvent retrieval_event = {
         .bytecode_id = FF(0), // Use default ID for error cases
         .address = address,
-        .nullifier_root = tree_states.nullifierTree.tree.root,
-        .public_data_tree_root = tree_states.publicDataTree.tree.root,
+        .nullifier_root = tree_states.nullifier_tree.tree.root,
+        .public_data_tree_root = tree_states.public_data_tree.tree.root,
         .retrieved_bytecodes_snapshot_before = before_snapshot,
         .retrieved_bytecodes_snapshot_after = before_snapshot,
     };

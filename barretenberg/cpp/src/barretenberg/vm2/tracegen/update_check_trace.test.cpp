@@ -91,7 +91,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
                                                                  delayed_public_mutable_hash_slot });
 
     TreeSnapshots trees;
-    trees.publicDataTree.root = 42;
+    trees.public_data_tree.root = 42;
 
     ExecutionIdManager execution_id_manager(0);
 
@@ -181,7 +181,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
 
     TreeSnapshots trees;
-    trees.publicDataTree.root = 42;
+    trees.public_data_tree.root = 42;
 
     ExecutionIdManager execution_id_manager(0);
 

@@ -11,17 +11,14 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b &&  rm -rf dest && webpack",
-    "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
+    "build": "yarn clean && yarn generate && tsc -b && webpack",
+    "clean": "rm -rf ./dest ./dist .tsbuildinfo src/types artifacts",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
     "generate": "yarn generate:noir-circuits",
     "generate:noir-circuits": "mkdir -p ./artifacts && cp -r ../../noir-projects/mock-protocol-circuits/target/* ./artifacts && node --no-warnings --loader @swc-node/register/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader @swc-node/register/esm src/scripts/generate_ts_from_abi.ts",
-    "test:non-browser": "RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testPathIgnorePatterns=browser --passWithNoTests ",
-    "test:browser": "./run_browser_tests.sh",
-    "test": "yarn test:non-browser",
+    "test": "RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests ",
     "codegen": "yarn noir-codegen",
     "build:dev": "tsc -b --watch",
-    "build:browser-app": "rm -rf dest && webpack",
     "serve": "serve -n -L -p 8080 -c ../serve.mt.json dest"
   },
   "jest": {

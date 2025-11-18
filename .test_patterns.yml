@@ -227,6 +227,13 @@ tests:
     owners:
       - *adam
 
+  # Example http://ci.aztec-labs.com/1752518c2215134c
+  # This seems to be a flake in how this is set up. TODO redo boxes.
+  - regex: "run_compose_test [a-z]*-[a-z]* box boxes"
+    error_regex: "expect.locator..toBeVisible.."
+    owners:
+      - *adam
+
   # Example http://ci.aztec-labs.com/cd76b19670ab613f
   # related to wasm proving browser flakes potentially
   - regex: "run_compose_test [a-z]*-[a-z]* box boxes"

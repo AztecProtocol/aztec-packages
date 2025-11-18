@@ -4,10 +4,10 @@ import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdl
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { EncodedAppEntrypointCalls } from './encoding.js';
 import type { EntrypointInterface } from './interfaces.js';
-import type { ExecutionPayload } from './payload.js';
 
 /**
  * Implementation for an entrypoint interface that can execute multiple function calls in a single transaction

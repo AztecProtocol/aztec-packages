@@ -46,6 +46,7 @@ import {
   type Watcher,
   createSlasher,
 } from '@aztec/slasher';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type InBlock,
@@ -1149,11 +1150,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
-      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, {
+      const config = PublicSimulatorConfig.from({
         skipFeeEnforcement,
-        clientInitiatedSimulation: true,
+        collectDebugLogs: true,
+        collectHints: false,
+        collectCallMetadata: true,
         maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
+        collectStatistics: false,
       });
+      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, _usedTxs, returns] = await processor.process([tx]);

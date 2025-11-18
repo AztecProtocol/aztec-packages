@@ -1,8 +1,8 @@
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
+import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { SetPublicAuthwitContractInteraction } from '../utils/authwit.js';
@@ -129,6 +129,8 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
       ],
       [],
       [],
+      [],
+      this.paymentContract, // feePayer
     );
   }
 

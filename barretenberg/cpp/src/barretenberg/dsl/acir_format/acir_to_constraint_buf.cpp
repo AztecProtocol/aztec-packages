@@ -361,6 +361,7 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
     } else {
         BB_ASSERT_GT(mul_quads.size(), 1U, "acir_format::handle_arithmetic: expected multiple gates but found one.");
         af.big_quad_constraints.push_back(mul_quads);
+        af.original_opcode_indices.big_quad_constraints.push_back(opcode_index);
     }
 
     for (auto const& mul_quad : mul_quads) {

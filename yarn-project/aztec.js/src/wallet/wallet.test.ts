@@ -1,5 +1,4 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
@@ -8,7 +7,14 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassMetadata, ContractInstanceWithAddress, ContractMetadata } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { TxHash, TxProfileResult, TxReceipt, TxSimulationResult, UtilitySimulationResult } from '@aztec/stdlib/tx';
+import {
+  ExecutionPayload,
+  TxHash,
+  TxProfileResult,
+  TxReceipt,
+  TxSimulationResult,
+  UtilitySimulationResult,
+} from '@aztec/stdlib/tx';
 
 import type {
   Aliased,
@@ -208,6 +214,9 @@ describe('WalletSchema', () => {
     const opts: SendOptions = {
       from: await AztecAddress.random(),
     };
+    const simulateOpts: SimulateOptions = {
+      from: await AztecAddress.random(),
+    };
 
     const call = {
       name: 'testFunction',
@@ -225,10 +234,11 @@ describe('WalletSchema', () => {
       { name: 'registerContract', args: [address2, undefined, undefined] },
       { name: 'sendTx', args: [exec, opts] },
       { name: 'simulateUtility', args: [call, [AuthWitness.random()], undefined] },
+      { name: 'simulateTx', args: [exec, simulateOpts] },
     ];
 
     const results = await context.client.batch(methods);
-    expect(results).toHaveLength(4);
+    expect(results).toHaveLength(5);
     expect(results[0]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
     expect(results[1]).toEqual({
       name: 'registerContract',
@@ -236,6 +246,7 @@ describe('WalletSchema', () => {
     });
     expect(results[2]).toEqual({ name: 'sendTx', result: expect.any(TxHash) });
     expect(results[3]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
+    expect(results[4]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
   });
 });
 

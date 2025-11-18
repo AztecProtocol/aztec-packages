@@ -29,6 +29,20 @@ export class ContractClassLogFields {
       .transform(({ fields }) => new ContractClassLogFields(fields));
   }
 
+  /**
+   * Creates a ContractClassLogFields from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing ContractClassLogFields fields
+   * @returns A ContractClassLogFields instance
+   */
+  static fromPlainObject(obj: any): ContractClassLogFields {
+    if (obj instanceof ContractClassLogFields) {
+      return obj;
+    }
+    return new ContractClassLogFields(obj.fields.map((f: any) => Fr.fromPlainObject(f)));
+  }
+
   toFields(): Fr[] {
     return this.fields;
   }
@@ -189,6 +203,24 @@ export class ContractClassLog {
         emittedLength: z.number(),
       })
       .transform(ContractClassLog.from);
+  }
+
+  /**
+   * Creates a ContractClassLog from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing ContractClassLog fields
+   * @returns A ContractClassLog instance
+   */
+  static fromPlainObject(obj: any): ContractClassLog {
+    if (obj instanceof ContractClassLog) {
+      return obj;
+    }
+    return new ContractClassLog(
+      AztecAddress.fromPlainObject(obj.contractAddress),
+      ContractClassLogFields.fromPlainObject(obj.fields),
+      obj.emittedLength,
+    );
   }
 
   [inspect.custom](): string {

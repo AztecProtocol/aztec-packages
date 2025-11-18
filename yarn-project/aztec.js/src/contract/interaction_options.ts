@@ -114,13 +114,10 @@ export type SimulationReturn<T extends boolean | undefined> = T extends true
  * Transforms and cleans up the higher level SendInteractionOptions defined by the interaction into
  * SendOptions, which are the ones that can be serialized and forwarded to the wallet
  */
-export async function toSendOptions(options: SendInteractionOptions): Promise<SendOptions> {
+export function toSendOptions(options: SendInteractionOptions): SendOptions {
   return {
     ...options,
     fee: {
-      // If this interaction includes a fee payment method, pass the fee payer
-      // as a hint to the wallet
-      embeddedPaymentMethodFeePayer: await options.fee?.paymentMethod?.getFeePayer(),
       // If a payment method that includes gas settings was used,
       // try to reuse as much as possible while still allowing
       // manual override. CAREFUL: this can cause mismatches during proving
@@ -136,13 +133,10 @@ export async function toSendOptions(options: SendInteractionOptions): Promise<Se
  * Transforms and cleans up the higher level SimulateInteractionOptions defined by the interaction into
  * SimulateOptions, which are the ones that can be serialized and forwarded to the wallet
  */
-export async function toSimulateOptions(options: SimulateInteractionOptions): Promise<SimulateOptions> {
+export function toSimulateOptions(options: SimulateInteractionOptions): SimulateOptions {
   return {
     ...options,
     fee: {
-      // If this interaction includes a fee payment method, pass the fee payer
-      // as a hint to the wallet
-      embeddedPaymentMethodFeePayer: await options.fee?.paymentMethod?.getFeePayer(),
       // If a payment method that includes gas settings was used,
       // try to reuse as much as possible while still allowing
       // manual override. CAREFUL: this can cause mismatches during proving
@@ -160,9 +154,9 @@ export async function toSimulateOptions(options: SimulateInteractionOptions): Pr
  * Transforms and cleans up the higher level ProfileInteractionOptions defined by the interaction into
  * ProfileOptions, which are the ones that can be serialized and forwarded to the wallet
  */
-export async function toProfileOptions(options: ProfileInteractionOptions): Promise<ProfileOptions> {
+export function toProfileOptions(options: ProfileInteractionOptions): ProfileOptions {
   return {
-    ...(await toSimulateOptions(options)),
+    ...toSimulateOptions(options),
     profileMode: options.profileMode,
     skipProofGeneration: options.skipProofGeneration,
   };

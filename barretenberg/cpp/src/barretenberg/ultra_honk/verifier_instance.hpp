@@ -40,6 +40,9 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
+    // For ZK flavors: store Gemini masking polynomial commitment
+    Commitment gemini_masking_commitment;
+
     VerifierInstance_() = default;
     VerifierInstance_(std::shared_ptr<VerificationKey> vk)
         : vk(vk)
@@ -107,7 +110,8 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
         return Transcript::HashFunction::hash(instance_elements);
     }
 
-    MSGPACK_FIELDS(vk, relation_parameters, alpha, is_complete, gate_challenges, witness_commitments);
+    MSGPACK_FIELDS(
+        vk, relation_parameters, alpha, is_complete, gate_challenges, witness_commitments, gemini_masking_commitment);
 };
 
 } // namespace bb

@@ -323,7 +323,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
 
     bool avm_mode = false;
 
-    std::array<SlabVector<uint32_t>, NUM_WIRES> wires;
+    std::array<std::vector<uint32_t>, NUM_WIRES> wires;
 
     /**
      * @brief Construct a new Translator Circuit Builder object

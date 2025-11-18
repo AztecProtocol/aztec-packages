@@ -1,3 +1,4 @@
+import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -10,15 +11,15 @@ import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
-import type { GasUsed } from '../gas/gas_used.js';
+import { GasUsed } from '../gas/gas_used.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { DebugLog } from '../logs/debug_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { NullishToUndefined, type ZodFor, schemas } from '../schemas/schemas.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
-import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
-import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
+import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
+import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import {
   GlobalVariables,
   NestedProcessReturnValues,
@@ -26,7 +27,6 @@ import {
   PublicCallRequestWithCalldata,
   TreeSnapshots,
   type Tx,
-  TxExecutionPhase,
 } from '../tx/index.js';
 import { WorldStateRevision } from '../world-state/world_state_revision.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
@@ -59,6 +59,26 @@ export class AvmContractClassHint {
           new AvmContractClassHint(hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode),
       );
   }
+
+  /**
+   * Creates an AvmContractClassHint from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmContractClassHint fields
+   * @returns An AvmContractClassHint instance
+   */
+  static fromPlainObject(obj: any): AvmContractClassHint {
+    if (obj instanceof AvmContractClassHint) {
+      return obj;
+    }
+    return new AvmContractClassHint(
+      obj.hintKey,
+      Fr.fromPlainObject(obj.classId),
+      Fr.fromPlainObject(obj.artifactHash),
+      Fr.fromPlainObject(obj.privateFunctionsRoot),
+      obj.packedBytecode instanceof Buffer ? obj.packedBytecode : Buffer.from(obj.packedBytecode),
+    );
+  }
 }
 
 export class AvmBytecodeCommitmentHint {
@@ -76,6 +96,24 @@ export class AvmBytecodeCommitmentHint {
         commitment: schemas.Fr,
       })
       .transform(({ hintKey, classId, commitment }) => new AvmBytecodeCommitmentHint(hintKey, classId, commitment));
+  }
+
+  /**
+   * Creates an AvmBytecodeCommitmentHint from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmBytecodeCommitmentHint fields
+   * @returns An AvmBytecodeCommitmentHint instance
+   */
+  static fromPlainObject(obj: any): AvmBytecodeCommitmentHint {
+    if (obj instanceof AvmBytecodeCommitmentHint) {
+      return obj;
+    }
+    return new AvmBytecodeCommitmentHint(
+      obj.hintKey,
+      Fr.fromPlainObject(obj.classId),
+      Fr.fromPlainObject(obj.commitment),
+    );
   }
 }
 
@@ -126,6 +164,29 @@ export class AvmContractInstanceHint {
           ),
       );
   }
+
+  /**
+   * Creates an AvmContractInstanceHint from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmContractInstanceHint fields
+   * @returns An AvmContractInstanceHint instance
+   */
+  static fromPlainObject(obj: any): AvmContractInstanceHint {
+    if (obj instanceof AvmContractInstanceHint) {
+      return obj;
+    }
+    return new AvmContractInstanceHint(
+      obj.hintKey,
+      AztecAddress.fromPlainObject(obj.address),
+      Fr.fromPlainObject(obj.salt),
+      AztecAddress.fromPlainObject(obj.deployer),
+      Fr.fromPlainObject(obj.currentContractClassId),
+      Fr.fromPlainObject(obj.originalContractClassId),
+      Fr.fromPlainObject(obj.initializationHash),
+      PublicKeys.fromPlainObject(obj.publicKeys),
+    );
+  }
 }
 
 export class AvmDebugFunctionNameHint {
@@ -143,6 +204,24 @@ export class AvmDebugFunctionNameHint {
         name: z.string(),
       })
       .transform(({ address, selector, name }) => new AvmDebugFunctionNameHint(address, selector, name));
+  }
+
+  /**
+   * Creates an AvmDebugFunctionNameHint from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmDebugFunctionNameHint fields
+   * @returns An AvmDebugFunctionNameHint instance
+   */
+  static fromPlainObject(obj: any): AvmDebugFunctionNameHint {
+    if (obj instanceof AvmDebugFunctionNameHint) {
+      return obj;
+    }
+    return new AvmDebugFunctionNameHint(
+      AztecAddress.fromPlainObject(obj.address),
+      Fr.fromPlainObject(obj.selector),
+      obj.name,
+    );
   }
 }
 
@@ -169,6 +248,25 @@ export class AvmGetSiblingPathHint {
         path: schemas.Fr.array(),
       })
       .transform(({ hintKey, treeId, index, path }) => new AvmGetSiblingPathHint(hintKey, treeId, index, path));
+  }
+
+  /**
+   * Creates an AvmGetSiblingPathHint from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmGetSiblingPathHint fields
+   * @returns An AvmGetSiblingPathHint instance
+   */
+  static fromPlainObject(obj: any): AvmGetSiblingPathHint {
+    if (obj instanceof AvmGetSiblingPathHint) {
+      return obj;
+    }
+    return new AvmGetSiblingPathHint(
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.hintKey),
+      obj.treeId,
+      typeof obj.index === 'bigint' ? obj.index : BigInt(obj.index),
+      obj.path.map((p: any) => Fr.fromPlainObject(p)),
+    );
   }
 }
 
@@ -198,6 +296,26 @@ export class AvmGetPreviousValueIndexHint {
           new AvmGetPreviousValueIndexHint(hintKey, treeId, value, index, alreadyPresent),
       );
   }
+
+  /**
+   * Creates an AvmGetPreviousValueIndexHint from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmGetPreviousValueIndexHint fields
+   * @returns An AvmGetPreviousValueIndexHint instance
+   */
+  static fromPlainObject(obj: any): AvmGetPreviousValueIndexHint {
+    if (obj instanceof AvmGetPreviousValueIndexHint) {
+      return obj;
+    }
+    return new AvmGetPreviousValueIndexHint(
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.hintKey),
+      obj.treeId,
+      Fr.fromPlainObject(obj.value),
+      typeof obj.index === 'bigint' ? obj.index : BigInt(obj.index),
+      obj.alreadyPresent,
+    );
+  }
 }
 
 type IndexedTreeLeafPreimages = NullifierLeafPreimage | PublicDataTreeLeafPreimage;
@@ -224,6 +342,24 @@ function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
           leafPreimage: klass.schema,
         })
         .transform(({ hintKey, index, leafPreimage }) => new this(hintKey, index, leafPreimage));
+    }
+
+    /**
+     * Creates an instance from a plain object without Zod validation.
+     * This method is optimized for performance and skips validation, making it suitable
+     * for deserializing trusted data (e.g., from C++ via MessagePack).
+     * @param obj - Plain object containing hint fields
+     * @returns An instance
+     */
+    static fromPlainObject(obj: any): any {
+      if (obj instanceof this) {
+        return obj;
+      }
+      return new this(
+        AppendOnlyTreeSnapshot.fromPlainObject(obj.hintKey),
+        typeof obj.index === 'bigint' ? obj.index : BigInt(obj.index),
+        klass.fromPlainObject(obj.leafPreimage),
+      );
     }
   };
 }
@@ -253,6 +389,25 @@ export class AvmGetLeafValueHint {
         value: schemas.Fr,
       })
       .transform(({ hintKey, treeId, index, value }) => new AvmGetLeafValueHint(hintKey, treeId, index, value));
+  }
+
+  /**
+   * Creates an AvmGetLeafValueHint from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmGetLeafValueHint fields
+   * @returns An AvmGetLeafValueHint instance
+   */
+  static fromPlainObject(obj: any): AvmGetLeafValueHint {
+    if (obj instanceof AvmGetLeafValueHint) {
+      return obj;
+    }
+    return new AvmGetLeafValueHint(
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.hintKey),
+      obj.treeId,
+      typeof obj.index === 'bigint' ? obj.index : BigInt(obj.index),
+      Fr.fromPlainObject(obj.value),
+    );
   }
 }
 
@@ -303,6 +458,43 @@ function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) 
             new this(hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData),
         );
     }
+
+    /**
+     * Creates an instance from a plain object without Zod validation.
+     * This method is optimized for performance and skips validation, making it suitable
+     * for deserializing trusted data (e.g., from C++ via MessagePack).
+     * @param obj - Plain object containing hint fields
+     * @returns An instance
+     */
+    static fromPlainObject(obj: any): any {
+      if (obj instanceof this) {
+        return obj;
+      }
+      // Determine the leaf class based on the klass parameter
+      const LeafClass = klass === PublicDataTreeLeafPreimage ? PublicDataTreeLeaf : NullifierLeaf;
+      return new this(
+        AppendOnlyTreeSnapshot.fromPlainObject(obj.hintKey),
+        AppendOnlyTreeSnapshot.fromPlainObject(obj.stateAfter),
+        obj.treeId,
+        LeafClass.fromPlainObject(obj.leaf),
+        {
+          leaf: klass.fromPlainObject(obj.lowLeavesWitnessData.leaf),
+          index:
+            typeof obj.lowLeavesWitnessData.index === 'bigint'
+              ? obj.lowLeavesWitnessData.index
+              : BigInt(obj.lowLeavesWitnessData.index),
+          path: obj.lowLeavesWitnessData.path.map((p: any) => Fr.fromPlainObject(p)),
+        },
+        {
+          leaf: klass.fromPlainObject(obj.insertionWitnessData.leaf),
+          index:
+            typeof obj.insertionWitnessData.index === 'bigint'
+              ? obj.insertionWitnessData.index
+              : BigInt(obj.insertionWitnessData.index),
+          path: obj.insertionWitnessData.path.map((p: any) => Fr.fromPlainObject(p)),
+        },
+      );
+    }
   };
 }
 
@@ -333,6 +525,25 @@ export class AvmAppendLeavesHint {
         ({ hintKey, stateAfter, treeId, leaves }) => new AvmAppendLeavesHint(hintKey, stateAfter, treeId, leaves),
       );
   }
+
+  /**
+   * Creates an AvmAppendLeavesHint from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmAppendLeavesHint fields
+   * @returns An AvmAppendLeavesHint instance
+   */
+  static fromPlainObject(obj: any): AvmAppendLeavesHint {
+    if (obj instanceof AvmAppendLeavesHint) {
+      return obj;
+    }
+    return new AvmAppendLeavesHint(
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.hintKey),
+      AppendOnlyTreeSnapshot.fromPlainObject(obj.stateAfter),
+      obj.treeId,
+      obj.leaves.map((l: any) => Fr.fromPlainObject(l)),
+    );
+  }
 }
 
 // Hint for checkpoint actions that don't change the state.
@@ -356,6 +567,20 @@ class AvmCheckpointActionNoStateChangeHint {
         ({ actionCounter, oldCheckpointId, newCheckpointId }) =>
           new this(actionCounter, oldCheckpointId, newCheckpointId),
       );
+  }
+
+  /**
+   * Creates an instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing hint fields
+   * @returns An instance
+   */
+  static fromPlainObject(obj: any): any {
+    if (obj instanceof this) {
+      return obj;
+    }
+    return new this(obj.actionCounter, obj.oldCheckpointId, obj.newCheckpointId);
   }
 }
 
@@ -419,11 +644,31 @@ export class AvmRevertCheckpointHint {
           new AvmRevertCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter),
       );
   }
+
+  /**
+   * Creates an AvmRevertCheckpointHint from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmRevertCheckpointHint fields
+   * @returns An AvmRevertCheckpointHint instance
+   */
+  static fromPlainObject(obj: any): AvmRevertCheckpointHint {
+    if (obj instanceof AvmRevertCheckpointHint) {
+      return obj;
+    }
+    return new AvmRevertCheckpointHint(
+      obj.actionCounter,
+      obj.oldCheckpointId,
+      obj.newCheckpointId,
+      TreeSnapshots.fromPlainObject(obj.stateBefore),
+      TreeSnapshots.fromPlainObject(obj.stateAfter),
+    );
+  }
 }
 
-export class AvmContractDBCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
-export class AvmContractDBCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
-export class AvmContractDBRevertCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDbCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDbCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDbRevertCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
 
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
@@ -506,6 +751,45 @@ export class AvmTxHint {
     );
   }
 
+  /**
+   * Creates an AvmTxHint from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmTxHint fields
+   * @returns An AvmTxHint instance
+   */
+  static fromPlainObject(obj: any): AvmTxHint {
+    if (obj instanceof AvmTxHint) {
+      return obj;
+    }
+    return new AvmTxHint(
+      obj.hash,
+      GasSettings.fromPlainObject(obj.gasSettings),
+      GasFees.fromPlainObject(obj.effectiveGasFees),
+      ContractDeploymentData.fromPlainObject(obj.nonRevertibleContractDeploymentData),
+      ContractDeploymentData.fromPlainObject(obj.revertibleContractDeploymentData),
+      {
+        noteHashes: obj.nonRevertibleAccumulatedData.noteHashes.map((h: any) => Fr.fromPlainObject(h)),
+        nullifiers: obj.nonRevertibleAccumulatedData.nullifiers.map((n: any) => Fr.fromPlainObject(n)),
+        l2ToL1Messages: obj.nonRevertibleAccumulatedData.l2ToL1Messages.map((m: any) =>
+          ScopedL2ToL1Message.fromPlainObject(m),
+        ),
+      },
+      {
+        noteHashes: obj.revertibleAccumulatedData.noteHashes.map((h: any) => Fr.fromPlainObject(h)),
+        nullifiers: obj.revertibleAccumulatedData.nullifiers.map((n: any) => Fr.fromPlainObject(n)),
+        l2ToL1Messages: obj.revertibleAccumulatedData.l2ToL1Messages.map((m: any) =>
+          ScopedL2ToL1Message.fromPlainObject(m),
+        ),
+      },
+      obj.setupEnqueuedCalls.map((c: any) => PublicCallRequestWithCalldata.fromPlainObject(c)),
+      obj.appLogicEnqueuedCalls.map((c: any) => PublicCallRequestWithCalldata.fromPlainObject(c)),
+      obj.teardownEnqueuedCall ? PublicCallRequestWithCalldata.fromPlainObject(obj.teardownEnqueuedCall) : null,
+      Gas.fromPlainObject(obj.gasUsedByPrivate),
+      AztecAddress.fromPlainObject(obj.feePayer),
+    );
+  }
+
   static get schema() {
     return z
       .object({
@@ -574,9 +858,9 @@ export class AvmExecutionHints {
     public readonly contractClasses: AvmContractClassHint[] = [],
     public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
     public readonly debugFunctionNames: AvmDebugFunctionNameHint[] = [],
-    public readonly contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint[] = [],
-    public readonly contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint[] = [],
-    public readonly contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint[] = [],
+    public readonly contractDbCreateCheckpointHints: AvmContractDbCreateCheckpointHint[] = [],
+    public readonly contractDbCommitCheckpointHints: AvmContractDbCommitCheckpointHint[] = [],
+    public readonly contractDbRevertCheckpointHints: AvmContractDbRevertCheckpointHint[] = [],
     // Merkle DB hints.
     public startingTreeRoots: TreeSnapshots = TreeSnapshots.empty(),
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
@@ -592,6 +876,50 @@ export class AvmExecutionHints {
     public readonly revertCheckpointHints: AvmRevertCheckpointHint[] = [],
   ) {}
 
+  /**
+   * Creates an AvmExecutionHints from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AvmExecutionHints fields
+   * @returns An AvmExecutionHints instance
+   */
+  static fromPlainObject(obj: any): AvmExecutionHints {
+    if (obj instanceof AvmExecutionHints) {
+      return obj;
+    }
+    return new AvmExecutionHints(
+      GlobalVariables.fromPlainObject(obj.globalVariables),
+      AvmTxHint.fromPlainObject(obj.tx),
+      ProtocolContracts.fromPlainObject(obj.protocolContracts),
+      obj.contractInstances?.map((i: any) => AvmContractInstanceHint.fromPlainObject(i)) || [],
+      obj.contractClasses?.map((c: any) => AvmContractClassHint.fromPlainObject(c)) || [],
+      obj.bytecodeCommitments?.map((b: any) => AvmBytecodeCommitmentHint.fromPlainObject(b)) || [],
+      obj.debugFunctionNames?.map((d: any) => AvmDebugFunctionNameHint.fromPlainObject(d)) || [],
+      obj.contractDbCreateCheckpointHints?.map((h: any) => AvmContractDbCreateCheckpointHint.fromPlainObject(h)) || [],
+      obj.contractDbCommitCheckpointHints?.map((h: any) => AvmContractDbCommitCheckpointHint.fromPlainObject(h)) || [],
+      obj.contractDbRevertCheckpointHints?.map((h: any) => AvmContractDbRevertCheckpointHint.fromPlainObject(h)) || [],
+      obj.startingTreeRoots ? TreeSnapshots.fromPlainObject(obj.startingTreeRoots) : TreeSnapshots.empty(),
+      obj.getSiblingPathHints?.map((h: any) => AvmGetSiblingPathHint.fromPlainObject(h)) || [],
+      obj.getPreviousValueIndexHints?.map((h: any) => AvmGetPreviousValueIndexHint.fromPlainObject(h)) || [],
+      obj.getLeafPreimageHintsPublicDataTree?.map((h: any) =>
+        AvmGetLeafPreimageHintPublicDataTree.fromPlainObject(h),
+      ) || [],
+      obj.getLeafPreimageHintsNullifierTree?.map((h: any) => AvmGetLeafPreimageHintNullifierTree.fromPlainObject(h)) ||
+        [],
+      obj.getLeafValueHints?.map((h: any) => AvmGetLeafValueHint.fromPlainObject(h)) || [],
+      obj.sequentialInsertHintsPublicDataTree?.map((h: any) =>
+        AvmSequentialInsertHintPublicDataTree.fromPlainObject(h),
+      ) || [],
+      obj.sequentialInsertHintsNullifierTree?.map((h: any) =>
+        AvmSequentialInsertHintNullifierTree.fromPlainObject(h),
+      ) || [],
+      obj.appendLeavesHints?.map((h: any) => AvmAppendLeavesHint.fromPlainObject(h)) || [],
+      obj.createCheckpointHints?.map((h: any) => AvmCreateCheckpointHint.fromPlainObject(h)) || [],
+      obj.commitCheckpointHints?.map((h: any) => AvmCommitCheckpointHint.fromPlainObject(h)) || [],
+      obj.revertCheckpointHints?.map((h: any) => AvmRevertCheckpointHint.fromPlainObject(h)) || [],
+    );
+  }
+
   static empty() {
     return new AvmExecutionHints(GlobalVariables.empty(), AvmTxHint.empty(), ProtocolContracts.empty());
   }
@@ -606,9 +934,9 @@ export class AvmExecutionHints {
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
         debugFunctionNames: AvmDebugFunctionNameHint.schema.array(),
-        contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint.schema.array(),
-        contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint.schema.array(),
-        contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint.schema.array(),
+        contractDbCreateCheckpointHints: AvmContractDbCreateCheckpointHint.schema.array(),
+        contractDbCommitCheckpointHints: AvmContractDbCommitCheckpointHint.schema.array(),
+        contractDbRevertCheckpointHints: AvmContractDbRevertCheckpointHint.schema.array(),
         startingTreeRoots: TreeSnapshots.schema,
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
@@ -631,9 +959,9 @@ export class AvmExecutionHints {
           contractClasses,
           bytecodeCommitments,
           debugFunctionNames,
-          contractDBCreateCheckpointHints,
-          contractDBCommitCheckpointHints,
-          contractDBRevertCheckpointHints,
+          contractDbCreateCheckpointHints,
+          contractDbCommitCheckpointHints,
+          contractDbRevertCheckpointHints,
           startingTreeRoots,
           getSiblingPathHints,
           getPreviousValueIndexHints,
@@ -655,9 +983,9 @@ export class AvmExecutionHints {
             contractClasses,
             bytecodeCommitments,
             debugFunctionNames,
-            contractDBCreateCheckpointHints,
-            contractDBCommitCheckpointHints,
-            contractDBRevertCheckpointHints,
+            contractDbCreateCheckpointHints,
+            contractDbCommitCheckpointHints,
+            contractDbRevertCheckpointHints,
             startingTreeRoots,
             getSiblingPathHints,
             getPreviousValueIndexHints,
@@ -685,6 +1013,13 @@ export class AvmCircuitInputs {
     return new AvmCircuitInputs(AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());
   }
 
+  static fromPlainObject(obj: any): AvmCircuitInputs {
+    return new AvmCircuitInputs(
+      AvmExecutionHints.fromPlainObject(obj.hints),
+      AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs),
+    );
+  }
+
   static get schema() {
     return z
       .object({
@@ -707,22 +1042,17 @@ export class AvmCircuitInputs {
   }
 }
 
-export type ProcessedPhase = {
-  phase: TxExecutionPhase;
-  durationMs?: number;
-  returnValues: NestedProcessReturnValues[];
-  reverted: boolean;
-  revertReason?: SimulationError;
-};
-
 export class PublicTxResult {
   constructor(
     // Simulation result.
     public gasUsed: GasUsed,
     public revertCode: RevertCode,
     public revertReason: SimulationError | undefined, // Revert reason, if any
-    // These are only guaranteed to be present in "client initiated simulation" mode.
-    public processedPhases: ProcessedPhase[] | undefined,
+    // These are only guaranteed to be present if the simulator is configured to collect them.
+    // NOTE: This list will be populated with one NestedProcessReturnValues per app logic enqueued call.
+    // IMPORTANT: The nesting will only be 1 level deep! You will get one result per enqueued call
+    // but no information about nested calls. This can be added later.
+    public appLogicReturnValues: NestedProcessReturnValues[], // One per enqueued call.
     public logs: DebugLog[] | undefined,
     // For the proving request.
     public hints: AvmExecutionHints | undefined,
@@ -739,7 +1069,7 @@ export class PublicTxResult {
       },
       RevertCode.OK,
       /*revertReason=*/ undefined,
-      /*processedPhases=*/ [],
+      /*appLogicReturnValues=*/ [],
       /*logs=*/ [],
       /*hints=*/ AvmExecutionHints.empty(),
       /*publicInputs=*/ AvmCircuitPublicInputs.empty(),
@@ -752,39 +1082,85 @@ export class PublicTxResult {
         gasUsed: schemas.GasUsed,
         revertCode: RevertCode.schema,
         revertReason: NullishToUndefined(SimulationError.schema),
-        // TODO(fcarreiro): Use actual Phases type schema.
-        processedPhases: NullishToUndefined(z.any().array()),
+        appLogicReturnValues: NestedProcessReturnValues.schema.array(),
         logs: NullishToUndefined(DebugLog.schema.array()),
         // For the proving request.
         publicInputs: AvmCircuitPublicInputs.schema,
         hints: NullishToUndefined(AvmExecutionHints.schema),
       })
       .transform(
-        ({ gasUsed, revertCode, revertReason, processedPhases, logs, hints, publicInputs }) =>
+        ({ gasUsed, revertCode, revertReason, appLogicReturnValues, logs, hints, publicInputs }) =>
           new PublicTxResult(
             gasUsed,
             revertCode as RevertCode,
             revertReason,
-            processedPhases,
+            appLogicReturnValues,
             logs,
             hints,
             publicInputs,
           ),
       );
   }
+
+  static fromPlainObject(obj: any): PublicTxResult {
+    return new PublicTxResult(
+      GasUsed.fromPlainObject(obj.gasUsed),
+      RevertCode.fromPlainObject(obj.revertCode),
+      /*revertReason=*/ undefined, // TODO(fcarreiro/mwood): add.
+      /*appLogicReturnValues=*/ obj.appLogicReturnValues.map(NestedProcessReturnValues.fromPlainObject),
+      obj.logs?.map(DebugLog.fromPlainObject),
+      obj.hints ? AvmExecutionHints.fromPlainObject(obj.hints) : undefined,
+      AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs),
+    );
+  }
 }
 
-export type PublicTxSimulatorConfig = {
-  proverId: Fr;
-  doMerkleOperations: boolean;
-  skipFeeEnforcement: boolean;
-  clientInitiatedSimulation: boolean;
-  maxDebugLogMemoryReads: number;
-};
+export class PublicSimulatorConfig {
+  constructor(
+    public readonly proverId: Fr,
+    public readonly skipFeeEnforcement: boolean,
+    public readonly collectCallMetadata: boolean, // appLogicReturnValues.
+    public readonly collectHints: boolean, // hints.
+    public readonly collectDebugLogs: boolean, // logs.
+    public readonly maxDebugLogMemoryReads: number,
+    public readonly collectStatistics: boolean, // timings etc.
+  ) {}
+
+  static from(obj: Partial<PublicSimulatorConfig>): PublicSimulatorConfig {
+    return new PublicSimulatorConfig(
+      obj.proverId ?? Fr.ZERO,
+      obj.skipFeeEnforcement ?? false,
+      obj.collectCallMetadata ?? false,
+      obj.collectHints ?? false,
+      obj.collectDebugLogs ?? false,
+      obj.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
+      obj.collectStatistics ?? false,
+    );
+  }
+
+  static empty() {
+    return PublicSimulatorConfig.from({});
+  }
+
+  static get schema() {
+    return z
+      .object({
+        proverId: Fr.schema,
+        skipFeeEnforcement: z.boolean(),
+        collectCallMetadata: z.boolean(),
+        collectHints: z.boolean(),
+        collectDebugLogs: z.boolean(),
+        maxDebugLogMemoryReads: z.number(),
+        collectStatistics: z.boolean(),
+      })
+      .transform(PublicSimulatorConfig.from);
+  }
+}
 
 export class AvmFastSimulationInputs {
   constructor(
     public readonly wsRevision: WorldStateRevision,
+    public readonly config: PublicSimulatorConfig,
     public tx: AvmTxHint,
     public globalVariables: GlobalVariables,
     public protocolContracts: ProtocolContracts,
@@ -793,6 +1169,7 @@ export class AvmFastSimulationInputs {
   static empty() {
     return new AvmFastSimulationInputs(
       WorldStateRevision.empty(),
+      PublicSimulatorConfig.empty(),
       AvmTxHint.empty(),
       GlobalVariables.empty(),
       ProtocolContracts.empty(),
@@ -803,13 +1180,14 @@ export class AvmFastSimulationInputs {
     return z
       .object({
         wsRevision: WorldStateRevision.schema,
+        config: PublicSimulatorConfig.schema,
         tx: AvmTxHint.schema,
         globalVariables: GlobalVariables.schema,
         protocolContracts: ProtocolContracts.schema,
       })
       .transform(
-        ({ wsRevision, tx, globalVariables, protocolContracts }) =>
-          new AvmFastSimulationInputs(wsRevision, tx, globalVariables, protocolContracts),
+        ({ wsRevision, config, tx, globalVariables, protocolContracts }) =>
+          new AvmFastSimulationInputs(wsRevision, config, tx, globalVariables, protocolContracts),
       );
   }
 
