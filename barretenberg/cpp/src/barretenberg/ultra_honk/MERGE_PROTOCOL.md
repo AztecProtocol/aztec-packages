@@ -339,13 +339,13 @@ These operations batch across all 4 wires and draw from the **residual pool** of
 3. **Stackproofs**: [Paper](https://eprint.iacr.org/2024/1281)
 4. <a name="ref-thakur"></a>**Thakur - Batching Non-Membership Proofs with Bilinear Accumulators**: [Paper](https://eprint.iacr.org/2019/1147.pdf), Section 6.2 (Degree Check Protocol)
 
-## Commitment Propagation and Consistency
+## Merge Flow Through CHONK
 
 ### Overview
 
 The merge protocol's soundness relies on **consistency** between commitments used across folding steps. Commitments flow through the system via **public inputs**, ensuring that the prover cannot manipulate op queue state between circuits.
 
-### Merge Flow Through CHONK
+### Key Steps
 
 **Circuit $2i$ (App $i$):**
 - Oink/HyperNova commits to `ecc_op_wires`
@@ -425,7 +425,7 @@ The complete merged table has the following structure:
 
 $$M_{\text{final},j} = [\texttt{no-op} \mid 3 \texttt{ random} \mid \texttt{tail\_ops} \mid \texttt{apps} \mid \texttt{hiding} \mid 2 \texttt{ random}]$$
 
-**ZK Masking Strategy:**
+**ZK:**
 - 3 random non-ops at **START** (from tail kernel, prepended)
 - 2 random non-ops at **END** (from hiding kernel, appended)
 - 1 valid random ECC op (added during tail verification)
