@@ -186,7 +186,7 @@ export class MeasuredCppPublicTxSimulator extends CppPublicTxSimulator implement
     try {
       result = await super.simulate(tx);
     } finally {
-      this.metrics.stopRecordingTxSimulation(txLabel, result?.revertCode);
+      this.metrics.stopRecordingTxSimulation(txLabel, result?.gasUsed, result?.revertCode);
     }
     return result;
   }
@@ -297,7 +297,7 @@ export class MeasuredCppPublicTxSimulatorHintedDbs
     try {
       result = await super.simulate(tx);
     } finally {
-      this.metrics.stopRecordingTxSimulation(txLabel, result?.revertCode);
+      this.metrics.stopRecordingTxSimulation(txLabel, result?.gasUsed, result?.revertCode);
     }
     return result;
   }

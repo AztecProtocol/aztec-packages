@@ -34,7 +34,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
     try {
       avmResult = await super.simulate(tx);
     } finally {
-      this.metrics.stopRecordingTxSimulation(txLabel, avmResult?.revertCode);
+      this.metrics.stopRecordingTxSimulation(txLabel, avmResult?.gasUsed, avmResult?.revertCode);
     }
     return avmResult;
   }
