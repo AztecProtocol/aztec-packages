@@ -288,7 +288,8 @@ For each wire $j \in \{1, 2, 3, 4\}$:
 1. **Commitments** (copy-constrained between Merge and Translator):
    - $[L_j]$, $[R_j]$, $[M_j]$ → 3 commitments per wire
    - **Per $R_j$: -1 DoF**
-   - **Per $L_j$: -2 DoF** (WLOG assuming that $M_j$ uses randomness from $L_j$.)
+   - **Per $L_j$: -1 DoF**
+   - Simulator has access to srs $\tau$ and computes $[M_j]$ from $\ell$, $R_j(\tau)$, and $L_j(\tau)$.
 
 2. **Independent evaluation constraints:**
    - Merge: $L_j(\kappa)$ → **-1 DoF**
@@ -301,11 +302,11 @@ For each wire $j \in \{1, 2, 3, 4\}$:
    - **Per $R_j$: -2 DoF**
 
 
-**Per-Wire Subtotal:** $-5$ per $L_j$; $-3$ per $R_j$.
+**Per-Wire Subtotal:** $-4$ per $L_j$; $-3$ per $R_j$.
 
 **Cross-Wire Shared Operations:**
 
-These operations batch across all 4 wires and draw from the **residual pool** of $2 \times 4 = 8$ DoF:
+These operations batch across all 4 wires and draw from the **residual pool** of $3 \times 4 = 12$ DoF:
 
 1. **Degree check polynomial** $G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i L_i(X)$:
    - Commitment $[G]$ → **-1 DoF** (shared across $L_i$ wires)
@@ -324,9 +325,9 @@ These operations batch across all 4 wires and draw from the **residual pool** of
 
 
 **Final Balance:**
-- $2$ shared DoFs across $L_j$ wires, $2$ shared DoFs across $R_j$ wires✓
+- $6$ shared DoFs across $L_j$ wires, $2$ shared DoFs across $R_j$ wires✓
 
-**Conclusion:** 3 + 2 random non-ops are sufficient for hiding with a minimal margin.
+**Conclusion:** 3 + 2 random non-ops are sufficient for hiding.
 
 **Implementation references:**
 - `Chonk::hide_op_queue_content_in_tail()`, `Chonk::hide_op_queue_content_in_hiding()`, `Chonk::hide_op_queue_accumulation_result()`
@@ -338,6 +339,7 @@ These operations batch across all 4 wires and draw from the **residual pool** of
 2. **KZG Commitments**: [Paper](https://www.iacr.org/archive/asiacrypt2010/6477178/6477178.pdf)
 3. **Stackproofs**: [Paper](https://eprint.iacr.org/2024/1281)
 4. <a name="ref-thakur"></a>**Thakur - Batching Non-Membership Proofs with Bilinear Accumulators**: [Paper](https://eprint.iacr.org/2019/1147.pdf), Section 6.2 (Degree Check Protocol)
+5. **A note on the soundness of an optimized gemini variant**: [Paper](https://eprint.iacr.org/2025/1793.pdf)
 
 ## Merge Flow Through CHONK
 
