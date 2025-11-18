@@ -559,13 +559,31 @@ void TxExecution::pay_fee(const AztecAddress& fee_payer,
                           const uint128_t& fee_per_da_gas,
                           const uint128_t& fee_per_l2_gas)
 {
+    if (fee_payer == 0) {
+        if (skip_fee_enforcement) {
+            vinfo("Fee payer is 0. Skipping fee enforcement. No one is paying the fee of ", fee);
+            return;
+        }
+        // Real transactions are enforced by private kernel to have nonzero fee payer.
+        // Real transactions cannot skip fee enforcement (skipping fee enforcement makes them unprovable).
+        // Unrecoverable error.
+        throw TxExecutionException("Fee payer cannot be 0 unless skipping fee enforcement for simulation");
+    }
+
     const TxContextEvent state_before = tx_context.serialize_tx_context_event();
     const FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
-    const FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
+    FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
 
     if (field_gt.ff_gt(fee, fee_payer_balance)) {
-        // Unrecoverable error.
-        throw TxExecutionException("Not enough balance for fee payer to pay for transaction");
+        if (skip_fee_enforcement) {
+            vinfo("Fee payer balance insufficient, but we're skipping fee enforcement");
+            // We still proceed and perform the storage write to minimize deviation from normal execution.
+            fee_payer_balance = fee;
+        } else {
+            // Without "skipFeeEnforcement", such transactions should be filtered by GasTxValidator.
+            // Unrecoverable error.
+            throw TxExecutionException("Not enough balance for fee payer to pay for transaction");
+        }
     }
 
     merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);

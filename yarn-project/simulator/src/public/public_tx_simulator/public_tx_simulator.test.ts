@@ -294,7 +294,7 @@ describe('public_tx_simulator', () => {
     // Clone the whole state because somewhere down the line (AbstractPhaseManager) the public data root is modified in the referenced header directly :/
     header.state = StateReference.fromBuffer(stateReference.toBuffer());
 
-    simulator = createSimulator({});
+    simulator = createSimulator({ skipFeeEnforcement: true });
   }, 30_000);
 
   afterEach(async () => {
@@ -1071,6 +1071,7 @@ describe('public_tx_simulator', () => {
 
   describe('fees', () => {
     it('deducts fees from the fee payer balance', async () => {
+      simulator = createSimulator({ skipFeeEnforcement: false });
       const feePayer = await AztecAddress.random();
       await setFeeBalance(feePayer, Fr.MAX_FIELD_VALUE);
 
@@ -1086,6 +1087,7 @@ describe('public_tx_simulator', () => {
     });
 
     it('fails if fee payer cant pay for the tx', async () => {
+      simulator = createSimulator({ skipFeeEnforcement: false });
       const feePayer = await AztecAddress.random();
 
       await expect(
