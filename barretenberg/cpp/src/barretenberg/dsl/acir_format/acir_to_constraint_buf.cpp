@@ -853,9 +853,9 @@ bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint3
         uint32_t witness_idx_rhs = std::get<2>(arg.mul_terms[0]).value;
 
         size_t total_num_of_distinct_witnesses = linear_terms.size();
-        total_num_of_distinct_witnesses += (linear_terms.contains(witness_idx_lhs) ? 0 : 1);
+        total_num_of_distinct_witnesses += (linear_terms.contains(witness_idx_lhs) ? 0U : 1U);
         total_num_of_distinct_witnesses +=
-            (linear_terms.contains(witness_idx_rhs) && (witness_idx_lhs != witness_idx_rhs)) ? 0 : 1;
+            (linear_terms.contains(witness_idx_rhs) && (witness_idx_lhs != witness_idx_rhs)) ? 0U : 1U;
 
         return total_num_of_distinct_witnesses <= MAX_NUMBER_DISTINCT_WITNESSES;
     }
