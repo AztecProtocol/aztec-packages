@@ -29,7 +29,7 @@ function cleanup {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-$root/ci3/npm/release_prep_package_json $version
+release_prep_package_json $version
 
 # Publish.
 if [ "$dry_run" -eq 1 ]; then

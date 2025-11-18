@@ -6,19 +6,16 @@
     ".": "./dest/index.js"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
+    "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
-    "build:cpp": "PROJECT=$(pwd); cd $(git rev-parse --show-toplevel)/barretenberg/cpp; cmake --preset ${PRESET:-clang16-pic} && cmake --build --preset ${PRESET:-clang16-pic} --target nodejs_module && cd $PROJECT && yarn generate",
-    "clean:cpp": "rm -rf $(git rev-parse --show-toplevel)/barretenberg/cpp/build-pic",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
-    "generate": "bash scripts/copy-modules.sh"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
-    "../package.common.json",
-    "./package.local.json"
+    "../package.common.json"
   ],
   "dependencies": {
+    "@aztec/bb.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "msgpackr": "^1.11.2"
   },

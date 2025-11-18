@@ -251,7 +251,7 @@ function release_git_push {
 
   # Update the package version in package.json.
   # TODO remove package.json.
-  $root/ci3/npm/release_prep_package_json $version
+  release_prep_package_json $version
 
   # CI needs to authenticate from GITHUB_TOKEN.
   gh auth setup-git &>/dev/null || true

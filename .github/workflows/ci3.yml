@@ -115,7 +115,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ci-success.txt
-          key: ci-${{ github.event_name == 'merge_group' && 'merge-queue' || env.CI_FULL == '1' && 'full' || env.CI_DOCS == '1' && 'docs' || env.CI_BARRETENBERG == '1' && 'barretenberg' || 'fast' }}-${{ env.TREE_HASH }}
+          key: ci-${{ github.event_name == 'merge_group' && 'merge-queue' || env.CI_FULL == '1' && 'full' || env.CI_FULL_NO_TEST_CACHE == '1' && 'full-no-test-cache' || env.CI_DOCS == '1' && 'docs' || env.CI_BARRETENBERG == '1' && 'barretenberg' || 'fast' }}-${{ env.TREE_HASH }}
 
       - name: CI Cached
         if: steps.ci_cache.outputs.cache-hit == 'true'
@@ -195,8 +195,7 @@ jobs:
       - name: Download benchmarks
         if: github.event_name == 'merge_group' || env.CI_FULL == '1' || env.CI_FULL_NO_TEST_CACHE == '1'
         run: |
-          ./ci.sh gh-bench
-          if [ "$(cat ./bench-out/bench.json)" != "[]" ]; then
+          if ./ci.sh gh-bench && [ "$(cat ./bench-out/bench.json)" != "[]" ]; then
             echo "ENABLE_BENCH=1" >> $GITHUB_ENV
           fi
 

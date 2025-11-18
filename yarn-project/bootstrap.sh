@@ -93,7 +93,6 @@ function compile_all {
     stdlib \
     ivc-integration \
     l1-artifacts \
-    native \
     noir-contracts.js \
     noir-test-contracts.js \
     noir-protocol-circuits-types \
@@ -244,9 +243,6 @@ case "$cmd" in
     ;;
   "")
     build
-    ;;
-  "full")
-    TYPECHECK=1 build
     ;;
   "compile")
     if [ -n "${1:-}" ]; then
