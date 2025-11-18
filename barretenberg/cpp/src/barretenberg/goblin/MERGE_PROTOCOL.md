@@ -109,7 +109,7 @@ for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
 
 #### Step 4: Get Challenges for Batched Degree Check
 Receive challenges $\alpha_1, \ldots, \alpha_4$ and compute the batched polynomial:
-$$G(X) = X^{\ell-1} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(X)\right)$$
+$$G(X) = X^{\ell-1} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})\right)$$
 
 This is computed via `compute_degree_check_polynomial()`:
 ```cpp
@@ -175,7 +175,7 @@ Without degree checks, $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ doesn't guarantee
 $$L_j^{\ast}(X) = X^{\ell-1} \cdot L_j(X^{-1}) \implies L_j^{\ast}(\kappa^{-1}) = \kappa^{-(\ell-1)} \cdot L_j(\kappa)$$
 
 **Batching:** Check all 4 columns simultaneously:
-$$G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X)$$
+$$G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})$$
 
 **Verification:** Check $g = \sum_{i=1}^{4} \alpha_i \cdot l_i \cdot \kappa^{-(\ell-1)}$. If any $\deg(L_i) \geq \ell$, this fails with overwhelming probability.
 

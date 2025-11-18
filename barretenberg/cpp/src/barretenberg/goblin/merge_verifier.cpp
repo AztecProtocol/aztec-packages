@@ -117,7 +117,7 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
  *
  * 1. The prover commits to \f$L_i, R_j, M_j\f$ and receives from the verifier batching challenges \f$alpha_1, \dots,
  *    \alpha_4\f$
- * 2. The prover computes \f$G(X) = X^{k-1}(\sum_i \alpha_i L_i(X))\f$ and commits to it.
+ * 2. The prover computes \f$G(X) = X^{k-1}(\sum_i \alpha_i L_i(X^{-1}))\f$ and commits to it.
  * 3. The prover receives from the verifier an evaluation challenge \f$\kappa\f$ and sends evaluations
  *    \f$l_j = L_j(\kappa), r_j = R_j(\kappa), m_j = M_j(\kappa), g = G(\kappa^{-1}\f$.
  * 4. The prover uses Shplonk to open the commitments to the relevant points.
