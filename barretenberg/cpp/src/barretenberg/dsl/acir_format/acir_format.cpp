@@ -150,9 +150,20 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     // Add range constraint
+    // preprocessing: remove range constraints if they are implied by memory operations
+    for (auto const& index_range : constraint_system.index_range) {
+        if (constraint_system.minimal_range[index_range.first] == index_range.second) {
+            constraint_system.minimal_range.erase(index_range.first);
+        }
+    }
     for (size_t i = 0; i < constraint_system.range_constraints.size(); ++i) {
         const auto& constraint = constraint_system.range_constraints.at(i);
         uint32_t range = constraint.num_bits;
+        if (constraint_system.minimal_range.contains(constraint.witness)) {
+            range = constraint_system.minimal_range[constraint.witness];
+            // no need to add more range constraints for this witness later.
+            constraint_system.minimal_range.erase(constraint.witness);
+        }
         builder.create_range_constraint(constraint.witness, range, "");
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.range_constraints.at(i));
