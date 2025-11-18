@@ -248,3 +248,46 @@ TEST_F(UltraCircuitBuilderLookup, BadAccumulatorFaiure)
         test_corrupt_accumulator(ColumnIdx::C3, i);
     }
 }
+
+// Verifies that invalid input witness values (C1[0] and C2[0]) cause circuit check to fail
+TEST_F(UltraCircuitBuilderLookup, InvalidInputWitnessFailure)
+{
+    const fr a_value(123);
+    const fr b_value(456);
+
+    // Compute accumulators based on the genuine values
+    const auto accumulators =
+        plookup::get_lookup_accumulators(plookup::MultiTableId::UINT32_XOR, a_value, b_value, true);
+
+    // Test with wrong witness value for key_a (first input, reused as C1[0])
+    {
+        Builder builder;
+
+        // Create witness with bad value for first input
+        const fr bad_a_value(666);
+        const auto bad_a_idx = builder.add_variable(bad_a_value);
+        const auto b_idx = builder.add_variable(b_value);
+
+        builder.create_gates_from_plookup_accumulators(
+            plookup::MultiTableId::UINT32_XOR, accumulators, bad_a_idx, b_idx);
+
+        // Circuit should fail because witness at a_idx doesn't match what accumulators expect
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+
+    // Test with wrong witness value for key_b (second input, reused as C2[0])
+    {
+        Builder builder;
+
+        // Create witness with bad value for second input
+        const fr bad_b_value(666);
+        const auto a_idx = builder.add_variable(a_value);
+        const auto bad_b_idx = builder.add_variable(bad_b_value);
+
+        builder.create_gates_from_plookup_accumulators(
+            plookup::MultiTableId::UINT32_XOR, accumulators, a_idx, bad_b_idx);
+
+        // Circuit should fail because witness at b_idx doesn't match what accumulators expect
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+}
