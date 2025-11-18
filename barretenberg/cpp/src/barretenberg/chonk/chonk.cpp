@@ -202,7 +202,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
     merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
-
+    info("rec merge verification ");
     // Recursively verify the corresponding merge proof
     auto [merge_pairing_points, merged_table_commitments] =
         goblin.recursively_verify_merge(circuit, merge_commitments, accumulation_recursive_transcript);
@@ -263,7 +263,9 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
             &circuit, recursive_verifier_native_accum);
     }
+    size_t idx = 0;
     while (!stdlib_verification_queue.empty()) {
+        info("chonk counter ", idx++);
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
         auto [output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments] =

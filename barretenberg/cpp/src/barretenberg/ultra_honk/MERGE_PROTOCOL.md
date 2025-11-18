@@ -353,19 +353,51 @@ The merge protocol's soundness relies on **consistency** between commitments use
 - Added to transcript as witness commitments
 
 **Circuit $2i+1$ (Kernel $K_i$):**
-- **Special case when $i=0$ (first kernel):**
-  - $[T_{\text{prev},j}] = [\infty]$ (point at infinity, empty table)
-  - See `empty_ecc_op_tables()` in `special_public_inputs.hpp`
-- **General case when $i > 0$:**
-  - Reads from public inputs of previous kernel $K_{i-1}$
-- **Merge Verifier receives:**
-  - $[t_{i,j}]$ from current circuit's witness commitments
-  - $[T_{\text{prev},j}]$ from $\texttt{kernel}_{i-1}.\texttt{public\_inputs}$ (or $[\infty]$ if $i=0$)
-- Verifies merge proof (PREPEND mode: $M_j = t_j + X^\ell \cdot T_{\text{prev},j}$)
-- Outputs merged commitments $[M_{i,j}]$
-- Sets $\texttt{kernel}_i.\texttt{public\_inputs}.\texttt{ecc\_op\_tables} = [M_{i,1}], \ldots, [M_{i,4}]$
 
-**... (pattern repeats for intermediate circuits)**
+Each kernel processes a **verification queue** containing circuits to verify. The queue size determines the kernel type:
+- **Init kernel** ($i=0$, queue size 1): Verifies only app $A_0$ (OINK proof)
+- **Intermediate kernels** ($i > 0$, queue size 2): Verifies kernel $K_{i-1}$ and app $A_i$
+- **Tail kernel** (queue size 1): Verifies one circuit (HN_TAIL)
+- **Hiding kernel** (queue size 1): Verifies tail kernel (HN_FINAL)
+
+**For each entry in the verification queue (loop iterates `queue.size()` times):**
+
+1. **Initialize $[T_{\text{prev},j}]$:**
+   - **First iteration of init kernel ($i=0$):** $[T_{\text{prev},j}] = [\infty]$ (empty table, see `empty_ecc_op_tables()`)
+   - **Other iterations:** Use $[T_{\text{prev},j}]$ from previous iteration or previous kernel's public inputs
+
+2. **Merge Verifier receives:**
+   - $[t_{j}]$ from current circuit's witness commitments
+   - $[T_{\text{prev},j}]$ from previous state
+
+3. **Verify merge proof** (PREPEND mode: $M_j = t_j + X^\ell \cdot T_{\text{prev},j}$)
+
+4. **Update state:** $[T_{\text{prev},j}] \leftarrow [M_j]$ (used in next iteration)
+
+**After loop completes:**
+- Sets $\texttt{kernel}_i.\texttt{public\_inputs}.\texttt{ecc\_op\_tables} = [M_{1}], \ldots, [M_{4}]$ (final merged commitments)
+
+**Example: Intermediate kernel $K_1$ (queue size 2):**
+- **Iteration 1:** Verifies $K_0$, produces $[M^{(1)}_j]$, updates $[T_{\text{prev},j}] \leftarrow [M^{(1)}_j]$
+- **Iteration 2:** Verifies $A_1$ using updated $[T_{\text{prev},j}]$, produces final $[M_j]$
+- **Output:** $\texttt{kernel}_1.\texttt{public\_inputs}.\texttt{ecc\_op\_tables} = [M_{1}], \ldots, [M_{4}]$
+
+**Mathematical description of intermediate kernel merge result:**
+
+For an intermediate kernel $K_i$ verifying previous kernel $K_{i-1}$ and current app $A_i$:
+
+**Iteration 1** (verify $K_{i-1}$):
+$$M^{(1)}_j = t_{K_{i-1},j} + X^{\ell_1} \cdot T_{\text{prev},j}$$
+where $\ell_1 = |t_{K_{i-1},j}|$ and $T_{\text{prev},j}$ comes from $K_{i-2}$'s public inputs.
+
+**Iteration 2** (verify $A_i$):
+$$M_j = t_{A_i,j} + X^{\ell_2} \cdot M^{(1)}_j$$
+where $\ell_2 = |t_{A_i,j}|$.
+
+**Expanding the final result:**
+$$M_j = t_{A_i,j} + X^{\ell_2} \cdot t_{K_{i-1},j} + X^{\ell_1 + \ell_2} \cdot T_{\text{prev},j}$$
+
+This shows the hierarchical structure: the current app's ops, followed by the previous kernel's ops, followed by all earlier accumulated ops. Each merge in PREPEND mode adds new operations at the beginning (low-degree terms).
 
 **Tail Kernel (HN_FINAL, PREPEND mode):**
 - Prepends 3 random non-ops + 1 no-op for ZK masking of left table
@@ -469,11 +501,13 @@ After merge verification in kernel $K_i$, merged commitments $[M_{i,j}]$ are set
 
 ### Verification Flow at Each Step
 
-**Step-by-step for kernel $K_i$ verifying circuit $C_i$:**
+**Step-by-step for each iteration of the loop in kernel $K_i$:**
+
+The kernel processes its verification queue in a loop (`while (!stdlib_verification_queue.empty())`). For each circuit in the queue:
 
 1. **Extract commitments** (`Chonk::perform_recursive_verification_and_databus_consistency_checks()`):
-   - `t_commitments` ← witness commitments (ecc_op_wires) from $C_i$'s proof
-   - `T_prev_commitments` ← public inputs from $K_{i-1}$ (previous kernel)
+   - `t_commitments` ← witness commitments (ecc_op_wires) from current circuit's proof
+   - `T_prev_commitments` ← From previous loop iteration OR previous kernel's public inputs (first iteration) OR `empty_ecc_op_tables()` (init kernel)
 
 2. **Pass to merge verifier** (`Goblin::recursively_verify_merge()`):
    ```cpp
@@ -483,18 +517,22 @@ After merge verification in kernel $K_i$, merged commitments $[M_{i,j}]$ are set
 
 3. **Merge verification** (`MergeVerifier_::verify_proof()`)
 
-4. **Update state** (`Chonk::complete_kernel_circuit_logic()`):
+4. **Update state for next loop iteration** (`Chonk::complete_kernel_circuit_logic()`):
    ```cpp
    T_prev_commitments = merged_table_commitments;
    ```
 
-5. **Propagate via public inputs** (`KernelIO::set_public()`):
+5. **Loop continues** with next circuit in queue (if any)
+
+**After loop completes:**
+
+6. **Propagate via public inputs** (`KernelIO::set_public()`):
    ```cpp
-   kernel_output.ecc_op_tables = T_prev_commitments;
+   kernel_output.ecc_op_tables = T_prev_commitments;  // Final merged commitments
    kernel_output.set_public(); // Adds to public inputs
    ```
 
-6. **Next iteration** reads from public inputs (step 1)
+7. **Next kernel** reads these commitments from public inputs (step 1 of its first iteration)
 
 ### Security Properties
 
