@@ -380,8 +380,11 @@ Each kernel processes a **verification queue** containing circuits to verify. Th
 - Sets `kernel_i.public_inputs.ecc_op_tables` $= [M_{1}], \ldots, [M_{4}]$ (final merged commitments)
 
 **Example: Intermediate kernel $K_1$ (queue size 2):**
-- **Iteration 1:** Verifies $K_0$, produces $[M^{(1)}_{j}]$, updates $[T_{\text{prev},j}] \leftarrow [M^{(1)}_{j}]$
-- **Iteration 2:** Verifies $A_1$ using updated $[T_{\text{prev},j}]$, produces final $[M_{j}]$
+- **Iteration 1:** Verifies $K_0$
+  - Produces $[M^{(1)}_{j}]$
+  - Updates $[T_{\text{prev},j}] \leftarrow [M^{(1)}_{j}]$
+- **Iteration 2:** Verifies $A_1$ using updated $[T_{\text{prev},j}]$
+  - Produces final $[M_{j}]$
 - **Output:** `kernel_1.public_inputs.ecc_op_tables` $= [M_{1}], \ldots, [M_{4}]$
 
 **Mathematical description of intermediate kernel merge result:**
