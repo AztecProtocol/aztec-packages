@@ -67,7 +67,7 @@ The protocol supports two merge modes:
 
 ## Protocol Description
 
-### Commitment Strategy: Transcript Sharing
+### Commitment Propagation
 
 The Merge Protocol does NOT independently commit to $L_j$ and $R_j$. Instead, these commitments are **obtained from previous steps via the transcript or public inputs**:
 
@@ -431,6 +431,41 @@ $$M_{\text{final},j} = [\texttt{no-op} \mid 3 \texttt{ random} \mid \texttt{tail
 - 1 valid random ECC op (added during tail verification)
 
 **Remark:** Translator padding and masking strategies dictated this very specific way of placing randomness.
+
+#### Mathematical Formula for Final Merged Table
+
+For a complete execution with apps $A_0, A_1, \ldots, A_n$ and kernels $K_0, K_1, \ldots, K_n$, followed by tail kernel $K_{\text{tail}}$ and hiding kernel $K_{\text{hiding}}$:
+
+**After init kernel $K_0$:**
+$$M^{(0)}_j = t_{A_0,j}$$
+
+**After each intermediate kernel $K_i$ (for $i = 1, \ldots, n$):**
+
+Each $K_i$ performs two merges in sequence:
+$$M^{(i,1)}_j = t_{K_{i-1},j} + X^{\ell_{K_{i-1}}} \cdot M^{(i-1)}_j$$
+$$M^{(i)}_j = t_{A_i,j} + X^{\ell_{A_i}} \cdot M^{(i,1)}_j$$
+
+**After tail kernel (PREPEND mode):**
+$$M^{\text{tail}}_j = t_{\text{tail},j} + X^{\ell_{\text{tail}}} \cdot M^{(n)}_j$$
+where $t_{\text{tail},j} = [\texttt{no-op} \mid 3 \texttt{ random} \mid \texttt{tail\_ops}]$
+
+**Final result after hiding kernel (APPEND mode):**
+$$M^{\text{final}}_j = M^{\text{tail}}_j + X^{|M^{\text{tail}}_j|} \cdot t_{\text{hiding},j}$$
+where $t_{\text{hiding},j} = [\texttt{hiding\_ops} \mid 2 \texttt{ random}]$
+
+**Fully expanded form** (showing all components):
+$$\begin{align}
+M^{\text{final}}_j = \,& t_{\text{tail},j} \\
+                     & + X^{\ell_{\text{tail}}} \cdot t_{A_n,j} \\
+                     & + X^{\ell_{\text{tail}} + \ell_{A_n}} \cdot t_{K_{n-1},j} \\
+                     & + X^{\ell_{\text{tail}} + \ell_{A_n} + \ell_{K_{n-1}}} \cdot t_{A_{n-1},j} \\
+                     & + \cdots \\
+                     & + X^{\sum \text{(all earlier)}} \cdot t_{K_0,j} \\
+                     & + X^{\sum \text{(all earlier)}} \cdot t_{A_0,j} \\
+                     & + X^{|M^{\text{tail}}_j|} \cdot t_{\text{hiding},j}
+\end{align}$$
+
+This shows the **polynomial structure**: tail ops at lowest degrees, then apps/kernels in reverse chronological order (newest first due to PREPEND), and hiding ops at highest degrees (due to APPEND).
 
 #### Final Goblin Proof Generation
 
