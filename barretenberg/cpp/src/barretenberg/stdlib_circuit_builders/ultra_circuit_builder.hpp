@@ -235,7 +235,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      *
      */
     UltraCircuitBuilder_(const size_t size_hint,
-                         SlabVector<FF>& witness_values,
+                         std::vector<FF>& witness_values,
                          const std::vector<uint32_t>& public_inputs,
                          size_t varnum)
         : CircuitBuilderBase<FF>(size_hint, witness_values.empty())
