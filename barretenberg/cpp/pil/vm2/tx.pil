@@ -60,8 +60,7 @@ namespace tx;
     pol commit end_phase; // @boolean
     end_phase * (1 - end_phase) = 0;
 
-    pol NOT_LAST = sel' * sel; // Could probably use a different condition (i.e. COLLECT_GAS is last row - save this for optimisation)
-    pol NOT_PHASE_END = NOT_LAST * (1 - end_phase);
+    pol NOT_PHASE_END = sel * (1 - end_phase);
 
     // sel == 1 when start_tx, is_padded, reverted, start_phase, end_phase, ... is 1
     // Note that is_tree_insert_phase covers the 4 selectors sel_[nr/r]_append_[note_hash/nullifier].
@@ -87,7 +86,7 @@ namespace tx;
     NOT_PHASE_END * (phase_value' - phase_value) = 0;
     // At the start of a new phase, we need to increment the phase value
     #[INCR_PHASE_VALUE_ON_END]
-    NOT_LAST * (1 - reverted) * end_phase * (phase_value' - (phase_value + 1)) = 0;
+    sel' * (1 - reverted) * end_phase * (phase_value' - (phase_value + 1)) = 0;
 
     // If reverted == 1, is_revertible must be 1
     reverted * (1 - is_revertible) = 0;

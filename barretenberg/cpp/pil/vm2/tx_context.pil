@@ -210,6 +210,7 @@ namespace tx;
     pol commit next_num_unencrypted_log_fields;
     pol commit next_num_l2_to_l1_messages;
 
+    // Could probably use a different condition (i.e. COLLECT_GAS is last row - save this for optimisation)
     pol NOT_LAST_ROW = sel * sel';
 
     // Base continuity constraints
@@ -449,4 +450,4 @@ namespace tx;
     // We normally propagate the next context id, unless a call is issued, where the execution trace
     // controls the next row's next context id.
     #[NEXT_CONTEXT_ID_CONTINUITY]
-    NOT_LAST * (1 - should_process_call_request) * (next_context_id' - next_context_id) = 0;
+    NOT_LAST_ROW * (1 - should_process_call_request) * (next_context_id' - next_context_id) = 0;

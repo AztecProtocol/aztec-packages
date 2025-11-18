@@ -40,7 +40,6 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         FF(uint256_t{ 17709766335633262877UL, 1850405195690305185UL, 13873207743118759083UL, 1156198508456480057UL });
     const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE = FF(1);
     const auto tx_NOT_LAST_ROW = in.get(C::tx_sel) * in.get(C::tx_sel_shift);
-    const auto tx_NOT_LAST = in.get(C::tx_sel_shift) * in.get(C::tx_sel);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -554,7 +553,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // NEXT_CONTEXT_ID_CONTINUITY
         using View = typename std::tuple_element_t<74, ContainerOverSubrelations>::View;
         auto tmp =
-            CView(tx_NOT_LAST) * (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
             (static_cast<View>(in.get(C::tx_next_context_id_shift)) - static_cast<View>(in.get(C::tx_next_context_id)));
         std::get<74>(evals) += (tmp * scaling_factor);
     }

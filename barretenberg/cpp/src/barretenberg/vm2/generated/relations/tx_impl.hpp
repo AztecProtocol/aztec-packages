@@ -25,8 +25,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX = FF(29);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(514);
     const auto constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX = FF(4683);
-    const auto tx_NOT_LAST = in.get(C::tx_sel_shift) * in.get(C::tx_sel);
-    const auto tx_NOT_PHASE_END = tx_NOT_LAST * (FF(1) - in.get(C::tx_end_phase));
+    const auto tx_NOT_PHASE_END = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_end_phase));
     const auto tx_REM_COUNT_MINUS_1 = (in.get(C::tx_remaining_phase_counter) - FF(1));
     const auto tx_IS_ONE_SHOT_PHASE =
         in.get(C::tx_is_collect_fee) + in.get(C::tx_is_tree_padding) + in.get(C::tx_is_cleanup);
@@ -122,7 +121,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // INCR_PHASE_VALUE_ON_END
         using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
-        auto tmp = CView(tx_NOT_LAST) * (FF(1) - static_cast<View>(in.get(C::tx_reverted))) *
+        auto tmp = static_cast<View>(in.get(C::tx_sel_shift)) * (FF(1) - static_cast<View>(in.get(C::tx_reverted))) *
                    static_cast<View>(in.get(C::tx_end_phase)) *
                    (static_cast<View>(in.get(C::tx_phase_value_shift)) -
                     (static_cast<View>(in.get(C::tx_phase_value)) + FF(1)));
