@@ -26,7 +26,7 @@ template <typename Curve> struct BuilderTypeHelper<Curve, std::enable_if_t<Curve
  * @details Templates on Curve type to handle both native (curve::BN254) and recursive (bn254<Builder>) contexts
  * @tparam Curve The curve type (native or stdlib)
  */
-template <typename Curve> class MergeUnifiedTest : public testing::Test {
+template <typename Curve> class MergeTests : public testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -102,7 +102,7 @@ template <typename Curve> class MergeUnifiedTest : public testing::Test {
     static bool check_circuit(BuilderType& builder)
     {
         if constexpr (IsRecursive) {
-            return !builder.failed();
+            return CircuitChecker::check(builder);
         } else {
             (void)builder; // Unused in native context
             return true;
@@ -110,7 +110,7 @@ template <typename Curve> class MergeUnifiedTest : public testing::Test {
     }
 
     /**
-     * @brief Tamper with the merge proof for negative testing
+     * @brief Tamper with the merge proof for failure testing
      */
     static void tamper_with_proof(std::vector<bb::fr>& merge_proof, const TamperProofMode tampering_mode)
     {
@@ -339,39 +339,39 @@ using CurveTypes = ::testing::Types<curve::BN254,                        // Nati
                                     stdlib::bn254<MegaCircuitBuilder>,   // Recursive (Mega)
                                     stdlib::bn254<UltraCircuitBuilder>>; // Recursive (Ultra)
 
-TYPED_TEST_SUITE(MergeUnifiedTest, CurveTypes);
+TYPED_TEST_SUITE(MergeTests, CurveTypes);
 
-TYPED_TEST(MergeUnifiedTest, MergeProofSizeCheck)
+TYPED_TEST(MergeTests, MergeProofSizeCheck)
 {
     TestFixture::test_merge_proof_size();
 }
 
-TYPED_TEST(MergeUnifiedTest, SingleMerge)
+TYPED_TEST(MergeTests, SingleMerge)
 {
     TestFixture::test_single_merge();
 }
 
-TYPED_TEST(MergeUnifiedTest, MultipleMergesPrepend)
+TYPED_TEST(MergeTests, MultipleMergesPrepend)
 {
     TestFixture::test_multiple_merges_prepend();
 }
 
-TYPED_TEST(MergeUnifiedTest, MergePrependThenAppend)
+TYPED_TEST(MergeTests, MergePrependThenAppend)
 {
     TestFixture::test_merge_prepend_then_append();
 }
 
-TYPED_TEST(MergeUnifiedTest, DegreeCheckFailure)
+TYPED_TEST(MergeTests, DegreeCheckFailure)
 {
     TestFixture::test_degree_check_failure();
 }
 
-TYPED_TEST(MergeUnifiedTest, MergeFailure)
+TYPED_TEST(MergeTests, MergeFailure)
 {
     TestFixture::test_merge_failure();
 }
 
-TYPED_TEST(MergeUnifiedTest, EvalFailure)
+TYPED_TEST(MergeTests, EvalFailure)
 {
     TestFixture::test_eval_failure();
 }
