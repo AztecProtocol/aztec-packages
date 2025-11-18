@@ -22,10 +22,6 @@
 #include <type_traits>
 #include <vector>
 
-// Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1532): Re-enable this once we resolve these issues.
-#define DISABLE_CHILD_TAG_CHECKS
-
 // Trait to detect if a type is iterable
 template <typename T, typename = void> struct is_iterable : std::false_type {};
 
@@ -159,7 +155,6 @@ struct OriginTag {
     bool is_poisoned() const { return instant_death; }
     bool is_empty() const { return !instant_death && parent_tag == CONSTANT; };
 
-#ifndef DISABLE_FREE_WITNESS_CHECK
     bool is_free_witness() const { return parent_tag == FREE_WITNESS; }
     void set_free_witness()
     {
@@ -172,13 +167,10 @@ struct OriginTag {
         child_tag = numeric::uint256_t(0);
     }
 
-// The checks are disabled by disallowing to set the free witness tag, because if they are set, it's very hard to make
-// the logic of checks work
-#else
-    bool is_free_witness() const { return false; }
-    void set_free_witness() {}
-    void unset_free_witness() {}
-#endif
+    /**
+     * @brief Clear the child_tag to address child tag false positives.
+     */
+    void clear_child_tag() { child_tag = numeric::uint256_t(0); }
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)
 {
@@ -210,6 +202,7 @@ struct OriginTag {
     bool is_free_witness() const { return false; }
     void set_free_witness() {}
     void unset_free_witness() {}
+    void clear_child_tag() {}
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const&)
 {
@@ -274,6 +267,39 @@ template <bool in_circuit, typename DataType> inline void unset_free_witness_tag
             entry.unset_free_witness_tag();
         }
     }
+}
+
+/**
+ * @brief Tag a component with a given origin tag and serialize it to field elements.
+ *
+ * @tparam in_circuit Whether the transcript is in-circuit mode
+ * @tparam Codec The codec to use for serialization (provides DataType and serialize_to_fields)
+ * @tparam T The type of the component to tag and serialize
+ * @param component The component to tag and serialize
+ * @param tag The origin tag to assign
+ * @return std::vector<typename Codec::DataType> Serialized field elements
+ */
+template <bool in_circuit, typename Codec, typename T>
+inline std::vector<typename Codec::DataType> tag_and_serialize(const T& component, const OriginTag& tag)
+{
+    if constexpr (in_circuit) {
+        assign_origin_tag<in_circuit>(const_cast<T&>(component), tag);
+    }
+    // Serialize to field elements
+    return Codec::serialize_to_fields(component);
+}
+
+/**
+ * @brief Extract origin tag context from a transcript.
+ * @details Friend function that has controlled access to transcript's private round tracking state.
+ *
+ * @tparam TranscriptType The type of transcript (NativeTranscript or StdlibTranscript)
+ * @param transcript The transcript to extract tag context from
+ * @return OriginTag with (transcript_index, round_index, is_submitted=true)
+ */
+template <typename TranscriptType> inline OriginTag extract_transcript_tag(const TranscriptType& transcript)
+{
+    return OriginTag(transcript.transcript_index, transcript.round_index, /*is_submitted=*/true);
 }
 
 } // namespace bb

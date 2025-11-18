@@ -22,7 +22,7 @@ TEST(AvmSimulationFieldGreaterThanTest, BasicGt)
     DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
-    auto p_limbs = decompose(FF::modulus);
+    auto p_limbs = decompose_256(FF::modulus);
     std::vector<uint128_t> range_checks;
     ON_CALL(range_check, assert_range(_, 128)).WillByDefault([&range_checks](uint128_t x, uint64_t) {
         range_checks.push_back(x);
@@ -78,7 +78,7 @@ TEST(AvmSimulationFieldGreaterThanTest, BasicDec)
     DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
-    auto p_limbs = decompose(FF::modulus);
+    auto p_limbs = decompose_256(FF::modulus);
     std::vector<uint128_t> range_checks;
     ON_CALL(range_check, assert_range(_, 128)).WillByDefault([&range_checks](uint128_t x, uint64_t) {
         range_checks.push_back(x);

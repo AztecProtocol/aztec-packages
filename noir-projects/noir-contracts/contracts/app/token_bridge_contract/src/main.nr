@@ -67,7 +67,7 @@ pub contract TokenBridge {
         );
 
         // Mint tokens
-        Token::at(config.token).mint_to_public(to, amount).call(self.context);
+        self.call(Token::at(config.token).mint_to_public(to, amount));
     }
     // docs:end:claim_public
 
@@ -88,9 +88,11 @@ pub contract TokenBridge {
         self.context.message_portal(config.portal, content);
 
         // Burn tokens
-        Token::at(config.token).burn_public(self.msg_sender().unwrap(), amount, authwit_nonce).call(
-            self.context,
-        );
+        self.call(Token::at(config.token).burn_public(
+            self.msg_sender().unwrap(),
+            amount,
+            authwit_nonce,
+        ));
     }
     // docs:end:exit_to_l1_public
 
@@ -116,7 +118,7 @@ pub contract TokenBridge {
         );
 
         // At last we mint the tokens
-        Token::at(config.token).mint_to_private(recipient, amount).call(self.context);
+        self.call(Token::at(config.token).mint_to_private(recipient, amount));
     }
 
     // docs:start:exit_to_l1_private
@@ -140,9 +142,7 @@ pub contract TokenBridge {
         self.context.message_portal(config.portal, content);
 
         // Burn tokens
-        Token::at(token).burn_private(self.msg_sender().unwrap(), amount, authwit_nonce).call(
-            self.context,
-        );
+        self.call(Token::at(token).burn_private(self.msg_sender().unwrap(), amount, authwit_nonce));
     }
     // docs:end:exit_to_l1_private
 }

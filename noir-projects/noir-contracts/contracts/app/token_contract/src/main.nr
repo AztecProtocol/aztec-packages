@@ -2,7 +2,7 @@
 mod types;
 mod test;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 // Minimal token implementation that supports `AuthWit` accounts.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
@@ -15,23 +15,22 @@ pub contract Token {
     // Libs
     use std::ops::{Add, Sub};
 
-    use dep::compressed_string::FieldCompressedString;
+    use compressed_string::FieldCompressedString;
 
-    use dep::aztec::{
-        context::{PrivateCallInterface, PrivateContext, PublicContext},
+    use aztec::{
+        authwit::auth::compute_authwit_nullifier,
+        context::{PrivateCallInterface, PrivateContext},
         macros::{
             events::event,
-            functions::{authorize_once, external, initializer, only_self, view},
+            functions::{authorize_once, external, initializer, internal, only_self, view},
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
+        protocol_types::{address::AztecAddress, traits::ToField},
         state_vars::{Map, PublicImmutable, PublicMutable},
     };
 
-    use dep::uint_note::uint_note::{PartialUintNote, UintNote};
-    use aztec::protocol_types::{address::AztecAddress, traits::ToField};
-
-    use aztec::authwit::auth::compute_authwit_nullifier;
+    use uint_note::uint_note::{PartialUintNote, UintNote};
 
     use crate::types::balance_set::BalanceSet;
 
@@ -230,7 +229,7 @@ pub contract Token {
         self.enqueue_self._increase_public_balance(to, amount);
 
         // We prepare the private balance increase (the partial note for the change).
-        _prepare_private_balance_increase(from, self.context, self.storage)
+        self.internal._prepare_private_balance_increase(from)
     }
 
     #[external("private")]
@@ -243,13 +242,7 @@ pub contract Token {
         // Since the sum of the amounts in the notes we nullified was potentially larger than amount, we create a new
         // note for `from` with the change amount, e.g. if `amount` is 10 and two notes are nullified with amounts 8 and
         // 5, then the change will be 3 (since 8 + 5 - 10 = 3).
-        let change = subtract_balance(
-            self.context,
-            self.storage,
-            from,
-            amount,
-            INITIAL_TRANSFER_CALL_MAX_NOTES,
-        );
+        let change = self.internal.subtract_balance(from, amount, INITIAL_TRANSFER_CALL_MAX_NOTES);
         self.storage.balances.at(from).add(from, change).emit(
             from,
             MessageDelivery.UNCONSTRAINED_ONCHAIN,
@@ -263,15 +256,9 @@ pub contract Token {
         self.emit(Transfer { from, to, amount }, to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
-    #[contract_library_method]
-    fn subtract_balance(
-        context: &mut PrivateContext,
-        storage: Storage<&mut PrivateContext>,
-        account: AztecAddress,
-        amount: u128,
-        max_notes: u32,
-    ) -> u128 {
-        let subtracted = storage.balances.at(account).try_sub(amount, max_notes);
+    #[internal("private")]
+    fn subtract_balance(account: AztecAddress, amount: u128, max_notes: u32) -> u128 {
+        let subtracted = self.storage.balances.at(account).try_sub(amount, max_notes);
         // Failing to subtract any amount means that the owner was unable to produce more notes that could be nullified.
         // We could in some cases fail early inside try_sub if we detected that fewer notes than the maximum were
         // returned and we were still unable to reach the target amount, but that'd make the code more complicated, and
@@ -303,13 +290,7 @@ pub contract Token {
     #[only_self]
     #[external("private")]
     fn _recurse_subtract_balance(account: AztecAddress, amount: u128) -> u128 {
-        subtract_balance(
-            self.context,
-            self.storage,
-            account,
-            amount,
-            RECURSIVE_TRANSFER_CALL_MAX_NOTES,
-        )
+        self.internal.subtract_balance(account, amount, RECURSIVE_TRANSFER_CALL_MAX_NOTES)
     }
 
     /**
@@ -357,7 +338,7 @@ pub contract Token {
         let from = self.msg_sender().unwrap();
 
         // We prepare the private balance increase (the partial note).
-        let partial_note = _prepare_private_balance_increase(to, self.context, self.storage);
+        let partial_note = self.internal._prepare_private_balance_increase(to);
 
         // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
@@ -369,28 +350,21 @@ pub contract Token {
     /// returned partial note.
     #[external("private")]
     fn prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
-        _prepare_private_balance_increase(to, self.context, self.storage)
+        self.internal._prepare_private_balance_increase(to)
     }
 
     /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
     /// us to have it inlined in the `transfer_to_private` function which results in one fewer kernel iteration. Note
     /// that in this case we don't pass `completer` as an argument to this function because in all the callsites we
     /// want to use the message sender as the completer anyway.
-    ///
-    /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
-    /// function.
-    #[contract_library_method]
-    fn _prepare_private_balance_increase(
-        to: AztecAddress,
-        context: &mut PrivateContext,
-        storage: Storage<&mut PrivateContext>,
-    ) -> PartialUintNote {
+    #[internal("private")]
+    fn _prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
         let partial_note = UintNote::partial(
             to,
-            storage.balances.at(to).set.storage_slot,
-            context,
+            self.storage.balances.at(to).set.storage_slot,
+            self.context,
             to,
-            context.msg_sender().unwrap(),
+            self.msg_sender().unwrap(),
         );
 
         partial_note
@@ -409,13 +383,7 @@ pub contract Token {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the account
         // `from` from whose balance we're subtracting the `amount`.
         let from_and_completer = self.msg_sender().unwrap();
-        _finalize_transfer_to_private(
-            from_and_completer,
-            amount,
-            partial_note,
-            self.context,
-            self.storage,
-        );
+        self.internal._finalize_transfer_to_private(from_and_completer, amount, partial_note);
     }
 
     /// Finalizes a transfer of token `amount` from private balance of `from` to a private balance of `to`.
@@ -453,32 +421,26 @@ pub contract Token {
         amount: u128,
         partial_note: PartialUintNote,
     ) {
-        _finalize_transfer_to_private(
-            from_and_completer,
-            amount,
-            partial_note,
-            self.context,
-            self.storage,
-        );
+        self.internal._finalize_transfer_to_private(from_and_completer, amount, partial_note);
     }
 
     // In all the flows in this contract, `from` (the account from which we're subtracting the `amount`) and
     // `completer` (the entity that can complete the partial note) are the same so we represent them with a single
     // argument.
-    #[contract_library_method]
+    #[internal("public")]
     fn _finalize_transfer_to_private(
         from_and_completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
-        context: PublicContext,
-        storage: Storage<PublicContext>,
     ) {
         // First we subtract the `amount` from the public balance of `from_and_completer`
-        let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
-        storage.public_balances.at(from_and_completer).write(from_balance);
+        let balance_storage = self.storage.public_balances.at(from_and_completer);
+
+        let from_balance = balance_storage.read().sub(amount);
+        balance_storage.write(from_balance);
 
         // We finalize the transfer by completing the partial note.
-        partial_note.complete(context, from_and_completer, amount);
+        partial_note.complete(self.context, from_and_completer, amount);
     }
 
     /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
@@ -486,7 +448,7 @@ pub contract Token {
     #[external("private")]
     fn mint_to_private(to: AztecAddress, amount: u128) {
         // We prepare the partial note to which we'll "send" the minted amount.
-        let partial_note = _prepare_private_balance_increase(to, self.context, self.storage);
+        let partial_note = self.internal._prepare_private_balance_increase(to);
 
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set
         // the `minter_and_completer` function argument to a message sender, guaranteeing that only a message sender
@@ -512,13 +474,7 @@ pub contract Token {
         let minter_and_completer = self.msg_sender().unwrap();
         assert(self.storage.minters.at(minter_and_completer).read(), "caller is not minter");
 
-        _finalize_mint_to_private(
-            minter_and_completer,
-            amount,
-            partial_note,
-            self.context,
-            self.storage,
-        );
+        self.internal._finalize_mint_to_private(minter_and_completer, amount, partial_note);
     }
 
     /// This is a wrapper around `_finalize_mint_to_private` placed here so that a call
@@ -533,48 +489,30 @@ pub contract Token {
     ) {
         // We check the minter permissions as it was not done in `mint_to_private` function.
         assert(self.storage.minters.at(minter_and_completer).read(), "caller is not minter");
-        _finalize_mint_to_private(
-            minter_and_completer,
-            amount,
-            partial_note,
-            self.context,
-            self.storage,
-        );
+        self.internal._finalize_mint_to_private(minter_and_completer, amount, partial_note);
     }
 
-    #[contract_library_method]
+    #[internal("public")]
     fn _finalize_mint_to_private(
         completer: AztecAddress, // entity that can complete the partial note
         amount: u128,
         partial_note: PartialUintNote,
-        context: PublicContext,
-        storage: Storage<PublicContext>,
     ) {
         // First we increase the total supply by the `amount`
-        let supply = storage.total_supply.read().add(amount);
-        storage.total_supply.write(supply);
+        let supply = self.storage.total_supply.read().add(amount);
+        self.storage.total_supply.write(supply);
 
         // We finalize the transfer by completing the partial note.
-        partial_note.complete(context, completer, amount);
+        partial_note.complete(self.context, completer, amount);
     }
 
-    /// Internal ///
-    /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
-    /// function.
     #[external("public")]
     #[only_self]
     fn _increase_public_balance(to: AztecAddress, amount: u128) {
-        _increase_public_balance_inner(to, amount, self.storage);
-    }
+        let to_balance = self.storage.public_balances.at(to);
 
-    #[contract_library_method]
-    fn _increase_public_balance_inner(
-        to: AztecAddress,
-        amount: u128,
-        storage: Storage<PublicContext>,
-    ) {
-        let new_balance = storage.public_balances.at(to).read().add(amount);
-        storage.public_balances.at(to).write(new_balance);
+        let new_balance = to_balance.read().add(amount);
+        to_balance.write(new_balance);
     }
 
     #[external("public")]

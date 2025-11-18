@@ -17,6 +17,7 @@ class AvmSimulationHelper {
     TxSimulationResult simulate_fast_with_existing_ws(simulation::ContractDBInterface& raw_contract_db,
                                                       const world_state::WorldStateRevision& world_state_revision,
                                                       world_state::WorldState& ws,
+                                                      const PublicSimulatorConfig& config,
                                                       const Tx& tx,
                                                       const GlobalVariables& global_variables,
                                                       const ProtocolContracts& protocol_contracts);
@@ -27,6 +28,7 @@ class AvmSimulationHelper {
     // Helper called by simulate_fast* functions.
     TxSimulationResult simulate_fast(simulation::ContractDBInterface& raw_contract_db,
                                      simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+                                     const PublicSimulatorConfig& config,
                                      const Tx& tx,
                                      const GlobalVariables& global_variables,
                                      const ProtocolContracts& protocol_contracts);

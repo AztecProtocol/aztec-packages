@@ -51,68 +51,10 @@ where
         }
     }
 
-    /// Makes the call to this private function.
-    ///
-    /// # Arguments
-    /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[external("private")] function as `context`, through the
-    ///               #[external("private")] annotation's macro.
-    ///
-    /// # Returns
-    /// * `T` - Whatever data the called function has returned.
-    ///
-    /// This enables contracts to interact with each other while maintaining
-    /// privacy. This "composability" of private contract functions is a key
-    /// feature of the Aztec network.
-    ///
-    /// If a user's transaction includes multiple private function calls, then
-    /// by the design of Aztec, the following information will remain private[1]:
-    /// - The function selectors and contract addresses of all private function
-    ///   calls will remain private, so an observer of the public mempool will
-    ///   not be able to look at a tx and deduce which private functions have
-    ///   been executed.
-    /// - The arguments and return values of all private function calls will
-    ///   remain private.
-    /// - The person who initiated the tx will remain private.
-    /// - The notes and nullifiers and private logs that are emitted by all
-    ///   private function calls will (if designed well) not leak any user
-    ///   secrets, nor leak which functions have been executed.
-    ///
-    /// [1] Caveats: Some of these privacy guarantees depend on how app
-    /// developers design their smart contracts. Some actions _can_ leak
-    /// information, such as:
-    /// - Calling an internal public function.
-    /// - Calling a public function and not setting msg_sender to Option::none
-    ///   (see https://github.com/AztecProtocol/aztec-packages/pull/16433)
-    /// - Calling any public function will always leak details about the nature
-    ///   of the transaction, so devs should be careful in their contract
-    ///   designs. If it can be done in a private function, then that will give
-    ///   the best privacy.
-    /// - Not padding the side-effects of a tx to some standardised, uniform
-    ///   size. The kernel circuits can take hints to pad side-effects, so a
-    ///   wallet should be able to request for a particular amount of padding.
-    ///   Wallets should ideally agree on some standard.
-    ///   - Padding should include:
-    ///     - Padding the lengths of note & nullifier arrays
-    ///     - Padding private logs with random fields, up to some standardised
-    ///       size.
-    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
-    ///
-    /// # Advanced
-    /// * The call is added to the private call stack and executed by kernel
-    ///   circuits after this function completes
-    /// * The called function can modify its own contract's private state
-    /// * Side effects from the called function are included in this transaction
-    /// * The call inherits the current transaction's context and gas limits
-    ///
-    /// # Arguments
-    /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[external("private")] function as `context`, through the
-    ///               #[external("private")] annotation's macro.
-    ///
-    /// # Returns
-    /// * `T` - Whatever data the called function has returned.
-    ///
+    /// **[DEPRECATED]**
+    /// This function is deprecated. Please use the new contract API:
+    /// `self.call(MyContract::at(address).my_private_function(...args))`
+    /// instead of manually constructing and calling `PrivateCallInterface`.
     pub fn call(self, context: &mut PrivateContext) -> T {
         execution_cache::store(self.args, self.args_hash);
         let returns_hash = context.call_private_function_with_args_hash(
@@ -127,22 +69,7 @@ where
         returns_hash.get_preimage()
     }
 
-    /// Makes a _read-only_ call to this private function.
-    ///
-    /// This is similar to Solidity's `staticcall`. The called function
-    /// cannot modify state, emit L2->L1 messages, nor emit events. Any nested
-    /// calls are constrained to also be staticcalls.
-    ///
-    /// See `call` for more general info on private function calls.
-    ///
-    /// # Arguments
-    /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[external("private")] function as `context`, through the
-    ///               #[external("private")] annotation's macro.
-    ///
-    /// # Returns
-    /// * `T` - Whatever data the called function has returned.
-    ///
+    /// TODO(F-130): Drop this function. This should be present only on PrivateStaticCallInterface.
     pub fn view(self, context: &mut PrivateContext) -> T {
         execution_cache::store(self.args, self.args_hash);
         let returns_hash = context.call_private_function_with_args_hash(
@@ -210,17 +137,10 @@ impl<let M: u32, T> PrivateStaticCallInterface<M, T> {
         }
     }
 
-    /// Makes a read-only call to this private function.
-    ///
-    /// This is similar to Solidity's `staticcall`. The called function
-    /// cannot modify state, emit L2->L1 messages, nor emit events. Any nested
-    /// calls are constrained to also be staticcalls.
-    ///
-    /// # Arguments
-    /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[external("private")] function as `context`, through the
-    ///               #[external("private")] annotation's macro.
-    ///
+    /// **[DEPRECATED]**
+    /// This function is deprecated. Please use the new contract API:
+    /// `self.view(MyContract::at(address).my_private_static_function(...args))`
+    /// instead of manually constructing and calling `PrivateCallInterface`.
     pub fn view(self, context: &mut PrivateContext) -> T
     where
         T: Deserialize,
@@ -293,23 +213,15 @@ where
         }
     }
 
-    pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
+    pub fn with_gas(mut self, gas_opts: GasOpts) -> Self {
         self.gas_opts = gas_opts;
         self
     }
 
-    /// Makes the call to this public function.
-    ///
-    /// Will revert if the called function reverts or runs out of gas.
-    ///
-    /// # Arguments
-    /// * `context` - The PublicContext -- made magically available to the body
-    ///               of every #[external("public")] function as `context`, through the
-    ///               #[external("public")] annotation's macro.
-    ///
-    /// # Returns
-    /// * `T` - Whatever data the called function has returned.
-    ///
+    /// **[DEPRECATED]**
+    /// This function is deprecated. Please use the new contract API:
+    /// `self.call(MyContract::at(address).my_public_function(...args))`
+    /// instead of manually constructing and calling `PublicCallInterface`.
     pub unconstrained fn call(self, context: PublicContext) -> T {
         let returns = context.call_public_function(
             self.target_contract,
@@ -322,22 +234,7 @@ where
         Deserialize::deserialize(returns.as_array())
     }
 
-    /// Makes a read-only call to this public function.
-    ///
-    /// This is similar to Solidity's `staticcall`. The called function
-    /// cannot modify state or emit events. Any nested calls are constrained to
-    /// also be staticcalls.
-    ///
-    /// Will revert if the called function reverts or runs out of gas.
-    ///
-    /// # Arguments
-    /// * `context` - The PublicContext -- made magically available to the body
-    ///               of every #[external("public")] function as `context`, through the
-    ///               #[external("public")] annotation's macro.
-    ///
-    /// # Returns
-    /// * `T` - Whatever data the called function has returned.
-    ///
+    /// TODO(F-130): Drop this function. This should be present only on PublicStaticCallInterface.
     pub unconstrained fn view(self, context: PublicContext) -> T {
         let returns = context.static_call_public_function(
             self.target_contract,
@@ -350,109 +247,28 @@ where
         Deserialize::deserialize(returns.as_array())
     }
 
-    /// Enqueues a call to this public function, to be executed later.
-    ///
-    /// Unlike private functions which execute immediately on the user's device,
-    /// public function calls are "enqueued" and executed some time later by a
-    /// block proposer.
-    ///
-    /// This means a public function cannot return any values back to a private
-    /// function, because by the time the public function is being executed,
-    /// the private function which called it has already completed execution.
-    /// (In fact, the private function has been executed and proven, along with
-    /// all other private function calls of the user's tx. A single proof of the
-    /// tx has been submitted to the Aztec network, and some time later a
-    /// proposer has picked the tx up from the mempool and begun executing all
-    /// of the enqueued public functions).
-    ///
-    /// # Privacy warning
-    /// Enqueueing a public function call is an inherently leaky action.
-    /// Many interesting applications will require some interaction with public
-    /// state, but smart contract developers should try to use public function
-    /// calls sparingly, and carefully.
-    /// _Internal_ public function calls are especially leaky, because they
-    /// completely leak which private contract made the call.
-    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
-    ///
-    /// # Arguments
-    /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[external("private")] function as `context`, through the
-    ///               #[external("private")] annotation's macro.
-    ///
+    /// **[DEPRECATED]**
+    /// This function is deprecated. Please use the new contract API:
+    /// `self.enqueue(MyContract::at(address).my_public_function(...args))`
+    /// instead of manually constructing and calling `PublicCallInterface`.
     pub fn enqueue(self, context: &mut PrivateContext) {
         self.enqueue_impl(context, false, false)
     }
 
-    /// Enqueues a call to this public function, to be executed later.
-    ///
-    /// As per `enqueue`, but hides this calling contract's address from the
-    /// target public function.
-    /// This means the origin of the call (msg_sender) will not be publicly
-    /// visible to any blockchain observers, nor to the target public function.
-    /// When the target public function reads `context.msg_sender()` it will
-    /// receive an `Option<AztecAddress>::none`.
-    ///
-    /// NOTES:
-    /// - Not all public functions will accept a msg_sender of "none". Many
-    ///   public functions will require that msg_sender is "some" and will
-    ///   revert otherwise. Therefore, if using `enqueue_incognito`, you must
-    ///   understand whether the function you're calling will accept a
-    ///   msg_sender of "none".
-    ///   Lots of public bookkeeping patterns rely on knowing which address made
-    ///   the call, so as to ascribe state against the caller's address.
-    ///   (There are patterns whereby bookkeeping could instead be done in
-    ///   private-land).
-    /// - If you are enqueueing a call to an _internal_ public function (i.e.
-    ///   a public function that will only accept calls from other functions
-    ///   of its own contract), then by definition a call to it cannot possibly
-    ///   be "incognito": the msg_sender must be its own address, and indeed the
-    ///   called public function will assert this. Tl;dr this is not usable for
-    ///   enqueued internal public calls.
-    ///
-    /// # Arguments
-    /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[external("private")] function as `context`, through the
-    ///               #[external("private")] annotation's macro.
-    ///
-    /// Advanced:
-    /// - The kernel circuits will permit _any_ private function to set the
-    ///   msg_sender field of any enqueued public function call to
-    ///   NULL_MSG_SENDER_CONTRACT_ADDRESS.
-    /// - When the called public function calls `PublicContext::msg_sender()`,
-    ///   aztec-nr will translate NULL_MSG_SENDER_CONTRACT_ADDRESS into
-    ///   `Option<AztecAddress>::none` for familiarity to devs.
-    ///
+    /// **[DEPRECATED]**
+    /// This function is deprecated. Please use the new contract API:
+    /// `self.enqueue_incognito(MyContract::at(address).my_public_function(...args))`
+    /// instead of manually constructing and calling `PublicCallInterface`.
     pub fn enqueue_incognito(self, context: &mut PrivateContext) {
         self.enqueue_impl(context, false, true)
     }
 
-    /// Enqueues a read-only call to this public function.
-    ///
-    /// This is similar to Solidity's `staticcall`. The called function
-    /// cannot modify state, emit L2->L1 messages, nor emit events. Any nested
-    /// calls are constrained to also be staticcalls.
-    ///
-    /// # Arguments
-    /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[external("private")] function as `context`, through the
-    ///               #[external("private")] annotation's macro.
-    ///
+    /// TODO(F-130): Drop this function. This should be present only on PublicStaticCallInterface.
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         self.enqueue_impl(context, true, false)
     }
 
-    /// Enqueues a read-only call to this public function.
-    ///
-    /// As per `enqueue_view`, but hides this calling contract's address from
-    /// the target public function.
-    ///
-    /// See `enqueue_incognito` for more details relating to hiding msg_sender.
-    ///
-    /// # Arguments
-    /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[external("private")] function as `context`, through the
-    ///               #[external("private")] annotation's macro.
-    ///
+    /// TODO(F-130): Drop this function. This should be present only on PublicStaticCallInterface.
     pub fn enqueue_view_incognito(self, context: &mut PrivateContext) {
         self.enqueue_impl(context, true, true)
     }
@@ -474,50 +290,18 @@ where
         )
     }
 
-    /// Enqueues a call to this public function, and designates it to be the
-    /// teardown function for this tx. Only one teardown function call can be
-    /// made by a tx.
-    ///
-    /// Niche function: Only wallet developers and paymaster contract developers
-    /// (aka Fee-payment contracts) will need to make use of this function.
-    ///
-    /// Aztec supports a three-phase execution model: setup, app logic, teardown.
-    /// The phases exist to enable a fee payer to take on the risk of paying
-    /// a transaction fee, safe in the knowledge that their payment (in whatever
-    /// token or method the user chooses) will succeed, regardless of whether
-    /// the app logic will succeed. The "setup" phase ensures the fee payer
-    /// has sufficient balance to pay the proposer their fees.
-    /// The teardown phase is primarily intended to: calculate exactly
-    /// how much the user owes, based on gas consumption, and refund the user
-    /// any change.
-    ///
-    /// Note: in some cases, the cost of refunding the user (i.e. DA costs of
-    /// tx side-effects) might exceed the refund amount. For app logic with
-    /// fairly stable and predictable gas consumption, a material refund amount
-    /// is unlikely. For app logic with unpredictable gas consumption, a
-    /// refund might be important to the user (e.g. if a hefty function reverts
-    /// very early). Wallet/FPC/Paymaster developers should be mindful of this.
-    ///
-    /// See `enqueue` for more information about enqueuing public function calls.
-    ///
-    /// # Arguments
-    /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[external("private")] function as `context`, through the
-    ///               #[external("private")] annotation's macro.
-    ///
+    /// **[DEPRECATED]**
+    /// This function is deprecated. Please use the new contract API:
+    /// `self.set_as_teardown(MyContract::at(address).my_public_function(...args))`
+    /// instead of manually constructing and setting the teardown function `PublicCallInterface`.
     pub fn set_as_teardown(self, context: &mut PrivateContext) {
         self.set_as_teardown_impl(context, false);
     }
 
-    /// Enqueues a call to this public function, and designates it to be the teardown
-    /// function for this tx. Only one teardown function call can be made by a
-    /// tx.
-    ///
-    /// As per `set_as_teardown`, but hides this calling contract's address from
-    /// the target public function.
-    ///
-    /// See `enqueue_incognito` for more details relating to hiding msg_sender.
-    ///
+    /// **[DEPRECATED]**
+    /// This function is deprecated. Please use the new contract API:
+    /// `self.set_as_teardown_incognito(MyContract::at(address).my_public_function(...args))`
+    /// instead of manually constructing and setting the teardown function `PublicCallInterface`.
     pub fn set_as_teardown_incognito(self, context: &mut PrivateContext) {
         self.set_as_teardown_impl(context, true);
     }
@@ -590,27 +374,15 @@ where
         }
     }
 
-    pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
+    pub fn with_gas(mut self, gas_opts: GasOpts) -> Self {
         self.gas_opts = gas_opts;
         self
     }
 
-    /// Makes the read-only call to this public function.
-    ///
-    /// This is similar to Solidity's `staticcall`. The called function
-    /// cannot modify state or emit events. Any nested calls are constrained to
-    /// also be staticcalls.
-    ///
-    /// Will revert if the called function reverts or runs out of gas.
-    ///
-    /// # Arguments
-    /// * `context` - The PublicContext -- made magically available to the body
-    ///               of every #[external("public")] function as `context`, through the
-    ///               #[external("public")] annotation's macro.
-    ///
-    /// # Returns
-    /// * `T` - Whatever data the called function has returned.
-    ///
+    /// **[DEPRECATED]**
+    /// This function is deprecated. Please use the new contract API:
+    /// `self.view(MyContract::at(address).my_public_static_function(...args))`
+    /// instead of manually constructing and calling `PublicStaticCallInterface`.
     pub unconstrained fn view(self, context: PublicContext) -> T {
         let returns = context.static_call_public_function(
             self.target_contract,
@@ -621,17 +393,10 @@ where
         Deserialize::deserialize(returns.as_array())
     }
 
-    /// Enqueues a read-only call to this public function.
-    ///
-    /// This is similar to Solidity's `staticcall`. The called function
-    /// cannot modify state, emit L2->L1 messages, nor emit events. Any nested
-    /// calls are constrained to also be staticcalls.
-    ///
-    /// # Arguments
-    /// * `context` - The PrivateContext -- made magically available to the body
-    ///               of every #[external("private")] function as `context`, through the
-    ///               #[external("private")] annotation's macro.
-    ///
+    /// **[DEPRECATED]**
+    /// This function is deprecated. Please use the new contract API:
+    /// `self.enqueue_view(MyContract::at(address).my_public_static_function(...args))`
+    /// instead of manually constructing and calling `PublicStaticCallInterface`.
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let calldata = self.args.push_front(self.selector.to_field());
         let calldata_hash = hash_calldata(calldata);
@@ -645,6 +410,10 @@ where
         )
     }
 
+    /// **[DEPRECATED]**
+    /// This function is deprecated. Please use the new contract API:
+    /// `self.enqueue_view_incognito(MyContract::at(address).my_public_static_function(...args))`
+    /// instead of manually constructing and calling `PublicStaticCallInterface`.
     pub fn enqueue_view_incognito(self, context: &mut PrivateContext) {
         let calldata = self.args.push_front(self.selector.to_field());
         let calldata_hash = hash_calldata(calldata);

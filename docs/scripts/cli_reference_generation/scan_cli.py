@@ -27,6 +27,7 @@ class CLIScanner:
     def __init__(self, base_command: str = "aztec"):
         self.base_command = base_command
         self.visited = set()  # Track visited commands to avoid loops
+        self.help_cache = {}  # Cache help output to detect duplicates
 
     def run_command(self, cmd: List[str]) -> Optional[str]:
         """Execute a command and return its output."""
@@ -178,7 +179,7 @@ class CLIScanner:
 
         return result
 
-    def scan_command(self, cmd_path: List[str], depth: int = 0) -> Dict[str, Any]:
+    def scan_command(self, cmd_path: List[str], depth: int = 0, parent_help: Optional[str] = None) -> Dict[str, Any]:
         """Recursively scan a command and its subcommands."""
         cmd_str = ' '.join(cmd_path)
 
@@ -198,6 +199,11 @@ class CLIScanner:
         help_output = self.run_command(cmd_path + ['--help'])
         if not help_output:
             return {"error": "no_help_output"}
+
+        # Check if help output is identical to parent (indicates invalid subcommand)
+        if parent_help and help_output.strip() == parent_help.strip():
+            print(f"{'  ' * depth}  ⚠️  Invalid subcommand (returns parent help), skipping")
+            return {"error": "invalid_subcommand"}
 
         # Check for errors in help output
         error_markers = [
@@ -227,7 +233,7 @@ class CLIScanner:
             for cmd in parsed.get("commands", []):
                 cmd_name = cmd["name"]
                 if cmd_name != "help":  # Skip help command
-                    sub_result = self.scan_command(cmd_path + [cmd_name], depth + 1)
+                    sub_result = self.scan_command(cmd_path + [cmd_name], depth + 1, help_output)
                     # Include all subcommands, even ones with errors
                     # Error commands will be rendered with stub sections
                     subcommands[cmd_name] = sub_result

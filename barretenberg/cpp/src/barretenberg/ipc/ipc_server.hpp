@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -54,19 +55,37 @@ class IpcServer {
 
     /**
      * @brief Wait for data from any connected client
-     * @param timeout_ns Timeout in nanoseconds (0 = infinite)
+     *
+     * @param timeout_ns Maximum time to wait in nanoseconds (0 = non-blocking poll)
      * @return Client ID that has data available, or -1 on timeout/error
      */
     virtual int wait_for_data(uint64_t timeout_ns) = 0;
 
     /**
-     * @brief Receive a message from a specific client
+     * @brief Receive next message from a specific client
+     *
+     * Blocks until a complete message is available. Returns a span pointing to the message data.
+     * For shared memory, this is a zero-copy view directly into the ring buffer.
+     * For sockets, this is a view into an internal buffer.
+     *
+     * The message remains valid until release() is called with the message size.
+     *
      * @param client_id Client to receive from
-     * @param buffer Buffer to store received message
-     * @param max_len Maximum length to receive
-     * @return Number of bytes received, or -1 on error
+     * @return Span of message data (empty only on error/disconnect)
      */
-    virtual ssize_t recv(int client_id, void* buffer, size_t max_len) = 0;
+    virtual std::span<const uint8_t> receive(int client_id) = 0;
+
+    /**
+     * @brief Release/consume the previously received message
+     *
+     * Must be called after receive() to advance to the next message.
+     * For shared memory, this releases space in the ring buffer.
+     * For sockets, this is a no-op (message already consumed during receive).
+     *
+     * @param client_id Client whose message to release
+     * @param message_size Size of the message being released (from span.size())
+     */
+    virtual void release(int client_id, size_t message_size) = 0;
 
     /**
      * @brief Send a message to a specific client
@@ -81,6 +100,19 @@ class IpcServer {
      * @brief Close the server and all client connections
      */
     virtual void close() = 0;
+
+    /**
+     * @brief Request graceful shutdown.
+     *
+     * Sets shutdown flag and wakes all blocked threads. Safe to call from signal handlers.
+     * After this returns, the run() loop will exit on its next iteration.
+     * Call close() afterward to clean up resources.
+     */
+    virtual void request_shutdown()
+    {
+        shutdown_requested_.store(true, std::memory_order_release);
+        wakeup_all();
+    }
 
     /**
      * @brief High-level request handler function type
@@ -110,35 +142,47 @@ class IpcServer {
      * Handler is responsible for deserializing request, processing, and serializing response.
      * This is a convenience method that encapsulates the typical server loop.
      *
+     * Uses peek/release pattern:
+     * - peek() returns a span (zero-copy for SHM, internal buffer for sockets)
+     * - handler processes the request
+     * - release() explicitly consumes the message
+     *
+     * This design ensures no messages are lost and enables zero-copy for shared memory.
+     *
      * Server exits gracefully when handler throws ShutdownRequested exception.
      *
      * @param handler Function to process requests and generate responses
-     * @param max_message_size Maximum message size to allocate buffer for
      */
-    virtual void run(const Handler& handler, size_t max_message_size)
+    virtual void run(const Handler& handler)
     {
-        std::vector<uint8_t> buffer(max_message_size);
-
-        while (true) {
+        while (!shutdown_requested_.load(std::memory_order_acquire)) {
             // Try to accept new clients (non-blocking for socket servers)
             accept(0);
 
-            int client_id = wait_for_data(100000000); // 100ms timeout
+            int client_id = wait_for_data(100000000);
             if (client_id < 0) {
+                // Timeout or error - check shutdown flag on next iteration
                 continue;
             }
 
-            ssize_t n = recv(client_id, buffer.data(), buffer.size());
-            if (n <= 0) {
+            // Receive message (blocks until complete message available, zero-copy for SHM)
+            auto request = receive(client_id);
+            if (request.empty()) {
                 continue;
             }
 
             try {
-                auto response = handler(client_id, std::span<const uint8_t>(buffer.data(), static_cast<size_t>(n)));
+                auto response = handler(client_id, request);
                 if (!response.empty()) {
                     send(client_id, response.data(), response.size());
                 }
+
+                // Explicitly release/consume the message
+                release(client_id, request.size());
             } catch (const ShutdownRequested& shutdown) {
+                // Release message before shutting down
+                release(client_id, request.size());
+
                 // Send final response before shutting down
                 if (!shutdown.response().empty()) {
                     send(client_id, shutdown.response().data(), shutdown.response().size());
@@ -149,15 +193,23 @@ class IpcServer {
         }
     }
 
-    /**
-     * @brief Run server event loop with handler (default 1MB buffer)
-     * @param handler Function to process requests and generate responses
-     */
-    void run(const Handler& handler) { run(handler, static_cast<size_t>(1024) * 1024); }
-
     // Factory methods
     static std::unique_ptr<IpcServer> create_socket(const std::string& socket_path, int max_clients);
-    static std::unique_ptr<IpcServer> create_shm(const std::string& base_name, size_t max_clients);
+    static std::unique_ptr<IpcServer> create_shm(const std::string& base_name,
+                                                 size_t max_clients,
+                                                 size_t request_ring_size = static_cast<size_t>(1024 * 1024),
+                                                 size_t response_ring_size = static_cast<size_t>(1024 * 1024));
+
+  protected:
+    std::atomic<bool> shutdown_requested_{ false };
+
+    /**
+     * @brief Wake all blocked threads (for graceful shutdown)
+     *
+     * Wakes any threads blocked in wait_for_data() or other blocking operations.
+     * Used by signal handlers to trigger graceful shutdown without waiting for timeouts.
+     */
+    virtual void wakeup_all() {};
 };
 
 } // namespace bb::ipc

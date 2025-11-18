@@ -17,7 +17,7 @@ struct lookup_tx_context_public_inputs_note_hash_tree_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_NOTE_HASH_TREE";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_note_hash_tree;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_read_trees_and_gas_used;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_note_hash_tree_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_note_hash_tree_inv;
@@ -43,7 +43,7 @@ struct lookup_tx_context_public_inputs_nullifier_tree_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_NULLIFIER_TREE";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_nullifier_tree;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_read_trees_and_gas_used;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_nullifier_tree_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_nullifier_tree_inv;
@@ -69,7 +69,7 @@ struct lookup_tx_context_public_inputs_public_data_tree_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_PUBLIC_DATA_TREE";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_public_data_tree;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_read_trees_and_gas_used;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_public_data_tree_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_public_data_tree_inv;
@@ -95,7 +95,7 @@ struct lookup_tx_context_public_inputs_l1_l2_tree_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_L1_L2_TREE";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_l1_l2_tree;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_read_trees_and_gas_used;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_l1_l2_tree_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_l1_l2_tree_inv;
@@ -119,7 +119,7 @@ struct lookup_tx_context_public_inputs_gas_used_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_GAS_USED";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_gas_used;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_read_trees_and_gas_used;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_gas_used_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_gas_used_inv;

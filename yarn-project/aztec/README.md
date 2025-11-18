@@ -8,7 +8,7 @@ Aztec is a package that allows for a simple development environment on Aztec sta
 
 The easiest way to run is by using `docker compose up`. This will create two containers:
 
-1. The sandbox listening on port `8080`
+1. The local network listening on port `8080`
 2. An anvil instance listening on port `8545`
 
 ### Node Server

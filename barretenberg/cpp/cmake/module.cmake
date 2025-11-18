@@ -295,11 +295,6 @@ function(barretenberg_module_with_sources MODULE_NAME)
                 add_dependencies(${BENCHMARK_NAME}_bench_objects lmdb_repo)
                 add_dependencies(${BENCHMARK_NAME}_bench lmdb_repo)
             endif()
-            add_custom_target(
-                run_${BENCHMARK_NAME}_bench
-                COMMAND ${BENCHMARK_NAME}_bench
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            )
         endforeach()
     endif()
 

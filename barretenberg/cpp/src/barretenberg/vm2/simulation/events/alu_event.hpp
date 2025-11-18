@@ -1,15 +1,12 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/common/opcodes.hpp"
-#include "barretenberg/vm2/common/uint1.hpp"
 
 namespace bb::avm2::simulation {
 
-enum class AluOperation {
+enum class AluOperation : uint8_t {
     ADD,
     SUB,
     MUL,
@@ -24,39 +21,20 @@ enum class AluOperation {
     TRUNCATE,
 };
 
-enum class AluError {
-    TAG_ERROR,
-    DIV_0_ERROR,
-};
-
-inline std::string to_string(AluError e)
-{
-    switch (e) {
-    case AluError::TAG_ERROR:
-        return "TAG_ERROR";
-    case AluError::DIV_0_ERROR:
-        return "DIV_0_ERROR";
-    }
-
-    // We should be catching all the cases above.
-    __builtin_unreachable();
-}
-
-// Explanations on default values for b and c:
-// execution.register[X] == 0 and execution.mem_tag_reg[X] == 0 when we throw an error in execution, because
-// in the trace the default value is 0.
-// To have a correct lookup from Execution into ALU, we therefore need to set the default value to 0.
-// Note also that the default value for b allows to deduplicate events with only a being set. Otherwise, the key would
-// not be deterministic.
+// Explanations on default values:
+// Circuit values of execution.register[X], execution.mem_tag_reg[X] corresponding to the output c are all set to 0 when
+// an error is thrown. In order to have a correct lookup from Execution into ALU, we therefore need to set the default
+// values to 0. Note also that the default value for b allows to deduplicate events when only member `a` is being set
+// (e.g. NOT with error). Otherwise, the key would not be deterministic.
+// For a, the default constructor ensures that the value is not unitialized, but we always explicitly set it during
+// event emission.
 struct AluEvent {
-    AluOperation operation;
+    AluOperation operation = static_cast<AluOperation>(0);
     MemoryValue a;
-    MemoryValue b = MemoryValue::from_tag(static_cast<ValueTag>(0),
-                                          0); // Avoid unitialized values for ALU ops with one input such as NOT,
-                                              // TRUNCATE. Otherwise, deduplication is not guaranteed.
-    MemoryValue c = MemoryValue::from_tag(static_cast<ValueTag>(0),
-                                          0); // Avoid unitialized values for ALU ops with one input and one output.
-    std::optional<AluError> error;
+    MemoryValue b = MemoryValue::from_tag(static_cast<ValueTag>(0), 0);
+    MemoryValue c = MemoryValue::from_tag(static_cast<ValueTag>(0), 0);
+
+    bool error = false;
     // To be used with deduplicating event emitters.
     using Key = std::tuple<AluOperation, MemoryValue, MemoryValue>;
     Key get_key() const { return { operation, a, b }; }

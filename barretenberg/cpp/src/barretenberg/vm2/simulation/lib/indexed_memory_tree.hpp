@@ -131,7 +131,7 @@ AppendOnlyTreeSnapshot IndexedMemoryTree<LeafType, HashingPolicy>::get_snapshot(
 {
     return AppendOnlyTreeSnapshot{
         .root = tree.root(),
-        .nextAvailableLeafIndex = leaves.size(),
+        .next_available_leaf_index = leaves.size(),
     };
 }
 

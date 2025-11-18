@@ -10,7 +10,7 @@ TEST(AvmWrittenSlotsTree, CorrectRoot)
 {
     auto snapshot = build_public_data_slots_tree().get_snapshot();
     EXPECT_EQ(snapshot.root, FF(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT));
-    EXPECT_EQ(snapshot.nextAvailableLeafIndex, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE);
+    EXPECT_EQ(snapshot.next_available_leaf_index, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE);
 }
 
 } // namespace

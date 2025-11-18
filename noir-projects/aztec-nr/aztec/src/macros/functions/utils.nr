@@ -1,17 +1,12 @@
 // TODO(benesjan): Move this whole file to `noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation`.
 // Not done yet in order to not murder the PR diff.
 use crate::macros::{
-    functions::{
-        auth_registry::AUTHORIZE_ONCE_REGISTRY,
-        call_interface_stubs::{
-            register_private_fn_stubs, register_public_fn_stubs, register_utility_fn_stub,
-        },
-    },
+    functions::auth_registry::AUTHORIZE_ONCE_REGISTRY,
     notes::NOTES,
     utils::{
         fn_has_authorize_once, fn_has_noinitcheck, is_fn_contract_library_method, is_fn_external,
-        is_fn_initializer, is_fn_only_self, is_fn_test, is_fn_view, module_has_initializer,
-        module_has_storage,
+        is_fn_initializer, is_fn_internal, is_fn_only_self, is_fn_test, is_fn_view,
+        module_has_initializer, module_has_storage,
     },
 };
 use dep::protocol_types::meta::utils::derive_serialization_quotes;
@@ -39,10 +34,6 @@ comptime fn get_abi_relevant_attributes(f: FunctionDefinition) -> Quoted {
 }
 
 pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
-    // TODO(benesjan): This function should only generate the new function's quote. Move the following to a different
-    // place.
-    register_private_fn_stubs(f);
-
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
 
@@ -91,7 +82,8 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
             let enqueue_self: EnqueueSelf<&mut aztec::context::private_context::PrivateContext> = EnqueueSelf { address: self_address, context: &mut context };
             let call_self_static: CallSelfStatic<&mut aztec::context::private_context::PrivateContext> = CallSelfStatic { address: self_address, context: &mut context };
             let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::private_context::PrivateContext> = EnqueueSelfStatic { address: self_address, context: &mut context };
-            aztec::contract_self::ContractSelf::new_private(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static)
+            let internal: CallInternal<&mut aztec::context::private_context::PrivateContext> = CallInternal { context: &mut context };
+            aztec::contract_self::ContractSelf::new_private(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal)
         };
     };
 
@@ -226,10 +218,6 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
 }
 
 pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
-    // TODO(benesjan): This function should only generate the new function's quote. Move the following to a different
-    // place.
-    register_public_fn_stubs(f);
-
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
 
@@ -276,7 +264,8 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
             let self_address = context.this_address();
             let call_self: CallSelf<aztec::context::public_context::PublicContext> = CallSelf { address: self_address, context };
             let call_self_static: CallSelfStatic<aztec::context::public_context::PublicContext> = CallSelfStatic { address: self_address, context };
-            aztec::contract_self::ContractSelf::new_public(context, storage, call_self, call_self_static)
+            let internal: CallInternal<aztec::context::public_context::PublicContext> = CallInternal { context };
+            aztec::contract_self::ContractSelf::new_public(context, storage, call_self, call_self_static, internal)
         };
     };
 
@@ -363,10 +352,6 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
 }
 
 pub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {
-    // TODO(benesjan): This function should only generate the new function's quote. Move the following to a different
-    // place.
-    register_utility_fn_stub(f);
-
     // Initialize Storage if module has storage
     let storage_init = if module_has_storage(f.module()) {
         quote {
@@ -528,9 +513,14 @@ pub(crate) comptime fn create_authorize_once_check(
 pub(crate) comptime fn check_each_fn_macroified(m: Module) {
     for f in m.functions() {
         let name = f.name();
-        if !is_fn_external(f) & !is_fn_contract_library_method(f) & !is_fn_test(f) {
+        if !is_fn_external(f)
+            & !is_fn_contract_library_method(f)
+            & !is_fn_internal(f)
+            & !is_fn_test(f) {
+            // We  don't suggest that #[contract_library_method] is allowed because we don't want to introduce another
+            // concept
             panic(
-                f"Function {name} must be marked as either #[external(...)], #[contract_library_method], or #[test]",
+                f"Function {name} must be marked as either #[external(...)], #[internal(...)], or #[test]",
             );
         }
     }

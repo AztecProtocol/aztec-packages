@@ -46,6 +46,29 @@ You can add the aztec version to a docs page without the `v` prefix with `#inclu
 
 When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
 
+### Version Configuration
+
+The `docusaurus.config.js` file uses dynamic version lookup instead of hard-coded array indices to gracefully handle version changes. This is critical for the nightly docs cleanup workflow, which removes old nightly versions from `versions.json`.
+
+This means that the docs versions must contain the following strings to be picked up correctly. This happens automatically for "nightly" and "devnet" versions with version tagging scheme, but "ignition" must be added manually when cutting an ignition release.
+
+**Dynamic Lookup Approach:**
+
+```javascript
+const nightlyVersion = versions.find((v) => v.includes("nightly"));
+const devnetVersion = versions.find((v) => v.includes("devnet"));
+const ignitionVersion = versions.find((v) => v.includes("ignition"));
+```
+
+This ensures that:
+
+- When nightly versions are removed by the cleanup script, the build doesn't break
+- Version configurations are conditionally included only if they exist
+- Array index shifts don't cause mismatched version configurations
+- The llms.txt plugin always points to the correct version (devnet)
+
+**Why this matters:** The [nightly docs workflow](../.github/workflows/nightly-docs-release.yml) runs `cleanup_nightly_versions.sh` before creating new versioned docs. Without dynamic lookup, removing versions from `versions.json` would cause array indices like `versions[0]` and `versions[1]` to point to wrong versions, breaking the build.
+
 ## Releases
 
 A new docs site is published on every merge to the next branch.

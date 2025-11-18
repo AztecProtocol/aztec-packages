@@ -1,15 +1,9 @@
-import { AVM_MAX_PROCESSABLE_L2_GAS, DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
+import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import {
-  AvmExecutionHints,
-  AvmTxHint,
-  type ProcessedPhase,
-  PublicTxResult,
-  type PublicTxSimulatorConfig,
-} from '@aztec/stdlib/avm';
+import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -73,23 +67,26 @@ class TxSimTeardownRevert extends Error {
   }
 }
 
+/** Only used internally. */
+type ProcessedPhase = {
+  phase: TxExecutionPhase;
+  durationMs?: number;
+  returnValues: NestedProcessReturnValues[];
+  reverted: boolean;
+  revertReason?: SimulationError;
+};
+
 export class PublicTxSimulator implements PublicTxSimulatorInterface {
   protected log: Logger;
-  private config: PublicTxSimulatorConfig;
+  protected readonly config: PublicSimulatorConfig;
 
   constructor(
     protected merkleTree: MerkleTreeWriteOperations,
     protected contractsDB: PublicContractsDB,
     protected globalVariables: GlobalVariables,
-    config?: Partial<PublicTxSimulatorConfig>,
+    config?: Partial<PublicSimulatorConfig>,
   ) {
-    this.config = {
-      proverId: config?.proverId ?? Fr.ZERO,
-      doMerkleOperations: config?.doMerkleOperations ?? false,
-      skipFeeEnforcement: config?.skipFeeEnforcement ?? false,
-      clientInitiatedSimulation: config?.clientInitiatedSimulation ?? false,
-      maxDebugLogMemoryReads: config?.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
-    };
+    this.config = PublicSimulatorConfig.from(config ?? {});
     this.log = createLogger(`simulator:public_tx_simulator`);
   }
 
@@ -118,7 +115,6 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       tx,
       this.globalVariables,
       ProtocolContractsList, // imported from file
-      this.config.doMerkleOperations,
       this.config.proverId,
     );
 
@@ -204,6 +200,10 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     const publicInputs = await context.generateAvmCircuitPublicInputs();
     const revertCode = context.getFinalRevertCode();
 
+    // We only return the app logic phase information.
+    const appLogicReturnValues =
+      processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
+
     return new PublicTxResult(
       /*gasUsed=*/ {
         totalGas: context.getActualGasUsed(),
@@ -213,7 +213,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       },
       /*revertCode=*/ revertCode,
       /*revertReason=*/ context.revertReason,
-      /*processedPhases=*/ processedPhases,
+      /*appLogicReturnValues=*/ appLogicReturnValues,
       /*logs=*/ context.state.getActiveStateManager().getLogs(),
       /*hints=*/ hints,
       /*publicInputs=*/ publicInputs,
@@ -342,8 +342,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       request.isStaticCall,
       calldata,
       allocatedGas,
-      this.config.clientInitiatedSimulation,
-      this.config.maxDebugLogMemoryReads,
+      this.config,
     );
     const avmCallResult = await simulator.execute();
     return avmCallResult.finalize();

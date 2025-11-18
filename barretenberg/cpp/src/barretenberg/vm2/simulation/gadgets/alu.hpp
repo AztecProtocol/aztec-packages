@@ -3,8 +3,10 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/interfaces/alu.hpp"
+#include "barretenberg/vm2/simulation/interfaces/field_gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/range_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -29,9 +31,9 @@ class Alu : public AluInterface {
     MemoryValue lt(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue lte(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue op_not(const MemoryValue& a) override;
-    MemoryValue truncate(const FF& a, MemoryTag dst_tag) override;
     MemoryValue shr(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue shl(const MemoryValue& a, const MemoryValue& b) override;
+    MemoryValue truncate(const FF& a, MemoryTag dst_tag) override;
 
   private:
     GreaterThanInterface& greater_than;

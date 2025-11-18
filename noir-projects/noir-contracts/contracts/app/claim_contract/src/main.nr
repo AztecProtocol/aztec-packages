@@ -67,8 +67,9 @@ pub contract Claim {
         self.context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction
-        Token::at(self.storage.reward_token.read())
-            .mint_to_public(recipient, proof_retrieved_note.note.get_value())
-            .enqueue(self.context);
+        self.enqueue(Token::at(self.storage.reward_token.read()).mint_to_public(
+            recipient,
+            proof_retrieved_note.note.get_value(),
+        ));
     }
 }

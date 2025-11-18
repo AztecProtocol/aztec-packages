@@ -163,7 +163,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   }
 
   if (snapshotCandidates.length === 0) {
-    log.verbose(`No valid snapshots found from any URL. Skipping snapshot sync.`, { ...indexMetadata, snapshotsUrls });
+    log.verbose(`No valid snapshots found from any URL, skipping snapshot sync`, { ...indexMetadata, snapshotsUrls });
     return false;
   }
 
@@ -190,7 +190,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
       });
       return true;
     } catch (err) {
-      log.error(`Failed to download snapshot from ${url}. Trying next candidate.`, err, {
+      log.error(`Failed to download snapshot from ${url}, trying next candidate`, err, {
         snapshot,
         snapshotsUrl: url,
       });
@@ -198,7 +198,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     }
   }
 
-  log.error(`Failed to download snapshot from all URLs.`, { snapshotsUrls });
+  log.error(`Failed to download snapshot from all URLs`, { snapshotsUrls });
   return false;
 }
 

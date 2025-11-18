@@ -43,7 +43,7 @@ void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::
     // The reasoning is that proving will always pass unless it crashes.
     // We want to return an exit code != 0 if the proof is invalid so that the prover client saves the inputs.
     info("verifying...");
-    bool res = avm.verify(proof, inputs.publicInputs, vk);
+    bool res = avm.verify(proof, inputs.public_inputs, vk);
     info("verification: ", res ? "success" : "failure");
     if (!res) {
         throw std::runtime_error("Generated proof is invalid!!!!!");

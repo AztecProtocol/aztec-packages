@@ -41,6 +41,9 @@ export interface ValidatorClientConfig {
 
   /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
   alwaysReexecuteBlockProposals?: boolean;
+
+  /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
+  fishermanMode?: boolean;
 }
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
@@ -61,6 +64,7 @@ export const ValidatorClientConfigSchema = z.object({
   validatorReexecute: z.boolean(),
   validatorReexecuteDeadlineMs: z.number().min(0),
   alwaysReexecuteBlockProposals: z.boolean().optional(),
+  fishermanMode: z.boolean().optional(),
 }) satisfies ZodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>;
 
 export const ValidatorClientFullConfigSchema = ValidatorClientConfigSchema.extend({

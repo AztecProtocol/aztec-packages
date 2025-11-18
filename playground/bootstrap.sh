@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
 
 function build {
@@ -45,23 +43,13 @@ function invalidate_cloudfront {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  "ci")
+  "")
     build
-    test
-    ;;
-  ""|"fast"|"full")
-    build
-    ;;
-  test|test_cmds|release|invalidate_cloudfront)
-    $cmd
     ;;
   "hash")
     echo $hash
     ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

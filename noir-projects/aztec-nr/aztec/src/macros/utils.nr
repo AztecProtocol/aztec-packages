@@ -5,6 +5,10 @@ pub(crate) comptime fn is_fn_external(f: FunctionDefinition) -> bool {
     f.has_named_attribute("external")
 }
 
+pub(crate) comptime fn is_fn_internal(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("internal")
+}
+
 pub(crate) comptime fn is_fn_contract_library_method(f: FunctionDefinition) -> bool {
     f.has_named_attribute("contract_library_method")
 }

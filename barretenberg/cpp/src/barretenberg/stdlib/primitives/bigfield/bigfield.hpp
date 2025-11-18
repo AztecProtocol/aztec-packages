@@ -578,6 +578,15 @@ template <typename Builder, typename T> class bigfield {
     void assert_is_not_equal(const bigfield& other,
                              std::string const& msg = "bigfield: prime limb diff is zero, but expected non-zero") const;
 
+    /**
+     * @brief Reduce the bigfield element modulo the target modulus.
+     * @details This function modifies the bigfield element in place to ensure that it is reduced modulo the target
+     * modulus. It is marked as `const` because it modifies the internal state of the bigfield element without changing
+     * its logical value.
+     *
+     * @warning This function does not enforce that the reduced value is < p (the target modulus), it instead enforces
+     * that the reduced value < 2^s for smallest s with 2^s > p.
+     */
     void self_reduce() const;
 
     /**
@@ -681,6 +690,13 @@ template <typename Builder, typename T> class bigfield {
             binary_basis_limbs[i].element.set_origin_tag(tag);
         }
         prime_basis_limb.set_origin_tag(tag);
+    }
+    void clear_child_tag() const
+    {
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            binary_basis_limbs[i].element.clear_child_tag();
+        }
+        prime_basis_limb.clear_child_tag();
     }
 
     bb::OriginTag get_origin_tag() const

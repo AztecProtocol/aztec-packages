@@ -32,7 +32,7 @@ pub contract TestLog {
     fn emit_encrypted_events(other: AztecAddress, preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
-        self.emit(event0, self.context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.emit(event0, self.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
 
         // We duplicate the emission, but swapping the sender and recipient:
         self.emit(event0, other, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -42,7 +42,7 @@ pub contract TestLog {
             value3: preimages[3] as u8,
         };
 
-        self.emit(event1, self.context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.emit(event1, self.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("public")]

@@ -110,9 +110,12 @@ pub contract Lending {
     ) {
         let on_behalf_of =
             compute_identifier(secret, on_behalf_of, self.msg_sender().unwrap().to_field());
-        let _res = Token::at(collateral_asset)
-            .transfer_to_public(from, self.address, amount, authwit_nonce)
-            .call(self.context);
+        let _res = self.call(Token::at(collateral_asset).transfer_to_public(
+            from,
+            self.address,
+            amount,
+            authwit_nonce,
+        ));
         // docs:start:enqueue_public
         self.enqueue_self._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset);
         // docs:end:enqueue_public
@@ -125,9 +128,12 @@ pub contract Lending {
         on_behalf_of: Field,
         collateral_asset: AztecAddress,
     ) {
-        let _ = Token::at(collateral_asset)
-            .transfer_in_public(self.msg_sender().unwrap(), self.address, amount, authwit_nonce)
-            .call(self.context);
+        let _ = self.call(Token::at(collateral_asset).transfer_in_public(
+            self.msg_sender().unwrap(),
+            self.address,
+            amount,
+            authwit_nonce,
+        ));
         let _ = self.call_self._deposit(
             AztecAddress::from_field(on_behalf_of),
             amount,
@@ -163,7 +169,7 @@ pub contract Lending {
     #[only_self]
     fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: u128) {
         let asset = self.call_self.update_accumulator();
-        let price = PriceFeed::at(asset.oracle).get_price(0).view(self.context).price;
+        let price = self.view(PriceFeed::at(asset.oracle).get_price(0)).price;
 
         let coll_loc = self.storage.collateral.at(owner);
         let collateral = coll_loc.read();
@@ -188,9 +194,12 @@ pub contract Lending {
 
         // @todo @LHerskind Support both shielding and transfers (for now just transfer)
         let collateral_asset = self.storage.collateral_asset.read();
-        let _ = Token::at(collateral_asset)
-            .transfer_in_public(self.address, recipient, amount, 0)
-            .call(self.context);
+        let _ = self.call(Token::at(collateral_asset).transfer_in_public(
+            self.address,
+            recipient,
+            amount,
+            0,
+        ));
     }
 
     #[external("private")]
@@ -208,7 +217,7 @@ pub contract Lending {
     #[only_self]
     fn _borrow(owner: AztecAddress, to: AztecAddress, amount: u128) {
         let asset = self.call_self.update_accumulator();
-        let price = PriceFeed::at(asset.oracle).get_price(0).view(self.context).price;
+        let price = self.view(PriceFeed::at(asset.oracle).get_price(0)).price;
 
         // Fetch collateral and static_debt, compute health of current position
         let collateral = self.storage.collateral.at(owner).read();
@@ -224,7 +233,7 @@ pub contract Lending {
 
         // @todo @LHerskind Need to support both private and public minting.
         let stable_coin = self.storage.stable_coin.read();
-        let _ = Token::at(stable_coin).mint_to_public(to, amount).call(self.context);
+        let _ = self.call(Token::at(stable_coin).mint_to_public(to, amount));
     }
 
     #[external("private")]
@@ -239,7 +248,7 @@ pub contract Lending {
         let on_behalf_of =
             compute_identifier(secret, on_behalf_of, self.msg_sender().unwrap().to_field());
         // docs:start:private_call
-        let _ = Token::at(stable_coin).burn_private(from, amount, authwit_nonce).call(self.context);
+        let _ = self.call(Token::at(stable_coin).burn_private(from, amount, authwit_nonce));
         // docs:end:private_call
         self.enqueue_self._repay(AztecAddress::from_field(on_behalf_of), amount, stable_coin);
     }
@@ -251,9 +260,11 @@ pub contract Lending {
         owner: AztecAddress,
         stable_coin: AztecAddress,
     ) {
-        let _ = Token::at(stable_coin)
-            .burn_public(self.msg_sender().unwrap(), amount, authwit_nonce)
-            .call(self.context);
+        let _ = self.call(Token::at(stable_coin).burn_public(
+            self.msg_sender().unwrap(),
+            amount,
+            authwit_nonce,
+        ));
         let _ = self.call_self._repay(owner, amount, stable_coin);
     }
 

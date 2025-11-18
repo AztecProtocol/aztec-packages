@@ -1,7 +1,6 @@
 export {
   type Aliased,
   type ContractInstanceAndArtifact,
-  type UserFeeOptions,
   type SimulateOptions,
   type ProfileOptions,
   type SendOptions,
@@ -14,7 +13,7 @@ export {
   ContractInstantiationDataSchema,
   FunctionCallSchema,
   ExecutionPayloadSchema,
-  UserFeeOptionsSchema,
+  GasSettingsOptionSchema,
   WalletSimulationFeeOptionSchema,
   SendOptionsSchema,
   SimulateOptionsSchema,

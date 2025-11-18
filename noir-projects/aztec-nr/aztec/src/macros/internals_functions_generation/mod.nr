@@ -1,17 +1,17 @@
 //! The functionality in this module is triggered by the `#[aztec]` macro. It generates new functions, prefixed with
-//! `__aztec_nr_internals___`, from the ones marked with `#[external(...)]` attributes. The original functions are then
-//! modified to be uncallable. This prevents developers from inadvertently calling a function directly, instead of
-//! performing a proper contract call.
+//! `__aztec_nr_internals___`, from the ones marked with `#[external(...)]` and `#[internal(...)]` attributes. The
+//! original functions are then modified to be uncallable. This prevents developers from inadvertently calling a
+//! function directly, instead of performing a proper contract call.
 
 pub mod abi_attributes;
 pub(crate) mod external_functions_registry;
+pub(crate) mod internal_functions_registry;
 mod abi_export;
+mod internal;
 
 use crate::macros::functions::utils::{transform_private, transform_public, transform_utility};
 use abi_export::create_fn_abi_export;
-use external_functions_registry::{
-    get_private_functions, get_public_functions, get_utility_functions,
-};
+use internal::{generate_private_internal, generate_public_internal};
 
 /// Modifies a function such that when it's called directly, it will result in a compilation error with a reasonable
 /// error message.
@@ -49,12 +49,13 @@ comptime fn make_functions_uncallable<let N: u32>(
     });
 }
 
-/// Produces new functions for all external contract functions, prefixing them with `__aztec_nr_internals___`, and then
-/// renders the original functions uncallable.
+/// Produces new functions for all external and internal contract functions, prefixing them with
+/// `__aztec_nr_internals___`, and then renders the original functions uncallable.
 pub(crate) comptime fn process_functions(m: Module) -> Quoted {
-    let private_functions = get_private_functions(m);
-    let public_functions = get_public_functions(m);
-    let utility_functions = get_utility_functions(m);
+    // EXTERNAL FUNCTIONS
+    let private_functions = external_functions_registry::get_private_functions(m);
+    let public_functions = external_functions_registry::get_public_functions(m);
+    let utility_functions = external_functions_registry::get_utility_functions(m);
 
     let transformed_private_functions =
         private_functions.map(|function| transform_private(function)).join(quote {});
@@ -79,22 +80,47 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
         "Calling utility functions directly from within the contract is not supported. You attempted to call ",
     );
 
+    // INTERNAL FUNCTIONS
+    let private_internal_functions = internal_functions_registry::get_private_functions(m);
+    let public_internal_functions = internal_functions_registry::get_public_functions(m);
+
+    let generated_private_internal_functions = private_internal_functions
+        .map(|function| generate_private_internal(function))
+        .join(quote {});
+    let generated_public_internal_functions =
+        public_internal_functions.map(|function| generate_public_internal(function)).join(quote {});
+
+    // Just like for external functions, we make the internal functions not directly callable.
+    make_functions_uncallable(
+        private_internal_functions,
+        "Direct invocation of private internal functions is not supported. You attempted to call ",
+    );
+    make_functions_uncallable(
+        public_internal_functions,
+        "Direct invocation of public internal functions is not supported. You attempted to call ",
+    );
+
     // We return the new functions' quotes to be injected into the contract.
     quote {
         $transformed_private_functions
         $transformed_public_functions
         $transformed_utility_functions
+        $generated_private_internal_functions
+        $generated_public_internal_functions
     }
 }
 
 // See docs of create_fn_abi_export for information on what this does.
 pub(crate) comptime fn create_fn_abi_exports(m: Module) -> Quoted {
-    let private_functions_exports =
-        get_private_functions(m).map(|function| create_fn_abi_export(function)).join(quote {});
-    let public_functions_exports =
-        get_public_functions(m).map(|function| create_fn_abi_export(function)).join(quote {});
-    let utility_functions_exports =
-        get_utility_functions(m).map(|function| create_fn_abi_export(function)).join(quote {});
+    let private_functions_exports = external_functions_registry::get_private_functions(m)
+        .map(|function| create_fn_abi_export(function))
+        .join(quote {});
+    let public_functions_exports = external_functions_registry::get_public_functions(m)
+        .map(|function| create_fn_abi_export(function))
+        .join(quote {});
+    let utility_functions_exports = external_functions_registry::get_utility_functions(m)
+        .map(|function| create_fn_abi_export(function))
+        .join(quote {});
 
     quote {
         $private_functions_exports

@@ -135,14 +135,12 @@ pub contract AppSubscription {
 
         let config = self.storage.config.read();
 
-        Token::at(config.subscription_token_address)
-            .transfer_in_private(
-                self.msg_sender().unwrap(),
-                config.subscription_recipient_address,
-                config.subscription_price,
-                authwit_nonce,
-            )
-            .call(self.context);
+        self.call(Token::at(config.subscription_token_address).transfer_in_private(
+            self.msg_sender().unwrap(),
+            config.subscription_recipient_address,
+            config.subscription_price,
+            authwit_nonce,
+        ));
 
         // Assert that the `current_block_number > expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS`.
         // --> We do that via the router contract to conceal which contract is performing the check.

@@ -87,7 +87,7 @@ describe('e2e_multiple_blobs', () => {
 
     const block = (await aztecNode.getBlock(blockNumber))!;
 
-    const numBlobFields = block.body.toBlobFields().length;
+    const numBlobFields = block.toBlobFields(true /* isFirstBlock */).length;
     const numBlobs = Math.ceil(numBlobFields / FIELDS_PER_BLOB);
     logger.info(
       `Block ${blockNumber} has ${provenTxs.length} txs, which produce ${numBlobFields} blob fields in ${numBlobs} blobs.`,

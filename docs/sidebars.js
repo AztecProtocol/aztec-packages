@@ -16,7 +16,7 @@ const sidebar = {
     },
     {
       type: "doc",
-      id: "developers/getting_started_on_sandbox",
+      id: "developers/getting_started_on_local_network",
     },
     {
       type: "doc",
@@ -182,6 +182,10 @@ const sidebar = {
         {
           "type": "doc",
           "id": "the_aztec_network/operation/sequencer_management/creating_and_voting_on_proposals"
+        },
+        {
+          "type": "doc",
+          "id": "the_aztec_network/operation/sequencer_management/slashing_and_offenses"
         },
         {
           "type": "doc",

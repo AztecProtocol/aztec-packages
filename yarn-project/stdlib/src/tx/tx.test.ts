@@ -30,7 +30,7 @@ describe('TxArray', () => {
     expect(deserializedTxArray).not.toBe(txArray);
   });
 
-  it('convert empty TxArray to and from buffer', () => {
+  it('converts empty TxArray to and from buffer', () => {
     const txArray = new TxArray();
     expect(txArray.length).toBe(0);
     const buf = txArray.toBuffer();
@@ -41,6 +41,11 @@ describe('TxArray', () => {
 
   it('throws when deserializing invalid buffer', () => {
     const invalidBuffer = randomBytes(10);
+    expect(() => TxArray.fromBuffer(invalidBuffer)).toThrow('Failed to deserialize TxArray from buffer');
+  });
+
+  it('throws when deserializing an empty buffer', () => {
+    const invalidBuffer = Buffer.alloc(0);
     expect(() => TxArray.fromBuffer(invalidBuffer)).toThrow('Failed to deserialize TxArray from buffer');
   });
 });
