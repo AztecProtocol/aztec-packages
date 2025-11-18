@@ -5,7 +5,7 @@ import {
   FunctionSelector,
   getAllFunctionAbis,
 } from '@aztec/stdlib/abi';
-import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
@@ -38,8 +38,8 @@ export class ContractBase {
   public methods: { [name: string]: ContractMethod } = {};
 
   protected constructor(
-    /** The deployed contract instance definition. */
-    public readonly instance: ContractInstanceWithAddress,
+    /** The contract's address. */
+    public readonly address: AztecAddress,
     /** The Application Binary Interface for the contract. */
     public readonly artifact: ContractArtifact,
     /** The wallet used for interacting with this contract. */
@@ -47,7 +47,7 @@ export class ContractBase {
   ) {
     getAllFunctionAbis(artifact).forEach((f: FunctionAbi) => {
       const interactionFunction = (...args: any[]) => {
-        return new ContractFunctionInteraction(this.wallet, this.instance.address, f, args);
+        return new ContractFunctionInteraction(this.wallet, this.address, f, args);
       };
 
       this.methods[f.name] = Object.assign(interactionFunction, {
@@ -62,22 +62,12 @@ export class ContractBase {
     });
   }
 
-  /** Address of the contract. */
-  public get address() {
-    return this.instance.address;
-  }
-
-  /** Partial address of the contract. */
-  public get partialAddress() {
-    return computePartialAddress(this.instance);
-  }
-
   /**
    * Creates a new instance of the contract wrapper attached to a different wallet.
    * @param wallet - Wallet to use for sending txs.
    * @returns A new contract instance.
    */
   public withWallet(wallet: Wallet): this {
-    return new ContractBase(this.instance, this.artifact, wallet) as this;
+    return new ContractBase(this.address, this.artifact, wallet) as this;
   }
 }

@@ -90,7 +90,7 @@ export class TokenContractTest {
       },
       async ({ tokenContractAddress, badAccountAddress }) => {
         // Restore the token contract state.
-        this.asset = await TokenContract.at(tokenContractAddress, this.wallet);
+        this.asset = TokenContract.at(tokenContractAddress, this.wallet);
         this.logger.verbose(`Token contract address: ${this.asset.address}`);
 
         this.tokenSim = new TokenSimulator(this.asset, this.wallet, this.adminAddress, this.logger, [
@@ -98,7 +98,7 @@ export class TokenContractTest {
           this.account1Address,
         ]);
 
-        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallet);
+        this.badAccount = InvalidAccountContract.at(badAccountAddress, this.wallet);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_admin().simulate({ from: this.adminAddress })).toBe(

@@ -20,11 +20,9 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractClassMetadata,
   type ContractInstanceWithAddress,
-  type ContractInstantiationData,
   type ContractMetadata,
   computePartialAddress,
   getContractClassFromArtifact,
-  getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
@@ -49,7 +47,6 @@ import type {
   BatchResults,
   BatchableMethods,
   BatchedMethod,
-  ContractInstanceAndArtifact,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
@@ -226,54 +223,38 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async registerContract(
-    instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
+    instance: ContractInstanceWithAddress,
     artifact?: ContractArtifact,
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress> {
-    /** Determines if the provided instance data is already a contract instance with an address. */
-    function isInstanceWithAddress(instanceData: any): instanceData is ContractInstanceWithAddress {
-      return (instanceData as ContractInstanceWithAddress).address !== undefined;
-    }
-    /** Determines if the provided instance data is contract instantiation data */
-    function isContractInstantiationData(instanceData: any): instanceData is ContractInstantiationData {
-      return (instanceData as ContractInstantiationData).salt !== undefined;
-    }
-    /** Determines if the provided instance data is already a contract */
-    function isContractInstanceAndArtifact(instanceData: any): instanceData is ContractInstanceAndArtifact {
-      return (
-        (instanceData as ContractInstanceAndArtifact).instance !== undefined &&
-        (instanceData as ContractInstanceAndArtifact).artifact !== undefined
-      );
-    }
-    let instance: ContractInstanceWithAddress;
-    if (isContractInstanceAndArtifact(instanceData)) {
-      instance = instanceData.instance;
-      await this.pxe.registerContract(instanceData);
-    } else if (isInstanceWithAddress(instanceData)) {
-      instance = instanceData;
-      await this.pxe.registerContract({ artifact, instance });
-    } else if (isContractInstantiationData(instanceData)) {
-      if (!artifact) {
-        throw new Error(`Contract artifact must be provided when registering a contract using instantiation data`);
+    const { contractInstance: existingInstance } = await this.pxe.getContractMetadata(instance.address);
+
+    if (existingInstance) {
+      // Instance already registered in the wallet
+      if (artifact) {
+        const thisContractClass = await getContractClassFromArtifact(artifact);
+        if (!thisContractClass.id.equals(existingInstance.currentContractClassId)) {
+          // wallet holds an outdated version of this contract
+          await this.pxe.updateContract(instance.address, artifact);
+          instance.currentContractClassId = thisContractClass.id;
+        }
       }
-      instance = await getContractInstanceFromInstantiationParams(artifact, instanceData);
-      await this.pxe.registerContract({ artifact, instance });
+      // If no artifact provided, we just use the existing registration
     } else {
+      // Instance not registered yet
       if (!artifact) {
-        throw new Error(`Contract artifact must be provided when registering a contract using an address`);
+        // Try to get the artifact from the wallet's contract class storage
+        const classMetadata = await this.pxe.getContractClassMetadata(instance.currentContractClassId, true);
+        if (!classMetadata.artifact) {
+          throw new Error(
+            `Cannot register contract at ${instance.address.toString()}: artifact is required but not provided, and wallet does not have the artifact for contract class ${instance.currentContractClassId.toString()}`,
+          );
+        }
+        artifact = classMetadata.artifact;
       }
-      const { contractInstance: maybeContractInstance } = await this.pxe.getContractMetadata(instanceData);
-      if (!maybeContractInstance) {
-        throw new Error(`Contract instance at ${instanceData.toString()} has not been registered in the wallet's PXE`);
-      }
-      instance = maybeContractInstance;
-      const thisContractClass = await getContractClassFromArtifact(artifact);
-      if (!thisContractClass.id.equals(instance.currentContractClassId)) {
-        // wallet holds an outdated version of this contract
-        await this.pxe.updateContract(instance.address, artifact);
-        instance.currentContractClassId = thisContractClass.id;
-      }
+      await this.pxe.registerContract({ artifact, instance });
     }
+
     if (secretKey) {
       await this.pxe.registerAccount(secretKey, await computePartialAddress(instance));
     }

@@ -130,7 +130,7 @@ export class BlacklistTokenContractTest {
       },
       async ({ tokenContractAddress, badAccountAddress }) => {
         // Restore the token contract state.
-        this.asset = await TokenBlacklistContract.at(tokenContractAddress, this.wallet);
+        this.asset = TokenBlacklistContract.at(tokenContractAddress, this.wallet);
         this.logger.verbose(`Token contract address: ${this.asset.address}`);
 
         this.tokenSim = new TokenSimulator(
@@ -141,7 +141,7 @@ export class BlacklistTokenContractTest {
           [this.adminAddress, this.otherAddress, this.blacklistedAddress],
         );
 
-        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallet);
+        this.badAccount = InvalidAccountContract.at(badAccountAddress, this.wallet);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).toEqual(

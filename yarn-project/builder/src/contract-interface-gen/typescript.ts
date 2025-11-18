@@ -92,14 +92,14 @@ function generateDeploy(input: ContractArtifact) {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(PublicKeys.default(), wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
+    return new DeployMethod<${contractName}>(PublicKeys.default(), wallet, ${artifactName}, (instance, wallet) => ${contractName}.at(instance.address, wallet), Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
   public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(publicKeys, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));
+    return new DeployMethod<${contractName}>(publicKeys, wallet, ${artifactName}, (instance, wallet) => ${contractName}.at(instance.address, wallet), Array.from(arguments).slice(2));
   }
 
   /**
@@ -113,7 +113,7 @@ function generateDeploy(input: ContractArtifact) {
       opts.publicKeys ?? PublicKeys.default(),
       opts.wallet,
       ${artifactName},
-      ${contractName}.at,
+      (instance, wallet) => ${contractName}.at(instance.address, wallet),
       Array.from(arguments).slice(1),
       opts.method ?? 'constructor',
     );
@@ -125,15 +125,15 @@ function generateDeploy(input: ContractArtifact) {
  * Generates the constructor by supplying the ABI to the parent class so the user doesn't have to.
  * @param name - Name of the contract to derive the ABI name from.
  * @returns A constructor method.
- * @remarks The constructor is private because we want to force the user to use the create method.
+ * @remarks The constructor is private because we want to force the user to use the at method.
  */
 function generateConstructor(name: string) {
   return `
   private constructor(
-    instance: ContractInstanceWithAddress,
+    address: AztecAddress,
     wallet: Wallet,
   ) {
-    super(instance, ${name}ContractArtifact, wallet);
+    super(address, ${name}ContractArtifact, wallet);
   }
   `;
 }
@@ -142,7 +142,6 @@ function generateConstructor(name: string) {
  * Generates the at method for this contract.
  * @param name - Name of the contract to derive the ABI name from.
  * @returns An at method.
- * @remarks We don't use constructor directly because of the async `wallet.getContractData` call.
  */
 function generateAt(name: string) {
   return `
@@ -150,13 +149,13 @@ function generateAt(name: string) {
    * Creates a contract instance.
    * @param address - The deployed contract's address.
    * @param wallet - The wallet to use when interacting with the contract.
-   * @returns A promise that resolves to a new Contract instance.
+   * @returns A new Contract instance.
    */
-  public static async at(
+  public static at(
     address: AztecAddress,
     wallet: Wallet,
-  ) {
-    return Contract.at(address, ${name}Contract.artifact, wallet) as Promise<${name}Contract>;
+  ): ${name}Contract {
+    return Contract.at(address, ${name}Contract.artifact, wallet) as ${name}Contract;
   }`;
 }
 
@@ -301,7 +300,7 @@ export async function generateTypescriptContractInterface(input: ContractArtifac
 /* eslint-disable */
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { type AbiType, type AztecAddressLike, type ContractArtifact, EventSelector, decodeFromAbi, type EthAddressLike, type FieldLike, type FunctionSelectorLike, loadContractArtifact, loadContractArtifactForPublic, type NoirCompiledContract, type U128Like, type WrappedFieldLike } from '@aztec/aztec.js/abi';
-import { Contract, ContractBase, ContractFunctionInteraction, type ContractInstanceWithAddress, type ContractMethod, type ContractStorageLayout, DeployMethod } from '@aztec/aztec.js/contracts';
+import { Contract, ContractBase, ContractFunctionInteraction, type ContractMethod, type ContractStorageLayout, DeployMethod } from '@aztec/aztec.js/contracts';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import { type PublicKey, PublicKeys } from '@aztec/aztec.js/keys';

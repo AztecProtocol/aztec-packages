@@ -1,6 +1,6 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, Point } from '@aztec/foundation/fields';
-import type { FunctionArtifact, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
+import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -105,16 +105,6 @@ export interface ExecutionDataProvider {
    * @param selector - The corresponding function selector.
    */
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string>;
-
-  /**
-   * Retrieves the artifact of a specified function within a given contract.
-   * The function is identified by its name, which is unique within a contract.
-   *
-   * @param contractAddress - The AztecAddress representing the contract containing the function.
-   * @param functionName - The name of the function.
-   * @returns The corresponding function's artifact as an object.
-   */
-  getFunctionArtifactByName(contractAddress: AztecAddress, functionName: string): Promise<FunctionArtifact | undefined>;
 
   /**
    * Gets the index of a nullifier in the nullifier tree.

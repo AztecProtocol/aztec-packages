@@ -3,12 +3,7 @@ import { timesParallel } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
-import {
-  EventSelector,
-  type FunctionArtifactWithContractName,
-  FunctionSelector,
-  getFunctionArtifact,
-} from '@aztec/stdlib/abi';
+import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -127,18 +122,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       ...artifact,
       debug,
     };
-  }
-
-  async getFunctionArtifactByName(
-    contractAddress: AztecAddress,
-    functionName: string,
-  ): Promise<FunctionArtifactWithContractName | undefined> {
-    const instance = await this.contractDataProvider.getContractInstance(contractAddress);
-    if (!instance) {
-      return;
-    }
-    const artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
-    return artifact && getFunctionArtifact(artifact, functionName);
   }
 
   /**

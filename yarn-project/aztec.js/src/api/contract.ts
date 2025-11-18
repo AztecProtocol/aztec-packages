@@ -15,7 +15,7 @@
  * ```
  *
  * ```ts
- * const contract = await Contract.at(address, MyContractArtifact, wallet);
+ * const contract = Contract.at(address, MyContractArtifact, wallet);
  * await contract.methods.mint(1000, owner).send().wait();
  * console.log(`Total supply is now ${await contract.methods.totalSupply().simulate()}`);
  * ```

@@ -197,7 +197,7 @@ export class FeesTest {
         this.fpcAdmin = this.aliceAddress;
 
         const canonicalFeeJuice = await getCanonicalFeeJuice();
-        this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.wallet);
+        this.feeJuiceContract = FeeJuiceContract.at(canonicalFeeJuice.address, this.wallet);
       },
     );
   }
@@ -215,7 +215,7 @@ export class FeesTest {
       async (_data, context) => {
         this.context = context;
 
-        this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.wallet);
+        this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.wallet);
 
         this.getGasBalanceFn = getBalancesFn(
           '⛽',
@@ -245,8 +245,8 @@ export class FeesTest {
         this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
         return { bananaCoinAddress: bananaCoin.address };
       },
-      async ({ bananaCoinAddress }) => {
-        this.bananaCoin = await BananaCoin.at(bananaCoinAddress, this.wallet);
+      ({ bananaCoinAddress }) => {
+        this.bananaCoin = BananaCoin.at(bananaCoinAddress, this.wallet);
         const logger = this.logger;
         this.getBananaPublicBalanceFn = getBalancesFn(
           '🍌.public',
@@ -260,6 +260,7 @@ export class FeesTest {
           this.aliceAddress,
           logger,
         );
+        return Promise.resolve();
       },
     );
   }
@@ -287,8 +288,8 @@ export class FeesTest {
           rollupAddress: context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
         };
       },
-      async (data, context) => {
-        const bananaFPC = await FPCContract.at(data.bananaFPCAddress, this.wallet);
+      (data, context) => {
+        const bananaFPC = FPCContract.at(data.bananaFPCAddress, this.wallet);
         this.bananaFPC = bananaFPC;
 
         this.getCoinbaseBalance = async () => {
@@ -328,6 +329,7 @@ export class FeesTest {
           const mana = block!.header.totalManaUsed.toBigInt();
           return mulDiv(mana * proverCost, price, 10n ** 9n);
         };
+        return Promise.resolve();
       },
     );
   }
@@ -346,8 +348,9 @@ export class FeesTest {
           sponsoredFPCAddress: sponsoredFPC.address,
         };
       },
-      async data => {
-        this.sponsoredFPC = await SponsoredFPCContract.at(data.sponsoredFPCAddress, this.wallet);
+      data => {
+        this.sponsoredFPC = SponsoredFPCContract.at(data.sponsoredFPCAddress, this.wallet);
+        return Promise.resolve();
       },
     );
   }

@@ -2,7 +2,8 @@ import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
 import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
-import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
@@ -19,7 +20,7 @@ describe('Deployment benchmark', () => {
   // The admin that aids in the setup of the test
   let adminAddress: AztecAddress;
   // Sponsored FPC contract
-  let sponsoredFPC: SponsoredFPCContract;
+  let sponsoredFPCInstance: ContractInstanceWithAddress;
   // Benchmarking configuration
   const config = t.config.accountDeployments;
   // Benchmarking user's Wallet
@@ -28,7 +29,7 @@ describe('Deployment benchmark', () => {
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyDeploySponsoredFPCSnapshot();
-    ({ adminWallet, adminAddress, sponsoredFPC, userWallet } = await t.setup());
+    ({ adminWallet, adminAddress, userWallet, sponsoredFPCInstance } = await t.setup());
     // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegistry
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.
@@ -51,7 +52,7 @@ describe('Deployment benchmark', () => {
           const benchysAccountManager = await t.createBenchmarkingAccountManager(userWallet, accountType);
 
           if (benchmarkingPaymentMethod === 'sponsored_fpc') {
-            await userWallet.registerContract(sponsoredFPC);
+            await userWallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
           }
 
           const benchysAddress = benchysAccountManager.address;

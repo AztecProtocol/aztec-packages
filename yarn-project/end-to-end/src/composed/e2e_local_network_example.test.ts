@@ -66,7 +66,7 @@ describe('e2e_local_network_example', () => {
 
     const initialSupply = 1_000_000n;
 
-    const tokenContract = await deployToken(wallet, alice, initialSupply, logger);
+    const { contract: tokenContract } = await deployToken(wallet, alice, initialSupply, logger);
 
     ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
 
@@ -174,7 +174,7 @@ describe('e2e_local_network_example', () => {
 
     ////////////// FUND A NEW ACCOUNT WITH BANANA COIN //////////////
     const bananaCoinAddress = await registerDeployedBananaCoinInWalletAndGetAddress(wallet);
-    const bananaCoin = await TokenContract.at(bananaCoinAddress, wallet);
+    const bananaCoin = TokenContract.at(bananaCoinAddress, wallet);
     const mintAmount = 10n ** 20n;
     await bananaCoin.methods.mint_to_private(alice, mintAmount).send({ from: fundedAccount }).wait();
 

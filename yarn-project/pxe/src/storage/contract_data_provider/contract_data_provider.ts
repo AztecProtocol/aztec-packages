@@ -184,23 +184,6 @@ export class ContractDataProvider {
     return fnArtifact && { ...fnArtifact, contractName: artifact.name };
   }
 
-  /**
-   * Retrieves the artifact of a specified function within a given contract.
-   * The function is identified by its name, which is unique within a contract.
-   * Throws if the contract has not been added to the database.
-   *
-   * @param contractAddress - The AztecAddress representing the contract containing the function.
-   * @param functionName - The name of the function.
-   * @returns The corresponding function's artifact as an object
-   */
-  public async getFunctionArtifactByName(
-    contractAddress: AztecAddress,
-    functionName: string,
-  ): Promise<FunctionArtifact | undefined> {
-    const artifact = await this.#getContractArtifactByAddress(contractAddress);
-    return artifact?.functions.find(fn => fn.name === functionName);
-  }
-
   public async getFunctionAbi(
     contractAddress: AztecAddress,
     selector: FunctionSelector,

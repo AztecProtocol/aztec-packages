@@ -219,7 +219,7 @@ class TestVariant {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const recipient = this.accounts[(i + 1) % this.txCount];
-        const tk = await TokenContract.at(this.token.address, this.wallet);
+        const tk = TokenContract.at(this.token.address, this.wallet);
         txs.push(tk.methods.transfer(recipient, 1n).send({ from: this.accounts[i] }));
       }
       return txs;
@@ -229,7 +229,7 @@ class TestVariant {
       for (let i = 0; i < this.txCount; i++) {
         const sender = this.accounts[i];
         const recipient = this.accounts[(i + 1) % this.txCount];
-        const tk = await TokenContract.at(this.token.address, this.wallet);
+        const tk = TokenContract.at(this.token.address, this.wallet);
         txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender }));
       }
       return txs;
@@ -598,9 +598,12 @@ describe('e2e_synching', () => {
           const txHash = blockTip.body.txEffects[0].txHash;
 
           const contractClassIds = await archiver.getContractClassIds();
-          for (const c of contracts) {
-            expect(contractClassIds.includes(c.instance.currentContractClassId)).toBeTrue;
-            expect(await archiver.getContract(c.address)).not.toBeUndefined;
+          const contractInstances = await Promise.all(
+            contracts.map(async c => (await archiver.getContract(c.address))!),
+          );
+          for (let i = 0; i < contracts.length; i++) {
+            expect(contractInstances[i]).not.toBeUndefined();
+            expect(contractClassIds.includes(contractInstances[i].currentContractClassId)).toBeTrue;
           }
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
@@ -617,15 +620,15 @@ describe('e2e_synching', () => {
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
-          expect(contractClassIdsAfter.includes(contracts[0].instance.currentContractClassId)).toBeTrue;
-          expect(contractClassIdsAfter.includes(contracts[1].instance.currentContractClassId)).toBeFalse;
+          expect(contractClassIdsAfter.includes(contractInstances[0].currentContractClassId)).toBeTrue;
+          expect(contractClassIdsAfter.includes(contractInstances[1].currentContractClassId)).toBeFalse;
           expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined;
           expect(await archiver.getContract(contracts[1].address)).toBeUndefined;
           expect(await archiver.getContract(contracts[2].address)).toBeUndefined;
 
           // Only the hardcoded schnorr is pruned since the contract class also existed before prune.
           expect(contractClassIdsAfter).toEqual(
-            contractClassIds.filter(c => !c.equals(contracts[1].instance.currentContractClassId)),
+            contractClassIds.filter(c => !c.equals(contractInstances[1].currentContractClassId)),
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;

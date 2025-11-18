@@ -1,5 +1,6 @@
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
 import type { Wallet } from '../wallet/wallet.js';
@@ -21,9 +22,8 @@ export class Contract extends ContractBase {
    * @param wallet - The wallet to use when interacting with the contract.
    * @returns A promise that resolves to a new Contract instance.
    */
-  public static async at(address: AztecAddress, artifact: ContractArtifact, wallet: Wallet): Promise<Contract> {
-    const instance = await wallet.registerContract(address, artifact);
-    return new Contract(instance, artifact, wallet);
+  public static at(address: AztecAddress, artifact: ContractArtifact, wallet: Wallet): Contract {
+    return new Contract(address, artifact, wallet);
   }
 
   /**
@@ -34,7 +34,8 @@ export class Contract extends ContractBase {
    * @param constructorName - The name of the constructor function to call.
    */
   public static deploy(wallet: Wallet, artifact: ContractArtifact, args: any[], constructorName?: string) {
-    const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, artifact, wallet);
+    const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
+      Contract.at(instance.address, artifact, wallet);
     return new DeployMethod(PublicKeys.default(), wallet, artifact, postDeployCtor, args, constructorName);
   }
 
@@ -54,7 +55,8 @@ export class Contract extends ContractBase {
     args: any[],
     constructorName?: string,
   ) {
-    const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, artifact, wallet);
+    const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
+      Contract.at(instance.address, artifact, wallet);
     return new DeployMethod(publicKeys, wallet, artifact, postDeployCtor, args, constructorName);
   }
 }

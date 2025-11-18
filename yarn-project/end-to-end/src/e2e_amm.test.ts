@@ -45,9 +45,9 @@ describe('AMM', () => {
       logger,
     } = await setup(4));
 
-    token0 = await deployToken(wallet, adminAddress, 0n, logger);
-    token1 = await deployToken(wallet, adminAddress, 0n, logger);
-    liquidityToken = await deployToken(wallet, adminAddress, 0n, logger);
+    ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
+    ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
+    ({ contract: liquidityToken } = await deployToken(wallet, adminAddress, 0n, logger));
 
     amm = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address)
       .send({ from: adminAddress })

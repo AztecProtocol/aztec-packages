@@ -157,7 +157,7 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: true,
         });
 
-        const registry = await AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
+        const registry = AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
         await registry.methods.consume(account1Address, innerHash).send({ from: account2Address }).wait();
 
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
@@ -194,7 +194,7 @@ describe('e2e_authwit_tests', () => {
             isValidInPublic: false,
           });
 
-          const registry = await AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
+          const registry = AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
           await expect(
             registry.methods.consume(account1Address, innerHash).simulate({ from: account2Address }),
           ).rejects.toThrow(/unauthorized/);

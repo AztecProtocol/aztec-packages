@@ -125,7 +125,17 @@ describe('WalletSchema', () => {
       fileMap: {},
       storageLayout: {},
     };
-    const result = await context.client.registerContract(await AztecAddress.random(), mockArtifact, Fr.random());
+    const mockInstance: ContractInstanceWithAddress = {
+      address: await AztecAddress.random(),
+      version: 1,
+      salt: Fr.random(),
+      deployer: await AztecAddress.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
+      initializationHash: Fr.random(),
+      publicKeys: PublicKeys.default(),
+    };
+    const result = await context.client.registerContract(mockInstance, mockArtifact, Fr.random());
     expect(result).toEqual({
       address: expect.any(AztecAddress),
       currentContractClassId: expect.any(Fr),
@@ -229,9 +239,29 @@ describe('WalletSchema', () => {
       returnTypes: [],
     };
 
+    const mockInstance: ContractInstanceWithAddress = {
+      address: address2,
+      version: 1,
+      salt: Fr.random(),
+      deployer: await AztecAddress.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
+      initializationHash: Fr.random(),
+      publicKeys: PublicKeys.default(),
+    };
+
+    const mockArtifact: ContractArtifact = {
+      name: 'TestContract',
+      functions: [],
+      nonDispatchPublicFunctions: [],
+      outputs: { structs: {}, globals: {} },
+      fileMap: {},
+      storageLayout: {},
+    };
+
     const methods: BatchedMethod<keyof BatchableMethods>[] = [
       { name: 'registerSender', args: [address1, 'alias1'] },
-      { name: 'registerContract', args: [address2, undefined, undefined] },
+      { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'sendTx', args: [exec, opts] },
       { name: 'simulateUtility', args: [call, [AuthWitness.random()], undefined] },
       { name: 'simulateTx', args: [exec, simulateOpts] },

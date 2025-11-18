@@ -316,18 +316,6 @@ describe('Private Execution test suite', () => {
       return Promise.resolve(artifact);
     });
 
-    executionDataProvider.getFunctionArtifactByName.mockImplementation((address, name) => {
-      const contract = contracts[address.toString()];
-      if (!contract) {
-        throw new Error(`Contract not found: ${address}`);
-      }
-      const artifact = getFunctionArtifactByName(contract, name);
-      if (!artifact) {
-        throw new Error(`Function not found: ${name} in contract ${address}`);
-      }
-      return Promise.resolve(artifact);
-    });
-
     executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
     // Provide tagging-related mocks expected by private log emission
     executionDataProvider.calculateDirectionalAppTaggingSecret.mockImplementation((_contract, _sender, _recipient) => {

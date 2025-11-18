@@ -30,7 +30,7 @@ export async function authorizeAction(
     );
   }
 
-  const contract = await Contract.at(contractAddress, contractArtifact, wallet);
+  const contract = Contract.at(contractAddress, contractArtifact, wallet);
   const action = contract.methods[functionName](...functionArgs);
 
   const setAuthwitnessInteraction = await SetPublicAuthwitContractInteraction.create(

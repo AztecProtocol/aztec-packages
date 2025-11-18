@@ -134,9 +134,9 @@ export class CrossChainMessagingTest {
 
         return this.crossChainTestHarness.toCrossChainContext();
       },
-      async crossChainContext => {
-        this.l2Token = await TokenContract.at(crossChainContext.l2Token, this.wallet);
-        this.l2Bridge = await TokenBridgeContract.at(crossChainContext.l2Bridge, this.wallet);
+      crossChainContext => {
+        this.l2Token = TokenContract.at(crossChainContext.l2Token, this.wallet);
+        this.l2Bridge = TokenBridgeContract.at(crossChainContext.l2Bridge, this.wallet);
 
         // There is an issue with the reviver so we are getting strings sometimes. Working around it here.
         this.ethAccount = EthAddress.fromString(crossChainContext.ethAccount.toString());
@@ -172,6 +172,7 @@ export class CrossChainMessagingTest {
         this.l1Client = l1Client;
         this.inbox = inbox;
         this.outbox = outbox;
+        return Promise.resolve();
       },
     );
   }

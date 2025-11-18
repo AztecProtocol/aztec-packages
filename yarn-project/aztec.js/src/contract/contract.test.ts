@@ -143,7 +143,7 @@ describe('Contract Class', () => {
   });
 
   it('should create and send a contract method tx', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
     const sentTx = fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
@@ -156,7 +156,7 @@ describe('Contract Class', () => {
   });
 
   it('should call view on a utility function', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
     const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
     expect(wallet.simulateUtility).toHaveBeenCalledWith(

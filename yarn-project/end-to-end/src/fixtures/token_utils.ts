@@ -6,9 +6,9 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 export async function deployToken(wallet: Wallet, admin: AztecAddress, initialAdminBalance: bigint, logger: Logger) {
   logger.info(`Deploying Token contract...`);
-  const contract = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18)
+  const { contract, instance } = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18)
     .send({ from: admin })
-    .deployed();
+    .wait();
 
   if (initialAdminBalance > 0n) {
     await mintTokensToPrivate(contract, admin, admin, initialAdminBalance);
@@ -16,7 +16,7 @@ export async function deployToken(wallet: Wallet, admin: AztecAddress, initialAd
 
   logger.info('L2 contract deployed');
 
-  return contract;
+  return { contract, instance };
 }
 
 export async function mintTokensToPrivate(
@@ -36,7 +36,7 @@ export async function expectTokenBalance(
   logger: Logger,
 ) {
   // Then check the balance
-  const contractWithWallet = await TokenContract.at(token.address, wallet);
+  const contractWithWallet = TokenContract.at(token.address, wallet);
   const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner });
   logger.info(`Account ${owner} balance: ${balance}`);
   expect(balance).toBe(expectedBalance);
