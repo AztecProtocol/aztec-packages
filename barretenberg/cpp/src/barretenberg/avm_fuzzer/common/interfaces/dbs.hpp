@@ -43,9 +43,9 @@ class FuzzerLowLevelDB : public bb::avm2::simulation::LowLevelMerkleDBInterface 
     std::pair<FF, index_t> get_indexed_low_leaf_helper(const std::vector<std::pair<FF, index_t>>& value_sorted_leaves,
                                                        const FF& value) const;
 
-    // Stored leaves sorted by value
+    // Stored leaves sorted by value/slots for low-indexed leaf retrieval
     std::vector<std::pair<FF, index_t>> nullifier_values{ { 0, 0 } };
-    std::vector<std::pair<FF, index_t>> public_data_values{ { 0, 0 } };
+    std::vector<std::pair<FF, index_t>> public_data_slots{ { 0, 0 } };
     // Stored leaves with their indices
     std::unordered_map<index_t, NullifierLeafValue> nullifier_leaves{ { 0, NullifierLeafValue(0) } };
     std::unordered_map<index_t, PublicDataLeafValue> public_data_leaves{ { 0, PublicDataLeafValue(0, 0) } };

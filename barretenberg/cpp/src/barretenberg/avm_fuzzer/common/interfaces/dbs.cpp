@@ -51,7 +51,7 @@ GetLowIndexedLeafResponse FuzzerLowLevelDB::get_low_indexed_leaf(MerkleTreeId tr
         break;
     }
     case MerkleTreeId::PUBLIC_DATA_TREE: {
-        auto [low_value, low_index] = get_indexed_low_leaf_helper(public_data_values, value);
+        auto [low_value, low_index] = get_indexed_low_leaf_helper(public_data_slots, value);
         return GetLowIndexedLeafResponse(low_value == value, low_index);
         break;
     }
@@ -79,16 +79,16 @@ simulation::IndexedLeaf<PublicDataLeafValue> FuzzerLowLevelDB::get_leaf_preimage
 {
     PublicDataLeafValue leaf_value = public_data_leaves.at(leaf_index);
     std::pair<FF, index_t> value_index_pair = { leaf_value.value, leaf_index };
-    // Find index in public_data_values
+    // Find index in public_data_slots
     auto it = std::ranges::find_if(
-        public_data_values.begin(), public_data_values.end(), [&value_index_pair](const std::pair<FF, index_t>& pair) {
+        public_data_slots.begin(), public_data_slots.end(), [&value_index_pair](const std::pair<FF, index_t>& pair) {
             return pair.second == value_index_pair.second;
         });
-    if (it == public_data_values.end()) {
-        throw_or_abort("FuzzerLowLevelDB::get_leaf_preimage_public_data_tree: leaf not found in public_data_values");
+    if (it == public_data_slots.end()) {
+        throw_or_abort("FuzzerLowLevelDB::get_leaf_preimage_public_data_tree: leaf not found in public_data_slots");
     }
     it++; // Now iterator is at the next element
-    if (it == public_data_values.end()) {
+    if (it == public_data_slots.end()) {
         // If this is the last leaf, return with index 0
         return simulation::IndexedLeaf<PublicDataLeafValue>(leaf_value, 0, 0);
     }
@@ -125,11 +125,11 @@ SequentialInsertionResult<PublicDataLeafValue> FuzzerLowLevelDB::insert_indexed_
     // Add to map
     public_data_leaves[next_available_public_data_index] = leaf_value;
     // Add to sorted vector
-    public_data_values.push_back({ leaf_value.value, next_available_public_data_index });
+    public_data_slots.push_back({ leaf_value.slot, next_available_public_data_index });
     // Sort vector
     std::ranges::sort(
-        public_data_values.begin(),
-        public_data_values.end(),
+        public_data_slots.begin(),
+        public_data_slots.end(),
         [](const std::pair<FF, index_t>& a, const std::pair<FF, index_t>& b) { return a.first < b.first; });
 
     // Increment next available index
