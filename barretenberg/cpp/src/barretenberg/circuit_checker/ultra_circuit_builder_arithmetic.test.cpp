@@ -18,6 +18,8 @@ using namespace bb;
  * create_arithmetic_gate       (q_arith=1, general arithmetic gate)
  * create_bool_gate             (q_arith=1, boolean constraint x² - x = 0)
  *
+ * Note: q_arith=3 mode is also tested via direct builder access since it is only used internally via the non-native
+ * field gate methods.
  */
 class UltraCircuitBuilderArithmetic : public ::testing::Test {
   protected:
