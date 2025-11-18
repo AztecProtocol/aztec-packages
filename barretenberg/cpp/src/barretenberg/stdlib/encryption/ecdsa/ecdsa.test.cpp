@@ -221,7 +221,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         bool_t is_infinity(
             stdlib::witness_t<Builder>(&builder, account.public_key.is_point_at_infinity() ? fr::one() : fr::zero()),
             false);
-        G1 pub_key(x, y, is_infinity);
+        G1 pub_key(x, y, is_infinity, /*assert_on_curve=*/false);
         pub_key.set_free_witness_tag();
         BB_ASSERT_EQ(pub_key.is_point_at_infinity().get_value(), account.public_key.is_point_at_infinity());
 
