@@ -74,6 +74,8 @@ class ProgramBlock {
     void process_sstore_instruction(SSTORE_Instruction instruction);
     void process_sload_instruction(SLOAD_Instruction instruction);
     void process_getenvvar_instruction(GETENVVAR_Instruction instruction);
+    void process_emitnulifier_instruction(EMITNULLIFIER_Instruction instruction);
+    void process_nullifierexists_instruction(NULLIFIEREXISTS_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;

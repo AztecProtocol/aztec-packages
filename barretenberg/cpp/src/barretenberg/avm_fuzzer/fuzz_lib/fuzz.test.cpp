@@ -879,3 +879,42 @@ TEST(fuzz, GetEnvVarSmoke)
     EXPECT_EQ(getenvvar_helper(11), 1000000);                          // DAGASLEFT, see simulator.cpp
 }
 } // namespace execution_environment
+
+namespace notes_and_nullifiers {
+TEST(fuzz, EmitNullifierThenNullifierExists)
+{
+    auto set_field_instruction = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1 };
+    auto emit_nullifier_instruction = EMITNULLIFIER_Instruction{ .nullifier_offset_index = 0 };
+    auto nullifier_exists_instruction =
+        NULLIFIEREXISTS_Instruction{ .nullifier_offset_index = 0, .contract_address_offset = 10, .result_offset = 20 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{
+        { set_field_instruction, emit_nullifier_instruction, nullifier_exists_instruction }
+    };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(ReturnOptions{
+        .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 20 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 1);
+}
+
+TEST(fuzz, EmitNullifierThenNullifierExistsOverwritingPreviousNullifier)
+{
+    auto set_field_instruction = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1 };
+    auto emit_nullifier_instruction = EMITNULLIFIER_Instruction{ .nullifier_offset_index = 0 };
+    auto nullifier_exists_instruction = NULLIFIEREXISTS_Instruction{
+        .nullifier_offset_index = 0, .contract_address_offset = 0, .result_offset = 1
+    }; // GETENVVAR overwrites previous nullifier
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{
+        { set_field_instruction, emit_nullifier_instruction, nullifier_exists_instruction }
+    };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 0);
+}
+} // namespace notes_and_nullifiers

@@ -677,6 +677,41 @@ void ProgramBlock::process_getenvvar_instruction(GETENVVAR_Instruction instructi
     }
 }
 
+void ProgramBlock::process_emitnulifier_instruction(EMITNULLIFIER_Instruction instruction)
+{
+    auto nullifier_addr =
+        memory_manager.get_memory_offset_16_bit(bb::avm2::MemoryTag::FF, instruction.nullifier_offset_index);
+    if (!nullifier_addr.has_value()) {
+        return;
+    }
+
+    auto emitnulifier_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITNULLIFIER)
+                                        .operand(nullifier_addr.value())
+                                        .build();
+    instructions.push_back(emitnulifier_instruction);
+}
+
+void ProgramBlock::process_nullifierexists_instruction(NULLIFIEREXISTS_Instruction instruction)
+{
+    auto nullifier_addr =
+        memory_manager.get_memory_offset_16_bit(bb::avm2::MemoryTag::FF, instruction.nullifier_offset_index);
+    if (!nullifier_addr.has_value()) {
+        return;
+    }
+
+    auto get_contract_address_instruction =
+        GETENVVAR_Instruction{ .result_offset = instruction.contract_address_offset, .type = 0 };
+    this->process_getenvvar_instruction(get_contract_address_instruction);
+
+    auto nullifierexists_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::NULLIFIEREXISTS)
+                                           .operand(nullifier_addr.value())
+                                           .operand(instruction.contract_address_offset)
+                                           .operand(instruction.result_offset)
+                                           .build();
+    instructions.push_back(nullifierexists_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, instruction.result_offset);
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -790,6 +825,12 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             [this](SSTORE_Instruction instruction) { return this->process_sstore_instruction(instruction); },
             [this](SLOAD_Instruction instruction) { return this->process_sload_instruction(instruction); },
             [this](GETENVVAR_Instruction instruction) { return this->process_getenvvar_instruction(instruction); },
+            [this](EMITNULLIFIER_Instruction instruction) {
+                return this->process_emitnulifier_instruction(instruction);
+            },
+            [this](NULLIFIEREXISTS_Instruction instruction) {
+                return this->process_nullifierexists_instruction(instruction);
+            },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);
