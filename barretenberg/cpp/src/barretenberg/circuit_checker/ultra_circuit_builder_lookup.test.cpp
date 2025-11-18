@@ -73,13 +73,13 @@ TEST_F(UltraCircuitBuilderLookup, StepSizeCoefficients)
     EXPECT_EQ(builder.blocks.lookup.q_m()[last_idx], fr(0));
     EXPECT_EQ(builder.blocks.lookup.q_c()[last_idx], fr(0));
 
-    // Check that q_3 contains the correct table index for each gate and that q_lookup_type is "on"
+    // Check that remaining selectors are set correctly
     for (size_t i = 0; i < num_lookups; ++i) {
         const auto& table = builder.get_table(multi_table.basic_table_ids[i]);
-        EXPECT_EQ(builder.blocks.lookup.q_3()[i], fr(table.table_index));
-        EXPECT_EQ(builder.blocks.lookup.q_lookup_type()[i], fr(1)); // gate selector should be "on"
-        EXPECT_EQ(builder.blocks.lookup.q_1()[i], fr(0));           // unused in lookup gates
-        EXPECT_EQ(builder.blocks.lookup.q_4()[i], fr(0));           // unused in lookup gates
+        EXPECT_EQ(builder.blocks.lookup.q_3()[i], fr(table.table_index)); // unique table identifier
+        EXPECT_EQ(builder.blocks.lookup.q_lookup()[i], fr(1));            // gate selector should be "on"
+        EXPECT_EQ(builder.blocks.lookup.q_1()[i], fr(0));                 // unused in lookup gates
+        EXPECT_EQ(builder.blocks.lookup.q_4()[i], fr(0));                 // unused in lookup gates
     }
 
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -185,28 +185,6 @@ TEST_F(UltraCircuitBuilderLookup, LookupEntriesRecorded)
     }
 
     EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
-// Verifies that invalid accumulator values cause circuit check to fail
-TEST_F(UltraCircuitBuilderLookup, InvalidAccumulatorsFailCheck)
-{
-    Builder builder;
-
-    const fr a_value(123);
-    const fr b_value(456);
-    const auto a_idx = builder.add_variable(a_value);
-    const auto b_idx = builder.add_variable(b_value);
-
-    // Get valid accumulators
-    auto accumulators = plookup::get_lookup_accumulators(plookup::MultiTableId::UINT32_XOR, a_value, b_value, true);
-
-    // Corrupt an accumulator value
-    accumulators[ColumnIdx::C3][0] = fr(999999); // Invalid output value
-
-    builder.create_gates_from_plookup_accumulators(plookup::MultiTableId::UINT32_XOR, accumulators, a_idx, b_idx);
-
-    // Circuit should fail because accumulators don't match the table
-    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 // Verifies that corrupting any accumulator position in any column causes circuit check to fail

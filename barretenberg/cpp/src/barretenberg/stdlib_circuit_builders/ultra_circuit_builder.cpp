@@ -2084,7 +2084,7 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
                                         block.q_elliptic()[idx],
                                         block.q_memory()[idx],
                                         block.q_nnf()[idx],
-                                        block.q_lookup_type()[idx],
+                                        block.q_lookup()[idx],
                                         curve_b };
 
             std::vector<uint32_t> tmp_w = {
