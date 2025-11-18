@@ -8,4 +8,5 @@ export {
   HashedValues,
   GlobalVariables,
   TxProfileResult,
+  ExecutionPayload,
 } from '@aztec/stdlib/tx';

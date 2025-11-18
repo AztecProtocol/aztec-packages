@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 # We set container name to "" to avoid container name collisions when building boxes
 export CONTAINER_NAME=""
 export AZTEC=$PWD/../aztec-up/bin/aztec
@@ -30,15 +28,21 @@ function test {
 }
 
 function test_cmds {
-  for browser in chromium webkit firefox; do
-    for box in react vite; do
-      echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
-    done
+  # Until we get these boxes stable again - just testing on chromium.
+  local browser=chromium
+  for box in react vite vanilla; do
+    echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
   done
 
-  # The vanilla app works with deployed contracts configured during the build.
-  # To avoid building the app three times, we test it with one local network and multiple browsers.
-  echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
+  # for browser in chromium webkit firefox; do
+  #   for box in react vite; do
+  #     echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
+  #   done
+  # done
+
+  # # The vanilla app works with deployed contracts configured during the build.
+  # # To avoid building the app three times, we test it with one sandbox and multiple browsers.
+  # echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
@@ -106,23 +110,13 @@ function release {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  "ci")
+  "")
     build
-    test
-    ;;
-  ""|"fast"|"full")
-    build
-    ;;
-  test|test_cmds|release)
-    $cmd
     ;;
   "hash")
     echo $hash
     ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

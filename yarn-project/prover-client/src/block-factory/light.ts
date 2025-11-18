@@ -1,18 +1,24 @@
-import { SpongeBlob } from '@aztec/blob-lib';
+import {
+  SpongeBlob,
+  computeBlobsHashFromBlobs,
+  getBlobsPerL1Block,
+  getTotalNumBlobFieldsFromTxs,
+} from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { L2Block } from '@aztec/stdlib/block';
+import { L2Block, L2BlockHeader } from '@aztec/stdlib/block';
 import type { IBlockFactory, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { computeBlockOutHash, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { GlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
+import { ContentCommitment, type GlobalVariables, type ProcessedTx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import {
   buildHeaderAndBodyFromTxs,
   getTreeSnapshot,
-  insertSideEffectsAndBuildBaseRollupHints,
+  insertSideEffects,
 } from '../orchestrator/block-building-helpers.js';
 
 /**
@@ -25,12 +31,13 @@ import {
  * PublicProcessor which will do this for you as it processes transactions.
  *
  * If you haven't already inserted the side effects, e.g. because you are in a testing context, you can use the helper
- * function `buildBlockWithCleanDB`, which calls `insertSideEffectsAndBuildBaseRollupHints` for you.
+ * function `buildBlockWithCleanDB`, which calls `insertSideEffects` for you.
+ *
+ * @deprecated Use LightweightCheckpointBuilder instead. This only works for one block per checkpoint.
  */
 export class LightweightBlockFactory implements IBlockFactory {
   private globalVariables?: GlobalVariables;
   private l1ToL2Messages?: Fr[];
-  private startSpongeBlob?: SpongeBlob;
   private txs: ProcessedTx[] | undefined;
 
   private readonly logger = createLogger('lightweight-block-factory');
@@ -40,20 +47,10 @@ export class LightweightBlockFactory implements IBlockFactory {
     private telemetry: TelemetryClient = getTelemetryClient(),
   ) {}
 
-  async startNewBlock(
-    globalVariables: GlobalVariables,
-    l1ToL2Messages: Fr[],
-    // Must be provided to generate the correct spongeBlobHash for the block header if there's more than one block in the checkpoint.
-    startSpongeBlob?: SpongeBlob,
-    // Only insert l1 to l2 messages for the first block in a checkpoint.
-    isFirstBlock = true,
-  ): Promise<void> {
+  async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
     this.logger.debug('Starting new block', { globalVariables: globalVariables.toInspect(), l1ToL2Messages });
     this.globalVariables = globalVariables;
-    this.l1ToL2Messages = isFirstBlock
-      ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
-      : [];
-    this.startSpongeBlob = startSpongeBlob;
+    this.l1ToL2Messages = padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     this.txs = undefined;
     // Update L1 to L2 tree
     await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.l1ToL2Messages!);
@@ -75,21 +72,39 @@ export class LightweightBlockFactory implements IBlockFactory {
   }
 
   private async buildBlock(): Promise<L2Block> {
-    const { header, body } = await buildHeaderAndBodyFromTxs(
-      this.txs ?? [],
+    const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
+    const state = await this.db.getStateReference();
+
+    const txs = this.txs ?? [];
+    const txEffects = txs.map(tx => tx.txEffect);
+    const totalNumBlobFields = getTotalNumBlobFieldsFromTxs([txEffects.map(tx => tx.getTxStartMarker())]);
+    const startSpongeBlob = await SpongeBlob.init(totalNumBlobFields);
+
+    const { header, body, blockBlobFields } = await buildHeaderAndBodyFromTxs(
+      txs,
+      lastArchive,
+      state,
       this.globalVariables!,
-      this.l1ToL2Messages!,
-      this.db,
-      this.startSpongeBlob,
+      startSpongeBlob,
+      true,
     );
 
     header.state.validate();
 
-    const blockHeader = header.toBlockHeader();
-    await this.db.updateArchive(blockHeader);
+    await this.db.updateArchive(header);
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
 
-    const block = new L2Block(newArchive, header, body);
+    const outHash = computeBlockOutHash(txs.map(tx => tx.txEffect.l2ToL1Msgs));
+    const inHash = await computeInHashFromL1ToL2Messages(this.l1ToL2Messages!);
+    const blobFields = [new Fr(totalNumBlobFields)].concat(blockBlobFields);
+    const blobsHash = computeBlobsHashFromBlobs(getBlobsPerL1Block(blobFields));
+    const contentCommitment = new ContentCommitment(blobsHash, inHash, outHash);
+    const l2BlockHeader = L2BlockHeader.from({
+      ...header,
+      contentCommitment,
+    });
+
+    const block = new L2Block(newArchive, l2BlockHeader, body);
 
     this.logger.debug(`Built block ${block.number}`, {
       globalVariables: this.globalVariables?.toInspect(),
@@ -112,27 +127,13 @@ export async function buildBlockWithCleanDB(
   globalVariables: GlobalVariables,
   l1ToL2Messages: Fr[],
   db: MerkleTreeWriteOperations,
-  startSpongeBlob?: SpongeBlob,
-  isFirstBlock = true,
   telemetry: TelemetryClient = getTelemetryClient(),
 ) {
-  const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
   const builder = new LightweightBlockFactory(db, telemetry);
-  await builder.startNewBlock(globalVariables, l1ToL2Messages, startSpongeBlob, isFirstBlock);
-  const l1ToL2MessageTree = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
+  await builder.startNewBlock(globalVariables, l1ToL2Messages);
 
   for (const tx of txs) {
-    // startSpongeBlob and proverId are only used for constructing private inputs of the base rollup.
-    // Their values don't matter here because we are not using the return private inputs to build the block.
-    const proverId = Fr.ZERO;
-    await insertSideEffectsAndBuildBaseRollupHints(
-      tx,
-      lastArchive,
-      l1ToL2MessageTree,
-      startSpongeBlob?.clone() ?? SpongeBlob.empty(),
-      proverId,
-      db,
-    );
+    await insertSideEffects(tx, db);
   }
   await builder.addTxs(txs);
 

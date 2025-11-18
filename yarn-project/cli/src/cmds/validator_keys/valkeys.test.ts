@@ -2,7 +2,7 @@ import { deriveBlsPrivateKey } from '@aztec/foundation/crypto';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { loadKeystoreFile } from '@aztec/node-keystore/loader';
 import type { KeyStore } from '@aztec/node-keystore/types';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
@@ -38,15 +38,36 @@ describe('validator keys utilities', () => {
   });
 
   describe('withValidatorIndex', () => {
-    it('replaces the index segment for matching paths', () => {
-      const out = withValidatorIndex('m/12381/3600/0/0/0', 5);
-      expect(out).toBe('m/12381/3600/5/0/0');
+    it('replaces both account and address indices for matching paths', () => {
+      const out = withValidatorIndex('m/12381/3600/0/0/0', 5, 3);
+      expect(out).toBe('m/12381/3600/5/0/3');
+    });
+
+    it('uses default values when parameters are not provided', () => {
+      const out = withValidatorIndex('m/12381/3600/999/0/999');
+      expect(out).toBe('m/12381/3600/0/0/0');
+    });
+
+    it('uses default address index when only account index is provided', () => {
+      const out = withValidatorIndex('m/12381/3600/999/0/999', 7);
+      expect(out).toBe('m/12381/3600/7/0/0');
     });
 
     it('returns the path unchanged for non-matching paths', () => {
       const original = 'm/44/60/0/0/0';
-      const out = withValidatorIndex(original, 9);
+      const out = withValidatorIndex(original, 9, 5);
       expect(out).toBe(original);
+    });
+
+    it('returns the path unchanged for BLS paths with incorrect length', () => {
+      const shortPath = 'm/12381/3600/0/0';
+      const out = withValidatorIndex(shortPath, 5, 3);
+      expect(out).toBe(shortPath);
+    });
+
+    it('correctly handles edge case values', () => {
+      const out = withValidatorIndex('m/12381/3600/0/0/0', 0, 0);
+      expect(out).toBe('m/12381/3600/0/0/0');
     });
   });
 
@@ -131,6 +152,79 @@ describe('validator keys utilities', () => {
       expect(Array.isArray(v.publisher)).toBe(true);
       expect(v.publisher.length).toBe(3);
       expect(summaries[0].publisherEth!.length).toBe(3);
+    });
+
+    it('derives different BLS and ETH keys when account index changes', async () => {
+      // Build with account index 0
+      const { validators: v1, summaries: s1 } = await buildValidatorEntries({
+        validatorCount: 1,
+        publisherCount: 0,
+        accountIndex: 0,
+        baseAddressIndex: 0,
+        mnemonic: TEST_MNEMONIC,
+        feeRecipient: ('0x' + '44'.repeat(32)) as unknown as AztecAddress,
+      });
+
+      // Build with account index 1, same address index
+      const { validators: v2, summaries: s2 } = await buildValidatorEntries({
+        validatorCount: 1,
+        publisherCount: 0,
+        accountIndex: 1,
+        baseAddressIndex: 0,
+        mnemonic: TEST_MNEMONIC,
+        feeRecipient: ('0x' + '44'.repeat(32)) as unknown as AztecAddress,
+      });
+
+      // Extract attesters
+      const att1 = v1[0].attester as any;
+      const att2 = v2[0].attester as any;
+
+      // Assert ETH addresses are different
+      expect(att1.eth).not.toEqual(att2.eth);
+      expect(s1[0].attesterEth).not.toEqual(s2[0].attesterEth);
+
+      // Assert BLS keys are different
+      expect(att1.bls).toBeDefined();
+      expect(att2.bls).toBeDefined();
+      expect(att1.bls).not.toBe(att2.bls);
+      expect(s1[0].attesterBls).not.toBe(s2[0].attesterBls);
+    });
+
+    it('derives different BLS and ETH keys when address index changes', async () => {
+      const feeRecipient = await AztecAddress.random();
+      // Build with address index 0
+      const { validators: v1, summaries: s1 } = await buildValidatorEntries({
+        validatorCount: 1,
+        publisherCount: 0,
+        accountIndex: 0,
+        baseAddressIndex: 0,
+        mnemonic: TEST_MNEMONIC,
+        feeRecipient: feeRecipient,
+      });
+
+      // Build with address index 1, same account index
+      const { validators: v2, summaries: s2 } = await buildValidatorEntries({
+        validatorCount: 1,
+        publisherCount: 0,
+        accountIndex: 0,
+        baseAddressIndex: 1,
+        mnemonic: TEST_MNEMONIC,
+        feeRecipient: feeRecipient,
+      });
+
+      // Extract attesters
+      const att1 = v1[0].attester as any;
+      const att2 = v2[0].attester as any;
+
+      // Assert ETH addresses are different
+      expect(att1.eth).not.toEqual(att2.eth);
+      expect(s1[0].attesterEth).not.toEqual(s2[0].attesterEth);
+
+      // Assert BLS keys are different
+      expect(att1.bls).toBeDefined();
+      expect(att2.bls).toBeDefined();
+      expect(att1.bls).not.toEqual(att2.bls);
+      expect(s1[0].attesterBls).not.toEqual(s2[0].attesterBls);
     });
   });
 

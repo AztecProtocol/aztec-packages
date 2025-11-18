@@ -9,7 +9,7 @@ import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager, BaseWallet } from '@aztec/aztec.js/wallet';
 import { getPXEConfig, type PXEConfig } from '@aztec/pxe/config';
 import { createPXE, PXE } from '@aztec/pxe/client/lazy';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -228,8 +228,8 @@ export class EmbeddedWallet extends BaseWallet {
     opts: SimulateInteractionOptions,
   ): Promise<TxSimulationResult> {
     const feeOptions = opts.fee?.estimateGas
-      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
-      : await this.getDefaultFeeOptions(opts.from, opts.fee);
+      ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
+      : await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce: Fr.random(),

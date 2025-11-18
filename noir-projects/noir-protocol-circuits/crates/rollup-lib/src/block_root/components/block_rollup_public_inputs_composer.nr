@@ -1,4 +1,5 @@
 use crate::{abis::{BlockRollupPublicInputs, TxRollupPublicInputs}, tx_merge::merge_tx_rollups};
+use super::block_blob_data::create_block_end_blob_data;
 use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
@@ -8,8 +9,8 @@ use types::{
         state_reference::StateReference,
     },
     constants::{
-        ARCHIVE_HEIGHT, BLOCK_END_PREFIX, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT,
+        ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+        L1_TO_L2_MSG_TREE_HEIGHT,
     },
     merkle_tree::append_only_tree,
     traits::Hash,
@@ -28,7 +29,7 @@ pub struct BlockRollupPublicInputsComposer {
     out_hash: Field,
     accumulated_fees: Field,
     accumulated_mana_used: Field,
-
+    num_txs: u16,
     // The followings are set by calling `with_new_l1_to_l2_messages` explicitly.
     in_hash: Field,
     new_l1_to_l2: AppendOnlyTreeSnapshot,
@@ -42,10 +43,6 @@ impl BlockRollupPublicInputsComposer {
         start_sponge_blob: SpongeBlob,
         timestamp: u64,
     ) -> Self {
-        let block_end_marker = Self::create_block_end_marker(0 /* num_txs */);
-        let mut end_sponge_blob = start_sponge_blob;
-        end_sponge_blob.absorb([block_end_marker], 1 /* num_fields */);
-
         Self {
             constants,
             previous_archive,
@@ -54,12 +51,13 @@ impl BlockRollupPublicInputsComposer {
             start_tree_snapshots: previous_state.partial,
             end_tree_snapshots: previous_state.partial,
             start_sponge_blob,
-            end_sponge_blob,
+            end_sponge_blob: start_sponge_blob,
             timestamp,
             // The followings are 0 since there are no tx effects in this block.
             out_hash: 0,
             accumulated_fees: 0,
             accumulated_mana_used: 0,
+            num_txs: 0,
             // The followings are updated by calling `with_new_l1_to_l2_messages` explicitly.
             in_hash: 0,
             new_l1_to_l2: previous_state.l1_to_l2_message_tree,
@@ -80,21 +78,18 @@ impl BlockRollupPublicInputsComposer {
             gas_fees: global_variables.gas_fees,
         };
 
-        let mut end_sponge_blob = rollup.end_sponge_blob;
-        let block_end_marker = Self::create_block_end_marker(rollup.num_txs);
-        end_sponge_blob.absorb([block_end_marker], 1 /* num_fields */);
-
         Self {
             constants,
             previous_archive: rollup.constants.last_archive,
             start_tree_snapshots: rollup.start_tree_snapshots,
             end_tree_snapshots: rollup.end_tree_snapshots,
             start_sponge_blob: rollup.start_sponge_blob,
-            end_sponge_blob,
+            end_sponge_blob: rollup.end_sponge_blob,
             timestamp: global_variables.timestamp,
             out_hash: rollup.out_hash,
             accumulated_fees: rollup.accumulated_fees,
             accumulated_mana_used: rollup.accumulated_mana_used,
+            num_txs: rollup.num_txs,
             // The followings are updated by calling `update_l1_to_l2_tree_snapshots` explicitly.
             previous_l1_to_l2: rollup.constants.l1_to_l2_tree_snapshot,
             in_hash: 0,
@@ -142,7 +137,7 @@ impl BlockRollupPublicInputsComposer {
         new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     ) -> BlockRollupPublicInputs {
         // Build the header of this block and then insert its hash to the archive tree.
-        let block_header = self.create_block_header();
+        let (block_header, end_sponge_blob) = self.create_block_header_and_end_sponge_blob();
         let block_hash = block_header.hash();
         let new_archive = append_only_tree::append_leaf_to_snapshot::<ARCHIVE_HEIGHT>(
             self.previous_archive,
@@ -162,7 +157,7 @@ impl BlockRollupPublicInputsComposer {
             start_state,
             end_state: block_header.state,
             start_sponge_blob: self.start_sponge_blob,
-            end_sponge_blob: self.end_sponge_blob,
+            end_sponge_blob,
             start_timestamp: self.timestamp,
             end_timestamp: self.timestamp,
             in_hash: self.in_hash,
@@ -172,23 +167,13 @@ impl BlockRollupPublicInputsComposer {
         }
     }
 
-    /// Demarcates the end of a block in a checkpoint's blobs.
-    pub fn create_block_end_marker(num_txs: u16) -> Field {
-        // BLOCK_END_PREFIX | num_txs (2 bytes)
-        (BLOCK_END_PREFIX * 256 * 256) + num_txs as Field
-    }
+    fn create_block_header_and_end_sponge_blob(self) -> (BlockHeader, SpongeBlob) {
+        let last_archive = self.previous_archive;
 
-    fn create_block_header(self) -> BlockHeader {
         let state = StateReference {
             l1_to_l2_message_tree: self.new_l1_to_l2,
             partial: self.end_tree_snapshots,
         };
-
-        // Assign the `end_sponge_blob` to a mutable variable so that we can squeeze it.
-        // This is because `squeeze` will mutate the sponge to be in squeeze mode (and may absorb an extra field if not
-        // full). But we want to propagate the un-squeezed sponge so that it can keep absorbing data in the next blocks.
-        let mut end_sponge_blob_for_block = self.end_sponge_blob;
-        let sponge_blob_hash = end_sponge_blob_for_block.squeeze();
 
         // Block number equals the index at which the new block header hash is inserted into the archive tree.
         let block_number = self.previous_archive.next_available_leaf_index as u32;
@@ -215,13 +200,39 @@ impl BlockRollupPublicInputsComposer {
             gas_fees: self.constants.gas_fees,
         };
 
-        BlockHeader {
-            last_archive: self.previous_archive,
+        // Absorb data for this block into the end sponge blob.
+        let mut block_end_sponge_blob = self.end_sponge_blob;
+        let blob_data = create_block_end_blob_data(
+            global_variables,
+            last_archive,
+            state,
+            self.num_txs,
+            self.accumulated_mana_used,
+        );
+        // Include the last field (the l1-to-l2 message tree root) only if `in_hash` is not 0, which must always be the
+        // case for the first block root in a checkpoint.
+        let num_blob_data_to_absorb = if self.in_hash == 0 {
+            blob_data.len() - 1
+        } else {
+            blob_data.len()
+        };
+        block_end_sponge_blob.absorb(blob_data, num_blob_data_to_absorb);
+
+        // Duplicate the `block_end_sponge_blob` so that we can squeeze it.
+        // This is because `squeeze` will mutate the sponge to be in squeeze mode (and may absorb an extra field if not
+        // full). But we want to propagate the un-squeezed sponge so that it can keep absorbing data in the next block.
+        let mut duplicated_end_sponge_blob = block_end_sponge_blob;
+        let sponge_blob_hash = duplicated_end_sponge_blob.squeeze();
+
+        let block_header = BlockHeader {
+            last_archive,
             state,
             sponge_blob_hash,
             global_variables,
             total_fees: self.accumulated_fees,
             total_mana_used: self.accumulated_mana_used,
-        }
+        };
+
+        (block_header, block_end_sponge_blob)
     }
 }

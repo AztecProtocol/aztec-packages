@@ -117,16 +117,26 @@ export const setupL1Contracts = async (
   args: Partial<DeployL1ContractsArgs> = {},
   chain: Chain = foundry,
 ) => {
-  const l1Data = await deployL1Contracts(l1RpcUrls, account, chain, logger, {
-    vkTreeRoot: getVKTreeRoot(),
-    protocolContractsHash,
-    genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-    salt: args.salt,
-    initialValidators: args.initialValidators,
-    ...getL1ContractsConfigEnvVars(),
-    realVerifier: false,
-    ...args,
-  });
+  const l1Data = await deployL1Contracts(
+    l1RpcUrls,
+    account,
+    chain,
+    logger,
+    {
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractsHash,
+      genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+      salt: args.salt,
+      initialValidators: args.initialValidators,
+      ...getL1ContractsConfigEnvVars(),
+      realVerifier: false,
+      ...args,
+    },
+    {
+      priorityFeeBumpPercentage: 0,
+      priorityFeeRetryBumpPercentage: 0,
+    },
+  );
 
   return l1Data;
 };

@@ -109,7 +109,7 @@ template <typename FF> class ProofSurgeon {
      * @param num_public_inputs
      * @return RecursionWitnessData
      */
-    static RecursionWitnessData populate_recursion_witness_data(bb::SlabVector<FF>& witness,
+    static RecursionWitnessData populate_recursion_witness_data(std::vector<FF>& witness,
                                                                 std::vector<FF>& proof_witnesses,
                                                                 const std::vector<FF>& key_witnesses,
                                                                 const FF& key_hash_witness,

@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
-import { RevertCode } from '@aztec/stdlib/avm';
+import { PublicSimulatorConfig, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import { GlobalVariables } from '@aztec/stdlib/tx';
@@ -41,12 +41,8 @@ describe.each([
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
     const simulator = useCppSimulator
-      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
-          doMerkleOperations: true,
-        })
-      : new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
-          doMerkleOperations: true,
-        });
+      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, PublicSimulatorConfig.empty())
+      : new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, PublicSimulatorConfig.empty());
 
     processor = new PublicProcessor(
       globals,

@@ -37,6 +37,23 @@ export class ContractDeploymentData {
       })
       .transform(ContractDeploymentData.from);
   }
+
+  /**
+   * Creates a ContractDeploymentData from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing ContractDeploymentData fields
+   * @returns A ContractDeploymentData instance
+   */
+  public static fromPlainObject(obj: any): ContractDeploymentData {
+    if (obj instanceof ContractDeploymentData) {
+      return obj;
+    }
+    return new ContractDeploymentData(
+      obj.contractClassLogs.map((log: any) => ContractClassLog.fromPlainObject(log)),
+      obj.privateLogs.map((log: any) => PrivateLog.fromPlainObject(log)),
+    );
+  }
 }
 
 /**

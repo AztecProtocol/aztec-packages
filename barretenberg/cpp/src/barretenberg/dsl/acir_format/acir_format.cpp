@@ -136,6 +136,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         big_constraint.back().d = next_w4_wire;
         big_constraint.back().d_scaling = fr(-1);
         builder.create_big_mul_add_gate(big_constraint.back(), false);
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.big_quad_constraints.at(i));
     }
 
     // Add logic constraint
@@ -159,12 +161,12 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         uint32_t range = constraint.num_bits;
         if (constraint_system.minimal_range.contains(constraint.witness)) {
             range = constraint_system.minimal_range[constraint.witness];
-            builder.create_range_constraint(constraint.witness, range, "");
-            gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                    constraint_system.original_opcode_indices.range_constraints.at(i));
-            // no need to add more range constraints for this witness.
+            // no need to add more range constraints for this witness later.
             constraint_system.minimal_range.erase(constraint.witness);
         }
+        builder.create_range_constraint(constraint.witness, range, "");
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.range_constraints.at(i));
     }
 
     // Add aes128 constraints

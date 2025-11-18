@@ -39,6 +39,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         size_t round = 0;
         manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
+        manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ADD", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_EQ", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_TRANSITION", frs_per_G);
@@ -159,8 +160,6 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fq);
         manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
-        manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
-        manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fq);
 
         manifest_expected.add_challenge(round, "rho");
 

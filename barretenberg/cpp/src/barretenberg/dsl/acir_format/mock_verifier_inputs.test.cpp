@@ -131,7 +131,8 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraOinkProofSize)
                                   stdlib::recursion::honk::DefaultIO<Builder>>;
 
     if (!std::is_same_v<Flavor, MegaFlavor>) {
-        size_t CURRENT_OINK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 32;
+        // Base Ultra flavors have 8 witness entities, ZK flavors have 9 (includes gemini_masking_poly)
+        size_t CURRENT_OINK_PROOF_SIZE_WITHOUT_PUB_INPUTS = Flavor::HasZK ? 36 : 32;
         EXPECT_EQ(Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS, CURRENT_OINK_PROOF_SIZE_WITHOUT_PUB_INPUTS)
             << "The length of the Ultra Oink proof changed.";
 

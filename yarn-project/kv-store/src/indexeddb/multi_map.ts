@@ -61,6 +61,18 @@ export class IndexedDBAztecMultiMap<K extends Key, V extends Value>
     }
   }
 
+  getValueCountAsync(key: K): Promise<number> {
+    // Count entries over the keyCount index range for this key
+    const index = this.db.index('keyCount');
+    const rangeQuery = IDBKeyRange.bound(
+      [this.container, this.normalizeKey(key), 0],
+      [this.container, this.normalizeKey(key), Number.MAX_SAFE_INTEGER],
+      false,
+      false,
+    );
+    return index.count(rangeQuery);
+  }
+
   async deleteValue(key: K, val: V): Promise<void> {
     // Since we know the value, we can hash it and directly query the "hash" index
     // to avoid having to iterate over all the values

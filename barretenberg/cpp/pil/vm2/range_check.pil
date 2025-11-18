@@ -1,6 +1,13 @@
 // Usage:
 //
-// sel { val, num_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+// sel { val, num_bits } in range_check.sel_XXX { range_check.value, range_check.rng_chk_bits };
+//
+// sel_XXX is one of:
+// - sel
+// - sel_keccak
+// - sel_gt
+// - sel_memory
+// - sel_alu
 //
 // Asserts that val < 2^num_bits.
 // Supported for any 0 <= val < 2^128. Any val > 2^128 is not satisfiable (would fail #[CHECK_RECOMPOSITION] combined with

@@ -1,8 +1,8 @@
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import type { ContractArtifact, FunctionArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PublicKeys } from '@aztec/stdlib/keys';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { Contract } from '../contract/contract.js';
 import type { ContractBase } from '../contract/contract_base.js';

@@ -117,6 +117,7 @@ library Errors {
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
   error ValidatorSelection__InsufficientValidatorSetSize(uint256 actual, uint256 expected); // 0xf4f28e99
   error ValidatorSelection__ProposerIndexTooLarge(uint256 index);
+  error ValidatorSelection__EpochNotStable(uint256 queriedEpoch, uint32 currentTimestamp);
 
   // Staking
   error Staking__AlreadyQueued(address _attester);

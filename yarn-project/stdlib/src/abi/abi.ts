@@ -173,8 +173,8 @@ export interface FunctionAbi {
   name: string;
   /** Whether the function is secret. */
   functionType: FunctionType;
-  /** Whether the function is internal. */
-  isInternal: boolean;
+  /** Whether the function is marked as `#[only_self]` and hence callable only from within the contract. */
+  isOnlySelf: boolean;
   /** Whether the function can alter state or not */
   isStatic: boolean;
   /** Function parameters. */
@@ -190,7 +190,7 @@ export interface FunctionAbi {
 export const FunctionAbiSchema = z.object({
   name: z.string(),
   functionType: z.nativeEnum(FunctionType),
-  isInternal: z.boolean(),
+  isOnlySelf: z.boolean(),
   isStatic: z.boolean(),
   isInitializer: z.boolean(),
   parameters: z.array(z.object({ name: z.string(), type: AbiTypeSchema, visibility: z.enum(ABIParameterVisibility) })),
@@ -501,7 +501,7 @@ export function emptyFunctionAbi(): FunctionAbi {
   return {
     name: '',
     functionType: FunctionType.PRIVATE,
-    isInternal: false,
+    isOnlySelf: false,
     isStatic: false,
     parameters: [],
     returnTypes: [],

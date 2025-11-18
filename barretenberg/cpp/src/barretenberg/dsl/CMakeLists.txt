@@ -21,3 +21,6 @@ barretenberg_module(
 if(NOT WASM AND NOT FUZZING)
     target_link_libraries(dsl_tests PRIVATE vm2_stub)
 endif()
+if(FUZZING)
+    target_link_libraries(dsl_acir_dsl_fuzzer PRIVATE vm2_stub)
+endif()

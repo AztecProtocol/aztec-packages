@@ -1,4 +1,3 @@
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, type FunctionAbi, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -11,6 +10,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import { type Capsule, type TxProfileResult, collectOffchainEffects } from '@aztec/stdlib/tx';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
 import { publishInstance } from '../deployment/publish_instance.js';
@@ -239,7 +239,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   public override send(options: DeployOptions): DeploySentTx<TContract> {
     const sendTx = async () => {
       const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
-      const sendOptions = await toSendOptions(options);
+      const sendOptions = toSendOptions(options);
       return this.wallet.sendTx(executionPayload, sendOptions);
     };
     this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
@@ -274,7 +274,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async simulate(options: SimulateDeployOptions): Promise<SimulationReturn<true>> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
-    const simulatedTx = await this.wallet.simulateTx(executionPayload, await toSimulateOptions(options));
+    const simulatedTx = await this.wallet.simulateTx(executionPayload, toSimulateOptions(options));
 
     const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
     this.log.verbose(
@@ -297,7 +297,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   public async profile(options: DeployOptions & ProfileInteractionOptions): Promise<TxProfileResult> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
     return await this.wallet.profileTx(executionPayload, {
-      ...(await toProfileOptions(options)),
+      ...toProfileOptions(options),
       profileMode: options.profileMode,
       skipProofGeneration: options.skipProofGeneration,
     });

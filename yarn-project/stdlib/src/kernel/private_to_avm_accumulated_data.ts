@@ -112,6 +112,30 @@ export class PrivateToAvmAccumulatedData {
     );
   }
 
+  /**
+   * Creates a PrivateToAvmAccumulatedData instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing PrivateToAvmAccumulatedData fields
+   * @returns A PrivateToAvmAccumulatedData instance
+   */
+  static fromPlainObject(obj: any): PrivateToAvmAccumulatedData {
+    return new PrivateToAvmAccumulatedData(
+      assertLength(
+        obj.noteHashes.map((h: any) => Fr.fromPlainObject(h)),
+        MAX_NOTE_HASHES_PER_TX,
+      ),
+      assertLength(
+        obj.nullifiers.map((n: any) => Fr.fromPlainObject(n)),
+        MAX_NULLIFIERS_PER_TX,
+      ),
+      assertLength(
+        obj.l2ToL1Msgs.map((m: any) => ScopedL2ToL1Message.fromPlainObject(m)),
+        MAX_L2_TO_L1_MSGS_PER_TX,
+      ),
+    );
+  }
+
   [inspect.custom]() {
     return `PrivateToAvmAccumulatedData {
       noteHashes: [${this.noteHashes
@@ -182,6 +206,17 @@ export class PrivateToAvmAccumulatedDataArrayLengths {
 
   static empty() {
     return new PrivateToAvmAccumulatedDataArrayLengths(0, 0, 0);
+  }
+
+  /**
+   * Creates a PrivateToAvmAccumulatedDataArrayLengths instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing PrivateToAvmAccumulatedDataArrayLengths fields
+   * @returns A PrivateToAvmAccumulatedDataArrayLengths instance
+   */
+  static fromPlainObject(obj: any): PrivateToAvmAccumulatedDataArrayLengths {
+    return new PrivateToAvmAccumulatedDataArrayLengths(obj.noteHashes, obj.nullifiers, obj.l2ToL1Msgs);
   }
 
   [inspect.custom]() {

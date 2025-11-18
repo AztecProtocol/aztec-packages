@@ -15,10 +15,14 @@ TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
     info("Simulating...");
     AvmSimulationHelper simulation_helper;
     // TODO(MW): Add hint checks here
-    return AVM_TRACK_TIME_V(
-        "simulation/all",
-        simulation_helper.simulate_fast_with_existing_ws(
-            contract_db, inputs.wsRevision, ws, inputs.tx, inputs.globalVariables, inputs.protocolContracts));
+    return AVM_TRACK_TIME_V("simulation/all",
+                            simulation_helper.simulate_fast_with_existing_ws(contract_db,
+                                                                             inputs.ws_revision,
+                                                                             ws,
+                                                                             inputs.config,
+                                                                             inputs.tx,
+                                                                             inputs.global_variables,
+                                                                             inputs.protocol_contracts));
 }
 
 TxSimulationResult AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inputs)
@@ -29,7 +33,7 @@ TxSimulationResult AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inpu
 
     if (debug_logging) {
         // TODO(fcarreiro): Enable once PI generation is complete.
-        // BB_ASSERT_EQ(inputs.publicInputs, result.public_inputs);
+        // BB_ASSERT_EQ(inputs.public_inputs, result.public_inputs);
     }
 
     return result;

@@ -72,13 +72,13 @@ auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
 {
     switch (tree_id) {
     case world_state::MerkleTreeId::NULLIFIER_TREE:
-        return tree_roots.nullifierTree;
+        return tree_roots.nullifier_tree;
     case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
-        return tree_roots.publicDataTree;
+        return tree_roots.public_data_tree;
     case world_state::MerkleTreeId::NOTE_HASH_TREE:
-        return tree_roots.noteHashTree;
+        return tree_roots.note_hash_tree;
     case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
-        return tree_roots.l1ToL2MessageTree;
+        return tree_roots.l1_to_l2_message_tree;
     default:
         throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
     }

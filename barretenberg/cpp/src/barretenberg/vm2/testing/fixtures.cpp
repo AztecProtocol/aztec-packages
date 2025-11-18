@@ -51,7 +51,7 @@ std::vector<ScopedL2ToL1Message> random_l2_to_l1_messages(size_t n)
                     .recipient = FF::random_element(),
                     .content = FF::random_element(),
                 },
-            .contractAddress = FF::random_element(),
+            .contract_address = FF::random_element(),
         });
     }
     return messages;
@@ -64,9 +64,9 @@ std::vector<PublicCallRequestWithCalldata> random_enqueued_calls(size_t n)
     for (size_t i = 0; i < n; ++i) {
         calls.push_back(PublicCallRequestWithCalldata{
             .request{
-                .msgSender = FF::random_element(),
-                .contractAddress = FF::random_element(),
-                .isStaticCall = rand() % 2 == 0,
+                .msg_sender = FF::random_element(),
+                .contract_address = FF::random_element(),
+                .is_static_call = rand() % 2 == 0,
             },
             .calldata = random_fields(5),
         });
@@ -191,9 +191,9 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
     auto events = simulation_helper.simulate_for_witgen(inputs.hints);
 
     AvmTraceGenHelper trace_gen_helper;
-    auto trace = trace_gen_helper.generate_trace(std::move(events), inputs.publicInputs);
+    auto trace = trace_gen_helper.generate_trace(std::move(events), inputs.public_inputs);
 
-    return { std::move(trace), inputs.publicInputs };
+    return { std::move(trace), inputs.public_inputs };
 }
 
 bool skip_slow_tests()
