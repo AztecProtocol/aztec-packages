@@ -81,7 +81,10 @@ mul_quad_<fr> serialize_single_quad_gate(Acir::Expression const& arg);
  * when we add the constraints for the expression to the builder.
  */
 // clang-format on
-std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg);
+std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg,
+                                                     std::map<uint32_t, bb::fr>& linear_terms);
 
-bool is_single_arithmetic_gate(Acir::Opcode::AssertZero const& arg);
+bool is_single_arithmetic_gate(Acir::Opcode::AssertZero const& arg, const std::map<uint32_t, bb::fr>& linear_terms);
+
+std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr);
 } // namespace acir_format
