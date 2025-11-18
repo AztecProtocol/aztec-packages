@@ -5,7 +5,7 @@ use dep::aztec::macros::aztec;
 pub contract StaticParent {
     use dep::aztec::{context::gas::GasOpts, macros::functions::{external, view}};
     use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector, address::AztecAddress,
+        abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
     };
     use dep::static_child_contract::StaticChild;
 
@@ -98,12 +98,18 @@ pub contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 2],
     ) -> Field {
-        // Not using the new self.view(...) API because that doesn't allow for static calls to non-static functions
-        // which this test seems to rely on. TODO(F-130): Address this and replace e2e_static_calls.test.ts with Noir
-        // tests.
-        StaticParent::at(self.address).private_call(target_contract, target_selector, args).view(
-            self.context,
-        )
+        // Not using the high-level self.view(...) API because that doesn't allow for static calls to non-static
+        // functions which this test seems to relies on.
+        let private_call_selector =
+            FunctionSelector::from_signature("private_call((Field),(u32),[Field;2])");
+        self
+            .context
+            .static_call_private_function(
+                self.address,
+                private_call_selector,
+                [target_contract.to_field(), target_selector.to_field(), args[0], args[1]],
+            )
+            .get_preimage()
     }
 
     // Just like function above but with 3 args.

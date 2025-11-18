@@ -827,13 +827,27 @@ pub contract AvmTest {
         arg_a: Field,
         arg_b: Field,
     ) -> Field {
-        AvmTest::at(address).add_args_return(arg_a, arg_b).view(context)
+        let selector =
+            comptime { FunctionSelector::from_signature("add_args_return(Field,Field)") };
+        context.static_call_public_function(
+            address,
+            selector,
+            [arg_a, arg_b].as_slice(),
+            GasOpts::default(),
+        )[0]
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing self.storage.
     #[external("public")]
     fn nested_static_call_to_set_storage() {
-        AvmTest::at(self.address).set_storage_single(20).view(self.context);
+        let selector = comptime { FunctionSelector::from_signature("set_storage_single(Field)") };
+        let args = [20 as Field];
+        let _ = self.context.static_call_public_function(
+            self.address,
+            selector,
+            args.as_slice(),
+            GasOpts::default(),
+        );
     }
 
     #[external("public")]
