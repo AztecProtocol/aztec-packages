@@ -133,7 +133,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // When an expression doesn't fit into a single width-4 gate, we split it across multiple gates and we leverage
     // w4_shift to use the least possible number of intermediate witnesses. See the documentation of
     // split_into_mul_quad_gates for more information.
-    for (auto& big_constraint : constraint_system.big_quad_constraints) {
+    for (auto [big_constraint, opcode_idx] : zip_view(constraint_system.big_quad_constraints,
+                                                      constraint_system.original_opcode_indices.big_quad_constraints)) {
         // The index/value of the 4-th witness in the previous mul_add gate
         // In the first gate, this is just the 4-th witness value
         // In the following gates, it is result of the expression calculated on the previous gate
@@ -167,8 +168,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         big_constraint.back().d = previous_w4_wire_idx;
         big_constraint.back().d_scaling = fr(-1);
         builder.create_big_mul_add_gate(big_constraint.back(), false);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.big_quad_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add logic constraint
