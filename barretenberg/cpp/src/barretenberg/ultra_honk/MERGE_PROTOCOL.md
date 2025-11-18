@@ -375,26 +375,31 @@ Each kernel processes a **verification queue** containing circuits to verify. Th
 4. **Update state:** $[T_{\text{prev},j}] \leftarrow [M_j]$ (used in next iteration)
 
 **After loop completes:**
-- Sets $\texttt{kernel}_i.\texttt{public_inputs}.\texttt{ecc_op_tables} = [M_{1}], \ldots, [M_{4}]$ (final merged commitments)
+- Sets `kernel_i.public_inputs.ecc_op_tables` $= [M_{1}], \ldots, [M_{4}]$ (final merged commitments)
 
 **Example: Intermediate kernel $K_1$ (queue size 2):**
 - **Iteration 1:** Verifies $K_0$, produces $[M^{(1)}_j]$, updates $[T_{\text{prev},j}] \leftarrow [M^{(1)}_j]$
 - **Iteration 2:** Verifies $A_1$ using updated $[T_{\text{prev},j}]$, produces final $[M_j]$
-- **Output:** $\texttt{kernel}_1.\texttt{public_inputs}.\texttt{ecc_op_tables} = [M_{1}], \ldots, [M_{4}]$
+- **Output:** `kernel_1.public_inputs.ecc_op_tables` $= [M_{1}], \ldots, [M_{4}]$
 
 **Mathematical description of intermediate kernel merge result:**
 
 For an intermediate kernel $K_i$ verifying previous kernel $K_{i-1}$ and current app $A_i$:
 
 **Iteration 1** (verify $K_{i-1}$):
+
 $$M^{(1)}_j = t_{K_{i-1},j} + X^{\ell_1} \cdot T_{\text{prev},j}$$
+
 where $\ell_1 = |t_{K_{i-1},j}|$ and $T_{\text{prev},j}$ comes from $K_{i-2}$'s public inputs.
 
 **Iteration 2** (verify $A_i$):
+
 $$M_j = t_{A_i,j} + X^{\ell_2} \cdot M^{(1)}_j$$
+
 where $\ell_2 = |t_{A_i,j}|$.
 
 **Expanding the final result:**
+
 $$M_j = t_{A_i,j} + X^{\ell_2} \cdot t_{K_{i-1},j} + X^{\ell_1 + \ell_2} \cdot T_{\text{prev},j}$$
 
 This shows the hierarchical structure: the current app's ops, followed by the previous kernel's ops, followed by all earlier accumulated ops. Each merge in PREPEND mode adds new operations at the beginning (low-degree terms).
@@ -423,7 +428,7 @@ This shows the hierarchical structure: the current app's ops, followed by the pr
 
 The complete merged table has the following structure:
 
-$$M_{\text{final},j} = [\texttt{no-op} \mid 3 \texttt{ random} \mid \texttt{tail_ops} \mid \texttt{apps} \mid \texttt{hiding} \mid 2 \texttt{ random}]$$
+$$M_{\text{final},j} = [\text{no-op} \mid 3 \text{ random} \mid \text{tail\_ops} \mid \text{apps} \mid \text{hiding} \mid 2 \text{ random}]$$
 
 **ZK:**
 - 3 random non-ops at **START** (from tail kernel, prepended)
@@ -437,23 +442,31 @@ $$M_{\text{final},j} = [\texttt{no-op} \mid 3 \texttt{ random} \mid \texttt{tail
 For a complete execution with apps $A_0, A_1, \ldots, A_n$ and kernels $K_0, K_1, \ldots, K_n$, followed by tail kernel $K_{\text{tail}}$ and hiding kernel $K_{\text{hiding}}$:
 
 **After init kernel $K_0$:**
+
 $$M^{(0)}_j = t_{A_0,j}$$
 
 **After each intermediate kernel $K_i$ (for $i = 1, \ldots, n$):**
 
 Each $K_i$ performs two merges in sequence:
+
 $$M^{(i,1)}_j = t_{K_{i-1},j} + X^{\ell_{K_{i-1}}} \cdot M^{(i-1)}_j$$
+
 $$M^{(i)}_j = t_{A_i,j} + X^{\ell_{A_i}} \cdot M^{(i,1)}_j$$
 
 **After tail kernel (PREPEND mode):**
+
 $$M^{\text{tail}}_j = t_{\text{tail},j} + X^{\ell_{\text{tail}}} \cdot M^{(n)}_j$$
-where $t_{\text{tail},j} = [\texttt{no-op} \mid 3 \texttt{ random} \mid \texttt{tail_ops}]$
+
+where $t_{\text{tail},j} = [\text{no-op} \mid 3 \text{ random} \mid \text{tail\_ops}]$
 
 **Final result after hiding kernel (APPEND mode):**
+
 $$M^{\text{final}}_j = M^{\text{tail}}_j + X^{|M^{\text{tail}}_j|} \cdot t_{\text{hiding},j}$$
-where $t_{\text{hiding},j} = [\texttt{hiding_ops} \mid 2 \texttt{ random}]$
+
+where $t_{\text{hiding},j} = [\text{hiding\_ops} \mid 2 \text{ random}]$
 
 **Fully expanded form** (showing all components):
+
 $$\begin{align}
 M^{\text{final}}_j = \,& t_{\text{tail},j} \\
                      & + X^{\ell_{\text{tail}}} \cdot t_{A_n,j} \\
@@ -481,7 +494,7 @@ The complete Goblin proof consists of **three protocols**:
    - Proves BN254 ↔ Grumpkin translation correctness
    - Uses **same commitments** $[M_j]$ as Merge (copy-constrained)
    - All 6 random ops contribute to ZK
-   - **Enforces degree bound**: $\deg(M_j) < \texttt{MINI_CIRCUIT_SIZE}$
+   - **Enforces degree bound**: $\deg(M_j) < \text{MINI_CIRCUIT_SIZE}$
 
 3. **ECCVM PROTOCOL**
    - Proves ECC operations executed correctly
@@ -496,7 +509,7 @@ The complete Goblin proof consists of **three protocols**:
 Merge protocol Degree Checks do **NOT** bound the cumulative size of all accumulated operations, which is criticial for preventing the Chonk prover from accumulating more ops than Translator VM can handle at a given fixed size.
 
 **Translator Protocol Degree Bound**:
-- **Critical constraint**: $\deg(M_{\text{final},j}) < \texttt{MINI_CIRCUIT_SIZE}$ for Translator soundness
+- **Critical constraint**: $\deg(M_{\text{final},j}) < \text{MINI_CIRCUIT_SIZE}$ for Translator soundness
 - Enforced by `TranslatorZeroConstraintsRelationImpl` in `translator_extra_relations_impl.hpp` and the fact that $M_{\text{final},j}$ is opened at a **random** point, which implies that it is zero outside of the Translator circuit bounds (see [A note on the soundness of an optimized gemini variant](https://eprint.iacr.org/2025/1793.pdf)).
 
 
