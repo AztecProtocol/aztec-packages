@@ -40,7 +40,7 @@ TEST_F(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
     collector.set_phase(CoarseTransactionPhase::APP_LOGIC);
 
     // Enter call
-    CalldataProvider calldata_provider = [&calldata](uint32_t max_size) -> std::vector<FF> { return calldata; };
+    CalldataProvider calldata_provider = [&calldata](uint32_t /*max_size*/) -> std::vector<FF> { return calldata; };
 
     EXPECT_CALL(mock_contract_db, get_debug_function_name(contract_addr, FF(0xabcd)))
         .WillOnce(Return(std::optional<std::string>("testFunction")));
@@ -48,7 +48,7 @@ TEST_F(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
     collector.notify_enter_call(contract_addr, caller_pc, calldata_provider, false, gas_limit);
 
     // Exit call
-    ReturnDataProvider return_data_provider = [&return_data](uint32_t max_size) -> std::vector<FF> {
+    ReturnDataProvider return_data_provider = [&return_data](uint32_t /*max_size*/) -> std::vector<FF> {
         return return_data;
     };
 
@@ -83,7 +83,7 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
 
     // Enter first call
     std::vector<FF> calldata1 = { FF(0xaaaa) };
-    CalldataProvider calldata_provider1 = [&calldata1](uint32_t max_size) -> std::vector<FF> { return calldata1; };
+    CalldataProvider calldata_provider1 = [&calldata1](uint32_t /*max_size*/) -> std::vector<FF> { return calldata1; };
 
     EXPECT_CALL(mock_contract_db, get_debug_function_name(contract1, FF(0xaaaa)))
         .WillOnce(Return(std::optional<std::string>("outerFunction")));
@@ -92,7 +92,7 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
 
     // Enter second call (nested)
     std::vector<FF> calldata2 = { FF(0xbbbb) };
-    CalldataProvider calldata_provider2 = [&calldata2](uint32_t max_size) -> std::vector<FF> { return calldata2; };
+    CalldataProvider calldata_provider2 = [&calldata2](uint32_t /*max_size*/) -> std::vector<FF> { return calldata2; };
 
     EXPECT_CALL(mock_contract_db, get_debug_function_name(contract2, FF(0xbbbb)))
         .WillOnce(Return(std::optional<std::string>("middleFunction")));
@@ -101,7 +101,7 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
 
     // Enter third call (nested in nested)
     std::vector<FF> calldata3 = { FF(0xcccc) };
-    CalldataProvider calldata_provider3 = [&calldata3](uint32_t max_size) -> std::vector<FF> { return calldata3; };
+    CalldataProvider calldata_provider3 = [&calldata3](uint32_t /*max_size*/) -> std::vector<FF> { return calldata3; };
 
     EXPECT_CALL(mock_contract_db, get_debug_function_name(contract3, FF(0xcccc)))
         .WillOnce(Return(std::optional<std::string>("innerFunction")));
@@ -110,7 +110,7 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
 
     // Exit third call
     std::vector<FF> return_data3 = { FF(0x3333) };
-    ReturnDataProvider return_data_provider3 = [&return_data3](uint32_t max_size) -> std::vector<FF> {
+    ReturnDataProvider return_data_provider3 = [&return_data3](uint32_t /*max_size*/) -> std::vector<FF> {
         return return_data3;
     };
 
@@ -118,7 +118,7 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
 
     // Exit second call
     std::vector<FF> return_data2 = { FF(0x2222) };
-    ReturnDataProvider return_data_provider2 = [&return_data2](uint32_t max_size) -> std::vector<FF> {
+    ReturnDataProvider return_data_provider2 = [&return_data2](uint32_t /*max_size*/) -> std::vector<FF> {
         return return_data2;
     };
 
@@ -126,7 +126,7 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
 
     // Exit first call
     std::vector<FF> return_data1 = { FF(0x1111) };
-    ReturnDataProvider return_data_provider1 = [&return_data1](uint32_t max_size) -> std::vector<FF> {
+    ReturnDataProvider return_data_provider1 = [&return_data1](uint32_t /*max_size*/) -> std::vector<FF> {
         return return_data1;
     };
 
@@ -171,27 +171,27 @@ TEST_F(CallStackMetadataCollectorTest, MultipleSiblingCalls)
 
     // First call
     std::vector<FF> calldata1 = { FF(0x1111) };
-    CalldataProvider calldata_provider1 = [&calldata1](uint32_t max_size) -> std::vector<FF> { return calldata1; };
+    CalldataProvider calldata_provider1 = [&calldata1](uint32_t /*max_size*/) -> std::vector<FF> { return calldata1; };
 
     EXPECT_CALL(mock_contract_db, get_debug_function_name(contract1, FF(0x1111)))
         .WillOnce(Return(std::optional<std::string>("firstFunction")));
 
     collector.notify_enter_call(contract1, 100, calldata_provider1, false, Gas{ 1000, 2000 });
 
-    ReturnDataProvider return_data_provider1 = [](uint32_t max_size) -> std::vector<FF> { return { FF(0xaaaa) }; };
+    ReturnDataProvider return_data_provider1 = [](uint32_t /*max_size*/) -> std::vector<FF> { return { FF(0xaaaa) }; };
 
     collector.notify_exit_call(true, 150, return_data_provider1);
 
     // Second call (sibling)
     std::vector<FF> calldata2 = { FF(0x2222) };
-    CalldataProvider calldata_provider2 = [&calldata2](uint32_t max_size) -> std::vector<FF> { return calldata2; };
+    CalldataProvider calldata_provider2 = [&calldata2](uint32_t /*max_size*/) -> std::vector<FF> { return calldata2; };
 
     EXPECT_CALL(mock_contract_db, get_debug_function_name(contract2, FF(0x2222)))
         .WillOnce(Return(std::optional<std::string>("secondFunction")));
 
     collector.notify_enter_call(contract2, 200, calldata_provider2, false, Gas{ 500, 1000 });
 
-    ReturnDataProvider return_data_provider2 = [](uint32_t max_size) -> std::vector<FF> { return { FF(0xbbbb) }; };
+    ReturnDataProvider return_data_provider2 = [](uint32_t /*max_size*/) -> std::vector<FF> { return { FF(0xbbbb) }; };
 
     collector.notify_exit_call(true, 250, return_data_provider2);
 
@@ -225,7 +225,7 @@ TEST_F(CallStackMetadataCollectorTest, CalldataSizeLimit)
 
     collector.notify_enter_call(contract_addr, 100, calldata_provider, false, Gas{ 1000, 2000 });
 
-    ReturnDataProvider return_data_provider = [](uint32_t max_size) -> std::vector<FF> { return {}; };
+    ReturnDataProvider return_data_provider = [](uint32_t /*max_size*/) -> std::vector<FF> { return {}; };
 
     collector.notify_exit_call(true, 200, return_data_provider);
 
@@ -242,7 +242,7 @@ TEST_F(CallStackMetadataCollectorTest, ReturnDataSizeLimit)
 
     collector.set_phase(CoarseTransactionPhase::APP_LOGIC);
 
-    CalldataProvider calldata_provider = [&calldata](uint32_t max_size) -> std::vector<FF> { return calldata; };
+    CalldataProvider calldata_provider = [&calldata](uint32_t /*max_size*/) -> std::vector<FF> { return calldata; };
 
     EXPECT_CALL(mock_contract_db, get_debug_function_name(contract_addr, FF(0x1234)))
         .WillOnce(Return(std::optional<std::string>("testFunction")));
@@ -275,7 +275,7 @@ TEST_F(CallStackMetadataCollectorTest, PhaseTracking)
     // First call in SETUP phase
     collector.set_phase(CoarseTransactionPhase::SETUP);
     std::vector<FF> calldata1 = { FF(0xaaaa) };
-    CalldataProvider calldata_provider1 = [&calldata1](uint32_t max_size) -> std::vector<FF> { return calldata1; };
+    CalldataProvider calldata_provider1 = [&calldata1](uint32_t /*max_size*/) -> std::vector<FF> { return calldata1; };
 
     EXPECT_CALL(mock_contract_db, get_debug_function_name(contract1, FF(0xaaaa)))
         .WillOnce(Return(std::optional<std::string>("setupFunction")));
@@ -286,7 +286,7 @@ TEST_F(CallStackMetadataCollectorTest, PhaseTracking)
     // Second call in APP_LOGIC phase
     collector.set_phase(CoarseTransactionPhase::APP_LOGIC);
     std::vector<FF> calldata2 = { FF(0xbbbb) };
-    CalldataProvider calldata_provider2 = [&calldata2](uint32_t max_size) -> std::vector<FF> { return calldata2; };
+    CalldataProvider calldata_provider2 = [&calldata2](uint32_t /*max_size*/) -> std::vector<FF> { return calldata2; };
 
     EXPECT_CALL(mock_contract_db, get_debug_function_name(contract2, FF(0xbbbb)))
         .WillOnce(Return(std::optional<std::string>("appLogicFunction")));
@@ -297,7 +297,7 @@ TEST_F(CallStackMetadataCollectorTest, PhaseTracking)
     // Third call in TEARDOWN phase
     collector.set_phase(CoarseTransactionPhase::TEARDOWN);
     std::vector<FF> calldata3 = { FF(0xcccc) };
-    CalldataProvider calldata_provider3 = [&calldata3](uint32_t max_size) -> std::vector<FF> { return calldata3; };
+    CalldataProvider calldata_provider3 = [&calldata3](uint32_t /*max_size*/) -> std::vector<FF> { return calldata3; };
 
     EXPECT_CALL(mock_contract_db, get_debug_function_name(contract3, FF(0xcccc)))
         .WillOnce(Return(std::optional<std::string>("teardownFunction")));
