@@ -216,38 +216,6 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     return pt;
 }
 
-/**
- * @brief Assigns a linear term to a specific index in a mul_quad_ gate.
- * @param gate The mul_quad_ gate to assign the linear term to.
- * @param index The index of the linear term to assign (0 for a, 1 for b, 2 for c, 3 for d).
- * @param witness_index The witness index to assign to the linear term.
- * @return nothing, the input gate is modified in place.
- * @note It fails if index is 4 or more.
- */
-void assign_linear_term(mul_quad_<fr>& gate, size_t index, uint32_t witness_index, fr const& scaling)
-{
-    switch (index) {
-    case 0:
-        gate.a = witness_index;
-        gate.a_scaling = scaling;
-        break;
-    case 1:
-        gate.b = witness_index;
-        gate.b_scaling = scaling;
-        break;
-    case 2:
-        gate.c = witness_index;
-        gate.c_scaling = scaling;
-        break;
-    case 3:
-        gate.d = witness_index;
-        gate.d_scaling = scaling;
-        break;
-    default:
-        throw_or_abort("Unexpected index");
-    }
-}
-
 std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg,
                                                      std::map<uint32_t, bb::fr>& linear_terms)
 {
@@ -345,73 +313,6 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
     return result;
 }
 
-mul_quad_<fr> serialize_single_quad_gate(Acir::Expression const& arg, std::map<uint32_t, bb::fr> const& linear_terms)
-{
-    // We initialize the mul_quad_ gate with invalid witness indices. Initializing a with an invalid witness index
-    // adds a safety check: when the gate is added to the builder's constraints we perform a check on the validity
-    // of the witness indices. The indices of b, c, and d are replaced with the zero index when the constraint is
-    // added to the builder, but a's index is not. If a's index has not been set (which means the gate is the zero
-    // gate), the builder construction will fail.
-    mul_quad_<fr> quad{ .a = bb::stdlib::IS_CONSTANT,
-                        .b = bb::stdlib::IS_CONSTANT,
-                        .c = bb::stdlib::IS_CONSTANT,
-                        .d = bb::stdlib::IS_CONSTANT,
-                        .mul_scaling = fr::zero(),
-                        .a_scaling = fr::zero(),
-                        .b_scaling = fr::zero(),
-                        .c_scaling = fr::zero(),
-                        .d_scaling = fr::zero(),
-                        .const_scaling = fr::zero() };
-
-    // Flags indicating whether each witness index for the present mul_quad has been set
-    bool a_set = false;
-    bool b_set = false;
-    bool c_set = false;
-    bool d_set = false;
-    BB_ASSERT_LTE(arg.mul_terms.size(), 1U, "We can only accommodate 1 quadratic term");
-    // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
-    if (!arg.mul_terms.empty()) {
-        const auto& mul_term = arg.mul_terms[0];
-        quad.mul_scaling = from_be_bytes(std::get<0>(mul_term));
-        quad.a = std::get<1>(mul_term).value;
-        quad.b = std::get<2>(mul_term).value;
-        a_set = true;
-        b_set = true;
-    }
-    // If necessary, set values for linears terms a_scaling * a, b_scaling * b, c_scaling * c and d_scaling * d
-    for (const auto& linear_term : linear_terms) {
-        fr selector_value = std::get<1>(linear_term);
-        uint32_t witness_idx = std::get<0>(linear_term);
-
-        // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
-        // index and the corresponding selector value.
-        if (!a_set || quad.a == witness_idx) {
-            quad.a = witness_idx;
-            quad.a_scaling += selector_value; // Accumulate coefficients for duplicate witnesses
-            a_set = true;
-        } else if (!b_set || quad.b == witness_idx) {
-            quad.b = witness_idx;
-            quad.b_scaling += selector_value; // Accumulate coefficients for duplicate witnesses
-            b_set = true;
-        } else if (!c_set || quad.c == witness_idx) {
-            quad.c = witness_idx;
-            quad.c_scaling += selector_value; // Accumulate coefficients for duplicate witnesses
-            c_set = true;
-        } else if (!d_set || quad.d == witness_idx) {
-            quad.d = witness_idx;
-            quad.d_scaling += selector_value; // Accumulate coefficients for duplicate witnesses
-            d_set = true;
-        } else {
-            bb::assert_failure("acir_format:serialize_single_quad_gate: encountered a gate with at least five "
-                               "distinct witnesses.");
-        }
-    }
-
-    // Set constant value q_c
-    quad.const_scaling = from_be_bytes(arg.q_c);
-    return quad;
-}
-
 bool is_assert_equal(mul_quad_<fr> const& mul_quad)
 {
     return mul_quad.mul_scaling == bb::fr::zero() && mul_quad.a_scaling == -mul_quad.b_scaling &&
@@ -428,12 +329,14 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
     };
 
     auto linear_terms = process_linear_terms(arg.value);
-    bool is_single_gate = is_single_arithmetic_gate(arg, linear_terms);
+    bool is_single_gate = is_single_arithmetic_gate(arg.value, linear_terms);
+    std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value, linear_terms);
 
     if (is_single_gate) {
-        mul_quad_<fr> mul_quad = serialize_single_quad_gate(arg.value, linear_terms);
-        BB_ASSERT(!is_zero_gate(mul_quad), "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
+        BB_ASSERT_EQ(mul_quads.size(), 1U, "acir_format::handle_arithmetic: expected a single gate.");
+        auto mul_quad = mul_quads[0];
 
+        // AUDITTODO(federico): evaluate this logic and if it is needed
         if (is_assert_equal(mul_quad) && (mul_quad.a != 0)) {
             if (mul_quad.a != mul_quad.b) {
                 // minimal_range of a witness is the smallest range of the witness and the witness that are
@@ -455,12 +358,12 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
         af.quad_constraints.push_back(mul_quad);
         af.original_opcode_indices.quad_constraints.push_back(opcode_index);
     } else {
-        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value, linear_terms);
         BB_ASSERT_GT(mul_quads.size(), 1U, "acir_format::handle_arithmetic: expected multiple gates but found one.");
-        for (auto const& mul_quad : mul_quads) {
-            BB_ASSERT(!is_zero_gate(mul_quad), "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
-        }
         af.big_quad_constraints.push_back(mul_quads);
+    }
+
+    for (auto const& mul_quad : mul_quads) {
+        BB_ASSERT(!is_zero_gate(mul_quad), "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
     }
 }
 
@@ -929,7 +832,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
     return { std::move(constraint_systems), std::move(witness_stack) };
 }
 
-bool is_single_arithmetic_gate(Acir::Opcode::AssertZero const& arg, const std::map<uint32_t, bb::fr>& linear_terms)
+bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms)
 {
     static constexpr size_t MAX_NUMBER_DISTINCT_WITNESSES = 4; // Equal to the number of wires in the arithmetization
 
@@ -938,20 +841,19 @@ bool is_single_arithmetic_gate(Acir::Opcode::AssertZero const& arg, const std::m
         return false;
     }
 
-    if (arg.value.mul_terms.size() > 1) {
+    if (arg.mul_terms.size() > 1) {
         // If there is more than one multiplication gate, then we need multiple arithmetic gates
         return false;
     }
 
-    if (arg.value.mul_terms.size() == 1) {
-        uint32_t witness_idx_lhs = std::get<1>(arg.value.mul_terms[0]).value;
-        uint32_t witness_idx_rhs = std::get<2>(arg.value.mul_terms[0]).value;
+    if (arg.mul_terms.size() == 1) {
+        uint32_t witness_idx_lhs = std::get<1>(arg.mul_terms[0]).value;
+        uint32_t witness_idx_rhs = std::get<2>(arg.mul_terms[0]).value;
 
         size_t total_num_of_distinct_witnesses = linear_terms.size();
         total_num_of_distinct_witnesses += (linear_terms.contains(witness_idx_lhs) ? 0 : 1);
-        if (witness_idx_lhs != witness_idx_rhs) {
-            total_num_of_distinct_witnesses += (linear_terms.contains(witness_idx_rhs) ? 0 : 1);
-        }
+        total_num_of_distinct_witnesses +=
+            (linear_terms.contains(witness_idx_rhs) && (witness_idx_lhs != witness_idx_rhs)) ? 0 : 1;
 
         return total_num_of_distinct_witnesses <= MAX_NUMBER_DISTINCT_WITNESSES;
     }
