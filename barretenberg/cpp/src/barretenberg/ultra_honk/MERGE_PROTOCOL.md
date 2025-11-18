@@ -172,7 +172,7 @@ Use KZG to verify the batched opening claim for ALL commitments:
 Without degree checks, $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ doesn't guarantee non-overlapping subtables, allowing malicious apps to influence kernel-delegated ops during folding.
 
 **Method:** Use reversed polynomial identity (based on Thakur's degree check protocol [[6](#ref-thakur)], Section 6.2). For $\deg(L_j) < \ell$:
-$$L_j^*(X) = X^{\ell-1} \cdot L_j(X^{-1}) \implies L_j^*(\kappa^{-1}) = \kappa^{-(\ell-1)} \cdot L_j(\kappa)$$
+$$L_j^{\ast}(X) = X^{\ell-1} \cdot L_j(X^{-1}) \implies L_j^{\ast}(\kappa^{-1}) = \kappa^{-(\ell-1)} \cdot L_j(\kappa)$$
 
 **Batching:** Check all 4 columns simultaneously:
 $$G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X)$$
@@ -375,12 +375,12 @@ Each kernel processes a **verification queue** containing circuits to verify. Th
 4. **Update state:** $[T_{\text{prev},j}] \leftarrow [M_j]$ (used in next iteration)
 
 **After loop completes:**
-- Sets $\texttt{kernel}_i.\texttt{public\_inputs}.\texttt{ecc\_op\_tables} = [M_{1}], \ldots, [M_{4}]$ (final merged commitments)
+- Sets $\texttt{kernel}_i.\texttt{public_inputs}.\texttt{ecc_op_tables} = [M_{1}], \ldots, [M_{4}]$ (final merged commitments)
 
 **Example: Intermediate kernel $K_1$ (queue size 2):**
 - **Iteration 1:** Verifies $K_0$, produces $[M^{(1)}_j]$, updates $[T_{\text{prev},j}] \leftarrow [M^{(1)}_j]$
 - **Iteration 2:** Verifies $A_1$ using updated $[T_{\text{prev},j}]$, produces final $[M_j]$
-- **Output:** $\texttt{kernel}_1.\texttt{public\_inputs}.\texttt{ecc\_op\_tables} = [M_{1}], \ldots, [M_{4}]$
+- **Output:** $\texttt{kernel}_1.\texttt{public_inputs}.\texttt{ecc_op_tables} = [M_{1}], \ldots, [M_{4}]$
 
 **Mathematical description of intermediate kernel merge result:**
 
@@ -423,7 +423,7 @@ This shows the hierarchical structure: the current app's ops, followed by the pr
 
 The complete merged table has the following structure:
 
-$$M_{\text{final},j} = [\texttt{no-op} \mid 3 \texttt{ random} \mid \texttt{tail\_ops} \mid \texttt{apps} \mid \texttt{hiding} \mid 2 \texttt{ random}]$$
+$$M_{\text{final},j} = [\texttt{no-op} \mid 3 \texttt{ random} \mid \texttt{tail_ops} \mid \texttt{apps} \mid \texttt{hiding} \mid 2 \texttt{ random}]$$
 
 **ZK:**
 - 3 random non-ops at **START** (from tail kernel, prepended)
@@ -447,11 +447,11 @@ $$M^{(i)}_j = t_{A_i,j} + X^{\ell_{A_i}} \cdot M^{(i,1)}_j$$
 
 **After tail kernel (PREPEND mode):**
 $$M^{\text{tail}}_j = t_{\text{tail},j} + X^{\ell_{\text{tail}}} \cdot M^{(n)}_j$$
-where $t_{\text{tail},j} = [\texttt{no-op} \mid 3 \texttt{ random} \mid \texttt{tail\_ops}]$
+where $t_{\text{tail},j} = [\texttt{no-op} \mid 3 \texttt{ random} \mid \texttt{tail_ops}]$
 
 **Final result after hiding kernel (APPEND mode):**
 $$M^{\text{final}}_j = M^{\text{tail}}_j + X^{|M^{\text{tail}}_j|} \cdot t_{\text{hiding},j}$$
-where $t_{\text{hiding},j} = [\texttt{hiding\_ops} \mid 2 \texttt{ random}]$
+where $t_{\text{hiding},j} = [\texttt{hiding_ops} \mid 2 \texttt{ random}]$
 
 **Fully expanded form** (showing all components):
 $$\begin{align}
@@ -481,7 +481,7 @@ The complete Goblin proof consists of **three protocols**:
    - Proves BN254 ↔ Grumpkin translation correctness
    - Uses **same commitments** $[M_j]$ as Merge (copy-constrained)
    - All 6 random ops contribute to ZK
-   - **Enforces degree bound**: $\deg(M_j) < \texttt{MINI\_CIRCUIT\_SIZE}$
+   - **Enforces degree bound**: $\deg(M_j) < \texttt{MINI_CIRCUIT_SIZE}$
 
 3. **ECCVM PROTOCOL**
    - Proves ECC operations executed correctly
@@ -496,7 +496,7 @@ The complete Goblin proof consists of **three protocols**:
 Merge protocol Degree Checks do **NOT** bound the cumulative size of all accumulated operations, which is criticial for preventing the Chonk prover from accumulating more ops than Translator VM can handle at a given fixed size.
 
 **Translator Protocol Degree Bound**:
-- **Critical constraint**: $\deg(M_{\text{final},j}) < \texttt{MINI\_CIRCUIT\_SIZE}$ for Translator soundness
+- **Critical constraint**: $\deg(M_{\text{final},j}) < \texttt{MINI_CIRCUIT_SIZE}$ for Translator soundness
 - Enforced by `TranslatorZeroConstraintsRelationImpl` in `translator_extra_relations_impl.hpp` and the fact that $M_{\text{final},j}$ is opened at a **random** point, which implies that it is zero outside of the Translator circuit bounds (see [A note on the soundness of an optimized gemini variant](https://eprint.iacr.org/2025/1793.pdf)).
 
 
