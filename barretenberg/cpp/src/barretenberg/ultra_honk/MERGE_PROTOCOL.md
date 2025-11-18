@@ -288,7 +288,7 @@ For each wire $j \in \{1, 2, 3, 4\}$:
 1. **Commitments** (copy-constrained between Merge and Translator):
    - $[L_j]$, $[R_j]$, $[M_j]$ → 3 commitments per wire
    - **Per $R_j$: -1 DoF**
-   - **Per $L_j$: -2 DoF** (WLOG assuming that $M_j$ uses randmoness from $L_j$.)
+   - **Per $L_j$: -2 DoF** (WLOG assuming that $M_j$ uses randomness from $L_j$.)
 
 2. **Independent evaluation constraints:**
    - Merge: $L_j(\kappa)$ → **-1 DoF**
@@ -481,6 +481,7 @@ The complete Goblin proof consists of **three protocols**:
    - Proves BN254 ↔ Grumpkin translation correctness
    - Uses **same commitments** $[M_j]$ as Merge (copy-constrained)
    - All 6 random ops contribute to ZK
+   - **Enforces degree bound**: $\deg(M_j) < \texttt{MINI\_CIRCUIT\_SIZE}$
 
 3. **ECCVM PROTOCOL**
    - Proves ECC operations executed correctly
@@ -489,6 +490,15 @@ The complete Goblin proof consists of **three protocols**:
 **Source of commitments:**
 - **`t_commitments`**: Extracted from witness commitments (ecc_op_wires) of the circuit being verified
 - **`T_prev_commitments`**: Retrieved from public inputs of the previous kernel circuit
+
+#### Degree Checks: Merge vs Translator
+
+Merge protocol Degree Checks do **NOT** bound the cumulative size of all accumulated operations, which is criticial for preventing the Chonk prover from accumulating more ops than Translator VM can handle at a given fixed size.
+
+**Translator Protocol Degree Bound**:
+- **Critical constraint**: $\deg(M_{\text{final},j}) < \texttt{MINI\_CIRCUIT\_SIZE}$ for Translator soundness
+- Enforced by `TranslatorZeroConstraintsRelationImpl` in `translator_extra_relations_impl.hpp` and the fact that $M_{\text{final},j}$ is opened at a **random** point, which implies that it is zero outside of the Translator circuit bounds (see [A note on the soundness of an optimized gemini variant](https://eprint.iacr.org/2025/1793.pdf)).
+
 
 ### Consistency Enforcement Mechanisms
 
