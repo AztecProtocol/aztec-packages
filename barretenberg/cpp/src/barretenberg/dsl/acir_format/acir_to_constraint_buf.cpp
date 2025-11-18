@@ -231,7 +231,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
     std::vector<mul_quad_<fr>> result;
     result.reserve(arg.mul_terms.size() + linear_terms.size());
 
-    // Add multiplication terms
+    // Step 1. Add multiplication terms and linear terms with the same witness index
     for (const auto& mul_term : arg.mul_terms) {
         result.emplace_back(mul_quad_<fr>{
             .a = std::get<1>(mul_term).value,
@@ -259,7 +259,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         }
     }
 
-    // Add linear terms to existing gates
+    // Step 2. Add linear terms to existing gates
     bool is_first_gate = true;
     for (auto& mul_quad : result) {
         if (!linear_terms.empty()) {
@@ -276,7 +276,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         }
     }
 
-    // Add remaining linear terms
+    // Step 3. Add remaining linear terms
     while (!linear_terms.empty()) {
         // We need to create new mul_quad_ gates to accomodate the remaining linear terms
         mul_quad_<fr> mul_quad = {
@@ -301,6 +301,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
             add_linear_term_and_erase(mul_quad.c, mul_quad.c_scaling, linear_terms);
         }
         if (is_first_gate) {
+            // First gate contains the constant term and uses all four wires
             mul_quad.const_scaling = fr(from_be_bytes(arg.q_c));
             if (!linear_terms.empty()) {
                 add_linear_term_and_erase(mul_quad.d, mul_quad.d_scaling, linear_terms);
