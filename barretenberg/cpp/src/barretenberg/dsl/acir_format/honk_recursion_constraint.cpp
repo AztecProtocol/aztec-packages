@@ -252,10 +252,28 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.template verify_proof<IO>(proof_fields);
 
 #ifndef NDEBUG
+    native_verification_debug<Flavor>(vkey, proof_fields);
+#endif
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether
+    // assert_equal on public inputs is important, like what the plonk recursion constraint does.
+    return verifier_output;
+}
+
+#ifndef NDEBUG
+/**
+ * @brief Natively verify the stdlib proof for debugging
+ */
+template <typename Flavor>
+void native_verification_debug(const std::shared_ptr<typename Flavor::VerificationKey> vkey,
+                               const bb::stdlib::Proof<typename Flavor::CircuitBuilder>& proof_fields)
+{
     using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
     using NativeIO = std::conditional_t<HasIPAAccumulator<Flavor>, bb::RollupIO, bb::DefaultIO>;
+
     auto native_vkey = std::make_shared<NativeVerificationKey>(vkey->get_value());
     HonkProof native_proof = proof_fields.get_value();
+
     HonkProof honk_proof;
     HonkProof ipa_proof;
     if constexpr (HasIPAAccumulator<Flavor>) {
@@ -264,9 +282,11 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     } else {
         honk_proof = native_proof;
     }
+
     UltraVerifier_<typename Flavor::NativeFlavor> native_verifier(
         native_vkey, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
     bool is_valid_proof(native_verifier.template verify_proof<NativeIO>(honk_proof, ipa_proof));
+
     info("===== HONK RECURSION CONSTRAINT DEBUG INFO =====");
     std::string flavor;
     if constexpr (HasIPAAccumulator<Flavor>) {
@@ -277,39 +297,38 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         flavor = "Ultra Flavor";
     }
     info("Flavor used: ", flavor);
-    info("Honk recursion constraint: is the native proof corresponding to the in-circuit proof valid? ",
-         is_valid_proof ? "true" : "false");
+    info("Honk recursion constraint: input proof verifies natively: ", is_valid_proof ? "true" : "false");
     info("===== END OF HONK RECURSION CONSTRAINT DEBUG INFO =====");
+}
 #endif
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether
-    // assert_equal on public inputs is important, like what the plonk recursion constraint does.
-    return verifier_output;
-}
+#define INSTANTIATE_HONK_RECURSION_CONSTRAINT(Flavor)                                                                  \
+    template HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints<Flavor>( \
+        typename Flavor::CircuitBuilder & builder,                                                                     \
+        const RecursionConstraint& input,                                                                              \
+        bool has_valid_witness_assignments);
 
-template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
-    UltraRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
-                                                const RecursionConstraint& input,
-                                                bool has_valid_witness_assignments);
+INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraRecursiveFlavor_<UltraCircuitBuilder>)
+INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraRollupRecursiveFlavor_<UltraCircuitBuilder>)
+INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraRecursiveFlavor_<MegaCircuitBuilder>)
+INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraZKRecursiveFlavor_<MegaCircuitBuilder>)
+INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraZKRecursiveFlavor_<UltraCircuitBuilder>)
 
-template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
-    UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
-                                                      const RecursionConstraint& input,
-                                                      bool has_valid_witness_assignments);
+#undef INSTANTIATE_HONK_RECURSION_CONSTRAINT
 
-template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
-    UltraRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
-                                               const RecursionConstraint& input,
-                                               bool has_valid_witness_assignments);
+#ifndef NDEBUG
+#define INSTANTIATE_NATIVE_VERIFICATION_DEBUG(Flavor)                                                                  \
+    template void native_verification_debug<Flavor>(const std::shared_ptr<typename Flavor::VerificationKey>,           \
+                                                    const bb::stdlib::Proof<typename Flavor::CircuitBuilder>&);
 
-template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
-    UltraZKRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
-                                                 const RecursionConstraint& input,
-                                                 bool has_valid_witness_assignments);
+INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraRecursiveFlavor_<UltraCircuitBuilder>)
+INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraRollupRecursiveFlavor_<UltraCircuitBuilder>)
+INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraRecursiveFlavor_<MegaCircuitBuilder>)
+INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraZKRecursiveFlavor_<MegaCircuitBuilder>)
+INSTANTIATE_NATIVE_VERIFICATION_DEBUG(UltraZKRecursiveFlavor_<UltraCircuitBuilder>)
 
-template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
-    UltraZKRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
-                                                  const RecursionConstraint& input,
-                                                  bool has_valid_witness_assignments);
+#undef INSTANTIATE_NATIVE_VERIFICATION_DEBUG
+
+#endif
 
 } // namespace acir_format

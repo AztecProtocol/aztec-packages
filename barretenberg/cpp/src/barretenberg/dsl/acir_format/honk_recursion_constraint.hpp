@@ -29,4 +29,10 @@ create_honk_recursion_constraints(typename Flavor::CircuitBuilder& builder,
                                   bool has_valid_witness_assignments = false)
     requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>);
 
+#ifndef NDEBUG
+template <typename Flavor>
+void native_verification_debug(const std::shared_ptr<typename Flavor::VerificationKey> vkey,
+                               const bb::stdlib::Proof<typename Flavor::CircuitBuilder>& proof_fields);
+#endif
+
 } // namespace acir_format
