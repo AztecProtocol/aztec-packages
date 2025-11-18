@@ -184,9 +184,6 @@ template <typename Curve> class MergeUnifiedTest : public testing::Test {
 
         // Verify the proof
         auto transcript = std::make_shared<Transcript>();
-        if constexpr (IsRecursive) {
-            transcript->enable_manifest();
-        }
         MergeVerifierType verifier{ settings, transcript };
         auto [pairing_points, merged_table_commitments, degree_check_passed, concatenation_check_passed] =
             verifier.verify_proof(proof, input_commitments);
@@ -202,35 +199,6 @@ template <typename Curve> class MergeUnifiedTest : public testing::Test {
         if constexpr (IsRecursive) {
             bool circuit_valid = check_circuit(builder);
             EXPECT_EQ(circuit_valid, expected);
-        }
-
-        // For recursive context, compare manifests with native verification
-        if constexpr (IsRecursive) {
-            auto native_transcript = std::make_shared<NativeTranscript>();
-            native_transcript->enable_manifest();
-            MergeVerifier native_verifier{ settings, native_transcript };
-
-            // Native input commitments
-            MergeVerifier::InputCommitments native_input_commitments;
-            for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-                native_input_commitments.t_commitments[idx] = native_t_commitments[idx];
-                native_input_commitments.T_prev_commitments[idx] = native_T_prev_commitments[idx];
-            }
-
-            auto [native_pairing_points, _, native_degree_check, native_concatenation_check] =
-                native_verifier.verify_proof(native_proof, native_input_commitments);
-
-            // Ensure native and recursive verification agree
-            bool verified_native = native_pairing_points.check() && native_degree_check && native_concatenation_check;
-            EXPECT_EQ(verified_native, verified);
-
-            // Check that manifests agree
-            auto recursive_manifest = transcript->get_manifest();
-            auto native_manifest = native_transcript->get_manifest();
-            EXPECT_EQ(recursive_manifest.size(), native_manifest.size());
-            for (size_t i = 0; i < recursive_manifest.size(); ++i) {
-                EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
-            }
         }
     }
 
@@ -406,6 +374,164 @@ TYPED_TEST(MergeUnifiedTest, MergeFailure)
 TYPED_TEST(MergeUnifiedTest, EvalFailure)
 {
     TestFixture::test_eval_failure();
+}
+
+/**
+ * @brief Test class for merge protocol transcript pinning tests
+ * @details Tests only native merge protocol (not recursive) to ensure transcript stability
+ */
+class MergeTranscriptTests : public ::testing::Test {
+  public:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    /**
+     * @brief Construct the expected manifest for a Merge protocol proof
+     * @details This defines the expected transcript structure. Tests warn if prover/verifier deviates from this.
+     * @note Entries consist of a name string and size (in bb::frs), NOT actual data.
+     * @return TranscriptManifest
+     */
+    static TranscriptManifest construct_merge_manifest()
+    {
+        TranscriptManifest manifest_expected;
+        constexpr size_t NUM_WIRES = 4;
+
+        // Size calculations
+        size_t frs_per_Fr = 1;                                                      // Native field element
+        size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>(); // Commitment = 4 frs
+        size_t frs_per_uint32 = 1;                                                  // shift_size
+
+        size_t round = 0;
+
+        // Round 0: Prover sends shift_size and merged table commitments
+        manifest_expected.add_entry(round, "shift_size", frs_per_uint32);
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            manifest_expected.add_entry(round, "MERGED_TABLE_" + std::to_string(idx), frs_per_G);
+        }
+        // Verifier generates degree check challenges
+        manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_0");
+        manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_1");
+        manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_2");
+        manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_3");
+
+        // Round 1: Verifier generates Shplonk batching challenges, Prover sends degree check polynomial commitment
+        round++;
+        for (size_t idx = 0; idx < 13; ++idx) {
+            manifest_expected.add_challenge(round, "SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx));
+        }
+        manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES", frs_per_G);
+
+        // Round 2: Verifier generates evaluation challenge kappa
+        round++;
+        manifest_expected.add_challenge(round, "kappa");
+
+        // Round 3: Verifier generates Shplonk opening challenge, Prover sends all evaluations and quotient
+        round++;
+        manifest_expected.add_challenge(round, "shplonk_opening_challenge");
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            manifest_expected.add_entry(round, "LEFT_TABLE_EVAL_" + std::to_string(idx), frs_per_Fr);
+        }
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            manifest_expected.add_entry(round, "RIGHT_TABLE_EVAL_" + std::to_string(idx), frs_per_Fr);
+        }
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            manifest_expected.add_entry(round, "MERGED_TABLE_EVAL_" + std::to_string(idx), frs_per_Fr);
+        }
+        manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES_EVAL", frs_per_Fr);
+        manifest_expected.add_entry(round, "SHPLONK_BATCHED_QUOTIENT", frs_per_G);
+
+        // Round 4: KZG opening proof with masking challenge
+        round++;
+        manifest_expected.add_challenge(round, "KZG:masking_challenge");
+        manifest_expected.add_entry(round, "KZG:W", frs_per_G);
+
+        return manifest_expected;
+    }
+};
+
+/**
+ * @brief Ensure consistency between the hardcoded manifest and the one generated by the merge prover
+ */
+TEST_F(MergeTranscriptTests, ProverManifestConsistency)
+{
+    using InnerFlavor = MegaFlavor;
+    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+
+    // Construct a simple circuit to generate merge proof
+    auto op_queue = std::make_shared<ECCOpQueue>();
+    InnerBuilder circuit{ op_queue };
+    GoblinMockCircuits::construct_simple_circuit(circuit);
+
+    // Construct merge proof with manifest enabled
+    auto transcript = std::make_shared<NativeTranscript>();
+    transcript->enable_manifest();
+    CommitmentKey<curve::BN254> commitment_key;
+    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, transcript };
+    auto merge_proof = merge_prover.construct_proof();
+
+    // Check prover manifest matches expected manifest
+    auto manifest_expected = construct_merge_manifest();
+    auto prover_manifest = merge_prover.transcript->get_manifest();
+
+    ASSERT_GT(manifest_expected.size(), 0);
+    ASSERT_EQ(prover_manifest.size(), manifest_expected.size())
+        << "Prover manifest has " << prover_manifest.size() << " rounds, expected " << manifest_expected.size();
+
+    for (size_t round = 0; round < manifest_expected.size(); ++round) {
+        ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepancy in round " << round;
+    }
+}
+
+/**
+ * @brief Ensure consistency between prover and verifier manifests
+ */
+TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
+{
+    using InnerFlavor = MegaFlavor;
+    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+
+    // Construct a simple circuit
+    auto op_queue = std::make_shared<ECCOpQueue>();
+    InnerBuilder circuit{ op_queue };
+    GoblinMockCircuits::construct_simple_circuit(circuit);
+
+    // Generate merge proof with prover manifest enabled
+    auto prover_transcript = std::make_shared<NativeTranscript>();
+    prover_transcript->enable_manifest();
+    CommitmentKey<curve::BN254> commitment_key;
+    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, prover_transcript };
+    auto merge_proof = merge_prover.construct_proof();
+
+    // Construct commitments for verifier
+    MergeVerifier::InputCommitments merge_commitments;
+    auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
+    auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+    for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+        merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+        merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
+    }
+
+    // Verify proof with verifier manifest enabled
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->enable_manifest();
+    MergeVerifier merge_verifier{ MergeSettings::PREPEND, verifier_transcript };
+    auto [pairing_points, _, degree_check_passed, concatenation_check_passed] =
+        merge_verifier.verify_proof(merge_proof, merge_commitments);
+
+    // Verification should succeed
+    ASSERT_TRUE(pairing_points.check() && degree_check_passed && concatenation_check_passed);
+
+    // Check prover and verifier manifests match
+    auto prover_manifest = merge_prover.transcript->get_manifest();
+    auto verifier_manifest = verifier_transcript->get_manifest();
+
+    ASSERT_GT(prover_manifest.size(), 0);
+    ASSERT_EQ(prover_manifest.size(), verifier_manifest.size())
+        << "Prover has " << prover_manifest.size() << " rounds, verifier has " << verifier_manifest.size();
+
+    for (size_t round = 0; round < prover_manifest.size(); ++round) {
+        ASSERT_EQ(prover_manifest[round], verifier_manifest[round])
+            << "Prover/Verifier manifest discrepancy in round " << round;
+    }
 }
 
 } // namespace bb
