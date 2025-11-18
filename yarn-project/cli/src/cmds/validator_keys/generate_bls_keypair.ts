@@ -3,7 +3,7 @@ import type { LogFn } from '@aztec/foundation/log';
 
 import { writeFile } from 'fs/promises';
 
-import { computeBlsPublicKeyCompressed, withValidatorIndex } from './shared.js';
+import { computeBlsPublicKeyCompressed, defaultBlsPath, withValidatorIndex } from './shared.js';
 
 export type GenerateBlsKeypairOptions = {
   mnemonic?: string;
@@ -17,7 +17,7 @@ export type GenerateBlsKeypairOptions = {
 
 export async function generateBlsKeypair(options: GenerateBlsKeypairOptions, log: LogFn) {
   const { mnemonic, ikm, blsPath, compressed = true, json, out } = options;
-  const path = withValidatorIndex(blsPath ?? 'm/12381/3600/0/0/0', 0);
+  const path = withValidatorIndex(blsPath ?? defaultBlsPath, 0);
   const priv = deriveBlsPrivateKey(mnemonic, ikm, path);
   const pub = await computeBlsPublicKeyCompressed(priv);
   const result = { path, privateKey: priv, publicKey: pub, format: compressed ? 'compressed' : 'uncompressed' };

@@ -15,6 +15,7 @@ import {
   logValidatorSummaries,
   maybePrintJson,
   resolveKeystoreOutputPath,
+  validateBlsPathOptions,
   writeBlsBn254ToFile,
   writeEthJsonV3ToFile,
   writeKeystoreFile,
@@ -34,7 +35,7 @@ export type NewValidatorKeystoreOptions = {
   ikm?: string;
   blsPath?: string;
   password?: string;
-  outDir?: string;
+  encryptedKeystoreDir?: string;
   json?: boolean;
   feeRecipient: AztecAddress;
   coinbase?: EthAddress;
@@ -47,6 +48,9 @@ export type NewValidatorKeystoreOptions = {
 };
 
 export async function newValidatorKeystore(options: NewValidatorKeystoreOptions, log: LogFn) {
+  // validate bls-path inputs before proceeding with key generation
+  validateBlsPathOptions(options);
+
   const {
     dataDir,
     file,
@@ -63,7 +67,7 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     ikm,
     mnemonic: _mnemonic,
     password,
-    outDir,
+    encryptedKeystoreDir,
     stakerOutput,
     gseAddress,
     l1RpcUrls,
@@ -101,6 +105,7 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
 
   const validatorCount = typeof count === 'number' && Number.isFinite(count) && count > 0 ? Math.floor(count) : 1;
   const { outputPath } = await resolveKeystoreOutputPath(dataDir, file);
+  const keystoreOutDir = dirname(outputPath);
 
   const { validators, summaries } = await buildValidatorEntries({
     validatorCount,
@@ -118,9 +123,10 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
 
   // If password provided, write ETH JSON V3 and BLS BN254 keystores and replace plaintext
   if (password !== undefined) {
-    const keystoreOutDir = outDir && outDir.length > 0 ? outDir : dirname(outputPath);
-    await writeEthJsonV3ToFile(validators, { outDir: keystoreOutDir, password });
-    await writeBlsBn254ToFile(validators, { outDir: keystoreOutDir, password });
+    const encryptedKeystoreOutDir =
+      encryptedKeystoreDir && encryptedKeystoreDir.length > 0 ? encryptedKeystoreDir : keystoreOutDir;
+    await writeEthJsonV3ToFile(validators, { outDir: encryptedKeystoreOutDir, password });
+    await writeBlsBn254ToFile(validators, { outDir: encryptedKeystoreOutDir, password });
   }
 
   const keystore = {
@@ -140,7 +146,6 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     });
     const gse = new GSEContract(publicClient, gseAddress);
 
-    const keystoreOutDir = outDir && outDir.length > 0 ? outDir : dirname(outputPath);
     // Extract keystore base name without extension for unique staker output filenames
     const keystoreBaseName = basename(outputPath, '.json');
 
@@ -149,16 +154,16 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
       const validator = validators[i];
       const outputs = await processAttesterAccounts(validator.attester, gse, password);
 
-      // Save each attester's staker output
+      // Collect all staker outputs
       for (let j = 0; j < outputs.length; j++) {
-        const attesterIndex = i + 1;
-        const stakerOutputPath = join(
-          keystoreOutDir,
-          `${keystoreBaseName}_attester${attesterIndex}_staker_output.json`,
-        );
-        await writeFile(stakerOutputPath, prettyPrintJSON(outputs[j]), 'utf-8');
         allStakerOutputs.push(outputs[j]);
       }
+    }
+
+    // Write a single JSON file with all staker outputs
+    if (allStakerOutputs.length > 0) {
+      const stakerOutputPath = join(keystoreOutDir, `${keystoreBaseName}_staker_output.json`);
+      await writeFile(stakerOutputPath, prettyPrintJSON(allStakerOutputs), 'utf-8');
     }
   }
 
@@ -178,8 +183,9 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
   } else {
     log(`Wrote validator keystore to ${outputPath}`);
     if (stakerOutput && allStakerOutputs.length > 0) {
-      const keystoreOutDir = outDir && outDir.length > 0 ? outDir : dirname(outputPath);
-      log(`Wrote ${allStakerOutputs.length} staker output file(s) to ${keystoreOutDir}`);
+      const keystoreBaseName = basename(outputPath, '.json');
+      const stakerOutputPath = join(keystoreOutDir, `${keystoreBaseName}_staker_output.json`);
+      log(`Wrote staker output for ${allStakerOutputs.length} validator(s) to ${stakerOutputPath}`);
       log('');
     }
   }

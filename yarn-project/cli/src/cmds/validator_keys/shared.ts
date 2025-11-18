@@ -29,11 +29,46 @@ export type BuildValidatorsInput = {
   fundingAccount?: EthAddress;
 };
 
+export const defaultBlsPath = 'm/12381/3600/0/0/0';
+
+export function validateBlsPathOptions(options: {
+  count?: number;
+  publisherCount?: number;
+  accountIndex?: number;
+  addressIndex?: number;
+  blsPath?: string;
+  ikm?: string;
+}) {
+  if (options.blsPath && options.blsPath !== defaultBlsPath) {
+    if (
+      (options.count && options.count !== 1) ||
+      (options.publisherCount && options.publisherCount > 0) ||
+      (options.accountIndex && options.accountIndex !== 0) ||
+      (options.addressIndex && options.addressIndex !== 0)
+    ) {
+      throw new Error('--bls-path cannot be used with --count, --publisher-count, --account-index, or --address-index');
+    }
+  }
+}
+
 export function withValidatorIndex(path: string, accountIndex: number = 0, addressIndex: number = 0) {
+  // NOTE: The legacy BLS CLI is to allow users who generated keys in 2.1.4 to be able to use the same command
+  // to re-generate their keys. In 2.1.5 we switched how we append addresses to the path so this is to maintain backwards compatibility.
+  const useLegacyBlsCli = ['true', '1', 'yes', 'y'].includes(process.env.LEGACY_BLS_CLI ?? '');
+
+  const defaultBlsPathParts = defaultBlsPath.split('/');
+
   const parts = path.split('/');
-  if (parts.length == 6 && parts[0] === 'm' && parts[1] === '12381' && parts[2] === '3600') {
-    parts[3] = String(accountIndex);
-    parts[5] = String(addressIndex);
+  if (parts.length == defaultBlsPathParts.length && parts.every((part, index) => part === defaultBlsPathParts[index])) {
+    if (useLegacyBlsCli) {
+      // In 2.1.4, we were using address-index in parts[3] and did NOT use account-index, check lines 32 & 84
+      // https://github.com/AztecProtocol/aztec-packages/blob/v2.1.4/yarn-project/cli/src/cmds/validator_keys/shared.ts
+
+      parts[3] = String(addressIndex);
+    } else {
+      parts[3] = String(accountIndex);
+      parts[5] = String(addressIndex);
+    }
     return parts.join('/');
   }
   return path;
@@ -75,7 +110,6 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
     fundingAccount,
   } = input;
 
-  const defaultBlsPath = 'm/12381/3600/0/0/0';
   const summaries: ValidatorSummary[] = [];
 
   const validators = await Promise.all(
@@ -222,7 +256,7 @@ export async function writeBn254BlsKeystore(
 /** Replace plaintext BLS keys in validators with { path, password } pointing to BN254 keystore files. */
 export async function writeBlsBn254ToFile(
   validators: ValidatorKeyStore[],
-  options: { outDir: string; password: string },
+  options: { outDir: string; password: string; blsPath?: string },
 ): Promise<void> {
   for (let i = 0; i < validators.length; i++) {
     const v = validators[i];
@@ -238,7 +272,7 @@ export async function writeBlsBn254ToFile(
     }
 
     const pub = await computeBlsPublicKeyCompressed(blsKey);
-    const path = 'm/12381/3600/0/0/0';
+    const path = options.blsPath ?? defaultBlsPath;
     const fileBase = `${String(i + 1)}_${pub.slice(2, 18)}`;
     const keystorePath = await writeBn254BlsKeystore(options.outDir, fileBase, options.password, blsKey, pub, path);
 
