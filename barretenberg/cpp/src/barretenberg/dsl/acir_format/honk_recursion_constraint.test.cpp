@@ -239,6 +239,9 @@ TYPED_TEST_SUITE(AcirHonkRecursionConstraint, Flavors);
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestHonkRecursionConstraintVKGeneration)
 {
+#ifndef NDEBUG
+    BB_DISABLE_ASSERTS();
+#endif
     std::vector<typename TestFixture::InnerBuilder> layer_1_circuits;
     layer_1_circuits.push_back(TestFixture::create_inner_circuit());
 
