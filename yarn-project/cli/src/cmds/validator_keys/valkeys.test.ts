@@ -28,8 +28,10 @@ const TEST_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon a
 
 describe('validator keys utilities', () => {
   let tmp: string;
+  let feeRecipient: AztecAddress;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    feeRecipient = await AztecAddress.random();
     tmp = mkdtempSync(join(tmpdir(), 'aztec-valkeys-'));
   });
 
@@ -43,14 +45,12 @@ describe('validator keys utilities', () => {
       expect(out).toBe('m/12381/3600/5/0/3');
     });
 
-    it('uses default values when parameters are not provided', () => {
-      const out = withValidatorIndex('m/12381/3600/999/0/999');
-      expect(out).toBe('m/12381/3600/0/0/0');
-    });
+    it('only replaces address / account indices when path is the default path', () => {
+      const out = withValidatorIndex('m/12381/3600/0/0/0', 5, 3);
+      expect(out).toBe('m/12381/3600/5/0/3');
 
-    it('uses default address index when only account index is provided', () => {
-      const out = withValidatorIndex('m/12381/3600/999/0/999', 7);
-      expect(out).toBe('m/12381/3600/7/0/0');
+      const out2 = withValidatorIndex('m/12381/3600/33/0/33', 5, 3);
+      expect(out2).toBe('m/12381/3600/33/0/33');
     });
 
     it('returns the path unchanged for non-matching paths', () => {
@@ -59,15 +59,10 @@ describe('validator keys utilities', () => {
       expect(out).toBe(original);
     });
 
-    it('returns the path unchanged for BLS paths with incorrect length', () => {
+    it('returns the path unchanged for BLS paths with different length', () => {
       const shortPath = 'm/12381/3600/0/0';
       const out = withValidatorIndex(shortPath, 5, 3);
       expect(out).toBe(shortPath);
-    });
-
-    it('correctly handles edge case values', () => {
-      const out = withValidatorIndex('m/12381/3600/0/0/0', 0, 0);
-      expect(out).toBe('m/12381/3600/0/0/0');
     });
   });
 
@@ -124,7 +119,7 @@ describe('validator keys utilities', () => {
         accountIndex: 0,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
-        feeRecipient: ('0x' + '11'.repeat(32)) as unknown as AztecAddress,
+        feeRecipient: feeRecipient,
       });
       expect(validators.length).toBe(2);
       expect(summaries.length).toBe(2);
@@ -146,7 +141,7 @@ describe('validator keys utilities', () => {
         accountIndex: 0,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
-        feeRecipient: ('0x' + '33'.repeat(32)) as unknown as AztecAddress,
+        feeRecipient: feeRecipient,
       });
       const v = validators[0] as any;
       expect(Array.isArray(v.publisher)).toBe(true);
@@ -162,7 +157,7 @@ describe('validator keys utilities', () => {
         accountIndex: 0,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
-        feeRecipient: ('0x' + '44'.repeat(32)) as unknown as AztecAddress,
+        feeRecipient: feeRecipient,
       });
 
       // Build with account index 1, same address index
@@ -172,7 +167,7 @@ describe('validator keys utilities', () => {
         accountIndex: 1,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
-        feeRecipient: ('0x' + '44'.repeat(32)) as unknown as AztecAddress,
+        feeRecipient: feeRecipient,
       });
 
       // Extract attesters
@@ -191,7 +186,6 @@ describe('validator keys utilities', () => {
     });
 
     it('derives different BLS and ETH keys when address index changes', async () => {
-      const feeRecipient = await AztecAddress.random();
       // Build with address index 0
       const { validators: v1, summaries: s1 } = await buildValidatorEntries({
         validatorCount: 1,
@@ -332,7 +326,7 @@ describe('validator keys utilities', () => {
           publisherCount: 1,
           mnemonic: TEST_MNEMONIC,
           password: '',
-          outDir: tmp,
+          encryptedKeystoreDir: tmp,
           feeRecipient: ('0x' + '77'.repeat(32)) as unknown as AztecAddress,
         },
         log,
@@ -362,7 +356,7 @@ describe('validator keys utilities', () => {
           publisherCount: 0,
           mnemonic: TEST_MNEMONIC,
           password,
-          outDir: tmp,
+          encryptedKeystoreDir: tmp,
           feeRecipient: ('0x' + 'ee'.repeat(32)) as unknown as AztecAddress,
         },
         log,
