@@ -196,11 +196,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     }
 
     // Compute the transaction fee here so it can be passed to teardown
-    const Gas& gas_used_before_teardown = tx_context.gas_used;
     const uint128_t& fee_per_da_gas = tx.effective_gas_fees.fee_per_da_gas;
     const uint128_t& fee_per_l2_gas = tx.effective_gas_fees.fee_per_l2_gas;
-    const FF fee = FF(fee_per_da_gas) * FF(gas_used_before_teardown.da_gas) +
-                   FF(fee_per_l2_gas) * FF(gas_used_before_teardown.l2_gas);
+    const FF fee =
+        FF(fee_per_da_gas) * FF(tx_context.gas_used.da_gas) + FF(fee_per_l2_gas) * FF(tx_context.gas_used.l2_gas);
+    Gas gas_used_by_teardown = { 0, 0 };
 
     // Teardown.
     try {
@@ -226,7 +226,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                                                                   TransactionPhase::TEARDOWN);
             // This call should not throw unless it's an unexpected unrecoverable failure.
             EnqueuedCallResult result = call_execution.execute(std::move(context));
-            // Check what to do here for GAS
+            gas_used_by_teardown = result.gas_used;
             emit_public_call_request(teardown_enqueued_call,
                                      TransactionPhase::TEARDOWN,
                                      fee,
@@ -264,13 +264,16 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
 
     return {
         .gas_used = {
-            .total_gas = tx_context.gas_used,
-            // TODO(fcarreiro): complete.
-            .teardown_gas = { 0, 0 },
-            .public_gas = { 0, 0 },
-            .billed_gas = { 0, 0 },
+            // Follows PublicTxContext.getActualGasUsed()
+            .total_gas = tx_context.gas_used + (tx.teardown_enqueued_call ? (gas_used_by_teardown - teardown_gas_limit) : Gas {0, 0}),
+            .teardown_gas = gas_used_by_teardown,
+            // Follows PublicTxContext.getActualPublicGasUsed()
+            .public_gas = tx_context.gas_used + gas_used_by_teardown - tx.gas_used_by_private,
+            // Follows PublicTxContext.getTotalGasUsed()
+            .billed_gas = tx_context.gas_used,
         },
         .revert_code = tx_context.revert_code,
+        .transaction_fee = fee,
         .app_logic_return_values = std::move(app_logic_return_values),
     };
 }
