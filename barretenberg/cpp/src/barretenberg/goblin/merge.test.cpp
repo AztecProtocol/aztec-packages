@@ -6,6 +6,7 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -374,6 +375,130 @@ TYPED_TEST(MergeTests, MergeFailure)
 TYPED_TEST(MergeTests, EvalFailure)
 {
     TestFixture::test_eval_failure();
+}
+
+/**
+ * @brief Test that mixing values from different transcript instances causes instant failure
+ * @details Simulates a realistic scenario where a circuit contains two merge verifiers, each with
+ * their own transcript instance, and accidentally tries to use commitments from one verifier with
+ * the other verifier's transcript. This is a critical security vulnerability that the OriginTag
+ * system must detect.
+ *
+ * The test creates two separate transcript instances (simulating two independent verifiers in the
+ * same circuit) and attempts to mix their values. The OriginTag system detects the parent tag
+ * mismatch and throws: "Tags from different transcripts were involved in the same computation"
+ *
+ * Only runs in recursive context where OriginTag tracking is active.
+ */
+TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
+{
+    if constexpr (!TestFixture::IsRecursive) {
+        GTEST_SKIP() << "OriginTag tests only apply to recursive context";
+    }
+
+    using BuilderType = typename TestFixture::BuilderType;
+    using MergeVerifierType = typename TestFixture::MergeVerifierType;
+    using Transcript = typename TestFixture::Transcript;
+    using InnerFlavor = MegaFlavor;
+    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+    constexpr size_t NUM_WIRES = TestFixture::NUM_WIRES;
+
+    // Create single builder for both verifiers (realistic - both in same circuit)
+    BuilderType builder;
+
+    // === Generate two separate merge proofs (simulating two independent merge operations) ===
+    auto op_queue_1 = std::make_shared<ECCOpQueue>();
+    InnerBuilder circuit_1{ op_queue_1 };
+    GoblinMockCircuits::construct_simple_circuit(circuit_1);
+    MergeProver prover_1{ op_queue_1 };
+    auto proof_1 = prover_1.construct_proof();
+
+    auto op_queue_2 = std::make_shared<ECCOpQueue>();
+    InnerBuilder circuit_2{ op_queue_2 };
+    GoblinMockCircuits::construct_simple_circuit(circuit_2);
+    MergeProver prover_2{ op_queue_2 };
+    auto proof_2 = prover_2.construct_proof();
+
+    // Get native commitments for proof 1 (will be used with verifier 1's transcript)
+    auto t_1 = op_queue_1->construct_current_ultra_ops_subtable_columns();
+    auto T_prev_1 = op_queue_1->construct_previous_ultra_ops_table_columns();
+    std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments_1;
+    std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments_1;
+    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+        native_t_commitments_1[idx] = prover_1.pcs_commitment_key.commit(t_1[idx]);
+        native_T_prev_commitments_1[idx] = prover_1.pcs_commitment_key.commit(T_prev_1[idx]);
+    }
+
+    // === Create first verifier with its own transcript instance ===
+    auto transcript_1 = std::make_shared<Transcript>();
+    [[maybe_unused]] MergeVerifierType verifier_1{ MergeSettings::PREPEND, transcript_1 };
+
+    [[maybe_unused]] auto proof_1_recursive = TestFixture::create_proof(builder, proof_1);
+
+    // Create commitments for verifier 1 - these will be "owned" by transcript_1
+    // When we read from the proof using transcript_1, those values get tagged with transcript_1's parent_tag
+    typename MergeVerifierType::InputCommitments input_commitments_1;
+    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+        input_commitments_1.t_commitments[idx] = TestFixture::create_commitment(builder, native_t_commitments_1[idx]);
+        input_commitments_1.T_prev_commitments[idx] =
+            TestFixture::create_commitment(builder, native_T_prev_commitments_1[idx]);
+    }
+
+    // === Create second verifier with a DIFFERENT transcript instance ===
+    // This simulates having two independent merge verifiers in the same circuit
+    auto transcript_2 = std::make_shared<Transcript>();
+    MergeVerifierType verifier_2{ MergeSettings::PREPEND, transcript_2 };
+
+    auto proof_2_recursive = TestFixture::create_proof(builder, proof_2);
+
+    // Get the parent tags to show they're different
+    OriginTag tag_1 = extract_transcript_tag(*transcript_1);
+    OriginTag tag_2 = extract_transcript_tag(*transcript_2);
+
+    info("Verifier 1 transcript parent_tag: ", tag_1.parent_tag);
+    info("Verifier 2 transcript parent_tag: ", tag_2.parent_tag);
+    ASSERT_NE(tag_1.parent_tag, tag_2.parent_tag) << "Transcripts should have different parent tags";
+
+    // === SECURITY VIOLATION: Try to use commitments from proof 1 with verifier 2 ===
+    // This simulates a bug where a circuit accidentally mixes values from two different verifiers
+    // The commitments were created as witnesses (no transcript association initially), but when
+    // we try to verify, the proof elements read from transcript_2 will have tag_2.parent_tag,
+    // while operations might mix them with commitments that should be associated with transcript_1
+
+    // To make this more realistic, we need to actually receive values from transcript_1 into the commitments
+    // In a real scenario, the verifier would receive_from_prover which tags values with the transcript's parent_tag
+    // For this test, we'll manually tag the commitments as if they came from transcript_1
+    [[maybe_unused]] OriginTag transcript_1_tag(tag_1.parent_tag, 0, /*is_submitted=*/true);
+    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+        // Tag these commitments as if they were read from transcript_1
+        // (only in recursive context where set_origin_tag exists)
+        if constexpr (TestFixture::IsRecursive) {
+            input_commitments_1.t_commitments[idx].set_origin_tag(transcript_1_tag);
+            input_commitments_1.T_prev_commitments[idx].set_origin_tag(transcript_1_tag);
+        }
+    }
+
+    // Now try to verify proof_2 using verifier_2 (with transcript_2) but with commitments tagged for transcript_1
+    // When verifier_2 reads from proof_2_recursive using transcript_2, those values will have tag_2.parent_tag
+    // When it tries to mix them with input_commitments_1 (which have tag_1.parent_tag), the check should trigger
+    info("Attempting to mix transcript_1 commitments with transcript_2 proof verification...");
+
+    // Catch the exception and verify it's the expected cross-transcript error
+    bool caught_expected_error = false;
+    std::string error_message;
+    try {
+        [[maybe_unused]] auto result = verifier_2.verify_proof(proof_2_recursive, input_commitments_1);
+        FAIL() << "Expected exception was not thrown - cross-transcript contamination was not detected!";
+    } catch (const std::runtime_error& e) {
+        error_message = e.what();
+        caught_expected_error = (error_message.find("different transcripts") != std::string::npos);
+    } catch (...) {
+        FAIL() << "Unexpected exception type thrown";
+    }
+
+    ASSERT_TRUE(caught_expected_error) << "Expected error about different transcripts, got: " << error_message;
+    info("✓ OriginTag system correctly detected cross-transcript contamination");
+    info("  Error: ", error_message);
 }
 
 /**
