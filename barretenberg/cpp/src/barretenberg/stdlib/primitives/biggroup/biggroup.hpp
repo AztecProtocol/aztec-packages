@@ -330,8 +330,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static chain_add_accumulator chain_add_start(const element& p1, const element& p2);
     static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator);
     static element chain_add_end(const chain_add_accumulator& accumulator);
-    element montgomery_ladder(const element& other) const;
-    element montgomery_ladder(const chain_add_accumulator& to_add);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
 
     typename NativeGroup::affine_element get_value() const
