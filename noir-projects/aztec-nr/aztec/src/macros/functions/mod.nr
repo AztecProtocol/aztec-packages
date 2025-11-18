@@ -2,7 +2,6 @@
 // See https://github.com/AztecProtocol/aztec-packages/pull/15856#discussion_r2229134689 for more details
 pub mod initialization_utils;
 pub(crate) mod auth_registry;
-pub(crate) mod utils;
 
 use crate::macros::{
     internals_functions_generation::{external_functions_registry, internal_functions_registry},

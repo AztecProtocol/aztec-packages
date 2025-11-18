@@ -7,10 +7,14 @@ pub mod abi_attributes;
 pub(crate) mod external_functions_registry;
 pub(crate) mod internal_functions_registry;
 mod abi_export;
-mod internal;
+pub(crate) mod external;
+pub(crate) mod internal;
 
-use crate::macros::functions::utils::{transform_private, transform_public, transform_utility};
 use abi_export::create_fn_abi_export;
+use external::{
+    private::generate_private_external, public::generate_public_external,
+    utility::generate_utility_external,
+};
 use internal::{generate_private_internal, generate_public_internal};
 
 /// Modifies a function such that when it's called directly, it will result in a compilation error with a reasonable
@@ -58,11 +62,11 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
     let utility_functions = external_functions_registry::get_utility_functions(m);
 
     let transformed_private_functions =
-        private_functions.map(|function| transform_private(function)).join(quote {});
+        private_functions.map(|function| generate_private_external(function)).join(quote {});
     let transformed_public_functions =
-        public_functions.map(|function| transform_public(function)).join(quote {});
+        public_functions.map(|function| generate_public_external(function)).join(quote {});
     let transformed_utility_functions =
-        utility_functions.map(|function| transform_utility(function)).join(quote {});
+        utility_functions.map(|function| generate_utility_external(function)).join(quote {});
 
     // Now that we have generated quotes of the new functions based on the original function definitions, we replace
     // the original functions' bodies with `static_assert(false, ...)` to prevent them from being called directly
