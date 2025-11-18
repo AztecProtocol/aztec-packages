@@ -92,7 +92,7 @@ Tx create_default_tx(const AztecAddress& contract_address,
         .app_logic_enqueued_calls = {
             PublicCallRequestWithCalldata{
                 .request = PublicCallRequest{
-                    .msg_sender = 0,
+                    .msg_sender = 100,
                     .contract_address = contract_address,
                     .is_static_call = is_static_call,
                     .calldata_hash = 0,

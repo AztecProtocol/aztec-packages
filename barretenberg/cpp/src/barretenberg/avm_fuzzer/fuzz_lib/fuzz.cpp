@@ -36,6 +36,9 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
 
     // If the results does not match
     if (!compare_simulator_results(cpp_result, js_result)) {
+        JsSimulator::restart_simulator();
+        js_simulator = JsSimulator::getInstance();
+        js_result = js_simulator->simulate(bytecode, fuzzer_data.calldata);
         log_result(cpp_result, fuzzer_data, bytecode);
         log_result(js_result, fuzzer_data, bytecode);
         throw std::runtime_error("Simulator results are different");

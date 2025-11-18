@@ -259,7 +259,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::XOR_16, 1 },    { InstructionGenerationOptions::NOT_16, 1 },
     { InstructionGenerationOptions::SHL_16, 1 },    { InstructionGenerationOptions::SHR_16, 1 },
     { InstructionGenerationOptions::CAST_8, 1 },    { InstructionGenerationOptions::CAST_16, 1 },
-    { InstructionGenerationOptions::SSTORE, 1 },    { InstructionGenerationOptions::SLOAD, 1 },
+    { InstructionGenerationOptions::SSTORE, 0 },    { InstructionGenerationOptions::SLOAD, 0 },
     { InstructionGenerationOptions::GETENVVAR, 0 },
 });
 
