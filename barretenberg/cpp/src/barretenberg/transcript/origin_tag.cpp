@@ -75,11 +75,9 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
         }
     }
     // Elements from different transcripts shouldn't interact
-#ifndef DISABLE_DIFFERENT_TRANSCRIPT_CHECKS
     if (tag_a.parent_tag != tag_b.parent_tag) {
         throw_or_abort("Tags from different transcripts were involved in the same computation");
     }
-#endif
     // Check that submitted values from different rounds don't mix without challenges
     check_child_tags(tag_a.child_tag, tag_b.child_tag);
 
