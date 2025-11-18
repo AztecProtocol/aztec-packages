@@ -1400,11 +1400,13 @@ sel_slice_read = start * (1 - src_out_of_range_error) * (1 - dst_out_of_range_er
 sel_slice_write = sel_no_error * last;
 
 #[READ_TO_SLICE]
-sel_slice_read { state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
-                 state_in_10, state_in_11, state_in_12, state_in_13, state_in_14,
-                 state_in_20, state_in_21, state_in_22, state_in_23, state_in_24,
-                 state_in_30, state_in_31, state_in_32, state_in_33, state_in_34,
-                 state_in_40, state_in_41, state_in_42, state_in_43, state_in_44,
+// Standard Keccak layout: memory[(y * 5) + x] = A[x][y]
+// State columns ordered in column-major order (by x coordinate first, then y)
+sel_slice_read { state_in_00, state_in_10, state_in_20, state_in_30, state_in_40,
+                 state_in_01, state_in_11, state_in_21, state_in_31, state_in_41,
+                 state_in_02, state_in_12, state_in_22, state_in_32, state_in_42,
+                 state_in_03, state_in_13, state_in_23, state_in_33, state_in_43,
+                 state_in_04, state_in_14, state_in_24, state_in_34, state_in_44,
                  clk, src_addr, space_id, tag_error }
 is
 keccak_memory.start_read { keccak_memory.val00, keccak_memory.val01, keccak_memory.val02, keccak_memory.val03, keccak_memory.val04,
@@ -1419,11 +1421,13 @@ keccak_memory.start_read { keccak_memory.val00, keccak_memory.val01, keccak_memo
 //          Therefore, removing it will leave the number of rounds unconstrained.
 // TODO: Use a constant for keccak_memory.num_rounds when we support constants in lookups.
 #[WRITE_TO_SLICE]
-sel_slice_write { state_iota_00, state_chi_01, state_chi_02, state_chi_03, state_chi_04,
-                  state_chi_10,  state_chi_11, state_chi_12, state_chi_13, state_chi_14,
-                  state_chi_20,  state_chi_21, state_chi_22, state_chi_23, state_chi_24,
-                  state_chi_30,  state_chi_31, state_chi_32, state_chi_33, state_chi_34,
-                  state_chi_40,  state_chi_41, state_chi_42, state_chi_43, state_chi_44,
+// Standard Keccak layout: memory[(y * 5) + x] = A[x][y]
+// Output state columns ordered in column-major order (by x coordinate first, then y)
+sel_slice_write { state_iota_00, state_chi_10, state_chi_20, state_chi_30, state_chi_40,
+                  state_chi_01,  state_chi_11, state_chi_21, state_chi_31, state_chi_41,
+                  state_chi_02,  state_chi_12, state_chi_22, state_chi_32, state_chi_42,
+                  state_chi_03,  state_chi_13, state_chi_23, state_chi_33, state_chi_43,
+                  state_chi_04,  state_chi_14, state_chi_24, state_chi_34, state_chi_44,
                   clk, dst_addr, space_id, round }
 is
 keccak_memory.start_write { keccak_memory.val00, keccak_memory.val01, keccak_memory.val02, keccak_memory.val03, keccak_memory.val04,

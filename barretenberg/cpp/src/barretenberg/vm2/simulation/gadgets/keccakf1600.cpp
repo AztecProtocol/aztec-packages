@@ -101,7 +101,7 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
         // Slice read and tag check
         for (size_t i = 0; i < 5; i++) {
             for (size_t j = 0; j < 5; j++) {
-                const auto addr = src_addr + static_cast<MemoryAddress>((i * 5) + j);
+                const auto addr = src_addr + static_cast<MemoryAddress>((j * 5) + i);
                 const MemoryValue& mem_val = memory.get(addr);
                 const MemoryTag tag = mem_val.get_tag();
                 src_mem_values[i][j] = mem_val;
@@ -225,7 +225,7 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
         // Slice write
         for (size_t i = 0; i < 5; i++) {
             for (size_t j = 0; j < 5; j++) {
-                memory.set(dst_addr + static_cast<MemoryAddress>((i * 5) + j), state_input_values[i][j]);
+                memory.set(dst_addr + static_cast<MemoryAddress>((j * 5) + i), state_input_values[i][j]);
             }
         }
 

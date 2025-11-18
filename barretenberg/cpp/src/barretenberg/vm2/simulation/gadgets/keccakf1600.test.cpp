@@ -49,6 +49,8 @@ class KeccakSimulationTest : public ::testing::Test {
 
 void flatten_state(KeccakF1600State state, uint64_t* flattened)
 {
+    // Standard Keccak layout: flattened[(y * 5) + x] = A[x][y]
+    // where state[i][j] represents A[x=i][y=j]
     for (size_t i = 0; i < 5; i++) {
         for (size_t j = 0; j < 5; j++) {
             flattened[(j * 5) + i] = state[i][j];
@@ -69,18 +71,22 @@ TEST_F(KeccakSimulationTest, matchesReferenceImplementation)
     uint64_t flat_output[25];
     flatten_state(input, reference_input);
 
+    // Write input in standard Keccak layout: memory[(y * 5) + x] = A[x][y]
+    // where input[i][j] represents A[x=i][y=j]
     for (size_t i = 0; i < 5; i++) {
         for (size_t j = 0; j < 5; j++) {
-            memory.set(src_addr + static_cast<MemoryAddress>((i * 5) + j), MemoryValue::from<uint64_t>(input[i][j]));
+            memory.set(src_addr + static_cast<MemoryAddress>((j * 5) + i), MemoryValue::from<uint64_t>(input[i][j]));
         }
     }
 
     keccak.permutation(memory, dst_addr, src_addr);
     KeccakF1600State output;
 
+    // Read output in standard Keccak layout: memory[(y * 5) + x] = A[x][y]
+    // where output[i][j] represents A[x=i][y=j]
     for (size_t i = 0; i < 5; i++) {
         for (size_t j = 0; j < 5; j++) {
-            MemoryValue val = memory.get(dst_addr + static_cast<MemoryAddress>((i * 5) + j));
+            MemoryValue val = memory.get(dst_addr + static_cast<MemoryAddress>((j * 5) + i));
             EXPECT_EQ(val.get_tag(), MemoryTag::U64);
             output[i][j] = val.as<uint64_t>();
         }
@@ -102,11 +108,11 @@ TEST_F(KeccakSimulationTest, tagError)
     const MemoryAddress dst_addr = 3030;
     const MemoryTag wrong_tag = MemoryTag::U128;
 
-    // Initialize the full slice with U64 values
+    // Initialize the full slice with U64 values in standard Keccak layout
     for (size_t i = 0; i < 5; i++) {
         for (size_t j = 0; j < 5; j++) {
-            memory.set(src_addr + static_cast<MemoryAddress>((i * 5) + j),
-                       MemoryValue::from_tag_truncating(MemoryTag::U64, (i * 5) + j));
+            memory.set(src_addr + static_cast<MemoryAddress>((j * 5) + i),
+                       MemoryValue::from_tag_truncating(MemoryTag::U64, (j * 5) + i));
         }
     }
 

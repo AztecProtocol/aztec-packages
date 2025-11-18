@@ -58,6 +58,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const contractsDB = new PublicContractsDB(contractDataSource);
     const config = PublicSimulatorConfig.from({
       skipFeeEnforcement: false,
+      collectCallMetadata: true,
       collectDebugLogs: true,
       collectHints: false,
       collectStatistics: false,

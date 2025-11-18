@@ -147,8 +147,8 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     assert(cppResult.gasUsed.teardownGas.equals(tsResult.gasUsed.teardownGas));
     assert(cppResult.gasUsed.billedGas.equals(tsResult.gasUsed.billedGas));
     assert(cppResult.publicInputs.toBuffer().equals(tsResult.publicInputs.toBuffer()));
-    // FIXME(https://github.com/AztecProtocol/aztec-packages/issues/18441): a few but not all keccaks fail!
-    // expect(cppResult.appLogicReturnValues).toEqual(tsResult.appLogicReturnValues);
+    assert(cppResult.appLogicReturnValues.length == tsResult.appLogicReturnValues.length);
+    assert(cppResult.appLogicReturnValues.every((v, i) => v.equals(tsResult.appLogicReturnValues[i])));
 
     // Confirm that tree roots match
     const cppStateRef = await this.merkleTree.getStateReference();

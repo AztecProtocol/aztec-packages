@@ -422,9 +422,10 @@ void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600
         state_ff[0][0] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_iota_00;
     } else {
         // While reading we need to check the tag for each slice value.
+        // Standard Keccak layout: memory[(y * 5) + x] = A[x][y]
         for (size_t k = 0; k < AVM_KECCAKF1600_STATE_SIZE; k++) {
-            const size_t i = k / 5;
-            const size_t j = k % 5;
+            const size_t i = k % 5; // x coordinate (column)
+            const size_t j = k / 5; // y coordinate (row)
             const auto& mem_val = event.src_mem_values[i][j];
             state_ff[i][j] = mem_val.as_ff();
             tags[k] = mem_val.get_tag();
@@ -470,8 +471,9 @@ void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600
             } });
 
         // We get a "triangle" when shifting values to their columns from val00 bottom-up.
+        // Standard Keccak layout: memory[(y * 5) + x] = A[x][y], so linear index j maps to (x=j%5, y=j/5)
         for (size_t j = i; j < num_rows; j++) {
-            trace.set(MEM_VAL_COLS.at(j - i), row, state_ff[j / 5][j % 5]);
+            trace.set(MEM_VAL_COLS.at(j - i), row, state_ff[j % 5][j / 5]);
         }
 
         row++;
