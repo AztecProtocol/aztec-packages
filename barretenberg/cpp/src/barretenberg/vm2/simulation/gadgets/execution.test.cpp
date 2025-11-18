@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bitwise.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
@@ -101,7 +102,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockSha256> sha256;
     StrictMock<MockDebugLog> debug_log;
     StrictMock<MockSideEffectTracker> side_effect_tracker;
-    NoopCallStackMetadataCollector call_stack_metadata_collector;
+    StrictMock<MockCallStackMetadataCollector> call_stack_metadata_collector;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
@@ -233,6 +234,7 @@ TEST_F(ExecutionSimulationTest, Call)
     FF zero = 0;
     AztecAddress parent_address = 0xdeadbeef;
     AztecAddress nested_address = 0xc0ffee;
+    uint32_t parent_pc = 100;
     MemoryValue nested_address_value = MemoryValue::from<FF>(nested_address);
     MemoryValue l2_gas_allocated = MemoryValue::from<uint32_t>(6);
     MemoryValue da_gas_allocated = MemoryValue::from<uint32_t>(7);
@@ -286,6 +288,10 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
+    // Call stack metadata collector
+    EXPECT_CALL(context, get_pc).WillOnce(Return(parent_pc));
+    EXPECT_CALL(call_stack_metadata_collector, notify_enter_call(nested_address, parent_pc, _, false, Gas{ 2, 3 }));
+
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
     EXPECT_CALL(context, get_parent_id);
@@ -318,6 +324,10 @@ TEST_F(ExecutionSimulationTest, Call)
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
+    // Call stack metadata collector
+    EXPECT_CALL(*nested_context, get_address).WillOnce(ReturnRef(nested_address));
+    EXPECT_CALL(*nested_context, get_is_static).WillOnce(Return(false));
+    EXPECT_CALL(*nested_context, get_gas_limit).WillOnce(Return(Gas{ 2, 3 }));
 
     EXPECT_CALL(
         context_provider,
@@ -365,8 +375,10 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
     };
 
     auto setup_context_expectations = [&](bool parent_is_static) {
+        EXPECT_CALL(call_stack_metadata_collector, notify_enter_call);
         EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
         EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+        EXPECT_CALL(context, get_pc).WillOnce(Return(100));
         EXPECT_CALL(context, get_context_id);
         EXPECT_CALL(context, get_parent_id);
         EXPECT_CALL(context, get_bytecode_manager).WillOnce(ReturnRef(bytecode_manager));
@@ -393,9 +405,13 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
         EXPECT_CALL(memory, get(4)).WillOnce(ReturnRef(cd_size));
     };
 
-    auto create_nested_context = []() {
+    auto create_nested_context = [&]() {
         auto nested = std::make_unique<NiceMock<MockContext>>();
         ON_CALL(*nested, halted()).WillByDefault(Return(true));
+        // Call stack metadata collector
+        EXPECT_CALL(*nested, get_address).WillOnce(ReturnRef(nested_address));
+        EXPECT_CALL(*nested, get_is_static).WillOnce(Return(false));
+        EXPECT_CALL(*nested, get_gas_limit).WillOnce(Return(Gas{ 2, 3 }));
         return nested;
     };
 

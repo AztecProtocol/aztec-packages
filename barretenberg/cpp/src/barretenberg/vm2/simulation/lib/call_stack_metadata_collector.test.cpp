@@ -13,6 +13,7 @@ namespace bb::avm2::simulation {
 namespace {
 
 using ::testing::_;
+using ::testing::ElementsAre;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
@@ -321,7 +322,6 @@ class MakeProviderTest : public ::testing::Test {
 
 TEST_F(MakeProviderTest, MakeCalldataProviderSuccess)
 {
-    static AztecAddress contract_addr(0x1234);
     uint32_t cd_offset = 100;
     uint32_t cd_size = 5;
     std::vector<MemoryValue> calldata_values = {
@@ -329,22 +329,18 @@ TEST_F(MakeProviderTest, MakeCalldataProviderSuccess)
         MemoryValue::from<FF>(FF(0xdddd)), MemoryValue::from<FF>(FF(0xeeee)),
     };
 
-    ON_CALL(mock_context, get_address()).WillByDefault(ReturnRef(contract_addr));
-    ON_CALL(mock_context, get_pc()).WillByDefault(Return(200));
-    ON_CALL(mock_context, get_parent_cd_addr()).WillByDefault(Return(cd_offset));
-    ON_CALL(mock_context, get_parent_cd_size()).WillByDefault(Return(cd_size));
-
-    EXPECT_CALL(mock_context, get_calldata(cd_offset, cd_size)).WillOnce(Return(calldata_values));
+    // These are called when creating the provider
+    EXPECT_CALL(mock_context, get_parent_cd_addr()).WillOnce(Return(cd_offset));
+    EXPECT_CALL(mock_context, get_parent_cd_size()).WillOnce(Return(cd_size));
 
     auto provider = make_calldata_provider(mock_context);
+
+    // This is called when invoking the provider
+    EXPECT_CALL(mock_context, get_calldata(cd_offset, cd_size)).WillOnce(Return(calldata_values));
+
     auto result = provider(1024);
 
-    ASSERT_EQ(result.size(), 5U);
-    EXPECT_EQ(result[0], FF(0xaaaa));
-    EXPECT_EQ(result[1], FF(0xbbbb));
-    EXPECT_EQ(result[2], FF(0xcccc));
-    EXPECT_EQ(result[3], FF(0xdddd));
-    EXPECT_EQ(result[4], FF(0xeeee));
+    EXPECT_THAT(result, ElementsAre(FF(0xaaaa), FF(0xbbbb), FF(0xcccc), FF(0xdddd), FF(0xeeee)));
 }
 
 TEST_F(MakeProviderTest, MakeCalldataProviderRespectsMaxSize)
@@ -357,15 +353,18 @@ TEST_F(MakeProviderTest, MakeCalldataProviderRespectsMaxSize)
         calldata_values[i] = MemoryValue::from<FF>(FF(i));
     }
 
-    ON_CALL(mock_context, get_parent_cd_addr()).WillByDefault(Return(cd_offset));
-    ON_CALL(mock_context, get_parent_cd_size()).WillByDefault(Return(cd_size));
+    // These are called when creating the provider
+    EXPECT_CALL(mock_context, get_parent_cd_addr()).WillOnce(Return(cd_offset));
+    EXPECT_CALL(mock_context, get_parent_cd_size()).WillOnce(Return(cd_size));
 
+    auto provider = make_calldata_provider(mock_context);
+
+    // This is called when invoking the provider
     EXPECT_CALL(mock_context, get_calldata(cd_offset, max_size))
         .WillOnce([&calldata_values, max_size](uint32_t, uint32_t) {
             return std::vector<MemoryValue>(calldata_values.begin(), calldata_values.begin() + max_size);
         });
 
-    auto provider = make_calldata_provider(mock_context);
     auto result = provider(max_size);
 
     ASSERT_EQ(result.size(), max_size);
@@ -377,15 +376,19 @@ TEST_F(MakeProviderTest, MakeCalldataProviderHandlesException)
     uint32_t cd_offset = 100;
     uint32_t cd_size = 5;
 
-    ON_CALL(mock_context, get_address()).WillByDefault(ReturnRef(contract_addr));
-    ON_CALL(mock_context, get_pc()).WillByDefault(Return(200));
-    ON_CALL(mock_context, get_parent_cd_addr()).WillByDefault(Return(cd_offset));
-    ON_CALL(mock_context, get_parent_cd_size()).WillByDefault(Return(cd_size));
-
-    EXPECT_CALL(mock_context, get_calldata(cd_offset, _))
-        .WillOnce(::testing::Throw(std::runtime_error("Test exception")));
+    // These are called when creating the provider
+    EXPECT_CALL(mock_context, get_parent_cd_addr()).WillOnce(Return(cd_offset));
+    EXPECT_CALL(mock_context, get_parent_cd_size()).WillOnce(Return(cd_size));
 
     auto provider = make_calldata_provider(mock_context);
+
+    // This is called when invoking the provider, and throws
+    EXPECT_CALL(mock_context, get_calldata(cd_offset, _))
+        .WillOnce(::testing::Throw(std::runtime_error("Test exception")));
+    // The exception handler may call get_address() and get_pc() for logging (optional)
+    EXPECT_CALL(mock_context, get_address()).Times(::testing::AnyNumber()).WillRepeatedly(ReturnRef(contract_addr));
+    EXPECT_CALL(mock_context, get_pc()).Times(::testing::AnyNumber()).WillRepeatedly(Return(200));
+
     auto result = provider(1024);
 
     // Should return empty vector on exception
@@ -394,7 +397,6 @@ TEST_F(MakeProviderTest, MakeCalldataProviderHandlesException)
 
 TEST_F(MakeProviderTest, MakeReturnDataProviderSuccess)
 {
-    static AztecAddress contract_addr(0x5678);
     uint32_t rd_addr = 200;
     uint32_t rd_size = 3;
     std::vector<MemoryValue> return_data_values = {
@@ -403,20 +405,18 @@ TEST_F(MakeProviderTest, MakeReturnDataProviderSuccess)
         MemoryValue::from<FF>(FF(0x3333)),
     };
 
-    ON_CALL(mock_context, get_address()).WillByDefault(ReturnRef(contract_addr));
-    ON_CALL(mock_context, get_pc()).WillByDefault(Return(300));
-    ON_CALL(mock_context, get_last_rd_addr()).WillByDefault(Return(rd_addr));
-    ON_CALL(mock_context, get_last_rd_size()).WillByDefault(Return(rd_size));
-
-    EXPECT_CALL(mock_context, get_returndata(rd_addr, rd_size)).WillOnce(Return(return_data_values));
+    // These are called when creating the provider
+    EXPECT_CALL(mock_context, get_last_rd_addr()).WillOnce(Return(rd_addr));
+    EXPECT_CALL(mock_context, get_last_rd_size()).WillOnce(Return(rd_size));
 
     auto provider = make_return_data_provider(mock_context);
+
+    // This is called when invoking the provider
+    EXPECT_CALL(mock_context, get_returndata(rd_addr, rd_size)).WillOnce(Return(return_data_values));
+
     auto result = provider(1024);
 
-    ASSERT_EQ(result.size(), 3U);
-    EXPECT_EQ(result[0], FF(0x1111));
-    EXPECT_EQ(result[1], FF(0x2222));
-    EXPECT_EQ(result[2], FF(0x3333));
+    EXPECT_THAT(result, ElementsAre(FF(0x1111), FF(0x2222), FF(0x3333)));
 }
 
 TEST_F(MakeProviderTest, MakeReturnDataProviderRespectsMaxSize)
@@ -429,15 +429,18 @@ TEST_F(MakeProviderTest, MakeReturnDataProviderRespectsMaxSize)
         return_data_values[i] = MemoryValue::from<FF>(FF(i * 2));
     }
 
-    ON_CALL(mock_context, get_last_rd_addr()).WillByDefault(Return(rd_addr));
-    ON_CALL(mock_context, get_last_rd_size()).WillByDefault(Return(rd_size));
+    // These are called when creating the provider
+    EXPECT_CALL(mock_context, get_last_rd_addr()).WillOnce(Return(rd_addr));
+    EXPECT_CALL(mock_context, get_last_rd_size()).WillOnce(Return(rd_size));
 
+    auto provider = make_return_data_provider(mock_context);
+
+    // This is called when invoking the provider
     EXPECT_CALL(mock_context, get_returndata(rd_addr, max_size))
         .WillOnce([&return_data_values, max_size](uint32_t, uint32_t) {
             return std::vector<MemoryValue>(return_data_values.begin(), return_data_values.begin() + max_size);
         });
 
-    auto provider = make_return_data_provider(mock_context);
     auto result = provider(max_size);
 
     ASSERT_EQ(result.size(), max_size);
@@ -449,15 +452,19 @@ TEST_F(MakeProviderTest, MakeReturnDataProviderHandlesException)
     uint32_t rd_addr = 200;
     uint32_t rd_size = 3;
 
-    ON_CALL(mock_context, get_address()).WillByDefault(ReturnRef(contract_addr));
-    ON_CALL(mock_context, get_pc()).WillByDefault(Return(300));
-    ON_CALL(mock_context, get_last_rd_addr()).WillByDefault(Return(rd_addr));
-    ON_CALL(mock_context, get_last_rd_size()).WillByDefault(Return(rd_size));
-
-    EXPECT_CALL(mock_context, get_returndata(rd_addr, _))
-        .WillOnce(::testing::Throw(std::runtime_error("Test exception")));
+    // These are called when creating the provider
+    EXPECT_CALL(mock_context, get_last_rd_addr()).WillOnce(Return(rd_addr));
+    EXPECT_CALL(mock_context, get_last_rd_size()).WillOnce(Return(rd_size));
 
     auto provider = make_return_data_provider(mock_context);
+
+    // This is called when invoking the provider, and throws
+    EXPECT_CALL(mock_context, get_returndata(rd_addr, _))
+        .WillOnce(::testing::Throw(std::runtime_error("Test exception")));
+    // The exception handler may call get_address() and get_pc() for logging (optional)
+    EXPECT_CALL(mock_context, get_address()).Times(::testing::AnyNumber()).WillRepeatedly(ReturnRef(contract_addr));
+    EXPECT_CALL(mock_context, get_pc()).Times(::testing::AnyNumber()).WillRepeatedly(Return(300));
+
     auto result = provider(1024);
 
     // Should return empty vector on exception

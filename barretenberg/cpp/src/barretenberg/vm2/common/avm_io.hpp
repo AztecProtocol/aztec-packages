@@ -481,6 +481,20 @@ enum class CoarseTransactionPhase : uint8_t {
     TEARDOWN,
 };
 
+inline std::ostream& operator<<(std::ostream& os, const CoarseTransactionPhase& phase)
+{
+    switch (phase) {
+    case CoarseTransactionPhase::SETUP:
+        return os << "SETUP";
+    case CoarseTransactionPhase::APP_LOGIC:
+        return os << "APP_LOGIC";
+    case CoarseTransactionPhase::TEARDOWN:
+        return os << "TEARDOWN";
+    default:
+        return os << "UNKNOWN";
+    }
+}
+
 // Metadata about a given (enqueued or external) call.
 struct CallStackMetadata {
     CoarseTransactionPhase phase;

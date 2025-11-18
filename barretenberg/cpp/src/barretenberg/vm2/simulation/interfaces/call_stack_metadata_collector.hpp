@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "barretenberg/vm2/common/avm_io.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 
 namespace bb::avm2::simulation {
