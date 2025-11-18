@@ -693,7 +693,7 @@ export class AvmTxHint {
     public readonly setupEnqueuedCalls: PublicCallRequestWithCalldata[],
     public readonly appLogicEnqueuedCalls: PublicCallRequestWithCalldata[],
     // We need this to be null and not undefined because that's what
-    // MessagePack expects for an std::optional. // TODO: Is this still true?
+    // MessagePack expects for an std::optional.
     public readonly teardownEnqueuedCall: PublicCallRequestWithCalldata | null,
     public readonly gasUsedByPrivate: Gas,
     public readonly feePayer: AztecAddress,
