@@ -9,4 +9,5 @@ export {
   GlobalVariables,
   TxProfileResult,
   ExecutionPayload,
+  mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';

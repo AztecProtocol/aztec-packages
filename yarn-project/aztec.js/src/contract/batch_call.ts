@@ -80,7 +80,7 @@ export class BatchCall extends BaseContractInteraction {
     for (const [call] of utility) {
       batchRequests.push({
         name: 'simulateUtility' as const,
-        args: [call, options?.authWitnesses, undefined] as const,
+        args: [call, options?.authWitnesses] as const,
       });
     }
 

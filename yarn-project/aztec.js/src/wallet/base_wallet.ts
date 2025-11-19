@@ -311,12 +311,8 @@ export abstract class BaseWallet implements Wallet {
     return err;
   }
 
-  simulateUtility(
-    call: FunctionCall,
-    authwits?: AuthWitness[],
-    scopes?: AztecAddress[],
-  ): Promise<UtilitySimulationResult> {
-    return this.pxe.simulateUtility(call, authwits, scopes);
+  simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
+    return this.pxe.simulateUtility(call, authwits);
   }
 
   getContractClassMetadata(id: Fr, includeArtifact: boolean = false): Promise<ContractClassMetadata> {

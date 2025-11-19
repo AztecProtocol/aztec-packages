@@ -9,6 +9,121 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.js] Wallet interface changes
+
+#### `simulateTx` is now batchable
+
+The `simulateTx` method on the `Wallet` interface is now batchable, meaning it can be called as part of a batch operation using `wallet.batch()`. This allows you to batch simulations together with other wallet operations like `registerContract`, `sendTx`, and `registerSender`.
+
+```diff
+- // Could not batch simulations
+- const simulationResult = await wallet.simulateTx(executionPayload, options);
++ // Can now batch simulations with other operations
++ const results = await wallet.batch([
++   { name: 'registerContract', args: [instance, artifact] },
++   { name: 'simulateTx', args: [executionPayload, options] },
++   { name: 'sendTx', args: [anotherPayload, sendOptions] },
++ ]);
+```
+
+#### `ExecutionPayload` moved to `@aztec/stdlib/tx`
+
+The `ExecutionPayload` type has been moved from `@aztec/aztec.js` to `@aztec/stdlib/tx`. Update your imports accordingly.
+
+```diff
+- import { ExecutionPayload } from '@aztec/aztec.js';
++ import { ExecutionPayload } from '@aztec/stdlib/tx';
++ // Or import from the re-export in aztec.js/tx:
++ import { ExecutionPayload } from '@aztec/aztec.js/tx';
+```
+
+#### `ExecutionPayload` now includes `feePayer` property
+
+The `ExecutionPayload` class now includes an optional `feePayer` property that specifies which address is paying for the fee in the execution payload (if any)
+
+```diff
+  const payload = new ExecutionPayload(
+    calls,
+    authWitnesses,
+    capsules,
+    extraHashedArgs,
++   feePayer // optional AztecAddress
+  );
+```
+
+This was previously provided as part of the `SendOptions` (and others) in the wallet interface, which could cause problems if a payload was assembled with a payment method and the parameter was later omitted. This means `SendOptions` now loses `embeddedPaymentMethodFeePayer`
+
+```diff
+-wallet.simulateTx(executionPayload, { from: address, embeddedFeePaymentMethodFeePayer: feePayer });
++wallet.simulateTx(executionPayload, { from: address });
+```
+
+#### `simulateUtility` signature and return type changed
+
+The `simulateUtility` method signature has changed to accept a `FunctionCall` object instead of separate `functionName`, `args`, and `to` parameters. Additionally, the return type has changed from `AbiDecoded` to `Fr[]`.
+
+```diff
+- const result: AbiDecoded = await wallet.simulateUtility(functionName, args, to, authWitnesses);
++ const result: UtilitySimulationResult = await wallet.simulateUtility(functionCall, authWitnesses?);
++ // result.result is now Fr[] instead of AbiDecoded
+```
+
+The new signature takes:
+
+- `functionCall`: A `FunctionCall` object containing `name`, `args`, `to`, `selector`, `type`, `isStatic`, `hideMsgSender`, and `returnTypes`
+- `authWitnesses` (optional): An array of `AuthWitness` objects
+
+The first argument is exactly the same as what goes into `ExecutionPayload.calls`. As such, the data is already encoded. The return value is now `UtilitySimulationResult` with `result: Fr[]` instead of returning an `AbiDecoded` value directly. You'll need to decode the `Fr[]` array yourself if you need typed results.
+
+#### `Contract.at()` is now synchronous and no longer calls `registerContract`
+
+The `Contract.at()` method (and generated contract `.at()` methods) is now synchronous and no longer automatically registers the contract with the wallet. This reduces unnecessary artifact storage and RPC calls.
+
+```diff
+- const contract = await TokenContract.at(address, wallet);
++ const contract = TokenContract.at(address, wallet);
+```
+
+**Important:** You now need to explicitly call `registerContract` if you want the wallet to store the contract instance and artifact. This is only necessary when:
+
+- An app first registers a contract
+- An app tries to update a contract's artifact
+
+If you need to register the contract, do so explicitly:
+
+```typescript
+// Get the instance from deployment
+const { contract, instance } = await TokenContract.deploy(wallet, ...args)
+  .send({ from: address })
+  .wait();
+
+// wallet already has it registered, since the deploy method does it by default
+// to avoid it, set skipContractRegistration: true in the send options.
+
+// Register it with another wallet
+await otherWallet.registerContract(instance, TokenContract.artifact);
+
+// Now you can use the contract
+const otherContract = TokenContract.at(instance.address, otherWallet);
+```
+
+Publicly deployed contract instances can be retrieved via `node.getContract(address)`. Otherwise and if deployment parameters are known, an instance can be computed via the `getContractInstanceFromInstantiationParams` from `@aztec/aztec.js/contracts`
+
+#### `registerContract` signature simplified
+
+The `registerContract` method now takes a `ContractInstanceWithAddress` instead of a `Contract` object, and the `artifact` parameter is now optional. If the artifact is not provided, the wallet will attempt to look it up from its contract class storage.
+
+```diff
+- await wallet.registerContract(contract);
++ await wallet.registerContract(instance, artifact?);
+```
+
+The method now only accepts:
+
+- `instance`: A `ContractInstanceWithAddress` object
+- `artifact` (optional): A `ContractArtifact` object
+- `secretKey` (optional): A secret key for privacy keys registration
+
 ### [CLI] Command refactor
 
 The sandbox command has been renamed and remapped to "local network". We believe this conveys better what is actually being spun up when running it.
