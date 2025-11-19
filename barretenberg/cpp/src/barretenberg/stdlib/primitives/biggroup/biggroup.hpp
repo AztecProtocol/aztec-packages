@@ -408,11 +408,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         _is_infinity.set_origin_tag(tag);
     }
 
-    void clear_child_tag() const
+    void clear_round_provenance() const
     {
-        _x.clear_child_tag();
-        _y.clear_child_tag();
-        _is_infinity.clear_child_tag();
+        _x.clear_round_provenance();
+        _y.clear_round_provenance();
+        _is_infinity.clear_round_provenance();
     }
 
     OriginTag get_origin_tag() const

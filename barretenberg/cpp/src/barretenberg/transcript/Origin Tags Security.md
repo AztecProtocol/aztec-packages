@@ -1,13 +1,14 @@
 # Origin Tags Security Mechanism
-## ⚠️ IMPORTANT DISCLAIMER
+## ✅ CURRENT STATUS
 
-**The Origin Tags security mechanism is currently PARTIALLY DISABLED.** The mechanism operates in debug builds only (disabled completely in release builds via `AZTEC_NO_ORIGIN_TAGS`). Within debug builds, several critical security checks are currently disabled due to widespread violations of tag invariants throughout the codebase:
+**The Origin Tags security mechanism is FULLY ENABLED in debug builds.** The mechanism operates in debug builds only (disabled completely in release builds via `AZTEC_NO_ORIGIN_TAGS`). Within debug builds, ALL security checks are active:
 
-1. **Free Witness Checks** (`DISABLE_FREE_WITNESS_CHECK`): Disabled because free witness elements are incorrectly interacting with transcript-originated values throughout the system
-2. **Different Transcript Checks** (`DISABLE_DIFFERENT_TRANSCRIPT_CHECKS`): Disabled because values from different transcript instances are mixing in computations
-3. **Child Tag Checks** (`DISABLE_CHILD_TAG_CHECKS`): Disabled because submitted values from different rounds are mixing without proper challenge separation
+1. **Different Transcript Checks**: ✅ **ACTIVE** - Values from different transcript instances cannot be mixed. Throws: "Tags from different transcripts were involved in the same computation"
+2. **Free Witness Checks**: ✅ **ACTIVE** - Free witness elements cannot interact with transcript-originated values. Throws: "A free witness element should not interact with an element that has an origin"
+3. **Child Tag Checks**: ✅ **ACTIVE** - Submitted values from different rounds cannot mix without challenges. Throws: "Submitted values from 2 different rounds are mixing without challenges"
+4. **Poison Detection**: ✅ **ACTIVE** - Any arithmetic on poisoned values triggers abort. Throws: "Touched an element that should not have been touched"
 
-These disables were implemented as a temporary measure to allow the codebase to function while the tag invariant violations are addressed. The basic origin tag tracking infrastructure remains active in debug builds, but the security enforcement is effectively neutered until these flags are removed and the underlying violations are fixed.
+All previously mentioned disable flags (`DISABLE_FREE_WITNESS_CHECK`, `DISABLE_CHILD_TAG_CHECKS`, `DISABLE_DIFFERENT_TRANSCRIPT_CHECKS`) have been removed. The OriginTag system now provides full security enforcement.
 
 
 
@@ -21,12 +22,12 @@ The Origin Tag mechanism is a security feature designed to track the provenance 
 
 The `OriginTag` struct contains three main fields:
 
-1. **parent_tag**: Identifies the transcript instance that generated the value
+1. **transcript_index**: Identifies the transcript instance that generated the value
    - `CONSTANT` (-1): Value is a constant
    - `FREE_WITNESS` (-2): Value is a free witness (not constant, not from transcript)
    - Numeric index: Specific transcript instance
 
-2. **child_tag**: 256-bit field tracking which submitted values and challenges were used
+2. **round_provenance**: 256-bit field tracking which submitted values and challenges were used
    - Lower 128 bits: Submitted values from corresponding rounds (bit position = round number)
    - Upper 128 bits: Challenge values from corresponding rounds (bit position = round number + 128)
 
@@ -34,12 +35,12 @@ The `OriginTag` struct contains three main fields:
 
 ### Security Checks
 
-The mechanism enforces several security invariants:
+The mechanism enforces several security invariants (all active in debug builds):
 
-1. **Transcript Isolation**: Values from different transcript instances cannot interact
-2. **Round Separation**: Submitted values from different rounds cannot mix without challenges (currently not enforced)
-3. **Free Witness Isolation**: Free witness elements should not interact with transcript-originated values
-4. **Poison Detection**: Any arithmetic on "poisoned" values triggers an abort
+1. **Transcript Isolation**: ✅ **ACTIVE** - Values from different transcript instances cannot interact. Throws exception on violation.
+2. **Round Separation**: ✅ **ACTIVE** - Submitted values from different rounds cannot mix without challenges. Throws exception on violation.
+3. **Free Witness Isolation**: ✅ **ACTIVE** - Free witness elements should not interact with transcript-originated values. Throws exception on violation.
+4. **Poison Detection**: ✅ **ACTIVE** - Any arithmetic on "poisoned" values triggers an abort
 
 ### Integration with Transcript System
 
@@ -100,8 +101,17 @@ Values automatically receive origin tags when:
 - Origin tags are propagated through arithmetic operations on tagged values
 
 
-## TODOS
-1. Ensure that all recursive verifiers pass the basic free witness check
-2. Ensure that all recursive verifiers pass the basic different transcript check
-3. Ensure that all recursive verifiers pass the basic child tag check
-4. Add the mechanism for checking if a challenge and a submitted value from a following round meet (this can also create dangerous interactions)
+## Status
+
+All core OriginTag security checks are now fully enabled and active:
+
+1. ✅ **Different Transcript Check** - COMPLETE and ACTIVE: Prevents cross-transcript contamination
+2. ✅ **Free Witness Check** - COMPLETE and ACTIVE: Prevents free witness contamination
+3. ✅ **Child Tag Check** - COMPLETE and ACTIVE: Prevents round-mixing without challenges
+4. ✅ **Poison Detection** - COMPLETE and ACTIVE: Prevents use of poisoned values
+
+## Future Enhancements
+
+1. Add the mechanism for checking if a challenge and a submitted value from a following round meet (this can also create dangerous interactions)
+2. Consider enabling OriginTag checks in release builds for critical production paths (currently only active in debug via `AZTEC_NO_ORIGIN_TAGS`)
+3. Add more granular error messages to help developers identify the exact source of tag violations

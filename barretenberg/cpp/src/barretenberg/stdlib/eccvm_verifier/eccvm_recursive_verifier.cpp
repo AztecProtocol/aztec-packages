@@ -223,7 +223,7 @@ void ECCVMRecursiveVerifier::compute_translation_opening_claims(const std::vecto
     // OriginTag false positive: Small IPA evaluations need to satisfy an identity where they are mixing without
     // challenges, it is safe because these evaluations are opened in Shplonk.
     for (auto& eval : small_ipa_evaluations) {
-        eval.clear_child_tag();
+        eval.clear_round_provenance();
     }
 
     // Check Grand Sum Identity at r

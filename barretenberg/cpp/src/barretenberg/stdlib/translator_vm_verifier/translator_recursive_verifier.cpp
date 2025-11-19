@@ -65,7 +65,7 @@ void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(co
     // OriginTag false positive: The accumulated result limbs are evaluation claims that will be checked by
     // `TranslatorAccumulatorTransferRelationImpl`.
     for (auto& limb : relation_parameters.accumulated_result) {
-        limb.clear_child_tag();
+        limb.clear_round_provenance();
     }
 };
 

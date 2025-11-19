@@ -264,7 +264,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             // are mixing without challenge, it is safe because these evaluations are opened in Shplonk.
             if constexpr (Curve::is_stdlib_type) {
                 for (auto& eval : libra_evaluations) {
-                    eval.clear_child_tag();
+                    eval.clear_round_provenance();
                 }
             }
         }
