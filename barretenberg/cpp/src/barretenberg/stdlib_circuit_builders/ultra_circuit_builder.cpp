@@ -1578,47 +1578,47 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_addition(
     add_simple limb0, add_simple limb1, add_simple limb2, add_simple limb3, std::tuple<uint32_t, uint32_t, FF> limbp)
 {
-    const auto& x_0 = std::get<0>(limb0).first;
-    const auto& x_1 = std::get<0>(limb1).first;
-    const auto& x_2 = std::get<0>(limb2).first;
-    const auto& x_3 = std::get<0>(limb3).first;
-    const auto& x_p = std::get<0>(limbp);
+    const uint32_t& x_0 = std::get<0>(limb0).first;
+    const uint32_t& x_1 = std::get<0>(limb1).first;
+    const uint32_t& x_2 = std::get<0>(limb2).first;
+    const uint32_t& x_3 = std::get<0>(limb3).first;
+    const uint32_t& x_p = std::get<0>(limbp);
 
-    const auto& x_mulconst0 = std::get<0>(limb0).second;
-    const auto& x_mulconst1 = std::get<0>(limb1).second;
-    const auto& x_mulconst2 = std::get<0>(limb2).second;
-    const auto& x_mulconst3 = std::get<0>(limb3).second;
+    const FF& x_mulconst0 = std::get<0>(limb0).second;
+    const FF& x_mulconst1 = std::get<0>(limb1).second;
+    const FF& x_mulconst2 = std::get<0>(limb2).second;
+    const FF& x_mulconst3 = std::get<0>(limb3).second;
 
-    const auto& y_0 = std::get<1>(limb0).first;
-    const auto& y_1 = std::get<1>(limb1).first;
-    const auto& y_2 = std::get<1>(limb2).first;
-    const auto& y_3 = std::get<1>(limb3).first;
-    const auto& y_p = std::get<1>(limbp);
+    const uint32_t& y_0 = std::get<1>(limb0).first;
+    const uint32_t& y_1 = std::get<1>(limb1).first;
+    const uint32_t& y_2 = std::get<1>(limb2).first;
+    const uint32_t& y_3 = std::get<1>(limb3).first;
+    const uint32_t& y_p = std::get<1>(limbp);
 
-    const auto& y_mulconst0 = std::get<1>(limb0).second;
-    const auto& y_mulconst1 = std::get<1>(limb1).second;
-    const auto& y_mulconst2 = std::get<1>(limb2).second;
-    const auto& y_mulconst3 = std::get<1>(limb3).second;
+    const FF& y_mulconst0 = std::get<1>(limb0).second;
+    const FF& y_mulconst1 = std::get<1>(limb1).second;
+    const FF& y_mulconst2 = std::get<1>(limb2).second;
+    const FF& y_mulconst3 = std::get<1>(limb3).second;
 
     // constant additive terms
-    const auto& addconst0 = std::get<2>(limb0);
-    const auto& addconst1 = std::get<2>(limb1);
-    const auto& addconst2 = std::get<2>(limb2);
-    const auto& addconst3 = std::get<2>(limb3);
-    const auto& addconstp = std::get<2>(limbp);
+    const FF& addconst0 = std::get<2>(limb0);
+    const FF& addconst1 = std::get<2>(limb1);
+    const FF& addconst2 = std::get<2>(limb2);
+    const FF& addconst3 = std::get<2>(limb3);
+    const FF& addconstp = std::get<2>(limbp);
 
     // get value of result limbs
-    const auto z_0value = (this->get_variable(x_0) * x_mulconst0) + (this->get_variable(y_0) * y_mulconst0) + addconst0;
-    const auto z_1value = (this->get_variable(x_1) * x_mulconst1) + (this->get_variable(y_1) * y_mulconst1) + addconst1;
-    const auto z_2value = (this->get_variable(x_2) * x_mulconst2) + (this->get_variable(y_2) * y_mulconst2) + addconst2;
-    const auto z_3value = (this->get_variable(x_3) * x_mulconst3) + (this->get_variable(y_3) * y_mulconst3) + addconst3;
-    const auto z_pvalue = this->get_variable(x_p) + this->get_variable(y_p) + addconstp;
+    const FF z_0value = (this->get_variable(x_0) * x_mulconst0) + (this->get_variable(y_0) * y_mulconst0) + addconst0;
+    const FF z_1value = (this->get_variable(x_1) * x_mulconst1) + (this->get_variable(y_1) * y_mulconst1) + addconst1;
+    const FF z_2value = (this->get_variable(x_2) * x_mulconst2) + (this->get_variable(y_2) * y_mulconst2) + addconst2;
+    const FF z_3value = (this->get_variable(x_3) * x_mulconst3) + (this->get_variable(y_3) * y_mulconst3) + addconst3;
+    const FF z_pvalue = this->get_variable(x_p) + this->get_variable(y_p) + addconstp;
 
-    const auto z_0 = this->add_variable(z_0value);
-    const auto z_1 = this->add_variable(z_1value);
-    const auto z_2 = this->add_variable(z_2value);
-    const auto z_3 = this->add_variable(z_3value);
-    const auto z_p = this->add_variable(z_pvalue);
+    const uint32_t z_0 = this->add_variable(z_0value);
+    const uint32_t z_1 = this->add_variable(z_1value);
+    const uint32_t z_2 = this->add_variable(z_2value);
+    const uint32_t z_3 = this->add_variable(z_3value);
+    const uint32_t z_p = this->add_variable(z_pvalue);
 
     /**
      *   Wire layout for non-native field addition (z = x + y)
@@ -1692,47 +1692,47 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_subtraction(
     add_simple limb0, add_simple limb1, add_simple limb2, add_simple limb3, std::tuple<uint32_t, uint32_t, FF> limbp)
 {
-    const auto& x_0 = std::get<0>(limb0).first;
-    const auto& x_1 = std::get<0>(limb1).first;
-    const auto& x_2 = std::get<0>(limb2).first;
-    const auto& x_3 = std::get<0>(limb3).first;
-    const auto& x_p = std::get<0>(limbp);
+    const uint32_t& x_0 = std::get<0>(limb0).first;
+    const uint32_t& x_1 = std::get<0>(limb1).first;
+    const uint32_t& x_2 = std::get<0>(limb2).first;
+    const uint32_t& x_3 = std::get<0>(limb3).first;
+    const uint32_t& x_p = std::get<0>(limbp);
 
-    const auto& x_mulconst0 = std::get<0>(limb0).second;
-    const auto& x_mulconst1 = std::get<0>(limb1).second;
-    const auto& x_mulconst2 = std::get<0>(limb2).second;
-    const auto& x_mulconst3 = std::get<0>(limb3).second;
+    const FF& x_mulconst0 = std::get<0>(limb0).second;
+    const FF& x_mulconst1 = std::get<0>(limb1).second;
+    const FF& x_mulconst2 = std::get<0>(limb2).second;
+    const FF& x_mulconst3 = std::get<0>(limb3).second;
 
-    const auto& y_0 = std::get<1>(limb0).first;
-    const auto& y_1 = std::get<1>(limb1).first;
-    const auto& y_2 = std::get<1>(limb2).first;
-    const auto& y_3 = std::get<1>(limb3).first;
-    const auto& y_p = std::get<1>(limbp);
+    const uint32_t& y_0 = std::get<1>(limb0).first;
+    const uint32_t& y_1 = std::get<1>(limb1).first;
+    const uint32_t& y_2 = std::get<1>(limb2).first;
+    const uint32_t& y_3 = std::get<1>(limb3).first;
+    const uint32_t& y_p = std::get<1>(limbp);
 
-    const auto& y_mulconst0 = std::get<1>(limb0).second;
-    const auto& y_mulconst1 = std::get<1>(limb1).second;
-    const auto& y_mulconst2 = std::get<1>(limb2).second;
-    const auto& y_mulconst3 = std::get<1>(limb3).second;
+    const FF& y_mulconst0 = std::get<1>(limb0).second;
+    const FF& y_mulconst1 = std::get<1>(limb1).second;
+    const FF& y_mulconst2 = std::get<1>(limb2).second;
+    const FF& y_mulconst3 = std::get<1>(limb3).second;
 
     // constant additive terms
-    const auto& addconst0 = std::get<2>(limb0);
-    const auto& addconst1 = std::get<2>(limb1);
-    const auto& addconst2 = std::get<2>(limb2);
-    const auto& addconst3 = std::get<2>(limb3);
-    const auto& addconstp = std::get<2>(limbp);
+    const FF& addconst0 = std::get<2>(limb0);
+    const FF& addconst1 = std::get<2>(limb1);
+    const FF& addconst2 = std::get<2>(limb2);
+    const FF& addconst3 = std::get<2>(limb3);
+    const FF& addconstp = std::get<2>(limbp);
 
     // get value of result limbs
-    const auto z_0value = this->get_variable(x_0) * x_mulconst0 - this->get_variable(y_0) * y_mulconst0 + addconst0;
-    const auto z_1value = this->get_variable(x_1) * x_mulconst1 - this->get_variable(y_1) * y_mulconst1 + addconst1;
-    const auto z_2value = this->get_variable(x_2) * x_mulconst2 - this->get_variable(y_2) * y_mulconst2 + addconst2;
-    const auto z_3value = this->get_variable(x_3) * x_mulconst3 - this->get_variable(y_3) * y_mulconst3 + addconst3;
-    const auto z_pvalue = this->get_variable(x_p) - this->get_variable(y_p) + addconstp;
+    const FF z_0value = (this->get_variable(x_0) * x_mulconst0) - (this->get_variable(y_0) * y_mulconst0) + addconst0;
+    const FF z_1value = (this->get_variable(x_1) * x_mulconst1) - (this->get_variable(y_1) * y_mulconst1) + addconst1;
+    const FF z_2value = (this->get_variable(x_2) * x_mulconst2) - (this->get_variable(y_2) * y_mulconst2) + addconst2;
+    const FF z_3value = (this->get_variable(x_3) * x_mulconst3) - (this->get_variable(y_3) * y_mulconst3) + addconst3;
+    const FF z_pvalue = this->get_variable(x_p) - this->get_variable(y_p) + addconstp;
 
-    const auto z_0 = this->add_variable(z_0value);
-    const auto z_1 = this->add_variable(z_1value);
-    const auto z_2 = this->add_variable(z_2value);
-    const auto z_3 = this->add_variable(z_3value);
-    const auto z_p = this->add_variable(z_pvalue);
+    const uint32_t z_0 = this->add_variable(z_0value);
+    const uint32_t z_1 = this->add_variable(z_1value);
+    const uint32_t z_2 = this->add_variable(z_2value);
+    const uint32_t z_3 = this->add_variable(z_3value);
+    const uint32_t z_p = this->add_variable(z_pvalue);
 
     /**
      *   Wire layout for non-native field subtraction (z = x - y)
@@ -1800,8 +1800,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 /**
  * @brief Create a new read-only memory region (a.k.a. ROM table)
  *
- * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory"
- and
+ * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory" and
  * empty memory record array. Puts this object into the vector of ROM arrays.
  *
  * @param array_size The size of region in elements
@@ -1816,9 +1815,8 @@ size_t UltraCircuitBuilder_<ExecutionTrace>::create_ROM_array(const size_t array
 /**
  * @brief Create a new updatable memory region
  *
- * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory"
- and
- * and empty memory record array. Puts this object into the vector of ROM arrays.
+ * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory" and
+ * empty memory record array. Puts this object into the vector of ROM arrays.
  *
  * @param array_size The size of region in elements
  * @return size_t The index of the element
