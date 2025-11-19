@@ -53,7 +53,7 @@ class UltraCircuitBuilderArithmetic : public ::testing::Test {
         return { a, b, c, fr(1), fr(1), fr(-1), fr(0) };
     }
 
-    // Create gate that enforces: c = a + b + c
+    // Create gate that enforces: d = a + b + c
     static AddQuadData create_add_quad_data(uint64_t a_val = 3, uint64_t b_val = 5, uint64_t c_val = 7)
     {
         fr a(a_val);
@@ -151,22 +151,15 @@ TEST_F(UltraCircuitBuilderArithmetic, BigAddGateFailure)
         UltraCircuitBuilder builder;
         auto data = create_add_quad_data(3, 5, 7);
         modify_data(data);
-
-        uint32_t a_idx = builder.add_variable(data.a);
-        uint32_t b_idx = builder.add_variable(data.b);
-        uint32_t c_idx = builder.add_variable(data.c);
-        uint32_t d_idx = builder.add_variable(data.d);
-
-        builder.create_big_add_gate({ a_idx,
-                                      b_idx,
-                                      c_idx,
-                                      d_idx,
+        builder.create_big_add_gate({ builder.add_variable(data.a),
+                                      builder.add_variable(data.b),
+                                      builder.add_variable(data.c),
+                                      builder.add_variable(data.d),
                                       data.a_scaling,
                                       data.b_scaling,
                                       data.c_scaling,
                                       data.d_scaling,
                                       data.const_scaling });
-
         EXPECT_FALSE(CircuitChecker::check(builder));
     };
 
@@ -189,13 +182,14 @@ TEST_F(UltraCircuitBuilderArithmetic, ArithmeticGate)
 {
     UltraCircuitBuilder builder;
     auto data = create_arithmetic_triple_data(5, 7);
-
-    uint32_t a_idx = builder.add_variable(data.a);
-    uint32_t b_idx = builder.add_variable(data.b);
-    uint32_t c_idx = builder.add_variable(data.c);
-
-    builder.create_arithmetic_gate({ a_idx, b_idx, c_idx, data.q_m, data.q_l, data.q_r, data.q_o, data.q_c });
-
+    builder.create_arithmetic_gate({ builder.add_variable(data.a),
+                                     builder.add_variable(data.b),
+                                     builder.add_variable(data.c),
+                                     data.q_m,
+                                     data.q_l,
+                                     data.q_r,
+                                     data.q_o,
+                                     data.q_c });
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -206,13 +200,14 @@ TEST_F(UltraCircuitBuilderArithmetic, ArithmeticGateFailure)
         UltraCircuitBuilder builder;
         auto data = create_arithmetic_triple_data(5, 7);
         modify_data(data);
-
-        uint32_t a_idx = builder.add_variable(data.a);
-        uint32_t b_idx = builder.add_variable(data.b);
-        uint32_t c_idx = builder.add_variable(data.c);
-
-        builder.create_arithmetic_gate({ a_idx, b_idx, c_idx, data.q_m, data.q_l, data.q_r, data.q_o, data.q_c });
-
+        builder.create_arithmetic_gate({ builder.add_variable(data.a),
+                                         builder.add_variable(data.b),
+                                         builder.add_variable(data.c),
+                                         data.q_m,
+                                         data.q_l,
+                                         data.q_r,
+                                         data.q_o,
+                                         data.q_c });
         EXPECT_FALSE(CircuitChecker::check(builder));
     };
 
@@ -284,12 +279,14 @@ TEST_F(UltraCircuitBuilderArithmetic, ArithmeticGateComplexExpression)
     fr b(11);
     fr c = fr(3) * a * b + fr(5) * a - fr(2) * b;
 
-    uint32_t a_idx = builder.add_variable(a);
-    uint32_t b_idx = builder.add_variable(b);
-    uint32_t c_idx = builder.add_variable(c);
-
-    builder.create_arithmetic_gate({ a_idx, b_idx, c_idx, fr(3), fr(5), fr(-2), fr(-1), fr(0) });
-
+    builder.create_arithmetic_gate({ builder.add_variable(a),
+                                     builder.add_variable(b),
+                                     builder.add_variable(c),
+                                     fr(3),
+                                     fr(5),
+                                     fr(-2),
+                                     fr(-1),
+                                     fr(0) });
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -363,15 +360,18 @@ TEST_F(UltraCircuitBuilderArithmetic, BigMulAddGate)
     fr c(7);
     fr d = -(a * b + c);
 
-    uint32_t a_idx = builder.add_variable(a);
-    uint32_t b_idx = builder.add_variable(b);
-    uint32_t c_idx = builder.add_variable(c);
-    uint32_t d_idx = builder.add_variable(d);
-
     // create_big_mul_add_gate with include_next_gate_w_4=false uses q_arith=1
-    builder.create_big_mul_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(0), fr(0), fr(1), fr(1), fr(0) },
+    builder.create_big_mul_add_gate({ builder.add_variable(a),
+                                      builder.add_variable(b),
+                                      builder.add_variable(c),
+                                      builder.add_variable(d),
+                                      fr(1),
+                                      fr(0),
+                                      fr(0),
+                                      fr(1),
+                                      fr(1),
+                                      fr(0) },
                                     /* use_next_gate_w_4 */ false);
-
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -382,16 +382,10 @@ TEST_F(UltraCircuitBuilderArithmetic, BigMulAddGateFailure)
         UltraCircuitBuilder builder;
         auto data = create_mul_quad_data(5, 7, 3);
         modify_data(data);
-
-        uint32_t a_idx = builder.add_variable(data.a);
-        uint32_t b_idx = builder.add_variable(data.b);
-        uint32_t c_idx = builder.add_variable(data.c);
-        uint32_t d_idx = builder.add_variable(data.d);
-
-        builder.create_big_mul_add_gate({ a_idx,
-                                          b_idx,
-                                          c_idx,
-                                          d_idx,
+        builder.create_big_mul_add_gate({ builder.add_variable(data.a),
+                                          builder.add_variable(data.b),
+                                          builder.add_variable(data.c),
+                                          builder.add_variable(data.d),
                                           data.mul_scaling,
                                           data.a_scaling,
                                           data.b_scaling,
@@ -399,7 +393,6 @@ TEST_F(UltraCircuitBuilderArithmetic, BigMulAddGateFailure)
                                           data.d_scaling,
                                           data.const_scaling },
                                         /* use_next_gate_w_4 */ false);
-
         EXPECT_FALSE(CircuitChecker::check(builder));
     };
 
@@ -614,13 +607,15 @@ TEST_F(UltraCircuitBuilderArithmetic, MultiplicationByZero)
     fr five = fr(5);
     fr result = fr(0);
 
-    uint32_t zero_idx = builder.add_variable(zero);
-    uint32_t five_idx = builder.add_variable(five);
-    uint32_t result_idx = builder.add_variable(result);
-
     // q_m * w_1 * w_2 + q_o * w_3 = 0, where w_1=0, w_2=5, w_3=0
-    builder.create_arithmetic_gate({ zero_idx, five_idx, result_idx, fr(1), fr(0), fr(0), fr(-1), fr(0) });
-
+    builder.create_arithmetic_gate({ builder.add_variable(zero),
+                                     builder.add_variable(five),
+                                     builder.add_variable(result),
+                                     fr(1),
+                                     fr(0),
+                                     fr(0),
+                                     fr(-1),
+                                     fr(0) });
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -632,7 +627,7 @@ TEST_F(UltraCircuitBuilderArithmetic, FixedWitnessesInGates)
     // Create fixed witnesses in two different ways
     uint32_t const_5 = builder.put_constant_variable(fr(5));
     uint32_t const_7 = builder.add_variable(fr(7));
-    builder.fix_witness(const_7, fr(7)); // Fix it to ensure it stays 10
+    builder.fix_witness(const_7, fr(7)); // Fix it to ensure it stays 7
 
     // Use them in an arithmetic gate: 5 + 7 = 12
     fr result = fr(12);
@@ -653,13 +648,14 @@ TEST_F(UltraCircuitBuilderArithmetic, FieldBoundaryValues)
     fr one = fr(1);
     fr zero = fr(0);
 
-    uint32_t minus_one_idx = builder.add_variable(minus_one);
-    uint32_t one_idx = builder.add_variable(one);
-    uint32_t zero_idx = builder.add_variable(zero);
-
     // -1 + 1 = 0
-    builder.create_add_gate({ minus_one_idx, one_idx, zero_idx, fr(1), fr(1), fr(-1), fr(0) });
-
+    builder.create_add_gate({ builder.add_variable(minus_one),
+                              builder.add_variable(one),
+                              builder.add_variable(zero),
+                              fr(1),
+                              fr(1),
+                              fr(-1),
+                              fr(0) });
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -685,13 +681,9 @@ TEST_F(UltraCircuitBuilderArithmetic, ZeroIdx)
     fr a(5);
     fr b(7);
 
-    uint32_t a_idx = builder.add_variable(a);
-    uint32_t b_idx = builder.add_variable(b);
-    uint32_t c_idx = builder.zero_idx();
-
     // 1*5 + 1*7 + 1*c = 12, so c must be 0
-    builder.create_add_gate({ a_idx, b_idx, c_idx, fr(1), fr(1), fr(1), fr(-12) });
-
+    builder.create_add_gate(
+        { builder.add_variable(a), builder.add_variable(b), builder.zero_idx(), fr(1), fr(1), fr(1), fr(-12) });
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -705,13 +697,9 @@ TEST_F(UltraCircuitBuilderArithmetic, ZeroScalingFactors)
     fr b(7);
     fr c(0); // Only this needs to be correct
 
-    uint32_t a_idx = builder.add_variable(a);
-    uint32_t b_idx = builder.add_variable(b);
-    uint32_t c_idx = builder.add_variable(c);
-
     // 0*a + 0*b + (-1)*c = 0, so c must be 0
-    builder.create_add_gate({ a_idx, b_idx, c_idx, fr(0), fr(0), fr(-1), fr(0) });
-
+    builder.create_add_gate(
+        { builder.add_variable(a), builder.add_variable(b), builder.add_variable(c), fr(0), fr(0), fr(-1), fr(0) });
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -735,15 +723,17 @@ TEST_F(UltraCircuitBuilderArithmetic, BigMulAddAllParametersNonZero)
     // Solve for d: d = -(mul*a*b + a_s*a + b_s*b + c_s*c + const) / d_s
     fr d = -(mul_scaling * a * b + a_scaling * a + b_scaling * b + c_scaling * c + const_scaling) / d_scaling;
 
-    uint32_t a_idx = builder.add_variable(a);
-    uint32_t b_idx = builder.add_variable(b);
-    uint32_t c_idx = builder.add_variable(c);
-    uint32_t d_idx = builder.add_variable(d);
-
-    builder.create_big_mul_add_gate(
-        { a_idx, b_idx, c_idx, d_idx, mul_scaling, a_scaling, b_scaling, c_scaling, d_scaling, const_scaling },
-        /* use_next_gate_w_4 */ false);
-
+    builder.create_big_mul_add_gate({ builder.add_variable(a),
+                                      builder.add_variable(b),
+                                      builder.add_variable(c),
+                                      builder.add_variable(d),
+                                      mul_scaling,
+                                      a_scaling,
+                                      b_scaling,
+                                      c_scaling,
+                                      d_scaling,
+                                      const_scaling },
+                                    /* use_next_gate_w_4 */ false);
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -760,11 +750,8 @@ TEST_F(UltraCircuitBuilderArithmetic, PublicInputInArithmetic)
     fr private_value(50);
     fr result = public_value + private_value;
 
-    uint32_t private_idx = builder.add_variable(private_value);
-    uint32_t result_idx = builder.add_variable(result);
-
     // public + private = result
-    builder.create_add_gate({ public_idx, private_idx, result_idx, fr(1), fr(1), fr(-1), fr(0) });
-
+    builder.create_add_gate(
+        { public_idx, builder.add_variable(private_value), builder.add_variable(result), fr(1), fr(1), fr(-1), fr(0) });
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
