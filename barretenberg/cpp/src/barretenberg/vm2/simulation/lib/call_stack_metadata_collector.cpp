@@ -2,6 +2,7 @@
 
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/internal_call_stack_manager.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -23,6 +24,7 @@ void CallStackMetadataCollector::notify_enter_call(const AztecAddress& contract_
     std::vector<FF> calldata = calldata_provider(max_calldata_size);
 
     call_stack_metadata.push({
+        .timestamp = timestamp++,
         .phase = current_phase,
         .contract_address = contract_address,
         .caller_pc = caller_pc,
@@ -30,24 +32,27 @@ void CallStackMetadataCollector::notify_enter_call(const AztecAddress& contract_
         .is_static_call = is_static_call,
         .gas_limit = gas_limit,
         // To be filled in by the exit call or further nested calls.
-        .exit_pc = 0,
         .reverted = false,
         .nested = {},
+        .internal_call_stack_at_exit = {},
         .num_nested_calls = 0,
     });
 }
 
 void CallStackMetadataCollector::notify_exit_call(bool success,
                                                   uint32_t pc,
-                                                  const ReturnDataProvider& return_data_provider)
+                                                  const ReturnDataProvider& return_data_provider,
+                                                  const InternalCallStackProvider& internal_call_stack_provider)
 {
     uint32_t max_return_data_size = 1024; // TODO: make this configurable.
     std::vector<FF> return_data = return_data_provider(max_return_data_size);
+    std::vector<PC> internal_call_stack = internal_call_stack_provider();
+    internal_call_stack.push_back(pc);
 
     CallStackMetadata top_call_stack_metadata = std::move(call_stack_metadata.top());
-    top_call_stack_metadata.exit_pc = pc;
     top_call_stack_metadata.reverted = !success;
     top_call_stack_metadata.output = std::move(return_data);
+    top_call_stack_metadata.internal_call_stack_at_exit = std::move(internal_call_stack);
 
     // While exiting, we will move the top call of the stack to the nested vector of the parent call.
     call_stack_metadata.pop();
@@ -110,6 +115,14 @@ ReturnDataProvider make_return_data_provider(const ContextInterface& context)
                   ")");
             return {};
         }
+    };
+}
+
+InternalCallStackProvider make_internal_call_stack_provider(
+    const InternalCallStackManagerInterface& internal_call_stack_manager)
+{
+    return [&internal_call_stack_manager]() -> std::vector<PC> {
+        return internal_call_stack_manager.get_current_call_stack();
     };
 }
 

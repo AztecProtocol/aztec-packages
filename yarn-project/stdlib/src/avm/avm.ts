@@ -1052,7 +1052,7 @@ export class CallStackMetadata {
     public isStaticCall: boolean,
     public gasLimit: Gas,
     public output: Fr[], // returndata or revertdata.
-    public exitPc: number, // The PC at which the call returned or reverted.
+    public internalCallStackAtExit: number[], // At return/revert time. Last one is exit PC.
     public reverted: boolean,
     public nested: CallStackMetadata[],
     public numNestedCalls: number, // This will be different from the size of the nested vector if we went past some limit.
@@ -1068,7 +1068,7 @@ export class CallStackMetadata {
         isStaticCall: z.boolean(),
         gasLimit: Gas.schema,
         output: Fr.schema.array(),
-        exitPc: z.number(),
+        internalCallStackAtExit: z.number().array(),
         reverted: z.boolean(),
         nested: CallStackMetadata.schema.array(),
         numNestedCalls: z.number(),
@@ -1082,7 +1082,7 @@ export class CallStackMetadata {
           isStaticCall,
           gasLimit,
           output,
-          exitPc,
+          internalCallStackAtExit,
           reverted,
           nested,
           numNestedCalls,
@@ -1095,7 +1095,7 @@ export class CallStackMetadata {
             isStaticCall,
             gasLimit,
             output,
-            exitPc,
+            internalCallStackAtExit,
             reverted,
             nested,
             numNestedCalls,
@@ -1122,7 +1122,7 @@ export class CallStackMetadata {
       obj.isStaticCall,
       Gas.fromPlainObject(obj.gasLimit),
       obj.output.map((f: any) => Fr.fromPlainObject(f)),
-      obj.exitPc,
+      obj.internalCallStackAtExit.map((p: any) => Number(p)),
       obj.reverted,
       obj.nested.map((n: any) => CallStackMetadata.fromPlainObject(n)),
       obj.numNestedCalls,

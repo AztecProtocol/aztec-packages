@@ -478,6 +478,7 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
 
 TEST_F(ExecutionSimulationTest, InternalCall)
 {
+    uint32_t pc = 100;        // This is the pc of the current call.
     uint32_t return_pc = 500; // This is next pc that we should return to after the internal call.
     uint32_t pc_loc = 11;     // This is the pc of the internal call
 
@@ -488,8 +489,9 @@ TEST_F(ExecutionSimulationTest, InternalCall)
     // Get manager
     EXPECT_CALL(context, get_internal_call_stack_manager());
     // Store the return pc (i.e. context.get_next_pc())
+    EXPECT_CALL(context, get_pc()).WillOnce(Return(pc));
     EXPECT_CALL(context, get_next_pc()).WillOnce(Return(return_pc));
-    EXPECT_CALL(internal_call_stack_manager, push(return_pc));
+    EXPECT_CALL(internal_call_stack_manager, push(pc, return_pc));
     // Set next pc to the parameter pc_loc
     EXPECT_CALL(context, set_next_pc(pc_loc));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));

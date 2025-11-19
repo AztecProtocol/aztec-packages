@@ -23,7 +23,10 @@ class MockCallStackMetadataCollector : public CallStackMetadataCollectorInterfac
                 (override));
     MOCK_METHOD(void,
                 notify_exit_call,
-                (bool success, uint32_t pc, const ReturnDataProvider& return_data_provider),
+                (bool success,
+                 uint32_t pc,
+                 const ReturnDataProvider& return_data_provider,
+                 const InternalCallStackProvider& internal_call_stack_provider),
                 (override));
     MOCK_METHOD(std::vector<CallStackMetadata>, dump_call_stack_metadata, (), (override));
 };

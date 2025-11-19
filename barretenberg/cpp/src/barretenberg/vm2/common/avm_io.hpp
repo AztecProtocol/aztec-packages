@@ -497,30 +497,32 @@ inline std::ostream& operator<<(std::ostream& os, const CoarseTransactionPhase& 
 
 // Metadata about a given (enqueued or external) call.
 struct CallStackMetadata {
+    uint32_t timestamp;
     CoarseTransactionPhase phase;
     FF contract_address;
-    uint32_t caller_pc;
+    PC caller_pc;
     std::vector<FF> calldata;
     bool is_static_call;
     Gas gas_limit;
     std::vector<FF> output; // returndata or revertdata.
 
-    uint32_t exit_pc; // The PC at which the call returned or reverted.
     bool reverted;
     std::vector<CallStackMetadata> nested;
+    std::vector<PC> internal_call_stack_at_exit; // At return/revert time. Last one is exit PC.
     uint32_t num_nested_calls; // This will be different from the size of the nested vector if we went past some limit.
 
     bool operator==(const CallStackMetadata& other) const = default;
-    MSGPACK_CAMEL_CASE_FIELDS(phase,
+    MSGPACK_CAMEL_CASE_FIELDS(timestamp,
+                              phase,
                               contract_address,
                               caller_pc,
                               calldata,
                               is_static_call,
                               gas_limit,
                               output,
-                              exit_pc,
                               reverted,
                               nested,
+                              internal_call_stack_at_exit,
                               num_nested_calls);
 };
 

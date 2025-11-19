@@ -575,7 +575,7 @@ void Execution::internal_call(ContextInterface& context, uint32_t loc)
 
     auto& internal_call_stack_manager = context.get_internal_call_stack_manager();
     // The next pc is pushed onto the internal call stack. This will become return_pc later.
-    internal_call_stack_manager.push(context.get_next_pc());
+    internal_call_stack_manager.push(context.get_pc(), context.get_next_pc());
     context.set_next_pc(loc);
 }
 
@@ -1245,7 +1245,10 @@ void Execution::handle_exit_call()
 
     // Optionally collect call stack metadata.
     call_stack_metadata_collector.notify_exit_call(
-        result.success, child_context->get_pc(), make_return_data_provider(*child_context));
+        result.success,
+        child_context->get_pc(),
+        make_return_data_provider(*child_context),
+        make_internal_call_stack_provider(child_context->get_internal_call_stack_manager()));
 
     external_call_stack.pop();
 

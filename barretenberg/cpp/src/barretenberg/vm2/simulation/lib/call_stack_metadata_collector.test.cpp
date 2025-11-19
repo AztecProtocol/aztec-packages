@@ -39,18 +39,24 @@ TEST(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
     ReturnDataProvider return_data_provider = [&return_data](uint32_t /*max_size*/) -> std::vector<FF> {
         return return_data;
     };
+    InternalCallStackProvider internal_call_stack_provider = []() -> std::vector<PC> {
+        // This means that there where 2 internal calls, one at pc 0 and one at pc 10.
+        // We are currently at PC exit_pc but the provider does not provide this.
+        return { 0, 10 };
+    };
 
-    collector.notify_exit_call(true, exit_pc, return_data_provider);
+    collector.notify_exit_call(true, exit_pc, return_data_provider, internal_call_stack_provider);
 
     // Dump and verify
     auto metadata = collector.dump_call_stack_metadata();
     ASSERT_EQ(metadata.size(), 1U);
 
     const auto& call_metadata = metadata[0];
+    EXPECT_EQ(call_metadata.timestamp, 0U);
     EXPECT_EQ(call_metadata.phase, CoarseTransactionPhase::APP_LOGIC);
     EXPECT_EQ(call_metadata.contract_address, contract_addr);
     EXPECT_EQ(call_metadata.caller_pc, caller_pc);
-    EXPECT_EQ(call_metadata.exit_pc, exit_pc);
+    EXPECT_EQ(call_metadata.internal_call_stack_at_exit, std::vector<PC>({ 0, 10, exit_pc }));
     EXPECT_EQ(call_metadata.calldata, calldata);
     EXPECT_EQ(call_metadata.output, return_data);
     EXPECT_EQ(call_metadata.is_static_call, false);
@@ -92,50 +98,56 @@ TEST(CallStackMetadataCollectorTest, NestedCalls)
     ReturnDataProvider return_data_provider3 = [&return_data3](uint32_t /*max_size*/) -> std::vector<FF> {
         return return_data3;
     };
+    InternalCallStackProvider internal_call_stack_provider3 = []() -> std::vector<PC> { return { 300 }; };
 
-    collector.notify_exit_call(true, 350, return_data_provider3);
+    collector.notify_exit_call(true, 399, return_data_provider3, internal_call_stack_provider3);
 
     // Exit second call
     std::vector<FF> return_data2 = { FF(0x2222) };
     ReturnDataProvider return_data_provider2 = [&return_data2](uint32_t /*max_size*/) -> std::vector<FF> {
         return return_data2;
     };
+    InternalCallStackProvider internal_call_stack_provider2 = []() -> std::vector<PC> { return { 200 }; };
 
-    collector.notify_exit_call(false, 250, return_data_provider2);
+    collector.notify_exit_call(false, 299, return_data_provider2, internal_call_stack_provider2);
 
     // Exit first call
     std::vector<FF> return_data1 = { FF(0x1111) };
     ReturnDataProvider return_data_provider1 = [&return_data1](uint32_t /*max_size*/) -> std::vector<FF> {
         return return_data1;
     };
+    InternalCallStackProvider internal_call_stack_provider1 = []() -> std::vector<PC> { return { 100 }; };
 
-    collector.notify_exit_call(true, 150, return_data_provider1);
+    collector.notify_exit_call(true, 199, return_data_provider1, internal_call_stack_provider1);
 
     // Dump and verify
     auto metadata = collector.dump_call_stack_metadata();
     ASSERT_EQ(metadata.size(), 1U);
 
     const auto& outer_call = metadata[0];
+    EXPECT_EQ(outer_call.timestamp, 0U);
     EXPECT_EQ(outer_call.num_nested_calls, 1U);
     EXPECT_EQ(outer_call.nested.size(), 1U);
     EXPECT_EQ(outer_call.output, return_data1);
     EXPECT_EQ(outer_call.reverted, false);
-    EXPECT_EQ(outer_call.exit_pc, 150U);
+    EXPECT_EQ(outer_call.internal_call_stack_at_exit, std::vector<PC>({ 100, 199 }));
 
     const auto& middle_call = outer_call.nested[0];
+    EXPECT_EQ(middle_call.timestamp, 1U);
     EXPECT_EQ(middle_call.num_nested_calls, 1U);
     EXPECT_EQ(middle_call.nested.size(), 1U);
     EXPECT_EQ(middle_call.output, return_data2);
     EXPECT_EQ(middle_call.reverted, true);
-    EXPECT_EQ(middle_call.exit_pc, 250U);
+    EXPECT_EQ(middle_call.internal_call_stack_at_exit, std::vector<PC>({ 200, 299 }));
 
     const auto& inner_call = middle_call.nested[0];
+    EXPECT_EQ(inner_call.timestamp, 2U);
     EXPECT_EQ(inner_call.num_nested_calls, 0U);
     EXPECT_EQ(inner_call.nested.size(), 0U);
     EXPECT_EQ(inner_call.output, return_data3);
     EXPECT_EQ(inner_call.reverted, false);
     EXPECT_EQ(inner_call.is_static_call, true);
-    EXPECT_EQ(inner_call.exit_pc, 350U);
+    EXPECT_EQ(inner_call.internal_call_stack_at_exit, std::vector<PC>({ 300, 399 }));
 }
 
 TEST(CallStackMetadataCollectorTest, MultipleSiblingCalls)
@@ -159,8 +171,9 @@ TEST(CallStackMetadataCollectorTest, MultipleSiblingCalls)
     collector.notify_enter_call(contract1, 100, calldata_provider1, false, Gas{ 1000, 2000 });
 
     ReturnDataProvider return_data_provider1 = [](uint32_t /*max_size*/) -> std::vector<FF> { return { FF(0xaaaa) }; };
+    InternalCallStackProvider internal_call_stack_provider1 = []() -> std::vector<PC> { return { 100, 200 }; };
 
-    collector.notify_exit_call(true, 150, return_data_provider1);
+    collector.notify_exit_call(true, 150, return_data_provider1, internal_call_stack_provider1);
 
     // Second call (sibling)
     std::vector<FF> calldata2 = { FF(0x2222) };
@@ -169,20 +182,25 @@ TEST(CallStackMetadataCollectorTest, MultipleSiblingCalls)
     collector.notify_enter_call(contract2, 200, calldata_provider2, false, Gas{ 500, 1000 });
 
     ReturnDataProvider return_data_provider2 = [](uint32_t /*max_size*/) -> std::vector<FF> { return { FF(0xbbbb) }; };
+    InternalCallStackProvider internal_call_stack_provider2 = []() -> std::vector<PC> { return { 200, 300 }; };
 
-    collector.notify_exit_call(true, 250, return_data_provider2);
+    collector.notify_exit_call(true, 250, return_data_provider2, internal_call_stack_provider2);
 
     // Outer call (return).
     ReturnDataProvider return_data_provider0 = [](uint32_t /*max_size*/) -> std::vector<FF> { return { FF(0x0000) }; };
-    collector.notify_exit_call(true, 0, return_data_provider0);
+    InternalCallStackProvider internal_call_stack_provider0 = []() -> std::vector<PC> { return { 0, 100 }; };
+    collector.notify_exit_call(true, 0, return_data_provider0, internal_call_stack_provider0);
 
     // Verify both calls are present
     auto metadata = collector.dump_call_stack_metadata();
     ASSERT_EQ(metadata.size(), 1U);
 
     const auto& outer_call = metadata[0];
-    EXPECT_EQ(metadata[0].num_nested_calls, 2U);
+    EXPECT_EQ(outer_call.timestamp, 0U);
+    EXPECT_EQ(outer_call.num_nested_calls, 2U);
     ASSERT_EQ(outer_call.nested.size(), 2U);
+    EXPECT_EQ(outer_call.nested[0].timestamp, 1U);
+    EXPECT_EQ(outer_call.nested[1].timestamp, 2U);
     EXPECT_EQ(outer_call.nested[0].contract_address, contract1);
     EXPECT_EQ(outer_call.nested[1].contract_address, contract2);
 }
@@ -206,8 +224,9 @@ TEST(CallStackMetadataCollectorTest, CalldataSizeLimit)
     collector.notify_enter_call(contract_addr, 100, calldata_provider, false, Gas{ 1000, 2000 });
 
     ReturnDataProvider return_data_provider = [](uint32_t /*max_size*/) -> std::vector<FF> { return {}; };
+    InternalCallStackProvider internal_call_stack_provider = []() -> std::vector<PC> { return { 100, 200 }; };
 
-    collector.notify_exit_call(true, 200, return_data_provider);
+    collector.notify_exit_call(true, 200, return_data_provider, internal_call_stack_provider);
 
     auto metadata = collector.dump_call_stack_metadata();
     ASSERT_EQ(metadata.size(), 1U);
@@ -235,8 +254,9 @@ TEST(CallStackMetadataCollectorTest, ReturnDataSizeLimit)
         }
         return large_return_data;
     };
+    InternalCallStackProvider internal_call_stack_provider = []() -> std::vector<PC> { return { 100, 200 }; };
 
-    collector.notify_exit_call(true, 200, return_data_provider);
+    collector.notify_exit_call(true, 200, return_data_provider, internal_call_stack_provider);
 
     auto metadata = collector.dump_call_stack_metadata();
     ASSERT_EQ(metadata.size(), 1U);
@@ -257,7 +277,8 @@ TEST(CallStackMetadataCollectorTest, PhaseTracking)
     CalldataProvider calldata_provider1 = [&calldata1](uint32_t /*max_size*/) -> std::vector<FF> { return calldata1; };
 
     collector.notify_enter_call(contract1, 100, calldata_provider1, false, Gas{ 1000, 2000 });
-    collector.notify_exit_call(true, 150, [](uint32_t) -> std::vector<FF> { return {}; });
+    collector.notify_exit_call(
+        true, 150, [](uint32_t) -> std::vector<FF> { return {}; }, []() -> std::vector<PC> { return { 100, 200 }; });
 
     // Second call in APP_LOGIC phase
     collector.set_phase(CoarseTransactionPhase::APP_LOGIC);
@@ -265,7 +286,8 @@ TEST(CallStackMetadataCollectorTest, PhaseTracking)
     CalldataProvider calldata_provider2 = [&calldata2](uint32_t /*max_size*/) -> std::vector<FF> { return calldata2; };
 
     collector.notify_enter_call(contract2, 200, calldata_provider2, false, Gas{ 500, 1000 });
-    collector.notify_exit_call(true, 250, [](uint32_t) -> std::vector<FF> { return {}; });
+    collector.notify_exit_call(
+        true, 250, [](uint32_t) -> std::vector<FF> { return {}; }, []() -> std::vector<PC> { return { 200, 300 }; });
 
     // Third call in TEARDOWN phase
     collector.set_phase(CoarseTransactionPhase::TEARDOWN);
@@ -273,7 +295,8 @@ TEST(CallStackMetadataCollectorTest, PhaseTracking)
     CalldataProvider calldata_provider3 = [&calldata3](uint32_t /*max_size*/) -> std::vector<FF> { return calldata3; };
 
     collector.notify_enter_call(contract3, 300, calldata_provider3, false, Gas{ 200, 400 });
-    collector.notify_exit_call(true, 350, [](uint32_t) -> std::vector<FF> { return {}; });
+    collector.notify_exit_call(
+        true, 350, [](uint32_t) -> std::vector<FF> { return {}; }, []() -> std::vector<PC> { return { 300, 400 }; });
 
     auto metadata = collector.dump_call_stack_metadata();
     ASSERT_EQ(metadata.size(), 3U);

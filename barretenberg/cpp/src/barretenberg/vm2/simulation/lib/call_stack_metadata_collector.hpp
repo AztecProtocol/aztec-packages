@@ -8,8 +8,8 @@
 namespace bb::avm2::simulation {
 
 // Forward declaration.
-class ContractDBInterface;
 class ContextInterface;
+class InternalCallStackManagerInterface;
 
 class CallStackMetadataCollector : public CallStackMetadataCollectorInterface {
   public:
@@ -21,10 +21,15 @@ class CallStackMetadataCollector : public CallStackMetadataCollectorInterface {
                            const CalldataProvider& calldata_provider,
                            bool is_static_call,
                            const Gas& gas_limit) override;
-    void notify_exit_call(bool success, uint32_t pc, const ReturnDataProvider& return_data_provider) override;
+    void notify_exit_call(bool success,
+                          uint32_t pc,
+                          const ReturnDataProvider& return_data_provider,
+                          const InternalCallStackProvider& internal_call_stack_provider) override;
     std::vector<CallStackMetadata> dump_call_stack_metadata() override;
 
   private:
+    // It is incremented by 1 for each new call.
+    uint32_t timestamp = 0;
     // We start with a dummy call stack metadata. This is not a real call,
     // we use it as a placeholder "root call" that corresponds to the whole TX.
     // We store the enqueued calls in the nested vector of this root call.
@@ -36,13 +41,15 @@ class CallStackMetadataCollector : public CallStackMetadataCollectorInterface {
 // The returned provider should never fail or throw.
 CalldataProvider make_calldata_provider(const ContextInterface& context);
 ReturnDataProvider make_return_data_provider(const ContextInterface& context);
+InternalCallStackProvider make_internal_call_stack_provider(
+    const InternalCallStackManagerInterface& internal_call_stack_manager);
 
 // Metadata collector that does not collect.
 class NoopCallStackMetadataCollector : public CallStackMetadataCollectorInterface {
   public:
     void set_phase(CoarseTransactionPhase) override {}
     void notify_enter_call(const AztecAddress&, uint32_t, const CalldataProvider&, bool, const Gas&) override {}
-    void notify_exit_call(bool, uint32_t, const ReturnDataProvider&) override {}
+    void notify_exit_call(bool, uint32_t, const ReturnDataProvider&, const InternalCallStackProvider&) override {}
     std::vector<CallStackMetadata> dump_call_stack_metadata() override { return {}; }
 };
 
