@@ -42,9 +42,10 @@ class TranslatorVerifier {
     void put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                      const BF& batching_challenge_v,
                                                      const uint256_t& accumulated_result);
-    bool verify_proof(const HonkProof& proof, const uint256_t& evaluation_input_x, const BF& batching_challenge_v);
-    bool verify_translation(const TranslationEvaluations& translation_evaluations,
-                            const BF& translation_masking_term_eval);
+    bool verify_proof(const HonkProof& proof,
+                      const uint256_t& evaluation_input_x,
+                      const BF& batching_challenge_v,
+                      const uint256_t& accumulated_result);
     bool verify_consistency_with_final_merge(
         const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& merge_commitments);
 };

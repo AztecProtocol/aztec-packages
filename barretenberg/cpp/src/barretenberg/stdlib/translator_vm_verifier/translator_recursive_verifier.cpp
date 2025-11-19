@@ -80,10 +80,11 @@ void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(co
  */
 TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_proof(const HonkProof& proof,
                                                                                      const BF& evaluation_input_x,
-                                                                                     const BF& batching_challenge_v)
+                                                                                     const BF& batching_challenge_v,
+                                                                                     const BF& accumulated_result)
 {
     StdlibProof stdlib_proof(*builder, proof);
-    return verify_proof(stdlib_proof, evaluation_input_x, batching_challenge_v);
+    return verify_proof(stdlib_proof, evaluation_input_x, batching_challenge_v, accumulated_result);
 }
 
 /**
@@ -97,7 +98,8 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
  */
 TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_proof(const StdlibProof& proof,
                                                                                      const BF& evaluation_input_x,
-                                                                                     const BF& batching_challenge_v)
+                                                                                     const BF& batching_challenge_v,
+                                                                                     const BF& accumulated_result)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = Flavor::PCS;
@@ -119,7 +121,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
+    // Use accumulated_result from ECCVM verifier instead of receiving from transcript
     // The point is prime basis limb of accumulated result can be easily recovered from binary basis limbs, so
     // there's no meaning to use it at the circuit next and we can put it in used_witnesses
     mark_witness_as_used(accumulated_result.prime_basis_limb);
@@ -196,30 +198,6 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
 
     return pairing_points;
-}
-
-void TranslatorRecursiveVerifier::verify_translation(const TranslationEvaluations_<BF>& translation_evaluations,
-                                                     const BF& translation_masking_term_eval)
-{
-    const auto reconstruct_from_array = [&](const auto& arr) {
-        return BF::construct_from_limbs(arr[0], arr[1], arr[2], arr[3]);
-    };
-
-    const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
-    const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
-    const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
-    const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
-    const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
-    const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
-    const BF& op = translation_evaluations.op;
-    const BF& Px = translation_evaluations.Px;
-    const BF& Py = translation_evaluations.Py;
-    const BF& z1 = translation_evaluations.z1;
-    const BF& z2 = translation_evaluations.z2;
-
-    const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
-    // multiply by x here to deal with shift
-    eccvm_opening.assert_equal(x * accumulated_result);
 }
 
 void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(

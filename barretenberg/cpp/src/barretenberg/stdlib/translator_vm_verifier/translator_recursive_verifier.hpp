@@ -53,13 +53,12 @@ class TranslatorRecursiveVerifier {
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const HonkProof& proof,
                                                                                      const BF& evaluation_input_x,
-                                                                                     const BF& batching_challenge_v);
+                                                                                     const BF& batching_challenge_v,
+                                                                                     const BF& accumulated_result);
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const StdlibProof& proof,
                                                                                      const BF& evaluation_input_x,
-                                                                                     const BF& batching_challenge_v);
-
-    void verify_translation(const TranslationEvaluations& translation_evaluations,
-                            const BF& translation_masking_term_eval);
+                                                                                     const BF& batching_challenge_v,
+                                                                                     const BF& accumulated_result);
 
     /**
      * @brief Ensure translator verifier and last round of merge verification (operating with the final table) receive

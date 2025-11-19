@@ -59,7 +59,8 @@ void TranslatorVerifier::put_translation_data_in_relation_parameters(const uint2
  */
 bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                       const uint256_t& evaluation_input_x,
-                                      const BF& batching_challenge_v)
+                                      const BF& batching_challenge_v,
+                                      const uint256_t& accumulated_result)
 {
     using Curve = Flavor::Curve;
     using PCS = Flavor::PCS;
@@ -81,8 +82,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
 
-    const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
-
+    // Use accumulated_result from ECCVM verifier instead of receiving from transcript
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
     // Receive Gemini masking polynomial commitment (for ZK-PCS)
@@ -159,42 +159,6 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
     return verified && consistency_checked;
-}
-
-bool TranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations,
-                                            const BF& translation_masking_term_eval)
-{
-    const auto reconstruct_from_array = [&](const auto& arr) {
-        const BF elt_0 = (static_cast<uint256_t>(arr[0]));
-        const BF elt_1 = (static_cast<uint256_t>(arr[1]) << 68);
-        const BF elt_2 = (static_cast<uint256_t>(arr[2]) << 136);
-        const BF elt_3 = (static_cast<uint256_t>(arr[3]) << 204);
-        const BF reconstructed = elt_0 + elt_1 + elt_2 + elt_3;
-        return reconstructed;
-    };
-
-    const auto& reconstruct_value_from_eccvm_evaluations = [&](const TranslationEvaluations& translation_evaluations,
-                                                               auto& relation_parameters) {
-        const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
-        const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
-        const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
-        const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
-        const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
-        const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
-        const BF& op = translation_evaluations.op;
-        const BF& Px = translation_evaluations.Px;
-        const BF& Py = translation_evaluations.Py;
-        const BF& z1 = translation_evaluations.z1;
-        const BF& z2 = translation_evaluations.z2;
-
-        const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
-        // multiply by x here to deal with shift
-        return x * accumulated_result == eccvm_opening;
-    };
-
-    bool is_value_reconstructed =
-        reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
-    return is_value_reconstructed;
 }
 
 /**

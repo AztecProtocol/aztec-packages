@@ -66,5 +66,7 @@ class ECCVMRecursiveVerifier {
     // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;
     FF batching_challenge_v;
+    // The accumulated result computed from translation evaluations, to be used by TranslatorVerifier
+    FF accumulated_result;
 };
 } // namespace bb

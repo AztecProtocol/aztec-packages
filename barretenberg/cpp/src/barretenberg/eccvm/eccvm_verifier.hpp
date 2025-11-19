@@ -48,6 +48,8 @@ class ECCVMVerifier {
     FF batching_challenge_v;
     // The value ∑ mᵢ(x) ⋅ vⁱ which needs to be propagated to TranslatorVerifier
     FF translation_masking_term_eval;
+    // The accumulated result computed from translation evaluations, to be used by TranslatorVerifier
+    FF accumulated_result;
 
     bool translation_masking_consistency_checked = false;
 };
