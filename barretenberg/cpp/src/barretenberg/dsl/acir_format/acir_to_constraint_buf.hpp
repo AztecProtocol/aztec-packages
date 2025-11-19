@@ -15,7 +15,14 @@ namespace acir_format {
 /// The functions below are helpers for converting data between ACIR representations and Barretenberg's internal
 /// representations.
 
-uint256_t from_be_bytes(std::vector<uint8_t> const& bytes);
+/**
+ * @brief Convert an array of 32 bytes into a uint256_t by interpreting the bytes as the big-endian
+ * (most-significant-byte first) representation of that number.
+ *
+ * @param bytes
+ * @return uint256_t
+ */
+uint256_t from_big_endian_bytes(std::vector<uint8_t> const& bytes);
 
 /**
  * @brief Parse an Acir::FunctionInput (which can either be a witness or a constant) into a WitnessOrConstant.
@@ -38,23 +45,25 @@ uint32_t get_witness_from_function_input(Acir::FunctionInput input);
 /// - A buffer of bytes is deserialised according to either msgpack or bincode into an Acir::Circuit, which is just the
 ///   representation of a function in terms of Acir::Opcodes, Acir::Witness, Acir::PublicInputs. As of now (Nov 2025)
 ///   only bincode is supported.
-/// - The Acir::Circuit is transformed into AcirFormat, which is Barretenberg's internal representation of a circuit,
-///   in terms of constraints that have to be added to the Builder
-/// - A buffer of bytes is deserialised into a WitnessVector, which is the list of witness values used by the prover to
-///   generate a proof. This conversion takes a WitnessMap (which is a list of couples (witness_index, witness_value))
-///   and converts it to a vector of bb::fr elements. ACIR optimizes away some witnesss, so the WitnessMap may have
-///   holes: witness indices go up, but not necessarily by one. The conversion accounts for these holes and fills them
-///   with zeros.
-/// - The AcirFormat representation of the circuit and the WitnessVector are passed to acir_format::create_circuit,
-///   which constructs a circuit by adding the relevant constraints and witnesses to a Builder
+/// - The Acir::Circuit is transformed into AcirFormat, which is Barretenberg's internal representation of the Acir
+///   constraints that have to be added to the Builder.
+/// - A buffer of bytes is deserialised into a WitnessVector, which is the list of witness values known at the time of
+///   noir program execution. This conversion takes a WitnessMap (which is a list of couples (witness_index,
+///   witness_value)) and converts it to a vector of bb::fr elements. ACIR optimizes away some witnesses, so the
+///   WitnessMap may have holes: witness indices go up, but not necessarily by one. The conversion accounts for these
+///   holes and fills them with zeros. NOTE: The witness vector does NOT contain all the witnesses that will be present
+///   in the builder by the end of circuit construction.
+/// - The AcirFormat structure and the WitnessVector are passed to acir_format::create_circuit,
+///   which constructs a barretenberg circuit by adding the relevant constraints and witnesses to a Builder
 
 /**
  * @brief Deserialize `buf` either based on the first byte interpreted as a Noir serialization format byte, or
- * falling back to `bincode` if the format cannot be recognized. Currently only `msgpack` format is expected, or the
- * legacy `bincode` format.
+ * falling back to `bincode` if the format cannot be recognized. Currently only `bincode` is expected.
  *
- * @note Due to the lack of exception handling available to us in Wasm we can't try `bincode` format and if it fails
- * try `msgpack`; instead we have to make a decision and commit to it.
+ * @note The function is written so that it can deserialize either `msgpack` or `bincode` depending on the first byte
+ * of the buffer. However, at the moment only `bincode` is supported, so we fail in case `msgpack` is encountered. Note
+ * that due to the lack of exception handling available in Wasm, the code cannot be structured to try `bincode` and
+ * fall back to `msgpack` if that fails. Therefore, we look at the first byte and commit to a format based on that.
  */
 template <typename T>
 T deserialize_any_format(std::vector<uint8_t>&& buf,

@@ -29,7 +29,7 @@ using namespace bb;
 
 /// ========= HELPERS ========= ///
 
-uint256_t from_be_bytes(std::vector<uint8_t> const& bytes)
+uint256_t from_big_endian_bytes(std::vector<uint8_t> const& bytes)
 {
     BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
     uint256_t result = 0;
@@ -54,7 +54,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
             } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
                 return WitnessOrConstant<bb::fr>{
                     .index = bb::stdlib::IS_CONSTANT,
-                    .value = from_be_bytes(e.value),
+                    .value = from_big_endian_bytes(e.value),
                     .is_constant = true,
                 };
             } else {
@@ -155,7 +155,8 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
                     handle_memory_op(arg, af, block->second.first);
                     block->second.second.push_back(i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
-                    info("ENCOUNTERED BRILLIG CALL");
+                    vinfo("acir_format:circuit_serde_to_acir_format: Encountered unhadled BrillingCall. Barretenberg "
+                          "treats this as a no-op.");
                 } else {
                     bb::assert_failure("circuit_serde_to_acir_format: Unrecognized Acir Opcode.");
                 }
@@ -222,17 +223,11 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
 
 WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness_map)
 {
-    // We need to enforce that:
-    //  - the witness map is in increasing order of witness index
-    //  - all the witness indices are positive
-    bool is_witness_map_increasing = true;
-    uint32_t previous_index = 0; // starting at 0 to check that witness indices are positive
+    // Note that the WitnessMap is in increasing order of witness indices because the comparator for the Acir::Witness
+    // is defined in terms of the witness index.
 
     WitnessVector witness_vector;
     for (size_t index = 0; const auto& e : witness_map.value) {
-        is_witness_map_increasing &= previous_index <= e.first.value;
-        previous_index = e.first.value;
-
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
         // which do not exist within the `WitnessMap` with the dummy value of zero.
@@ -240,11 +235,9 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
             witness_vector.emplace_back(0);
             index++;
         }
-        witness_vector.emplace_back(from_be_bytes(e.second));
+        witness_vector.emplace_back(from_big_endian_bytes(e.second));
         index++;
     }
-
-    BB_ASSERT(is_witness_map_increasing, "witness_map_to_witness_vector: WitnessMap is not ordered by witness index");
 
     return witness_vector;
 }
@@ -282,7 +275,7 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
-        pt.q_m = from_be_bytes(std::get<0>(mul_term));
+        pt.q_m = from_big_endian_bytes(std::get<0>(mul_term));
         pt.a = std::get<1>(mul_term).value;
         pt.b = std::get<2>(mul_term).value;
         a_set = true;
@@ -292,7 +285,7 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
     BB_ASSERT_LTE(arg.linear_combinations.size(), 3U, "We can only accommodate 3 linear terms");
     for (const auto& linear_term : arg.linear_combinations) {
-        fr selector_value(from_be_bytes(std::get<0>(linear_term)));
+        fr selector_value(from_big_endian_bytes(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
@@ -324,7 +317,7 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     }
 
     // Set constant value q_c
-    pt.q_c = from_be_bytes(arg.q_c);
+    pt.q_c = from_big_endian_bytes(arg.q_c);
     return pt;
 }
 
@@ -380,7 +373,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
                                .b_scaling = fr::zero(),
                                .c_scaling = fr::zero(),
                                .d_scaling = fr::zero(),
-                               .const_scaling = fr(from_be_bytes(arg.q_c)) };
+                               .const_scaling = fr(from_big_endian_bytes(arg.q_c)) };
 
     // list of witnesses that are part of mul terms
     std::set<uint32_t> all_mul_terms;
@@ -396,7 +389,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
 
         // we add a mul term (if there are some) to every intermediate gate
         if (current_mul_term != arg.mul_terms.end()) {
-            mul_gate.mul_scaling = fr(from_be_bytes(std::get<0>(*current_mul_term)));
+            mul_gate.mul_scaling = fr(from_big_endian_bytes(std::get<0>(*current_mul_term)));
             mul_gate.a = std::get<1>(*current_mul_term).value;
             mul_gate.b = std::get<2>(*current_mul_term).value;
             mul_gate.a_scaling = fr::zero();
@@ -407,7 +400,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
             bool b_processed = false;
             for (auto lin_term : arg.linear_combinations) {
                 auto w = std::get<1>(lin_term).value;
-                fr coeff = fr(from_be_bytes(std::get<0>(lin_term)));
+                fr coeff = fr(from_big_endian_bytes(std::get<0>(lin_term)));
 
                 if (w == mul_gate.a && !processed_mul_terms.contains(mul_gate.a)) {
                     mul_gate.a_scaling += coeff; // Accumulate
@@ -443,7 +436,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
             if (!all_mul_terms.contains(w)) {
                 if (i < max_size) {
                     assign_linear_term(
-                        mul_gate, i, w, fr(from_be_bytes(std::get<0>(*current_linear_term)))); // * fr(-1)));
+                        mul_gate, i, w, fr(from_big_endian_bytes(std::get<0>(*current_linear_term)))); // * fr(-1)));
                     ++i;
                 } else {
                     // No more available wire, but there is still some linear terms; we need another mul_gate
@@ -494,7 +487,7 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
     // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
-        quad.mul_scaling = from_be_bytes(std::get<0>(mul_term));
+        quad.mul_scaling = from_big_endian_bytes(std::get<0>(mul_term));
         quad.a = std::get<1>(mul_term).value;
         quad.b = std::get<2>(mul_term).value;
         a_set = true;
@@ -502,7 +495,7 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
     }
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
     for (const auto& linear_term : arg.linear_combinations) {
-        fr selector_value(from_be_bytes(std::get<0>(linear_term)));
+        fr selector_value(from_big_endian_bytes(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
@@ -539,7 +532,7 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
     }
 
     // Set constant value q_c
-    quad.const_scaling = from_be_bytes(arg.q_c);
+    quad.const_scaling = from_big_endian_bytes(arg.q_c);
     return quad;
 }
 
@@ -923,7 +916,7 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
 bool is_rom(Acir::MemOp const& mem_op)
 {
     return mem_op.operation.mul_terms.empty() && mem_op.operation.linear_combinations.empty() &&
-           from_be_bytes(mem_op.operation.q_c) == 0;
+           from_big_endian_bytes(mem_op.operation.q_c) == 0;
 }
 
 uint32_t poly_to_witness(const poly_triple poly)

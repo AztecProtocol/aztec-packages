@@ -86,7 +86,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * on the backend used to process acir).
      */
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
-                        std::vector<FF>& witness_values,
+                        const std::vector<FF>& witness_values,
                         const std::vector<uint32_t>& public_inputs,
                         size_t varnum)
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
