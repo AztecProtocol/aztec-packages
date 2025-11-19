@@ -832,6 +832,22 @@ function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): strin
     categories.get(category)!.push(doc);
   }
 
+  // Consolidated table of all opcodes
+  lines.push('## Quick Reference');
+  lines.push('');
+  lines.push('| Name | Opcode(s) | Summary | Expression |');
+  lines.push('|------|-----------|---------|------------|');
+
+  const allDocs = Object.values(docs).sort((a, b) => a.name.localeCompare(b.name));
+  for (const doc of allDocs) {
+    const nameLink = `[${doc.name}](#${doc.name.toLowerCase()})`;
+    const opcodes = getOpcodeRangeString(doc.wireFormats);
+    const summary = doc.summary || '';
+    const expression = doc.expression ? `\`${doc.expression}\`` : '';
+    lines.push(`| ${nameLink} | ${opcodes} | ${summary} | ${expression} |`);
+  }
+  lines.push('');
+
   // Table of contents
   lines.push('## Table of Contents');
   lines.push('');

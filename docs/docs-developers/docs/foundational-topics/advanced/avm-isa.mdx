@@ -9,6 +9,57 @@ This document provides a comprehensive reference for all Aztec Virtual Machine (
 
 **Total Opcodes**: 46
 
+## Quick Reference
+
+| Name | Opcode(s) | Summary | Expression |
+|------|-----------|---------|------------|
+| [ADD](#add) | 0x00-0x01 | Addition (a + b) | `M[dstOffset] = M[aOffset] + M[bOffset]` |
+| [AND](#and) | 0x10-0x11 | Bitwise AND (a &amp; b) | `M[dstOffset] = M[aOffset] & M[bOffset]` |
+| [CALL](#call) | 0x39 | External contract call | `nestedCallResult = executeContract(M[addrOffset], M[argsOffset:argsOffset+M[argsSizeOffset]], {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]})` |
+| [CALLDATACOPY](#calldatacopy) | 0x1F | Copy calldata to memory | `M[dstOffset:dstOffset+copySize] = calldata[cdOffset:cdOffset+copySize]` |
+| [CAST](#cast) | 0x1C-0x1D | Type cast | `M[dstOffset] = M[srcOffset] as tag` |
+| [DEBUGLOG](#debuglog) | 0x3E | Debug logging | `debugLog(level, message, M[fieldsOffset:fieldsOffset+M[fieldsSizeOffset]])` |
+| [DIV](#div) | 0x06-0x07 | Integer division (a / b) | `M[dstOffset] = M[aOffset] / M[bOffset]` |
+| [ECADD](#ecadd) | 0x42 | Elliptic curve addition | `M[dstOffset:dstOffset+3] = grumpkinAdd(point1, point2)` |
+| [EMITNOTEHASH](#emitnotehash) | 0x32 | Emit note hash | `noteHashes.append(M[noteHashOffset])` |
+| [EMITNULLIFIER](#emitnullifier) | 0x34 | Emit nullifier | `nullifiers.append(M[nullifierOffset])` |
+| [EMITUNENCRYPTEDLOG](#emitunencryptedlog) | 0x37 | Emit unencrypted log | `unencryptedLogs.append(M[logOffset:logOffset+M[logSizeOffset]])` |
+| [EQ](#eq) | 0x0A-0x0B | Equality check (a == b) | `M[dstOffset] = (M[aOffset] == M[bOffset]) ? 1 : 0` |
+| [FDIV](#fdiv) | 0x08-0x09 | Field division (a / b) | `M[dstOffset] = M[aOffset] / M[bOffset]` |
+| [GETCONTRACTINSTANCE](#getcontractinstance) | 0x36 | Get contract instance info | `M[dstOffset] = contractInstance.exists ? 1 : 0; M[dstOffset+1] = contractInstance[memberEnum]` |
+| [GETENVVAR](#getenvvar) | 0x1E | Get environment variable | `M[dstOffset] = environmentVariable[varEnum]` |
+| [INTERNALCALL](#internalcall) | 0x25 | Internal function call | `internalCallStack.push({callPc: PC, returnPc: PC + instructionSize}); PC = loc` |
+| [INTERNALRETURN](#internalreturn) | 0x26 | Return from internal call | `PC = internalCallStack.pop().returnPc` |
+| [JUMP](#jump) | 0x23 | Unconditional jump | `PC = jumpOffset` |
+| [JUMPI](#jumpi) | 0x24 | Conditional jump | `if M[condOffset] != 0 then PC = loc else PC = PC + instructionSize` |
+| [KECCAKF1600](#keccakf1600) | 0x41 | Keccak-f[1600] permutation | `M[dstOffset:dstOffset+25] = keccakf1600(M[inputOffset:inputOffset+25])` |
+| [L1TOL2MSGEXISTS](#l1tol2msgexists) | 0x35 | Check L1-to-L2 message | `M[existsOffset] = l1ToL2Messages.exists(M[msgHashOffset], M[msgLeafIndexOffset]) ? 1 : 0` |
+| [LT](#lt) | 0x0C-0x0D | Less than (a &lt; b) | `M[dstOffset] = (M[aOffset] < M[bOffset]) ? 1 : 0` |
+| [LTE](#lte) | 0x0E-0x0F | Less than or equal (a &lt;= b) | `M[dstOffset] = (M[aOffset] <= M[bOffset]) ? 1 : 0` |
+| [MOV](#mov) | 0x2D-0x2E | Move value between memory locations | `M[dstOffset] = M[srcOffset]` |
+| [MUL](#mul) | 0x04-0x05 | Multiplication (a * b) | `M[dstOffset] = M[aOffset] * M[bOffset]` |
+| [NOT](#not) | 0x16-0x17 | Bitwise NOT (~a) | `M[dstOffset] = ~M[srcOffset]` |
+| [NOTEHASHEXISTS](#notehashexists) | 0x31 | Check note hash existence | `M[existsOffset] = noteHashTree.exists(M[noteHashOffset], M[leafIndexOffset]) ? 1 : 0` |
+| [NULLIFIEREXISTS](#nullifierexists) | 0x33 | Check nullifier existence | `M[existsOffset] = nullifierTree.exists(M[addressOffset], M[nullifierOffset]) ? 1 : 0` |
+| [OR](#or) | 0x12-0x13 | Bitwise OR (a | b) | `M[dstOffset] = M[aOffset] | M[bOffset]` |
+| [POSEIDON2](#poseidon2) | 0x3F | Poseidon2 permutation | `M[outputStateOffset:outputStateOffset+4] = poseidon2(M[inputStateOffset:inputStateOffset+4])` |
+| [RETURN](#return) | 0x3B | Return from call | `return M[returnOffset:returnOffset+M[returnSizeOffset]]; halt` |
+| [RETURNDATACOPY](#returndatacopy) | 0x22 | Copy return data to memory | `M[dstOffset:dstOffset+copySize] = nestedReturndata[rdOffset:rdOffset+copySize]` |
+| [RETURNDATASIZE](#returndatasize) | 0x21 | Get return data size | `M[dstOffset] = nestedReturndata.length` |
+| [REVERT](#revert) | 0x3C-0x3D | Revert execution | `revert M[returnOffset:returnOffset+M[retSizeOffset]]; halt` |
+| [SENDL2TOL1MSG](#sendl2tol1msg) | 0x38 | Send L2-to-L1 message | `l2ToL1Messages.append({recipient: M[recipientOffset], content: M[contentOffset]})` |
+| [SET](#set) | 0x27-0x2C | Set memory to immediate value | `M[dstOffset] = value` |
+| [SHA256COMPRESSION](#sha256compression) | 0x40 | SHA-256 compression | `M[outputOffset:outputOffset+8] = sha256compress(M[stateOffset:stateOffset+8], M[inputsOffset:inputsOffset+16])` |
+| [SHL](#shl) | 0x18-0x19 | Shift left (a &lt;&lt; b) | `M[dstOffset] = M[aOffset] << M[bOffset]` |
+| [SHR](#shr) | 0x1A-0x1B | Shift right (a &gt;&gt; b) | `M[dstOffset] = M[aOffset] >> M[bOffset]` |
+| [SLOAD](#sload) | 0x2F | Load from storage | `M[dstOffset] = storage[contractAddress][M[slotOffset]]` |
+| [SSTORE](#sstore) | 0x30 | Store to storage | `storage[contractAddress][M[slotOffset]] = M[srcOffset]` |
+| [STATICCALL](#staticcall) | 0x3A | Static external call | `nestedCallResult = executeContractStatic(M[addrOffset], M[argsOffset:argsOffset+M[argsSizeOffset]], {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]})` |
+| [SUB](#sub) | 0x02-0x03 | Subtraction (a - b) | `M[dstOffset] = M[aOffset] - M[bOffset]` |
+| [SUCCESSCOPY](#successcopy) | 0x20 | Get call success status | `M[dstOffset] = nestedCallSuccess ? 1 : 0` |
+| [TORADIXBE](#toradixbe) | 0x43 | Convert to radix (big-endian) | `M[dstOffset:dstOffset+M[numLimbsOffset]] = toRadixBE(M[srcOffset], M[radixOffset], M[numLimbsOffset], M[outputBitsOffset])` |
+| [XOR](#xor) | 0x14-0x15 | Bitwise XOR (a ^ b) | `M[dstOffset] = M[aOffset] ^ M[bOffset]` |
+
 ## Table of Contents
 
 - [Misc](#misc) (46 opcodes)
