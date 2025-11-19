@@ -116,21 +116,11 @@ export -f verify_ivc_flow run_bb_cli_bench
 chonk_flow $1 $2
 
 # Upload benchmark breakdown (op counts and timings) to disk if running in CI
-# Only enable for ecdsar1+transfer_1_recursions+sponsored_fpc by default
-# Set FORCE_UPLOAD_BREAKDOWN=1 to force upload for any flow
+# Now uploads all flows via disk transfer only (no git uploads)
 runtime="$1"
 flow_name="$(basename $2)"
 
-# Determine if we should upload
-should_upload=false
-if [[ "${FORCE_UPLOAD_BREAKDOWN:-0}" == "1" ]]; then
-  should_upload=true
-  echo "Forced upload enabled via FORCE_UPLOAD_BREAKDOWN"
-elif [[ "$flow_name" == "ecdsar1+transfer_1_recursions+sponsored_fpc" ]] && [[ "$runtime" == "native" ]]; then
-  should_upload=true
-fi
-
-if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]] && [[ "$should_upload" == "true" ]]; then
+if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
   echo_header "Uploading Barretenberg benchmark breakdowns for $flow_name"
 
   benchmark_breakdown_file="bench-out/app-proving/$flow_name/$runtime/benchmark_breakdown.json"
@@ -145,79 +135,16 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]] && [[ "$sh
     tmp_breakdown_file="/tmp/benchmark_breakdown_${runtime}_${flow_name}_$$.json"
     cp "$benchmark_breakdown_file" "$tmp_breakdown_file"
 
-    # Create cache key: bench-bb-breakdown-<runtime>-<flow_name>-<sha>
-    # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<runtime>-<flow_name>-<sha>
-    cache_key="bench-bb-breakdown-${runtime}-${flow_name}-${current_sha}"
-
-    # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder) in background
+    # Upload to disk (bench/bb-breakdown subfolder) in background
+    # Key format: <runtime>-<flow_name>-<sha>
+    disk_key="${runtime}-${flow_name}-${current_sha}"
     {
-      # Write to Redis for ci.aztec-labs.com access
-      cat "$tmp_breakdown_file" | gzip | redis_cli -x SETEX "$cache_key" 2592000 &>/dev/null
-
-      # Write to disk in explicit subfolder (only if disk logging enabled)
-      if [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
-        # Strip the prefix from key when writing to disk subfolder
-        disk_key="${cache_key#bench-bb-breakdown-}"
-        cat "$tmp_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$disk_key"
-      fi
+      cat "$tmp_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$disk_key"
+      # Clean up tmp file after upload completes
+      rm -f "$tmp_breakdown_file"
     } &
 
-    # Also commit to gh-pages for public access via GitHub raw URLs
-    # Run in foreground to catch any errors
-    gh auth setup-git &>/dev/null || true
-
-    # Clone gh-pages once (shallow clone for speed)
-    rm -rf "/tmp/gh-pages-$$" 2>/dev/null || true
-    if ! git clone --depth 1 --branch gh-pages "$(git config --get remote.origin.url)" /tmp/gh-pages-$$; then
-      echo "Failed to clone gh-pages, skipping upload"
-    else
-      cd "/tmp/gh-pages-$$"
-      git config user.name "Aztec Bot"
-      git config user.email "bot@aztec.network"
-
-      # Create directory structure: bench/barretenberg-breakdowns/<flow>/<runtime>-<sha>.json
-      mkdir -p "bench/barretenberg-breakdowns/${flow_name}"
-      cp "$tmp_breakdown_file" "bench/barretenberg-breakdowns/${flow_name}/${runtime}-${current_sha:0:7}.json"
-
-      git add "bench/barretenberg-breakdowns/"
-
-      if ! git diff --staged --quiet; then
-        git commit -m "Add ${runtime} benchmark breakdown for ${flow_name} at ${current_sha:0:7}"
-
-        # Retry push with limited attempts and fixed short delays to avoid CI timeouts
-        # Max time: 5 attempts * 3s = 15s total
-        for push_attempt in {1..5}; do
-          if git push 2>&1; then
-            echo "Successfully pushed breakdown to gh-pages"
-            break
-          else
-            echo "Push failed (attempt $push_attempt/5), pulling with rebase and retrying..."
-            # Pull with rebase to get latest changes and replay our commit on top
-            if git pull --rebase origin gh-pages; then
-              # Fixed delay with small jitter: 2s + random(0-1s)
-              jitter=$((RANDOM % 1000))
-              jitter_sec=$(echo "scale=3; $jitter / 1000" | bc)
-              total_delay=$(echo "2 + $jitter_sec" | bc)
-              echo "Waiting ${total_delay}s before retry..."
-              sleep "$total_delay"
-            else
-              echo "Rebase failed, this might happen if file already exists with same content"
-              break
-            fi
-          fi
-        done
-      else
-        echo "No changes to commit (file already exists)"
-      fi
-
-      cd - > /dev/null
-      rm -rf "/tmp/gh-pages-$$"
-    fi
-
-    # Clean up tmp file
-    rm -f "$tmp_breakdown_file"
-
-    echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/$cache_key"
+    echo "Uploaded benchmark breakdown to disk: bench/bb-breakdown/$disk_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
