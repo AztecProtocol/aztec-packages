@@ -99,7 +99,7 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf);
 /**
  * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation.
  */
-poly_triple serialize_arithmetic_gate(Acir::Expression const& arg);
+arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg);
 
 /**
  * @brief Assigns a linear term to a specific index in a mul_quad_ gate.
@@ -116,7 +116,7 @@ mul_quad_<bb::fr> serialize_mul_quad_gate(Acir::Expression const& arg);
 void constrain_witnesses(Acir::Opcode::AssertZero const& arg, AcirFormat& af);
 
 std::pair<uint32_t, uint32_t> is_assert_equal(Acir::Opcode::AssertZero const& arg,
-                                              poly_triple const& pt,
+                                              arithmetic_triple const& pt,
                                               AcirFormat const& af);
 
 void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index);
@@ -127,7 +127,7 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init);
 
 bool is_rom(Acir::MemOp const& mem_op);
 
-uint32_t poly_to_witness(const poly_triple poly);
+uint32_t poly_to_witness(const arithmetic_triple poly);
 
 void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, BlockConstraint& block);
 

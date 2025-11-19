@@ -448,9 +448,9 @@ template <typename Builder> class OpcodeGateCountTests : public ::testing::Test 
 using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
 TYPED_TEST_SUITE(OpcodeGateCountTests, BuilderTypes);
 
-TYPED_TEST(OpcodeGateCountTests, PolyTriple)
+TYPED_TEST(OpcodeGateCountTests, ArithmeticTriple)
 {
-    poly_triple constraint{
+    arithmetic_triple constraint{
         .a = 0,
         .b = 1,
         .c = 2,
@@ -465,7 +465,7 @@ TYPED_TEST(OpcodeGateCountTests, PolyTriple)
         .varnum = 4,
         .num_acir_opcodes = 1,
         .public_inputs = {},
-        .poly_triple_constraints = { constraint },
+        .arithmetic_triple_constraints = { constraint },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
@@ -474,7 +474,7 @@ TYPED_TEST(OpcodeGateCountTests, PolyTriple)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ POLY_TRIPLE<TypeParam> }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ ARITHMETIC_TRIPLE<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, Quad)
@@ -1128,8 +1128,8 @@ TYPED_TEST(OpcodeGateCountTests, EcAdd)
 TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
 {
     // Create a simple ROM block with 2 elements and 1 read
-    std::vector<poly_triple> init;
-    init.push_back(poly_triple{
+    std::vector<arithmetic_triple> init;
+    init.push_back(arithmetic_triple{
         .a = 1,
         .b = 0,
         .c = 0,
@@ -1139,7 +1139,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
         .q_o = 0,
         .q_c = 0,
     });
-    init.push_back(poly_triple{
+    init.push_back(arithmetic_triple{
         .a = 2,
         .b = 0,
         .c = 0,
@@ -1154,7 +1154,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
     trace.push_back(MemOp{
         .access_type = 0, // READ
         .index =
-            poly_triple{
+            arithmetic_triple{
                 .a = 3,
                 .b = 0,
                 .c = 0,
@@ -1165,7 +1165,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
                 .q_c = 0,
             },
         .value =
-            poly_triple{
+            arithmetic_triple{
                 .a = 4,
                 .b = 0,
                 .c = 0,
