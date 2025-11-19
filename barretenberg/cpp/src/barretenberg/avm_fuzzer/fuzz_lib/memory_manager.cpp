@@ -14,19 +14,6 @@ bool MemoryManager::is_memory_address_set(uint16_t address)
     return memory_address_to_tag.find(address) != memory_address_to_tag.end();
 }
 
-std::optional<uint16_t> MemoryManager::get_untagged_address(uint16_t index)
-{
-    auto used_addresses = std::vector<uint16_t>(memory_address_to_tag.size());
-    std::transform(memory_address_to_tag.begin(),
-                   memory_address_to_tag.end(),
-                   used_addresses.begin(),
-                   [](const auto& pair) { return pair.first; });
-    if (used_addresses.size() == 0) {
-        return std::nullopt;
-    }
-    return std::optional<uint16_t>(used_addresses[index % used_addresses.size()]);
-}
-
 void MemoryManager::set_memory_address(bb::avm2::MemoryTag tag, uint16_t address)
 {
     // if address is already set

@@ -31,9 +31,6 @@ class MemoryManager {
     std::optional<uint8_t> get_memory_offset_8_bit(bb::avm2::MemoryTag tag, uint16_t address_index);
     bool is_memory_address_set(uint16_t address);
 
-    // Get used address from memory_address_to_tag map
-    std::optional<uint16_t> get_untagged_address(uint16_t index);
-
     // Append used slot to storage_addresses
     void append_slot(bb::avm2::FF slot);
     // Get slot from storage_addresses
