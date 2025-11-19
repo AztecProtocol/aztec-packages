@@ -422,11 +422,12 @@ void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600
         state_ff[0][0] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_iota_00;
     } else {
         // While reading we need to check the tag for each slice value.
-        // Standard Keccak layout: memory[(y * 5) + x] = A[x][y]
+        // Standard Keccak layout: memory[k] = A[k%5][k/5]
+        // Standard Keccak layout: memory[(j * 5) + i] = A[i][j], so linear index k maps to (i=k%5, j=k/5)
         for (size_t k = 0; k < AVM_KECCAKF1600_STATE_SIZE; k++) {
+            const auto& mem_val = event.src_mem_values[k];
             const size_t i = k % 5; // x coordinate (column)
             const size_t j = k / 5; // y coordinate (row)
-            const auto& mem_val = event.src_mem_values[i][j];
             state_ff[i][j] = mem_val.as_ff();
             tags[k] = mem_val.get_tag();
             if (tags[k] != MemoryTag::U64) {
@@ -562,12 +563,12 @@ void KeccakF1600TraceBuilder::process_permutation(
             // When no out-of-range value occured but a tag value error, we
             // need to set the initial state values in the first round.
             if (!out_of_range && event.tag_error && round_idx == 0) {
-                for (size_t i = 0; i < 5; i++) {
-                    for (size_t j = 0; j < 5; j++) {
-                        // In simulation we set src_mem_values[i][j] to be the memory value when
-                        // tag is U64, otherwise we set it to zero.
-                        trace.set(STATE_IN_COLS[i][j], row, event.src_mem_values[i][j]);
-                    }
+                for (size_t k = 0; k < AVM_KECCAKF1600_STATE_SIZE; k++) {
+                    const size_t i = k % 5; // Keccak layout: memory[k] = A[k%5][k/5]
+                    const size_t j = k / 5;
+                    // In simulation we set src_mem_values[i][j] to be the memory value when
+                    // tag is U64, otherwise we set it to zero.
+                    trace.set(STATE_IN_COLS[i][j], row, event.src_mem_values[k]);
                 }
             }
 

@@ -32,7 +32,8 @@ simulation::KeccakF1600Event create_standard_event_mem_slice()
         for (size_t j = 0; j < 5; j++) {
             const uint64_t input_value = (i * 5 + j) + 1000;
             const uint64_t output_value = (i * 5 + j) + 10000;
-            event.src_mem_values[i][j] = MemoryValue::from<uint64_t>(input_value);
+            // Keccak layout: memory[5 * j + i] = A[i][j]
+            event.src_mem_values[(5 * j) + i] = MemoryValue::from<uint64_t>(input_value);
             event.rounds[0].state[i][j] = input_value;
             if (i == 0 && j == 0) {
                 event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_iota_00 = output_value;
