@@ -600,3 +600,134 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
     auto proof = ivc->prove();
     EXPECT_FALSE(Chonk::verify(proof, ivc->get_vk()));
 }
+
+/**
+ * @brief Test gate count and ECC rows for init kernel (verifies OINK proof)
+ */
+TEST_F(HypernovaRecursionConstraintTest, InitKernelGateCount)
+{
+    BB_DISABLE_ASSERTS();
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+
+    // Mock the post-app accumulation state (OINK proof ready to be verified)
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+
+    // Construct kernel program with gate counting enabled
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+    ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
+
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+
+    // Expected gate count and ECC rows for init kernel (MegaCircuitBuilder)
+    size_t expected_gate_count = 26038;
+    size_t expected_ecc_rows = 883;
+
+    // Assert gate count
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], expected_gate_count);
+
+    // Assert ECC row count
+    size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    EXPECT_EQ(actual_ecc_rows, expected_ecc_rows);
+}
+
+/**
+ * @brief Test gate count and ECC rows for inner kernel (verifies HN proof for previous kernel + OINK for app)
+ */
+TEST_F(HypernovaRecursionConstraintTest, InnerKernelGateCount)
+{
+    BB_DISABLE_ASSERTS();
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/4);
+
+    // Mock the state where we need to verify a previous kernel (HN) and a new app (OINK)
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+
+    // Construct kernel program with gate counting enabled
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+    ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
+
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 2);
+
+    // Expected gate count and ECC rows for inner kernel (MegaCircuitBuilder)
+    size_t expected_gate_count_hn = 55533;
+    size_t expected_gate_count_oink = 0;
+    size_t expected_ecc_rows = 1669;
+
+    // Assert gate counts (HN verification + OINK verification)
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], expected_gate_count_hn);
+    EXPECT_EQ(program.constraints.gates_per_opcode[1], expected_gate_count_oink);
+
+    // Assert ECC row count
+    size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    EXPECT_EQ(actual_ecc_rows, expected_ecc_rows);
+}
+
+/**
+ * @brief Test gate count and ECC rows for tail kernel (verifies HN_TAIL proof)
+ */
+TEST_F(HypernovaRecursionConstraintTest, TailKernelGateCount)
+{
+    BB_DISABLE_ASSERTS();
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+
+    // Mock the state where we need to verify a tail kernel proof
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
+
+    // Construct kernel program with gate counting enabled
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+    ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
+
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+
+    // Expected gate count and ECC rows for tail kernel (MegaCircuitBuilder)
+    size_t expected_gate_count = 33968;
+    size_t expected_ecc_rows = 916;
+
+    // Assert gate count
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], expected_gate_count);
+
+    // Assert ECC row count
+    size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    EXPECT_EQ(actual_ecc_rows, expected_ecc_rows);
+}
+
+/**
+ * @brief Test gate count and ECC rows for hiding kernel (verifies HN_FINAL proof)
+ */
+TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
+{
+    BB_DISABLE_ASSERTS();
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+
+    // Mock the state where we need to verify a hiding kernel proof
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
+
+    // Construct kernel program with gate counting enabled
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+    ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
+
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+
+    // Expected gate count and ECC rows for hiding kernel (MegaCircuitBuilder)
+    size_t expected_gate_count = 37212;
+    size_t expected_ecc_rows = 1407;
+
+    // Assert gate count
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], expected_gate_count);
+
+    // Assert ECC row count
+    size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    EXPECT_EQ(actual_ecc_rows, expected_ecc_rows);
+}
