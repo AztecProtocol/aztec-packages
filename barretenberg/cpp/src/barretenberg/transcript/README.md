@@ -280,13 +280,13 @@ Origin tags prevent these violations by **tainting** each value with metadata tr
 
 ```cpp
 struct OriginTag {
-    size_t parent_tag;           // Which transcript instance created this value
-    numeric::uint256_t child_tag; // Which protocol rounds contributed to this value
+    size_t transcript_index;           // Which transcript instance created this value
+    numeric::uint256_t round_provenance; // Which protocol rounds contributed to this value
     bool instant_death;          // Poison flag - abort on any arithmetic
 };
 ```
 
-#### Parent Tag - Transcript Isolation
+#### transcript_index - Transcript Isolation
 
 Each transcript instance gets a unique ID from the global atomic counter `unique_transcript_index`:
 
@@ -299,9 +299,9 @@ transcript_index = unique_transcript_index.fetch_add(1);
 - `CONSTANT = size_t(-1)`: Pure compile-time constants (safe everywhere)
 - `FREE_WITNESS = size_t(-2)`: Witnesses not derived from transcript (potentially unsafe)
 
-**Enforcement**: Tags with different `parent_tag` values cannot merge (except constants). This prevents mixing values from independent protocol executions.
+**Enforcement**: Tags with different `transcript_index` values cannot merge (except constants). This prevents mixing values from independent protocol executions.
 
-#### Child Tag - Round Tracking Bitmask
+#### round_provenance - Round Tracking Bitmask
 
 A 256-bit value split into two 128-bit halves:
 
@@ -317,43 +317,43 @@ A 256-bit value split into two 128-bit halves:
 // SINGLE BIT EXAMPLES - Values from one round only
 
 // Submitted value in round 3
-child_tag = (1 << 3);  // 0x0000...0008 (bit 3 in lower 128 bits)
+round_provenance = (1 << 3);  // 0x0000...0008 (bit 3 in lower 128 bits)
 
 // Challenge from round 5
-child_tag = (1 << (5 + 128));  // 0x0020...0000 (bit 5 in upper 128 bits)
+round_provenance = (1 << (5 + 128));  // 0x0020...0000 (bit 5 in upper 128 bits)
 
 
 // MULTIPLE BITS EXAMPLES - Values combined from multiple rounds
 
 // Value depending on submitted data from BOTH round 0 AND round 2
-child_tag = (1 << 0) | (1 << 2);  // 0x0000...0005 (bits 0 and 2 in lower 128)
+round_provenance = (1 << 0) | (1 << 2);  // 0x0000...0005 (bits 0 and 2 in lower 128)
 // Meaning: "This value incorporates data submitted in rounds 0 AND 2"
 
 // Value depending on challenges from BOTH round 1 AND round 3
-child_tag = (1 << (1 + 128)) | (1 << (3 + 128));  // 0x000A...0000 (bits 1 and 3 in upper 128)
+round_provenance = (1 << (1 + 128)) | (1 << (3 + 128));  // 0x000A...0000 (bits 1 and 3 in upper 128)
 // Meaning: "This value incorporates challenges from rounds 1 AND 3"
 
 // Value depending on submitted data (round 0) AND challenge (round 0)
-child_tag = (1 << 0) | (1 << (0 + 128));  // 0x0001...0001 (bit 0 in both halves)
+round_provenance = (1 << 0) | (1 << (0 + 128));  // 0x0001...0001 (bit 0 in both halves)
 // Meaning: "This value uses both the data submitted in round 0 AND the challenge from round 0"
 
 // Complex example: submitted data from rounds 0,1 and challenges from rounds 0,2
-child_tag = (1 << 0) | (1 << 1) | (1 << (0 + 128)) | (1 << (2 + 128));
+round_provenance = (1 << 0) | (1 << 1) | (1 << (0 + 128)) | (1 << (2 + 128));
 //          0x0005...0003
 // Meaning: "This value's computation involved:
 //          - Submitted values from rounds 0 and 1
 //          - Challenges from rounds 0 and 2"
 ```
 
-**How multiple bits get set**: When values combine through arithmetic operations (`a + b`, `a * b`), their child_tags merge using **bitwise OR**:
+**How multiple bits get set**: When values combine through arithmetic operations (`a + b`, `a * b`), their round_provenances merge using **bitwise OR**:
 ```cpp
 // Example: combining values from different rounds
-auto a = transcript->receive_from_prover<FF>("a");  // round 0: child_tag = 0x...0001
-auto beta = transcript->get_challenge<FF>("beta");  // round 1: child_tag = 0x0002...0000
-auto c = transcript->receive_from_prover<FF>("c");  // round 2: child_tag = 0x...0004
+auto a = transcript->receive_from_prover<FF>("a");  // round 0: round_provenance = 0x...0001
+auto beta = transcript->get_challenge<FF>("beta");  // round 1: round_provenance = 0x0002...0000
+auto c = transcript->receive_from_prover<FF>("c");  // round 2: round_provenance = 0x...0004
 
 auto result = a * beta + c;
-// result.child_tag = 0x...0001 | 0x0002...0000 | 0x...0004 = 0x0002...0005
+// result.round_provenance = 0x...0001 | 0x0002...0000 | 0x...0004 = 0x0002...0005
 // → Tracks that result depends on: data from rounds 0,2 and challenge from round 1
 ```
 
@@ -376,11 +376,11 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
     }
 
     // 2. Handle constants (constants can combine with anything)
-    if (tag_a.parent_tag == CONSTANT) {
+    if (tag_a.transcript_index == CONSTANT) {
         *this = tag_b;  // Use tag_b entirely
         return;
     }
-    if (tag_b.parent_tag == CONSTANT) {
+    if (tag_b.transcript_index == CONSTANT) {
         *this = tag_a;  // Use tag_a entirely
         return;
     }
@@ -392,16 +392,16 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
     // (Similar check for tag_b being free witness)
 
     // 4. Check transcript isolation (different transcripts cannot interact)
-    if (tag_a.parent_tag != tag_b.parent_tag) {
+    if (tag_a.transcript_index != tag_b.transcript_index) {
         throw_or_abort("Tags from different transcripts were involved in the same computation");
     }
 
     // 5. Check cross-round contamination (the critical security check)
-    check_child_tags(tag_a.child_tag, tag_b.child_tag);
+    check_round_provenances(tag_a.round_provenance, tag_b.round_provenance);
 
     // 6. Merge the tags
-    parent_tag = tag_a.parent_tag;
-    child_tag = tag_a.child_tag | tag_b.child_tag;  // Bitwise OR combines round info
+    transcript_index = tag_a.transcript_index;
+    round_provenance = tag_a.round_provenance | tag_b.round_provenance;  // Bitwise OR combines round info
 }
 ```
 
@@ -422,19 +422,19 @@ In recursive verification (in-circuit mode), values receive origin tags when the
 // Recursive verifier receives wire commitment from proof (round 0)
 auto comm = transcript->receive_from_prover<Commitment>("wire_comm");
 // comm.get_origin_tag() = OriginTag(transcript_id, round=0, is_submitted=true)
-//   → child_tag = 0x0000...0001 (bit 0 set in lower 128 bits)
+//   → round_provenance = 0x0000...0001 (bit 0 set in lower 128 bits)
 
 // Verifier generates challenge after round 0 data
 auto beta = transcript->get_challenge<FF>("beta");
 // beta.get_origin_tag() = OriginTag(transcript_id, round=0, is_submitted=false)
-//   → child_tag = 0x0001...0000 (bit 0 set in upper 128 bits)
+//   → round_provenance = 0x0001...0000 (bit 0 set in upper 128 bits)
 ```
 
 **Tag construction** (in `origin_tag.hpp:OriginTag` constructor):
 ```cpp
 OriginTag(size_t parent_index, size_t child_index, bool is_submitted = true)
-    : parent_tag(parent_index)
-    , child_tag((static_cast<uint256_t>(1) << (child_index + (is_submitted ? 0 : 128))))
+    : transcript_index(parent_index)
+    , round_provenance((static_cast<uint256_t>(1) << (child_index + (is_submitted ? 0 : 128))))
 ```
 
 - Submitted values: bit shifted by `child_index` (lower 128 bits)
@@ -449,8 +449,8 @@ auto combined = comm * beta;
 // Internally: combined.origin_tag = OriginTag(comm.origin_tag, beta.origin_tag)
 //
 // Result:
-//   parent_tag = transcript_id (must match for both)
-//   child_tag = 0x0000...0001 | 0x0001...0000 = 0x0001...0001
+//   transcript_index = transcript_id (must match for both)
+//   round_provenance = 0x0000...0001 | 0x0001...0000 = 0x0001...0001
 //   → Tracks both submitted value (bit 0 lower) and challenge (bit 0 upper) from round 0
 ```
 
@@ -458,10 +458,10 @@ This merged tag now carries the full provenance: it depends on data submitted in
 
 #### 3. The Cross-Round Check
 
-The critical security check in `check_child_tags()`:
+The critical security check in `check_round_provenances()`:
 
 ```cpp
-void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b)
+void check_round_provenances(const uint256_t& tag_a, const uint256_t& tag_b)
 {
     const uint128_t* challenges_a = (const uint128_t*)(&tag_a.data[2]);  // Upper 128 bits
     const uint128_t* submitted_a = (const uint128_t*)(&tag_a.data[0]);   // Lower 128 bits
@@ -480,10 +480,10 @@ void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b)
 **What this prevents**:
 ```cpp
 // Round 0: Prover submits A
-transcript->send_to_verifier("A", a);  // a has child_tag = 0x...01 (lower)
+transcript->send_to_verifier("A", a);  // a has round_provenance = 0x...01 (lower)
 
 // Round 1: After challenges, prover submits B
-transcript->send_to_verifier("B", b);  // b has child_tag = 0x...02 (lower)
+transcript->send_to_verifier("B", b);  // b has round_provenance = 0x...02 (lower)
 
 // INVALID: Directly combining A and B without involving challenges
 auto result = a + b;  // ❌ ABORTS - different round submitted values, no challenges
@@ -493,7 +493,7 @@ auto result = a + b;  // ❌ ABORTS - different round submitted values, no chall
 
 **Valid pattern**:
 ```cpp
-auto beta = transcript->get_challenge<FF>("beta");  // child_tag = 0x0001...0000 (upper)
+auto beta = transcript->get_challenge<FF>("beta");  // round_provenance = 0x0001...0000 (upper)
 auto mixed = a * beta;   // ✅ OK - has challenge bit set
 auto result = mixed + b; // ✅ OK - mixed has challenge bit, prevents violation
 ```
@@ -531,7 +531,7 @@ ROUND 0 - PREAMBLE (reception_phase=true, round_index=0)
 ┌──────────────────────────────────┐  ├──► current_round_data: [vk_hash, pub_inputs...]
 │ add_to_hash_buffer("pub_input_1")│──┤    Origin tags assigned:
 └──────────────────────────────────┘  │    OriginTag(42, 0, is_submitted=true)
-         ...                          │    child_tag = 0x0000...0001 (bit 0 lower)
+         ...                          │    round_provenance = 0x0000...0001 (bit 0 lower)
 ┌──────────────────────────────────┐  │
 │ receive_from_prover("w_l")       │──┤    ** Wire commitments received **
 └──────────────────────────────────┘  │
@@ -551,7 +551,7 @@ ROUND 0 - PREAMBLE (reception_phase=true, round_index=0)
          │                               4. Clear current_round_data
          │                               5. Set reception_phase = false
          ▼                               6. Assign tag: OriginTag(42, 0, is_submitted=false)
-    eta, eta_two, eta_three                child_tag = 0x0001...0000 (bit 0 upper)
+    eta, eta_two, eta_three                round_provenance = 0x0001...0000 (bit 0 upper)
     tag = OriginTag(42, 0, false)
 
     ** All subsequent challenges depend on: H(vk_hash || pub_inputs || wire_comms) **
@@ -568,14 +568,14 @@ ROUND 1 - SORTED LIST ACCUMULATOR (reception_phase=false → true, round_index=0
 └──────────────────────────────────────────┘  │
 ┌──────────────────────────────────────────┐  ├─► current_round_data: [lookup_comms, w_4...]
 │ receive_from_prover("w_4")               │──┘    Origin tag: OriginTag(42, 1, is_submitted=true)
-└──────────────────────────────────────────┘       child_tag = 0x0000...0002 (bit 1 lower)
+└──────────────────────────────────────────┘       round_provenance = 0x0000...0002 (bit 1 lower)
          │
          │ Phase: reception → challenge generation
          ▼
 ┌──────────────────────────────────┐
 │ get_challenges("beta", "gamma")  │──► Generate challenges for log-derivative
 └──────────────────────────────────┘    tag = OriginTag(42, 1, is_submitted=false)
-         │                               child_tag = 0x0002...0000 (bit 1 upper)
+         │                               round_provenance = 0x0002...0000 (bit 1 upper)
          ▼
     beta, gamma
 
@@ -585,7 +585,7 @@ ROUND 2 - LOG DERIVATIVE INVERSE (reception_phase=false → true, round_index=1 
 
 ┌──────────────────────────────────────────┐
 │ receive_from_prover("lookup_inverses")   │──► Origin tag: OriginTag(42, 2, true)
-└──────────────────────────────────────────┘    child_tag = 0x0000...0004 (bit 2 lower)
+└──────────────────────────────────────────┘    round_provenance = 0x0000...0004 (bit 2 lower)
 
     ** Example: Tag merging with cross-round values **
 
@@ -598,7 +598,7 @@ ROUND 2 - LOG DERIVATIVE INVERSE (reception_phase=false → true, round_index=1 
          │
          ▼
     ┌─────────────────────────────────────────────┐
-    │ check_child_tags(eta.tag, lookup_inv.tag)   │
+    │ check_round_provenances(eta.tag, lookup_inv.tag)   │
     └─────────────────────────────────────────────┘
          │
          │ CHECK: Submitted values from different rounds?
@@ -618,21 +618,21 @@ ORIGIN TAG VIOLATION EXAMPLE (Cross-Round Contamination)
 
     ┌──────────────────────────────────┐
     │ Round 0: w_l (wire commitment)   │ tag = OriginTag(42, 0, true)
-    │          child_tag = 0x...0001   │      (bit 0 in lower 128 bits)
+    │          round_provenance = 0x...0001   │      (bit 0 in lower 128 bits)
     └──────────────────────────────────┘
                                 │
                                 │ (eta challenges generated)
                                 │
     ┌──────────────────────────────────┐
     │ Round 1: w_4 (4th wire)          │ tag = OriginTag(42, 1, true)
-    │          child_tag = 0x...0002   │      (bit 1 in lower 128 bits)
+    │          round_provenance = 0x...0002   │      (bit 1 in lower 128 bits)
     └──────────────────────────────────┘
                                 │
                                 ▼
                     ❌ VIOLATION: Direct mixing without challenges
                     result = w_l + w_4
                                 │
-                    check_child_tags() detects:
+                    check_round_provenances() detects:
                       challenges_w_l = 0 (no challenges involved)
                       challenges_w_4 = 0 (no challenges involved)
                       submitted_w_l  = 0x...0001 (from round 0)
@@ -792,8 +792,8 @@ auto decider_proof = transcript->export_proof();  // Extract Decider portion
 **What unsetting does**: The `unset_free_witness_tag()` method changes a value's origin tag from `FREE_WITNESS` to `CONSTANT`, allowing it to bypass the free witness security check that normally prevents unconstrained witnesses from mixing with transcript-derived values.
 
 ```cpp
-// Before: parent_tag = FREE_WITNESS (triggers security checks)
-// After:  parent_tag = CONSTANT (can mix with any value)
+// Before: transcript_index = FREE_WITNESS (triggers security checks)
+// After:  transcript_index = CONSTANT (can mix with any value)
 value.unset_free_witness_tag();
 ```
 

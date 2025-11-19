@@ -5,7 +5,6 @@ import {
   type ContractArtifact,
   ContractArtifactSchema,
   type EventMetadataDefinition,
-  FunctionAbiSchema,
   type FunctionCall,
   FunctionType,
 } from '@aztec/stdlib/abi';
@@ -19,7 +18,6 @@ import {
   type ContractMetadata,
 } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
-import { PublicKeys } from '@aztec/stdlib/keys';
 import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/stdlib/schemas';
 import {
   Capsule,
@@ -155,25 +153,12 @@ export type Wallet = {
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
-  simulateUtility(
-    call: FunctionCall,
-    authwits?: AuthWitness[],
-    scopes?: AztecAddress[],
-  ): Promise<UtilitySimulationResult>;
+  simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
   sendTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxHash>;
   createAuthWit(from: AztecAddress, messageHashOrIntent: Fr | IntentInnerHash | CallIntent): Promise<AuthWitness>;
   batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>>;
 };
-
-export const ContractInstantiationDataSchema = z.object({
-  constructorArtifact: optional(z.union([FunctionAbiSchema, z.string()])),
-  constructorArgs: optional(z.array(z.any())),
-  skipArgsDecoding: optional(z.boolean()),
-  salt: schemas.Fr,
-  publicKeys: optional(PublicKeys.schema),
-  deployer: optional(schemas.AztecAddress),
-});
 
 export const FunctionCallSchema = z.object({
   name: z.string(),
@@ -191,6 +176,7 @@ export const ExecutionPayloadSchema = z.object({
   authWitnesses: z.array(AuthWitness.schema),
   capsules: z.array(Capsule.schema),
   extraHashedArgs: z.array(HashedValues.schema),
+  feePayer: optional(schemas.AztecAddress),
 });
 
 export const GasSettingsOptionSchema = z.object({
@@ -231,13 +217,6 @@ export const ProfileOptionsSchema = SimulateOptionsSchema.extend({
   skipProofGeneration: optional(z.boolean()),
 });
 
-export const InstanceDataSchema = z.union([
-  schemas.AztecAddress,
-  ContractInstanceWithAddressSchema,
-  ContractInstantiationDataSchema,
-  z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
-]);
-
 export const MessageHashOrIntentSchema = z.union([
   schemas.Fr,
   z.object({ consumer: schemas.AztecAddress, innerHash: schemas.Fr }),
@@ -254,7 +233,7 @@ export const BatchedMethodSchema = z.union([
   }),
   z.object({
     name: z.literal('registerContract'),
-    args: z.tuple([InstanceDataSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
+    args: z.tuple([ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
   }),
   z.object({
     name: z.literal('sendTx'),
@@ -262,7 +241,7 @@ export const BatchedMethodSchema = z.union([
   }),
   z.object({
     name: z.literal('simulateUtility'),
-    args: z.tuple([FunctionCallSchema, optional(z.array(AuthWitness.schema)), optional(z.array(schemas.AztecAddress))]),
+    args: z.tuple([FunctionCallSchema, optional(z.array(AuthWitness.schema))]),
   }),
   z.object({
     name: z.literal('simulateTx'),
@@ -316,7 +295,7 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
   simulateUtility: z
     .function()
-    .args(FunctionCallSchema, optional(z.array(AuthWitness.schema)), optional(z.array(schemas.AztecAddress)))
+    .args(FunctionCallSchema, optional(z.array(AuthWitness.schema)))
     .returns(UtilitySimulationResult.schema),
   profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
   sendTx: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(TxHash.schema),

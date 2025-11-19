@@ -14,7 +14,7 @@ pub contract SimpleToken {
 
     use aztec::{
         authwit::auth::compute_authwit_nullifier,
-        context::{PrivateCallInterface, PrivateContext},
+        context::{PrivateCall, PrivateContext},
         macros::{
             events::event,
             functions::{authorize_once, external, initializer, internal, only_self, view},
@@ -298,7 +298,7 @@ pub contract SimpleToken {
         context: PrivateContext,
         account: AztecAddress,
         remaining: u128,
-    ) -> PrivateCallInterface<25, u128> {
+    ) -> PrivateCall<25, u128> {
         SimpleToken::at(context.this_address())._recurse_subtract_balance(account, remaining)
     }
 

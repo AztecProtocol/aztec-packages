@@ -891,6 +891,26 @@ describe('Private Execution test suite', () => {
     });
   });
 
+  describe('phase checking', () => {
+    it('should be able to end setup checking phases', async () => {
+      // arbitrary random function that doesn't set a fee payer
+      const contractAddress = await AztecAddress.random();
+      const { entrypoint: result } = await runSimulator({
+        artifact: TestContractArtifact,
+        functionName: 'end_setup_checking_phases',
+        contractAddress,
+      });
+      const minRevertibleSideEffectCounter = result.publicInputs.minRevertibleSideEffectCounter.toNumber();
+      const expectedNonRevertibleSideEffectCounter =
+        result.publicInputs.expectedNonRevertibleSideEffectCounter.toNumber();
+      const expectedRevertibleSideEffectCounter = result.publicInputs.expectedRevertibleSideEffectCounter.toNumber();
+      expect(expectedNonRevertibleSideEffectCounter).toBeGreaterThan(0);
+      expect(expectedRevertibleSideEffectCounter).toBeGreaterThan(0);
+      expect(expectedNonRevertibleSideEffectCounter < minRevertibleSideEffectCounter).toBe(true);
+      expect(expectedRevertibleSideEffectCounter >= minRevertibleSideEffectCounter).toBe(true);
+    });
+  });
+
   describe('pending note hashes contract', () => {
     beforeEach(async () => {
       await mockContractInstance(PendingNoteHashesContractArtifact, defaultContractAddress);

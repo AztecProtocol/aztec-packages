@@ -663,6 +663,8 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     contractClassLogsHashes: makeClaimedLengthArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeCountedLogHash, seed + 0xa00),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
+    expectedNonRevertibleSideEffectCounter: fr(seed + 0x860),
+    expectedRevertibleSideEffectCounter: fr(seed + 0x861),
     anchorBlockHeader: makeHeader(seed + 0xd00, undefined),
     txContext: makeTxContext(seed + 0x1400),
     isFeePayer: false,

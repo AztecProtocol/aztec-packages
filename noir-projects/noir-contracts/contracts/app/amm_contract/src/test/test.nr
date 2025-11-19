@@ -1,7 +1,7 @@
 use crate::{AMM, test::utils::{add_liquidity, remove_liquidity, setup}};
 use aztec::{
     protocol_types::{address::AztecAddress, traits::FromField},
-    test::helpers::authwit::add_private_authwit_from_call_interface,
+    test::helpers::authwit::add_private_authwit_from_call,
 };
 use token::Token;
 
@@ -163,7 +163,7 @@ unconstrained fn swap_exact_tokens_for_tokens() {
     env.call_private(minter, token0.mint_to_private(swapper, amount_in));
 
     // Create authwit for transferring tokens to AMM
-    add_private_authwit_from_call_interface(
+    add_private_authwit_from_call(
         env,
         swapper,
         amm_address,
@@ -223,13 +223,13 @@ unconstrained fn swap_tokens_for_exact_tokens() {
     env.call_private(minter, token0.mint_to_private(swapper, amount_in_max));
 
     // Create authwit for transferring tokens to AMM
-    let transfer_call_interface = token0.transfer_to_public_and_prepare_private_balance_increase(
+    let transfer_call = token0.transfer_to_public_and_prepare_private_balance_increase(
         swapper,
         amm_address,
         amount_in_max,
         AUTHWIT_NONCE,
     );
-    add_private_authwit_from_call_interface(env, swapper, amm_address, transfer_call_interface);
+    add_private_authwit_from_call(env, swapper, amm_address, transfer_call);
 
     env.call_private(
         swapper,

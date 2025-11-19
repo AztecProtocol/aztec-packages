@@ -1,4 +1,4 @@
-import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK } from '@aztec/constants';
+import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT } from '@aztec/constants';
 import { poseidon2Hash, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
@@ -234,13 +234,13 @@ export class BatchedBlobAccumulator {
   /**
    * Given blobs, accumulate all state.
    * We assume the input blobs have not been evaluated at z.
-   * @param blobs - The blobs to accumulate. They should be in the same L1 block.
+   * @param blobs - The blobs to accumulate. They should be for the same checkpoint.
    * @returns An updated blob accumulator.
    */
   async accumulateBlobs(blobs: Blob[]) {
-    if (blobs.length > BLOBS_PER_BLOCK) {
+    if (blobs.length > BLOBS_PER_CHECKPOINT) {
       throw new Error(
-        `Too many blobs to accumulate. The maximum is ${BLOBS_PER_BLOCK} per block. Got ${blobs.length}.`,
+        `Too many blobs to accumulate. The maximum is ${BLOBS_PER_CHECKPOINT} per checkpoint. Got ${blobs.length}.`,
       );
     }
 

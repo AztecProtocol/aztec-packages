@@ -19,6 +19,7 @@ pub struct PrivateKernelCircuitOutputValidatorBuilder {
     output: FixtureBuilder,
     tx_request: TxRequest,
     first_nullifier_hint: Field,
+    revertible_counter_hint: u32,
     is_private_only: bool,
 }
 
@@ -30,8 +31,11 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let tx_request = output.build_tx_request();
 
         output.claimed_first_nullifier = 27;
+        output.claimed_revertible_counter = 42;
 
         previous_kernel.claimed_first_nullifier = 27;
+        previous_kernel.claimed_revertible_counter = 42;
+
         previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
 
         PrivateKernelCircuitOutputValidatorBuilder {
@@ -40,6 +44,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             output,
             tx_request,
             first_nullifier_hint: 27,
+            revertible_counter_hint: 42,
             is_private_only: false,
         }
     }
@@ -77,6 +82,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             self.private_call.protocol_contracts,
             self.is_private_only,
             self.first_nullifier_hint,
+            self.revertible_counter_hint,
         );
     }
 
