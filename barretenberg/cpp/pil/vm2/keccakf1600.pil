@@ -1409,11 +1409,11 @@ sel_slice_read { state_in_00, state_in_10, state_in_20, state_in_30, state_in_40
                  state_in_04, state_in_14, state_in_24, state_in_34, state_in_44,
                  clk, src_addr, space_id, tag_error }
 is
-keccak_memory.start_read { keccak_memory.val00, keccak_memory.val01, keccak_memory.val02, keccak_memory.val03, keccak_memory.val04,
-                           keccak_memory.val10, keccak_memory.val11, keccak_memory.val12, keccak_memory.val13, keccak_memory.val14,
-                           keccak_memory.val20, keccak_memory.val21, keccak_memory.val22, keccak_memory.val23, keccak_memory.val24,
-                           keccak_memory.val30, keccak_memory.val31, keccak_memory.val32, keccak_memory.val33, keccak_memory.val34,
-                           keccak_memory.val40, keccak_memory.val41, keccak_memory.val42, keccak_memory.val43, keccak_memory.val44,
+keccak_memory.start_read { keccak_memory.val[0], keccak_memory.val[1], keccak_memory.val[2], keccak_memory.val[3], keccak_memory.val[4],
+                           keccak_memory.val[5], keccak_memory.val[6], keccak_memory.val[7], keccak_memory.val[8], keccak_memory.val[9],
+                           keccak_memory.val[10], keccak_memory.val[11], keccak_memory.val[12], keccak_memory.val[13], keccak_memory.val[14],
+                           keccak_memory.val[15], keccak_memory.val[16], keccak_memory.val[17], keccak_memory.val[18], keccak_memory.val[19],
+                           keccak_memory.val[20], keccak_memory.val[21], keccak_memory.val[22], keccak_memory.val[23], keccak_memory.val[24],
                            keccak_memory.clk, keccak_memory.addr, keccak_memory.space_id, keccak_memory.tag_error };
 
 
@@ -1430,9 +1430,9 @@ sel_slice_write { state_iota_00, state_chi_10, state_chi_20, state_chi_30, state
                   state_chi_04,  state_chi_14, state_chi_24, state_chi_34, state_chi_44,
                   clk, dst_addr, space_id, round }
 is
-keccak_memory.start_write { keccak_memory.val00, keccak_memory.val01, keccak_memory.val02, keccak_memory.val03, keccak_memory.val04,
-                            keccak_memory.val10, keccak_memory.val11, keccak_memory.val12, keccak_memory.val13, keccak_memory.val14,
-                            keccak_memory.val20, keccak_memory.val21, keccak_memory.val22, keccak_memory.val23, keccak_memory.val24,
-                            keccak_memory.val30, keccak_memory.val31, keccak_memory.val32, keccak_memory.val33, keccak_memory.val34,
-                            keccak_memory.val40, keccak_memory.val41, keccak_memory.val42, keccak_memory.val43, keccak_memory.val44,
+keccak_memory.start_write { keccak_memory.val[0], keccak_memory.val[1], keccak_memory.val[2], keccak_memory.val[3], keccak_memory.val[4],
+                            keccak_memory.val[5], keccak_memory.val[6], keccak_memory.val[7], keccak_memory.val[8], keccak_memory.val[9],
+                            keccak_memory.val[10], keccak_memory.val[11], keccak_memory.val[12], keccak_memory.val[13], keccak_memory.val[14],
+                            keccak_memory.val[15], keccak_memory.val[16], keccak_memory.val[17], keccak_memory.val[18], keccak_memory.val[19],
+                            keccak_memory.val[20], keccak_memory.val[21], keccak_memory.val[22], keccak_memory.val[23], keccak_memory.val[24],
                             keccak_memory.clk, keccak_memory.addr, keccak_memory.space_id, keccak_memory.num_rounds };
