@@ -276,13 +276,10 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
                                                                                        /*dummy_witnesses=*/false,
                                                                                        /*predicate_val=*/true);
 
-    info("estimate finalized circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
-
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
         std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance->get_precomputed());
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
-    info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
 
     EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
@@ -298,13 +295,10 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     auto layer_2_circuit =
         TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits, false, false);
 
-    info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
-
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
         std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance->get_precomputed());
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
-    info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
 
     EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
@@ -364,13 +358,11 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
                                                                                        /*dummy_witnesses=*/false,
                                                                                        /*predicate_val=*/true);
     info("created second outer circuit");
-    info("number of gates in layer 3 = ", layer_3_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_3_circuit);
     auto verification_key =
         std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance->get_precomputed());
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
-    info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
 
     EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
@@ -421,14 +413,114 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
                                                                                        /*dummy_witnesses=*/false,
                                                                                        /*predicate_val=*/true);
     info("created third outer circuit");
-    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_3_circuit);
     auto verification_key =
         std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance->get_precomputed());
     typename TestFixture::OuterProver prover(prover_instance, verification_key);
-    info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
 
     EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
+}
+
+TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)
+{
+    std::vector<typename TestFixture::InnerBuilder> layer_1_circuits;
+    layer_1_circuits.push_back(TestFixture::create_inner_circuit());
+
+    // Create outer circuit with gate counting enabled
+    std::vector<RecursionConstraint> honk_recursion_constraints;
+    std::vector<fr> witness;
+
+    auto& inner_circuit = layer_1_circuits[0];
+    auto prover_instance = std::make_shared<typename TestFixture::InnerProverInstance>(inner_circuit);
+    auto verification_key =
+        std::make_shared<typename TestFixture::InnerVerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::InnerProver prover(prover_instance, verification_key);
+    auto inner_proof = prover.construct_proof();
+
+    std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
+    fr key_hash_witness = verification_key->hash();
+    std::vector<fr> proof_witnesses = inner_proof;
+
+    auto [num_public_inputs_to_extract, proof_type] = [&]() -> std::pair<size_t, acir_format::PROOF_TYPE> {
+        size_t num_public_inputs_to_extract = inner_circuit.num_public_inputs();
+        if constexpr (HasIPAAccumulator<typename TestFixture::InnerFlavor>) {
+            return { num_public_inputs_to_extract - RollupIO::PUBLIC_INPUTS_SIZE, ROLLUP_HONK };
+        } else if constexpr (TestFixture::InnerFlavor::HasZK) {
+            return { num_public_inputs_to_extract - DefaultIO::PUBLIC_INPUTS_SIZE, HONK_ZK };
+        } else {
+            return { num_public_inputs_to_extract - DefaultIO::PUBLIC_INPUTS_SIZE, HONK };
+        }
+    }();
+
+    auto [key_indices, key_hash_index, proof_indices, inner_public_inputs] =
+        ProofSurgeon<fr>::populate_recursion_witness_data(
+            witness, proof_witnesses, key_witnesses, key_hash_witness, num_public_inputs_to_extract);
+
+    // We pin the number of gates with predicate set to witness true, so this is an upper bound for when the constraint
+    // is added with a constant predicate
+    uint32_t predicate_index = add_to_witness_and_track_indices(witness, fr(1));
+    auto predicate = WitnessOrConstant<fr>::from_index(predicate_index);
+
+    RecursionConstraint honk_recursion_constraint{
+        .key = key_indices,
+        .proof = proof_indices,
+        .public_inputs = inner_public_inputs,
+        .key_hash = key_hash_index,
+        .proof_type = proof_type,
+        .predicate = predicate,
+    };
+    honk_recursion_constraints.push_back(honk_recursion_constraint);
+
+    AcirFormat constraint_system{};
+    constraint_system.varnum = static_cast<uint32_t>(witness.size());
+    constraint_system.num_acir_opcodes = 1;
+    constraint_system.honk_recursion_constraints = honk_recursion_constraints;
+    constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
+    mock_opcode_indices(constraint_system);
+
+    bool constexpr has_ipa_claim = IsAnyOf<typename TestFixture::InnerFlavor, UltraRollupFlavor>;
+    ProgramMetadata metadata{ .has_ipa_claim = has_ipa_claim, .collect_gates_per_opcode = true };
+
+    AcirProgram program{ constraint_system, witness };
+    typename TestFixture::OuterBuilder outer_circuit =
+        create_circuit<typename TestFixture::OuterBuilder>(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+
+    // Determine expected gate count based on the recursive flavor
+    size_t expected_gate_count = 0;
+    size_t expected_ecc_rows = 0;
+    using RecursiveFlavor = TypeParam;
+    using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
+
+    if constexpr (std::is_same_v<RecursiveFlavor, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
+        expected_gate_count = 723995;
+        expected_ecc_rows = 0; // Ultra doesn't use ECC op queue
+    } else if constexpr (std::is_same_v<RecursiveFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
+        expected_gate_count = 724462;
+        expected_ecc_rows = 0; // Ultra doesn't use ECC op queue
+    } else if constexpr (std::is_same_v<RecursiveFlavor, UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
+        expected_gate_count = 24329;
+        expected_ecc_rows = 1250;
+    } else if constexpr (std::is_same_v<RecursiveFlavor, UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
+        expected_gate_count = 767515;
+        expected_ecc_rows = 0; // Ultra doesn't use ECC op queue
+    } else if constexpr (std::is_same_v<RecursiveFlavor, UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
+        expected_gate_count = 29302;
+        expected_ecc_rows = 1052;
+    } else {
+        FAIL() << "Unknown recursive flavor";
+    }
+
+    // Assert gate count
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], expected_gate_count);
+
+    // For MegaBuilder, also assert ECC row count
+    if constexpr (IsMegaBuilder<OuterBuilder>) {
+        size_t actual_ecc_rows = outer_circuit.op_queue->get_num_rows();
+        EXPECT_EQ(actual_ecc_rows, expected_ecc_rows);
+    }
 }

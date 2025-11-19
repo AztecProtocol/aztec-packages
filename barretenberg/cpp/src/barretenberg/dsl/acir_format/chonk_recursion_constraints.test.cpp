@@ -137,3 +137,23 @@ TEST_F(ChonkRecursionConstraintTest, GenerateRecursiveChonkVerifierVKFromConstra
 
     EXPECT_EQ(*vk_from_valid_witness, *vk_from_constraints);
 }
+
+TEST_F(ChonkRecursionConstraintTest, GateCountChonkRecursion)
+{
+    using ChonkData = ChonkRecursionConstraintTest::ChonkData;
+
+    ChonkData chonk_data = ChonkRecursionConstraintTest::get_chonk_data();
+
+    AcirProgram program = create_acir_program(chonk_data);
+
+    ProgramMetadata metadata{ .has_ipa_claim = true, .collect_gates_per_opcode = true };
+    Builder builder = create_circuit(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+
+    // Expected gate count for Chonk recursive verification (UltraRollup builder)
+    constexpr size_t EXPECTED_CHONK_RECURSION_GATES = 2540865;
+
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_CHONK_RECURSION_GATES);
+}
