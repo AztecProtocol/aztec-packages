@@ -19,15 +19,15 @@ using namespace acir_format;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
-// returns a `poly_triple` from the value index corresponding to a witness.
-[[maybe_unused]] poly_triple poly_triple_from_witness(uint32_t value_index)
+// returns a `arithmetic_triple` from the value index corresponding to a witness.
+[[maybe_unused]] arithmetic_triple arithmetic_triple_from_witness(uint32_t value_index)
 {
-    return poly_triple{ .a = value_index, .b = 0, .c = 0, .q_m = 0, .q_l = 1, .q_r = 0, .q_o = 0, .q_c = 0 };
+    return arithmetic_triple{ .a = value_index, .b = 0, .c = 0, .q_m = 0, .q_l = 1, .q_r = 0, .q_o = 0, .q_c = 0 };
 }
-// returns a `poly_triple` from a constant.
-[[maybe_unused]] poly_triple poly_triple_from_constant(bb::fr constant_value)
+// returns a `arithmetic_triple` from a constant.
+[[maybe_unused]] arithmetic_triple arithmetic_triple_from_constant(bb::fr constant_value)
 {
-    return poly_triple{ .a = 0, .b = 0, .c = 0, .q_m = 0, .q_l = 0, .q_r = 0, .q_o = 0, .q_c = constant_value };
+    return arithmetic_triple{ .a = 0, .b = 0, .c = 0, .q_m = 0, .q_l = 0, .q_r = 0, .q_o = 0, .q_c = constant_value };
 }
 } // namespace
 template <typename Builder_, size_t TableSize_, size_t NumReads_> struct ROMTestParams {
@@ -70,11 +70,11 @@ template <typename Builder_, size_t table_size, size_t num_reads> class ROMTesti
         }
 
         // `init_poly` represents the _initial values_ of the circuit.
-        std::vector<poly_triple> init_polys;
+        std::vector<arithmetic_triple> init_polys;
         for (const auto& val : table_values) {
             uint32_t value_index = add_to_witness_and_track_indices(witness_values, val);
             // push the circuit incarnation of the value in `init_polys`
-            init_polys.push_back(poly_triple_from_witness(value_index));
+            init_polys.push_back(arithmetic_triple_from_witness(value_index));
         }
 
         // Initialize and create memory operations
@@ -93,8 +93,8 @@ template <typename Builder_, size_t table_size, size_t num_reads> class ROMTesti
                 const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
                 const MemOp read_op = { .access_type = 0, // READ
-                                        .index = poly_triple_from_witness(index_for_read),
-                                        .value = poly_triple_from_witness(value_for_read) };
+                                        .index = arithmetic_triple_from_witness(index_for_read),
+                                        .value = arithmetic_triple_from_witness(value_for_read) };
                 trace.push_back(read_op);
             }
         }
@@ -204,14 +204,14 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
 
         // `init_polys` contains the initial values of the circuit. we set half of them to be constants and half to be
         // witnesses.
-        std::vector<poly_triple> init_polys;
+        std::vector<arithmetic_triple> init_polys;
         for (size_t i = 0; i < table_size; ++i) {
             const auto val = table_values[i];
             if (i % 2 == 0) {
                 uint32_t value_index = add_to_witness_and_track_indices(witness_values, val);
-                init_polys.push_back(poly_triple_from_witness(value_index));
+                init_polys.push_back(arithmetic_triple_from_witness(value_index));
             } else {
-                init_polys.push_back(poly_triple_from_constant(val));
+                init_polys.push_back(arithmetic_triple_from_constant(val));
             }
         }
         // Initialize and create memory operations
@@ -254,8 +254,8 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
                     read_values.push_back({ .value = read_value, .witness_index = value_for_read });
 
                     mem_op = { .access_type = 0, // READ
-                               .index = poly_triple_from_witness(index_for_read),
-                               .value = poly_triple_from_witness(value_for_read) };
+                               .index = arithmetic_triple_from_witness(index_for_read),
+                               .value = arithmetic_triple_from_witness(value_for_read) };
                     trace.push_back(mem_op);
                     break;
                 }
@@ -270,8 +270,8 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
                     table_values[ram_index_to_write] = write_value;
 
                     mem_op = { .access_type = 1, // WRITE
-                               .index = poly_triple_from_witness(index_to_write),
-                               .value = poly_triple_from_witness(value_to_write) };
+                               .index = arithmetic_triple_from_witness(index_to_write),
+                               .value = arithmetic_triple_from_witness(value_to_write) };
                     trace.push_back(mem_op);
                     break;
                 }
@@ -367,7 +367,7 @@ size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& wit
     witness_len++;
 
     fr two = fr::one() + fr::one();
-    poly_triple a0{
+    arithmetic_triple a0{
         .a = 0,
         .b = 0,
         .c = 0,
@@ -378,7 +378,7 @@ size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& wit
         .q_c = 0,
     };
     fr three = fr::one() + two;
-    poly_triple a1{
+    arithmetic_triple a1{
         .a = 0,
         .b = 0,
         .c = 0,
@@ -388,7 +388,7 @@ size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& wit
         .q_o = 0,
         .q_c = three,
     };
-    poly_triple r1{
+    arithmetic_triple r1{
         .a = 0,
         .b = 0,
         .c = 0,
@@ -398,7 +398,7 @@ size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& wit
         .q_o = 0,
         .q_c = fr::neg_one(),
     };
-    poly_triple r2{
+    arithmetic_triple r2{
         .a = 0,
         .b = 0,
         .c = 0,
@@ -408,7 +408,7 @@ size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& wit
         .q_o = 0,
         .q_c = fr::neg_one(),
     };
-    poly_triple y{
+    arithmetic_triple y{
         .a = 1,
         .b = 0,
         .c = 0,
@@ -420,7 +420,7 @@ size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& wit
     };
     witness_values.emplace_back(2);
     witness_len++;
-    poly_triple z{
+    arithmetic_triple z{
         .a = 2,
         .b = 0,
         .c = 0,
@@ -481,7 +481,7 @@ TEST_F(MegaHonk, DatabusReturn)
     size_t num_variables = generate_block_constraint(block, program.witness);
     block.type = BlockType::CallData;
 
-    poly_triple rd_index{
+    arithmetic_triple rd_index{
         .a = static_cast<uint32_t>(num_variables),
         .b = 0,
         .c = 0,
@@ -494,7 +494,7 @@ TEST_F(MegaHonk, DatabusReturn)
     program.witness.emplace_back(0);
     ++num_variables;
     auto fr_five = fr(5);
-    poly_triple rd_read{
+    arithmetic_triple rd_read{
         .a = static_cast<uint32_t>(num_variables),
         .b = 0,
         .c = 0,
@@ -505,7 +505,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .q_c = 0,
     };
     program.witness.emplace_back(fr_five);
-    poly_triple five{
+    arithmetic_triple five{
         .a = 0,
         .b = 0,
         .c = 0,
@@ -529,7 +529,7 @@ TEST_F(MegaHonk, DatabusReturn)
     };
 
     // Assert that call_data[0]+call_data[1] == return_data[0]
-    poly_triple assert_equal{
+    arithmetic_triple assert_equal{
         .a = 1,
         .b = 2,
         .c = rd_read.a,
@@ -544,7 +544,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 2,
         .public_inputs = {},
-        .poly_triple_constraints = { assert_equal },
+        .arithmetic_triple_constraints = { assert_equal },
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

@@ -248,13 +248,13 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
  * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation
  *
  * @param arg acir representation of an 3-wire arithmetic operation
- * @return poly_triple
+ * @return arithmetic_triple
  * @note In principle Acir::Expression can accommodate arbitrarily many quadratic and linear terms but in practice
  * the ones processed here have a max of 1 and 3 respectively, in accordance with the standard width-3 arithmetic gate.
  */
-poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
+arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg)
 {
-    poly_triple pt{
+    arithmetic_triple pt{
         .a = 0,
         .b = 0,
         .c = 0,
@@ -303,7 +303,7 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
             pt.q_o += selector_value; // Accumulate coefficients for duplicate witnesses
             c_set = true;
         } else {
-            return poly_triple{
+            return arithmetic_triple{
                 .a = 0,
                 .b = 0,
                 .c = 0,
@@ -551,7 +551,7 @@ void constrain_witnesses(Acir::Opcode::AssertZero const& arg, AcirFormat& af)
 }
 
 std::pair<uint32_t, uint32_t> is_assert_equal(Acir::Opcode::AssertZero const& arg,
-                                              poly_triple const& pt,
+                                              arithmetic_triple const& pt,
                                               AcirFormat const& af)
 {
     if (!arg.value.mul_terms.empty() || arg.value.linear_combinations.size() != 2) {
@@ -573,7 +573,7 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
     bool might_fit_in_polytriple = arg.value.linear_combinations.size() <= 3 && arg.value.mul_terms.size() <= 1;
     bool needs_to_be_parsed_as_mul_quad = !might_fit_in_polytriple;
     if (might_fit_in_polytriple) {
-        poly_triple pt = serialize_arithmetic_gate(arg.value);
+        arithmetic_triple pt = serialize_arithmetic_gate(arg.value);
 
         auto assert_equal = is_assert_equal(arg, pt, af);
         uint32_t w1 = std::get<0>(assert_equal);
@@ -613,11 +613,11 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
         }
         // Even if the number of linear terms is less than 3, we might not be able to fit it into a width-3 arithmetic
         // gate. This is the case if the linear terms are all distinct witness from the multiplication term. In that
-        // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a width-4
-        // gate instead. We could probably always use a width-4 gate in fact.
-        if (pt != poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
-            af.poly_triple_constraints.push_back(pt);
-            af.original_opcode_indices.poly_triple_constraints.push_back(opcode_index);
+        // case, the serialize_arithmetic_gate() function will return a arithmetic_triple with all 0's, and we use a
+        // width-4 gate instead. We could probably always use a width-4 gate in fact.
+        if (pt != arithmetic_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
+            af.arithmetic_triple_constraints.push_back(pt);
+            af.original_opcode_indices.arithmetic_triple_constraints.push_back(opcode_index);
         } else {
             needs_to_be_parsed_as_mul_quad = true;
         }
@@ -884,12 +884,12 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
 BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
 {
     BlockConstraint block{ .init = {}, .trace = {}, .type = BlockType::ROM };
-    std::vector<poly_triple> init;
+    std::vector<arithmetic_triple> init;
     std::vector<MemOp> trace;
 
     auto len = mem_init.init.size();
     for (size_t i = 0; i < len; ++i) {
-        block.init.push_back(poly_triple{
+        block.init.push_back(arithmetic_triple{
             .a = mem_init.init[i].value,
             .b = 0,
             .c = 0,
@@ -919,7 +919,7 @@ bool is_rom(Acir::MemOp const& mem_op)
            from_big_endian_bytes(mem_op.operation.q_c) == 0;
 }
 
-uint32_t poly_to_witness(const poly_triple poly)
+uint32_t poly_to_witness(const arithmetic_triple poly)
 {
     if (poly.q_m == 0 && poly.q_r == 0 && poly.q_o == 0 && poly.q_l == 1 && poly.q_c == 0) {
         return poly.a;
@@ -940,7 +940,7 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, Bloc
     }
 
     // Update the ranges of the index using the array length
-    poly_triple index = serialize_arithmetic_gate(mem_op.op.index);
+    arithmetic_triple index = serialize_arithmetic_gate(mem_op.op.index);
     int bit_range = std::bit_width(block.init.size());
     uint32_t index_witness = poly_to_witness(index);
     if (index_witness != 0 && bit_range > 0) {

@@ -20,7 +20,7 @@ template <typename Builder> inline constexpr size_t MEGA_OFFSET = IsMegaBuilder<
 inline constexpr size_t ZERO_GATE = 1;
 
 // Gate count constants for each ACIR constraint type
-template <typename Builder> inline constexpr size_t POLY_TRIPLE = 1 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t ARITHMETIC_TRIPLE = 1 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t QUAD = 1 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BIG_QUAD = 2 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t LOGIC_XOR_32 = 2950 + ZERO_GATE + MEGA_OFFSET<Builder>;

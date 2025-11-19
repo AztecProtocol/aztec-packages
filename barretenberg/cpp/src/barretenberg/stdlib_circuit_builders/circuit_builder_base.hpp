@@ -118,10 +118,6 @@ template <typename FF_> class CircuitBuilderBase {
     // Non-owning getter for the index at which a fixed witness 0 is stored
     uint32_t zero_idx() const { return _zero_idx; }
 
-    virtual void create_add_gate(const add_triple_<FF>& in) = 0;
-    virtual void create_mul_gate(const mul_triple_<FF>& in) = 0;
-    virtual void create_bool_gate(const uint32_t a) = 0;
-    virtual void create_poly_gate(const poly_triple_<FF>& in) = 0;
     virtual size_t get_num_constant_gates() const = 0;
 
     const std::vector<FF>& get_variables() const { return variables; }

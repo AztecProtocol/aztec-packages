@@ -54,7 +54,7 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> hn_recursion_constraints;
     std::vector<size_t> chonk_recursion_constraints;
     std::vector<size_t> assert_equalities;
-    std::vector<size_t> poly_triple_constraints;
+    std::vector<size_t> arithmetic_triple_constraints;
     std::vector<size_t> quad_constraints;
     std::vector<size_t> big_quad_constraints;
     // Multiple opcode indices per block:
@@ -69,7 +69,7 @@ struct AcirFormat {
     uint32_t varnum;
     uint32_t num_acir_opcodes;
 
-    using PolyTripleConstraint = bb::poly_triple_<bb::curve::BN254::ScalarField>;
+    using ArithTripleConstraint = bb::arithmetic_triple_<bb::curve::BN254::ScalarField>;
     std::vector<uint32_t> public_inputs;
 
     std::vector<LogicConstraint> logic_constraints;
@@ -88,12 +88,12 @@ struct AcirFormat {
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> hn_recursion_constraints;
     std::vector<RecursionConstraint> chonk_recursion_constraints;
-    std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
+    std::vector<bb::arithmetic_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
 
-    // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
+    // A standard plonk arithmetic constraint, as defined in the arithmetic_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
-    std::vector<PolyTripleConstraint> poly_triple_constraints;
+    std::vector<ArithTripleConstraint> arithmetic_triple_constraints;
     // A standard ultra plonk arithmetic constraint, of width 4: q_Ma*b+q_A*a+q_B*b+q_C*c+q_d*d+q_const = 0
     std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
     // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
@@ -136,7 +136,7 @@ struct AcirFormat {
                    avm_recursion_constraints,
                    hn_recursion_constraints,
                    chonk_recursion_constraints,
-                   poly_triple_constraints,
+                   arithmetic_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
                    block_constraints,
