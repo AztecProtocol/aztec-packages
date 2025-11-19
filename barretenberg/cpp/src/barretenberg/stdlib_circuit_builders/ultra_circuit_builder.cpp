@@ -1487,9 +1487,10 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 }
 
 /**
- * @brief Called in `compute_prover_instance` when finalizing circuit.
- * Iterates over the cached_non_native_field_multiplication objects,
- * removes duplicates, and instantiates the remainder as constraints`
+ * @brief Iterates over the cached_non_native_field_multiplication objects, removes duplicates, and instantiates the
+ * corresponding constraints
+ * @details Intended to be called during circuit finalization.
+ *
  */
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_non_native_field_multiplications()
 {
@@ -1524,18 +1525,15 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 }
 
 /**
- * Compute the limb-multiplication part of a non native field mul
- *
- * i.e. compute the low 204 and high 204 bit components of `a * b` where `a, b` are nnf elements composed of 4
+ * @brief Compute the limb-multiplication part of a non native field mul
+ * @details i.e. compute the low 204 and high 204 bit components of `a * b` where `a, b` are nnf elements composed of 4
  * limbs with size DEFAULT_NON_NATIVE_FIELD_LIMB_BITS
  *
  **/
-
 template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_native_field_multiplication(
     const non_native_partial_multiplication_witnesses<FF>& input)
 {
-
     std::array<fr, 4> a{
         this->get_variable(input.a[0]),
         this->get_variable(input.a[1]),
@@ -1551,17 +1549,15 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
 
     constexpr FF LIMB_SHIFT = uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
-    FF lo_0 = a[0] * b[0] + (a[1] * b[0] + a[0] * b[1]) * LIMB_SHIFT;
-
-    FF hi_0 = a[2] * b[0] + a[0] * b[2] + (a[0] * b[3] + a[3] * b[0]) * LIMB_SHIFT;
-    FF hi_1 = hi_0 + a[1] * b[1] + (a[1] * b[2] + a[2] * b[1]) * LIMB_SHIFT;
+    FF lo_0 = a[0] * b[0] + ((a[1] * b[0] + a[0] * b[1]) * LIMB_SHIFT);
+    FF hi_0 = a[2] * b[0] + a[0] * b[2] + ((a[0] * b[3] + a[3] * b[0]) * LIMB_SHIFT);
+    FF hi_1 = hi_0 + a[1] * b[1] + ((a[1] * b[2] + a[2] * b[1]) * LIMB_SHIFT);
 
     const uint32_t lo_0_idx = this->add_variable(lo_0);
     const uint32_t hi_0_idx = this->add_variable(hi_0);
     const uint32_t hi_1_idx = this->add_variable(hi_1);
 
-    // Add witnesses into the multiplication cache
-    // (when finalising the circuit, we will remove duplicates; several dups produced by biggroup.hpp methods)
+    // Add witnesses into the multiplication cache (duplicates removed during circuit finalization)
     cached_partial_non_native_field_multiplication cache_entry{
         .a = input.a,
         .b = input.b,
@@ -1574,10 +1570,10 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
 }
 
 /**
- * Uses a sneaky extra mini-addition gate in `plookup_arithmetic_widget.hpp` to add two non-native
- * field elements in 4 gates (would normally take 5)
+ * @brief Construct gates for non-native field addition
+ * @details Uses special mode of ArithmeticRelation (q_arith = 2 and q_arith = 3) to add two non-native field elements
+ * in 4 gates instead of 5.
  **/
-
 template <typename ExecutionTrace>
 std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_addition(
     add_simple limb0, add_simple limb1, add_simple limb2, add_simple limb3, std::tuple<uint32_t, uint32_t, FF> limbp)
@@ -1612,10 +1608,10 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     const auto& addconstp = std::get<2>(limbp);
 
     // get value of result limbs
-    const auto z_0value = this->get_variable(x_0) * x_mulconst0 + this->get_variable(y_0) * y_mulconst0 + addconst0;
-    const auto z_1value = this->get_variable(x_1) * x_mulconst1 + this->get_variable(y_1) * y_mulconst1 + addconst1;
-    const auto z_2value = this->get_variable(x_2) * x_mulconst2 + this->get_variable(y_2) * y_mulconst2 + addconst2;
-    const auto z_3value = this->get_variable(x_3) * x_mulconst3 + this->get_variable(y_3) * y_mulconst3 + addconst3;
+    const auto z_0value = (this->get_variable(x_0) * x_mulconst0) + (this->get_variable(y_0) * y_mulconst0) + addconst0;
+    const auto z_1value = (this->get_variable(x_1) * x_mulconst1) + (this->get_variable(y_1) * y_mulconst1) + addconst1;
+    const auto z_2value = (this->get_variable(x_2) * x_mulconst2) + (this->get_variable(y_2) * y_mulconst2) + addconst2;
+    const auto z_3value = (this->get_variable(x_3) * x_mulconst3) + (this->get_variable(y_3) * y_mulconst3) + addconst3;
     const auto z_pvalue = this->get_variable(x_p) + this->get_variable(y_p) + addconstp;
 
     const auto z_0 = this->add_variable(z_0value);
@@ -1625,27 +1621,18 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     const auto z_p = this->add_variable(z_pvalue);
 
     /**
-     *   we want the following layout in program memory
-     *   (x - y = z)
+     *   Wire layout for non-native field addition (z = x + y)
      *
-     *   |  1  |  2  |  3  |  4  |
-     *   |-----|-----|-----|-----|
-     *   | y.p | x.0 | y.0 | x.p | (b.p + c.p - a.p = 0) AND (a.0 - b.0 - c.0 = 0)
-     *   | z.p | x.1 | y.1 | z.0 | (a.1 - b.1 - c.1 = 0)
-     *   | x.2 | y.2 | z.2 | z.1 | (a.2 - b.2 - c.2 = 0)
-     *   | x.3 | y.3 | z.3 | --- | (a.3 - b.3 - c.3 = 0)
+     *   | w_1 | w_2 | w_3 | w_4 | q_arith |
+     *   |-----|-----|-----|-----|---------|
+     *   | y.p | x.0 | y.0 | x.p |    3    | constrains z.0 and z.p (via subrelation 2)
+     *   | z.p | x.1 | y.1 | z.0 |    2    | constrains z.1
+     *   | x.2 | y.2 | z.2 | z.1 |    1    | constrains z.2
+     *   | x.3 | y.3 | z.3 | --- |    1    | constrains z.3
      *
-     * By setting `q_arith` to `3`, we can validate `x_p + y_p + q_m = z_p`
+     *   Limb constraints: z.i = x.i * x_mulconst.i + y.i * y_mulconst.i + addconst.i
+     *   Prime basis limb constraint (via q_arith=3 subrelation 2): z.p = x.p + y.p + addconstp
      **/
-    // GATE 1
-    // |  1  |  2  |  3  |  4  |
-    // |-----|-----|-----|-----|
-    // | y.p | x.0 | y.0 | z.p | (b.p + b.p - c.p = 0) AND (a.0 + b.0 - c.0 = 0)
-    // | x.p | x.1 | y.1 | z.0 | (a.1  + b.1 - c.1 = 0)
-    // | x.2 | y.2 | z.2 | z.1 | (a.2  + b.2 - c.2 = 0)
-    // | x.3 | y.3 | z.3 | --- | (a.3  + b.3 - c.3 = 0)
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/896): descrepency between above comment and the actual
-    // implementation below.
     auto& block = blocks.arithmetic;
     block.populate_wires(y_p, x_0, y_0, x_p);
     block.populate_wires(z_p, x_1, y_1, z_0);
@@ -1696,6 +1683,11 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     };
 }
 
+/**
+ * @brief Construct gates for non-native field subtraction
+ * @details Uses special mode of ArithmeticRelation (q_arith = 2 and q_arith = 3) to subtract two non-native field
+ * elements in 4 gates instead of 5.
+ **/
 template <typename ExecutionTrace>
 std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_subtraction(
     add_simple limb0, add_simple limb1, add_simple limb2, add_simple limb3, std::tuple<uint32_t, uint32_t, FF> limbp)
@@ -1743,24 +1735,18 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     const auto z_p = this->add_variable(z_pvalue);
 
     /**
-     *   we want the following layout in program memory
-     *   (x - y = z)
+     *   Wire layout for non-native field subtraction (z = x - y)
      *
-     *   |  1  |  2  |  3  |  4  |
-     *   |-----|-----|-----|-----|
-     *   | y.p | x.0 | y.0 | z.p | (b.p + c.p - a.p = 0) AND (a.0 - b.0 - c.0 = 0)
-     *   | x.p | x.1 | y.1 | z.0 | (a.1 - b.1 - c.1 = 0)
-     *   | x.2 | y.2 | z.2 | z.1 | (a.2 - b.2 - c.2 = 0)
-     *   | x.3 | y.3 | z.3 | --- | (a.3 - b.3 - c.3 = 0)
+     *   | w_1 | w_2 | w_3 | w_4 | q_arith |
+     *   |-----|-----|-----|-----|---------|
+     *   | y.p | x.0 | y.0 | z.p |    3    | constrains z.0 and z.p (via subrelation 2)
+     *   | x.p | x.1 | y.1 | z.0 |    2    | constrains z.1
+     *   | x.2 | y.2 | z.2 | z.1 |    1    | constrains z.2
+     *   | x.3 | y.3 | z.3 | --- |    1    | constrains z.3
      *
+     *   Limb constraints: z.i = x.i * x_mulconst.i - y.i * y_mulconst.i + addconst.i
+     *   Prime basis limb constraint (via q_arith=3 subrelation 2): z.p = x.p - y.p + addconstp
      **/
-    // GATE 1
-    // |  1  |  2  |  3  |  4  |
-    // |-----|-----|-----|-----|
-    // | y.p | x.0 | y.0 | z.p | (b.p + c.p - a.p = 0) AND (a.0 - b.0 - c.0 = 0)
-    // | x.p | x.1 | y.1 | z.0 | (a.1 - b.1 - c.1 = 0)
-    // | x.2 | y.2 | z.2 | z.1 | (a.2 - b.2 - c.2 = 0)
-    // | x.3 | y.3 | z.3 | --- | (a.3 - b.3 - c.3 = 0)
     auto& block = blocks.arithmetic;
     block.populate_wires(y_p, x_0, y_0, z_p);
     block.populate_wires(x_p, x_1, y_1, z_0);
