@@ -296,7 +296,7 @@ Update the `coinbase` field in your sequencer node's keystore configuration to t
         "eth": "0x...",  // Your Ethereum sequencer private key
         "bls": "0x..."   // Your BLS sequencer private key
       },
-      "publisher": ["0x..."],  // Address that submits blocks to L1
+      "publisher": ["0x..."],  // Your publisher private key that submits blocks to L1
       "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]",  // Split contract for this delegation
       "feeRecipient": "0x..."  // Your Aztec address for L2 fees
     }
@@ -383,10 +383,10 @@ RPC_URL="[YOUR_RPC_URL]"
 WEBHOOK_URL="[YOUR_WEBHOOK_URL]"  # Optional: for Slack/Discord notifications
 
 # Gets current queue length
-QUEUE_LENGTH=$(cast call "$REGISTRY_ADDRESS" \
+QUEUE_LENGTH=$(cast to-dec $(cast call "$REGISTRY_ADDRESS" \
   "getProviderQueueLength(uint256)" \
   "$PROVIDER_ID" \
-  --rpc-url "$RPC_URL")
+  --rpc-url "$RPC_URL"))
 
 echo "Queue length: $QUEUE_LENGTH"
 
