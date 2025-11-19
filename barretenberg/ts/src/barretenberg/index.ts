@@ -174,11 +174,11 @@ export class BarretenbergSync extends SyncApi {
     }
 
     // Try native, fallback to WASM.
-    try {
-      return await createSyncBackend(BackendType.NativeSharedMemory, options, logger);
-    } catch (err: any) {
-      logger(`Shared memory unavailable (${err.message}), falling back to WASM`);
-    }
+    // try {
+    //   return await createSyncBackend(BackendType.NativeSharedMemory, options, logger);
+    // } catch (err: any) {
+    //   logger(`Shared memory unavailable (${err.message}), falling back to WASM`);
+    // }
 
     return await createSyncBackend(BackendType.Wasm, options, logger);
   }
