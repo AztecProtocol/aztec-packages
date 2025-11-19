@@ -3,7 +3,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import { Command } from 'commander';
 
 import { parseAztecAddress, parseEthereumAddress, parseHex, parseOptionalInteger } from '../../utils/commands.js';
-import { defaultBlsPath } from './shared.js';
+import { defaultBlsPath } from './utils.js';
 
 export function injectCommands(program: Command, log: LogFn) {
   const group = program
@@ -18,14 +18,21 @@ export function injectCommands(program: Command, log: LogFn) {
     .option('--data-dir <path>', 'Directory to store keystore(s). Defaults to ~/.aztec/keystore')
     .option('--file <name>', 'Keystore file name. Defaults to key1.json (or keyN.json if key1.json exists)')
     .option('--count <N>', 'Number of validators to generate', parseOptionalInteger)
-    .option('--publisher-count <N>', 'Number of publisher accounts per validator (default 1)', value =>
+    .option('--publisher-count <N>', 'Number of publisher accounts per validator (default 0)', value =>
       parseOptionalInteger(value, 0),
+    )
+    .option('--publishers <privateKeys>', 'Comma-separated list of publisher private keys for all validators.', value =>
+      value.split(',').map((key: string) => key.trim()),
     )
     .option('--mnemonic <mnemonic>', 'Mnemonic for ETH/BLS derivation')
     .option('--passphrase <str>', 'Optional passphrase for mnemonic')
     .option('--account-index <N>', 'Base account index for ETH/BLS derivation', parseOptionalInteger)
     .option('--address-index <N>', 'Base address index for ETH/BLS derivation', parseOptionalInteger)
-    .option('--coinbase <address>', 'Coinbase ETH address to use when proposing', parseEthereumAddress)
+    .option(
+      '--coinbase <address>',
+      'Coinbase ETH address to use when proposing. Defaults to attester address.',
+      parseEthereumAddress,
+    )
     .option('--funding-account <address>', 'ETH account to fund publishers', parseEthereumAddress)
     .option('--remote-signer <url>', 'Default remote signer URL for accounts in this file')
     .option('--ikm <hex>', 'Initial keying material for BLS (alternative to mnemonic)', value => parseHex(value, 32))
@@ -62,14 +69,21 @@ export function injectCommands(program: Command, log: LogFn) {
     .option('--data-dir <path>', 'Directory where keystore(s) live. (default: ~/.aztec/keystore)')
     .option('--file <name>', 'Override output file name. (default: key<N>.json)')
     .option('--count <N>', 'Number of validators to add. (default: 1)', parseOptionalInteger)
-    .option('--publisher-count <N>', 'Number of publisher accounts per validator (default 1)', value =>
+    .option('--publisher-count <N>', 'Number of publisher accounts per validator (default 0)', value =>
       parseOptionalInteger(value, 0),
+    )
+    .option('--publishers <privateKeys>', 'Comma-separated list of publisher private keys for all validators.', value =>
+      value.split(',').map((key: string) => key.trim()),
     )
     .option('--mnemonic <mnemonic>', 'Mnemonic for ETH/BLS derivation')
     .option('--passphrase <str>', 'Optional passphrase for mnemonic')
     .option('--account-index <N>', 'Base account index for ETH/BLS derivation', parseOptionalInteger)
     .option('--address-index <N>', 'Base address index for ETH/BLS derivation', parseOptionalInteger)
-    .option('--coinbase <address>', 'Coinbase ETH address to use when proposing', parseEthereumAddress)
+    .option(
+      '--coinbase <address>',
+      'Coinbase ETH address to use when proposing. Defaults to attester address.',
+      parseEthereumAddress,
+    )
     .option('--funding-account <address>', 'ETH account to fund publishers', parseEthereumAddress)
     .option('--remote-signer <url>', 'Default remote signer URL for accounts in this file')
     .option('--ikm <hex>', 'Initial keying material for BLS (alternative to mnemonic)', value => parseHex(value, 32))
