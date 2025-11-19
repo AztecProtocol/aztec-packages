@@ -1,6 +1,6 @@
 import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
 import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, P2PClientType } from '@aztec/stdlib/p2p';
+import type { BlockAttestation, BlockProposal, P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -49,6 +49,9 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
    * @param proposal - the block proposal
    */
   broadcastProposal(proposal: BlockProposal): Promise<void>;
+
+  /** Broadcasts block attestations to other peers. */
+  broadcastAttestations(attestations: BlockAttestation[]): Promise<void>;
 
   /**
    * Registers a callback from the validator client that determines how to behave when
