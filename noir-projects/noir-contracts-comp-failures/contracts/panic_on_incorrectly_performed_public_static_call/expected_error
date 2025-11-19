@@ -1,0 +1,2 @@
+Your public static call needs to be passed into the `self.view(...)`, `self.enqueue_view(...)` or `self.enqueue_view_incognito(...)` method to be executed (e.g. `self.view(MyContract::at(address).my_public_static_function(...args))`
+
