@@ -73,27 +73,6 @@ void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(co
  * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
  *
  * @tparam Flavor
- * @param proof Native proof
- * @param evaluation_input_x Translation polynomial evaluation challenge
- * @param batching_challenge_v Challenge for batching translation polynomial evaluations
- * @return TranslatorRecursiveVerifier_<Flavor>::PairingPoints
- */
-TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_proof(
-    const HonkProof& proof,
-    const BF& evaluation_input_x,
-    const BF& batching_challenge_v,
-    const BF& accumulated_result,
-    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
-{
-    StdlibProof stdlib_proof(*builder, proof);
-    return verify_proof(
-        stdlib_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
-}
-
-/**
- * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
- *
- * @tparam Flavor
  * @param proof Stdlib proof
  * @param evaluation_input_x Translation polynomial evaluation challenge
  * @param batching_challenge_v Challenge for batching translation polynomial evaluations

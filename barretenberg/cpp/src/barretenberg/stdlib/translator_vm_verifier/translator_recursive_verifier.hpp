@@ -51,12 +51,6 @@ class TranslatorRecursiveVerifier {
                                                      const BF& accumulated_result);
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const HonkProof& proof,
-        const BF& evaluation_input_x,
-        const BF& batching_challenge_v,
-        const BF& accumulated_result,
-        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments);
-    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
         const StdlibProof& proof,
         const BF& evaluation_input_x,
         const BF& batching_challenge_v,
