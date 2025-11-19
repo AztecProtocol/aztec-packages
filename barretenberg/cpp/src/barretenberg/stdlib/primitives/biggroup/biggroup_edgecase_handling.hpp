@@ -59,6 +59,7 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     offset_generator_element.set_origin_tag(OriginTag());
 
     // Compute initial point to be added: (δ)⋅G_offset
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1585): do we really need to multiply by δ here?
     element running_point = offset_generator_element.scalar_mul(masking_scalar, 128);
 
     // Start the running scalar at 1
