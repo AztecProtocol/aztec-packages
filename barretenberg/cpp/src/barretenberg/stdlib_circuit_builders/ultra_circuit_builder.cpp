@@ -1621,17 +1621,26 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     const uint32_t z_p = this->add_variable(z_pvalue);
 
     /**
+     * We want to impose the following five constraints:
+     *   Limb constraints: z.i = x.i * x_mulconst.i + y.i * y_mulconst.i + addconst.i
+     *   Prime basis limb constraint: z.p = x.p + y.p + addconstp
+     *
      *   Wire layout for non-native field addition (z = x + y)
      *
      *   | w_1 | w_2 | w_3 | w_4 | q_arith |
      *   |-----|-----|-----|-----|---------|
-     *   | y.p | x.0 | y.0 | x.p |    3    | constrains z.0 and z.p (via subrelation 2)
-     *   | z.p | x.1 | y.1 | z.0 |    2    | constrains z.1
-     *   | x.2 | y.2 | z.2 | z.1 |    1    | constrains z.2
-     *   | x.3 | y.3 | z.3 | --- |    1    | constrains z.3
+     *   | y.p | x.0 | y.0 | x.p |    3    |
+     *   | z.p | x.1 | y.1 | z.0 |    2    |
+     *   | x.2 | y.2 | z.2 | z.1 |    1    |
+     *   | x.3 | y.3 | z.3 | --- |    1    |
      *
-     *   Limb constraints: z.i = x.i * x_mulconst.i + y.i * y_mulconst.i + addconst.i
-     *   Prime basis limb constraint (via q_arith=3 subrelation 2): z.p = x.p + y.p + addconstp
+     *   Row 0 (q_arith=3): Two subrelations
+     *     - Subrelation 1: constrains z.0 via w_4_shift (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *     - Subrelation 2: constrains z.p via w_1 + w_4 - w_1_shift + q_m = 0
+     *       i.e., y.p + x.p - z.p + addconstp = 0
+     *   Row 1 (q_arith=2): constrains z.1 via w_4_shift (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *   Row 2 (q_arith=1): constrains z.2 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
+     *   Row 3 (q_arith=1): constrains z.3 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
      **/
     auto& block = blocks.arithmetic;
     block.populate_wires(y_p, x_0, y_0, x_p);
@@ -1735,17 +1744,29 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     const uint32_t z_p = this->add_variable(z_pvalue);
 
     /**
+     * We want to impose the following five constraints:
+     *   Limb constraints: z.i = x.i * x_mulconst.i - y.i * y_mulconst.i + addconst.i
+     *   Prime basis limb constraint: z.p = x.p - y.p + addconstp
+     *
      *   Wire layout for non-native field subtraction (z = x - y)
      *
      *   | w_1 | w_2 | w_3 | w_4 | q_arith |
      *   |-----|-----|-----|-----|---------|
-     *   | y.p | x.0 | y.0 | z.p |    3    | constrains z.0 and z.p (via subrelation 2)
-     *   | x.p | x.1 | y.1 | z.0 |    2    | constrains z.1
-     *   | x.2 | y.2 | z.2 | z.1 |    1    | constrains z.2
-     *   | x.3 | y.3 | z.3 | --- |    1    | constrains z.3
+     *   | y.p | x.0 | y.0 | z.p |    3    |
+     *   | x.p | x.1 | y.1 | z.0 |    2    |
+     *   | x.2 | y.2 | z.2 | z.1 |    1    |
+     *   | x.3 | y.3 | z.3 | --- |    1    |
      *
-     *   Limb constraints: z.i = x.i * x_mulconst.i - y.i * y_mulconst.i + addconst.i
-     *   Prime basis limb constraint (via q_arith=3 subrelation 2): z.p = x.p - y.p + addconstp
+     * Note: The positions of z.p and x.p are swapped compared to the corresponding addition method. This is necessary
+     * to achieve the desired constraint since the scaler on w_1_shift is fixed to -1 in the relation implementation.
+     *
+     *   Row 0 (q_arith=3): Two subrelations
+     *     - Subrelation 1: constrains z.0 via w_4_shift (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *     - Subrelation 2: constrains z.p via w_1 + w_4 - w_1_shift + q_m = 0
+     *       i.e., y.p + z.p - x.p + (-addconstp) = 0
+     *   Row 1 (q_arith=2): constrains z.1 via w_4_shift (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *   Row 2 (q_arith=1): constrains z.2 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
+     *   Row 3 (q_arith=1): constrains z.3 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
      **/
     auto& block = blocks.arithmetic;
     block.populate_wires(y_p, x_0, y_0, z_p);
