@@ -583,7 +583,7 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
         // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
         ivc->complete_kernel_circuit_logic(builder);
 
-        // Note: we can't easily track the gate contribution from each individual pg_recursion_constraint since they
+        // Note: we can't easily track the gate contribution from each individual hn_recursion_constraint since they
         // are handled simultaneously in the above function call; instead we track the total contribution
         gate_counter.track_diff(constraints.gates_per_opcode,
                                 constraints.original_opcode_indices.hn_recursion_constraints.at(0));

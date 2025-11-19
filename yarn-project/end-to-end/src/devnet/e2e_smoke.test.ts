@@ -172,7 +172,7 @@ describe('End-to-end tests for devnet', () => {
     // );
 
     expect(txReceipt.status).toBe(TxStatus.SUCCESS);
-    const feeJuice = await FeeJuiceContract.at((await node.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
+    const feeJuice = FeeJuiceContract.at((await node.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
     const balance = await feeJuice.methods.balance_of_public(l2AccountAddress).simulate({ from: l2AccountAddress });
     expect(balance).toEqual(amount - txReceipt.transactionFee!);
   });

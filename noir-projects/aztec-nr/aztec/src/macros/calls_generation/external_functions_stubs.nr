@@ -62,15 +62,14 @@ pub(crate) comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
     let fn_return_type = f.return_type();
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateCallInterface<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PrivateCall<$fn_name_len, $fn_return_type> {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            dep::aztec::context::call_interfaces::PrivateCallInterface::new(
+            dep::aztec::context::calls::PrivateCall::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
                 $serialized_args_array_name,
-                false
             )
         }
     }
@@ -82,10 +81,10 @@ pub(crate) comptime fn create_private_static_stub(f: FunctionDefinition) -> Quot
     let fn_return_type = f.return_type();
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateStaticCallInterface<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PrivateStaticCall<$fn_name_len, $fn_return_type> {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            dep::aztec::context::call_interfaces::PrivateStaticCallInterface::new(
+            dep::aztec::context::calls::PrivateStaticCall::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
@@ -101,15 +100,14 @@ pub(crate) comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
     let fn_return_type = f.return_type();
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicCallInterface<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PublicCall<$fn_name_len, $fn_return_type> {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            dep::aztec::context::call_interfaces::PublicCallInterface::new(
+            dep::aztec::context::calls::PublicCall::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
                 $serialized_args_array_name,
-                false
             )
         }
     }
@@ -121,10 +119,10 @@ pub(crate) comptime fn create_public_static_stub(f: FunctionDefinition) -> Quote
     let fn_return_type = f.return_type();
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicStaticCallInterface<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PublicStaticCall<$fn_name_len, $fn_return_type> {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            dep::aztec::context::call_interfaces::PublicStaticCallInterface::new(
+            dep::aztec::context::calls::PublicStaticCall::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
@@ -140,10 +138,10 @@ pub(crate) comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
     let fn_return_type = f.return_type();
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityCallInterface<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::UtilityCall<$fn_name_len, $fn_return_type> {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            dep::aztec::context::call_interfaces::UtilityCallInterface::new(
+            dep::aztec::context::calls::UtilityCall::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
@@ -183,7 +181,7 @@ pub comptime fn create_private_self_call_stub(f: FunctionDefinition, is_static: 
     }
 }
 
-// TODO(F-131): Drop the use of the CallInterface in the following 4 functions - it doesn't make sense to not not
+// TODO(F-131): Drop the use of the Call in the following 4 functions - it doesn't make sense to not not
 // perform the call directly using the context. I tried doing this already but it became a lot of pain due to the use of
 // slices and them being illegal to return from unconstrained functions. Makes sense to tackle this when cleaning up the
 // call interface code.
@@ -200,12 +198,11 @@ pub comptime fn create_public_self_call_stub(f: FunctionDefinition) -> Quoted {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             unsafe {
-                aztec::context::call_interfaces::PublicCallInterface::new(
+                aztec::context::calls::PublicCall::new(
                     self.address,
                     selector,
                     $fn_name_str,
                     $serialized_args_array_name,
-                    false
                 ).call(self.context)
             }
         }
@@ -223,7 +220,7 @@ pub comptime fn create_public_self_call_static_stub(f: FunctionDefinition) -> Qu
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             unsafe {
-                aztec::context::call_interfaces::PublicStaticCallInterface::new(
+                aztec::context::calls::PublicStaticCall::new(
                     self.address,
                     selector,
                     $fn_name_str,
@@ -243,7 +240,7 @@ pub comptime fn create_public_self_enqueue_static_stub(f: FunctionDefinition) ->
         pub fn $fn_name(self, $fn_parameters_list) {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            let interface: aztec::context::call_interfaces::PublicStaticCallInterface<$fn_name_len, ()> = aztec::context::call_interfaces::PublicStaticCallInterface::new(
+            let interface: aztec::context::calls::PublicStaticCall<$fn_name_len, ()> = aztec::context::calls::PublicStaticCall::new(
                 self.address,
                 selector,
                 $fn_name_str,
@@ -263,12 +260,11 @@ pub comptime fn create_public_self_enqueue_stub(f: FunctionDefinition) -> Quoted
         pub fn $fn_name(self, $fn_parameters_list) {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            let interface: aztec::context::call_interfaces::PublicCallInterface<$fn_name_len, ()> = aztec::context::call_interfaces::PublicCallInterface::new(
+            let interface: aztec::context::calls::PublicCall<$fn_name_len, ()> = aztec::context::calls::PublicCall::new(
                 self.address,
                 selector,
                 $fn_name_str,
                 $serialized_args_array_name,
-                false
             );
             interface.enqueue(self.context);
         }

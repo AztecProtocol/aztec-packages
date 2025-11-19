@@ -455,7 +455,7 @@ TEST_F(TxExecutionConstrainingTestHelper, JumpOnRevert)
     trace.set(8, { { { C::tx_is_padded, 1 } } });
 
     precomputed_builder.process_phase_table(trace);
-    precomputed_builder.process_misc(trace);
+    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
     check_relation<tx>(trace);
 }

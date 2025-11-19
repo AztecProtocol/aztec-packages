@@ -43,7 +43,7 @@ describe('docs_examples', () => {
       .send({ from: defaultAccountAddress })
       .deployed();
 
-    const contract = await Contract.at(deployedContract.address, TokenContractArtifact, wallet);
+    const contract = Contract.at(deployedContract.address, TokenContractArtifact, wallet);
 
     await contract.methods.mint_to_public(newAccountAddress, 1).send({ from: defaultAccountAddress }).wait();
 

@@ -113,8 +113,8 @@ function build {
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
-
-    rm -rf acir_tests/{ecdsa_secp256k1_invalid_pub_key_in_inactive_branch,ecdsa_secp256r1_invalid_pub_key_in_inactive_branch}
+    # These use folding, which is not currently supported.
+    rm -rf acir_tests/{fold_call_witness_condition,fold_after_inlined_calls,fold_complex_outputs,fold_basic_nested_call,fold_numeric_generic_poseidon,fold_fibonacci,fold_basic,fold_2_to_17,fold_distinct_return}
     # These are breaking with:
     # Failed to solve program: 'Failed to solve blackbox function: embedded_curve_add, reason: Infinite input: embedded_curve_add(infinity, infinity)'
     rm -rf acir_tests/{regression_5045,regression_7744}

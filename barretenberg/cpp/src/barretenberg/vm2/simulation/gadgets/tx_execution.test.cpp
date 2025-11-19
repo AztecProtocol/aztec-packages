@@ -68,6 +68,7 @@ TEST_F(TxExecutionTest, simulateTx)
         .setup_enqueued_calls = testing::random_enqueued_calls(1),
         .app_logic_enqueued_calls = testing::random_enqueued_calls(1),
         .teardown_enqueued_call = testing::random_enqueued_calls(1)[0],
+        .fee_payer = FF::random_element(),
     };
 
     AppendOnlyTreeSnapshot dummy_snapshot = {
@@ -172,6 +173,7 @@ TEST_F(TxExecutionTest, NoteHashLimitReached)
                 .note_hashes = testing::random_fields(1),
             },
         .app_logic_enqueued_calls = testing::random_enqueued_calls(1),
+        .fee_payer = FF::random_element(),
     };
 
     AppendOnlyTreeSnapshot dummy_snapshot = {
@@ -266,6 +268,7 @@ TEST_F(TxExecutionTest, NullifierLimitReached)
                 .nullifiers = testing::random_fields(1),
             },
         .app_logic_enqueued_calls = testing::random_enqueued_calls(1),
+        .fee_payer = FF::random_element(),
     };
 
     AppendOnlyTreeSnapshot dummy_snapshot = {
@@ -362,6 +365,7 @@ TEST_F(TxExecutionTest, L2ToL1MessageLimitReached)
                 .l2_to_l1_messages = testing::random_l2_to_l1_messages(1),
             },
         .app_logic_enqueued_calls = testing::random_enqueued_calls(1),
+        .fee_payer = FF::random_element(),
     };
 
     AppendOnlyTreeSnapshot dummy_snapshot = {

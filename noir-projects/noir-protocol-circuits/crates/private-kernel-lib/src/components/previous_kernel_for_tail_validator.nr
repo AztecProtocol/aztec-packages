@@ -33,9 +33,13 @@ pub fn validate_previous_kernel_for_tail(
     } else {
         // The `min_revertible_side_effect_counter` could be anything for a pure private tx, as it's not used in the
         // tail circuit or any circuits before the tail.
-        // It's the `split_counter` in the `validation_requests` that we need to check (below), which was used in the
-        // reset circuits.
     }
+
+    assert_eq(
+        previous_kernel_public_inputs.claimed_revertible_counter,
+        min_revertible_side_effect_counter,
+        "claimed_revertible_counter does not match min_revertible_side_effect_counter",
+    );
 
     // --- validation_requests ---
 
@@ -56,29 +60,6 @@ pub fn validate_previous_kernel_for_tail(
         0,
         "Non empty key validation requests",
     );
-
-    let split_counter = validation_requests.split_counter;
-
-    if split_counter.is_some() {
-        if is_for_public {
-            assert_eq(
-                split_counter.unwrap_unchecked(),
-                min_revertible_side_effect_counter,
-                "split_counter does not match min_revertible_side_effect_counter",
-            );
-        } else {
-            // Even though `min_revertible_side_effect_counter` could be non-zero in a pure private tx.
-            // The hinted `split_counter` must be 0 to ensure that all the transient data are squashed.
-            assert_eq(
-                split_counter.unwrap_unchecked(),
-                0,
-                "split_counter must be 0 for pure private tx",
-            );
-        }
-    } else {
-        // If the split_counter is none, then the reset circuit was not run (which makes sure the split_counter is set),
-        // so we don't need to check anything here.
-    }
 
     // --- fee_payer ---
 

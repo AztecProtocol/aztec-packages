@@ -16,7 +16,6 @@ import { publishContractClass } from '../deployment/publish_class.js';
 import { publishInstance } from '../deployment/publish_instance.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
-import type { Contract } from './contract.js';
 import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
@@ -51,6 +50,8 @@ export type RequestDeployOptions = RequestInteractionOptions & {
   skipInstancePublication?: boolean;
   /** Skip contract initialization. */
   skipInitialization?: boolean;
+  /** Skip contract registration in the wallet */
+  skipRegistration?: boolean;
 };
 
 /**
@@ -63,8 +64,6 @@ export type DeployOptions = Omit<RequestDeployOptions, 'deployer'> & {
    */
   universalDeploy?: boolean;
 } & Pick<SendInteractionOptions, 'from' | 'fee'>;
-// docs:end:deploy_options
-// TODO(@spalladino): Add unit tests for this class!
 
 /**
  * Options for simulating the deployment of a contract
@@ -96,7 +95,7 @@ export type SimulateDeployOptions = Omit<DeployOptions, 'fee'> & {
  *
  * Extends the BaseContractInteraction class.
  */
-export class DeployMethod<TContract extends ContractBase = Contract> extends BaseContractInteraction {
+export class DeployMethod<TContract extends ContractBase = ContractBase> extends BaseContractInteraction {
   /** The contract instance to be deployed. */
   private instance?: ContractInstanceWithAddress = undefined;
 
@@ -107,7 +106,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     private publicKeys: PublicKeys,
     wallet: Wallet,
     protected artifact: ContractArtifact,
-    protected postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
+    protected postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
     private args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
     authWitnesses: AuthWitness[] = [],
@@ -125,7 +124,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   public async request(options?: RequestDeployOptions): Promise<ExecutionPayload> {
     const publication = await this.getPublicationExecutionPayload(options);
 
-    await this.wallet.registerContract(await this.getInstance(options), this.artifact);
+    if (!options?.skipRegistration) {
+      await this.wallet.registerContract(await this.getInstance(options), this.artifact);
+    }
 
     const initialization = await this.getInitializationExecutionPayload(options);
     const feeExecutionPayload = options?.fee?.paymentMethod
@@ -155,7 +156,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   public async register(options?: RequestDeployOptions): Promise<TContract> {
     const instance = await this.getInstance(options);
     await this.wallet.registerContract(instance, this.artifact);
-    return this.postDeployCtor(instance.address, this.wallet);
+    return this.postDeployCtor(instance, this.wallet);
   }
 
   /**

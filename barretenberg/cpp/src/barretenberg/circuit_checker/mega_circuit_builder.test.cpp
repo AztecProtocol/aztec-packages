@@ -194,7 +194,7 @@ TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
                 EXPECT_EQ(block.q_nnf()[i], 0);
             }
             if (&block != &builder.blocks.lookup) {
-                EXPECT_EQ(block.q_lookup_type()[i], 0);
+                EXPECT_EQ(block.q_lookup()[i], 0);
             }
             if (&block != &builder.blocks.busread) {
                 EXPECT_EQ(block.q_busread()[i], 0);

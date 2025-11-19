@@ -125,7 +125,17 @@ describe('WalletSchema', () => {
       fileMap: {},
       storageLayout: {},
     };
-    const result = await context.client.registerContract(await AztecAddress.random(), mockArtifact, Fr.random());
+    const mockInstance: ContractInstanceWithAddress = {
+      address: await AztecAddress.random(),
+      version: 1,
+      salt: Fr.random(),
+      deployer: await AztecAddress.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
+      initializationHash: Fr.random(),
+      publicKeys: PublicKeys.default(),
+    };
+    const result = await context.client.registerContract(mockInstance, mockArtifact, Fr.random());
     expect(result).toEqual({
       address: expect.any(AztecAddress),
       currentContractClassId: expect.any(Fr),
@@ -144,6 +154,7 @@ describe('WalletSchema', () => {
       authWitnesses: [],
       capsules: [],
       extraHashedArgs: [],
+      feePayer: undefined,
     };
     const opts: SimulateOptions = {
       from: await AztecAddress.random(),
@@ -173,6 +184,7 @@ describe('WalletSchema', () => {
       authWitnesses: [],
       capsules: [],
       extraHashedArgs: [],
+      feePayer: undefined,
     };
     const opts: ProfileOptions = {
       from: await AztecAddress.random(),
@@ -188,6 +200,7 @@ describe('WalletSchema', () => {
       authWitnesses: [],
       capsules: [],
       extraHashedArgs: [],
+      feePayer: undefined,
     };
     const opts: SendOptions = {
       from: await AztecAddress.random(),
@@ -210,6 +223,7 @@ describe('WalletSchema', () => {
       authWitnesses: [],
       capsules: [],
       extraHashedArgs: [],
+      feePayer: undefined,
     };
     const opts: SendOptions = {
       from: await AztecAddress.random(),
@@ -229,11 +243,31 @@ describe('WalletSchema', () => {
       returnTypes: [],
     };
 
+    const mockInstance: ContractInstanceWithAddress = {
+      address: address2,
+      version: 1,
+      salt: Fr.random(),
+      deployer: await AztecAddress.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
+      initializationHash: Fr.random(),
+      publicKeys: PublicKeys.default(),
+    };
+
+    const mockArtifact: ContractArtifact = {
+      name: 'TestContract',
+      functions: [],
+      nonDispatchPublicFunctions: [],
+      outputs: { structs: {}, globals: {} },
+      fileMap: {},
+      storageLayout: {},
+    };
+
     const methods: BatchedMethod<keyof BatchableMethods>[] = [
       { name: 'registerSender', args: [address1, 'alias1'] },
-      { name: 'registerContract', args: [address2, undefined, undefined] },
+      { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'sendTx', args: [exec, opts] },
-      { name: 'simulateUtility', args: [call, [AuthWitness.random()], undefined] },
+      { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
     ];
 
@@ -342,7 +376,7 @@ class MockWallet implements Wallet {
     return Promise.resolve(TxSimulationResult.random());
   }
 
-  simulateUtility(_call: any, _authwits?: AuthWitness[], _scopes?: AztecAddress[]): Promise<UtilitySimulationResult> {
+  simulateUtility(_call: any, _authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
     return Promise.resolve(UtilitySimulationResult.random());
   }
 

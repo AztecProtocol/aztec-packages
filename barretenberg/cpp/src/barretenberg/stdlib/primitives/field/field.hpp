@@ -355,7 +355,7 @@ template <typename Builder_> class field_t {
      */
     void unset_free_witness_tag() const { tag.unset_free_witness(); }
 
-    void clear_child_tag() const { tag.clear_child_tag(); }
+    void clear_round_provenance() const { tag.clear_round_provenance(); }
 
     field_t conditional_negate(const bool_t<Builder>& predicate) const;
 

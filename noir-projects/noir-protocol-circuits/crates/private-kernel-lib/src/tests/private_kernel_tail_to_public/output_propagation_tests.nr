@@ -229,6 +229,7 @@ fn split_all_side_effects() {
 
     // Set the correct min_revertible_side_effect_counter.
     builder.previous_kernel.min_revertible_side_effect_counter = min_revertible_side_effect_counter;
+    builder.previous_kernel.claimed_revertible_counter = min_revertible_side_effect_counter;
 
     // Shuffle ordered items.
     swap_items(&mut builder.previous_kernel.l2_to_l1_msgs, 0, 1);
@@ -357,6 +358,7 @@ fn split_full_side_effects() {
 
     // Set the min_revertible_side_effect_counter.
     builder.previous_kernel.min_revertible_side_effect_counter = min_revertible_side_effect_counter;
+    builder.previous_kernel.claimed_revertible_counter = min_revertible_side_effect_counter;
 
     // Shuffle ordered items.
     swap_items(&mut builder.previous_kernel.l2_to_l1_msgs, 0, 1);
@@ -484,6 +486,7 @@ fn split_side_effects_with_padded_items() {
 
     // Set the min_revertible_side_effect_counter.
     builder.previous_kernel.min_revertible_side_effect_counter = min_revertible_side_effect_counter;
+    builder.previous_kernel.claimed_revertible_counter = min_revertible_side_effect_counter;
 
     builder.padded_side_effect_amounts = PaddedSideEffectAmounts {
         non_revertible_note_hashes: 3,

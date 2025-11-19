@@ -49,8 +49,8 @@ describe('Orderbook', () => {
       logger,
     } = await setup(3));
 
-    token0 = await deployToken(wallet, adminAddress, 0n, logger);
-    token1 = await deployToken(wallet, adminAddress, 0n, logger);
+    ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
+    ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
 
     orderbook = await OrderbookContract.deploy(wallet, token0.address, token1.address)
       .send({ from: adminAddress })

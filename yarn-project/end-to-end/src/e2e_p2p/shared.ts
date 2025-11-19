@@ -80,7 +80,7 @@ export async function prepareTransactions(
     salt: Fr.random(),
   });
   await wallet.registerContract(testContractInstance, TestContractArtifact);
-  const contract = await TestContract.at(testContractInstance.address, wallet);
+  const contract = TestContract.at(testContractInstance.address, wallet);
 
   return timesAsync(numTxs, async () => {
     const tx = await proveInteraction(wallet, contract.methods.emit_nullifier(Fr.random()), {

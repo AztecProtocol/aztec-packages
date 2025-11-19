@@ -17,16 +17,16 @@ using namespace numeric;
  *
  * @details For now this detects that 2 elements from 2 different round can't mingle without a challenge in between
  *
- * @param tag_a
- * @param tag_b
+ * @param provenance_a Round provenance of first element
+ * @param provenance_b Round provenance of second element
  */
-void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b)
+void check_round_provenance(const uint256_t& provenance_a, const uint256_t& provenance_b)
 {
-    const uint128_t* challenges_a = (const uint128_t*)(&tag_a.data[2]);
-    const uint128_t* challenges_b = (const uint128_t*)(&tag_b.data[2]);
+    const uint128_t* challenges_a = (const uint128_t*)(&provenance_a.data[2]);
+    const uint128_t* challenges_b = (const uint128_t*)(&provenance_b.data[2]);
 
-    const uint128_t* submitted_a = (const uint128_t*)(&tag_a.data[0]);
-    const uint128_t* submitted_b = (const uint128_t*)(&tag_b.data[0]);
+    const uint128_t* submitted_a = (const uint128_t*)(&provenance_a.data[0]);
+    const uint128_t* submitted_b = (const uint128_t*)(&provenance_b.data[0]);
 
     if (*challenges_a == 0 && *challenges_b == 0 && *submitted_a != 0 && *submitted_b != 0 &&
         *submitted_a != *submitted_b) {
@@ -36,7 +36,7 @@ void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b)
 
 bool OriginTag::operator==(const OriginTag& other) const
 {
-    return this->parent_tag == other.parent_tag && this->child_tag == other.child_tag &&
+    return this->transcript_index == other.transcript_index && this->round_provenance == other.round_provenance &&
            this->instant_death == other.instant_death;
 }
 OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
@@ -46,11 +46,11 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
         throw_or_abort("Touched an element that should not have been touched");
     }
     // If one of the tags is a constant, just use the other tag
-    if (tag_a.parent_tag == CONSTANT) {
+    if (tag_a.transcript_index == CONSTANT) {
         *this = tag_b;
         return;
     }
-    if (tag_b.parent_tag == CONSTANT) {
+    if (tag_b.transcript_index == CONSTANT) {
         *this = tag_a;
         return;
     }
@@ -75,16 +75,14 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
         }
     }
     // Elements from different transcripts shouldn't interact
-#ifndef DISABLE_DIFFERENT_TRANSCRIPT_CHECKS
-    if (tag_a.parent_tag != tag_b.parent_tag) {
+    if (tag_a.transcript_index != tag_b.transcript_index) {
         throw_or_abort("Tags from different transcripts were involved in the same computation");
     }
-#endif
     // Check that submitted values from different rounds don't mix without challenges
-    check_child_tags(tag_a.child_tag, tag_b.child_tag);
+    check_round_provenance(tag_a.round_provenance, tag_b.round_provenance);
 
-    parent_tag = tag_a.parent_tag;
-    child_tag = tag_a.child_tag | tag_b.child_tag;
+    transcript_index = tag_a.transcript_index;
+    round_provenance = tag_a.round_provenance | tag_b.round_provenance;
 }
 
 #else
