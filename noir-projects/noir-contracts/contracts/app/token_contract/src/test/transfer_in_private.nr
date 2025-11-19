@@ -1,6 +1,6 @@
 use crate::test::utils;
 use crate::Token;
-use aztec::test::helpers::authwit::add_private_authwit_from_call_interface;
+use aztec::test::helpers::authwit::add_private_authwit_from_call;
 
 #[test]
 unconstrained fn transfer_private_on_behalf_of_other() {
@@ -9,16 +9,11 @@ unconstrained fn transfer_private_on_behalf_of_other() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
     // Add authwit
     let transfer_amount = 1000 as u128;
-    let transfer_private_from_call_interface =
+    let transfer_private_from_call =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    add_private_authwit_from_call_interface(
-        env,
-        owner,
-        recipient,
-        transfer_private_from_call_interface,
-    );
+    add_private_authwit_from_call(env, owner, recipient, transfer_private_from_call);
     // Transfer tokens
-    env.call_private(recipient, transfer_private_from_call_interface);
+    env.call_private(recipient, transfer_private_from_call);
     // Check balances
     utils::check_private_balance(
         env,
@@ -36,16 +31,11 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
     // Add authwit
     let transfer_amount = 1000 as u128;
-    let transfer_private_from_call_interface =
+    let transfer_private_from_call =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    add_private_authwit_from_call_interface(
-        env,
-        owner,
-        recipient,
-        transfer_private_from_call_interface,
-    );
+    add_private_authwit_from_call(env, owner, recipient, transfer_private_from_call);
     // Transfer tokens
-    env.call_private(owner, transfer_private_from_call_interface);
+    env.call_private(owner, transfer_private_from_call);
 }
 
 #[test(should_fail_with = "Balance too low")]
@@ -55,16 +45,11 @@ unconstrained fn transfer_private_failure_on_behalf_of_more_than_balance() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
     // Add authwit
     let transfer_amount = mint_amount + (1 as u128);
-    let transfer_private_from_call_interface =
+    let transfer_private_from_call =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    add_private_authwit_from_call_interface(
-        env,
-        owner,
-        recipient,
-        transfer_private_from_call_interface,
-    );
+    add_private_authwit_from_call(env, owner, recipient, transfer_private_from_call);
     // Transfer tokens
-    env.call_private(recipient, transfer_private_from_call_interface);
+    env.call_private(recipient, transfer_private_from_call);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -74,10 +59,10 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_without_approval() 
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
     // Add authwit
     let transfer_amount = 1000 as u128;
-    let transfer_private_from_call_interface =
+    let transfer_private_from_call =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
     // Transfer tokens
-    env.call_private(recipient, transfer_private_from_call_interface);
+    env.call_private(recipient, transfer_private_from_call);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -87,14 +72,9 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_wrong_caller() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
     // Add authwit
     let transfer_amount = 1000 as u128;
-    let transfer_private_from_call_interface =
+    let transfer_private_from_call =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    add_private_authwit_from_call_interface(
-        env,
-        owner,
-        owner,
-        transfer_private_from_call_interface,
-    );
+    add_private_authwit_from_call(env, owner, owner, transfer_private_from_call);
     // Transfer tokens
-    env.call_private(recipient, transfer_private_from_call_interface);
+    env.call_private(recipient, transfer_private_from_call);
 }
