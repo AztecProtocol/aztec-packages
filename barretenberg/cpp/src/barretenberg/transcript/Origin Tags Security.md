@@ -22,12 +22,12 @@ The Origin Tag mechanism is a security feature designed to track the provenance 
 
 The `OriginTag` struct contains three main fields:
 
-1. **parent_tag**: Identifies the transcript instance that generated the value
+1. **transcript_index**: Identifies the transcript instance that generated the value
    - `CONSTANT` (-1): Value is a constant
    - `FREE_WITNESS` (-2): Value is a free witness (not constant, not from transcript)
    - Numeric index: Specific transcript instance
 
-2. **child_tag**: 256-bit field tracking which submitted values and challenges were used
+2. **round_provenance**: 256-bit field tracking which submitted values and challenges were used
    - Lower 128 bits: Submitted values from corresponding rounds (bit position = round number)
    - Upper 128 bits: Challenge values from corresponding rounds (bit position = round number + 128)
 
