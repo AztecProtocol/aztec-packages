@@ -4495,6 +4495,10 @@ struct PublicInputs {
     }
 };
 
+/**
+ * @brief The intermediate representation of a function when being transformed from a vector of bytes into a series of
+ * constraints.
+ */
 struct Circuit {
     std::string function_name;
     uint32_t current_witness_index;
