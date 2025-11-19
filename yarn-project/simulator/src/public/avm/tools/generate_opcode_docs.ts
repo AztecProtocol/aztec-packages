@@ -345,6 +345,12 @@ function generateOpcodeDoc(
       addressingModeBits: op.addressingModeBits,
     }));
 
+  // Determine addressing mode bitmask size dynamically
+  const addrModeBitmaskSize = getAddressingModeBitmaskSize(extracted.wireFormats);
+  const addrModeEncoding = addrModeBitmaskSize
+    ? `Single ${addrModeBitmaskSize}-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)`
+    : undefined;
+
   const doc: OpcodeDocumentation = {
     opcode: instructionClass.opcode,
     name: type,
@@ -362,11 +368,8 @@ function generateOpcodeDoc(
     addressingModes: {
       supported: extracted.addressingModeOperands.length > 0,
       operands: extracted.addressingModeOperands,
-      bitmaskSize: extracted.addressingModeOperands.length > 0 ? 8 : undefined,
-      encoding:
-        extracted.addressingModeOperands.length > 0
-          ? 'Single 8-bit bitmask: 2 bits per operand (indirect flag + relative flag)'
-          : undefined,
+      bitmaskSize: addrModeBitmaskSize,
+      encoding: addrModeEncoding,
     },
   };
 
@@ -384,6 +387,27 @@ function generateOpcodeDoc(
   }
 
   return doc;
+}
+
+/**
+ * Determine the addressing mode bitmask size from wire formats.
+ * Returns 8 for ADDRMODE8, 16 for ADDRMODE16, or undefined if no addressing modes.
+ */
+function getAddressingModeBitmaskSize(wireFormats: any[]): number | undefined {
+  if (wireFormats.length === 0) return undefined;
+
+  for (const wf of wireFormats) {
+    for (const operandType of wf.format) {
+      if (operandType === OperandType.ADDRMODE8) {
+        return 8;
+      }
+      if (operandType === OperandType.ADDRMODE16) {
+        return 16;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 /**
