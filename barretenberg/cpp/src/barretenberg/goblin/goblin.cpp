@@ -105,12 +105,13 @@ bool Goblin::verify(const GoblinProof& proof,
 
     TranslatorVerifier translator_verifier(transcript);
 
-    // Pass accumulated_result computed by ECCVM verifier to Translator verifier
+    // Get translation data from ECCVM verifier to pass to Translator verifier
     // The relations will implicitly verify the translation is correct
+    auto translator_input = eccvm_verifier.get_translator_input_data();
     bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof,
-                                                                              eccvm_verifier.evaluation_challenge_x,
-                                                                              eccvm_verifier.batching_challenge_v,
-                                                                              eccvm_verifier.accumulated_result);
+                                                                              translator_input.evaluation_challenge_x,
+                                                                              translator_input.batching_challenge_v,
+                                                                              translator_input.accumulated_result);
 
     // Verify the consistency between the commitments to polynomials representing the op queue received by translator
     // and final merge verifier

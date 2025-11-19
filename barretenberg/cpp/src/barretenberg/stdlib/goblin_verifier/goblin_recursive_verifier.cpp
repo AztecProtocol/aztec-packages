@@ -45,13 +45,14 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
     auto [opening_claim, ipa_proof] = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
     // Run the Translator recursive verifier
-    // Pass accumulated_result computed by ECCVM verifier; the relations will implicitly verify translation
+    // Get translation data from ECCVM verifier; the relations will implicitly verify translation
     TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, transcript };
+    auto translator_input = eccvm_verifier.get_translator_input_data();
     PairingPoints<bn254<Builder>> translator_pairing_points =
         translator_verifier.verify_proof(proof.translator_proof,
-                                         eccvm_verifier.evaluation_challenge_x,
-                                         eccvm_verifier.batching_challenge_v,
-                                         eccvm_verifier.accumulated_result);
+                                         translator_input.evaluation_challenge_x,
+                                         translator_input.batching_challenge_v,
+                                         translator_input.accumulated_result);
 
     translator_pairing_points.aggregate(merge_pairing_points);
 

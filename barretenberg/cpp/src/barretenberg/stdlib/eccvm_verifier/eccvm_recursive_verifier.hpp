@@ -30,6 +30,8 @@ class ECCVMRecursiveVerifier {
     using IpaClaimAndProof = std::pair<OpeningClaim<Curve>, StdlibIpaProof>;
 
   public:
+    using TranslatorInputData = TranslatorInputData_<FF>;
+
     struct StdlibProof {
         StdlibPreIpaProof pre_ipa_proof;
         StdlibIpaProof ipa_proof;
@@ -50,6 +52,15 @@ class ECCVMRecursiveVerifier {
     [[nodiscard("IPA claim should be accumulated")]] IpaClaimAndProof verify_proof(const StdlibProof& proof);
     void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
+    /**
+     * @brief Get the data required by the TranslatorRecursiveVerifier
+     * @return TranslatorInputData containing evaluation_challenge_x, batching_challenge_v, and accumulated_result
+     */
+    TranslatorInputData get_translator_input_data() const
+    {
+        return { evaluation_challenge_x, batching_challenge_v, accumulated_result };
+    }
+
     std::shared_ptr<VerificationKey> key;
     BF vk_hash;
 
@@ -61,6 +72,8 @@ class ECCVMRecursiveVerifier {
     // `multivariate_to_univariate_opening_claim`
     static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
     std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
+
+  private:
     FF translation_masking_term_eval;
 
     // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier

@@ -32,6 +32,18 @@ template <typename BF> struct TranslationEvaluations_ {
 };
 
 /**
+ * @brief Data passed from ECCVM Verifier to Translator Verifier for verification
+ * @tparam FF The field type (either native or circuit field)
+ */
+template <typename FF> struct TranslatorInputData_ {
+    FF evaluation_challenge_x;
+    FF batching_challenge_v;
+    FF accumulated_result;
+
+    MSGPACK_FIELDS(evaluation_challenge_x, batching_challenge_v, accumulated_result);
+};
+
+/**
  * @brief Efficiently compute \f$ \text{translation_masking_term_eval} \cdot x^{N}\f$, where \f$ N =
  * 2^{\text{CONST_ECCVM_LOG_N}}  - \text{NUM_DISABLED_ROWS_IN_SUMCHECK}  \f$.
  * @details As described in \ref ECCVMProver::compute_translation_opening_claims(), Translator's
