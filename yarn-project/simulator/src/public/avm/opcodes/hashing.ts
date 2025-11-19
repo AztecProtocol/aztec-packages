@@ -15,8 +15,8 @@ export class Poseidon2 extends Instruction {
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
   ];
@@ -58,8 +58,8 @@ export class KeccakF1600 extends Instruction {
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
   ];
@@ -101,8 +101,8 @@ export class Sha256Compression extends Instruction {
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
     OperandType.UINT16,

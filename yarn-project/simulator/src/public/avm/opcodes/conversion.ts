@@ -11,8 +11,8 @@ export class ToRadixBE extends Instruction {
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8, // Opcode
-    OperandType.UINT16, // addressing_mode
+    OperandType.OPCODE,
+    OperandType.ADDRMODE16, // 16-bit addressing mode (5 operands require more than 8 bits)
     OperandType.UINT16, // src memory address
     OperandType.UINT16, // radix memory address
     OperandType.UINT16, // number of limbs address

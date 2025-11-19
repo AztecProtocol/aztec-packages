@@ -55,8 +55,8 @@ export class GetEnvVar extends Instruction {
   public static readonly type: string = 'GETENVVAR';
   public static readonly opcode: Opcode = Opcode.GETENVVAR_16;
   static readonly wireFormat16: OperandType[] = [
-    OperandType.UINT8, // opcode
-    OperandType.UINT8, // addressing_mode
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16, // dstOffset
     OperandType.UINT8, // variable enum (immediate)
   ];

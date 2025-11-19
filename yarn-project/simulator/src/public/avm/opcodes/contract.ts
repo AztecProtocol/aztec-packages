@@ -16,8 +16,8 @@ export class GetContractInstance extends Instruction {
   static readonly opcode: Opcode = Opcode.GETCONTRACTINSTANCE;
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8, // opcode
-    OperandType.UINT8, // addressing_mode bits
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16, // addressOffset
     OperandType.UINT16, // dstOffset
     OperandType.UINT8, // member enum (immediate)

@@ -11,8 +11,8 @@ export class NoteHashExists extends Instruction {
   static readonly opcode: Opcode = Opcode.NOTEHASHEXISTS;
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
     OperandType.UINT16,
@@ -52,7 +52,7 @@ export class EmitNoteHash extends Instruction {
   static type: string = 'EMITNOTEHASH';
   static readonly opcode: Opcode = Opcode.EMITNOTEHASH;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
+  static readonly wireFormat = [OperandType.OPCODE, OperandType.ADDRMODE8, OperandType.UINT16];
 
   constructor(
     private addressingMode: number,
@@ -87,8 +87,8 @@ export class NullifierExists extends Instruction {
   static readonly opcode: Opcode = Opcode.NULLIFIEREXISTS;
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
     OperandType.UINT16,
@@ -127,7 +127,7 @@ export class EmitNullifier extends Instruction {
   static type: string = 'EMITNULLIFIER';
   static readonly opcode: Opcode = Opcode.EMITNULLIFIER;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
+  static readonly wireFormat = [OperandType.OPCODE, OperandType.ADDRMODE8, OperandType.UINT16];
 
   constructor(
     private addressingMode: number,
@@ -173,8 +173,8 @@ export class L1ToL2MessageExists extends Instruction {
   static readonly opcode: Opcode = Opcode.L1TOL2MSGEXISTS;
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
     OperandType.UINT16,
@@ -215,7 +215,7 @@ export class EmitUnencryptedLog extends Instruction {
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
+  static readonly wireFormat = [OperandType.OPCODE, OperandType.ADDRMODE8, OperandType.UINT16, OperandType.UINT16];
 
   constructor(
     private addressingMode: number,
@@ -255,7 +255,7 @@ export class SendL2ToL1Message extends Instruction {
   static type: string = 'SENDL2TOL1MSG';
   static readonly opcode: Opcode = Opcode.SENDL2TOL1MSG;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
+  static readonly wireFormat = [OperandType.OPCODE, OperandType.ADDRMODE8, OperandType.UINT16, OperandType.UINT16];
 
   constructor(
     private addressingMode: number,

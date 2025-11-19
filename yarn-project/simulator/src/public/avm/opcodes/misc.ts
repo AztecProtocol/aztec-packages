@@ -13,8 +13,8 @@ export class DebugLog extends Instruction {
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8, // Opcode
-    OperandType.UINT8, // Indirect
+    OperandType.OPCODE, // Opcode
+    OperandType.ADDRMODE8, // Addressing modes
     OperandType.UINT16, // level memory address
     OperandType.UINT16, // message memory address
     OperandType.UINT16, // fields memory address

@@ -14,46 +14,46 @@ export class Set extends Instruction {
   static readonly opcode: Opcode = Opcode.SET_8;
 
   public static readonly wireFormat8: OperandType[] = [
-    OperandType.UINT8, // opcode
-    OperandType.UINT8, // addressing_mode
+    OperandType.OPCODE, // Opcode byte
+    OperandType.ADDRMODE8, // Addressing mode bitmask
     OperandType.UINT8, // dstOffset
     OperandType.TAG, // tag
-    OperandType.UINT8, // const (value)
+    OperandType.UINT8, // value (immediate)
   ];
   public static readonly wireFormat16: OperandType[] = [
-    OperandType.UINT8, // opcode
-    OperandType.UINT8, // addressing_mode
+    OperandType.OPCODE, // Opcode byte
+    OperandType.ADDRMODE8, // Addressing mode bitmask
     OperandType.UINT16, // dstOffset
     OperandType.TAG, // tag
-    OperandType.UINT16, // const (value)
+    OperandType.UINT16, // value (immediate)
   ];
   public static readonly wireFormat32: OperandType[] = [
-    OperandType.UINT8, // opcode
-    OperandType.UINT8, // addressing_mode
+    OperandType.OPCODE, // Opcode byte
+    OperandType.ADDRMODE8, // Addressing mode bitmask
     OperandType.UINT16, // dstOffset
     OperandType.TAG, // tag
-    OperandType.UINT32, // const (value)
+    OperandType.UINT32, // value (immediate)
   ];
   public static readonly wireFormat64: OperandType[] = [
-    OperandType.UINT8, // opcode
-    OperandType.UINT8, // addressing_mode
+    OperandType.OPCODE, // Opcode byte
+    OperandType.ADDRMODE8, // Addressing mode bitmask
     OperandType.UINT16, // dstOffset
     OperandType.TAG, // tag
-    OperandType.UINT64, // const (value)
+    OperandType.UINT64, // value (immediate)
   ];
   public static readonly wireFormat128: OperandType[] = [
-    OperandType.UINT8, // opcode
-    OperandType.UINT8, // addressing_mode
+    OperandType.OPCODE, // Opcode byte
+    OperandType.ADDRMODE8, // Addressing mode bitmask
     OperandType.UINT16, // dstOffset
     OperandType.TAG, // tag
-    OperandType.UINT128, // const (value)
+    OperandType.UINT128, // value (immediate)
   ];
   public static readonly wireFormatFF: OperandType[] = [
-    OperandType.UINT8, // opcode
-    OperandType.UINT8, // addressing_mode
+    OperandType.OPCODE, // Opcode byte
+    OperandType.ADDRMODE8, // Addressing mode bitmask
     OperandType.UINT16, // dstOffset
     OperandType.TAG, // tag
-    OperandType.FF, // const (value)
+    OperandType.FF, // value (immediate)
   ];
 
   constructor(
@@ -89,15 +89,15 @@ export class Cast extends Instruction {
   static readonly opcode = Opcode.CAST_8;
 
   static readonly wireFormat8 = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT8,
     OperandType.UINT8,
     OperandType.TAG,
   ];
   static readonly wireFormat16 = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
     OperandType.TAG,
@@ -137,14 +137,14 @@ export class Mov extends Instruction {
   static readonly opcode: Opcode = Opcode.MOV_8;
 
   static readonly wireFormat8: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT8,
     OperandType.UINT8,
   ];
   static readonly wireFormat16: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
   ];
@@ -177,8 +177,8 @@ export class CalldataCopy extends Instruction {
   static readonly opcode: Opcode = Opcode.CALLDATACOPY;
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
     OperandType.UINT16,
@@ -222,7 +222,7 @@ export class ReturndataSize extends Instruction {
   static readonly type: string = 'RETURNDATASIZE';
   static readonly opcode: Opcode = Opcode.RETURNDATASIZE;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
+  static readonly wireFormat: OperandType[] = [OperandType.OPCODE, OperandType.ADDRMODE8, OperandType.UINT16];
 
   constructor(
     private addressingMode: number,
@@ -251,8 +251,8 @@ export class ReturndataCopy extends Instruction {
   static readonly opcode: Opcode = Opcode.RETURNDATACOPY;
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
     OperandType.UINT16,

@@ -1,0 +1,475 @@
+{
+  "ADD": {
+    "opcode": 0,
+    "name": "ADD",
+    "category": "Arithmetic",
+    "gasCosts": {
+      "l2Base": 12,
+      "daBase": 0
+    },
+    "wireFormats": [
+      {
+        "name": "ADD_8",
+        "opcode": 0,
+        "format": ["UINT8", "UINT8", "UINT8", "UINT8", "UINT8"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x00)\n  8: 8: Operand1\n  16: 8: Operand2\n  24: 8: Operand3\n  32: 8: Operand4\n```"
+      },
+      {
+        "name": "ADD_16",
+        "opcode": 1,
+        "format": ["UINT8", "UINT8", "UINT16", "UINT16", "UINT16"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x01)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 16: Operand3\n  48: 16: Operand4\n```"
+      }
+    ],
+    "operands": [
+      {
+        "name": "aOffset",
+        "type": "memory_offset",
+        "size": "variable",
+        "description": "Memory offset of first operand"
+      },
+      {
+        "name": "bOffset",
+        "type": "memory_offset",
+        "size": "variable",
+        "description": "Memory offset of second operand"
+      },
+      {
+        "name": "dstOffset",
+        "type": "memory_offset",
+        "size": "variable",
+        "description": "Memory offset for result"
+      }
+    ],
+    "expression": "M[dstOffset] = M[aOffset] + M[bOffset]",
+    "description": "Adds two field elements from memory",
+    "details": "Performs field addition modulo p. Both operands must have the same type tag. The result inherits the tag from the operands. Overflow wraps according to the field modulus.",
+    "tagChecking": {
+      "requiresSameTags": ["aOffset", "bOffset"],
+      "resultTag": "preserves_input"
+    },
+    "errors": [
+      {
+        "condition": "TAG_MISMATCH",
+        "description": "Operands have different type tags"
+      },
+      {
+        "condition": "MEMORY_OUT_OF_BOUNDS",
+        "description": "Memory offset exceeds allocated memory"
+      }
+    ],
+    "indirectAddressing": {
+      "supported": true,
+      "operands": ["aOffset", "bOffset", "dstOffset"]
+    }
+  },
+  "SUB": {
+    "opcode": 2,
+    "name": "SUB",
+    "category": "Arithmetic",
+    "gasCosts": {
+      "l2Base": 12,
+      "daBase": 0
+    },
+    "wireFormats": [
+      {
+        "name": "SUB_8",
+        "opcode": 2,
+        "format": ["UINT8", "UINT8", "UINT8", "UINT8", "UINT8"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x02)\n  8: 8: Operand1\n  16: 8: Operand2\n  24: 8: Operand3\n  32: 8: Operand4\n```"
+      },
+      {
+        "name": "SUB_16",
+        "opcode": 3,
+        "format": ["UINT8", "UINT8", "UINT16", "UINT16", "UINT16"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x03)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 16: Operand3\n  48: 16: Operand4\n```"
+      }
+    ],
+    "operands": [
+      {
+        "name": "aOffset",
+        "type": "memory_offset",
+        "size": "variable",
+        "description": "Memory offset of first operand"
+      },
+      {
+        "name": "bOffset",
+        "type": "memory_offset",
+        "size": "variable",
+        "description": "Memory offset of second operand"
+      },
+      {
+        "name": "dstOffset",
+        "type": "memory_offset",
+        "size": "variable",
+        "description": "Memory offset for result"
+      }
+    ],
+    "expression": "M[dstOffset] = M[aOffset] - M[bOffset]",
+    "description": "Subtracts two field elements from memory",
+    "details": "Performs field subtraction modulo p. Both operands must have the same type tag. The result inherits the tag from the operands. Underflow wraps according to the field modulus.",
+    "tagChecking": {
+      "requiresSameTags": ["aOffset", "bOffset"],
+      "resultTag": "preserves_input"
+    },
+    "errors": [
+      {
+        "condition": "TAG_MISMATCH",
+        "description": "Operands have different type tags"
+      },
+      {
+        "condition": "MEMORY_OUT_OF_BOUNDS",
+        "description": "Memory offset exceeds allocated memory"
+      }
+    ],
+    "indirectAddressing": {
+      "supported": true,
+      "operands": ["aOffset", "bOffset", "dstOffset"]
+    }
+  },
+  "MUL": {
+    "opcode": 4,
+    "name": "MUL",
+    "category": "Misc",
+    "gasCosts": {
+      "l2Base": 27,
+      "daBase": 0
+    },
+    "wireFormats": [
+      {
+        "name": "MUL_8",
+        "opcode": 4,
+        "format": ["UINT8", "UINT8", "UINT8", "UINT8", "UINT8"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x04)\n  8: 8: Operand1\n  16: 8: Operand2\n  24: 8: Operand3\n  32: 8: Operand4\n```"
+      },
+      {
+        "name": "MUL_16",
+        "opcode": 5,
+        "format": ["UINT8", "UINT8", "UINT16", "UINT16", "UINT16"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x05)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 16: Operand3\n  48: 16: Operand4\n```"
+      }
+    ],
+    "operands": [],
+    "expression": "M[dstOffset] = M[aOffset] * M[bOffset]",
+    "description": "Multiplies two field elements from memory",
+    "details": "Performs field multiplication modulo p. Both operands must have the same type tag. The result inherits the tag from the operands. Overflow wraps according to the field modulus.",
+    "errors": [
+      {
+        "condition": "TAG_MISMATCH",
+        "description": "Operands have different type tags"
+      },
+      {
+        "condition": "MEMORY_OUT_OF_BOUNDS",
+        "description": "Memory offset exceeds allocated memory"
+      }
+    ],
+    "indirectAddressing": {
+      "supported": false,
+      "operands": []
+    }
+  },
+  "DIV": {
+    "opcode": 6,
+    "name": "DIV",
+    "category": "Misc",
+    "gasCosts": {
+      "l2Base": 27,
+      "daBase": 0
+    },
+    "wireFormats": [
+      {
+        "name": "DIV_8",
+        "opcode": 6,
+        "format": ["UINT8", "UINT8", "UINT8", "UINT8", "UINT8"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x06)\n  8: 8: Operand1\n  16: 8: Operand2\n  24: 8: Operand3\n  32: 8: Operand4\n```"
+      },
+      {
+        "name": "DIV_16",
+        "opcode": 7,
+        "format": ["UINT8", "UINT8", "UINT16", "UINT16", "UINT16"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x07)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 16: Operand3\n  48: 16: Operand4\n```"
+      }
+    ],
+    "operands": [],
+    "expression": "M[dstOffset] = M[aOffset] / M[bOffset]",
+    "description": "Divides two integer values from memory",
+    "details": "Performs integer division. Both operands must have the same integral type tag (not FIELD). Division by zero throws an error. The result inherits the tag from the operands.",
+    "errors": [
+      {
+        "condition": "TAG_MISMATCH",
+        "description": "Operands have different type tags"
+      },
+      {
+        "condition": "INVALID_TAG_TYPE",
+        "description": "Operands are not integral types"
+      },
+      {
+        "condition": "DIVISION_BY_ZERO",
+        "description": "Second operand (divisor) is zero"
+      },
+      {
+        "condition": "MEMORY_OUT_OF_BOUNDS",
+        "description": "Memory offset exceeds allocated memory"
+      }
+    ],
+    "indirectAddressing": {
+      "supported": false,
+      "operands": []
+    }
+  },
+  "FDIV": {
+    "opcode": 8,
+    "name": "FDIV",
+    "category": "Misc",
+    "gasCosts": {
+      "l2Base": 9,
+      "daBase": 0
+    },
+    "wireFormats": [
+      {
+        "name": "FDIV_8",
+        "opcode": 8,
+        "format": ["UINT8", "UINT8", "UINT8", "UINT8", "UINT8"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x08)\n  8: 8: Operand1\n  16: 8: Operand2\n  24: 8: Operand3\n  32: 8: Operand4\n```"
+      },
+      {
+        "name": "FDIV_16",
+        "opcode": 9,
+        "format": ["UINT8", "UINT8", "UINT16", "UINT16", "UINT16"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x09)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 16: Operand3\n  48: 16: Operand4\n```"
+      }
+    ],
+    "operands": [],
+    "expression": "M[dstOffset] = M[aOffset] / M[bOffset] (field division)",
+    "description": "Performs field division (multiplicative inverse)",
+    "details": "Performs field division by computing the multiplicative inverse modulo p. Both operands must have FIELD type tag. Division by zero throws an error. The result has FIELD tag.",
+    "errors": [
+      {
+        "condition": "TAG_MISMATCH",
+        "description": "Operands have different type tags"
+      },
+      {
+        "condition": "INVALID_TAG_TYPE",
+        "description": "Operands do not have FIELD type tag"
+      },
+      {
+        "condition": "DIVISION_BY_ZERO",
+        "description": "Second operand (divisor) is zero"
+      },
+      {
+        "condition": "MEMORY_OUT_OF_BOUNDS",
+        "description": "Memory offset exceeds allocated memory"
+      }
+    ],
+    "indirectAddressing": {
+      "supported": false,
+      "operands": []
+    }
+  },
+  "SHL": {
+    "opcode": 24,
+    "name": "SHL",
+    "category": "Misc",
+    "gasCosts": {
+      "l2Base": 18,
+      "daBase": 0
+    },
+    "wireFormats": [
+      {
+        "name": "SHL_8",
+        "opcode": 24,
+        "format": ["UINT8", "UINT8", "UINT8", "UINT8", "UINT8"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x18)\n  8: 8: Operand1\n  16: 8: Operand2\n  24: 8: Operand3\n  32: 8: Operand4\n```"
+      },
+      {
+        "name": "SHL_16",
+        "opcode": 25,
+        "format": ["UINT8", "UINT8", "UINT16", "UINT16", "UINT16"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x19)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 16: Operand3\n  48: 16: Operand4\n```"
+      }
+    ],
+    "operands": [],
+    "expression": "M[dstOffset] = M[aOffset] << M[bOffset]",
+    "description": "Shifts an integer value left by specified bits",
+    "details": "Performs left bit shift. Both operands must have the same integral type tag. The shift amount is taken from the second operand. The result inherits the tag from the operands.",
+    "errors": [
+      {
+        "condition": "TAG_MISMATCH",
+        "description": "Operands have different type tags"
+      },
+      {
+        "condition": "MEMORY_OUT_OF_BOUNDS",
+        "description": "Memory offset exceeds allocated memory"
+      }
+    ],
+    "indirectAddressing": {
+      "supported": false,
+      "operands": []
+    }
+  },
+  "SHR": {
+    "opcode": 26,
+    "name": "SHR",
+    "category": "Misc",
+    "gasCosts": {
+      "l2Base": 18,
+      "daBase": 0
+    },
+    "wireFormats": [
+      {
+        "name": "SHR_8",
+        "opcode": 26,
+        "format": ["UINT8", "UINT8", "UINT8", "UINT8", "UINT8"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x1a)\n  8: 8: Operand1\n  16: 8: Operand2\n  24: 8: Operand3\n  32: 8: Operand4\n```"
+      },
+      {
+        "name": "SHR_16",
+        "opcode": 27,
+        "format": ["UINT8", "UINT8", "UINT16", "UINT16", "UINT16"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x1b)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 16: Operand3\n  48: 16: Operand4\n```"
+      }
+    ],
+    "operands": [],
+    "expression": "M[dstOffset] = M[aOffset] >> M[bOffset]",
+    "description": "Shifts an integer value right by specified bits",
+    "details": "Performs right bit shift. Both operands must have the same integral type tag. The shift amount is taken from the second operand. The result inherits the tag from the operands.",
+    "errors": [
+      {
+        "condition": "TAG_MISMATCH",
+        "description": "Operands have different type tags"
+      },
+      {
+        "condition": "MEMORY_OUT_OF_BOUNDS",
+        "description": "Memory offset exceeds allocated memory"
+      }
+    ],
+    "indirectAddressing": {
+      "supported": false,
+      "operands": []
+    }
+  },
+  "SET": {
+    "opcode": 39,
+    "name": "SET",
+    "category": "Memory",
+    "gasCosts": {
+      "l2Base": 27,
+      "daBase": 0
+    },
+    "wireFormats": [
+      {
+        "name": "SET_8",
+        "opcode": 39,
+        "format": ["UINT8", "UINT8", "UINT8", "TAG", "UINT8"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x27)\n  8: 8: Operand1\n  16: 8: Operand2\n  24: 8: Tag\n  32: 8: Operand4\n```"
+      },
+      {
+        "name": "SET_16",
+        "opcode": 40,
+        "format": ["UINT8", "UINT8", "UINT16", "TAG", "UINT16"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x28)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 8: Tag\n  40: 16: Operand4\n```"
+      },
+      {
+        "name": "SET_32",
+        "opcode": 41,
+        "format": ["UINT8", "UINT8", "UINT16", "TAG", "UINT32"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x29)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 8: Tag\n  40: 32: Operand4\n```"
+      },
+      {
+        "name": "SET_64",
+        "opcode": 42,
+        "format": ["UINT8", "UINT8", "UINT16", "TAG", "UINT64"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x2a)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 8: Tag\n  40: 64: Operand4\n```"
+      },
+      {
+        "name": "SET_128",
+        "opcode": 43,
+        "format": ["UINT8", "UINT8", "UINT16", "TAG", "UINT128"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x2b)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 8: Tag\n  40: 128: Operand4\n```"
+      },
+      {
+        "name": "SET_FF",
+        "opcode": 44,
+        "format": ["UINT8", "UINT8", "UINT16", "TAG", "FF"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x2c)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 8: Tag\n  40: 256: Operand4\n```"
+      }
+    ],
+    "operands": [
+      {
+        "name": "dstOffset",
+        "type": "memory_offset",
+        "size": "variable",
+        "description": "Memory offset to write to"
+      },
+      {
+        "name": "tag",
+        "type": "tag",
+        "size": 1,
+        "description": "Type tag for the value"
+      },
+      {
+        "name": "value",
+        "type": "immediate",
+        "size": "variable",
+        "description": "Immediate value to store"
+      }
+    ],
+    "expression": "M[dstOffset] = value (with tag)",
+    "description": "Sets a memory location to an immediate value with specified tag",
+    "details": "Stores an immediate value at the specified memory offset with the given type tag. The value is encoded directly in the instruction. Multiple wire formats support different value sizes (8-bit, 16-bit, 32-bit, 64-bit, 128-bit, and full field).",
+    "tagChecking": {
+      "setsTag": "dstOffset"
+    },
+    "errors": [
+      {
+        "condition": "INVALID_TAG",
+        "description": "Specified tag is not a valid TypeTag"
+      },
+      {
+        "condition": "MEMORY_OUT_OF_BOUNDS",
+        "description": "Memory offset exceeds allocated memory"
+      }
+    ],
+    "indirectAddressing": {
+      "supported": true,
+      "operands": ["dstOffset"]
+    }
+  },
+  "MOV": {
+    "opcode": 45,
+    "name": "MOV",
+    "category": "Misc",
+    "gasCosts": {
+      "l2Base": 12,
+      "daBase": 0
+    },
+    "wireFormats": [
+      {
+        "name": "MOV_8",
+        "opcode": 45,
+        "format": ["UINT8", "UINT8", "UINT8", "UINT8"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x2d)\n  8: 8: Operand1\n  16: 8: Operand2\n  24: 8: Operand3\n```"
+      },
+      {
+        "name": "MOV_16",
+        "opcode": 46,
+        "format": ["UINT8", "UINT8", "UINT16", "UINT16"],
+        "mermaidDiagram": "```mermaid\npacket-beta\n  0: 8: Opcode(0x2e)\n  8: 8: Operand1\n  16: 16: Operand2\n  32: 16: Operand3\n```"
+      }
+    ],
+    "operands": [],
+    "expression": "M[dstOffset] = M[srcOffset] (with tag)",
+    "description": "Copies a value from one memory location to another",
+    "details": "Copies a value and its type tag from the source memory offset to the destination offset. The tag is preserved in the copy operation.",
+    "errors": [
+      {
+        "condition": "MEMORY_OUT_OF_BOUNDS",
+        "description": "Memory offset exceeds allocated memory"
+      }
+    ],
+    "indirectAddressing": {
+      "supported": false,
+      "operands": []
+    }
+  }
+}

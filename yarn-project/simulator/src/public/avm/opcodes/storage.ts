@@ -8,8 +8,8 @@ import { Instruction } from './instruction.js';
 abstract class BaseStorageInstruction extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   public static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.OPCODE,
+    OperandType.ADDRMODE8,
     OperandType.UINT16,
     OperandType.UINT16,
   ];

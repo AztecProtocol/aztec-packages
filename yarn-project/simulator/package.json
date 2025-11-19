@@ -22,6 +22,11 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "build:fuzzer": "yarn clean && ../scripts/tsc.sh"
+    "build:fuzzer": "tsc scripts/fuzzing/avm_simulator_bin.ts --outDir dest/scripts/fuzzing --module commonjs --target es2022 --esModuleInterop --allowSyntheticDefaultImports --resolveJsonModule --skipLibCheck",
+    "regen-isa": "node --loader ts-node/esm src/public/avm/tools/generate_opcode_docs.ts --format both --output avm-isa.json",
+    "regen-isa:json": "node --loader ts-node/esm src/public/avm/tools/generate_opcode_docs.ts --format json --output avm-isa.json",
+    "regen-isa:mdx": "node --loader ts-node/esm src/public/avm/tools/generate_opcode_docs.ts --format mdx --output avm-isa.mdx",
+    "regen-isa:mdx-individual": "node --loader ts-node/esm src/public/avm/tools/generate_opcode_docs.ts --format mdx-individual --mdx-dir avm-isa-docs"
   },
   "inherits": [
     "../package.common.json"

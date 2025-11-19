@@ -98,13 +98,20 @@ export const MAX_OPCODE_VALUE = Math.max(
 // Possible types for an instruction's operand in its wire format.
 // The counterpart cpp file is: vm2/simulation/lib/serialization.hpp.
 export enum OperandType {
+  // Basic operand types
   UINT8,
   UINT16,
   UINT32,
   UINT64,
   UINT128,
   FF,
-  TAG,
+
+  // Semantic types for better documentation and inference
+  // These serialize to the same wire format as their base types
+  OPCODE, // Explicitly marks opcode bytes (serializes as UINT8)
+  TAG, // Memory tag byte (serializes as UINT8)
+  ADDRMODE8, // 8-bit addressing mode bitmask byte for ALL offset operands (serializes as UINT8)
+  ADDRMODE16, // 16-bit addressing mode bitmask (reserved for future use, serializes as UINT16)
 }
 
 // Define a type that represents the possible types of the deserialized values.
@@ -115,13 +122,19 @@ type OperandWriter = (value: any) => void;
 
 // Specifies how to read and write each operand type.
 const OPERAND_SPEC = new Map<OperandType, [number, (offset: number) => OperandNativeType, OperandWriter]>([
+  // Base types
   [OperandType.UINT8, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
   [OperandType.UINT16, [2, Buffer.prototype.readUint16BE, Buffer.prototype.writeUint16BE]],
   [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],
   [OperandType.UINT64, [8, readUint64BE, writeUint64BE]],
   [OperandType.UINT128, [16, readUint128BE, writeUint128BE]],
   [OperandType.FF, [32, readUint254BE, writeUint254BE]],
+
+  // Semantic types - map to their base serialization
+  [OperandType.OPCODE, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
   [OperandType.TAG, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
+  [OperandType.ADDRMODE8, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
+  [OperandType.ADDRMODE16, [2, Buffer.prototype.readUint16BE, Buffer.prototype.writeUint16BE]],
 ]);
 
 /**
