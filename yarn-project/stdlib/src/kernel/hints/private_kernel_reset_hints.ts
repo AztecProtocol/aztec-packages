@@ -30,11 +30,6 @@ export class PrivateKernelResetHints<
      * Contains hints for the transient note hashes to locate corresponding nullifiers.
      */
     public transientDataSquashingHints: Tuple<TransientDataSquashingHint, TRANSIENT_DATA_HINTS_LEN>,
-    /**
-     * The "final" minRevertibleSideEffectCounter of a tx, to split the data for squashing.
-     * Not the minRevertibleSideEffectCounter at the point the reset circuit is run.
-     */
-    public validationRequestsSplitCounter: number,
   ) {}
 
   toBuffer() {
@@ -43,7 +38,6 @@ export class PrivateKernelResetHints<
       this.nullifierReadRequestHints,
       this.keyValidationHints,
       this.transientDataSquashingHints,
-      this.validationRequestsSplitCounter,
     );
   }
 
@@ -71,7 +65,6 @@ export class PrivateKernelResetHints<
       ),
       this.keyValidationHints.slice(0, useSize(numKeyValidationHints)),
       this.transientDataSquashingHints.slice(0, useSize(numTransientDataSquashingHints)),
-      this.validationRequestsSplitCounter,
     );
   }
   /**
@@ -114,7 +107,6 @@ export class PrivateKernelResetHints<
       }),
       reader.readArray(numKeyValidationHints, KeyValidationHint),
       reader.readArray(numTransientDataSquashingHints, TransientDataSquashingHint),
-      reader.readNumber(),
     );
   }
 }

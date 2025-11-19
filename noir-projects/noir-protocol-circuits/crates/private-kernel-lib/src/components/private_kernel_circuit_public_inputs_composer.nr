@@ -50,6 +50,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         protocol_contracts: ProtocolContracts,
         is_private_only: bool,
         first_nullifier_hint: Field,
+        revertible_counter_hint: u32,
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputs::empty();
         public_inputs.is_private_only = is_private_only;
@@ -74,6 +75,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
             public_inputs.claimed_first_nullifier = first_nullifier_hint;
         }
 
+        public_inputs.claimed_revertible_counter = revertible_counter_hint;
+
         // Set the value to max u64, which is the natural default value as the timestamp can only be decreased.
         // This value will be overridden later when propagating the value from the private call or the previous kernel.
         public_inputs.include_by_timestamp = MAX_U64_VALUE;
@@ -93,6 +96,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.is_private_only = previous_kernel_public_inputs.is_private_only;
         public_inputs.claimed_first_nullifier =
             previous_kernel_public_inputs.claimed_first_nullifier;
+        public_inputs.claimed_revertible_counter =
+            previous_kernel_public_inputs.claimed_revertible_counter;
         public_inputs.constants = previous_kernel_public_inputs.constants;
         public_inputs.min_revertible_side_effect_counter =
             previous_kernel_public_inputs.min_revertible_side_effect_counter;
@@ -107,7 +112,6 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.validation_requests.nullifier_read_requests = start.nullifier_read_requests;
         public_inputs.validation_requests.scoped_key_validation_requests_and_generators =
             start.scoped_key_validation_requests_and_generators;
-        public_inputs.validation_requests.split_counter = start.split_counter;
 
         let start = previous_kernel_public_inputs.end;
 

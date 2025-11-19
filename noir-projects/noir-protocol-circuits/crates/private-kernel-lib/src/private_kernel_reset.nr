@@ -44,7 +44,6 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             self.hints.transient_data_squashing_hints,
             self.hints.note_hash_read_request_hints.read_request_actions,
             self.hints.nullifier_read_request_hints.read_request_actions,
-            self.hints.min_revertible_side_effect_counter,
         );
         (
             composer

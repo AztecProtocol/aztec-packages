@@ -6,7 +6,7 @@ pub contract SchnorrHardcodedAccount {
     use dep::aztec::{
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::functions::{external, view},
+        macros::functions::{external, nophasecheck, view},
         oracle::{auth_witness::get_auth_witness, notes::set_sender_for_tags},
     };
     use std::embedded_curve_ops::EmbeddedCurvePoint;
@@ -19,6 +19,7 @@ pub contract SchnorrHardcodedAccount {
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts (specifically `getEntrypointAbi()`)
     #[external("private")]
+    #[nophasecheck]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,

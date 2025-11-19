@@ -32,7 +32,6 @@ impl TestBuilder {
             nullifier_read_request_hints: self.nullifier_read_request_hints.to_hints(),
             key_validation_hints: self.key_validation_hints.storage(),
             transient_data_squashing_hints: self.transient_data_squashing_hints,
-            min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
         }
     }
 

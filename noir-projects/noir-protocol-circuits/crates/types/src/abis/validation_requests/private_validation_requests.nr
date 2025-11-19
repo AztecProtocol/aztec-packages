@@ -15,7 +15,6 @@ pub struct PrivateValidationRequests {
     pub note_hash_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
-    pub split_counter: Option<u32>,
 }
 
 impl Empty for PrivateValidationRequests {
@@ -24,7 +23,6 @@ impl Empty for PrivateValidationRequests {
             note_hash_read_requests: ClaimedLengthArray::empty(),
             nullifier_read_requests: ClaimedLengthArray::empty(),
             scoped_key_validation_requests_and_generators: ClaimedLengthArray::empty(),
-            split_counter: Option::none(),
         }
     }
 }

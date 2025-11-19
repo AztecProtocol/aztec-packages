@@ -221,6 +221,7 @@
     "noinitcheck",
     "noirc",
     "noirup",
+    "nophasecheck",
     "nullifer",
     "Nullifiable",
     "offchain",

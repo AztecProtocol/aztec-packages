@@ -36,6 +36,7 @@ impl PrivateKernelCircuitOutputValidator {
         protocol_contracts: ProtocolContracts,
         is_private_only: bool,
         first_nullifier_hint: Field,
+        revertible_counter_hint: u32,
     ) {
         self.validate_initial_values(
             tx_request,
@@ -44,6 +45,7 @@ impl PrivateKernelCircuitOutputValidator {
             protocol_contracts,
             is_private_only,
             first_nullifier_hint,
+            revertible_counter_hint,
         );
 
         // Recall: if the initial call has not pushed any nullifiers, then the protocol
@@ -79,6 +81,7 @@ impl PrivateKernelCircuitOutputValidator {
         protocol_contracts: ProtocolContracts,
         is_private_only: bool,
         first_nullifier_hint: Field,
+        revertible_counter_hint: u32,
     ) {
         // Constants.
         assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
@@ -105,6 +108,12 @@ impl PrivateKernelCircuitOutputValidator {
                 "protocol nullifier must be the tx request nullifier",
             );
         }
+
+        assert_eq(
+            self.output.claimed_revertible_counter,
+            revertible_counter_hint,
+            "incorrect initial claimed_revertible_counter",
+        );
 
         // Others.
         assert_eq(
@@ -227,13 +236,12 @@ impl PrivateKernelCircuitOutputValidator {
             previous_kernel.claimed_first_nullifier,
             "mismatch claimed_first_nullifier",
         );
-        assert_eq(self.output.constants, previous_kernel.constants, "mismatch constants");
-
         assert_eq(
-            self.output.validation_requests.split_counter,
-            previous_kernel.validation_requests.split_counter,
-            "mismatch validation requests split counter",
+            self.output.claimed_revertible_counter,
+            previous_kernel.claimed_revertible_counter,
+            "mismatch claimed_revertible_counter",
         );
+        assert_eq(self.output.constants, previous_kernel.constants, "mismatch constants");
 
         assert_array_prepended(
             self.output.validation_requests.note_hash_read_requests,

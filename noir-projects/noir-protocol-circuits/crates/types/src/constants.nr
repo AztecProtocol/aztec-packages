@@ -389,6 +389,8 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + (COUNTED_L2_TO_L1_MESSAGE_LENGTH * MAX_L2_TO_L1_MSGS_PER_CALL + 1)
     + 1 /* start_side_effect_counter */
     + 1 /* end_side_effect_counter */
+    + 1 /* expected_non_revertible_side_effect_counter */
+    + 1 /* expected_revertible_side_effect_counter */
     + (PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_CALL + 1)
     + (COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_CALL + 1)
     + BLOCK_HEADER_LENGTH
@@ -406,9 +408,10 @@ pub global IPA_CLAIM_SIZE: u32 = 10;
 
 pub global SCOPED_READ_REQUEST_LEN: u32 = READ_REQUEST_LENGTH + 1;
 pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
-pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = 2 /* split_counter: 1 for the value, 1 for the option flag */
-    // The `(... + 1)` is because these arrays include a `length` field.
-    + (SCOPED_READ_REQUEST_LEN * MAX_NOTE_HASH_READ_REQUESTS_PER_TX + 1)
+// The `(... + 1)` is because these arrays include a `length` field.
+pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = (
+    SCOPED_READ_REQUEST_LEN * MAX_NOTE_HASH_READ_REQUESTS_PER_TX + 1
+)
     + (SCOPED_READ_REQUEST_LEN * MAX_NULLIFIER_READ_REQUESTS_PER_TX + 1)
     + (SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH * MAX_KEY_VALIDATION_REQUESTS_PER_TX + 1);
 
@@ -440,7 +443,8 @@ pub global PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_L
     + PUBLIC_CALL_REQUEST_LENGTH
     + AZTEC_ADDRESS_LENGTH
     + 1 /* is private only */
-    + 1 /* claimed_first_nullifier */;
+    + 1 /* claimed_first_nullifier */
+    + 1 /* claimed_revertible_counter */;
 
 pub global PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX

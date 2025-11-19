@@ -46,12 +46,12 @@ fn non_empty_key_validations() {
     let _ = builder.execute();
 }
 
-#[test(should_fail_with = "split_counter does not match min_revertible_side_effect_counter")]
+#[test(should_fail_with = "claimed_revertible_counter does not match min_revertible_side_effect_counter")]
 fn mismatch_validation_requests_split_counter() {
     let mut builder = TestBuilder::new();
 
     builder.previous_kernel.min_revertible_side_effect_counter = 123;
-    builder.previous_kernel.validation_requests_split_counter = Option::some(4567);
+    builder.previous_kernel.claimed_revertible_counter = 4567;
 
     let _ = builder.execute();
 }

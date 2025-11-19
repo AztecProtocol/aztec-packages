@@ -22,7 +22,7 @@ pub struct TransientDataValidator<let NoteHashesLen: u32, let NullifiersLen: u32
     pub expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     pub expected_kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
     pub expected_kept_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
-    pub min_revertible_side_effect_counter: u32,
+    pub split_counter: u32,
     // Hints provided by the user to specify what to squash.
     // These are not derived automatically in this function like other hints, because the user can choose to not squash
     // a pair even if it's squashable. Sometimes the transient data might be useful in later iterations. For example, a
@@ -40,7 +40,7 @@ impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let Squas
         expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
         expected_kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
         expected_kept_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
-        min_revertible_side_effect_counter: u32,
+        split_counter: u32,
         transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     ) -> Self {
         // Safety: The hints are verified in `self.validate`.
@@ -61,7 +61,7 @@ impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let Squas
             expected_kept_note_hashes,
             expected_kept_nullifiers,
             expected_kept_logs,
-            min_revertible_side_effect_counter,
+            split_counter,
             transient_data_squashing_hints,
             derived_hints,
         }
@@ -87,7 +87,7 @@ impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let Squas
             self.nullifiers,
             self.expected_kept_note_hashes,
             self.expected_kept_nullifiers,
-            self.min_revertible_side_effect_counter,
+            self.split_counter,
             self.transient_data_squashing_hints,
             self.derived_hints.num_active_squashing_hints,
             self.derived_hints.note_hash_squash_flags,
@@ -99,7 +99,7 @@ impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let Squas
             self.note_hashes,
             self.expected_kept_logs,
             self.expected_kept_note_hashes,
-            self.min_revertible_side_effect_counter,
+            self.split_counter,
             self.transient_data_squashing_hints,
             self.derived_hints.note_log_linked_source_indices,
         );

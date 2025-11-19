@@ -5,7 +5,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract FeeJuice {
     use dep::aztec::{
-        macros::{functions::{external, internal, only_self, view}, storage::storage},
+        macros::{functions::{external, internal, nophasecheck, only_self, view}, storage::storage},
         protocol_types::{
             address::{AztecAddress, EthAddress},
             constants::FEE_JUICE_ADDRESS,
@@ -56,6 +56,7 @@ pub contract FeeJuice {
     /// of the transaction. This variant should only be used when the intent is to pay the transaction fee via
     /// the claimed fee juice in a single interaction.
     #[external("private")]
+    #[nophasecheck]
     fn claim_and_end_setup(
         to: AztecAddress,
         amount: u128,

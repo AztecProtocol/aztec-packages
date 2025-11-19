@@ -17,6 +17,7 @@ fn correct_output_propagated_values() {
     builder.previous_kernel.include_by_timestamp = 13;
     builder.previous_kernel.is_private_only = true;
     builder.previous_kernel.claimed_first_nullifier = 7788;
+    builder.previous_kernel.claimed_revertible_counter = 42;
 
     let previous_kernel = builder.previous_kernel.to_private_kernel_circuit_public_inputs();
 
@@ -54,6 +55,7 @@ fn correct_output_propagated_values() {
     assert_eq(pi.include_by_timestamp, 13);
     assert_eq(pi.is_private_only, true);
     assert_eq(pi.claimed_first_nullifier, 7788);
+    assert_eq(pi.claimed_revertible_counter, 42);
 }
 
 #[test]
@@ -72,40 +74,5 @@ fn empty_propagated_values() {
     assert(pi.fee_payer.is_empty());
     assert_eq(pi.is_private_only, false);
     assert_eq(pi.claimed_first_nullifier, 0);
-}
-
-#[test]
-fn initialize_validation_request_split_counter() {
-    let mut builder = TestBuilder::new();
-
-    builder.min_revertible_side_effect_counter = 123;
-
-    assert(builder.previous_kernel.validation_requests_split_counter.is_none());
-
-    let pi = builder.execute();
-
-    // The value from private inputs is set.
-    assert_eq(pi.validation_requests.split_counter, Option::some(123));
-}
-
-#[test]
-fn consistent_validation_request_split_counters() {
-    let mut builder = TestBuilder::new();
-
-    builder.min_revertible_side_effect_counter = 123;
-    builder.previous_kernel.validation_requests_split_counter = Option::some(123);
-
-    let pi = builder.execute();
-
-    assert_eq(pi.validation_requests.split_counter, Option::some(123));
-}
-
-#[test(should_fail_with = "Mismatch hinted validation request split counter")]
-fn mismatch_validation_request_split_counters() {
-    let mut builder = TestBuilder::new();
-
-    builder.min_revertible_side_effect_counter = 123;
-    builder.previous_kernel.validation_requests_split_counter = Option::some(456);
-
-    builder.failed();
+    assert_eq(pi.claimed_revertible_counter, 0);
 }

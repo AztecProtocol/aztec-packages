@@ -13,6 +13,7 @@ unconstrained fn main(
     app_public_inputs: PrivateCircuitPublicInputs,
     is_private_only: bool,
     first_nullifier_hint: Field,
+    revertible_counter_hint: u32,
 ) -> pub PrivateKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelInitCircuitPrivateInputs::new(
         tx_request,
@@ -22,6 +23,7 @@ unconstrained fn main(
         app_public_inputs,
         is_private_only,
         first_nullifier_hint,
+        revertible_counter_hint,
     );
     private_inputs.execute()
 }

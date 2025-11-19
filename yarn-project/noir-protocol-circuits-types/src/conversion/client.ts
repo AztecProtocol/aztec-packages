@@ -92,8 +92,6 @@ import {
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
   mapNumberToNoir,
-  mapOptionalNumberFromNoir,
-  mapOptionalNumberToNoir,
   mapPointFromNoir,
   mapPointToNoir,
   mapPrivateLogFromNoir,
@@ -379,7 +377,6 @@ function mapPrivateValidationRequestsToNoir(requests: PrivateValidationRequests)
       requests.scopedKeyValidationRequestsAndGenerators,
       mapScopedKeyValidationRequestAndGeneratorToNoir,
     ),
-    split_counter: mapOptionalNumberToNoir(requests.splitCounter),
   };
 }
 
@@ -391,7 +388,6 @@ function mapPrivateValidationRequestsFromNoir(requests: PrivateValidationRequest
       requests.scoped_key_validation_requests_and_generators,
       mapScopedKeyValidationRequestAndGeneratorFromNoir,
     ),
-    mapOptionalNumberFromNoir(requests.split_counter),
   );
 }
 
@@ -467,6 +463,12 @@ export function mapPrivateCircuitPublicInputsToNoir(
     ),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
+    expected_non_revertible_side_effect_counter: mapFieldToNoir(
+      privateCircuitPublicInputs.expectedNonRevertibleSideEffectCounter,
+    ),
+    expected_revertible_side_effect_counter: mapFieldToNoir(
+      privateCircuitPublicInputs.expectedRevertibleSideEffectCounter,
+    ),
     anchor_block_header: mapBlockHeaderToNoir(privateCircuitPublicInputs.anchorBlockHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
@@ -557,6 +559,7 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapU64FromNoir(inputs.include_by_timestamp),
     inputs.is_private_only,
     mapFieldFromNoir(inputs.claimed_first_nullifier),
+    mapNumberFromNoir(inputs.claimed_revertible_counter),
   );
 }
 
@@ -573,6 +576,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
     is_private_only: inputs.isPrivateOnly,
     claimed_first_nullifier: mapFieldToNoir(inputs.claimedFirstNullifier),
+    claimed_revertible_counter: mapNumberToNoir(inputs.claimedRevertibleCounter),
   };
 }
 
@@ -766,6 +770,5 @@ export function mapPrivateKernelResetHintsToNoir<
     transient_data_squashing_hints: inputs.transientDataSquashingHints.map(
       mapTransientDataSquashingHintToNoir,
     ) as FixedLengthArray<TransientDataSquashingHintNoir, TRANSIENT_DATA_HINTS_LEN>,
-    min_revertible_side_effect_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
   };
 }

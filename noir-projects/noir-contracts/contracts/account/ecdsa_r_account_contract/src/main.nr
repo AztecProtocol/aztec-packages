@@ -6,7 +6,10 @@ pub contract EcdsaRAccount {
     use dep::aztec::{
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::{functions::{external, initializer, noinitcheck, view}, storage::storage},
+        macros::{
+            functions::{external, initializer, noinitcheck, nophasecheck, view},
+            storage::storage,
+        },
         messages::message_delivery::MessageDelivery,
         oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
         state_vars::PrivateImmutable,
@@ -51,6 +54,7 @@ pub contract EcdsaRAccount {
     // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
     #[external("private")]
     #[noinitcheck]
+    #[nophasecheck]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,

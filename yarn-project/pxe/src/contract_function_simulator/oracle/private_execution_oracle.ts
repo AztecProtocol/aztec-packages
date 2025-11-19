@@ -594,6 +594,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
+  public privateIsSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean> {
+    return Promise.resolve(this.noteCache.isSideEffectCounterRevertible(sideEffectCounter));
+  }
+
   /**
    * Derives the call context for a nested execution.
    * @param targetContractAddress - The address of the contract being called.

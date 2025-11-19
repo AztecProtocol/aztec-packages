@@ -33,6 +33,9 @@ fn new_from_tx_request_succeeds() {
     // Check the nullifier claim is set to the siloed protocol nullifier
     assert_eq(output.claimed_first_nullifier, silo_nullifier(protocol_nullifier));
 
+    // Check that the revertible counter is set to the hint
+    assert_eq(output.claimed_revertible_counter, builder.revertible_counter_hint);
+
     // Check include_by_timestamp is set to max u64,
     // so that it can be overwritten by the private call's include_by_timestamp later.
     assert_eq(output.include_by_timestamp, MAX_U64_VALUE);
@@ -67,6 +70,9 @@ fn new_from_tx_request_without_protocol_nullifier_succeeds() {
 
     // Check the nullifier claim is set to the hint
     assert_eq(output.claimed_first_nullifier, builder.first_nullifier_hint);
+
+    // Check that the revertible counter is set to the hint
+    assert_eq(output.claimed_revertible_counter, builder.revertible_counter_hint);
 
     // Check include_by_timestamp is set to max u64,
     // so that it can be overwritten by the private call's include_by_timestamp later.

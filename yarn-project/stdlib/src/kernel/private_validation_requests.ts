@@ -11,7 +11,6 @@ import { inspect } from 'util';
 import { ScopedKeyValidationRequestAndGenerator } from '../kernel/hints/scoped_key_validation_request_and_generator.js';
 import { ClaimedLengthArray, ClaimedLengthArrayFromBuffer } from './claimed_length_array.js';
 import { ScopedReadRequest } from './hints/read_request.js';
-import { OptionalNumber } from './utils/optional_number.js';
 
 /**
  * Validation requests accumulated during the execution of the transaction.
@@ -33,20 +32,13 @@ export class PrivateValidationRequests {
       ScopedKeyValidationRequestAndGenerator,
       typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX
     >,
-    /**
-     * The counter to split the data for squashing.
-     * A revertible nullifier and a non-revertible note hash will not be squashed.
-     * It should be the "final" minRevertibleSideEffectCounter of a tx.
-     */
-    public splitCounter: OptionalNumber,
   ) {}
 
   getSize() {
     return (
       this.noteHashReadRequests.getSize() +
       this.nullifierReadRequests.getSize() +
-      this.scopedKeyValidationRequestsAndGenerators.getSize() +
-      this.splitCounter.getSize()
+      this.scopedKeyValidationRequestsAndGenerators.getSize()
     );
   }
 
@@ -55,7 +47,6 @@ export class PrivateValidationRequests {
       this.noteHashReadRequests,
       this.nullifierReadRequests,
       this.scopedKeyValidationRequestsAndGenerators,
-      this.splitCounter,
     );
   }
 
@@ -76,7 +67,6 @@ export class PrivateValidationRequests {
       reader.readObject(
         ClaimedLengthArrayFromBuffer(ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX),
       ),
-      reader.readObject(OptionalNumber),
     );
   }
 
@@ -94,7 +84,6 @@ export class PrivateValidationRequests {
       ClaimedLengthArray.empty(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
       ClaimedLengthArray.empty(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX),
       ClaimedLengthArray.empty(ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX),
-      OptionalNumber.empty(),
     );
   }
 
@@ -103,7 +92,6 @@ export class PrivateValidationRequests {
   noteHashReadRequests: ${inspect(this.noteHashReadRequests)},
   nullifierReadRequests: ${inspect(this.nullifierReadRequests)},
   scopedKeyValidationRequestsAndGenerators: ${inspect(this.scopedKeyValidationRequestsAndGenerators)},
-  splitCounter: ${this.splitCounter.getSize()}
   `;
   }
 }

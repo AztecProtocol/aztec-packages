@@ -234,6 +234,11 @@ MyContract::at(address).my_non_view_function(...).enqueue_view(context);
 This is no-longer allowed and if you will want to call a function statically you will need to mark the function with
 `#[view]`.
 
+### Phase checks
+
+Now private external functions check by default that no phase change from non revertible to revertible happens during the execution of the function or any of its nested calls. If you're developing a function
+that handles phase change (you call `context.end_setup()` or call a function that you expect will change phase) you need to opt out of the phase check using the `#[nophasecheck]` macro. Also, now it's possible to know if you're in the revertible phase of the transaction at any point using `self.context.in_revertible_phase()`.
+
 ### [`aztec` command] Moving functionality of `aztec-nargo` to `aztec` command
 
 `aztec-nargo` has been deprecated and all workflows should now migrate to the `aztec` command that fully replaces `aztec-nargo`:

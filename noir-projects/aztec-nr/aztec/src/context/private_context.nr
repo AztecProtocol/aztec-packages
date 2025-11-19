@@ -7,8 +7,8 @@ use crate::{
         block_header::get_block_header_at,
         call_private_function::call_private_function_internal,
         enqueue_public_function_call::{
-            notify_enqueued_public_function_call, notify_set_min_revertible_side_effect_counter,
-            notify_set_public_teardown_function_call,
+            is_side_effect_counter_revertible_oracle_wrapper, notify_enqueued_public_function_call,
+            notify_set_min_revertible_side_effect_counter, notify_set_public_teardown_function_call,
         },
         execution_cache,
         key_validation_request::get_key_validation_request,
@@ -201,6 +201,9 @@ pub struct PrivateContext {
     // fetching the same request multiple times.
     // The index of the array corresponds to the key type (0 nullifier, 1 incoming, 2 outgoing, 3 tagging).
     pub last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
+
+    pub expected_non_revertible_side_effect_counter: u32,
+    pub expected_revertible_side_effect_counter: u32,
 }
 
 impl PrivateContext {
@@ -228,6 +231,8 @@ impl PrivateContext {
             private_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
+            expected_non_revertible_side_effect_counter: 0,
+            expected_revertible_side_effect_counter: 0,
         }
     }
 
@@ -606,6 +611,9 @@ impl PrivateContext {
             ),
             anchor_block_header: self.anchor_block_header,
             tx_context: self.inputs.tx_context,
+            expected_non_revertible_side_effect_counter: self
+                .expected_non_revertible_side_effect_counter,
+            expected_revertible_side_effect_counter: self.expected_revertible_side_effect_counter,
         }
     }
 
@@ -628,6 +636,25 @@ impl PrivateContext {
             [self.this_address().to_field()],
         );
         self.is_fee_payer = true;
+    }
+
+    pub fn in_revertible_phase(&mut self) -> bool {
+        let current_counter = self.side_effect_counter;
+
+        // Safety: Kernel will validate that the claim is correct by validating the expected counters.
+        let is_revertible =
+            unsafe { is_side_effect_counter_revertible_oracle_wrapper(current_counter) };
+
+        if is_revertible {
+            if (self.expected_revertible_side_effect_counter == 0)
+                | (current_counter < self.expected_revertible_side_effect_counter) {
+                self.expected_revertible_side_effect_counter = current_counter;
+            }
+        } else if current_counter > self.expected_non_revertible_side_effect_counter {
+            self.expected_non_revertible_side_effect_counter = current_counter;
+        }
+
+        is_revertible
     }
 
     /// Declares the end of the "setup phase" of this tx.
@@ -659,6 +686,9 @@ impl PrivateContext {
     /// PrivateContext's _current_ side effect counter.
     ///
     pub fn end_setup(&mut self) {
+        // Incrementing the side effect counter when ending setup ensures non
+        // ambiguity for the counter where we change phases.
+        self.side_effect_counter += 1;
         // dep::protocol_types::debug_log::debug_log_format(
         //     "Ending setup at counter {0}",
         //     [self.side_effect_counter as Field]
@@ -1756,6 +1786,8 @@ impl Empty for PrivateContext {
             private_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
+            expected_non_revertible_side_effect_counter: 0,
+            expected_revertible_side_effect_counter: 0,
         }
     }
 }

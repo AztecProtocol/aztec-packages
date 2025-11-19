@@ -190,33 +190,10 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         );
         assert_eq(self.output.end.private_call_stack, self.previous_kernel.end.private_call_stack);
 
-        // split_counter
-        let counter_hint = self.reset_hints.min_revertible_side_effect_counter;
-        // `counter_hint` is provided as a hint via private inputs, while
-        // `validation_requests.split_counter` is the value maintained within `validation_requests`.
-        //
-        // The hint is necessary because `min_revertible_side_effect_counter` may not yet be set when a reset is
-        // executed. In such cases, we supply the expected `min_revertible_side_effect_counter` via private inputs and
-        // initialize `validation_requests.split_counter` to match it.
-        //
-        // When `validation_requests.split_counter` from the previous kernel is `Some`, it indicates that a reset has
-        // already occurred. At this point, we must ensure that the previously supplied hint remains consistent with the
-        // current hint.
-        //
-        // Later, in the private tail, the split counter will be checked against the actual
-        // `min_revertible_side_effect_counter`, which is guaranteed to be set when the tail is executed.
         assert_eq(
-            self.output.validation_requests.split_counter.unwrap(),
-            counter_hint,
-            "Mismatch validation request split counter",
+            self.output.claimed_revertible_counter,
+            self.previous_kernel.claimed_revertible_counter,
         );
-        if self.previous_kernel.validation_requests.split_counter.is_some() {
-            assert_eq(
-                self.previous_kernel.validation_requests.split_counter.unwrap_unchecked(),
-                counter_hint,
-                "Mismatch hinted validation request split counter",
-            );
-        }
     }
 
     fn validate_validation_requests<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32>(
@@ -257,6 +234,12 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     }
 
     fn validate_transient_data<let TransientDataSquashingAmount: u32>(self) {
+        // For private only txs, we squash all transient data.
+        let split_counter = if self.previous_kernel.is_private_only {
+            0
+        } else {
+            self.previous_kernel.claimed_revertible_counter
+        };
         if TransientDataSquashingAmount == 0 {
             assert_eq(
                 self.output_hints.kept_note_hashes,
@@ -281,7 +264,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                 self.output_hints.kept_note_hashes,
                 self.output_hints.kept_nullifiers,
                 self.output_hints.kept_private_logs,
-                self.output.validation_requests.split_counter.unwrap_unchecked(),
+                split_counter,
                 self.reset_hints.transient_data_squashing_hints,
             )
                 .validate();

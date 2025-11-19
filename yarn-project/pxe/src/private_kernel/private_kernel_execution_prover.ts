@@ -103,9 +103,8 @@ export class PrivateKernelExecutionProver {
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
-    const validationRequestsSplitCounter = isPrivateOnlyTx
-      ? 0
-      : getFinalMinRevertibleSideEffectCounter(executionResult);
+    const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(executionResult);
+    const splitCounter = isPrivateOnlyTx ? 0 : minRevertibleSideEffectCounter;
 
     while (executionStack.length) {
       if (!firstIteration) {
@@ -113,7 +112,7 @@ export class PrivateKernelExecutionProver {
           output,
           executionStack,
           noteHashNullifierCounterMap,
-          validationRequestsSplitCounter,
+          splitCounter,
         );
         while (resetBuilder.needsReset()) {
           const witgenTimer = new Timer();
@@ -134,7 +133,7 @@ export class PrivateKernelExecutionProver {
             output,
             executionStack,
             noteHashNullifierCounterMap,
-            validationRequestsSplitCounter,
+            splitCounter,
           );
         }
       }
@@ -171,6 +170,7 @@ export class PrivateKernelExecutionProver {
           privateCallData,
           isPrivateOnlyTx,
           executionResult.firstNullifier,
+          minRevertibleSideEffectCounter,
         );
         this.log.debug(
           `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
@@ -220,7 +220,7 @@ export class PrivateKernelExecutionProver {
       output,
       [],
       noteHashNullifierCounterMap,
-      validationRequestsSplitCounter,
+      splitCounter,
     );
     while (resetBuilder.needsReset()) {
       const witgenTimer = new Timer();
@@ -239,12 +239,7 @@ export class PrivateKernelExecutionProver {
         },
       });
 
-      resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
-        output,
-        [],
-        noteHashNullifierCounterMap,
-        validationRequestsSplitCounter,
-      );
+      resetBuilder = new PrivateKernelResetPrivateInputsBuilder(output, [], noteHashNullifierCounterMap, splitCounter);
     }
 
     if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {

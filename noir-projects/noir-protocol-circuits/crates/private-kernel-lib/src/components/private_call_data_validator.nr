@@ -49,8 +49,8 @@ impl PrivateCallDataValidator {
     }
 
     /// For Init only.
-    /// Asserts: No static calls. No msg_sender.
-    pub fn validate_as_first_call(self) {
+    /// Asserts: No static calls. No msg_sender. Validate expected counters.
+    pub fn validate_as_first_call(self, claimed_revertible_counter: u32) {
         let public_inputs = self.data.public_inputs;
         let call_context = public_inputs.call_context;
 
@@ -61,6 +61,8 @@ impl PrivateCallDataValidator {
             call_context.msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS,
             "Users cannot set msg_sender in first call",
         );
+
+        self.validate_expected_counters(claimed_revertible_counter);
     }
 
     /// For Init only.
@@ -143,6 +145,7 @@ impl PrivateCallDataValidator {
         );
         assert_eq(public_inputs.tx_context, constants.tx_context, "mismatch tx context");
         // constants.global_variables is not relevant to private functions and is ensured to be empty in PrivateKernelCircuitOutputValidator.
+        self.validate_expected_counters(previous_kernel.claimed_revertible_counter);
     }
 
     fn restrict_side_effects(self) {
@@ -341,5 +344,28 @@ impl PrivateCallDataValidator {
             counter_end,
             public_inputs.public_call_requests,
         );
+    }
+
+    pub fn validate_expected_counters(self, claimed_revertible_counter: u32) {
+        let expected_non_revertible_side_effect_counter =
+            self.data.public_inputs.expected_non_revertible_side_effect_counter;
+        let expected_revertible_side_effect_counter =
+            self.data.public_inputs.expected_revertible_side_effect_counter;
+
+        // If claimed_revertible_counter is 0, it means that end_setup was never called, so everything is non revertible.
+        if expected_non_revertible_side_effect_counter != 0 {
+            assert(
+                (claimed_revertible_counter == 0)
+                    | (expected_non_revertible_side_effect_counter < claimed_revertible_counter),
+                "Failed to validate expected non revertible side effect counter",
+            )
+        }
+        if expected_revertible_side_effect_counter != 0 {
+            assert(
+                (claimed_revertible_counter != 0)
+                    & (expected_revertible_side_effect_counter >= claimed_revertible_counter),
+                "Failed to validate expected revertible side effect counter",
+            )
+        }
     }
 }
