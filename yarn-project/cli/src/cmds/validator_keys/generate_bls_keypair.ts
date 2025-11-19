@@ -3,7 +3,8 @@ import type { LogFn } from '@aztec/foundation/log';
 
 import { writeFile } from 'fs/promises';
 
-import { computeBlsPublicKeyCompressed, defaultBlsPath, withValidatorIndex } from './shared.js';
+import { computeBlsPublicKeyCompressed, withValidatorIndex } from './shared.js';
+import { defaultBlsPath } from './utils.js';
 
 export type GenerateBlsKeypairOptions = {
   mnemonic?: string;
