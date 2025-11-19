@@ -386,18 +386,20 @@ struct CAST_16_Instruction {
     MSGPACK_FIELDS(src_tag, src_offset_index, dst_offset, target_tag);
 };
 
-/// @brief SSTORE: S[M[slotOffset]] = M[srcOffset]
+/// @brief SSTORE: M[slot_offset_index] = slot; S[M[slotOffset]] = M[srcOffset]
 struct SSTORE_Instruction {
     uint16_t src_offset_index;
-    uint16_t slot_offset_index;
-    MSGPACK_FIELDS(src_offset_index, slot_offset_index);
+    uint16_t slot_offset;
+    bb::avm2::FF slot;
+    MSGPACK_FIELDS(src_offset_index, slot_offset, slot);
 };
 
-/// @brief SLOAD: M[result_offset] = S[M[slotOffset]]
+/// @brief SLOAD: M[slot_offset] = slot; M[result_offset] = S[M[slotOffset]]
 struct SLOAD_Instruction {
-    uint16_t slot_offset_index;
+    uint16_t slot_index;  // index of the slot in memory_manager.storage_addresses
+    uint16_t slot_offset; // address where we set slot value
     uint16_t result_offset;
-    MSGPACK_FIELDS(slot_offset_index, result_offset);
+    MSGPACK_FIELDS(slot_index, slot_offset, result_offset);
 };
 
 /// @brief GETENVVAR: M[result_offset] = getenvvar(type)
@@ -424,6 +426,25 @@ struct NULLIFIEREXISTS_Instruction {
     uint16_t contract_address_offset; // absolute address where the contract address will be stored
     uint16_t result_offset;
     MSGPACK_FIELDS(nullifier_offset_index, contract_address_offset, result_offset);
+};
+
+/// @brief EMITNOTEHASH: M[note_hash_offset] = note_hash; emit note hash to the note hash tree
+struct EMITNOTEHASH_Instruction {
+    uint16_t note_hash_offset; // absolute address where the note hash will be stored
+    bb::avm2::FF note_hash;
+    MSGPACK_FIELDS(note_hash_offset, note_hash);
+};
+
+/// @brief NOTEHASHEXISTS:  M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset])
+/// M[notehash_offset] = memory_manager.emitted_note_hashes[notehash_index % length(memory_manager.emitted_note_hashes)];
+/// M[leaf_index_offset] = notehash_index % length(memory_manager.emitted_note_hashes);
+/// M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset]);
+struct NOTEHASHEXISTS_Instruction {
+    uint16_t notehash_index; // index of the note hash in the memory_manager.emitted_note_hashes
+    uint16_t notehash_offset; // absolute address where the note hash will be stored
+    uint16_t leaf_index_offset; // absolute address where the leaf index will be stored
+    uint16_t result_offset; // absolute address where the result will be stored
+    MSGPACK_FIELDS(notehash_index, notehash_offset, leaf_index_offset, result_offset);
 };
 
 using FuzzInstruction = std::variant<ADD_8_Instruction,
@@ -468,7 +489,9 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      SLOAD_Instruction,
                                      GETENVVAR_Instruction,
                                      EMITNULLIFIER_Instruction,
-                                     NULLIFIEREXISTS_Instruction>;
+                                     NULLIFIEREXISTS_Instruction,
+                                     EMITNOTEHASH_Instruction,
+                                     NOTEHASHEXISTS_Instruction>;
 
 template <class... Ts> struct overloaded_instruction : Ts... {
     using Ts::operator()...;
@@ -633,10 +656,10 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                 os << "MOV_16_Instruction " << arg.value_tag << " " << arg.src_offset_index << " " << arg.dst_offset;
             },
             [&](SSTORE_Instruction arg) {
-                os << "SSTORE_Instruction " << arg.src_offset_index << " " << arg.slot_offset_index;
+                os << "SSTORE_Instruction " << arg.src_offset_index << " " << arg.slot_offset << " " << arg.slot;
             },
             [&](SLOAD_Instruction arg) {
-                os << "SLOAD_Instruction " << arg.slot_offset_index << " " << arg.result_offset;
+                os << "SLOAD_Instruction " << arg.slot_index << " " << arg.slot_offset << " " << arg.result_offset;
             },
             [&](GETENVVAR_Instruction arg) {
                 os << "GETENVVAR_Instruction " << arg.result_offset << " " << static_cast<int>(arg.type);
@@ -645,6 +668,13 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             [&](NULLIFIEREXISTS_Instruction arg) {
                 os << "NULLIFIEREXISTS_Instruction " << arg.nullifier_offset_index << " " << arg.contract_address_offset
                    << " " << arg.result_offset;
+            },
+            [&](EMITNOTEHASH_Instruction arg) {
+                os << "EMITNOTEHASH_Instruction " << arg.note_hash_offset << " " << arg.note_hash;
+            },
+            [&](NOTEHASHEXISTS_Instruction arg) {
+                os << "NOTEHASHEXISTS_Instruction " << arg.notehash_index << " " << arg.notehash_offset << " "
+                   << arg.leaf_index_offset << " " << arg.result_offset;
             },
             [&](auto) { os << "Unknown instruction"; },
         },

@@ -819,9 +819,9 @@ TEST(fuzz, SstoreThenSload)
     // M[10] = 10
     auto set_value_instruction = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 10, .value = 10 };
     // S[10] = M[10]
-    auto sstore_instruction = SSTORE_Instruction{ .src_offset_index = 0, .slot_offset_index = 0 };
+    auto sstore_instruction = SSTORE_Instruction{ .src_offset_index = 0, .slot_offset = 0, .slot = 10 };
     // M[2] = S[10], FF tag
-    auto sload_instruction = SLOAD_Instruction{ .slot_offset_index = 0, .result_offset = 2 };
+    auto sload_instruction = SLOAD_Instruction{ .slot_index = 0, .slot_offset = 0, .result_offset = 2 };
     // M[10] = 11
     auto set_value_instruction2 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 10, .value = 11 };
 
@@ -855,11 +855,6 @@ FF getenvvar_helper(uint8_t type, bb::avm2::MemoryTag return_value_tag = bb::avm
     auto bytecode = control_flow.build_bytecode(return_options);
     auto cpp_simulator = CppSimulator();
     auto result = cpp_simulator.simulate(bytecode, {});
-    if (type == 1) {
-        std::cout << "Bytecode: " << bytecode << std::endl;
-        std::cout << "Result: " << result.output.at(0) << std::endl;
-        std::cout << "Reverted: " << result.reverted << std::endl;
-    }
     return result.output.at(0);
 }
 
@@ -916,5 +911,24 @@ TEST(fuzz, EmitNullifierThenNullifierExistsOverwritingPreviousNullifier)
     auto cpp_simulator = CppSimulator();
     auto result = cpp_simulator.simulate(bytecode, {});
     EXPECT_EQ(result.output.at(0), 0);
+}
+
+TEST(fuzz, EmitNoteHashThenNoteHashExists)
+{
+    auto emit_note_hash_instruction = EMITNOTEHASH_Instruction{ .note_hash_offset = 0, .note_hash = 1 };
+    auto note_hash_exists_instruction = NOTEHASHEXISTS_Instruction{
+        .notehash_index = 0, .notehash_offset = 0, .leaf_index_offset = 1, .result_offset = 2
+    };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { emit_note_hash_instruction, note_hash_exists_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_FALSE(result.reverted);
+    // TODO(sn): fix when https://github.com/AztecProtocol/aztec-packages/pull/18475 is merged
+    // EXPECT_EQ(result.output.at(0), 1);
 }
 } // namespace notes_and_nullifiers

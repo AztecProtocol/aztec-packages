@@ -16,7 +16,6 @@ hookRequire(
     return newCode;
   },
 );
-
 var { DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT } = require('@aztec/constants');
 var { Fr } = require('@aztec/foundation/fields');
 var { AztecAddress } = require('@aztec/stdlib/aztec-address');
@@ -72,21 +71,25 @@ function stringArrayToFields(arr: string[]): (typeof Fr)[] {
   return arr.map(stringToField);
 }
 
-const DEFAULT_TIMESTAMP: typeof UInt64 = 99833n;
+const DEFAULT_TIMESTAMP: typeof UInt64 = 1000000;
 
 let STATE_MANAGER: typeof PublicPersistableStateManager | undefined;
 
-async function initSimulator() {
-  if (STATE_MANAGER) {
-    return;
-  }
+async function getStateManager(): Promise<typeof PublicPersistableStateManager> {
   const contractDataSource = new SimpleContractDataSource();
   const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
   const treesDb = new PublicTreesDB(merkleTrees);
   const contractsDb = new PublicContractsDB(contractDataSource);
   const trace = new SideEffectTrace();
   const firstNullifier = new Fr(420000);
-  STATE_MANAGER = PublicPersistableStateManager.create(treesDb, contractsDb, trace, firstNullifier, DEFAULT_TIMESTAMP);
+  return PublicPersistableStateManager.create(treesDb, contractsDb, trace, firstNullifier, DEFAULT_TIMESTAMP);
+}
+
+async function initSimulator() {
+  if (STATE_MANAGER) {
+    return;
+  }
+  STATE_MANAGER = await getStateManager();
 }
 
 async function getSimulator(calldata: (typeof Fr)[]) {
@@ -201,8 +204,12 @@ async function executeBytecodeBase64(
 async function executeFromJson(jsonLine: string): Promise<void> {
   try {
     const input = JSON.parse(jsonLine.trim());
-    if (!input.bytecode || !input.inputs) {
-      process.stdout.write('Error: JSON must contain "bytecode" and "inputs" fields\n');
+    if ((!input.bytecode || !input.inputs) && !input.restart) {
+      process.stdout.write('Error: JSON must contain "bytecode" and "inputs" fields or "restart" field\n');
+      return;
+    }
+    if (input.restart) {
+      STATE_MANAGER = undefined;
       return;
     }
     const calldata = stringArrayToFields(input.inputs);

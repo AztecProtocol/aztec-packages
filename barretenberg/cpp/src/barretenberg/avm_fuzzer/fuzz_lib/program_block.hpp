@@ -76,6 +76,8 @@ class ProgramBlock {
     void process_getenvvar_instruction(GETENVVAR_Instruction instruction);
     void process_emitnulifier_instruction(EMITNULLIFIER_Instruction instruction);
     void process_nullifierexists_instruction(NULLIFIEREXISTS_Instruction instruction);
+    void process_emitnotehash_instruction(EMITNOTEHASH_Instruction instruction);
+    void process_notehashexists_instruction(NOTEHASHEXISTS_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;

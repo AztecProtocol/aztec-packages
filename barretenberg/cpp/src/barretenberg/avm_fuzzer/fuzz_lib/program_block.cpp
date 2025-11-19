@@ -634,27 +634,35 @@ void ProgramBlock::process_cast_16_instruction(CAST_16_Instruction instruction)
 void ProgramBlock::process_sstore_instruction(SSTORE_Instruction instruction)
 {
     auto src_addr = memory_manager.get_memory_offset_16_bit(bb::avm2::MemoryTag::FF, instruction.src_offset_index);
-    auto slot_addr = memory_manager.get_memory_offset_16_bit(bb::avm2::MemoryTag::FF, instruction.slot_offset_index);
-    if (!src_addr.has_value() || !slot_addr.has_value()) {
+    if (!src_addr.has_value()) {
         return;
     }
+    auto set_slot_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                                    .offset = instruction.slot_offset,
+                                                    .value = instruction.slot };
+    this->process_set_ff_instruction(set_slot_instruction);
 
     auto sstore_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SSTORE)
                                   .operand(src_addr.value())
-                                  .operand(slot_addr.value())
+                                  .operand(instruction.slot_offset)
                                   .build();
     instructions.push_back(sstore_instruction);
 }
 
 void ProgramBlock::process_sload_instruction(SLOAD_Instruction instruction)
 {
-    auto slot_addr = memory_manager.get_memory_offset_16_bit(bb::avm2::MemoryTag::FF, instruction.slot_offset_index);
+    auto slot_addr = memory_manager.get_slot(instruction.slot_index);
     if (!slot_addr.has_value()) {
         return;
     }
 
+    auto set_slot_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                                    .offset = instruction.slot_offset,
+                                                    .value = *slot_addr };
+    this->process_set_ff_instruction(set_slot_instruction);
+
     auto sload_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SLOAD)
-                                 .operand(slot_addr.value())
+                                 .operand(instruction.slot_offset)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(sload_instruction);
@@ -709,6 +717,48 @@ void ProgramBlock::process_nullifierexists_instruction(NULLIFIEREXISTS_Instructi
                                            .operand(instruction.result_offset)
                                            .build();
     instructions.push_back(nullifierexists_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, instruction.result_offset);
+}
+
+void ProgramBlock::process_emitnotehash_instruction(EMITNOTEHASH_Instruction instruction)
+{
+    auto set_note_hash_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                                         .offset = instruction.note_hash_offset,
+                                                         .value = instruction.note_hash };
+    this->process_set_ff_instruction(set_note_hash_instruction);
+
+    auto emitnotehash_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITNOTEHASH)
+                                        .operand(instruction.note_hash_offset)
+                                        .build();
+    instructions.push_back(emitnotehash_instruction);
+    memory_manager.append_emitted_note_hash(instruction.note_hash);
+}
+
+void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction instruction)
+{
+    auto note_hash = memory_manager.get_emitted_note_hash(instruction.notehash_index);
+    if (!note_hash.has_value()) {
+        return;
+    }
+    auto leaf_index = memory_manager.get_leaf_index(instruction.notehash_index);
+    if (!leaf_index.has_value()) {
+        return;
+    }
+    auto set_note_hash_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                                         .offset = instruction.notehash_offset,
+                                                         .value = *note_hash };
+    this->process_set_ff_instruction(set_note_hash_instruction);
+    auto set_leaf_index_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
+                                                          .offset = instruction.leaf_index_offset,
+                                                          .value = *leaf_index };
+    this->process_set_ff_instruction(set_leaf_index_instruction);
+
+    auto notehashexists_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::NOTEHASHEXISTS)
+                                          .operand(instruction.notehash_offset)
+                                          .operand(instruction.leaf_index_offset)
+                                          .operand(instruction.result_offset)
+                                          .build();
+    instructions.push_back(notehashexists_instruction);
     memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, instruction.result_offset);
 }
 
@@ -830,6 +880,12 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             },
             [this](NULLIFIEREXISTS_Instruction instruction) {
                 return this->process_nullifierexists_instruction(instruction);
+            },
+            [this](EMITNOTEHASH_Instruction instruction) {
+                return this->process_emitnotehash_instruction(instruction);
+            },
+            [this](NOTEHASHEXISTS_Instruction instruction) {
+                return this->process_notehashexists_instruction(instruction);
             },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },

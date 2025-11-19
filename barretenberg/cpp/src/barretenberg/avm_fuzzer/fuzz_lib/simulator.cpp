@@ -154,12 +154,14 @@ JsSimulator::JsSimulator(std::string& simulator_path)
 
 void JsSimulator::restart_simulator()
 {
+    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
+    if (logging_enabled) {
+        info("Restarting JsSimulator");
+    }
     if (instance == nullptr) {
         throw std::runtime_error("JsSimulator should be initialized before restarting");
     }
-    std::string simulator_path = instance->simulator_path;
-    delete instance;
-    instance = new JsSimulator(simulator_path);
+    instance->process.write_line("{\"restart\":1}");
 }
 
 JsSimulator* JsSimulator::getInstance()
