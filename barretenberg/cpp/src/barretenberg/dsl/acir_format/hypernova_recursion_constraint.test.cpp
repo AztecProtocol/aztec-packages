@@ -712,7 +712,6 @@ TEST_F(HypernovaRecursionConstraintTest, TailKernelGateCount)
     EXPECT_EQ(actual_ecc_rows, EXPECTED_ECC_ROWS);
 
     // Assert ultra ops count
-    kernel.op_queue->construct_full_ultra_ops_table();
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
     EXPECT_EQ(actual_ultra_ops, EXPECTED_ULTRA_OPS);
 }
@@ -751,7 +750,6 @@ TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
     EXPECT_EQ(actual_ecc_rows, EXPECTED_ECC_ROWS);
 
     // Assert ultra ops count
-    kernel.op_queue->construct_full_ultra_ops_table();
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
     EXPECT_EQ(actual_ultra_ops, EXPECTED_ULTRA_OPS);
 }

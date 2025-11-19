@@ -441,7 +441,6 @@ TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)
 
     std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
     fr key_hash_witness = verification_key->hash();
-    std::vector<fr> proof_witnesses = inner_proof;
 
     auto [num_public_inputs_to_extract, proof_type] = [&]() -> std::pair<size_t, acir_format::PROOF_TYPE> {
         size_t num_public_inputs_to_extract = inner_circuit.num_public_inputs();
@@ -456,7 +455,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)
 
     auto [key_indices, key_hash_index, proof_indices, inner_public_inputs] =
         ProofSurgeon<fr>::populate_recursion_witness_data(
-            witness, proof_witnesses, key_witnesses, key_hash_witness, num_public_inputs_to_extract);
+            witness, inner_proof, key_witnesses, key_hash_witness, num_public_inputs_to_extract);
 
     // We pin the number of gates with predicate set to witness true, so this is an upper bound for when the constraint
     // is added with a constant predicate
@@ -491,36 +490,34 @@ TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
     // Determine expected gate count based on the recursive flavor
-    size_t expected_gate_count = 0;
-    size_t expected_ecc_rows = 0;
     using RecursiveFlavor = TypeParam;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
 
-    if constexpr (std::is_same_v<RecursiveFlavor, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
-        expected_gate_count = 723995;
-        expected_ecc_rows = 0; // Ultra doesn't use ECC op queue
-    } else if constexpr (std::is_same_v<RecursiveFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
-        expected_gate_count = 724462;
-        expected_ecc_rows = 0; // Ultra doesn't use ECC op queue
-    } else if constexpr (std::is_same_v<RecursiveFlavor, UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
-        expected_gate_count = 24329;
-        expected_ecc_rows = 1250;
-    } else if constexpr (std::is_same_v<RecursiveFlavor, UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-        expected_gate_count = 767515;
-        expected_ecc_rows = 0; // Ultra doesn't use ECC op queue
-    } else if constexpr (std::is_same_v<RecursiveFlavor, UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
-        expected_gate_count = 29302;
-        expected_ecc_rows = 1052;
-    } else {
-        FAIL() << "Unknown recursive flavor";
-    }
+    static auto [EXPECTED_GATE_COUNT, EXPECTED_ECC_ROWS, EXPECTED_ULTRA_OPS] =
+        []() -> std::tuple<size_t, size_t, size_t> {
+        if constexpr (std::is_same_v<RecursiveFlavor, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
+            return { 723995, 0, 0 };
+        } else if constexpr (std::is_same_v<RecursiveFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
+            return { 724462, 0, 0 };
+        } else if constexpr (std::is_same_v<RecursiveFlavor, UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
+            return { 24329, 1250, 76 };
+        } else if constexpr (std::is_same_v<RecursiveFlavor, UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
+            return { 767515, 0, 0 };
+        } else if constexpr (std::is_same_v<RecursiveFlavor, UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
+            return { 29302, 1052, 80 };
+        } else {
+            bb::assert_failure("Unhandled recursive flavor.");
+        }
+    }();
 
     // Assert gate count
-    EXPECT_EQ(program.constraints.gates_per_opcode[0], expected_gate_count);
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_GATE_COUNT);
 
-    // For MegaBuilder, also assert ECC row count
+    // For MegaBuilder, also assert ECC row count and ultra ops count
     if constexpr (IsMegaBuilder<OuterBuilder>) {
         size_t actual_ecc_rows = outer_circuit.op_queue->get_num_rows();
-        EXPECT_EQ(actual_ecc_rows, expected_ecc_rows);
+        EXPECT_EQ(actual_ecc_rows, EXPECTED_ECC_ROWS);
+        size_t actual_ultra_ops = outer_circuit.op_queue->get_current_subtable_size();
+        EXPECT_EQ(actual_ultra_ops, EXPECTED_ULTRA_OPS);
     }
 }
