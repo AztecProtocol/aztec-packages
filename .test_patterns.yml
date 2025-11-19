@@ -301,3 +301,8 @@ tests:
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *palla
+
+  - regex: "bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench"
+    error_regex: "core dumped"
+    owners:
+      - *adam
