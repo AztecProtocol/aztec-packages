@@ -47,55 +47,33 @@ class KeccakSimulationTest : public ::testing::Test {
     KeccakF1600 keccak;
 };
 
-void flatten_state(KeccakF1600State state, uint64_t* flattened)
-{
-    // Standard Keccak layout: flattened[(y * 5) + x] = A[x][y]
-    // where state[i][j] represents A[x=i][y=j]
-    for (size_t i = 0; i < 5; i++) {
-        for (size_t j = 0; j < 5; j++) {
-            flattened[(j * 5) + i] = state[i][j];
-        }
-    }
-}
-
 TEST_F(KeccakSimulationTest, matchesReferenceImplementation)
 {
-    KeccakF1600State input = {
-        { { 0, 1, 2, 3, 4 }, { 5, 6, 7, 8, 9 }, { 10, 11, 12, 13, 14 }, { 15, 16, 17, 18, 19 }, { 20, 21, 22, 23, 24 } }
+    uint64_t reference_input[AVM_KECCAKF1600_STATE_SIZE] = {
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
     };
+
+    std::array<uint64_t, AVM_KECCAKF1600_STATE_SIZE> input = std::to_array(reference_input);
 
     const MemoryAddress src_addr = 1979;
     const MemoryAddress dst_addr = 3030;
 
-    uint64_t reference_input[25];
-    uint64_t flat_output[25];
-    flatten_state(input, reference_input);
-
-    // Write input in standard Keccak layout: memory[(y * 5) + x] = A[x][y]
-    // where input[i][j] represents A[x=i][y=j]
-    for (size_t i = 0; i < 5; i++) {
-        for (size_t j = 0; j < 5; j++) {
-            memory.set(src_addr + static_cast<MemoryAddress>((j * 5) + i), MemoryValue::from<uint64_t>(input[i][j]));
-        }
+    for (size_t i = 0; i < AVM_KECCAKF1600_STATE_SIZE; i++) {
+        memory.set(src_addr + static_cast<MemoryAddress>(i), MemoryValue::from<uint64_t>(input[i]));
     }
 
     keccak.permutation(memory, dst_addr, src_addr);
-    KeccakF1600State output;
+    uint64_t output[AVM_KECCAKF1600_STATE_SIZE];
 
-    // Read output in standard Keccak layout: memory[(y * 5) + x] = A[x][y]
-    // where output[i][j] represents A[x=i][y=j]
-    for (size_t i = 0; i < 5; i++) {
-        for (size_t j = 0; j < 5; j++) {
-            MemoryValue val = memory.get(dst_addr + static_cast<MemoryAddress>((j * 5) + i));
-            EXPECT_EQ(val.get_tag(), MemoryTag::U64);
-            output[i][j] = val.as<uint64_t>();
-        }
+    // Read output.
+    for (size_t i = 0; i < AVM_KECCAKF1600_STATE_SIZE; i++) {
+        MemoryValue val = memory.get(dst_addr + static_cast<MemoryAddress>(i));
+        EXPECT_EQ(val.get_tag(), MemoryTag::U64);
+        output[i] = val.as<uint64_t>();
     }
 
-    flatten_state(output, flat_output);
-
-    ethash_keccakf1600(reference_input); // Mutate input
-    EXPECT_THAT(reference_input, testing::ElementsAreArray(flat_output));
+    ethash_keccakf1600(input.data()); // Mutate input
+    EXPECT_THAT(input, testing::ElementsAreArray(output));
 }
 
 // We simulate a tag error in the memory read.
@@ -109,11 +87,9 @@ TEST_F(KeccakSimulationTest, tagError)
     const MemoryTag wrong_tag = MemoryTag::U128;
 
     // Initialize the full slice with U64 values in standard Keccak layout
-    for (size_t i = 0; i < 5; i++) {
-        for (size_t j = 0; j < 5; j++) {
-            memory.set(src_addr + static_cast<MemoryAddress>((j * 5) + i),
-                       MemoryValue::from_tag_truncating(MemoryTag::U64, (j * 5) + i));
-        }
+    for (size_t i = 0; i < AVM_KECCAKF1600_STATE_SIZE; i++) {
+        memory.set(src_addr + static_cast<MemoryAddress>(i),
+                   MemoryValue::from_tag_truncating(MemoryTag::U64, (i * i) + 187));
     }
 
     // Override just the first value with U128 to trigger the tag error
