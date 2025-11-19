@@ -22,13 +22,6 @@ void CallStackMetadataCollector::notify_enter_call(const AztecAddress& contract_
     uint32_t max_calldata_size = 1024; // TODO: make this configurable.
     std::vector<FF> calldata = calldata_provider(max_calldata_size);
 
-    std::string function_name = [this, &contract_address, &calldata]() -> std::string {
-        if (calldata.empty()) {
-            return "unknown";
-        }
-        return contract_db.get_debug_function_name(contract_address, calldata.at(0)).value_or("unknown");
-    }();
-
     call_stack_metadata.push({
         .phase = current_phase,
         .contract_address = contract_address,
@@ -36,7 +29,6 @@ void CallStackMetadataCollector::notify_enter_call(const AztecAddress& contract_
         .calldata = calldata,
         .is_static_call = is_static_call,
         .gas_limit = gas_limit,
-        .function_name = std::move(function_name),
         // To be filled in by the exit call or further nested calls.
         .exit_pc = 0,
         .reverted = false,

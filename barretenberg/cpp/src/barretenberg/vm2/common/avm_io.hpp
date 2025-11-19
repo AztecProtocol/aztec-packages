@@ -503,7 +503,6 @@ struct CallStackMetadata {
     std::vector<FF> calldata;
     bool is_static_call;
     Gas gas_limit;
-    std::string function_name;
     std::vector<FF> output; // returndata or revertdata.
 
     uint32_t exit_pc; // The PC at which the call returned or reverted.
@@ -518,7 +517,6 @@ struct CallStackMetadata {
                               calldata,
                               is_static_call,
                               gas_limit,
-                              function_name,
                               output,
                               exit_pc,
                               reverted,

@@ -13,9 +13,7 @@ class ContextInterface;
 
 class CallStackMetadataCollector : public CallStackMetadataCollectorInterface {
   public:
-    CallStackMetadataCollector(const ContractDBInterface& contract_db)
-        : contract_db(contract_db)
-    {}
+    CallStackMetadataCollector() = default;
 
     void set_phase(CoarseTransactionPhase phase) override;
     void notify_enter_call(const AztecAddress& contract_address,
@@ -32,8 +30,6 @@ class CallStackMetadataCollector : public CallStackMetadataCollectorInterface {
     // We store the enqueued calls in the nested vector of this root call.
     std::stack<CallStackMetadata> call_stack_metadata{ { {} } };
     CoarseTransactionPhase current_phase = CoarseTransactionPhase::SETUP;
-
-    const ContractDBInterface& contract_db;
 };
 
 // These factories return an object that is only valid for the lifetime of the context.

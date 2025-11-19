@@ -7,7 +7,6 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -18,18 +17,9 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
-class CallStackMetadataCollectorTest : public ::testing::Test {
-  protected:
-    CallStackMetadataCollectorTest()
-        : collector(mock_contract_db)
-    {}
-
-    StrictMock<MockContractDB> mock_contract_db;
-    CallStackMetadataCollector collector;
-};
-
-TEST_F(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
+TEST(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
 {
+    CallStackMetadataCollector collector;
     AztecAddress contract_addr(0x1234);
     uint32_t caller_pc = 100;
     uint32_t exit_pc = 200;
@@ -42,9 +32,6 @@ TEST_F(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
 
     // Enter call
     CalldataProvider calldata_provider = [&calldata](uint32_t /*max_size*/) -> std::vector<FF> { return calldata; };
-
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract_addr, FF(0xabcd)))
-        .WillOnce(Return(std::optional<std::string>("testFunction")));
 
     collector.notify_enter_call(contract_addr, caller_pc, calldata_provider, false, gas_limit);
 
@@ -68,14 +55,14 @@ TEST_F(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
     EXPECT_EQ(call_metadata.output, return_data);
     EXPECT_EQ(call_metadata.is_static_call, false);
     EXPECT_EQ(call_metadata.gas_limit, gas_limit);
-    EXPECT_EQ(call_metadata.function_name, "testFunction");
     EXPECT_EQ(call_metadata.reverted, false);
     EXPECT_EQ(call_metadata.num_nested_calls, 0U);
     EXPECT_TRUE(call_metadata.nested.empty());
 }
 
-TEST_F(CallStackMetadataCollectorTest, NestedCalls)
+TEST(CallStackMetadataCollectorTest, NestedCalls)
 {
+    CallStackMetadataCollector collector;
     AztecAddress contract1(0x1111);
     AztecAddress contract2(0x2222);
     AztecAddress contract3(0x3333);
@@ -86,26 +73,17 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
     std::vector<FF> calldata1 = { FF(0xaaaa) };
     CalldataProvider calldata_provider1 = [&calldata1](uint32_t /*max_size*/) -> std::vector<FF> { return calldata1; };
 
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract1, FF(0xaaaa)))
-        .WillOnce(Return(std::optional<std::string>("outerFunction")));
-
     collector.notify_enter_call(contract1, 100, calldata_provider1, false, Gas{ 1000, 2000 });
 
     // Enter second call (nested)
     std::vector<FF> calldata2 = { FF(0xbbbb) };
     CalldataProvider calldata_provider2 = [&calldata2](uint32_t /*max_size*/) -> std::vector<FF> { return calldata2; };
 
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract2, FF(0xbbbb)))
-        .WillOnce(Return(std::optional<std::string>("middleFunction")));
-
     collector.notify_enter_call(contract2, 200, calldata_provider2, false, Gas{ 500, 1000 });
 
     // Enter third call (nested in nested)
     std::vector<FF> calldata3 = { FF(0xcccc) };
     CalldataProvider calldata_provider3 = [&calldata3](uint32_t /*max_size*/) -> std::vector<FF> { return calldata3; };
-
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract3, FF(0xcccc)))
-        .WillOnce(Return(std::optional<std::string>("innerFunction")));
 
     collector.notify_enter_call(contract3, 300, calldata_provider3, true, Gas{ 200, 400 });
 
@@ -138,7 +116,6 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
     ASSERT_EQ(metadata.size(), 1U);
 
     const auto& outer_call = metadata[0];
-    EXPECT_EQ(outer_call.function_name, "outerFunction");
     EXPECT_EQ(outer_call.num_nested_calls, 1U);
     EXPECT_EQ(outer_call.nested.size(), 1U);
     EXPECT_EQ(outer_call.output, return_data1);
@@ -146,7 +123,6 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
     EXPECT_EQ(outer_call.exit_pc, 150U);
 
     const auto& middle_call = outer_call.nested[0];
-    EXPECT_EQ(middle_call.function_name, "middleFunction");
     EXPECT_EQ(middle_call.num_nested_calls, 1U);
     EXPECT_EQ(middle_call.nested.size(), 1U);
     EXPECT_EQ(middle_call.output, return_data2);
@@ -154,7 +130,6 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
     EXPECT_EQ(middle_call.exit_pc, 250U);
 
     const auto& inner_call = middle_call.nested[0];
-    EXPECT_EQ(inner_call.function_name, "innerFunction");
     EXPECT_EQ(inner_call.num_nested_calls, 0U);
     EXPECT_EQ(inner_call.nested.size(), 0U);
     EXPECT_EQ(inner_call.output, return_data3);
@@ -163,19 +138,23 @@ TEST_F(CallStackMetadataCollectorTest, NestedCalls)
     EXPECT_EQ(inner_call.exit_pc, 350U);
 }
 
-TEST_F(CallStackMetadataCollectorTest, MultipleSiblingCalls)
+TEST(CallStackMetadataCollectorTest, MultipleSiblingCalls)
 {
+    CallStackMetadataCollector collector;
+    AztecAddress contract0(0x0000);
     AztecAddress contract1(0xaaaa);
     AztecAddress contract2(0xbbbb);
 
     collector.set_phase(CoarseTransactionPhase::APP_LOGIC);
 
+    // Outer call.
+    std::vector<FF> calldata0 = { FF(0x0000) };
+    CalldataProvider calldata_provider0 = [&calldata0](uint32_t /*max_size*/) -> std::vector<FF> { return calldata0; };
+    collector.notify_enter_call(contract0, 0, calldata_provider0, false, Gas{ 0, 0 });
+
     // First call
     std::vector<FF> calldata1 = { FF(0x1111) };
     CalldataProvider calldata_provider1 = [&calldata1](uint32_t /*max_size*/) -> std::vector<FF> { return calldata1; };
-
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract1, FF(0x1111)))
-        .WillOnce(Return(std::optional<std::string>("firstFunction")));
 
     collector.notify_enter_call(contract1, 100, calldata_provider1, false, Gas{ 1000, 2000 });
 
@@ -187,27 +166,30 @@ TEST_F(CallStackMetadataCollectorTest, MultipleSiblingCalls)
     std::vector<FF> calldata2 = { FF(0x2222) };
     CalldataProvider calldata_provider2 = [&calldata2](uint32_t /*max_size*/) -> std::vector<FF> { return calldata2; };
 
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract2, FF(0x2222)))
-        .WillOnce(Return(std::optional<std::string>("secondFunction")));
-
     collector.notify_enter_call(contract2, 200, calldata_provider2, false, Gas{ 500, 1000 });
 
     ReturnDataProvider return_data_provider2 = [](uint32_t /*max_size*/) -> std::vector<FF> { return { FF(0xbbbb) }; };
 
     collector.notify_exit_call(true, 250, return_data_provider2);
 
+    // Outer call (return).
+    ReturnDataProvider return_data_provider0 = [](uint32_t /*max_size*/) -> std::vector<FF> { return { FF(0x0000) }; };
+    collector.notify_exit_call(true, 0, return_data_provider0);
+
     // Verify both calls are present
     auto metadata = collector.dump_call_stack_metadata();
-    ASSERT_EQ(metadata.size(), 2U);
+    ASSERT_EQ(metadata.size(), 1U);
 
-    EXPECT_EQ(metadata[0].function_name, "firstFunction");
-    EXPECT_EQ(metadata[0].num_nested_calls, 0U);
-    EXPECT_EQ(metadata[1].function_name, "secondFunction");
-    EXPECT_EQ(metadata[1].num_nested_calls, 0U);
+    const auto& outer_call = metadata[0];
+    EXPECT_EQ(metadata[0].num_nested_calls, 2U);
+    ASSERT_EQ(outer_call.nested.size(), 2U);
+    EXPECT_EQ(outer_call.nested[0].contract_address, contract1);
+    EXPECT_EQ(outer_call.nested[1].contract_address, contract2);
 }
 
-TEST_F(CallStackMetadataCollectorTest, CalldataSizeLimit)
+TEST(CallStackMetadataCollectorTest, CalldataSizeLimit)
 {
+    CallStackMetadataCollector collector;
     AztecAddress contract_addr(0x1234);
     std::vector<FF> large_calldata(2000, FF(0xabcd)); // Larger than max_calldata_size (1024)
 
@@ -221,9 +203,6 @@ TEST_F(CallStackMetadataCollectorTest, CalldataSizeLimit)
         return large_calldata;
     };
 
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract_addr, FF(0xabcd)))
-        .WillOnce(Return(std::optional<std::string>("largeCalldataFunction")));
-
     collector.notify_enter_call(contract_addr, 100, calldata_provider, false, Gas{ 1000, 2000 });
 
     ReturnDataProvider return_data_provider = [](uint32_t /*max_size*/) -> std::vector<FF> { return {}; };
@@ -236,17 +215,15 @@ TEST_F(CallStackMetadataCollectorTest, CalldataSizeLimit)
     EXPECT_EQ(metadata[0].calldata.size(), 1024U);
 }
 
-TEST_F(CallStackMetadataCollectorTest, ReturnDataSizeLimit)
+TEST(CallStackMetadataCollectorTest, ReturnDataSizeLimit)
 {
+    CallStackMetadataCollector collector;
     AztecAddress contract_addr(0x5678);
     std::vector<FF> calldata = { FF(0x1234) };
 
     collector.set_phase(CoarseTransactionPhase::APP_LOGIC);
 
     CalldataProvider calldata_provider = [&calldata](uint32_t /*max_size*/) -> std::vector<FF> { return calldata; };
-
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract_addr, FF(0x1234)))
-        .WillOnce(Return(std::optional<std::string>("testFunction")));
 
     collector.notify_enter_call(contract_addr, 100, calldata_provider, false, Gas{ 1000, 2000 });
 
@@ -267,8 +244,9 @@ TEST_F(CallStackMetadataCollectorTest, ReturnDataSizeLimit)
     EXPECT_EQ(metadata[0].output.size(), 1024U);
 }
 
-TEST_F(CallStackMetadataCollectorTest, PhaseTracking)
+TEST(CallStackMetadataCollectorTest, PhaseTracking)
 {
+    CallStackMetadataCollector collector;
     AztecAddress contract1(0x1111);
     AztecAddress contract2(0x2222);
     AztecAddress contract3(0x3333);
@@ -278,9 +256,6 @@ TEST_F(CallStackMetadataCollectorTest, PhaseTracking)
     std::vector<FF> calldata1 = { FF(0xaaaa) };
     CalldataProvider calldata_provider1 = [&calldata1](uint32_t /*max_size*/) -> std::vector<FF> { return calldata1; };
 
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract1, FF(0xaaaa)))
-        .WillOnce(Return(std::optional<std::string>("setupFunction")));
-
     collector.notify_enter_call(contract1, 100, calldata_provider1, false, Gas{ 1000, 2000 });
     collector.notify_exit_call(true, 150, [](uint32_t) -> std::vector<FF> { return {}; });
 
@@ -289,9 +264,6 @@ TEST_F(CallStackMetadataCollectorTest, PhaseTracking)
     std::vector<FF> calldata2 = { FF(0xbbbb) };
     CalldataProvider calldata_provider2 = [&calldata2](uint32_t /*max_size*/) -> std::vector<FF> { return calldata2; };
 
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract2, FF(0xbbbb)))
-        .WillOnce(Return(std::optional<std::string>("appLogicFunction")));
-
     collector.notify_enter_call(contract2, 200, calldata_provider2, false, Gas{ 500, 1000 });
     collector.notify_exit_call(true, 250, [](uint32_t) -> std::vector<FF> { return {}; });
 
@@ -299,9 +271,6 @@ TEST_F(CallStackMetadataCollectorTest, PhaseTracking)
     collector.set_phase(CoarseTransactionPhase::TEARDOWN);
     std::vector<FF> calldata3 = { FF(0xcccc) };
     CalldataProvider calldata_provider3 = [&calldata3](uint32_t /*max_size*/) -> std::vector<FF> { return calldata3; };
-
-    EXPECT_CALL(mock_contract_db, get_debug_function_name(contract3, FF(0xcccc)))
-        .WillOnce(Return(std::optional<std::string>("teardownFunction")));
 
     collector.notify_enter_call(contract3, 300, calldata_provider3, false, Gas{ 200, 400 });
     collector.notify_exit_call(true, 350, [](uint32_t) -> std::vector<FF> { return {}; });
