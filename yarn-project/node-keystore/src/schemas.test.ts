@@ -143,4 +143,137 @@ describe('Keystore Schema Validation', () => {
 
     expect(() => keystoreSchema.parse(keystore)).toThrow();
   });
+
+  it('should reject keystore with unexpected top-level fields', () => {
+    const keystore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: '0x1234567890123456789012345678901234567890123456789012345678901234',
+          feeRecipient: '0x1234567890123456789012345678901234567890123456789012345678901234',
+        },
+      ],
+      publisher: '0x1234567890123456789012345678901234567890123456789012345678901234',
+    };
+
+    expect(() => keystoreSchema.parse(keystore)).toThrow(/unrecognized/i);
+  });
+
+  it('should reject validator config with unexpected fields', () => {
+    const keystore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: '0x1234567890123456789012345678901234567890123456789012345678901234',
+          feeRecipient: '0x1234567890123456789012345678901234567890123456789012345678901234',
+          unexpectedField: 'should fail',
+        },
+      ],
+    };
+
+    expect(() => keystoreSchema.parse(keystore)).toThrow(/unrecognized/i);
+  });
+
+  it('should reject attester object with unexpected fields', () => {
+    const keystore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: {
+            eth: '0x1234567890123456789012345678901234567890123456789012345678901234',
+            bls: '0x1234567890123456789012345678901234567890123456789012345678901234',
+            unexpectedField: 'should fail',
+          },
+          feeRecipient: '0x1234567890123456789012345678901234567890123456789012345678901234',
+        },
+      ],
+    };
+
+    expect(() => keystoreSchema.parse(keystore)).toThrow(/unrecognized/i);
+  });
+
+  it('should reject remote signer config object with unexpected fields', () => {
+    const keystore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: '0x1234567890123456789012345678901234567890123456789012345678901234',
+          feeRecipient: '0x1234567890123456789012345678901234567890123456789012345678901234',
+        },
+      ],
+      remoteSigner: {
+        remoteSignerUrl: 'https://localhost:8080',
+        unexpectedField: 'should fail',
+      },
+    };
+
+    expect(() => keystoreSchema.parse(keystore)).toThrow(/unrecognized/i);
+  });
+
+  it('should reject encrypted key file config with unexpected fields', () => {
+    const keystore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: {
+            path: '/path/to/keystore.json',
+            password: 'secret',
+            unexpectedField: 'should fail',
+          },
+          feeRecipient: '0x1234567890123456789012345678901234567890123456789012345678901234',
+        },
+      ],
+    };
+
+    expect(() => keystoreSchema.parse(keystore)).toThrow(/unrecognized/i);
+  });
+
+  it('should reject mnemonic config with unexpected fields', () => {
+    const keystore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: {
+            mnemonic: 'test test test test test test test test test test test junk',
+            addressCount: 3,
+            unexpectedField: 'should fail',
+          },
+          feeRecipient: '0x1234567890123456789012345678901234567890123456789012345678901234',
+        },
+      ],
+    };
+
+    expect(() => keystoreSchema.parse(keystore)).toThrow(/unrecognized/i);
+  });
+
+  it('should reject prover config object with unexpected fields', () => {
+    const keystore = {
+      schemaVersion: 1,
+      prover: {
+        id: '0x1234567890123456789012345678901234567890',
+        publisher: '0x1234567890123456789012345678901234567890123456789012345678901234',
+        unexpectedField: 'should fail',
+      },
+    };
+
+    expect(() => keystoreSchema.parse(keystore)).toThrow(/unrecognized/i);
+  });
+
+  it('should reject remote signer account object with unexpected fields', () => {
+    const keystore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: {
+            address: '0x1234567890123456789012345678901234567890',
+            remoteSignerUrl: 'https://localhost:8080',
+            unexpectedField: 'should fail',
+          },
+          feeRecipient: '0x1234567890123456789012345678901234567890123456789012345678901234',
+        },
+      ],
+    };
+
+    expect(() => keystoreSchema.parse(keystore)).toThrow(/unrecognized/i);
+  });
 });
