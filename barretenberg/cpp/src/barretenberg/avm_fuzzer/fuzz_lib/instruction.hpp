@@ -436,14 +436,15 @@ struct EMITNOTEHASH_Instruction {
 };
 
 /// @brief NOTEHASHEXISTS:  M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset])
-/// M[notehash_offset] = memory_manager.emitted_note_hashes[notehash_index % length(memory_manager.emitted_note_hashes)];
-/// M[leaf_index_offset] = notehash_index % length(memory_manager.emitted_note_hashes);
-/// M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset]);
+/// M[notehash_offset] = memory_manager.emitted_note_hashes[notehash_index %
+/// length(memory_manager.emitted_note_hashes)]; M[leaf_index_offset] = notehash_index %
+/// length(memory_manager.emitted_note_hashes); M[result_offset] = NOTEHASHEXISTS(M[notehash_offset],
+/// M[leaf_index_offset]);
 struct NOTEHASHEXISTS_Instruction {
-    uint16_t notehash_index; // index of the note hash in the memory_manager.emitted_note_hashes
-    uint16_t notehash_offset; // absolute address where the note hash will be stored
+    uint16_t notehash_index;    // index of the note hash in the memory_manager.emitted_note_hashes
+    uint16_t notehash_offset;   // absolute address where the note hash will be stored
     uint16_t leaf_index_offset; // absolute address where the leaf index will be stored
-    uint16_t result_offset; // absolute address where the result will be stored
+    uint16_t result_offset;     // absolute address where the result will be stored
     MSGPACK_FIELDS(notehash_index, notehash_offset, leaf_index_offset, result_offset);
 };
 
