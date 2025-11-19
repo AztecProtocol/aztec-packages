@@ -86,8 +86,28 @@ class TranslatorTests : public ::testing::Test {
         auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
         TranslatorVerifier verifier(verification_key, verifier_transcript);
 
+        // Get accumulated_result from the circuit (same as prover does)
+        const size_t RESULT_ROW = TranslatorFlavor::RESULT_ROW;
+        uint256_t accumulated_result =
+            uint256_t(proving_key->proving_key->polynomials.accumulators_binary_limbs_0[RESULT_ROW]) +
+            (uint256_t(proving_key->proving_key->polynomials.accumulators_binary_limbs_1[RESULT_ROW]) << 68) +
+            (uint256_t(proving_key->proving_key->polynomials.accumulators_binary_limbs_2[RESULT_ROW]) << 136) +
+            (uint256_t(proving_key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW]) << 204);
+
+        // Commit to op queue wires
+        std::array<TranslatorFlavor::Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
+        op_queue_commitments[0] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.op);
+        op_queue_commitments[1] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_lo_y_hi);
+        op_queue_commitments[2] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_hi_z_1);
+        op_queue_commitments[3] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.y_lo_z_2);
+
         // Verify proof and return result
-        return verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
+        return verifier.verify_proof(
+            proof, evaluation_challenge_x, batching_challenge_v, accumulated_result, op_queue_commitments);
     }
 };
 

@@ -73,18 +73,14 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
         key->proving_key->commitment_key.commit(key->proving_key->polynomials.gemini_masking_poly);
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
+    // Commit to non-op-queue wires and ordered range constraints
+    // Note: Op queue wires (op, x_lo_y_hi, x_hi_z_1, y_lo_z_2) are NOT committed to here
+    // They are provided by the merge protocol and passed to the verifier
     auto batch = key->proving_key->commitment_key.start_batch();
     for (const auto& [wire, label] :
-         zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {
-
+         zip_view(key->proving_key->polynomials.get_non_opqueue_wires_and_ordered_range_constraints(),
+                  commitment_labels.get_non_opqueue_wires_and_ordered_range_constraints())) {
         batch.add_to_batch(wire, label, /*mask for zk?*/ false);
-    }
-
-    // The ordered range constraints are of full circuit size.
-    for (const auto& [ordered_range_constraint, label] :
-         zip_view(key->proving_key->polynomials.get_ordered_range_constraints(),
-                  commitment_labels.get_ordered_range_constraints())) {
-        batch.add_to_batch(ordered_range_constraint, label, /*mask for zk?*/ false);
     }
     batch.commit_and_send_to_verifier(transcript);
 }

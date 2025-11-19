@@ -38,7 +38,6 @@ class TranslatorRecursiveVerifier {
     FF vk_hash;
     std::shared_ptr<Transcript> transcript;
     VerifierCommitmentKey pcs_verification_key; // can remove maybe hopefully
-    std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
     Builder* builder;
 
     RelationParams relation_parameters;
@@ -51,20 +50,17 @@ class TranslatorRecursiveVerifier {
                                                      const BF& batching_challenge_v,
                                                      const BF& accumulated_result);
 
-    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const HonkProof& proof,
-                                                                                     const BF& evaluation_input_x,
-                                                                                     const BF& batching_challenge_v,
-                                                                                     const BF& accumulated_result);
-    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const StdlibProof& proof,
-                                                                                     const BF& evaluation_input_x,
-                                                                                     const BF& batching_challenge_v,
-                                                                                     const BF& accumulated_result);
-
-    /**
-     * @brief Ensure translator verifier and last round of merge verification (operating with the final table) receive
-     * the same commitments to the op queue as part of the proof.
-     */
-    void verify_consistency_with_final_merge(
-        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& merge_commitments);
+    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
+        const HonkProof& proof,
+        const BF& evaluation_input_x,
+        const BF& batching_challenge_v,
+        const BF& accumulated_result,
+        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments);
+    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
+        const StdlibProof& proof,
+        const BF& evaluation_input_x,
+        const BF& batching_challenge_v,
+        const BF& accumulated_result,
+        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments);
 };
 } // namespace bb

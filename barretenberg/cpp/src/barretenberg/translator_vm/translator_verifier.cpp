@@ -57,10 +57,12 @@ void TranslatorVerifier::put_translation_data_in_relation_parameters(const uint2
 /**
  * @brief This function verifies a TranslatorFlavor Honk proof for given program settings.
  */
-bool TranslatorVerifier::verify_proof(const HonkProof& proof,
-                                      const uint256_t& evaluation_input_x,
-                                      const BF& batching_challenge_v,
-                                      const uint256_t& accumulated_result)
+bool TranslatorVerifier::verify_proof(
+    const HonkProof& proof,
+    const uint256_t& evaluation_input_x,
+    const BF& batching_challenge_v,
+    const uint256_t& accumulated_result,
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
 {
     using Curve = Flavor::Curve;
     using PCS = Flavor::PCS;
@@ -88,12 +90,17 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     // Receive Gemini masking polynomial commitment (for ZK-PCS)
     commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
 
-    // Get commitments to wires and the ordered range constraints that do not require additional challenges
-    for (auto [comm, label] : zip_view(commitments.get_wires_and_ordered_range_constraints(),
-                                       commitment_labels.get_wires_and_ordered_range_constraints())) {
+    // Set op queue wire commitments (provided by merge protocol, not from translator proof)
+    commitments.op = op_queue_wire_commitments[0];
+    commitments.x_lo_y_hi = op_queue_wire_commitments[1];
+    commitments.x_hi_z_1 = op_queue_wire_commitments[2];
+    commitments.y_lo_z_2 = op_queue_wire_commitments[3];
+
+    // Receive commitments to non-op-queue wires and ordered range constraints
+    for (auto [comm, label] : zip_view(commitments.get_non_opqueue_wires_and_ordered_range_constraints(),
+                                       commitment_labels.get_non_opqueue_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
-    op_queue_commitments = { commitments.op, commitments.x_lo_y_hi, commitments.x_hi_z_1, commitments.y_lo_z_2 };
 
     // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
@@ -159,38 +166,5 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
     return verified && consistency_checked;
-}
-
-/**
- * @brief Checks that translator and merge protocol operate on the same EccOpQueue data.
- *
- * @details The final merge verifier receives commitments to 4 polynomials whose coefficients are the values of the full
- * op queue (referred to as the ultra ops table in the merge protocol). These have to match the EccOpQueue commitments
- * received by the translator verifier, representing 4 wires in its circuit, to ensure the two Goblin components,
- * both operating on the UltraOp version of the op queue, actually use the same data.
- */
-bool TranslatorVerifier::verify_consistency_with_final_merge(const std::array<Commitment, 4>& merge_commitments)
-{
-    if (op_queue_commitments[0] != merge_commitments[0]) {
-        info("Consistency check failed: op commitment mismatch");
-        return false;
-    }
-
-    if (op_queue_commitments[1] != merge_commitments[1]) {
-        info("Consistency check failed: x_lo_y_hi commitment mismatch");
-        return false;
-    }
-
-    if (op_queue_commitments[2] != merge_commitments[2]) {
-        info("Consistency check failed: x_hi_z_1 commitment mismatch");
-        return false;
-    }
-
-    if (op_queue_commitments[3] != merge_commitments[3]) {
-        info("Consistency check failed: y_lo_z_2 commitment mismatch");
-        return false;
-    }
-
-    return true;
 }
 } // namespace bb
