@@ -120,7 +120,9 @@ export class InstructionAnalyzer {
     // Process each wire format
     for (const key of wireFormatKeys) {
       const format = cls[key] || cls.constructor[key];
-      if (!Array.isArray(format)) continue;
+      if (!Array.isArray(format)) {
+        continue;
+      }
 
       // Derive variant suffix from property name (e.g., 'wireFormat8' -> '8')
       let variantSuffix = key.replace('wireFormat', '');
@@ -199,8 +201,8 @@ export class InstructionAnalyzer {
           break;
         }
       }
-    } catch (error) {
-      console.warn(`Failed to extract constructor params for ${cls.type}:`, error);
+    } catch {
+      //console.warn(`Failed to extract constructor params for ${cls.type}:`, error);
     }
     return [];
   }

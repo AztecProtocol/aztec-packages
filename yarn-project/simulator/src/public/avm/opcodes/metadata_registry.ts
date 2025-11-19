@@ -45,7 +45,7 @@ export interface MinimalOpcodeMetadata {
   /** Mathematical or logical expression representing the operation (e.g., 'M[dstOffset] = M[aOffset] + M[bOffset]') */
   expression: string;
   /** Brief one-line description of what the opcode does */
-  description: string;
+  description?: string;
   /** Detailed explanation of the opcode's behavior, constraints, and semantics */
   details?: string;
   /** List of error conditions that can occur during execution */
@@ -56,9 +56,9 @@ export interface MinimalOpcodeMetadata {
   category?: InstructionCategory;
   /** Optional: Override inferred operand descriptions */
   operandDescriptions?: Record<string, string>;
-  /** Tag checks performed by the instruction (e.g., 'T[aOffset] == T[bOffset]') */
+  /** Tag checks performed by the instruction (e.g., '`T[aOffset] == T[bOffset]`') */
   tagChecks?: string[];
-  /** Tag updates/assignments performed by the instruction (e.g., 'T[dstOffset] = T[aOffset]') */
+  /** Tag updates/assignments performed by the instruction (e.g., '`T[dstOffset] = T[aOffset]`') */
   tagUpdates?: string[];
 }
 
@@ -71,57 +71,53 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   ADD: {
     summary: 'Addition (a + b)',
     expression: 'M[dstOffset] = M[aOffset] + M[bOffset]',
-    description: 'Adds two field elements',
     details:
-      'Performs field addition modulo p. Both operands must have the same type tag. The result inherits the tag from the operands.',
+      'Performs addition. Both operands must have the same type tag. For integer types (UINT8, UINT16, UINT32, UINT64, UINT128), the operation is performed modulo 2^k where k is the bit-width (e.g., k=8 for UINT8). For FIELD type, the operation is performed modulo p (the BN254 field prime). The result inherits the tag from the operands.',
     errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
     operandDescriptions: {
-      aOffset: 'Memory offset of the first operand',
-      bOffset: 'Memory offset of the second operand',
-      dstOffset: 'Memory offset specifying where to store the result',
+      aOffset: 'Memory offset of first input',
+      bOffset: 'Memory offset of second input',
+      dstOffset: 'Memory offset for result',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]'],
-    tagUpdates: ['T[dstOffset] = T[aOffset]'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`'],
+    tagUpdates: ['`T[dstOffset] = T[aOffset]`'],
   },
 
   SUB: {
     summary: 'Subtraction (a - b)',
     expression: 'M[dstOffset] = M[aOffset] - M[bOffset]',
-    description: 'Subtracts two field elements',
     details:
-      'Performs field subtraction modulo p. Both operands must have the same type tag. The result inherits the tag from the operands.',
+      'Performs subtraction. Both operands must have the same type tag. For integer types (UINT8, UINT16, UINT32, UINT64, UINT128), the operation is performed modulo 2^k where k is the bit-width (e.g., k=8 for UINT8). For FIELD type, the operation is performed modulo p (the BN254 field prime). The result inherits the tag from the operands.',
     errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
     operandDescriptions: {
       aOffset: 'Memory offset of the minuend',
       bOffset: 'Memory offset of the subtrahend',
-      dstOffset: 'Memory offset specifying where to store the result',
+      dstOffset: 'Memory offset for result',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]'],
-    tagUpdates: ['T[dstOffset] = T[aOffset]'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`'],
+    tagUpdates: ['`T[dstOffset] = T[aOffset]`'],
   },
 
   MUL: {
     summary: 'Multiplication (a * b)',
     expression: 'M[dstOffset] = M[aOffset] * M[bOffset]',
-    description: 'Multiplies two field elements',
     details:
-      'Performs field multiplication modulo p. Both operands must have the same type tag. The result inherits the tag from the operands.',
+      'Performs multiplication. Both operands must have the same type tag. For integer types (UINT8, UINT16, UINT32, UINT64, UINT128), the operation is performed modulo 2^k where k is the bit-width (e.g., k=8 for UINT8). For FIELD type, the operation is performed modulo p (the BN254 field prime). The result inherits the tag from the operands.',
     errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
     operandDescriptions: {
       aOffset: 'Memory offset of the first factor',
       bOffset: 'Memory offset of the second factor',
-      dstOffset: 'Memory offset specifying where to store the result',
+      dstOffset: 'Memory offset for result',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]'],
-    tagUpdates: ['T[dstOffset] = T[aOffset]'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`'],
+    tagUpdates: ['`T[dstOffset] = T[aOffset]`'],
   },
 
   DIV: {
     summary: 'Integer division (a / b)',
     expression: 'M[dstOffset] = M[aOffset] / M[bOffset]',
-    description: 'Divides two integer values',
     details:
-      'Performs integer division. Both operands must have the same integral type tag (not FIELD). The result inherits the tag from the operands.',
+      'Performs integer division (truncating). Both operands must have the same integral type tag (not FIELD). The result inherits the tag from the operands.',
     errors: [
       { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
       { condition: 'INVALID_TAG_TYPE', description: 'Operands are not integral types' },
@@ -130,18 +126,17 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       aOffset: 'Memory offset of the dividend',
       bOffset: 'Memory offset of the divisor',
-      dstOffset: 'Memory offset specifying where to store the quotient',
+      dstOffset: 'Memory offset for quotient',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]', 'T[aOffset] is integral'],
-    tagUpdates: ['T[dstOffset] = T[aOffset]'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`', '`T[aOffset] is integral`'],
+    tagUpdates: ['`T[dstOffset] = T[aOffset]`'],
   },
 
   FDIV: {
     summary: 'Field division (a / b)',
     expression: 'M[dstOffset] = M[aOffset] / M[bOffset]',
-    description: 'Performs field division (multiplicative inverse)',
     details:
-      'Performs field division by computing the multiplicative inverse modulo p. Both operands must have FIELD type tag.',
+      'Performs field division (computes a * b^(-1) mod p where p is the BN254 field modulus). Both operands must have FIELD type tag.',
     errors: [
       { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
       { condition: 'INVALID_TAG_TYPE', description: 'Operands do not have FIELD type tag' },
@@ -150,32 +145,30 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       aOffset: 'Memory offset of the dividend',
       bOffset: 'Memory offset of the divisor',
-      dstOffset: 'Memory offset specifying where to store the result',
+      dstOffset: 'Memory offset for result',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]', 'T[aOffset] == FIELD'],
-    tagUpdates: ['T[dstOffset] = FIELD'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`', '`T[aOffset] == FIELD`'],
+    tagUpdates: ['`T[dstOffset] = FIELD`'],
   },
 
   SET: {
     summary: 'Set memory to immediate value',
     expression: 'M[dstOffset] = value',
-    description: 'Sets a memory location to an immediate value with specified tag',
     details:
       'Stores an immediate value at the specified memory offset with the given type tag. Multiple wire formats support different value sizes.',
     errors: [{ condition: 'INVALID_TAG', description: 'Specified tag is not a valid TypeTag' }],
     operandDescriptions: {
       tag: 'Type tag to assign to the value',
       value: 'Immediate value to store',
-      dstOffset: 'Memory offset where the value will be stored',
+      dstOffset: 'Memory offset for value will be stored',
     },
     tagChecks: [],
-    tagUpdates: ['T[dstOffset] = tag'],
+    tagUpdates: ['`T[dstOffset] = tag`'],
   },
 
   MOV: {
     summary: 'Move value between memory locations',
     expression: 'M[dstOffset] = M[srcOffset]',
-    description: 'Copies a value from one memory location to another',
     details: 'Copies a value and its type tag from the source memory offset to the destination offset.',
     errors: [],
     operandDescriptions: {
@@ -183,46 +176,43 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       dstOffset: 'Memory offset to write to',
     },
     tagChecks: [],
-    tagUpdates: ['T[dstOffset] = T[srcOffset]'],
+    tagUpdates: ['`T[dstOffset] = T[srcOffset]`'],
   },
 
   SHL: {
     summary: 'Shift left (a &lt;&lt; b)',
     expression: 'M[dstOffset] = M[aOffset] << M[bOffset]',
-    description: 'Shifts an integer value left by specified bits',
     details:
-      'Performs left bit shift. Both operands must have the same integral type tag. The result inherits the tag from the operands.',
+      'Performs left bit shift. Both operands must have the same integral type tag (UINT8, UINT16, UINT32, UINT64, UINT128). The result is computed modulo 2^k where k is the bit-width of the operand type (e.g., k=8 for UINT8). The result inherits the tag from the operands.',
     errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
     operandDescriptions: {
       aOffset: 'Memory offset of the value to shift',
       bOffset: 'Memory offset of the shift amount',
-      dstOffset: 'Memory offset specifying where to store the result',
+      dstOffset: 'Memory offset for result',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]'],
-    tagUpdates: ['T[dstOffset] = T[aOffset]'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`'],
+    tagUpdates: ['`T[dstOffset] = T[aOffset]`'],
   },
 
   SHR: {
     summary: 'Shift right (a &gt;&gt; b)',
     expression: 'M[dstOffset] = M[aOffset] >> M[bOffset]',
-    description: 'Shifts an integer value right by specified bits',
     details:
-      'Performs right bit shift. Both operands must have the same integral type tag. The result inherits the tag from the operands.',
+      'Performs right bit shift (logical, zero-fill). Both operands must have the same integral type tag (UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.',
     errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
     operandDescriptions: {
       aOffset: 'Memory offset of the value to shift',
       bOffset: 'Memory offset of the shift amount',
-      dstOffset: 'Memory offset specifying where to store the result',
+      dstOffset: 'Memory offset for result',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]'],
-    tagUpdates: ['T[dstOffset] = T[aOffset]'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`'],
+    tagUpdates: ['`T[dstOffset] = T[aOffset]`'],
   },
 
   // Bitwise Operations
   AND: {
     summary: 'Bitwise AND (a &amp; b)',
     expression: 'M[dstOffset] = M[aOffset] & M[bOffset]',
-    description: 'Bitwise AND of two integer values',
     details:
       'Performs bitwise AND operation. Both operands must have the same integral type tag. The result inherits the tag from the operands.',
     errors: [
@@ -230,18 +220,17 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       { condition: 'INVALID_TAG_TYPE', description: 'Operands are not integral types' },
     ],
     operandDescriptions: {
-      aOffset: 'Memory offset of the first operand',
-      bOffset: 'Memory offset of the second operand',
-      dstOffset: 'Memory offset specifying where to store the result',
+      aOffset: 'Memory offset of first input',
+      bOffset: 'Memory offset of second input',
+      dstOffset: 'Memory offset for result',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]', 'T[aOffset] is integral'],
-    tagUpdates: ['T[dstOffset] = T[aOffset]'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`', '`T[aOffset] is integral`'],
+    tagUpdates: ['`T[dstOffset] = T[aOffset]`'],
   },
 
   OR: {
     summary: 'Bitwise OR (a | b)',
     expression: 'M[dstOffset] = M[aOffset] | M[bOffset]',
-    description: 'Bitwise OR of two integer values',
     details:
       'Performs bitwise OR operation. Both operands must have the same integral type tag. The result inherits the tag from the operands.',
     errors: [
@@ -249,18 +238,17 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       { condition: 'INVALID_TAG_TYPE', description: 'Operands are not integral types' },
     ],
     operandDescriptions: {
-      aOffset: 'Memory offset of the first operand',
-      bOffset: 'Memory offset of the second operand',
-      dstOffset: 'Memory offset specifying where to store the result',
+      aOffset: 'Memory offset of first input',
+      bOffset: 'Memory offset of second input',
+      dstOffset: 'Memory offset for result',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]', 'T[aOffset] is integral'],
-    tagUpdates: ['T[dstOffset] = T[aOffset]'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`', '`T[aOffset] is integral`'],
+    tagUpdates: ['`T[dstOffset] = T[aOffset]`'],
   },
 
   XOR: {
     summary: 'Bitwise XOR (a ^ b)',
     expression: 'M[dstOffset] = M[aOffset] ^ M[bOffset]',
-    description: 'Bitwise XOR of two integer values',
     details:
       'Performs bitwise XOR operation. Both operands must have the same integral type tag. The result inherits the tag from the operands.',
     errors: [
@@ -268,96 +256,90 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       { condition: 'INVALID_TAG_TYPE', description: 'Operands are not integral types' },
     ],
     operandDescriptions: {
-      aOffset: 'Memory offset of the first operand',
-      bOffset: 'Memory offset of the second operand',
-      dstOffset: 'Memory offset specifying where to store the result',
+      aOffset: 'Memory offset of first input',
+      bOffset: 'Memory offset of second input',
+      dstOffset: 'Memory offset for result',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]', 'T[aOffset] is integral'],
-    tagUpdates: ['T[dstOffset] = T[aOffset]'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`', '`T[aOffset] is integral`'],
+    tagUpdates: ['`T[dstOffset] = T[aOffset]`'],
   },
 
   NOT: {
     summary: 'Bitwise NOT (~a)',
     expression: 'M[dstOffset] = ~M[srcOffset]',
-    description: 'Bitwise NOT of an integer value',
     details:
       "Performs bitwise NOT operation (one's complement). The operand must have an integral type tag. The result inherits the tag from the operand.",
     errors: [{ condition: 'INVALID_TAG_TYPE', description: 'Operand is not an integral type' }],
     operandDescriptions: {
       srcOffset: 'Memory offset of the value to negate',
-      dstOffset: 'Memory offset specifying where to store the result',
+      dstOffset: 'Memory offset for result',
     },
-    tagChecks: ['T[srcOffset] is integral'],
-    tagUpdates: ['T[dstOffset] = T[srcOffset]'],
+    tagChecks: ['`T[srcOffset] is integral`'],
+    tagUpdates: ['`T[dstOffset] = T[srcOffset]`'],
   },
 
   // Comparison Operations
   EQ: {
     summary: 'Equality check (a == b)',
     expression: 'M[dstOffset] = (M[aOffset] == M[bOffset]) ? 1 : 0',
-    description: 'Tests equality of two values',
     details:
       'Compares two values for equality. Both operands must have the same type tag. The result is a Uint1 (0 or 1).',
     errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
     operandDescriptions: {
-      aOffset: 'Memory offset of the first value to compare',
-      bOffset: 'Memory offset of the second value to compare',
-      dstOffset: 'Memory offset specifying where to store the result (0 or 1)',
+      aOffset: 'Memory offset of first value to compare',
+      bOffset: 'Memory offset of second value to compare',
+      dstOffset: 'Memory offset for result (0 or 1)',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]'],
-    tagUpdates: ['T[dstOffset] = UINT1'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`'],
+    tagUpdates: ['`T[dstOffset] = UINT1`'],
   },
 
   LT: {
     summary: 'Less than (a &lt; b)',
     expression: 'M[dstOffset] = (M[aOffset] < M[bOffset]) ? 1 : 0',
-    description: 'Tests if first value is less than second',
     details: 'Compares two values. Both operands must have the same type tag. The result is a Uint1 (0 or 1).',
     errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
     operandDescriptions: {
-      aOffset: 'Memory offset of the first value to compare',
-      bOffset: 'Memory offset of the second value to compare',
-      dstOffset: 'Memory offset specifying where to store the result (0 or 1)',
+      aOffset: 'Memory offset of first value to compare',
+      bOffset: 'Memory offset of second value to compare',
+      dstOffset: 'Memory offset for result (0 or 1)',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]'],
-    tagUpdates: ['T[dstOffset] = UINT1'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`'],
+    tagUpdates: ['`T[dstOffset] = UINT1`'],
   },
 
   LTE: {
     summary: 'Less than or equal (a &lt;= b)',
     expression: 'M[dstOffset] = (M[aOffset] <= M[bOffset]) ? 1 : 0',
-    description: 'Tests if first value is less than or equal to second',
     details: 'Compares two values. Both operands must have the same type tag. The result is a Uint1 (0 or 1).',
     errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
     operandDescriptions: {
-      aOffset: 'Memory offset of the first value to compare',
-      bOffset: 'Memory offset of the second value to compare',
-      dstOffset: 'Memory offset specifying where to store the result (0 or 1)',
+      aOffset: 'Memory offset of first value to compare',
+      bOffset: 'Memory offset of second value to compare',
+      dstOffset: 'Memory offset for result (0 or 1)',
     },
-    tagChecks: ['T[aOffset] == T[bOffset]'],
-    tagUpdates: ['T[dstOffset] = UINT1'],
+    tagChecks: ['`T[aOffset] == T[bOffset]`'],
+    tagUpdates: ['`T[dstOffset] = UINT1`'],
   },
 
   CAST: {
-    summary: 'Type cast',
+    summary: 'Type cast memory value',
     expression: 'M[dstOffset] = M[srcOffset] as tag',
-    description: 'Casts a value to a different type tag',
     details: 'Changes the type tag of a value. The value itself is preserved, only its type interpretation changes.',
     errors: [{ condition: 'INVALID_TAG', description: 'Destination tag is not a valid TypeTag' }],
     operandDescriptions: {
       dstTag: 'Type tag to cast the value to',
       srcOffset: 'Memory offset of the value to cast',
-      dstOffset: 'Memory offset specifying where to store the casted value',
+      dstOffset: 'Memory offset for casted value',
     },
     tagChecks: [],
-    tagUpdates: ['T[dstOffset] = dstTag'],
+    tagUpdates: ['`T[dstOffset] = dstTag`'],
   },
 
   // Control Flow
   JUMP: {
     summary: 'Unconditional jump',
     expression: 'PC = jumpOffset',
-    description: 'Unconditional jump to a bytecode offset',
     details: 'Sets the program counter to the specified offset. The offset is an immediate value (not from memory).',
     errors: [{ condition: 'INVALID_PROGRAM_COUNTER', description: 'Jump offset is outside valid bytecode range' }],
     operandDescriptions: {
@@ -370,7 +352,6 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   JUMPI: {
     summary: 'Conditional jump',
     expression: 'if M[condOffset] != 0 then PC = loc else PC = PC + instructionSize',
-    description: 'Conditional jump based on a condition value',
     details:
       'Jumps to the specified location if the condition is non-zero (true). The condition must have type tag Uint1.',
     errors: [
@@ -381,14 +362,13 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       loc: 'Immediate bytecode offset to jump to if condition is true',
       condOffset: 'Memory offset of the condition value (Uint1)',
     },
-    tagChecks: ['T[condOffset] == UINT1'],
+    tagChecks: ['`T[condOffset] == UINT1`'],
     tagUpdates: [],
   },
 
   INTERNALCALL: {
     summary: 'Internal function call',
     expression: 'internalCallStack.push({callPc: PC, returnPc: PC + instructionSize}); PC = loc',
-    description: 'Calls an internal function at specified bytecode offset',
     details: 'Pushes current PC and return address onto internal call stack, then jumps to the target location.',
     errors: [
       { condition: 'INVALID_PROGRAM_COUNTER', description: 'Call location is outside valid bytecode range' },
@@ -404,7 +384,6 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   INTERNALRETURN: {
     summary: 'Return from internal call',
     expression: 'PC = internalCallStack.pop().returnPc',
-    description: 'Returns from an internal function call',
     details: 'Pops return address from internal call stack and sets PC to that address.',
     errors: [{ condition: 'CALL_STACK_UNDERFLOW', description: 'Internal call stack is empty' }],
     operandDescriptions: {},
@@ -416,7 +395,6 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   GETENVVAR: {
     summary: 'Get environment variable',
     expression: 'M[dstOffset] = environmentVariable[varEnum]',
-    description: 'Reads an environment variable into memory',
     details:
       'Retrieves environment variables like address, sender, chainId, timestamp, gas left, etc. The variable is specified by an immediate enum value.',
     errors: [{ condition: 'INVALID_ENV_VAR', description: 'Variable enum is not a valid EnvironmentVariable' }],
@@ -424,85 +402,79 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       varEnum: 'Immediate value specifying which environment variable to read',
     },
     tagChecks: [],
-    tagUpdates: ['T[dstOffset] = FIELD'],
+    tagUpdates: ['`T[dstOffset] = FIELD`'],
   },
 
   CALLDATACOPY: {
     summary: 'Copy calldata to memory',
     expression: 'M[dstOffset:dstOffset+copySize] = calldata[cdOffset:cdOffset+copySize]',
-    description: 'Copies calldata into memory',
     details: "Copies a slice of the current call's calldata into memory at the specified offset.",
     errors: [{ condition: 'INVALID_TAG', description: 'Size operand is not Uint32' }],
     operandDescriptions: {
       cdOffset: 'Memory offset of the calldata start index to copy from',
       copySize: 'Memory offset of the number of elements to copy',
-      dstOffset: 'Memory offset specifying where to start writing calldata',
+      dstOffset: 'Memory offset for writing calldata',
     },
-    tagChecks: ['T[copySize] == UINT32'],
-    tagUpdates: ['T[dstOffset:dstOffset+copySize] = FIELD'],
+    tagChecks: ['`T[copySize] == UINT32`'],
+    tagUpdates: ['`T[dstOffset:dstOffset+copySize] = FIELD`'],
   },
 
   RETURNDATASIZE: {
     summary: 'Get return data size',
     expression: 'M[dstOffset] = nestedReturndata.length',
-    description: 'Gets the size of return data from last nested call',
     details: 'Returns the size of the return data from the most recent nested contract call. Result is Uint32.',
     errors: [],
     operandDescriptions: {
-      dstOffset: 'Memory offset where the size will be written',
+      dstOffset: 'Memory offset for size will be written',
     },
     tagChecks: [],
-    tagUpdates: ['T[dstOffset] = UINT32'],
+    tagUpdates: ['`T[dstOffset] = UINT32`'],
   },
 
   RETURNDATACOPY: {
     summary: 'Copy return data to memory',
     expression: 'M[dstOffset:dstOffset+copySize] = nestedReturndata[rdOffset:rdOffset+copySize]',
-    description: 'Copies return data from last nested call into memory',
     details: 'Copies a slice of the return data from the most recent nested contract call into memory.',
     errors: [{ condition: 'INVALID_TAG', description: 'Size operand is not Uint32' }],
     operandDescriptions: {
       rdOffset: 'Memory offset of the return data start index to copy from',
       copySize: 'Memory offset of the number of elements to copy',
-      dstOffset: 'Memory offset specifying where to start writing return data',
+      dstOffset: 'Memory offset for writing return data',
     },
-    tagChecks: ['T[copySize] == UINT32'],
-    tagUpdates: ['T[dstOffset:dstOffset+copySize] = FIELD'],
+    tagChecks: ['`T[copySize] == UINT32`'],
+    tagUpdates: ['`T[dstOffset:dstOffset+copySize] = FIELD`'],
   },
 
   SUCCESSCOPY: {
-    summary: 'Get call success status',
+    summary: 'Get success status of last call',
     expression: 'M[dstOffset] = nestedCallSuccess ? 1 : 0',
-    description: 'Gets the success status from last nested call',
     details: 'Returns 1 if the most recent nested call succeeded, 0 if it reverted. Result is Uint1.',
     errors: [],
     operandDescriptions: {
-      dstOffset: 'Memory offset where the success status (0 or 1) will be written',
+      dstOffset: 'Memory offset for success status (0 or 1) will be written',
     },
     tagChecks: [],
-    tagUpdates: ['T[dstOffset] = UINT1'],
+    tagUpdates: ['`T[dstOffset] = UINT1`'],
   },
 
   // Storage Operations
   SLOAD: {
-    summary: 'Load from storage',
+    summary: 'Load value from storage',
     expression: 'M[dstOffset] = storage[contractAddress][M[slotOffset]]',
-    description: 'Loads a value from contract storage',
     details:
       'Reads from public storage at the specified slot. Both slot and result have type tag FIELD. Gas cost varies based on whether the slot is warm or cold.',
     errors: [{ condition: 'INVALID_TAG', description: 'Slot operand is not FIELD' }],
     operandDescriptions: {
       slotOffset: 'Memory offset of the storage slot to read from',
-      dstOffset: 'Memory offset where the loaded value will be written',
+      dstOffset: 'Memory offset for loaded value will be written',
     },
-    tagChecks: ['T[slotOffset] == FIELD'],
-    tagUpdates: ['T[dstOffset] = FIELD'],
+    tagChecks: ['`T[slotOffset] == FIELD`'],
+    tagUpdates: ['`T[dstOffset] = FIELD`'],
   },
 
   SSTORE: {
-    summary: 'Store to storage',
+    summary: 'Store value to storage',
     expression: 'storage[contractAddress][M[slotOffset]] = M[srcOffset]',
-    description: 'Stores a value to contract storage',
     details:
       'Writes to public storage at the specified slot. Both slot and value must have type tag FIELD. Gas cost varies based on whether the slot is warm or cold. Reverts in static calls.',
     errors: [
@@ -513,31 +485,29 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       srcOffset: 'Memory offset of the value to store',
       slotOffset: 'Memory offset of the storage slot to write to',
     },
-    tagChecks: ['T[slotOffset] == FIELD', 'T[srcOffset] == FIELD'],
+    tagChecks: ['`T[slotOffset] == FIELD`', '`T[srcOffset] == FIELD`'],
     tagUpdates: [],
   },
 
   // World State Operations
   NOTEHASHEXISTS: {
-    summary: 'Check note hash existence',
+    summary: 'Check existence of note hash',
     expression: 'M[existsOffset] = noteHashTree.exists(M[noteHashOffset], M[leafIndexOffset]) ? 1 : 0',
-    description: 'Checks if a note hash exists in the tree',
     details:
       'Queries whether the specified note hash exists at the given leaf index. Note hash must be FIELD, leaf index must be Uint64. Result is Uint1.',
     errors: [{ condition: 'INVALID_TAG', description: 'Note hash is not FIELD or leaf index is not Uint64' }],
     operandDescriptions: {
       noteHashOffset: 'Memory offset of the note hash to check',
       leafIndexOffset: 'Memory offset of the leaf index in the note hash tree',
-      existsOffset: 'Memory offset where the result (0 or 1) will be written',
+      existsOffset: 'Memory offset for result (0 or 1) will be written',
     },
-    tagChecks: ['T[noteHashOffset] == FIELD', 'T[leafIndexOffset] == UINT64'],
-    tagUpdates: ['T[existsOffset] = UINT1'],
+    tagChecks: ['`T[noteHashOffset] == FIELD`', '`T[leafIndexOffset] == UINT64`'],
+    tagUpdates: ['`T[existsOffset] = UINT1`'],
   },
 
   EMITNOTEHASH: {
     summary: 'Emit note hash',
     expression: 'noteHashes.append(M[noteHashOffset])',
-    description: 'Emits a note hash to the output',
     details:
       "Adds a note hash to the current call's accumulated note hashes. Note hash must have type tag FIELD. Reverts in static calls.",
     errors: [
@@ -547,30 +517,28 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       noteHashOffset: 'Memory offset of the note hash to emit',
     },
-    tagChecks: ['T[noteHashOffset] == FIELD'],
+    tagChecks: ['`T[noteHashOffset] == FIELD`'],
     tagUpdates: [],
   },
 
   NULLIFIEREXISTS: {
-    summary: 'Check nullifier existence',
+    summary: 'Check existence of nullifier',
     expression: 'M[existsOffset] = nullifierTree.exists(M[addressOffset], M[nullifierOffset]) ? 1 : 0',
-    description: 'Checks if a nullifier exists for a given address',
     details:
       'Queries whether the specified nullifier exists for the given contract address. Both address and nullifier must be FIELD. Result is Uint1.',
     errors: [{ condition: 'INVALID_TAG', description: 'Address or nullifier is not FIELD' }],
     operandDescriptions: {
       nullifierOffset: 'Memory offset of the nullifier to check',
       addressOffset: 'Memory offset of the contract address',
-      existsOffset: 'Memory offset where the result (0 or 1) will be written',
+      existsOffset: 'Memory offset for result (0 or 1) will be written',
     },
-    tagChecks: ['T[addressOffset] == FIELD', 'T[nullifierOffset] == FIELD'],
-    tagUpdates: ['T[existsOffset] = UINT1'],
+    tagChecks: ['`T[addressOffset] == FIELD`', '`T[nullifierOffset] == FIELD`'],
+    tagUpdates: ['`T[existsOffset] = UINT1`'],
   },
 
   EMITNULLIFIER: {
     summary: 'Emit nullifier',
     expression: 'nullifiers.append(M[nullifierOffset])',
-    description: 'Emits a nullifier to the output',
     details:
       "Adds a nullifier to the current call's accumulated nullifiers. Nullifier must have type tag FIELD. Reverts in static calls or if nullifier already exists.",
     errors: [
@@ -581,30 +549,28 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       nullifierOffset: 'Memory offset of the nullifier to emit',
     },
-    tagChecks: ['T[nullifierOffset] == FIELD'],
+    tagChecks: ['`T[nullifierOffset] == FIELD`'],
     tagUpdates: [],
   },
 
   L1TOL2MSGEXISTS: {
-    summary: 'Check L1-to-L2 message',
+    summary: 'Check existence of L1-to-L2 message',
     expression: 'M[existsOffset] = l1ToL2Messages.exists(M[msgHashOffset], M[msgLeafIndexOffset]) ? 1 : 0',
-    description: 'Checks if an L1-to-L2 message exists',
     details:
       'Queries whether the specified L1-to-L2 message hash exists at the given leaf index. Message hash must be FIELD, leaf index must be Uint64. Result is Uint1.',
     errors: [{ condition: 'INVALID_TAG', description: 'Message hash is not FIELD or leaf index is not Uint64' }],
     operandDescriptions: {
       msgHashOffset: 'Memory offset of the L1-to-L2 message hash',
       msgLeafIndexOffset: 'Memory offset of the leaf index in the message tree',
-      existsOffset: 'Memory offset where the result (0 or 1) will be written',
+      existsOffset: 'Memory offset for result (0 or 1) will be written',
     },
-    tagChecks: ['T[msgHashOffset] == FIELD', 'T[msgLeafIndexOffset] == UINT64'],
-    tagUpdates: ['T[existsOffset] = UINT1'],
+    tagChecks: ['`T[msgHashOffset] == FIELD`', '`T[msgLeafIndexOffset] == UINT64`'],
+    tagUpdates: ['`T[existsOffset] = UINT1`'],
   },
 
   GETCONTRACTINSTANCE: {
-    summary: 'Get contract instance info',
+    summary: 'Get contract instance information',
     expression: 'M[dstOffset] = contractInstance.exists ? 1 : 0; M[dstOffset+1] = contractInstance[memberEnum]',
-    description: 'Retrieves contract instance information',
     details:
       'Looks up contract instance by address and retrieves the specified member (deployer, classId, or initHash). Returns existence flag (Uint1) and member value (FIELD).',
     errors: [
@@ -615,13 +581,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       memberEnum: 'Immediate value specifying which contract instance member to retrieve',
     },
     tagChecks: [],
-    tagUpdates: ['T[dstOffset] = UINT1', 'T[dstOffset+1] = FIELD'],
+    tagUpdates: ['`T[dstOffset] = UINT1`', '`T[dstOffset+1] = FIELD`'],
   },
 
   EMITUNENCRYPTEDLOG: {
     summary: 'Emit unencrypted log',
     expression: 'unencryptedLogs.append(M[logOffset:logOffset+M[logSizeOffset]])',
-    description: 'Emits an unencrypted log',
     details:
       "Appends an unencrypted (public) log to the current call's accumulated logs. Log size must be Uint32, log data must be FIELD elements. Reverts in static calls.",
     errors: [
@@ -632,14 +597,13 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       logOffset: 'Memory offset of the start of the log data',
       logSizeOffset: 'Memory offset of the log size (number of fields)',
     },
-    tagChecks: ['T[logSizeOffset] == UINT32', 'T[logOffset:logOffset+M[logSizeOffset]] == FIELD'],
+    tagChecks: ['`T[logSizeOffset] == UINT32`', '`T[logOffset:logOffset+M[logSizeOffset]]` == FIELD'],
     tagUpdates: [],
   },
 
   SENDL2TOL1MSG: {
     summary: 'Send L2-to-L1 message',
     expression: 'l2ToL1Messages.append({recipient: M[recipientOffset], content: M[contentOffset]})',
-    description: 'Sends a message from L2 to L1',
     details:
       'Queues a message to be sent to L1. Both recipient and content must have type tag FIELD. Reverts in static calls.',
     errors: [
@@ -650,16 +614,18 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       recipientOffset: 'Memory offset of the L1 recipient address',
       contentOffset: 'Memory offset of the message content',
     },
-    tagChecks: ['T[recipientOffset] == FIELD', 'T[contentOffset] == FIELD'],
+    tagChecks: ['`T[recipientOffset] == FIELD`', '`T[contentOffset] == FIELD`'],
     tagUpdates: [],
   },
 
   // External Call Operations
   CALL: {
-    summary: 'External contract call',
-    expression:
-      'nestedCallResult = executeContract(M[addrOffset], M[argsOffset:argsOffset+M[argsSizeOffset]], {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]})',
-    description: 'Performs an external contract call',
+    summary: 'Call external contract',
+    expression: `nestedCallResult = executeContract(
+        /*address=*/M[addrOffset],
+        /*args=*/M[argsOffset:argsOffset+M[argsSizeOffset]],
+        {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]}
+    )`,
     details:
       'Calls another contract with the specified calldata and gas allocation. Can modify state. The call consumes the allocated gas and refunds unused gas. Updates nestedCallSuccess and nestedReturndata.',
     errors: [
@@ -675,19 +641,21 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       successOffset: 'Memory offset where success flag (0 or 1) will be written',
     },
     tagChecks: [
-      'T[l2GasOffset] == UINT32',
-      'T[daGasOffset] == UINT32',
-      'T[addrOffset] == FIELD',
-      'T[argsSizeOffset] == UINT32',
+      '`T[l2GasOffset] == UINT32`',
+      '`T[daGasOffset] == UINT32`',
+      '`T[addrOffset] == FIELD`',
+      '`T[argsSizeOffset] == UINT32`',
     ],
-    tagUpdates: ['T[successOffset] = UINT1'],
+    tagUpdates: ['`T[successOffset] = UINT1`'],
   },
 
   STATICCALL: {
-    summary: 'Static external call',
-    expression:
-      'nestedCallResult = executeContractStatic(M[addrOffset], M[argsOffset:argsOffset+M[argsSizeOffset]], {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]})',
-    description: 'Performs a static external contract call',
+    summary: 'Static call to external contract',
+    expression: `nestedCallResult = executeContractStatic(
+        /*address=*/M[addrOffset],
+        /*args=*/M[argsOffset:argsOffset+M[argsSizeOffset]],
+        {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]}
+    )`,
     details:
       'Calls another contract in static mode (read-only). Any state modifications in the nested call will cause it to revert. Updates nestedCallSuccess and nestedReturndata.',
     errors: [
@@ -703,32 +671,30 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       successOffset: 'Memory offset where success flag (0 or 1) will be written',
     },
     tagChecks: [
-      'T[l2GasOffset] == UINT32',
-      'T[daGasOffset] == UINT32',
-      'T[addrOffset] == FIELD',
-      'T[argsSizeOffset] == UINT32',
+      '`T[l2GasOffset] == UINT32`',
+      '`T[daGasOffset] == UINT32`',
+      '`T[addrOffset] == FIELD`',
+      '`T[argsSizeOffset] == UINT32`',
     ],
-    tagUpdates: ['T[successOffset] = UINT1'],
+    tagUpdates: ['`T[successOffset] = UINT1`'],
   },
 
   RETURN: {
     summary: 'Return from call',
     expression: 'return M[returnOffset:returnOffset+M[returnSizeOffset]]; halt',
-    description: 'Returns from current call with data',
     details: 'Halts execution and returns data to the caller. Return size must be Uint32. Sets success flag.',
     errors: [{ condition: 'INVALID_TAG', description: 'Return size operand is not Uint32' }],
     operandDescriptions: {
       returnOffset: 'Memory offset of the start of the return data',
       returnSizeOffset: 'Memory offset of the return data size',
     },
-    tagChecks: ['T[returnSizeOffset] == UINT32'],
+    tagChecks: ['`T[returnSizeOffset] == UINT32`'],
     tagUpdates: [],
   },
 
   REVERT: {
     summary: 'Revert execution',
     expression: 'revert M[returnOffset:returnOffset+M[retSizeOffset]]; halt',
-    description: 'Reverts current call with error data',
     details:
       'Halts execution with revert status and returns error data to the caller. Revert size must be Uint32. Undoes state changes.',
     errors: [{ condition: 'INVALID_TAG', description: 'Revert size operand is not Uint32' }],
@@ -736,62 +702,62 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       returnOffset: 'Memory offset of the start of the revert data',
       retSizeOffset: 'Memory offset of the revert data size',
     },
-    tagChecks: ['T[retSizeOffset] == UINT32'],
+    tagChecks: ['`T[retSizeOffset] == UINT32`'],
     tagUpdates: [],
   },
 
   // Gadget Operations
   POSEIDON2: {
     summary: 'Poseidon2 permutation',
-    expression: 'M[outputStateOffset:outputStateOffset+4] = poseidon2(M[inputStateOffset:inputStateOffset+4])',
-    description: 'Applies Poseidon2 permutation to a 4-element state',
+    expression:
+      'M[outputStateOffset:outputStateOffset+4] = poseidon2Permutation(/*input=*/M[inputStateOffset:inputStateOffset+4])',
     details:
       'Computes the Poseidon2 permutation on a state of 4 field elements. Input and output states must have type tag FIELD.',
     errors: [{ condition: 'INVALID_TAG', description: 'Input state elements are not FIELD' }],
     operandDescriptions: {
       inputStateOffset: 'Memory offset of the input state (4 field elements)',
-      outputStateOffset: 'Memory offset where the output state will be written',
+      outputStateOffset: 'Memory offset for output state will be written',
     },
-    tagChecks: ['T[inputStateOffset:inputStateOffset+4] == FIELD'],
-    tagUpdates: ['T[outputStateOffset:outputStateOffset+4] = FIELD'],
+    tagChecks: ['`T[inputStateOffset:inputStateOffset+4] == FIELD`'],
+    tagUpdates: ['`T[outputStateOffset:outputStateOffset+4] = FIELD`'],
   },
 
   SHA256COMPRESSION: {
     summary: 'SHA-256 compression',
     expression:
-      'M[outputOffset:outputOffset+8] = sha256compress(M[stateOffset:stateOffset+8], M[inputsOffset:inputsOffset+16])',
-    description: 'Applies SHA-256 compression function',
+      'M[outputOffset:outputOffset+8] = sha256compress(/*state=*/M[stateOffset:stateOffset+8], /*inputs=*/M[inputsOffset:inputsOffset+16])',
     details:
       'Computes the SHA-256 compression function on an 8-word state and 16-word input block. State and inputs must be Uint32. Outputs 8 Uint32 words.',
     errors: [{ condition: 'INVALID_TAG', description: 'State or inputs are not Uint32' }],
     operandDescriptions: {
       stateOffset: 'Memory offset of the 8-word SHA-256 state',
       inputsOffset: 'Memory offset of the 16-word input block',
-      outputOffset: 'Memory offset where the 8-word output state will be written',
+      outputOffset: 'Memory offset for 8-word output state will be written',
     },
-    tagChecks: ['T[stateOffset:stateOffset+8] == UINT32', 'T[inputsOffset:inputsOffset+16] == UINT32'],
-    tagUpdates: ['T[outputOffset:outputOffset+8] = UINT32'],
+    tagChecks: ['`T[stateOffset:stateOffset+8] == UINT32`', '`T[inputsOffset:inputsOffset+16] == UINT32`'],
+    tagUpdates: ['`T[outputOffset:outputOffset+8] = UINT32`'],
   },
 
   KECCAKF1600: {
     summary: 'Keccak-f[1600] permutation',
-    expression: 'M[dstOffset:dstOffset+25] = keccakf1600(M[inputOffset:inputOffset+25])',
-    description: 'Applies Keccak-f[1600] permutation',
+    expression: 'M[dstOffset:dstOffset+25] = keccakf1600(/*input=*/M[inputOffset:inputOffset+25])',
     details:
       'Computes the Keccak-f[1600] permutation on a state of 25 Uint64 elements. Input and output must have type tag Uint64.',
     errors: [{ condition: 'INVALID_TAG', description: 'Input state elements are not Uint64' }],
     operandDescriptions: {
       inputOffset: 'Memory offset of the input state (25 Uint64 elements)',
-      dstOffset: 'Memory offset where the output state will be written',
+      dstOffset: 'Memory offset for output state will be written',
     },
-    tagChecks: ['T[inputOffset:inputOffset+25] == UINT64'],
-    tagUpdates: ['T[dstOffset:dstOffset+25] = UINT64'],
+    tagChecks: ['`T[inputOffset:inputOffset+25] == UINT64`'],
+    tagUpdates: ['`T[dstOffset:dstOffset+25] = UINT64`'],
   },
 
   ECADD: {
-    summary: 'Elliptic curve addition',
-    expression: 'M[dstOffset:dstOffset+3] = grumpkinAdd(point1, point2)',
-    description: 'Adds two Grumpkin elliptic curve points',
+    summary: 'Grumpkin elliptic curve addition',
+    expression: `M[dstOffset:dstOffset+3] = grumpkinAdd(
+        /*point1=*/{x: M[p1XOffset], y: M[p1YOffset], isInfinite: M[p1IsInfiniteOffset]},
+        /*point2=*/{x: M[p2XOffset], y: M[p2YOffset], isInfinite: M[p2IsInfiniteOffset]}
+    )`,
     details:
       'Performs elliptic curve point addition on the Grumpkin curve. Each point is represented as (x: FIELD, y: FIELD, isInfinite: Uint1). Returns result point in same format.',
     errors: [
@@ -805,65 +771,61 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       p2XOffset: "Memory offset of the second point's x-coordinate",
       p2YOffset: "Memory offset of the second point's y-coordinate",
       p2IsInfiniteOffset: "Memory offset of the second point's infinity flag",
-      dstOffset: 'Memory offset where the result point will be written (3 values)',
+      dstOffset: 'Memory offset for result point will be written (3 values)',
     },
     tagChecks: [
-      'T[p1XOffset] == FIELD',
-      'T[p1YOffset] == FIELD',
-      'T[p1IsInfiniteOffset] == UINT1',
-      'T[p2XOffset] == FIELD',
-      'T[p2YOffset] == FIELD',
-      'T[p2IsInfiniteOffset] == UINT1',
+      '`T[p1XOffset] == FIELD`',
+      '`T[p1YOffset] == FIELD`',
+      '`T[p1IsInfiniteOffset] == UINT1`',
+      '`T[p2XOffset] == FIELD`',
+      '`T[p2YOffset] == FIELD`',
+      '`T[p2IsInfiniteOffset] == UINT1`',
     ],
-    tagUpdates: ['T[dstOffset] = FIELD', 'T[dstOffset+1] = FIELD', 'T[dstOffset+2] = UINT1'],
+    tagUpdates: ['`T[dstOffset] = FIELD`', '`T[dstOffset+1] = FIELD`', '`T[dstOffset+2] = UINT1`'],
   },
 
   // Conversion Operations
   TORADIXBE: {
     summary: 'Convert to radix (big-endian)',
-    expression:
-      'M[dstOffset:dstOffset+M[numLimbsOffset]] = toRadixBE(M[srcOffset], M[radixOffset], M[numLimbsOffset], M[outputBitsOffset])',
-    description: 'Converts a field element to radix representation (big-endian)',
+    expression: `M[dstOffset:dstOffset+M[numLimbsOffset]] = toRadixBE(
+        /*value=*/M[srcOffset],
+        /*radix=*/M[radixOffset],
+        /*numLimbs=*/M[numLimbsOffset],
+        /*outputBits=*/M[outputBitsOffset]
+    )`,
     details:
       'Decomposes a field element into limbs in the specified radix (2-256). If outputBits is true (Uint1), outputs Uint1 array; otherwise outputs Uint8 array. Source must be FIELD, radix and numLimbs must be Uint32.',
     errors: [
       { condition: 'INVALID_TAG', description: 'Operands have incorrect type tags' },
       { condition: 'INVALID_RADIX', description: 'Radix is not in range [2, 256]' },
       { condition: 'INVALID_NUM_LIMBS', description: 'Number of limbs is zero but value is non-zero' },
-      {
-        condition: 'INVALID_DECOMPOSITION',
-        description: 'Value cannot be decomposed in the specified number of limbs',
-      },
+      { condition: 'INVALID_DECOMPOSITION', description: 'Value cannot be decomposed into specified radix/limbs' },
       { condition: 'INVALID_BIT_MODE', description: 'Bit mode is enabled but radix is not 2' },
     ],
     operandDescriptions: {
       srcOffset: 'Memory offset of the field element to decompose',
-      dstOffset: 'Memory offset where the limb array will be written',
+      dstOffset: 'Memory offset for limb array will be written',
       radixOffset: 'Memory offset of the radix (base) for decomposition',
       numLimbsOffset: 'Memory offset of the number of limbs to generate',
       outputBitsOffset: 'Memory offset of the output mode flag (1 for bits, 0 for bytes)',
     },
     tagChecks: [
-      'T[srcOffset] == FIELD',
-      'T[radixOffset] == UINT32',
-      'T[numLimbsOffset] == UINT32',
-      'T[outputBitsOffset] == UINT1',
+      '`T[srcOffset] == FIELD`',
+      '`T[radixOffset] == UINT32`',
+      '`T[numLimbsOffset] == UINT32`',
+      '`T[outputBitsOffset] == UINT1`',
     ],
-    tagUpdates: ['T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset] ? UINT1 : UINT8'],
+    tagUpdates: ['`T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset]` ? UINT1 : UINT8'],
   },
 
   // Misc Operations
   DEBUGLOG: {
-    summary: 'Debug logging',
+    summary: 'Emit debug log',
     expression: 'debugLog(level, message, M[fieldsOffset:fieldsOffset+M[fieldsSizeOffset]])',
-    description: 'Logs debug information during execution',
     details:
       'Emits a debug log with a message string and field values. Only executed if debug logging is enabled. Level must be Uint8, fields must be FIELD, message size and fields size are immediate. Counts against max debug memory reads limit.',
     errors: [
-      {
-        condition: 'INVALID_TAG',
-        description: 'Level is not Uint8, fields size is not Uint32, or message/fields have incorrect tags',
-      },
+      { condition: 'INVALID_TAG', description: 'Fields operands are not FIELD type' },
       { condition: 'INVALID_LOG_LEVEL', description: 'Log level is not a valid LogLevel enum value' },
       { condition: 'DEBUG_MEMORY_LIMIT_EXCEEDED', description: 'Exceeded maximum debug log memory reads' },
     ],
@@ -873,7 +835,7 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       fieldsOffset: 'Memory offset of the start of field values to log',
       fieldsSizeOffset: 'Memory offset of the number of fields to log',
     },
-    tagChecks: ['T[fieldsSizeOffset] == UINT32'],
+    tagChecks: ['`T[fieldsSizeOffset] == UINT32`'],
     tagUpdates: [],
   },
 };

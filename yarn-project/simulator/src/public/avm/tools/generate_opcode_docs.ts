@@ -46,7 +46,7 @@ import { GetEnvVar } from '../opcodes/environment_getters.js';
 import { Call, Return, Revert, StaticCall, SuccessCopy } from '../opcodes/external_calls.js';
 import { KeccakF1600, Poseidon2, Sha256Compression } from '../opcodes/hashing.js';
 import { CalldataCopy, Cast, Mov, ReturndataCopy, ReturndataSize, Set } from '../opcodes/memory.js';
-import { MinimalMetadataRegistry, type MinimalOpcodeMetadata } from '../opcodes/metadata_registry.js';
+import { MinimalMetadataRegistry } from '../opcodes/metadata_registry.js';
 import { DebugLog } from '../opcodes/misc.js';
 import { SLoad, SStore } from '../opcodes/storage.js';
 import { Opcode, OperandType, getOperandSize } from '../serialization/instruction_serialization.js';
@@ -102,7 +102,7 @@ interface OpcodeDocumentation {
   /** Mathematical/logical expression */
   expression: string;
   /** Brief description */
-  description: string;
+  description?: string;
   /** Detailed explanation */
   details?: string;
   /** Error conditions */
@@ -155,7 +155,7 @@ function generateMermaidDiagram(
     `title: "${opcodeName}"`,
     'config:',
     '  packet:',
-    `    bitsPerRow: ${totalBits}`,
+    `    bitsPerRow: ${Math.min(totalBits, 64)}`,
     '---',
     'packet-beta',
   ];
@@ -205,14 +205,18 @@ function formatOpcodeHex(opcode: number): string {
  * Returns a single hex value if only one opcode, or a range if multiple.
  */
 function getOpcodeRangeString(wireFormats: WireFormatVariation[]): string {
-  if (wireFormats.length === 0) return '0x00';
-  if (wireFormats.length === 1) return formatOpcodeHex(wireFormats[0].opcode);
+  if (wireFormats.length === 0) {
+    throw new Error('No wire formats provided');
+  }
+  if (wireFormats.length === 1) {
+    return `\`${formatOpcodeHex(wireFormats[0].opcode)}\``;
+  }
 
   const opcodes = wireFormats.map(wf => wf.opcode).sort((a, b) => a - b);
   const min = opcodes[0];
   const max = opcodes[opcodes.length - 1];
 
-  return `${formatOpcodeHex(min)}-${formatOpcodeHex(max)}`;
+  return `\`${formatOpcodeHex(min)}\`-\`${formatOpcodeHex(max)}\``;
 }
 
 /**
@@ -240,79 +244,72 @@ function getFieldNameForOperandType(operandType: OperandType, index: number): st
 }
 
 /**
- * Gets the string name for an OperandType enum value.
- */
-function getOperandTypeName(operandType: OperandType): string {
-  return OperandType[operandType];
-}
-
-/**
  * Extracts wire format variations from an instruction class.
  * Checks both the class itself and its prototype chain.
  */
-function extractWireFormats(instructionClass: InstructionClass): WireFormatVariation[] {
-  const variations: WireFormatVariation[] = [];
-  const baseName = instructionClass.type;
-
-  // Look for wireFormat properties on the class and its prototype chain
-  let currentClass: any = instructionClass;
-  const wireFormatKeys: string[] = [];
-
-  // Walk up the prototype chain to find all wireFormat properties
-  while (currentClass && currentClass !== Object.prototype) {
-    for (const key of Object.getOwnPropertyNames(currentClass)) {
-      if (key.startsWith('wireFormat') && wireFormatKeys.indexOf(key) === -1) {
-        wireFormatKeys.push(key);
-      }
-    }
-    currentClass = Object.getPrototypeOf(currentClass);
-  }
-
-  // Determine if we have only one unnamed wireFormat
-  const hasOnlyUnnamedWireFormat = wireFormatKeys.length === 1 && wireFormatKeys[0] === 'wireFormat';
-
-  // Process each wire format
-  for (const key of wireFormatKeys) {
-    const format = (instructionClass as any)[key] as OperandType[];
-    if (!Array.isArray(format)) continue;
-
-    // Derive the opcode for this variation
-    // The naming convention is: OPCODE_8, OPCODE_16, etc.
-    let variantSuffix = key.replace('wireFormat', '');
-    if (variantSuffix === '') variantSuffix = '8'; // Default to 8 if no suffix
-
-    const variantName = `${baseName}_${variantSuffix.toUpperCase()}`;
-
-    // Try to look up the opcode - first try the variant name, then the base name
-    let opcodeKey = variantName as keyof typeof Opcode;
-    let opcodeValue = Opcode[opcodeKey];
-
-    // If variant doesn't exist in enum, try the base name (for single unnamed wireFormats)
-    if (opcodeValue === undefined && hasOnlyUnnamedWireFormat) {
-      opcodeKey = baseName as keyof typeof Opcode;
-      opcodeValue = Opcode[opcodeKey];
-    }
-
-    // If still not found, try using the instruction class's opcode directly
-    if (opcodeValue === undefined) {
-      opcodeValue = instructionClass.opcode;
-    }
-
-    if (opcodeValue !== undefined) {
-      // Use just the base name for both the name and diagram title if there's only one unnamed wireFormat
-      const displayName = hasOnlyUnnamedWireFormat ? baseName : variantName;
-
-      variations.push({
-        name: displayName,
-        opcode: opcodeValue,
-        format: format.map(getOperandTypeName),
-        mermaidDiagram: generateMermaidDiagram(format, displayName, opcodeValue),
-      });
-    }
-  }
-
-  return variations;
-}
+//function extractWireFormats(instructionClass: InstructionClass): WireFormatVariation[] {
+//  const variations: WireFormatVariation[] = [];
+//  const baseName = instructionClass.type;
+//
+//  // Look for wireFormat properties on the class and its prototype chain
+//  let currentClass: any = instructionClass;
+//  const wireFormatKeys: string[] = [];
+//
+//  // Walk up the prototype chain to find all wireFormat properties
+//  while (currentClass && currentClass !== Object.prototype) {
+//    for (const key of Object.getOwnPropertyNames(currentClass)) {
+//      if (key.startsWith('wireFormat') && wireFormatKeys.indexOf(key) === -1) {
+//        wireFormatKeys.push(key);
+//      }
+//    }
+//    currentClass = Object.getPrototypeOf(currentClass);
+//  }
+//
+//  // Determine if we have only one unnamed wireFormat
+//  const hasOnlyUnnamedWireFormat = wireFormatKeys.length === 1 && wireFormatKeys[0] === 'wireFormat';
+//
+//  // Process each wire format
+//  for (const key of wireFormatKeys) {
+//    const format = (instructionClass as any)[key] as OperandType[];
+//    if (!Array.isArray(format)) {continue;}
+//
+//    // Derive the opcode for this variation
+//    // The naming convention is: OPCODE_8, OPCODE_16, etc.
+//    let variantSuffix = key.replace('wireFormat', '');
+//    if (variantSuffix === '') {variantSuffix = '8';} // Default to 8 if no suffix
+//
+//    const variantName = `${baseName}_${variantSuffix.toUpperCase()}`;
+//
+//    // Try to look up the opcode - first try the variant name, then the base name
+//    let opcodeKey = variantName as keyof typeof Opcode;
+//    let opcodeValue = Opcode[opcodeKey];
+//
+//    // If variant doesn't exist in enum, try the base name (for single unnamed wireFormats)
+//    if (opcodeValue === undefined && hasOnlyUnnamedWireFormat) {
+//      opcodeKey = baseName as keyof typeof Opcode;
+//      opcodeValue = Opcode[opcodeKey];
+//    }
+//
+//    // If still not found, try using the instruction class's opcode directly
+//    if (opcodeValue === undefined) {
+//      opcodeValue = instructionClass.opcode;
+//    }
+//
+//    if (opcodeValue !== undefined) {
+//      // Use just the base name for both the name and diagram title if there's only one unnamed wireFormat
+//      const displayName = hasOnlyUnnamedWireFormat ? baseName : variantName;
+//
+//      variations.push({
+//        name: displayName,
+//        opcode: opcodeValue,
+//        format: format.map(getOperandTypeName),
+//        mermaidDiagram: generateMermaidDiagram(format, displayName, opcodeValue),
+//      });
+//    }
+//  }
+//
+//  return variations;
+//}
 
 /**
  * Generates documentation for a single instruction class using programmatic extraction (v2).
@@ -326,7 +323,7 @@ function generateOpcodeDoc(
 
   // Skip if no minimal metadata (not yet documented)
   if (!minimalMetadata) {
-    console.warn(`Warning: No minimal metadata found for ${type}, skipping`);
+    //console.warn(`Warning: No minimal metadata found for ${type}, skipping`);
     return null;
   }
 
@@ -354,7 +351,7 @@ function generateOpcodeDoc(
   // Determine addressing mode bitmask size dynamically
   const addrModeBitmaskSize = getAddressingModeBitmaskSize(extracted.wireFormats);
   const addrModeEncoding = addrModeBitmaskSize
-    ? `Single ${addrModeBitmaskSize}-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)`
+    ? `${addrModeBitmaskSize}-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)`
     : undefined;
 
   const doc: OpcodeDocumentation = {
@@ -421,7 +418,7 @@ function generateAddressingModeMermaid(doc: OpcodeDocumentation): string {
   lines.push('config:');
   lines.push('  packet:');
   lines.push('    bitWidth: 128');
-  lines.push(`    bitsPerRow: ${bitmaskSize}`);
+  lines.push('    bitsPerRow: 8');
   lines.push('---');
   lines.push('packet-beta');
 
@@ -452,7 +449,9 @@ function generateAddressingModeMermaid(doc: OpcodeDocumentation): string {
  * Returns 8 for ADDRMODE8, 16 for ADDRMODE16, or undefined if no addressing modes.
  */
 function getAddressingModeBitmaskSize(wireFormats: any[]): number | undefined {
-  if (wireFormats.length === 0) return undefined;
+  if (wireFormats.length === 0) {
+    return undefined;
+  }
 
   for (const wf of wireFormats) {
     for (const operandType of wf.format) {
@@ -487,7 +486,7 @@ function generateOperandDescription(operand: any): string {
 /**
  * Infer category from instruction class (could use file path or other heuristics).
  */
-function inferCategory(instructionClass: any): string {
+function inferCategory(_instructionClass: any): string {
   // For now, return 'Misc' - could be enhanced to check file path
   return 'Misc';
 }
@@ -613,8 +612,10 @@ function generateOpcodeMDX(doc: OpcodeDocumentation): string {
   lines.push('');
   lines.push(`**Category**: ${doc.category || 'Misc'}`);
   lines.push('');
-  lines.push(doc.description);
-  lines.push('');
+  if (doc.description) {
+    lines.push(doc.description);
+    lines.push('');
+  }
   lines.push(doc.summary);
   lines.push('');
 
@@ -802,7 +803,7 @@ function generateOpcodeMDX(doc: OpcodeDocumentation): string {
 }
 
 /**
- * Generate a complete MDX file with all opcodes organized by category.
+ * Generate a complete MDX file with all opcodes.
  */
 function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): string {
   const lines: string[] = [];
@@ -817,181 +818,215 @@ function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): strin
   // Introduction
   lines.push('# AVM Instruction Set');
   lines.push('');
-  lines.push('This document provides a comprehensive reference for all Aztec Virtual Machine (AVM) instructions.');
+  lines.push(
+    'This document provides a comprehensive reference for all Aztec Virtual Machine (AVM) instructions. The AVM is the virtual machine used for **public execution** in the Aztec protocol. This is _not_ a specification of the ACIR instruction set used for private execution.',
+  );
   lines.push('');
   lines.push(`**Total Opcodes**: ${Object.keys(docs).length}`);
   lines.push('');
 
-  // Organize opcodes by category
-  const categories = new Map<string, OpcodeDocumentation[]>();
-  for (const [name, doc] of Object.entries(docs)) {
-    const category = doc.category || 'Misc';
-    if (!categories.has(category)) {
-      categories.set(category, []);
-    }
-    categories.get(category)!.push(doc);
-  }
+  // Definitions and notes
+  lines.push('## Definitions and Notes');
+  lines.push('');
+  lines.push(
+    '- **`M[x]`**: Denotes the value in memory at offset `x`. Memory is a linear array of field elements, each with an associated type tag.',
+  );
+  lines.push(
+    '- **`storage[address][slot]`**: Denotes the value in persistent storage at the given contract address and storage slot.',
+  );
+  lines.push(
+    '- **`T[x]`**: Denotes the type tag of the memory cell at offset `x`. Tags include `FIELD`, `UINT1`, `UINT8`, `UINT16`, `UINT32`, `UINT64` and `UINT128`.',
+  );
+  lines.push(
+    '- **`mod 2^k`**: All arithmetic operations are performed modulo 2^k, where `k` is the bit-width of the operand type (e.g., k=8 for `UINT8`, k=254 for `FIELD`).',
+  );
+  lines.push(
+    '- **`mod p`**: Field operations are performed modulo the BN254 field prime `p = 21888242871839275222246405745257275088548364400416034343698204186575808495617`.',
+  );
+  lines.push(
+    '- **Immediate**: A constant value encoded directly in the bytecode that does not require a memory read to access.',
+  );
+  lines.push(
+    '- **`pc++`**: Every instruction increments the program counter (`PC`) by its instruction size (in bytes) unless it performs explicit control flow (jumps, internal calls/returns, calls/returns/reverts) or encounters an error.',
+  );
+  lines.push(
+    "- **Gas metering**: Every instruction has an associated gas cost (L2 and DA components). If insufficient gas remains when an instruction is reached, execution halts with an out-of-gas error. This error condition is implicit for all instructions and is not explicitly listed in each instruction's error conditions.",
+  );
+  lines.push(
+    '- **Wire formats**: Many instructions have multiple wire format variants. They are named with a suffix (e.g., `ADD_8`, `ADD_16`). **This suffix refers only to the encoding size of operands in the bytecode**, not to type constraints or tag checks. For example, `ADD_8` means the instruction uses 8-bit operand offsets in its encoding, but it does **not** imply that operands must have the `UINT8` tag. The actual type constraints are specified in each instruction\'s "Tag Checks" and "Tag Updates" sections. For many operations, multiple wire format variants exist to optimize bytecode size: smaller operand encodings save space when operands fit within the smaller range.',
+  );
+  lines.push(
+    '- **Addressing Modes**: Instructions that have memory-offset operands include an Addressing Modes bitmask that defines the addressing mode for each memory-offset operand. Every memory-offset operand is associated with two bits in this bitmask. These bits specify whether the operand should be treated as indirect (`M[M[x]]`) and/or relative (`M[x] + M[0]`). By default, operands use direct addressing (`M[x]`). If both bits for an operand are 0, direct addressing is used; otherwise, the operand applies indirect and/or relative addressing as indicated by the bitmask.',
+  );
+  lines.push('');
 
-  // Consolidated table of all opcodes
+  // Sort by lowest opcode value
+  const allOpcodeDocInfos = Object.values(docs).sort((a, b) => {
+    const aLowestOpcode = Math.min(...a.wireFormats.map(wf => wf.opcode));
+    const bLowestOpcode = Math.min(...b.wireFormats.map(wf => wf.opcode));
+    return aLowestOpcode - bLowestOpcode;
+  });
+
+  // Quick reference list
   lines.push('## Quick Reference');
   lines.push('');
-  lines.push('| Name | Opcode(s) | Summary | Expression |');
-  lines.push('|------|-----------|---------|------------|');
-
-  const allDocs = Object.values(docs).sort((a, b) => a.name.localeCompare(b.name));
-  for (const doc of allDocs) {
+  lines.push('Click on an opcode name to jump to its detailed documentation.');
+  lines.push('');
+  for (const doc of allOpcodeDocInfos) {
     const nameLink = `[${doc.name}](#${doc.name.toLowerCase()})`;
     const opcodes = getOpcodeRangeString(doc.wireFormats);
     const summary = doc.summary || '';
-    const expression = doc.expression ? `\`${doc.expression}\`` : '';
-    lines.push(`| ${nameLink} | ${opcodes} | ${summary} | ${expression} |`);
+    const wireFormatCount = doc.wireFormats.length;
+    const opcodesText =
+      wireFormatCount === 1 ? `Opcode ${opcodes}` : `Opcodes ${opcodes} (${wireFormatCount} wire formats)`;
+    lines.push(`* **${nameLink}**: ${summary}`);
+    lines.push(`    * ${opcodesText}`);
+    if (doc.expression) {
+      lines.push('    ```javascript');
+      lines.push(`    ${doc.expression}`);
+      lines.push('    ```');
+    }
   }
   lines.push('');
 
-  // Table of contents
-  lines.push('## Table of Contents');
-  lines.push('');
-  const sortedCategories = Array.from(categories.keys()).sort();
-  for (const category of sortedCategories) {
-    const categoryDocs = categories.get(category)!;
-    lines.push(`- [${category}](#${category.toLowerCase().replace(/\s+/g, '-')}) (${categoryDocs.length} opcodes)`);
-  }
+  lines.push('## Full Instruction Set');
   lines.push('');
 
-  // Generate documentation for each category
-  for (const category of sortedCategories) {
-    const categoryDocs = categories.get(category)!.sort((a, b) => a.name.localeCompare(b.name));
-
-    lines.push(`## ${category}`);
+  // Generate documentation for each opcode
+  for (const doc of allOpcodeDocInfos) {
+    lines.push(`### ${doc.name}`);
+    lines.push('');
+    lines.push(`<div className="opcode-card">`);
     lines.push('');
 
-    for (const doc of categoryDocs) {
-      lines.push(`### ${doc.name}`);
-      lines.push('');
-      lines.push(`<div className="opcode-card">`);
-      lines.push('');
-      lines.push(doc.summary);
-      lines.push('');
+    // Summary
+    lines.push(doc.summary);
+    lines.push('');
 
-      // Quick reference
-      lines.push('#### Quick Reference');
-      lines.push('');
-      lines.push('| Property | Value |');
-      lines.push('|----------|-------|');
-      lines.push(`| **Opcode(s)** | ${getOpcodeRangeString(doc.wireFormats)} |`);
-      lines.push(`| **Description** | ${doc.description} |`);
-      lines.push('');
+    const opcodes = getOpcodeRangeString(doc.wireFormats);
+    const wireFormatCount = doc.wireFormats.length;
+    const opcodesText =
+      wireFormatCount === 1 ? `Opcode ${opcodes}` : `Opcodes ${opcodes} (${wireFormatCount} wire formats)`;
+    // Opcodes range
+    lines.push(opcodesText);
+    lines.push('');
 
-      // Expression
-      if (doc.expression) {
-        lines.push('#### Expression');
-        lines.push('');
-        lines.push('```javascript');
-        lines.push(doc.expression);
-        lines.push('```');
-        lines.push('');
-      }
-
-      // Details
-      if (doc.details) {
-        lines.push('#### Details');
-        lines.push('');
-        lines.push(doc.details);
-        lines.push('');
-      }
-
-      // Gas Costs (complete)
-      lines.push('#### Gas Costs');
-      lines.push('');
-      lines.push('| Component | Value |');
-      lines.push('|-----------|-------|');
-      if (doc.gasCosts.l2Base !== undefined) lines.push(`| L2 Base | ${doc.gasCosts.l2Base} |`);
-      if (doc.gasCosts.daBase !== undefined) lines.push(`| DA Base | ${doc.gasCosts.daBase} |`);
-      if (doc.gasCosts.l2Dynamic !== undefined) lines.push(`| L2 Dynamic | ${doc.gasCosts.l2Dynamic} |`);
-      if (doc.gasCosts.daDynamic !== undefined) lines.push(`| DA Dynamic | ${doc.gasCosts.daDynamic} |`);
-      lines.push('');
-
-      // Wire formats (complete with Mermaid)
-      if (doc.wireFormats && doc.wireFormats.length > 0) {
-        lines.push('#### Wire Formats');
-        lines.push('');
-        for (const wf of doc.wireFormats) {
-          lines.push(`**${wf.name}** (Opcode ${formatOpcodeHex(wf.opcode)}):`);
-          lines.push('');
-          if (wf.mermaidDiagram) {
-            lines.push(wf.mermaidDiagram);
-            lines.push('');
-          }
-        }
-      }
-
-      // Operands (complete with addressing mode bits)
-      if (doc.operands && doc.operands.length > 0) {
-        lines.push('#### Operands');
-        lines.push('');
-        lines.push('| Name | Type | Description |');
-        lines.push('|------|------|-------------|');
-        for (const op of doc.operands) {
-          lines.push(`| \`${op.name}\` | ${generateOperandDescription(op)} | ${op.description} |`);
-        }
-        lines.push('');
-      }
-
-      // Addressing Modes
-      if (doc.addressingModes?.supported) {
-        lines.push('#### Addressing Modes');
-        lines.push(
-          'Instructions of this type include a bitmask that defines the addressing mode for each memory-offset operand. Every memory-offset operand is associated with two bits in this bitmask. These bits specify whether the operand should be treated as indirect (M[M[x]]) and/or relative (M[x] + M[0]). By default, operands use direct addressing (M[x]). If both bits for an operand are 0, direct addressing is used; otherwise, the operand applies indirect and/or relative addressing as indicated by the bitmask.',
-        );
-        lines.push('');
-        lines.push(`- **Encoding**: ${doc.addressingModes.encoding}`);
-        lines.push(`- **Bitmask**: ${doc.addressingModes.bitmaskSize} bits`);
-        lines.push(`- **Memory offset operands**: ${doc.addressingModes.operands.map(o => `\`${o}\``).join(', ')}`);
-        lines.push('');
-
-        // Add mermaid diagram
-        const mermaidDiagram = generateAddressingModeMermaid(doc);
-        if (mermaidDiagram) {
-          lines.push(mermaidDiagram);
-          lines.push('');
-        }
-      }
-
-      // Tag Checks (if present)
-      if (doc.tagChecks && doc.tagChecks.length > 0) {
-        lines.push('#### Tag Checks');
-        lines.push('');
-        for (const check of doc.tagChecks) {
-          lines.push(`- ${check}`);
-        }
-        lines.push('');
-      }
-
-      // Tag Updates (if present)
-      if (doc.tagUpdates && doc.tagUpdates.length > 0) {
-        lines.push('#### Tag Updates');
-        lines.push('');
-        for (const update of doc.tagUpdates) {
-          lines.push(`- ${update}`);
-        }
-        lines.push('');
-      }
-
-      // Errors
-      if (doc.errors && doc.errors.length > 0) {
-        lines.push('#### Error Conditions');
-        lines.push('');
-        for (const err of doc.errors) {
-          lines.push(`- **${err.condition}**: ${err.description}`);
-        }
-        lines.push('');
-      }
-
-      lines.push('</div>');
-      lines.push('');
-      lines.push('---');
+    // Expression (no heading, just code block)
+    if (doc.expression) {
+      lines.push('```javascript');
+      lines.push(doc.expression);
+      lines.push('```');
       lines.push('');
     }
+
+    // Details
+    if (doc.details) {
+      lines.push('#### Details');
+      lines.push('');
+      lines.push(doc.details);
+      lines.push('');
+    }
+
+    // Gas Costs (complete)
+    lines.push('#### Gas Costs');
+    lines.push('');
+    lines.push('| Component | Value |');
+    lines.push('|-----------|-------|');
+    if (doc.gasCosts.l2Base !== undefined) {
+      lines.push(`| L2 Base | ${doc.gasCosts.l2Base} |`);
+    }
+    if (doc.gasCosts.daBase !== undefined) {
+      lines.push(`| DA Base | ${doc.gasCosts.daBase} |`);
+    }
+    if (doc.gasCosts.l2Dynamic !== undefined) {
+      lines.push(`| L2 Dynamic | ${doc.gasCosts.l2Dynamic} |`);
+    }
+    if (doc.gasCosts.daDynamic !== undefined) {
+      lines.push(`| DA Dynamic | ${doc.gasCosts.daDynamic} |`);
+    }
+    lines.push('');
+
+    // Operands (complete with addressing mode bits)
+    if (doc.operands && doc.operands.length > 0) {
+      lines.push('#### Operands');
+      lines.push('');
+      lines.push('| Name | Type | Description |');
+      lines.push('|------|------|-------------|');
+      for (const op of doc.operands) {
+        lines.push(`| \`${op.name}\` | ${generateOperandDescription(op)} | ${op.description} |`);
+      }
+      lines.push('');
+    }
+
+    // Wire formats (complete with Mermaid)
+    if (doc.wireFormats && doc.wireFormats.length > 0) {
+      lines.push('#### Wire Formats');
+      lines.push('See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.');
+      lines.push('');
+      for (const wf of doc.wireFormats) {
+        lines.push(`**${wf.name}** (Opcode ${formatOpcodeHex(wf.opcode)}):`);
+        lines.push('');
+        if (wf.mermaidDiagram) {
+          lines.push(wf.mermaidDiagram);
+          lines.push('');
+        }
+      }
+    }
+
+    // Addressing Modes
+    if (doc.addressingModes?.supported) {
+      lines.push('#### Addressing Modes');
+      lines.push('See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.');
+      lines.push('');
+      lines.push(`${doc.addressingModes.encoding}`);
+      lines.push('');
+      lines.push(
+        `Memory offset operands (${doc.addressingModes.operands.map(o => `\`${o}\``).join(', ')}) are encoded as follows:`,
+      );
+      lines.push('');
+
+      // Add mermaid diagram
+      const mermaidDiagram = generateAddressingModeMermaid(doc);
+      if (mermaidDiagram) {
+        lines.push(mermaidDiagram);
+        lines.push('');
+      }
+    }
+
+    // Tag Checks (if present)
+    if (doc.tagChecks && doc.tagChecks.length > 0) {
+      lines.push('#### Tag Checks');
+      lines.push('');
+      for (const check of doc.tagChecks) {
+        lines.push(`- ${check}`);
+      }
+      lines.push('');
+    }
+
+    // Tag Updates (if present)
+    if (doc.tagUpdates && doc.tagUpdates.length > 0) {
+      lines.push('#### Tag Updates');
+      lines.push('');
+      for (const update of doc.tagUpdates) {
+        lines.push(`- ${update}`);
+      }
+      lines.push('');
+    }
+
+    // Errors
+    if (doc.errors && doc.errors.length > 0) {
+      lines.push('#### Error Conditions');
+      lines.push('');
+      for (const err of doc.errors) {
+        lines.push(`- **${err.condition}**: ${err.description}`);
+      }
+      lines.push('');
+    }
+
+    lines.push('</div>');
+    lines.push('');
+    lines.push('---');
+    lines.push('');
   }
 
   // Footer
@@ -1014,15 +1049,15 @@ function generateIndividualMDXFiles(docs: Record<string, OpcodeDocumentation>, o
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  let count = 0;
+  //let count = 0;
   for (const [name, doc] of Object.entries(docs)) {
     const mdx = generateOpcodeMDX(doc);
     const filename = path.join(outputDir, `${name.toLowerCase()}.mdx`);
     fs.writeFileSync(filename, mdx, 'utf-8');
-    count++;
+    //count++;
   }
 
-  console.log(`Generated ${count} individual MDX files in ${outputDir}`);
+  //console.log(`Generated ${count} individual MDX files in ${outputDir}`);
 }
 
 /**
@@ -1052,14 +1087,14 @@ function main() {
       }
     }
 
-    console.log('Generating AVM opcode documentation...');
+    //console.log('Generating AVM opcode documentation...');
     const docs = generateAllOpcodeDocs();
 
     // Generate JSON
     if (format === 'json' || format === 'both') {
       const jsonOutput = JSON.stringify(docs, null, 2);
       fs.writeFileSync(outputFile, jsonOutput, 'utf-8');
-      console.log(`✓ JSON documentation: ${outputFile}`);
+      //console.log(`✓ JSON documentation: ${outputFile}`);
     }
 
     // Generate MDX (single file)
@@ -1067,7 +1102,7 @@ function main() {
       const mdxOutput = generateAllOpcodesMDX(docs);
       const mdxFile = outputFile.replace(/\.json$/, '.mdx');
       fs.writeFileSync(mdxFile, mdxOutput, 'utf-8');
-      console.log(`✓ MDX documentation: ${mdxFile}`);
+      //console.log(`✓ MDX documentation: ${mdxFile}`);
     }
 
     // Generate individual MDX files
@@ -1075,27 +1110,27 @@ function main() {
       generateIndividualMDXFiles(docs, mdxOutputDir);
     }
 
-    console.log(`\nDocumentation generated successfully!`);
-    console.log(`Total opcodes documented: ${Object.keys(docs).length}`);
+    //console.log(`\nDocumentation generated successfully!`);
+    //console.log(`Total opcodes documented: ${Object.keys(docs).length}`);
 
     if (format === 'json' || format === 'both') {
-      console.log(`\nUsage:`);
-      console.log(`  JSON output: ${outputFile}`);
+      //console.log(`\nUsage:`);
+      //console.log(`  JSON output: ${outputFile}`);
     }
     if (format === 'mdx' || format === 'both') {
-      console.log(`  MDX output: ${outputFile.replace(/\.json$/, '.mdx')}`);
+      //console.log(`  MDX output: ${outputFile.replace(/\.json$/, '.mdx')}`);
     }
     if (format === 'mdx-individual') {
-      console.log(`  Individual MDX files: ${mdxOutputDir}/`);
+      //console.log(`  Individual MDX files: ${mdxOutputDir}/`);
     }
 
-    console.log(`\nOptions:`);
-    console.log(`  --format json|mdx|both|mdx-individual  Output format (default: json)`);
-    console.log(`  --output <file>                        Output file path`);
-    console.log(`  --mdx-dir <dir>                        Directory for individual MDX files`);
-  } catch (error) {
-    console.error('Error generating documentation:');
-    console.error(error);
+    //console.log(`\nOptions:`);
+    //console.log(`  --format json|mdx|both|mdx-individual  Output format (default: json)`);
+    //console.log(`  --output <file>                        Output file path`);
+    //console.log(`  --mdx-dir <dir>                        Directory for individual MDX files`);
+  } catch {
+    //console.error('Error generating documentation:');
+    //console.error(error);
     process.exit(1);
   }
 }
