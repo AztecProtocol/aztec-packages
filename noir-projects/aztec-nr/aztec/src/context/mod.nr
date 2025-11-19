@@ -6,13 +6,10 @@ pub mod private_context;
 pub mod public_context;
 pub mod utility_context;
 
-pub mod call_interfaces;
+pub mod calls;
 pub mod gas;
 
-pub use call_interfaces::{
-    PrivateCallInterface, PrivateStaticCallInterface, PublicCallInterface,
-    PublicStaticCallInterface, UtilityCallInterface,
-};
+pub use calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall, UtilityCall};
 pub use private_context::PrivateContext;
 pub use public_context::PublicContext;
 pub use returns_hash::ReturnsHash;

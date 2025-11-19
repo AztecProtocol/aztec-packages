@@ -1,7 +1,7 @@
 use crate::{Orderbook, test::utils::setup};
 use aztec::{
     protocol_types::{address::AztecAddress, traits::FromField},
-    test::helpers::authwit::add_private_authwit_from_call_interface,
+    test::helpers::authwit::add_private_authwit_from_call,
 };
 use token::Token;
 use uint_note::uint_note::PartialUintNote;
@@ -29,9 +29,9 @@ unconstrained fn full_flow() {
     env.call_private(minter, token1.mint_to_private(taker, ASK_AMOUNT));
 
     // ORDER CREATION
-    let transfer_call_interface =
+    let transfer_call =
         token0.transfer_to_public(maker, orderbook_address, BID_AMOUNT, CREATE_ORDER_AUTHWIT_NONCE);
-    add_private_authwit_from_call_interface(env, maker, orderbook_address, transfer_call_interface);
+    add_private_authwit_from_call(env, maker, orderbook_address, transfer_call);
 
     let order_id = env.call_private(
         maker,
@@ -61,18 +61,13 @@ unconstrained fn full_flow() {
     // Convert order_id back to PartialUintNote as the orderbook does and then create authwit for taker to transfer ask
     // tokens.
     let maker_partial_note = PartialUintNote::from_field(order_id);
-    let fulfill_transfer_call_interface = token1.finalize_transfer_to_private_from_private(
+    let fulfill_transfer_call = token1.finalize_transfer_to_private_from_private(
         taker,
         maker_partial_note,
         ASK_AMOUNT,
         FULFILL_ORDER_AUTHWIT_NONCE,
     );
-    add_private_authwit_from_call_interface(
-        env,
-        taker,
-        orderbook_address,
-        fulfill_transfer_call_interface,
-    );
+    add_private_authwit_from_call(env, taker, orderbook_address, fulfill_transfer_call);
 
     env.call_private(taker, orderbook.fulfill_order(order_id, FULFILL_ORDER_AUTHWIT_NONCE));
 

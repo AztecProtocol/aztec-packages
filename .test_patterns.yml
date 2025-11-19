@@ -83,6 +83,9 @@ tests:
   - regex: "barretenberg/acir_tests/scripts/browser_prove.sh .* webkit"
     owners:
       - *luke
+  - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench"
+    owners:
+      - *luke
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
