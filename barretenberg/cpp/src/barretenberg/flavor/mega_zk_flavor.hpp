@@ -22,6 +22,8 @@ class MegaZKFlavor : public bb::MegaFlavor {
     // The number of entities added for ZK (gemini_masking_poly)
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
 
+    static constexpr size_t VIRTUAL_LOG_N = 16;
+
     // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
@@ -49,7 +51,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     // Proof length formula
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = MegaFlavor::VIRTUAL_LOG_N)
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
     {
         return /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
                /* 2. Libra concatenation commitment*/ (num_frs_comm) +
