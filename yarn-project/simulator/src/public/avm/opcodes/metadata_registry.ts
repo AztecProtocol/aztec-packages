@@ -40,6 +40,8 @@ export type InstructionCategory =
  * Minimal metadata for an opcode - only what cannot be extracted programmatically.
  */
 export interface MinimalOpcodeMetadata {
+  /** Very brief summary (e.g., 'Addition (a + b)') */
+  summary: string;
   /** Mathematical or logical expression representing the operation (e.g., 'M[dstOffset] = M[aOffset] + M[bOffset]') */
   expression: string;
   /** Brief one-line description of what the opcode does */
@@ -54,6 +56,10 @@ export interface MinimalOpcodeMetadata {
   category?: InstructionCategory;
   /** Optional: Override inferred operand descriptions */
   operandDescriptions?: Record<string, string>;
+  /** Tag checks performed by the instruction (e.g., 'T[aOffset] == T[bOffset]') */
+  tagChecks?: string[];
+  /** Tag updates/assignments performed by the instruction (e.g., 'T[dstOffset] = T[aOffset]') */
+  tagUpdates?: string[];
 }
 
 /**
@@ -63,6 +69,7 @@ export interface MinimalOpcodeMetadata {
  */
 export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   ADD: {
+    summary: 'Addition (a + b)',
     expression: 'M[dstOffset] = M[aOffset] + M[bOffset]',
     description: 'Adds two field elements',
     details:
@@ -73,9 +80,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the second operand',
       dstOffset: 'Memory offset specifying where to store the result',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]'],
+    tagUpdates: ['T[dstOffset] = T[aOffset]'],
   },
 
   SUB: {
+    summary: 'Subtraction (a - b)',
     expression: 'M[dstOffset] = M[aOffset] - M[bOffset]',
     description: 'Subtracts two field elements',
     details:
@@ -86,9 +96,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the subtrahend',
       dstOffset: 'Memory offset specifying where to store the result',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]'],
+    tagUpdates: ['T[dstOffset] = T[aOffset]'],
   },
 
   MUL: {
+    summary: 'Multiplication (a * b)',
     expression: 'M[dstOffset] = M[aOffset] * M[bOffset]',
     description: 'Multiplies two field elements',
     details:
@@ -99,9 +112,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the second factor',
       dstOffset: 'Memory offset specifying where to store the result',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]'],
+    tagUpdates: ['T[dstOffset] = T[aOffset]'],
   },
 
   DIV: {
+    summary: 'Integer division (a / b)',
     expression: 'M[dstOffset] = M[aOffset] / M[bOffset]',
     description: 'Divides two integer values',
     details:
@@ -116,9 +132,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the divisor',
       dstOffset: 'Memory offset specifying where to store the quotient',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]', 'T[aOffset] is integral'],
+    tagUpdates: ['T[dstOffset] = T[aOffset]'],
   },
 
   FDIV: {
+    summary: 'Field division (a / b)',
     expression: 'M[dstOffset] = M[aOffset] / M[bOffset]',
     description: 'Performs field division (multiplicative inverse)',
     details:
@@ -133,9 +152,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the divisor',
       dstOffset: 'Memory offset specifying where to store the result',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]', 'T[aOffset] == FIELD'],
+    tagUpdates: ['T[dstOffset] = FIELD'],
   },
 
   SET: {
+    summary: 'Set memory to immediate value',
     expression: 'M[dstOffset] = value',
     description: 'Sets a memory location to an immediate value with specified tag',
     details:
@@ -146,9 +168,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       value: 'Immediate value to store',
       dstOffset: 'Memory offset where the value will be stored',
     },
+    tagChecks: [],
+    tagUpdates: ['T[dstOffset] = tag'],
   },
 
   MOV: {
+    summary: 'Move value between memory locations',
     expression: 'M[dstOffset] = M[srcOffset]',
     description: 'Copies a value from one memory location to another',
     details: 'Copies a value and its type tag from the source memory offset to the destination offset.',
@@ -157,9 +182,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       srcOffset: 'Memory offset to read from',
       dstOffset: 'Memory offset to write to',
     },
+    tagChecks: [],
+    tagUpdates: ['T[dstOffset] = T[srcOffset]'],
   },
 
   SHL: {
+    summary: 'Shift left (a &lt;&lt; b)',
     expression: 'M[dstOffset] = M[aOffset] << M[bOffset]',
     description: 'Shifts an integer value left by specified bits',
     details:
@@ -170,9 +198,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the shift amount',
       dstOffset: 'Memory offset specifying where to store the result',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]'],
+    tagUpdates: ['T[dstOffset] = T[aOffset]'],
   },
 
   SHR: {
+    summary: 'Shift right (a &gt;&gt; b)',
     expression: 'M[dstOffset] = M[aOffset] >> M[bOffset]',
     description: 'Shifts an integer value right by specified bits',
     details:
@@ -183,10 +214,13 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the shift amount',
       dstOffset: 'Memory offset specifying where to store the result',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]'],
+    tagUpdates: ['T[dstOffset] = T[aOffset]'],
   },
 
   // Bitwise Operations
   AND: {
+    summary: 'Bitwise AND (a &amp; b)',
     expression: 'M[dstOffset] = M[aOffset] & M[bOffset]',
     description: 'Bitwise AND of two integer values',
     details:
@@ -200,9 +234,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the second operand',
       dstOffset: 'Memory offset specifying where to store the result',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]', 'T[aOffset] is integral'],
+    tagUpdates: ['T[dstOffset] = T[aOffset]'],
   },
 
   OR: {
+    summary: 'Bitwise OR (a | b)',
     expression: 'M[dstOffset] = M[aOffset] | M[bOffset]',
     description: 'Bitwise OR of two integer values',
     details:
@@ -216,9 +253,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the second operand',
       dstOffset: 'Memory offset specifying where to store the result',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]', 'T[aOffset] is integral'],
+    tagUpdates: ['T[dstOffset] = T[aOffset]'],
   },
 
   XOR: {
+    summary: 'Bitwise XOR (a ^ b)',
     expression: 'M[dstOffset] = M[aOffset] ^ M[bOffset]',
     description: 'Bitwise XOR of two integer values',
     details:
@@ -232,9 +272,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the second operand',
       dstOffset: 'Memory offset specifying where to store the result',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]', 'T[aOffset] is integral'],
+    tagUpdates: ['T[dstOffset] = T[aOffset]'],
   },
 
   NOT: {
+    summary: 'Bitwise NOT (~a)',
     expression: 'M[dstOffset] = ~M[srcOffset]',
     description: 'Bitwise NOT of an integer value',
     details:
@@ -244,10 +287,13 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       srcOffset: 'Memory offset of the value to negate',
       dstOffset: 'Memory offset specifying where to store the result',
     },
+    tagChecks: ['T[srcOffset] is integral'],
+    tagUpdates: ['T[dstOffset] = T[srcOffset]'],
   },
 
   // Comparison Operations
   EQ: {
+    summary: 'Equality check (a == b)',
     expression: 'M[dstOffset] = (M[aOffset] == M[bOffset]) ? 1 : 0',
     description: 'Tests equality of two values',
     details:
@@ -258,9 +304,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the second value to compare',
       dstOffset: 'Memory offset specifying where to store the result (0 or 1)',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]'],
+    tagUpdates: ['T[dstOffset] = UINT1'],
   },
 
   LT: {
+    summary: 'Less than (a &lt; b)',
     expression: 'M[dstOffset] = (M[aOffset] < M[bOffset]) ? 1 : 0',
     description: 'Tests if first value is less than second',
     details: 'Compares two values. Both operands must have the same type tag. The result is a Uint1 (0 or 1).',
@@ -270,9 +319,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the second value to compare',
       dstOffset: 'Memory offset specifying where to store the result (0 or 1)',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]'],
+    tagUpdates: ['T[dstOffset] = UINT1'],
   },
 
   LTE: {
+    summary: 'Less than or equal (a &lt;= b)',
     expression: 'M[dstOffset] = (M[aOffset] <= M[bOffset]) ? 1 : 0',
     description: 'Tests if first value is less than or equal to second',
     details: 'Compares two values. Both operands must have the same type tag. The result is a Uint1 (0 or 1).',
@@ -282,9 +334,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       bOffset: 'Memory offset of the second value to compare',
       dstOffset: 'Memory offset specifying where to store the result (0 or 1)',
     },
+    tagChecks: ['T[aOffset] == T[bOffset]'],
+    tagUpdates: ['T[dstOffset] = UINT1'],
   },
 
   CAST: {
+    summary: 'Type cast',
     expression: 'M[dstOffset] = M[srcOffset] as tag',
     description: 'Casts a value to a different type tag',
     details: 'Changes the type tag of a value. The value itself is preserved, only its type interpretation changes.',
@@ -294,10 +349,13 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       srcOffset: 'Memory offset of the value to cast',
       dstOffset: 'Memory offset specifying where to store the casted value',
     },
+    tagChecks: [],
+    tagUpdates: ['T[dstOffset] = dstTag'],
   },
 
   // Control Flow
   JUMP: {
+    summary: 'Unconditional jump',
     expression: 'PC = jumpOffset',
     description: 'Unconditional jump to a bytecode offset',
     details: 'Sets the program counter to the specified offset. The offset is an immediate value (not from memory).',
@@ -305,9 +363,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       jumpOffset: 'Immediate bytecode offset to jump to',
     },
+    tagChecks: [],
+    tagUpdates: [],
   },
 
   JUMPI: {
+    summary: 'Conditional jump',
     expression: 'if M[condOffset] != 0 then PC = loc else PC = PC + instructionSize',
     description: 'Conditional jump based on a condition value',
     details:
@@ -320,9 +381,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       loc: 'Immediate bytecode offset to jump to if condition is true',
       condOffset: 'Memory offset of the condition value (Uint1)',
     },
+    tagChecks: ['T[condOffset] == UINT1'],
+    tagUpdates: [],
   },
 
   INTERNALCALL: {
+    summary: 'Internal function call',
     expression: 'internalCallStack.push({callPc: PC, returnPc: PC + instructionSize}); PC = loc',
     description: 'Calls an internal function at specified bytecode offset',
     details: 'Pushes current PC and return address onto internal call stack, then jumps to the target location.',
@@ -333,18 +397,24 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       loc: 'Immediate bytecode offset of the function to call',
     },
+    tagChecks: [],
+    tagUpdates: [],
   },
 
   INTERNALRETURN: {
+    summary: 'Return from internal call',
     expression: 'PC = internalCallStack.pop().returnPc',
     description: 'Returns from an internal function call',
     details: 'Pops return address from internal call stack and sets PC to that address.',
     errors: [{ condition: 'CALL_STACK_UNDERFLOW', description: 'Internal call stack is empty' }],
     operandDescriptions: {},
+    tagChecks: [],
+    tagUpdates: [],
   },
 
   // Environment Operations
   GETENVVAR: {
+    summary: 'Get environment variable',
     expression: 'M[dstOffset] = environmentVariable[varEnum]',
     description: 'Reads an environment variable into memory',
     details:
@@ -353,9 +423,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       varEnum: 'Immediate value specifying which environment variable to read',
     },
+    tagChecks: [],
+    tagUpdates: ['T[dstOffset] = FIELD'],
   },
 
   CALLDATACOPY: {
+    summary: 'Copy calldata to memory',
     expression: 'M[dstOffset:dstOffset+copySize] = calldata[cdOffset:cdOffset+copySize]',
     description: 'Copies calldata into memory',
     details: "Copies a slice of the current call's calldata into memory at the specified offset.",
@@ -365,9 +438,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       copySize: 'Memory offset of the number of elements to copy',
       dstOffset: 'Memory offset specifying where to start writing calldata',
     },
+    tagChecks: ['T[copySize] == UINT32'],
+    tagUpdates: ['T[dstOffset:dstOffset+copySize] = FIELD'],
   },
 
   RETURNDATASIZE: {
+    summary: 'Get return data size',
     expression: 'M[dstOffset] = nestedReturndata.length',
     description: 'Gets the size of return data from last nested call',
     details: 'Returns the size of the return data from the most recent nested contract call. Result is Uint32.',
@@ -375,9 +451,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       dstOffset: 'Memory offset where the size will be written',
     },
+    tagChecks: [],
+    tagUpdates: ['T[dstOffset] = UINT32'],
   },
 
   RETURNDATACOPY: {
+    summary: 'Copy return data to memory',
     expression: 'M[dstOffset:dstOffset+copySize] = nestedReturndata[rdOffset:rdOffset+copySize]',
     description: 'Copies return data from last nested call into memory',
     details: 'Copies a slice of the return data from the most recent nested contract call into memory.',
@@ -387,9 +466,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       copySize: 'Memory offset of the number of elements to copy',
       dstOffset: 'Memory offset specifying where to start writing return data',
     },
+    tagChecks: ['T[copySize] == UINT32'],
+    tagUpdates: ['T[dstOffset:dstOffset+copySize] = FIELD'],
   },
 
   SUCCESSCOPY: {
+    summary: 'Get call success status',
     expression: 'M[dstOffset] = nestedCallSuccess ? 1 : 0',
     description: 'Gets the success status from last nested call',
     details: 'Returns 1 if the most recent nested call succeeded, 0 if it reverted. Result is Uint1.',
@@ -397,10 +479,13 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       dstOffset: 'Memory offset where the success status (0 or 1) will be written',
     },
+    tagChecks: [],
+    tagUpdates: ['T[dstOffset] = UINT1'],
   },
 
   // Storage Operations
   SLOAD: {
+    summary: 'Load from storage',
     expression: 'M[dstOffset] = storage[contractAddress][M[slotOffset]]',
     description: 'Loads a value from contract storage',
     details:
@@ -410,9 +495,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       slotOffset: 'Memory offset of the storage slot to read from',
       dstOffset: 'Memory offset where the loaded value will be written',
     },
+    tagChecks: ['T[slotOffset] == FIELD'],
+    tagUpdates: ['T[dstOffset] = FIELD'],
   },
 
   SSTORE: {
+    summary: 'Store to storage',
     expression: 'storage[contractAddress][M[slotOffset]] = M[srcOffset]',
     description: 'Stores a value to contract storage',
     details:
@@ -425,10 +513,13 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       srcOffset: 'Memory offset of the value to store',
       slotOffset: 'Memory offset of the storage slot to write to',
     },
+    tagChecks: ['T[slotOffset] == FIELD', 'T[srcOffset] == FIELD'],
+    tagUpdates: [],
   },
 
   // World State Operations
   NOTEHASHEXISTS: {
+    summary: 'Check note hash existence',
     expression: 'M[existsOffset] = noteHashTree.exists(M[noteHashOffset], M[leafIndexOffset]) ? 1 : 0',
     description: 'Checks if a note hash exists in the tree',
     details:
@@ -439,9 +530,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       leafIndexOffset: 'Memory offset of the leaf index in the note hash tree',
       existsOffset: 'Memory offset where the result (0 or 1) will be written',
     },
+    tagChecks: ['T[noteHashOffset] == FIELD', 'T[leafIndexOffset] == UINT64'],
+    tagUpdates: ['T[existsOffset] = UINT1'],
   },
 
   EMITNOTEHASH: {
+    summary: 'Emit note hash',
     expression: 'noteHashes.append(M[noteHashOffset])',
     description: 'Emits a note hash to the output',
     details:
@@ -453,9 +547,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       noteHashOffset: 'Memory offset of the note hash to emit',
     },
+    tagChecks: ['T[noteHashOffset] == FIELD'],
+    tagUpdates: [],
   },
 
   NULLIFIEREXISTS: {
+    summary: 'Check nullifier existence',
     expression: 'M[existsOffset] = nullifierTree.exists(M[addressOffset], M[nullifierOffset]) ? 1 : 0',
     description: 'Checks if a nullifier exists for a given address',
     details:
@@ -466,9 +563,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       addressOffset: 'Memory offset of the contract address',
       existsOffset: 'Memory offset where the result (0 or 1) will be written',
     },
+    tagChecks: ['T[addressOffset] == FIELD', 'T[nullifierOffset] == FIELD'],
+    tagUpdates: ['T[existsOffset] = UINT1'],
   },
 
   EMITNULLIFIER: {
+    summary: 'Emit nullifier',
     expression: 'nullifiers.append(M[nullifierOffset])',
     description: 'Emits a nullifier to the output',
     details:
@@ -481,9 +581,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       nullifierOffset: 'Memory offset of the nullifier to emit',
     },
+    tagChecks: ['T[nullifierOffset] == FIELD'],
+    tagUpdates: [],
   },
 
   L1TOL2MSGEXISTS: {
+    summary: 'Check L1-to-L2 message',
     expression: 'M[existsOffset] = l1ToL2Messages.exists(M[msgHashOffset], M[msgLeafIndexOffset]) ? 1 : 0',
     description: 'Checks if an L1-to-L2 message exists',
     details:
@@ -494,9 +597,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       msgLeafIndexOffset: 'Memory offset of the leaf index in the message tree',
       existsOffset: 'Memory offset where the result (0 or 1) will be written',
     },
+    tagChecks: ['T[msgHashOffset] == FIELD', 'T[msgLeafIndexOffset] == UINT64'],
+    tagUpdates: ['T[existsOffset] = UINT1'],
   },
 
   GETCONTRACTINSTANCE: {
+    summary: 'Get contract instance info',
     expression: 'M[dstOffset] = contractInstance.exists ? 1 : 0; M[dstOffset+1] = contractInstance[memberEnum]',
     description: 'Retrieves contract instance information',
     details:
@@ -508,9 +614,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     operandDescriptions: {
       memberEnum: 'Immediate value specifying which contract instance member to retrieve',
     },
+    tagChecks: [],
+    tagUpdates: ['T[dstOffset] = UINT1', 'T[dstOffset+1] = FIELD'],
   },
 
   EMITUNENCRYPTEDLOG: {
+    summary: 'Emit unencrypted log',
     expression: 'unencryptedLogs.append(M[logOffset:logOffset+M[logSizeOffset]])',
     description: 'Emits an unencrypted log',
     details:
@@ -523,9 +632,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       logOffset: 'Memory offset of the start of the log data',
       logSizeOffset: 'Memory offset of the log size (number of fields)',
     },
+    tagChecks: ['T[logSizeOffset] == UINT32', 'T[logOffset:logOffset+M[logSizeOffset]] == FIELD'],
+    tagUpdates: [],
   },
 
   SENDL2TOL1MSG: {
+    summary: 'Send L2-to-L1 message',
     expression: 'l2ToL1Messages.append({recipient: M[recipientOffset], content: M[contentOffset]})',
     description: 'Sends a message from L2 to L1',
     details:
@@ -538,10 +650,13 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       recipientOffset: 'Memory offset of the L1 recipient address',
       contentOffset: 'Memory offset of the message content',
     },
+    tagChecks: ['T[recipientOffset] == FIELD', 'T[contentOffset] == FIELD'],
+    tagUpdates: [],
   },
 
   // External Call Operations
   CALL: {
+    summary: 'External contract call',
     expression:
       'nestedCallResult = executeContract(M[addrOffset], M[argsOffset:argsOffset+M[argsSizeOffset]], {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]})',
     description: 'Performs an external contract call',
@@ -559,9 +674,17 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       argsSizeOffset: 'Memory offset of the calldata size',
       successOffset: 'Memory offset where success flag (0 or 1) will be written',
     },
+    tagChecks: [
+      'T[l2GasOffset] == UINT32',
+      'T[daGasOffset] == UINT32',
+      'T[addrOffset] == FIELD',
+      'T[argsSizeOffset] == UINT32',
+    ],
+    tagUpdates: ['T[successOffset] = UINT1'],
   },
 
   STATICCALL: {
+    summary: 'Static external call',
     expression:
       'nestedCallResult = executeContractStatic(M[addrOffset], M[argsOffset:argsOffset+M[argsSizeOffset]], {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]})',
     description: 'Performs a static external contract call',
@@ -579,9 +702,17 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       argsSizeOffset: 'Memory offset of the calldata size',
       successOffset: 'Memory offset where success flag (0 or 1) will be written',
     },
+    tagChecks: [
+      'T[l2GasOffset] == UINT32',
+      'T[daGasOffset] == UINT32',
+      'T[addrOffset] == FIELD',
+      'T[argsSizeOffset] == UINT32',
+    ],
+    tagUpdates: ['T[successOffset] = UINT1'],
   },
 
   RETURN: {
+    summary: 'Return from call',
     expression: 'return M[returnOffset:returnOffset+M[returnSizeOffset]]; halt',
     description: 'Returns from current call with data',
     details: 'Halts execution and returns data to the caller. Return size must be Uint32. Sets success flag.',
@@ -590,9 +721,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       returnOffset: 'Memory offset of the start of the return data',
       returnSizeOffset: 'Memory offset of the return data size',
     },
+    tagChecks: ['T[returnSizeOffset] == UINT32'],
+    tagUpdates: [],
   },
 
   REVERT: {
+    summary: 'Revert execution',
     expression: 'revert M[returnOffset:returnOffset+M[retSizeOffset]]; halt',
     description: 'Reverts current call with error data',
     details:
@@ -602,10 +736,13 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       returnOffset: 'Memory offset of the start of the revert data',
       retSizeOffset: 'Memory offset of the revert data size',
     },
+    tagChecks: ['T[retSizeOffset] == UINT32'],
+    tagUpdates: [],
   },
 
   // Gadget Operations
   POSEIDON2: {
+    summary: 'Poseidon2 permutation',
     expression: 'M[outputStateOffset:outputStateOffset+4] = poseidon2(M[inputStateOffset:inputStateOffset+4])',
     description: 'Applies Poseidon2 permutation to a 4-element state',
     details:
@@ -615,9 +752,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       inputStateOffset: 'Memory offset of the input state (4 field elements)',
       outputStateOffset: 'Memory offset where the output state will be written',
     },
+    tagChecks: ['T[inputStateOffset:inputStateOffset+4] == FIELD'],
+    tagUpdates: ['T[outputStateOffset:outputStateOffset+4] = FIELD'],
   },
 
   SHA256COMPRESSION: {
+    summary: 'SHA-256 compression',
     expression:
       'M[outputOffset:outputOffset+8] = sha256compress(M[stateOffset:stateOffset+8], M[inputsOffset:inputsOffset+16])',
     description: 'Applies SHA-256 compression function',
@@ -629,9 +769,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       inputsOffset: 'Memory offset of the 16-word input block',
       outputOffset: 'Memory offset where the 8-word output state will be written',
     },
+    tagChecks: ['T[stateOffset:stateOffset+8] == UINT32', 'T[inputsOffset:inputsOffset+16] == UINT32'],
+    tagUpdates: ['T[outputOffset:outputOffset+8] = UINT32'],
   },
 
   KECCAKF1600: {
+    summary: 'Keccak-f[1600] permutation',
     expression: 'M[dstOffset:dstOffset+25] = keccakf1600(M[inputOffset:inputOffset+25])',
     description: 'Applies Keccak-f[1600] permutation',
     details:
@@ -641,9 +784,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       inputOffset: 'Memory offset of the input state (25 Uint64 elements)',
       dstOffset: 'Memory offset where the output state will be written',
     },
+    tagChecks: ['T[inputOffset:inputOffset+25] == UINT64'],
+    tagUpdates: ['T[dstOffset:dstOffset+25] = UINT64'],
   },
 
   ECADD: {
+    summary: 'Elliptic curve addition',
     expression: 'M[dstOffset:dstOffset+3] = grumpkinAdd(point1, point2)',
     description: 'Adds two Grumpkin elliptic curve points',
     details:
@@ -661,10 +807,20 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       p2IsInfiniteOffset: "Memory offset of the second point's infinity flag",
       dstOffset: 'Memory offset where the result point will be written (3 values)',
     },
+    tagChecks: [
+      'T[p1XOffset] == FIELD',
+      'T[p1YOffset] == FIELD',
+      'T[p1IsInfiniteOffset] == UINT1',
+      'T[p2XOffset] == FIELD',
+      'T[p2YOffset] == FIELD',
+      'T[p2IsInfiniteOffset] == UINT1',
+    ],
+    tagUpdates: ['T[dstOffset] = FIELD', 'T[dstOffset+1] = FIELD', 'T[dstOffset+2] = UINT1'],
   },
 
   // Conversion Operations
   TORADIXBE: {
+    summary: 'Convert to radix (big-endian)',
     expression:
       'M[dstOffset:dstOffset+M[numLimbsOffset]] = toRadixBE(M[srcOffset], M[radixOffset], M[numLimbsOffset], M[outputBitsOffset])',
     description: 'Converts a field element to radix representation (big-endian)',
@@ -687,10 +843,18 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       numLimbsOffset: 'Memory offset of the number of limbs to generate',
       outputBitsOffset: 'Memory offset of the output mode flag (1 for bits, 0 for bytes)',
     },
+    tagChecks: [
+      'T[srcOffset] == FIELD',
+      'T[radixOffset] == UINT32',
+      'T[numLimbsOffset] == UINT32',
+      'T[outputBitsOffset] == UINT1',
+    ],
+    tagUpdates: ['T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset] ? UINT1 : UINT8'],
   },
 
   // Misc Operations
   DEBUGLOG: {
+    summary: 'Debug logging',
     expression: 'debugLog(level, message, M[fieldsOffset:fieldsOffset+M[fieldsSizeOffset]])',
     description: 'Logs debug information during execution',
     details:
@@ -709,5 +873,7 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       fieldsOffset: 'Memory offset of the start of field values to log',
       fieldsSizeOffset: 'Memory offset of the number of fields to log',
     },
+    tagChecks: ['T[fieldsSizeOffset] == UINT32'],
+    tagUpdates: [],
   },
 };

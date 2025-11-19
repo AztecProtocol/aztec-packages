@@ -74,6 +74,8 @@ interface OpcodeDocumentation {
   opcode: number;
   /** Human-readable name */
   name: string;
+  /** Very brief summary */
+  summary: string;
   /** Category for organization */
   category: string;
   /** Gas cost information */
@@ -115,6 +117,10 @@ interface OpcodeDocumentation {
     bitmaskSize?: number;
     encoding?: string;
   };
+  /** Tag checks performed by the instruction */
+  tagChecks?: string[];
+  /** Tag updates/assignments performed by the instruction */
+  tagUpdates?: string[];
   /** Additional notes */
   notes?: string[];
 }
@@ -354,6 +360,7 @@ function generateOpcodeDoc(
   const doc: OpcodeDocumentation = {
     opcode: instructionClass.opcode,
     name: type,
+    summary: minimalMetadata.summary,
     category,
     gasCosts: {
       l2Base: baseGas.l2Gas,
@@ -381,12 +388,63 @@ function generateOpcodeDoc(
     doc.gasCosts.daDynamic = dynamicGas.daGas;
   }
 
+  // Add tag checks and updates if present
+  if (minimalMetadata.tagChecks) {
+    doc.tagChecks = minimalMetadata.tagChecks;
+  }
+  if (minimalMetadata.tagUpdates) {
+    doc.tagUpdates = minimalMetadata.tagUpdates;
+  }
+
   // Add notes if present
   if (minimalMetadata.notes) {
     doc.notes = minimalMetadata.notes;
   }
 
   return doc;
+}
+
+/**
+ * Generate a mermaid diagram showing the addressing mode bitmask layout.
+ */
+function generateAddressingModeMermaid(doc: OpcodeDocumentation): string {
+  if (!doc.addressingModes.supported || !doc.addressingModes.bitmaskSize) {
+    return '';
+  }
+
+  const bitmaskSize = doc.addressingModes.bitmaskSize;
+  const lines: string[] = [];
+
+  lines.push('```mermaid');
+  lines.push('---');
+  lines.push('title: "Addressing Mode Bitmask"');
+  lines.push('config:');
+  lines.push('  packet:');
+  lines.push('    bitWidth: 128');
+  lines.push(`    bitsPerRow: ${bitmaskSize}`);
+  lines.push('---');
+  lines.push('packet-beta');
+
+  // Create a map of bit number to label
+  const bitLabels: string[] = new Array(bitmaskSize).fill('Unused');
+
+  // Fill in the labels for each operand
+  for (const opName of doc.addressingModes.operands) {
+    const op = doc.operands?.find(o => o.name === opName);
+    if (op?.addressingModeBits) {
+      bitLabels[op.addressingModeBits.indirectBit] = `${opName} is indirect`;
+      bitLabels[op.addressingModeBits.relativeBit] = `${opName} is relative`;
+    }
+  }
+
+  // Generate the packet diagram with proper bit ranges
+  for (let i = 0; i < bitmaskSize; i++) {
+    lines.push(`  ${i}: "${bitLabels[i]}"`);
+  }
+
+  lines.push('```');
+
+  return lines.join('\n');
 }
 
 /**
@@ -557,6 +615,8 @@ function generateOpcodeMDX(doc: OpcodeDocumentation): string {
   lines.push('');
   lines.push(doc.description);
   lines.push('');
+  lines.push(doc.summary);
+  lines.push('');
 
   // Expression
   if (doc.expression) {
@@ -655,6 +715,13 @@ function generateOpcodeMDX(doc: OpcodeDocumentation): string {
       lines.push(`| **Bitmask Size** | ${doc.addressingModes.bitmaskSize} bits |`);
       lines.push('');
 
+      // Add mermaid diagram
+      const mermaidDiagram = generateAddressingModeMermaid(doc);
+      if (mermaidDiagram) {
+        lines.push(mermaidDiagram);
+        lines.push('');
+      }
+
       lines.push('**Operands with addressing modes**:');
       lines.push('');
       for (const opName of doc.addressingModes.operands) {
@@ -674,51 +741,24 @@ function generateOpcodeMDX(doc: OpcodeDocumentation): string {
     }
   }
 
-  // Tag Checking (if present in the JSON)
-  if ((doc as any).tagChecking) {
-    const tagChecking = (doc as any).tagChecking;
-    lines.push('## Tag Checking');
+  // Tag Checks (if present)
+  if (doc.tagChecks && doc.tagChecks.length > 0) {
+    lines.push('## Tag Checks');
     lines.push('');
-
-    if (tagChecking.requiresSameTags && tagChecking.requiresSameTags.length > 0) {
-      lines.push('**Requires Same Tags**:');
-      lines.push('');
-      lines.push(
-        `Operands ${tagChecking.requiresSameTags.map((o: string) => `\`${o}\``).join(', ')} must have the same type tag.`,
-      );
-      lines.push('');
+    for (const check of doc.tagChecks) {
+      lines.push(`- ${check}`);
     }
-
-    if (tagChecking.requiredTags) {
-      lines.push('**Required Tags**:');
-      lines.push('');
-      for (const [operand, tag] of Object.entries(tagChecking.requiredTags)) {
-        lines.push(`- \`${operand}\`: Must be \`${tag}\``);
-      }
-      lines.push('');
-    }
-
-    if (tagChecking.outputTag) {
-      lines.push(`**Output Tag**: \`${tagChecking.outputTag}\``);
-      lines.push('');
-    }
+    lines.push('');
   }
 
-  // Tag Assignments (if present in the JSON)
-  if ((doc as any).tagAssignments) {
-    const tagAssignments = (doc as any).tagAssignments;
-    lines.push('## Tag Assignments');
+  // Tag Updates (if present)
+  if (doc.tagUpdates && doc.tagUpdates.length > 0) {
+    lines.push('## Tag Updates');
     lines.push('');
-
-    if (tagAssignments.inheritFrom) {
-      lines.push(`**Inherits Tag From**: \`${tagAssignments.inheritFrom}\``);
-      lines.push('');
+    for (const update of doc.tagUpdates) {
+      lines.push(`- ${update}`);
     }
-
-    if (tagAssignments.fixedTag) {
-      lines.push(`**Fixed Tag**: \`${tagAssignments.fixedTag}\``);
-      lines.push('');
-    }
+    lines.push('');
   }
 
   // Errors (Complete)
@@ -814,15 +854,16 @@ function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): strin
       lines.push('');
       lines.push(`<div className="opcode-card">`);
       lines.push('');
+      lines.push(doc.summary);
+      lines.push('');
 
       // Quick reference
       lines.push('#### Quick Reference');
       lines.push('');
       lines.push('| Property | Value |');
       lines.push('|----------|-------|');
-      lines.push(`| **Opcode** | ${getOpcodeRangeString(doc.wireFormats)} |`);
+      lines.push(`| **Opcode(s)** | ${getOpcodeRangeString(doc.wireFormats)} |`);
       lines.push(`| **Description** | ${doc.description} |`);
-      lines.push(`| **L2 Gas (Base)** | ${doc.gasCosts.l2Base || 0} |`);
       lines.push('');
 
       // Expression
@@ -872,47 +913,50 @@ function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): strin
       if (doc.operands && doc.operands.length > 0) {
         lines.push('#### Operands');
         lines.push('');
-        lines.push('| Name | Type | Size | Uses Addr Mode Bits* | Description |');
-        lines.push('|------|------|------|----------------------|-------------|');
+        lines.push('| Name | Type | Description |');
+        lines.push('|------|------|-------------|');
         for (const op of doc.operands) {
-          let addrMode = '✗';
-          if (op.supportsAddressingModes && op.addressingModeBits) {
-            addrMode = `✓ (I: ${op.addressingModeBits.indirectBit}, R: ${op.addressingModeBits.relativeBit})`;
-          }
-          lines.push(`| \`${op.name}\` | \`${op.type}\` | ${op.size} | ${addrMode} | ${op.description} |`);
+          lines.push(`| \`${op.name}\` | ${generateOperandDescription(op)} | ${op.description} |`);
         }
-        lines.push('');
-        lines.push(
-          '\\* Each memory offset operand corresponds to some bits from the Addressing Modes byte(s) that indicate whether or not the memory offset should be interpreted as indirect (I) or relative (R).',
-        );
         lines.push('');
       }
 
       // Addressing Modes
       if (doc.addressingModes?.supported) {
         lines.push('#### Addressing Modes');
+        lines.push(
+          'Instructions of this type include a bitmask that defines the addressing mode for each memory-offset operand. Every memory-offset operand is associated with two bits in this bitmask. These bits specify whether the operand should be treated as indirect (M[M[x]]) and/or relative (M[x] + M[0]). By default, operands use direct addressing (M[x]). If both bits for an operand are 0, direct addressing is used; otherwise, the operand applies indirect and/or relative addressing as indicated by the bitmask.',
+        );
         lines.push('');
         lines.push(`- **Encoding**: ${doc.addressingModes.encoding}`);
         lines.push(`- **Bitmask**: ${doc.addressingModes.bitmaskSize} bits`);
-        lines.push(`- **Operands**: ${doc.addressingModes.operands.map(o => `\`${o}\``).join(', ')}`);
+        lines.push(`- **Memory offset operands**: ${doc.addressingModes.operands.map(o => `\`${o}\``).join(', ')}`);
+        lines.push('');
+
+        // Add mermaid diagram
+        const mermaidDiagram = generateAddressingModeMermaid(doc);
+        if (mermaidDiagram) {
+          lines.push(mermaidDiagram);
+          lines.push('');
+        }
+      }
+
+      // Tag Checks (if present)
+      if (doc.tagChecks && doc.tagChecks.length > 0) {
+        lines.push('#### Tag Checks');
+        lines.push('');
+        for (const check of doc.tagChecks) {
+          lines.push(`- ${check}`);
+        }
         lines.push('');
       }
 
-      // Tag Checking (if present)
-      if ((doc as any).tagChecking) {
-        const tc = (doc as any).tagChecking;
-        lines.push('#### Tag Checking');
+      // Tag Updates (if present)
+      if (doc.tagUpdates && doc.tagUpdates.length > 0) {
+        lines.push('#### Tag Updates');
         lines.push('');
-        if (tc.requiresSameTags?.length) {
-          lines.push(`- Same tags required: ${tc.requiresSameTags.map((o: string) => `\`${o}\``).join(', ')}`);
-        }
-        if (tc.requiredTags) {
-          for (const [op, tag] of Object.entries(tc.requiredTags)) {
-            lines.push(`- \`${op}\`: Must be \`${tag}\``);
-          }
-        }
-        if (tc.outputTag) {
-          lines.push(`- Output tag: \`${tc.outputTag}\``);
+        for (const update of doc.tagUpdates) {
+          lines.push(`- ${update}`);
         }
         lines.push('');
       }
