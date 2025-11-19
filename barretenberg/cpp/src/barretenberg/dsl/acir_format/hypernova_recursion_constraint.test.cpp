@@ -3,6 +3,7 @@
 #include "acir_format_mocks.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
@@ -621,22 +622,16 @@ TEST_F(HypernovaRecursionConstraintTest, InitKernelGateCount)
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
-    // Expected gate count, ECC rows, and ultra ops for init kernel (MegaCircuitBuilder)
-    static constexpr size_t MSM_ROWS_OFFSET = 2;
-    static constexpr size_t EXPECTED_GATE_COUNT = 26038;
-    static constexpr size_t EXPECTED_ECC_ROWS = 881 + MSM_ROWS_OFFSET;
-    static constexpr size_t EXPECTED_ULTRA_OPS = 89;
-
     // Assert gate count
-    EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_GATE_COUNT);
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], INIT_KERNEL_GATE_COUNT);
 
     // Assert ECC row count
     size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
-    EXPECT_EQ(actual_ecc_rows, EXPECTED_ECC_ROWS);
+    EXPECT_EQ(actual_ecc_rows, INIT_KERNEL_ECC_ROWS);
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
-    EXPECT_EQ(actual_ultra_ops, EXPECTED_ULTRA_OPS);
+    EXPECT_EQ(actual_ultra_ops, INIT_KERNEL_ULTRA_OPS);
 }
 
 /**
@@ -660,22 +655,16 @@ TEST_F(HypernovaRecursionConstraintTest, InnerKernelGateCount)
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 2);
 
-    // Expected gate count, ECC rows, and ultra ops for inner kernel (MegaCircuitBuilder)
-    static constexpr size_t MSM_ROWS_OFFSET = 2;
-    static constexpr size_t EXPECTED_GATE_COUNT_HN = 61020;
-    static constexpr size_t EXPECTED_ECC_ROWS = 1700 + MSM_ROWS_OFFSET;
-    static constexpr size_t EXPECTED_ULTRA_OPS = 179;
-
     // Assert gate counts (HN verification + OINK verification)
-    EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_GATE_COUNT_HN);
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], INNER_KERNEL_GATE_COUNT_HN);
 
     // Assert ECC row count
     size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
-    EXPECT_EQ(actual_ecc_rows, EXPECTED_ECC_ROWS);
+    EXPECT_EQ(actual_ecc_rows, INNER_KERNEL_ECC_ROWS);
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
-    EXPECT_EQ(actual_ultra_ops, EXPECTED_ULTRA_OPS);
+    EXPECT_EQ(actual_ultra_ops, INNER_KERNEL_ULTRA_OPS);
 }
 
 /**
@@ -698,22 +687,16 @@ TEST_F(HypernovaRecursionConstraintTest, TailKernelGateCount)
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
-    // Expected gate count, ECC rows, and ultra ops for tail kernel (MegaCircuitBuilder)
-    static constexpr size_t MSM_ROWS_OFFSET = 2;
-    static constexpr size_t EXPECTED_GATE_COUNT = 33968;
-    static constexpr size_t EXPECTED_ECC_ROWS = 914 + MSM_ROWS_OFFSET;
-    static constexpr size_t EXPECTED_ULTRA_OPS = 95;
-
     // Assert gate count
-    EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_GATE_COUNT);
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], TAIL_KERNEL_GATE_COUNT);
 
     // Assert ECC row count
     size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
-    EXPECT_EQ(actual_ecc_rows, EXPECTED_ECC_ROWS);
+    EXPECT_EQ(actual_ecc_rows, TAIL_KERNEL_ECC_ROWS);
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
-    EXPECT_EQ(actual_ultra_ops, EXPECTED_ULTRA_OPS);
+    EXPECT_EQ(actual_ultra_ops, TAIL_KERNEL_ULTRA_OPS);
 }
 
 /**
@@ -736,20 +719,14 @@ TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
-    // Expected gate count, ECC rows, and ultra ops for hiding kernel (MegaCircuitBuilder)
-    static constexpr size_t MSM_ROWS_OFFSET = 2;
-    static constexpr size_t EXPECTED_GATE_COUNT = 37212;
-    static constexpr size_t EXPECTED_ECC_ROWS = 1405 + MSM_ROWS_OFFSET;
-    static constexpr size_t EXPECTED_ULTRA_OPS = 126;
-
     // Assert gate count
-    EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_GATE_COUNT);
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], HIDING_KERNEL_GATE_COUNT);
 
     // Assert ECC row count
     size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
-    EXPECT_EQ(actual_ecc_rows, EXPECTED_ECC_ROWS);
+    EXPECT_EQ(actual_ecc_rows, HIDING_KERNEL_ECC_ROWS);
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
-    EXPECT_EQ(actual_ultra_ops, EXPECTED_ULTRA_OPS);
+    EXPECT_EQ(actual_ultra_ops, HIDING_KERNEL_ULTRA_OPS);
 }

@@ -1,6 +1,7 @@
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 
@@ -152,8 +153,5 @@ TEST_F(ChonkRecursionConstraintTest, GateCountChonkRecursion)
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
-    // Expected gate count for Chonk recursive verification (UltraRollup builder)
-    constexpr size_t EXPECTED_CHONK_RECURSION_GATES = 2540865;
-
-    EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_CHONK_RECURSION_GATES);
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], CHONK_RECURSION_GATES);
 }

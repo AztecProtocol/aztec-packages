@@ -6,6 +6,7 @@
 #include "acir_format_mocks.hpp"
 #include "acir_to_constraint_buf.hpp"
 #include "barretenberg/common/streams.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 
 #include "barretenberg/serialize/test_helper.hpp"
@@ -427,32 +428,8 @@ template <typename Builder> class OpcodeGateCountTests : public ::testing::Test 
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    // Mega adds 3 gates for ECCVM opcode values
-    static constexpr size_t MEGA_OFFSET = std::is_same_v<Builder, MegaCircuitBuilder> ? 3 : 0;
-
-    // Gate count constants for each constraint type
-    static constexpr size_t ZERO_GATE = 1;
-    static constexpr size_t POLY_TRIPLE = 1 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t QUAD = 1 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t BIG_QUAD = 2 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t LOGIC_XOR_32 = 2950 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t RANGE_32 = 2744 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t SHA256_COMPRESSION = 6679 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t AES128_ENCRYPTION = 1432 + ZERO_GATE + MEGA_OFFSET;
-    // The mega offset works differently for ECDSA opcodes because of the use of ROM tables, which use indices that
-    // overlap with the values added for ECCVM. secp256k1 uses table of size 16 whose indices contain all the 4 values
-    // set for ECCVM (hence the same value for Ultra and Mega builders). secp256r1 uses ROM tables of size 4, which
-    // contain only 2 of the values set for ECCVM (hence the difference of two gates between Ultra and Mega builders).
-    static constexpr size_t ECDSA_SECP256K1 = 41994 + ZERO_GATE;
-    static constexpr size_t ECDSA_SECP256R1 = 72209 + ZERO_GATE + (std::is_same_v<Builder, MegaCircuitBuilder> ? 2 : 0);
-    static constexpr size_t BLAKE2S = 2864 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t BLAKE3 = 2100 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t KECCAK_PERMUTATION = 17387 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t POSEIDON2_PERMUTATION = 73 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t MULTI_SCALAR_MUL = 3550 + ZERO_GATE;
-    static constexpr size_t EC_ADD = 66 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t BLOCK_ROM_READ = 9 + ZERO_GATE + MEGA_OFFSET;
-    static constexpr size_t ASSERT_EQUALITY = ZERO_GATE + MEGA_OFFSET;
+    // NOTE: Gate count constants are defined in gate_count_constants.hpp
+    // All constants below reference the shared definitions from that file
 
     // NOTE: Recursion constraint gate counts are NOT included in this suite because they:
     // 1. Require proof generation which is expensive and slow
@@ -460,15 +437,10 @@ template <typename Builder> class OpcodeGateCountTests : public ::testing::Test 
     //
     // Recursion constraint gate count tests are located in their respective test files:
     // - Honk recursion: honk_recursion_constraint.test.cpp::GateCountSingleHonkRecursion
-    //   Gate counts (and ECC rows for Mega):
-    //   - UltraRecursiveFlavor_<UltraCircuitBuilder>: 723995 gates
-    //   - UltraRollupRecursiveFlavor_<UltraCircuitBuilder>: 724462 gates
-    //   - UltraRecursiveFlavor_<MegaCircuitBuilder>: 24329 gates + 1250 ECC rows
-    //   - UltraZKRecursiveFlavor_<UltraCircuitBuilder>: 767515 gates
-    //   - UltraZKRecursiveFlavor_<MegaCircuitBuilder>: 29302 gates + 1052 ECC rows
     //
     // - Chonk recursion: chonk_recursion_constraints.test.cpp::GateCountChonkRecursion
-    //   Gate count: 2540865 gates (UltraRollup builder, no ECC rows)
+    //
+    // - Hypernova recursion: hypernova_recursion_constraint.test.cpp
     //
     // - AVM recursion: Not tested (AVM is not compiled in standard bb builds)
 };
@@ -502,7 +474,7 @@ TYPED_TEST(OpcodeGateCountTests, PolyTriple)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::POLY_TRIPLE }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ POLY_TRIPLE<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, Quad)
@@ -535,7 +507,7 @@ TYPED_TEST(OpcodeGateCountTests, Quad)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::QUAD }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ QUAD<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, BigQuad)
@@ -570,7 +542,7 @@ TYPED_TEST(OpcodeGateCountTests, BigQuad)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::BIG_QUAD }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BIG_QUAD<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, LogicXor32)
@@ -597,7 +569,7 @@ TYPED_TEST(OpcodeGateCountTests, LogicXor32)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::LOGIC_XOR_32 }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ LOGIC_XOR_32<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, Range32)
@@ -621,7 +593,7 @@ TYPED_TEST(OpcodeGateCountTests, Range32)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::RANGE_32 }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ RANGE_32<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, KeccakPermutation)
@@ -675,7 +647,7 @@ TYPED_TEST(OpcodeGateCountTests, KeccakPermutation)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::KECCAK_PERMUTATION }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ KECCAK_PERMUTATION<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, AssertEquality)
@@ -694,7 +666,7 @@ TYPED_TEST(OpcodeGateCountTests, AssertEquality)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::ASSERT_EQUALITY }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ ASSERT_EQUALITY<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, Poseidon2Permutation)
@@ -735,7 +707,7 @@ TYPED_TEST(OpcodeGateCountTests, Poseidon2Permutation)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::POSEIDON2_PERMUTATION }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ POSEIDON2_PERMUTATION<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, Sha256Compression)
@@ -801,7 +773,7 @@ TYPED_TEST(OpcodeGateCountTests, Sha256Compression)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::SHA256_COMPRESSION }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ SHA256_COMPRESSION<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, Aes128Encryption)
@@ -857,7 +829,7 @@ TYPED_TEST(OpcodeGateCountTests, Aes128Encryption)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::AES128_ENCRYPTION }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ AES128_ENCRYPTION<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, EcdsaSecp256k1)
@@ -910,7 +882,7 @@ TYPED_TEST(OpcodeGateCountTests, EcdsaSecp256k1)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::ECDSA_SECP256K1 }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ ECDSA_SECP256K1<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, EcdsaSecp256r1)
@@ -963,7 +935,7 @@ TYPED_TEST(OpcodeGateCountTests, EcdsaSecp256r1)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::ECDSA_SECP256R1 }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ ECDSA_SECP256R1<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, Blake2s)
@@ -1001,7 +973,7 @@ TYPED_TEST(OpcodeGateCountTests, Blake2s)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::BLAKE2S }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLAKE2S<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, Blake3)
@@ -1039,7 +1011,7 @@ TYPED_TEST(OpcodeGateCountTests, Blake3)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::BLAKE3 }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLAKE3<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, MultiScalarMul)
@@ -1096,7 +1068,7 @@ TYPED_TEST(OpcodeGateCountTests, MultiScalarMul)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::MULTI_SCALAR_MUL }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ MULTI_SCALAR_MUL<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, EcAdd)
@@ -1150,7 +1122,7 @@ TYPED_TEST(OpcodeGateCountTests, EcAdd)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::EC_ADD }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ EC_ADD<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
@@ -1226,5 +1198,5 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ TestFixture::BLOCK_ROM_READ }));
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_ROM_READ<TypeParam> }));
 }

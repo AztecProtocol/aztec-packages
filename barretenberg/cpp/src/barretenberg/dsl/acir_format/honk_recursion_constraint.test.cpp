@@ -1,6 +1,7 @@
 #include "honk_recursion_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -489,26 +490,12 @@ TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
-    // Determine expected gate count based on the recursive flavor
+    // Get expected values from shared constants
     using RecursiveFlavor = TypeParam;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
 
     static auto [EXPECTED_GATE_COUNT, EXPECTED_ECC_ROWS, EXPECTED_ULTRA_OPS] =
-        []() -> std::tuple<size_t, size_t, size_t> {
-        if constexpr (std::is_same_v<RecursiveFlavor, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
-            return { 723995, 0, 0 };
-        } else if constexpr (std::is_same_v<RecursiveFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
-            return { 724462, 0, 0 };
-        } else if constexpr (std::is_same_v<RecursiveFlavor, UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
-            return { 24329, 1250, 76 };
-        } else if constexpr (std::is_same_v<RecursiveFlavor, UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-            return { 767515, 0, 0 };
-        } else if constexpr (std::is_same_v<RecursiveFlavor, UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
-            return { 29302, 1052, 80 };
-        } else {
-            bb::assert_failure("Unhandled recursive flavor.");
-        }
-    }();
+        HONK_RECURSION_CONSTANTS<RecursiveFlavor>;
 
     // Assert gate count
     EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_GATE_COUNT);
