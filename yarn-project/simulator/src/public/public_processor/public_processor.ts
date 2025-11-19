@@ -12,6 +12,7 @@ import {
   AvmCircuitPublicInputs,
   AvmExecutionHints,
   type AvmProvingRequest,
+  CallStackMetadata,
   PublicDataWrite,
   PublicSimulatorConfig,
 } from '@aztec/stdlib/avm';
@@ -542,16 +543,19 @@ export class PublicProcessor implements Traceable {
     const durationMs = timer.ms();
     this.metrics.recordTx(/*phaseCount=*/ 1, durationMs, gasUsed.publicGas);
 
-    const appLogicCallStackMetadata = callStackMetadata.filter(
-      metadata => metadata.phase === TxExecutionPhase.APP_LOGIC,
-    );
     // Extract the return values from the call stack metadata.
-    const appLogicReturnValues = appLogicCallStackMetadata.map(
-      metadata => new NestedProcessReturnValues(metadata.output),
-    );
-    // Extract the revert reason from the call stack metadata. The assumption is that IF there is a revert,
-    // then it will be the last call.
-    const revertReason = appLogicCallStackMetadata[appLogicCallStackMetadata.length - 1]?.findRevertReason();
+    const appLogicReturnValues: NestedProcessReturnValues[] = (() => {
+      if (callStackMetadata.every(metadata => metadata instanceof CallStackMetadata)) {
+        return callStackMetadata
+          .filter(metadata => metadata.phase === TxExecutionPhase.APP_LOGIC)
+          .map(metadata => new NestedProcessReturnValues(metadata.output));
+      } else if (callStackMetadata.every(metadata => metadata instanceof NestedProcessReturnValues)) {
+        return callStackMetadata;
+      }
+      throw new Error('Call stack metadata is not a mix of CallStackMetadata and NestedProcessReturnValues');
+    })();
+    // Extract the revert reason from the call stack metadata.
+    const revertReason = CallStackMetadata.findRevertReason(callStackMetadata);
 
     const processedTx = makeProcessedTxFromTxWithPublicCalls(
       tx,

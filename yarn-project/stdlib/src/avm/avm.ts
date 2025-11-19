@@ -22,6 +22,7 @@ import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import {
   GlobalVariables,
+  NestedProcessReturnValues,
   ProtocolContracts,
   PublicCallRequestWithCalldata,
   TreeSnapshots,
@@ -1129,17 +1130,17 @@ export class CallStackMetadata {
     );
   }
 
-  public findRevertReason(): SimulationError | undefined {
-    if (!this.reverted) {
-      return undefined;
-    }
-
+  // TODO(fcarreiro): Make this only accept CallStackMetadata[].
+  public static findRevertReason(
+    callStackMetadata: CallStackMetadata[] | NestedProcessReturnValues[],
+  ): SimulationError | undefined {
     // TODO(fcarreiro): Remove this after migration to the C++ simulator.
-    if ((this as any).revertReason !== undefined) {
-      return (this as any).revertReason;
+    // If the "stack" comes from TS, it will have this field.
+    if ((callStackMetadata as any).revertReason !== undefined) {
+      return (callStackMetadata as any).revertReason;
     }
 
-    // TODO(fcarreiro): Construct a revert reason from the callstack.
+    // TODO(fcarreiro): Construct a revert reason from the callstack from C++.
     return undefined;
   }
 }
@@ -1150,7 +1151,10 @@ export class PublicTxResult {
     public gasUsed: GasUsed,
     public revertCode: RevertCode,
     // These are only guaranteed to be present if the simulator is configured to collect them.
-    public callStackMetadata: CallStackMetadata[], // One per enqueued call. All phases.
+    // TODO(fcarreiro): Remove NestedProcessReturnValues[] once we migrate to the C++ simulator.
+    public callStackMetadata:
+      | CallStackMetadata[] // One per enqueued call. All phases.
+      | NestedProcessReturnValues[], // One per enqueued call. App logic only.
     public logs: DebugLog[] | undefined,
     // For the proving request.
     public hints: AvmExecutionHints | undefined,
@@ -1166,7 +1170,7 @@ export class PublicTxResult {
         billedGas: Gas.empty(),
       },
       RevertCode.OK,
-      /*callStackMetadata=*/ [],
+      /*callStackMetadata=*/ [] as CallStackMetadata[],
       /*logs=*/ [],
       /*hints=*/ AvmExecutionHints.empty(),
       /*publicInputs=*/ AvmCircuitPublicInputs.empty(),
@@ -1179,7 +1183,7 @@ export class PublicTxResult {
         gasUsed: schemas.GasUsed,
         revertCode: RevertCode.schema,
         revertReason: NullishToUndefined(SimulationError.schema),
-        callStackMetadata: CallStackMetadata.schema.array(),
+        callStackMetadata: z.union([CallStackMetadata.schema.array(), NestedProcessReturnValues.schema.array()]),
         logs: NullishToUndefined(DebugLog.schema.array()),
         // For the proving request.
         publicInputs: AvmCircuitPublicInputs.schema,
@@ -1191,11 +1195,18 @@ export class PublicTxResult {
       );
   }
 
+  /**
+   * Creates a PublicTxResult from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing PublicTxResult fields
+   * @returns A PublicTxResult instance
+   */
   static fromPlainObject(obj: any): PublicTxResult {
     return new PublicTxResult(
       GasUsed.fromPlainObject(obj.gasUsed),
       RevertCode.fromPlainObject(obj.revertCode),
-      obj.callStackMetadata.map(CallStackMetadata.fromPlainObject),
+      obj.callStackMetadata.map(CallStackMetadata.fromPlainObject), // Always CallStackMetadata[] from MessagePack.
       obj.logs?.map(DebugLog.fromPlainObject),
       obj.hints ? AvmExecutionHints.fromPlainObject(obj.hints) : undefined,
       AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs),

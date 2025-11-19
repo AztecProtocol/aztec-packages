@@ -3,13 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import {
-  AvmExecutionHints,
-  AvmTxHint,
-  CallStackMetadata,
-  PublicSimulatorConfig,
-  PublicTxResult,
-} from '@aztec/stdlib/avm';
+import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -206,36 +200,13 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     const publicInputs = await context.generateAvmCircuitPublicInputs();
     const revertCode = context.getFinalRevertCode();
 
-    // We only return the app logic phase information.
-    // WARNING: This is an adaptor to convert the NestedProcessReturnValues to CallStackMetadata.
-    // The only content that is preserved is the return values.
-    // All other information is lost.
-    // This is a temporary backwards compatibility layer until we migrate to the C++ simulator.
-    const appLogicCallStackMetadata = processedPhases
-      .filter(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)
-      ?.flatMap(({ returnValues }) => returnValues)
-      .map(
-        returnValues =>
-          new CallStackMetadata(
-            /*phase=*/ TxExecutionPhase.APP_LOGIC,
-            /*contractAddress=*/ Fr.ZERO,
-            /*callerPc=*/ 0,
-            /*calldata=*/ [],
-            /*isStaticCall=*/ false,
-            /*gasLimit=*/ Gas.empty(),
-            /*functionName=*/ 'unknown',
-            /*values=*/ returnValues.values ?? [],
-            /*exitPc=*/ 0,
-            /*reverted=*/ false,
-            /*nested=*/ [],
-            /*numNestedCalls=*/ 0,
-          ),
-      );
+    // We only return the app logic phase information, and only 1 per phase.
+    const appLogicReturnValues: NestedProcessReturnValues[] =
+      processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 
-    // This is a temporary backwards compatibility layer until we migrate to the C++ simulator.
-    if (context.revertReason !== undefined && appLogicCallStackMetadata.length > 0) {
-      const lastCall = appLogicCallStackMetadata[appLogicCallStackMetadata.length - 1];
-      (lastCall as any).revertReason = context.revertReason;
+    // TODO(fcarreiro): This is a temporary backwards compatibility layer until we migrate to the C++ simulator.
+    if (context.revertReason !== undefined) {
+      (appLogicReturnValues as any).revertReason = context.revertReason;
     }
 
     return new PublicTxResult(
@@ -246,7 +217,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
         billedGas: context.getTotalGasUsed(),
       },
       /*revertCode=*/ revertCode,
-      /*appLogicCallStackMetadata=*/ appLogicCallStackMetadata,
+      /*callStackMetadata=*/ appLogicReturnValues,
       /*logs=*/ context.state.getActiveStateManager().getLogs(),
       /*hints=*/ hints,
       /*publicInputs=*/ publicInputs,
