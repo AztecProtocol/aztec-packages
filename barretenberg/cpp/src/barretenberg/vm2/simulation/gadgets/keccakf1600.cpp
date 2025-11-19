@@ -101,10 +101,10 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
         // Slice read and tag check
         for (size_t i = 0; i < 5; i++) {
             for (size_t j = 0; j < 5; j++) {
-                const auto addr = src_addr + static_cast<MemoryAddress>((j * 5) + i);
+                const auto addr = src_addr + static_cast<MemoryAddress>((i * 5) + j);
                 const MemoryValue& mem_val = memory.get(addr);
                 const MemoryTag tag = mem_val.get_tag();
-                src_mem_values[i][j] = mem_val;
+                src_mem_values[j][i] = mem_val;
 
                 if (tag != MemoryTag::U64) {
                     keccakf1600_event.tag_error = true;
