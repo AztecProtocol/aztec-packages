@@ -1271,8 +1271,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 };
 
 /**
- * @brief Decompose a single witness into two, where the lowest is DEFAULT_NON_NATIVE_FIELD_LIMB_BITS (68) range
- * constrained and the lowst is num_limb_bits - DEFAULT.. range constrained.
+ * @brief Decompose a single witness into two limbs, range constrained to DEFAULT_NON_NATIVE_FIELD_LIMB_BITS (68) and
+ * num_limb_bits - DEFAULT_NON_NATIVE_FIELD_LIMB_BITS, respectively.
  *
  * @details Doesn't create gates constraining the limbs to each other.
  *
@@ -1280,6 +1280,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
  * @param num_limb_bits The range we want to constrain the original limb to
  * @return std::array<uint32_t, 2> The indices of new limbs.
  */
+// AUDITTODO: what is the justification for this method being in the builder? Seems similar methods are defined directly
+// in bigfield.
 template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_native_field_double_width_limb(
     const uint32_t limb_idx, const size_t num_limb_bits)
@@ -1311,11 +1313,11 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_nati
  *
  * Without this queue some functions, such as bb::stdlib::element::multiple_montgomery_ladder, would
  * duplicate non-native field operations, which can be quite expensive. We queue up these operations, and remove
- * duplicates in the circuit finishing stage of the proving key computation.
+ * duplicates during circuit finalization.
  *
  * The non-native field modulus, p, is a circuit constant
  *
- * The return value are the witness indices of the two remainder limbs `lo_1, hi_2`
+ * The return values are the witness indices of the two remainder limbs `lo_1, hi_2`
  *
  * N.B.: This method does NOT evaluate the prime field component of non-native field multiplications.
  **/
@@ -1323,7 +1325,6 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_multiplication(
     const non_native_multiplication_witnesses<FF>& input)
 {
-
     std::array<fr, 4> a{
         this->get_variable(input.a[0]),
         this->get_variable(input.a[1]),
@@ -1372,11 +1373,11 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     const uint32_t hi_2_idx = this->add_variable(hi_2);
     const uint32_t hi_3_idx = this->add_variable(hi_3);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): Originally this was a single arithmetic gate.
-    // With trace sorting, we must add a dummy gate since the add gate would otherwise try to read into an nnf gate that
-    // has been sorted out of sequence.
     // product gate 1
     // (lo_0 + q_0(p_0 + p_1*2^b) + q_1(p_0*2^b) - (r_1)2^b)2^-2b - lo_1 = 0
+    // This constraint requires two rows in the trace: an arithmetic gate plus an unconstrained arithmetic gate
+    // containing lo_0 in wire 4 so that the previous gate can access it via shifts. (We cannot use the next nnf gate
+    // for this purpose since our trace is sorted by gate type).
     create_big_add_gate({ input.q[0],
                           input.q[1],
                           input.r[1],
@@ -1386,8 +1387,9 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
                           -LIMB_SHIFT,
                           -LIMB_SHIFT.sqr(),
                           0 },
-                        true);
+                        /*include_next_gate_w_4*/ true);
     create_unconstrained_gate(blocks.arithmetic, this->zero_idx(), this->zero_idx(), this->zero_idx(), lo_0_idx);
+
     //
     // a = (a3 || a2 || a1 || a0) = (a3 * 2^b + a2) * 2^b + (a1 * 2^b + a0)
     // b = (b3 || b2 || b1 || b0) = (b3 * 2^b + b2) * 2^b + (b1 * 2^b + b0)
@@ -1462,7 +1464,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
             -1,
             0,
         },
-        true);
+        /*include_next_gate_w_4*/ true);
 
     /**
      * product gate 7
