@@ -182,7 +182,7 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationSortCheck)
         EXPECT_EQ(builder.blocks.nnf.q_arith()[i], 0);
         EXPECT_EQ(builder.blocks.nnf.q_delta_range()[i], 0);
         EXPECT_EQ(builder.blocks.nnf.q_elliptic()[i], 0);
-        EXPECT_EQ(builder.blocks.nnf.q_lookup_type()[i], 0);
+        EXPECT_EQ(builder.blocks.nnf.q_lookup()[i], 0);
         EXPECT_EQ(builder.blocks.nnf.q_poseidon2_external()[i], 0);
         EXPECT_EQ(builder.blocks.nnf.q_poseidon2_internal()[i], 0);
     }

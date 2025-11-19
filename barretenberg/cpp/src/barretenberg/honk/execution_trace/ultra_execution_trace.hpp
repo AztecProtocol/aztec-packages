@@ -16,7 +16,7 @@ namespace bb {
 
 class UltraTraceBlock : public ExecutionTraceBlock<fr, 4> {
   public:
-    virtual Selector<fr>& q_lookup_type() { return zero_selectors[0]; };
+    virtual Selector<fr>& q_lookup() { return zero_selectors[0]; };
     virtual Selector<fr>& q_arith() { return zero_selectors[1]; }
     virtual Selector<fr>& q_delta_range() { return zero_selectors[2]; }
     virtual Selector<fr>& q_elliptic() { return zero_selectors[3]; }
@@ -33,7 +33,7 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, 4> {
                           q_2(),
                           q_3(),
                           q_4(),
-                          q_lookup_type(),
+                          q_lookup(),
                           q_arith(),
                           q_delta_range(),
                           q_elliptic(),
@@ -56,7 +56,7 @@ class UltraTracePublicInputBlock : public UltraTraceBlock {};
 
 class UltraTraceLookupBlock : public UltraTraceBlock {
   public:
-    SelectorType& q_lookup_type() override { return gate_selector; }
+    SelectorType& q_lookup() override { return gate_selector; }
 
     void set_gate_selector(const fr& value) override
     {
@@ -80,7 +80,7 @@ class UltraTraceArithmeticBlock : public UltraTraceBlock {
 
     void set_gate_selector(const fr& value) override
     {
-        q_lookup_type().emplace_back(0);
+        q_lookup().emplace_back(0);
         gate_selector.emplace_back(value);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);
@@ -100,7 +100,7 @@ class UltraTraceDeltaRangeBlock : public UltraTraceBlock {
 
     void set_gate_selector(const fr& value) override
     {
-        q_lookup_type().emplace_back(0);
+        q_lookup().emplace_back(0);
         q_arith().emplace_back(0);
         gate_selector.emplace_back(value);
         q_elliptic().emplace_back(0);
@@ -120,7 +120,7 @@ class UltraTraceEllipticBlock : public UltraTraceBlock {
 
     void set_gate_selector(const fr& value) override
     {
-        q_lookup_type().emplace_back(0);
+        q_lookup().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         gate_selector.emplace_back(value);
@@ -140,7 +140,7 @@ class UltraTraceMemoryBlock : public UltraTraceBlock {
 
     void set_gate_selector(const fr& value) override
     {
-        q_lookup_type().emplace_back(0);
+        q_lookup().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);
@@ -160,7 +160,7 @@ class UltraTraceNonNativeFieldBlock : public UltraTraceBlock {
 
     void set_gate_selector(const fr& value) override
     {
-        q_lookup_type().emplace_back(0);
+        q_lookup().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);
@@ -180,7 +180,7 @@ class UltraTracePoseidon2ExternalBlock : public UltraTraceBlock {
 
     void set_gate_selector(const fr& value) override
     {
-        q_lookup_type().emplace_back(0);
+        q_lookup().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);
@@ -200,7 +200,7 @@ class UltraTracePoseidon2InternalBlock : public UltraTraceBlock {
 
     void set_gate_selector(const fr& value) override
     {
-        q_lookup_type().emplace_back(0);
+        q_lookup().emplace_back(0);
         q_arith().emplace_back(0);
         q_delta_range().emplace_back(0);
         q_elliptic().emplace_back(0);

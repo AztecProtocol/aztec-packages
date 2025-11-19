@@ -60,7 +60,7 @@ struct InputElements {
     FF& q_elliptic = std::get<8>(_data);
     FF& q_memory = std::get<9>(_data);
     FF& q_nnf = std::get<10>(_data);
-    FF& q_lookup_type = std::get<11>(_data);
+    FF& q_lookup = std::get<11>(_data);
     FF& q_poseidon2_external = std::get<12>(_data);
     FF& q_poseidon2_internal = std::get<13>(_data);
     FF& sigma_1 = std::get<14>(_data);

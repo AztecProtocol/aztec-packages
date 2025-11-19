@@ -257,8 +257,8 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_plookup_ga
                                                                                                        auto& block)
 {
     std::vector<uint32_t> gate_variables;
-    auto q_lookup_type = block.q_lookup_type()[index];
-    if (!q_lookup_type.is_zero()) {
+    auto q_lookup = block.q_lookup()[index];
+    if (!q_lookup.is_zero()) {
         gate_variables.reserve(6);
         auto q_2 = block.q_2()[index];
         auto q_m = block.q_m()[index];
@@ -1285,7 +1285,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_current_plookup_gate(si
         return variables_in_one_gate.contains(real_variable_index);
     };
     auto& lookup_block = circuit_builder.blocks.lookup;
-    auto& lookup_tables = circuit_builder.lookup_tables;
+    auto& lookup_tables = circuit_builder.get_lookup_tables();
     auto table_index = static_cast<size_t>(static_cast<uint256_t>(lookup_block.q_3()[gate_index]));
     for (const auto& table : lookup_tables) {
         if (table.table_index == table_index) {
@@ -1544,7 +1544,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_elliptic_gate_info(size_t gate_i
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_plookup_gate_info(size_t gate_index, auto& block)
 {
-    auto q_lookup = block.q_lookup_type()[gate_index];
+    auto q_lookup = block.q_lookup()[gate_index];
     if (!q_lookup.is_zero()) {
         info("q_lookup == ", q_lookup);
         auto q_2 = block.q_2()[gate_index];

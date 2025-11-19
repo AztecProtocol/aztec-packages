@@ -28,7 +28,7 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
                                         const typename Flavor::CircuitBuilder& circuit)
 {
     size_t offset = 0;
-    for (const auto& table : circuit.lookup_tables) {
+    for (const auto& table : circuit.get_lookup_tables()) {
         for (size_t i = 0; i < table.size(); ++i) {
             table_polynomials[0].at(offset) = table.column_1[i];
             table_polynomials[1].at(offset) = table.column_2[i];
@@ -53,7 +53,7 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
 {
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
     size_t table_offset = 0;
-    for (auto& table : circuit.lookup_tables) {
+    for (auto& table : circuit.get_lookup_tables()) {
         table.initialize_index_map();
 
         for (auto& gate_data : table.lookup_gates) {
