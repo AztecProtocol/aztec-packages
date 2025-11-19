@@ -131,8 +131,8 @@ pub fn get_expression_degree<F: FieldElement>(expr: &AlgebraicExpression<F>) -> 
                 _ => unimplemented!("{:?}", op),
             }
         }
-        AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation { op, expr: _ }) => match op {
-            AlgebraicUnaryOperator::Minus => get_expression_degree(expr),
+        AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation { op, expr: operand }) => match op {
+            AlgebraicUnaryOperator::Minus => get_expression_degree(operand),
         },
         _ => 0,
     }
@@ -306,7 +306,7 @@ fn compute_expression_<F: FieldElement>(
             expr: rec_expr,
         }) => match operator {
             AlgebraicUnaryOperator::Minus => {
-                let e = compute_expression_(rec_expr, alias_names, None);
+                let e = compute_expression_(rec_expr, alias_names, Some(current_expr));
                 PolynomialExpression {
                     pattern_with_placeholders: format!("-{}", e.pattern_with_placeholders),
                     placeholders: e.placeholders,

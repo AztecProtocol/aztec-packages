@@ -1,6 +1,5 @@
 export {
   type Aliased,
-  type ContractInstanceAndArtifact,
   type SimulateOptions,
   type ProfileOptions,
   type SendOptions,

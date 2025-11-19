@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import type { ContractArtifact, FunctionArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
@@ -44,7 +45,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     publicKeys: PublicKeys,
     wallet: Wallet,
     artifact: ContractArtifact,
-    postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
+    postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
     private salt: Fr,
     args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,

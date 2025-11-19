@@ -19,6 +19,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -63,6 +64,7 @@ export class FullProverTest {
   accounts: AztecAddress[] = [];
   deployedAccounts!: InitialAccountData[];
   fakeProofsAsset!: TokenContract;
+  fakeProofsAssetInstance!: ContractInstanceWithAddress;
   tokenSim!: TokenSimulator;
   aztecNode!: AztecNode;
   aztecNodeAdmin!: AztecNodeAdmin;
@@ -122,7 +124,7 @@ export class FullProverTest {
         await publicDeployAccounts(this.wallet, this.accounts.slice(0, 2));
 
         this.logger.verbose(`Deploying TokenContract...`);
-        const asset = await TokenContract.deploy(
+        const { contract: asset, instance } = await TokenContract.deploy(
           this.wallet,
           this.accounts[0],
           FullProverTest.TOKEN_NAME,
@@ -130,14 +132,15 @@ export class FullProverTest {
           FullProverTest.TOKEN_DECIMALS,
         )
           .send({ from: this.accounts[0] })
-          .deployed();
+          .wait();
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
-        return { tokenContractAddress: asset.address };
+        return { tokenContractAddress: asset.address, tokenContractInstance: instance };
       },
-      async ({ tokenContractAddress }) => {
+      async ({ tokenContractAddress, tokenContractInstance }) => {
         // Restore the token contract state.
-        this.fakeProofsAsset = await TokenContract.at(tokenContractAddress, this.wallet);
+        this.fakeProofsAsset = TokenContract.at(tokenContractAddress, this.wallet);
+        this.fakeProofsAssetInstance = tokenContractInstance;
         this.logger.verbose(`Token contract address: ${this.fakeProofsAsset.address}`);
 
         this.tokenSim = new TokenSimulator(
@@ -216,14 +219,14 @@ export class FullProverTest {
       true,
     );
     this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
-    await provenWallet.registerContract(this.fakeProofsAsset);
+    await provenWallet.registerContract(this.fakeProofsAssetInstance, TokenContract.artifact);
 
     for (let i = 0; i < 2; i++) {
       await provenWallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
       await this.wallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
     }
 
-    const asset = await TokenContract.at(this.fakeProofsAsset.address, provenWallet);
+    const asset = TokenContract.at(this.fakeProofsAsset.address, provenWallet);
     this.provenComponents.push({
       wallet: provenWallet,
       teardown: provenTeardown,

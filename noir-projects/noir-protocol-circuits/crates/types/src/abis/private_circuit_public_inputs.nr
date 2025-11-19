@@ -49,6 +49,9 @@ pub struct PrivateCircuitPublicInputs {
     pub start_side_effect_counter: u32,
     pub end_side_effect_counter: u32,
 
+    pub expected_non_revertible_side_effect_counter: u32,
+    pub expected_revertible_side_effect_counter: u32,
+
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     pub anchor_block_header: BlockHeader,
 
@@ -80,6 +83,8 @@ impl Empty for PrivateCircuitPublicInputs {
             contract_class_logs_hashes: ClaimedLengthArray::empty(),
             start_side_effect_counter: 0,
             end_side_effect_counter: 0,
+            expected_non_revertible_side_effect_counter: 0,
+            expected_revertible_side_effect_counter: 0,
             anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
         }

@@ -117,7 +117,7 @@ impl TestBuilder {
         let min_revertible_side_effect_counter = 0;
 
         let mut output = previous_kernel;
-        output.validation_requests_split_counter = Option::some(min_revertible_side_effect_counter);
+        output.claimed_revertible_counter = min_revertible_side_effect_counter;
 
         Self {
             previous_kernel,
@@ -292,7 +292,6 @@ impl TestBuilder {
             nullifier_read_request_hints: self.nullifier_read_request_hints.to_hints(),
             key_validation_hints: self.key_validation_hints.storage(),
             transient_data_squashing_hints: self.transient_data_squashing_hints,
-            min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
         };
 
         let previous_kernel = self.previous_kernel.to_private_kernel_data();
