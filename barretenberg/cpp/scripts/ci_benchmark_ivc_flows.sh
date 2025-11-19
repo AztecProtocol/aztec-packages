@@ -135,25 +135,16 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
     tmp_breakdown_file="/tmp/benchmark_breakdown_${runtime}_${flow_name}_$$.json"
     cp "$benchmark_breakdown_file" "$tmp_breakdown_file"
 
-    # Create cache key: bench-bb-breakdown-<runtime>-<flow_name>-<sha>
-    # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<runtime>-<flow_name>-<sha>
-    cache_key="bench-bb-breakdown-${runtime}-${flow_name}-${current_sha}"
-
-    # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder) in background
+    # Upload to disk (bench/bb-breakdown subfolder) in background
+    # Key format: <runtime>-<flow_name>-<sha>
+    disk_key="${runtime}-${flow_name}-${current_sha}"
     {
-      # Write to Redis for ci.aztec-labs.com access
-      cat "$tmp_breakdown_file" | gzip | redis_cli -x SETEX "$cache_key" 2592000 &>/dev/null
-
-      # Write to disk in explicit subfolder
-      # Strip the prefix from key when writing to disk subfolder
-      disk_key="${cache_key#bench-bb-breakdown-}"
       cat "$tmp_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$disk_key"
+      # Clean up tmp file after upload completes
+      rm -f "$tmp_breakdown_file"
     } &
 
-    # Clean up tmp file
-    rm -f "$tmp_breakdown_file"
-
-    echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/$cache_key"
+    echo "Uploaded benchmark breakdown to disk: bench/bb-breakdown/$disk_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
