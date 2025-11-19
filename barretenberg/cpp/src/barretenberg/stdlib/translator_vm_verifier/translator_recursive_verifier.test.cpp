@@ -111,16 +111,99 @@ class TranslatorRecursiveTests : public ::testing::Test {
         return stdlib_comms;
     }
 
+    // Helper struct to hold translator verification inputs as stdlib witnesses
+    struct RecursiveVerifierInputs {
+        TranslatorBF accumulated_result;
+        TranslatorBF evaluation_challenge_x;
+        TranslatorBF batching_challenge_v;
+        std::array<RecursiveFlavor::Commitment, InnerFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
+        // Native values for native verifier
+        bb::fq accumulated_result_native;
+        std::array<InnerFlavor::Commitment, InnerFlavor::NUM_OP_QUEUE_WIRES> native_op_queue_commitments;
+    };
+
+    // Helper to create recursive verifier inputs from native values
+    static RecursiveVerifierInputs create_recursive_verifier_inputs(OuterBuilder* builder,
+                                                                    const InnerProver& prover,
+                                                                    const InnerBF& evaluation_challenge_x,
+                                                                    const InnerBF& batching_challenge_v)
+    {
+        // Get accumulated_result from the prover
+        bb::fq accumulated_result_native = prover.get_accumulated_result();
+        auto accumulated_result = TranslatorBF::from_witness(builder, accumulated_result_native);
+        accumulated_result.set_origin_tag(OriginTag());
+
+        // Convert challenges to circuit witnesses
+        auto stdlib_evaluation_challenge_x = TranslatorBF::from_witness(builder, evaluation_challenge_x);
+        auto stdlib_batching_challenge_v = TranslatorBF::from_witness(builder, batching_challenge_v);
+        stdlib_evaluation_challenge_x.set_origin_tag(OriginTag());
+        stdlib_batching_challenge_v.set_origin_tag(OriginTag());
+
+        // Create op queue commitments (normally provided by merge protocol)
+        auto native_op_queue_commitments = create_native_op_queue_commitments(prover.key);
+        auto op_queue_commitments = create_stdlib_op_queue_commitments(builder, native_op_queue_commitments);
+
+        return { accumulated_result,   stdlib_evaluation_challenge_x, stdlib_batching_challenge_v,
+                 op_queue_commitments, accumulated_result_native,     native_op_queue_commitments };
+    }
+
+    // Shared helper to create and verify a translator proof recursively
+    static std::tuple<OuterBuilder::ExecutionTrace, std::shared_ptr<OuterFlavor::VerificationKey>>
+    create_recursive_verifier_circuit(size_t circuit_size_parameter = 500)
+    {
+        // Create fake ECCVM proof
+        auto prover_transcript = std::make_shared<Transcript>();
+
+        // Generate challenges
+        InnerBF batching_challenge_v = InnerBF::random_element();
+        InnerBF evaluation_challenge_x = InnerBF::random_element();
+
+        // Create inner translator circuit and generate proof
+        InnerBuilder circuit_builder =
+            generate_test_circuit(batching_challenge_v, evaluation_challenge_x, circuit_size_parameter);
+        auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+        InnerProver prover{ proving_key, prover_transcript };
+        auto proof = prover.construct_proof();
+
+        // Set up outer recursive circuit
+        OuterBuilder outer_circuit;
+        stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
+        auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
+
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->proving_key);
+        RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
+
+        // Create recursive verifier inputs
+        auto recursive_inputs =
+            create_recursive_verifier_inputs(&outer_circuit, prover, evaluation_challenge_x, batching_challenge_v);
+
+        // Verify proof recursively
+        stdlib::Proof<OuterBuilder> stdlib_proof_for_verifier(outer_circuit, proof);
+        typename RecursiveVerifier::PairingPoints pairing_points =
+            verifier.verify_proof(stdlib_proof_for_verifier,
+                                  recursive_inputs.evaluation_challenge_x,
+                                  recursive_inputs.batching_challenge_v,
+                                  recursive_inputs.accumulated_result,
+                                  recursive_inputs.op_queue_commitments);
+
+        stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
+        inputs.pairing_inputs = pairing_points;
+        inputs.set_public();
+
+        auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);
+        auto outer_verification_key =
+            std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->get_precomputed());
+
+        return { outer_circuit.blocks, outer_verification_key };
+    }
+
     static void test_recursive_verification()
     {
         using NativeVerifierCommitmentKey = InnerFlavor::VerifierCommitmentKey;
-        // Add the same operations to the ECC op queue; the native computation is performed under the hood.
 
         auto prover_transcript = std::make_shared<Transcript>();
-        prover_transcript->send_to_verifier("init", InnerBF::random_element());
-        // normally this would be the eccvm proof
-        auto fake_inital_proof = prover_transcript->export_proof();
 
+        // Mock challenges
         InnerBF batching_challenge_v = InnerBF::random_element();
         InnerBF evaluation_challenge_x = InnerBF::random_element();
 
@@ -131,57 +214,40 @@ class TranslatorRecursiveTests : public ::testing::Test {
         auto proof = prover.construct_proof();
 
         OuterBuilder outer_circuit;
-
-        // Mock a previous verifier that would in reality be the ECCVM recursive verifier
-        stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, fake_inital_proof);
+        stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
         auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
-        [[maybe_unused]] auto _ = transcript->template receive_from_prover<RecursiveFlavor::BF>("init");
-
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->proving_key);
         RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
 
-        // Get accumulated_result from the prover
-        bb::fq accumulated_result_native = prover.get_accumulated_result();
-        auto accumulated_result = TranslatorBF::from_witness(&outer_circuit, accumulated_result_native);
-        // Set empty origin tag (it's a free witness from ECCVM verifier)
-        accumulated_result.set_origin_tag(OriginTag());
+        // Create recursive verifier inputs and verify
+        auto recursive_inputs =
+            create_recursive_verifier_inputs(&outer_circuit, prover, evaluation_challenge_x, batching_challenge_v);
 
-        // Convert challenges to circuit witnesses
-        auto stdlib_evaluation_challenge_x = TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x);
-        auto stdlib_batching_challenge_v = TranslatorBF::from_witness(&outer_circuit, batching_challenge_v);
-        stdlib_evaluation_challenge_x.set_origin_tag(OriginTag());
-        stdlib_batching_challenge_v.set_origin_tag(OriginTag());
-
-        // Create op queue commitments (normally provided by merge protocol)
-        auto native_op_queue_commitments = create_native_op_queue_commitments(proving_key);
-        auto op_queue_commitments = create_stdlib_op_queue_commitments(&outer_circuit, native_op_queue_commitments);
-
-        // Convert native proof to stdlib proof
         stdlib::Proof<OuterBuilder> stdlib_proof_for_verifier(outer_circuit, proof);
-        typename RecursiveVerifier::PairingPoints pairing_points = verifier.verify_proof(stdlib_proof_for_verifier,
-                                                                                         stdlib_evaluation_challenge_x,
-                                                                                         stdlib_batching_challenge_v,
-                                                                                         accumulated_result,
-                                                                                         op_queue_commitments);
+        typename RecursiveVerifier::PairingPoints pairing_points =
+            verifier.verify_proof(stdlib_proof_for_verifier,
+                                  recursive_inputs.evaluation_challenge_x,
+                                  recursive_inputs.batching_challenge_v,
+                                  recursive_inputs.accumulated_result,
+                                  recursive_inputs.op_queue_commitments);
 
         stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
         inputs.pairing_inputs = pairing_points;
         inputs.set_public();
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates());
 
-        // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
-        auto native_verifier_transcript = std::make_shared<Transcript>(fake_inital_proof);
-        native_verifier_transcript->template receive_from_prover<InnerBF>("init");
+        // Verify with native verifier and compare results
+        auto native_verifier_transcript = std::make_shared<Transcript>(proof);
         InnerVerifier native_verifier(verification_key, native_verifier_transcript);
 
-        // Native verifier uses the same op queue commitments we created earlier
+        // Native verifier uses the same values
         bool native_result = native_verifier.verify_proof(proof,
                                                           evaluation_challenge_x,
                                                           batching_challenge_v,
-                                                          accumulated_result_native,
-                                                          native_op_queue_commitments);
+                                                          recursive_inputs.accumulated_result_native,
+                                                          recursive_inputs.native_op_queue_commitments);
         NativeVerifierCommitmentKey pcs_vkey{};
         auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(recursive_result, native_result);
@@ -215,76 +281,8 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
     static void test_independent_vk_hash()
     {
-
-        // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
-        auto get_blocks = [](size_t num_ops)
-            -> std::tuple<OuterBuilder::ExecutionTrace, std::shared_ptr<OuterFlavor::VerificationKey>> {
-            auto prover_transcript = std::make_shared<Transcript>();
-            prover_transcript->send_to_verifier("init", InnerBF::random_element());
-
-            // normally this would be the eccvm proof
-            auto fake_inital_proof = prover_transcript->export_proof();
-            InnerBF batching_challenge_v = InnerBF::random_element();
-            InnerBF evaluation_challenge_x = InnerBF::random_element();
-
-            InnerBuilder inner_circuit = generate_test_circuit(batching_challenge_v, evaluation_challenge_x, num_ops);
-
-            // Generate a proof over the inner circuit
-            auto inner_proving_key = std::make_shared<TranslatorProvingKey>(inner_circuit);
-            InnerProver inner_prover(inner_proving_key, prover_transcript);
-            info("test circuit size: ", inner_proving_key->proving_key->circuit_size);
-            auto verification_key =
-                std::make_shared<typename InnerFlavor::VerificationKey>(inner_prover.key->proving_key);
-            auto inner_proof = inner_prover.construct_proof();
-
-            // Create a recursive verification circuit for the proof of the inner circuit
-            OuterBuilder outer_circuit;
-
-            // Mock a previous verifier that would in reality be the ECCVM recursive verifier
-            stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, fake_inital_proof);
-            auto transcript = std::make_shared<typename RecursiveFlavor::Transcript>(stdlib_proof);
-            [[maybe_unused]] auto _ = transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
-
-            RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
-
-            // Get accumulated_result from the prover
-            bb::fq accumulated_result_native = inner_prover.get_accumulated_result();
-            auto stdlib_accumulated_result = TranslatorBF::from_witness(&outer_circuit, accumulated_result_native);
-            // Set empty origin tag (it's a free witness from ECCVM verifier)
-            stdlib_accumulated_result.set_origin_tag(OriginTag());
-
-            // Convert challenges to circuit witnesses
-            auto stdlib_evaluation_challenge_x = TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x);
-            auto stdlib_batching_challenge_v = TranslatorBF::from_witness(&outer_circuit, batching_challenge_v);
-            stdlib_evaluation_challenge_x.set_origin_tag(OriginTag());
-            stdlib_batching_challenge_v.set_origin_tag(OriginTag());
-
-            // Create op queue commitments (normally provided by merge protocol)
-            auto native_op_queue_commitments = create_native_op_queue_commitments(inner_proving_key);
-            auto op_queue_commitments = create_stdlib_op_queue_commitments(&outer_circuit, native_op_queue_commitments);
-
-            // Convert native proof to stdlib proof
-            stdlib::Proof<OuterBuilder> stdlib_inner_proof(outer_circuit, inner_proof);
-            typename RecursiveVerifier::PairingPoints pairing_points =
-                verifier.verify_proof(stdlib_inner_proof,
-                                      stdlib_evaluation_challenge_x,
-                                      stdlib_batching_challenge_v,
-                                      stdlib_accumulated_result,
-                                      op_queue_commitments);
-
-            stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
-            inputs.pairing_inputs = pairing_points;
-            inputs.set_public();
-
-            auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);
-            auto outer_verification_key =
-                std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->get_precomputed());
-
-            return { outer_circuit.blocks, outer_verification_key };
-        };
-
-        auto [blocks_256, verification_key_256] = get_blocks(256);
-        auto [blocks_512, verification_key_512] = get_blocks(512);
+        auto [blocks_256, verification_key_256] = create_recursive_verifier_circuit(256);
+        auto [blocks_512, verification_key_512] = create_recursive_verifier_circuit(512);
 
         compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_256, blocks_512 },
                                                                 { verification_key_256, verification_key_512 });
