@@ -168,6 +168,7 @@ library Errors {
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
   error FeeLib__AlreadyPreheated();
+  error FeeLib__InvalidManaLimit(uint256 maximum, uint256 provided);
 
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
