@@ -242,4 +242,18 @@ HonkProof TranslatorProver::construct_proof()
     return export_proof();
 }
 
+/**
+ * @brief Extract the accumulated result from the circuit.
+ * @details The accumulated result is the final accumulator value that the ECCVM verifier will check.
+ * It is stored in the RESULT_ROW of the accumulator limb polynomials.
+ */
+uint256_t TranslatorProver::get_accumulated_result() const
+{
+    const size_t RESULT_ROW = Flavor::RESULT_ROW;
+    return uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_0[RESULT_ROW]) +
+           (uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_1[RESULT_ROW]) << 68) +
+           (uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[RESULT_ROW]) << 136) +
+           (uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW]) << 204);
+}
+
 } // namespace bb

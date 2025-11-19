@@ -3,6 +3,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -81,6 +82,35 @@ class TranslatorRecursiveTests : public ::testing::Test {
         return InnerBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }
 
+    // Helper to create native op queue commitments from proving key
+    static std::array<InnerFlavor::Commitment, InnerFlavor::NUM_OP_QUEUE_WIRES> create_native_op_queue_commitments(
+        const std::shared_ptr<TranslatorProvingKey>& proving_key)
+    {
+        std::array<InnerFlavor::Commitment, InnerFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
+        op_queue_commitments[0] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.op);
+        op_queue_commitments[1] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_lo_y_hi);
+        op_queue_commitments[2] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_hi_z_1);
+        op_queue_commitments[3] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.y_lo_z_2);
+        return op_queue_commitments;
+    }
+
+    // Helper to convert native op queue commitments to stdlib commitments
+    static std::array<RecursiveFlavor::Commitment, InnerFlavor::NUM_OP_QUEUE_WIRES> create_stdlib_op_queue_commitments(
+        OuterBuilder* builder, const std::array<InnerFlavor::Commitment, InnerFlavor::NUM_OP_QUEUE_WIRES>& native_comms)
+    {
+        std::array<RecursiveFlavor::Commitment, InnerFlavor::NUM_OP_QUEUE_WIRES> stdlib_comms;
+        for (size_t i = 0; i < InnerFlavor::NUM_OP_QUEUE_WIRES; i++) {
+            stdlib_comms[i] = RecursiveFlavor::Commitment::from_witness(builder, native_comms[i]);
+            // Set empty origin tags for commitments (they're free witnesses from merge protocol)
+            stdlib_comms[i].set_origin_tag(OriginTag());
+        }
+        return stdlib_comms;
+    }
+
     static void test_recursive_verification()
     {
         using NativeVerifierCommitmentKey = InnerFlavor::VerifierCommitmentKey;
@@ -109,8 +139,30 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->proving_key);
         RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
-        typename RecursiveVerifier::PairingPoints pairing_points =
-            verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
+
+        // Get accumulated_result from the prover
+        bb::fq accumulated_result_native = prover.get_accumulated_result();
+        auto accumulated_result = TranslatorBF::from_witness(&outer_circuit, accumulated_result_native);
+        // Set empty origin tag (it's a free witness from ECCVM verifier)
+        accumulated_result.set_origin_tag(OriginTag());
+
+        // Convert challenges to circuit witnesses
+        auto stdlib_evaluation_challenge_x = TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x);
+        auto stdlib_batching_challenge_v = TranslatorBF::from_witness(&outer_circuit, batching_challenge_v);
+        stdlib_evaluation_challenge_x.set_origin_tag(OriginTag());
+        stdlib_batching_challenge_v.set_origin_tag(OriginTag());
+
+        // Create op queue commitments (normally provided by merge protocol)
+        auto native_op_queue_commitments = create_native_op_queue_commitments(proving_key);
+        auto op_queue_commitments = create_stdlib_op_queue_commitments(&outer_circuit, native_op_queue_commitments);
+
+        // Convert native proof to stdlib proof
+        stdlib::Proof<OuterBuilder> stdlib_proof_for_verifier(outer_circuit, proof);
+        typename RecursiveVerifier::PairingPoints pairing_points = verifier.verify_proof(stdlib_proof_for_verifier,
+                                                                                         stdlib_evaluation_challenge_x,
+                                                                                         stdlib_batching_challenge_v,
+                                                                                         accumulated_result,
+                                                                                         op_queue_commitments);
 
         stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
         inputs.pairing_inputs = pairing_points;
@@ -123,7 +175,13 @@ class TranslatorRecursiveTests : public ::testing::Test {
         auto native_verifier_transcript = std::make_shared<Transcript>(fake_inital_proof);
         native_verifier_transcript->template receive_from_prover<InnerBF>("init");
         InnerVerifier native_verifier(verification_key, native_verifier_transcript);
-        bool native_result = native_verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
+
+        // Native verifier uses the same op queue commitments we created earlier
+        bool native_result = native_verifier.verify_proof(proof,
+                                                          evaluation_challenge_x,
+                                                          batching_challenge_v,
+                                                          accumulated_result_native,
+                                                          native_op_queue_commitments);
         NativeVerifierCommitmentKey pcs_vkey{};
         auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(recursive_result, native_result);
@@ -188,16 +246,31 @@ class TranslatorRecursiveTests : public ::testing::Test {
             [[maybe_unused]] auto _ = transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
 
             RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
-            // Manually hashing the evaluation and batching challenges to ensure they get a proper origin tag
+
+            // Get accumulated_result from the prover
+            bb::fq accumulated_result_native = inner_prover.get_accumulated_result();
+            auto stdlib_accumulated_result = TranslatorBF::from_witness(&outer_circuit, accumulated_result_native);
+            // Set empty origin tag (it's a free witness from ECCVM verifier)
+            stdlib_accumulated_result.set_origin_tag(OriginTag());
+
+            // Convert challenges to circuit witnesses
             auto stdlib_evaluation_challenge_x = TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x);
             auto stdlib_batching_challenge_v = TranslatorBF::from_witness(&outer_circuit, batching_challenge_v);
-            transcript->add_to_hash_buffer("evaluation_challenge_x", stdlib_evaluation_challenge_x);
-            transcript->add_to_hash_buffer("batching_challenge_v", stdlib_batching_challenge_v);
-            // Clear child tags from challenges to avoid false positives in IndependentVKHash test
-            stdlib_evaluation_challenge_x.clear_child_tag();
-            stdlib_batching_challenge_v.clear_child_tag();
+            stdlib_evaluation_challenge_x.set_origin_tag(OriginTag());
+            stdlib_batching_challenge_v.set_origin_tag(OriginTag());
+
+            // Create op queue commitments (normally provided by merge protocol)
+            auto native_op_queue_commitments = create_native_op_queue_commitments(inner_proving_key);
+            auto op_queue_commitments = create_stdlib_op_queue_commitments(&outer_circuit, native_op_queue_commitments);
+
+            // Convert native proof to stdlib proof
+            stdlib::Proof<OuterBuilder> stdlib_inner_proof(outer_circuit, inner_proof);
             typename RecursiveVerifier::PairingPoints pairing_points =
-                verifier.verify_proof(inner_proof, stdlib_evaluation_challenge_x, stdlib_batching_challenge_v);
+                verifier.verify_proof(stdlib_inner_proof,
+                                      stdlib_evaluation_challenge_x,
+                                      stdlib_batching_challenge_v,
+                                      stdlib_accumulated_result,
+                                      op_queue_commitments);
 
             stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
             inputs.pairing_inputs = pairing_points;

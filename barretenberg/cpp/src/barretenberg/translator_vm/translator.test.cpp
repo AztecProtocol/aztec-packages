@@ -86,13 +86,8 @@ class TranslatorTests : public ::testing::Test {
         auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
         TranslatorVerifier verifier(verification_key, verifier_transcript);
 
-        // Get accumulated_result from the circuit (same as prover does)
-        const size_t RESULT_ROW = TranslatorFlavor::RESULT_ROW;
-        uint256_t accumulated_result =
-            uint256_t(proving_key->proving_key->polynomials.accumulators_binary_limbs_0[RESULT_ROW]) +
-            (uint256_t(proving_key->proving_key->polynomials.accumulators_binary_limbs_1[RESULT_ROW]) << 68) +
-            (uint256_t(proving_key->proving_key->polynomials.accumulators_binary_limbs_2[RESULT_ROW]) << 136) +
-            (uint256_t(proving_key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW]) << 204);
+        // Get accumulated_result from the prover
+        uint256_t accumulated_result = prover.get_accumulated_result();
 
         // Commit to op queue wires
         std::array<TranslatorFlavor::Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
