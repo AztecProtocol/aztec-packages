@@ -8,7 +8,7 @@ use blob::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
 use types::{
     abis::block_header::BlockHeader,
     constants::{
-        ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, BLOCK_MERGE_ROLLUP_VK_INDEX,
+        ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, BLOCK_MERGE_ROLLUP_VK_INDEX,
         BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
         BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
         BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, FIELDS_PER_BLOB,
@@ -49,9 +49,9 @@ pub struct CheckpointRootRollupHints {
     pub(crate) final_blob_challenges: FinalBlobBatchingChallenges,
     // Fields made of all blob data in this checkpoint. Used to compute the `end_blob_accumulator`. It will be checked
     // against the `end_sponge_blob`.
-    pub(crate) blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+    pub(crate) blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT],
     // see blob/src/blob.nr -> evaluate_blob() -  these are used for creating each blob's challenge z_i.
-    pub(crate) blob_commitments: [BLSPoint; BLOBS_PER_BLOCK],
+    pub(crate) blob_commitments: [BLSPoint; BLOBS_PER_CHECKPOINT],
     // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity.
     // Only exists so we have a link between EVM blob hashes and the block header for users to check.
     // NB: to fit it into a field, we truncate to 31 bytes

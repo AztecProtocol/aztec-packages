@@ -1,7 +1,7 @@
 use crate::{abis::BlockRollupPublicInputs, block_merge::validate_consecutive_block_rollups};
 use types::{
     abis::{block_header::BlockHeader, sponge_blob::SpongeBlob},
-    constants::{ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+    constants::{ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB},
     merkle_tree::check_membership,
     proof::proof_data::RollupHonkProofData,
     traits::Hash,
@@ -124,7 +124,7 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
 
         // Check that the number of absorbed blob fields is not larger than the maximum number of fields allowed.
         assert(
-            end_sponge_blob.num_expected_fields <= FIELDS_PER_BLOB * BLOBS_PER_BLOCK,
+            end_sponge_blob.num_expected_fields <= FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT,
             "Attempted to overfill blobs",
         );
 

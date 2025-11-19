@@ -127,7 +127,7 @@ pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 24;
 pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
-pub global BLOBS_PER_BLOCK: u32 = 6;
+pub global BLOBS_PER_CHECKPOINT: u32 = 6;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
@@ -973,8 +973,8 @@ pub global FIXED_L2_GAS: u32 = 512;
 // base cost for a single public call
 pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 
-pub global MAX_PROCESSABLE_DA_GAS_PER_BLOCK: u32 =
-    BLOBS_PER_BLOCK * FIELDS_PER_BLOB * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+pub global MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT: u32 =
+    BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 
 // For gas estimation, we use the theoretical maximum amounts.
 // Since we split in teardown and total, teardown has the theoretical maximum and total is that times 2.
@@ -984,16 +984,16 @@ pub global GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GA
 pub global GAS_ESTIMATION_L2_GAS_LIMIT: u32 =
     GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + AVM_MAX_PROCESSABLE_L2_GAS;
 
-pub global GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_BLOCK;
+pub global GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
 pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
-    GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_BLOCK;
+    GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
 
 // Default gas limits. Users should use gas estimation, or they will overpay gas fees.
 // TODO: consider moving to typescript
 pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
 pub global DEFAULT_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
 pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
-pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_BLOCK; // Arbitrary default number.
+pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT; // Arbitrary default number.
 
 // Some tree insertions incur an additional cost associated with
 // the new database entry to be stored by all network participants.

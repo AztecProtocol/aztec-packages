@@ -137,7 +137,7 @@ mod tests {
     use bignum::fields::bls12_381Fq::BLS12_381_Fq;
     use types::{
         abis::sponge_blob::SpongeBlob,
-        constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+        constants::{BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB},
         hash::sha256_to_field,
         tests::utils::{pad_end, pad_end_with},
         traits::Empty,
@@ -221,10 +221,10 @@ mod tests {
 
     #[test]
     unconstrained fn test_max_blobs_batched() {
-        // Create BLOBS_PER_BLOCK-1 full blobs and 1 blob with 123 fields.
-        let num_fields = FIELDS_PER_BLOB * (BLOBS_PER_BLOCK - 1) + 123;
-        // Fill BLOBS_PER_BLOCK blobs completely with different values (to avoid a constant polynomial)
-        let mut blob_fields = [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
+        // Create BLOBS_PER_CHECKPOINT-1 full blobs and 1 blob with 123 fields.
+        let num_fields = FIELDS_PER_BLOB * (BLOBS_PER_CHECKPOINT - 1) + 123;
+        // Fill the blobs completely with different values (to avoid a constant polynomial)
+        let mut blob_fields = [0; FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT];
         blob_fields[0] = num_fields as Field;
         for i in 1..num_fields {
             blob_fields[i] = 456 + i as Field;
@@ -370,7 +370,7 @@ mod tests {
         };
         // Init. the accumulator
         let start_acc = BlobAccumulator::empty();
-        // Evaluate all BLOBS_PER_BLOCK blobs and iteratively accumulate the results
+        // Evaluate all BLOBS_PER_CHECKPOINT blobs and iteratively accumulate the results
         let (output, hashed_blobs_fields) = evaluate_blobs_and_batch(
             blob_fields,
             num_fields,
@@ -389,7 +389,7 @@ mod tests {
         assert_eq(final_acc.z, final_challenges.z);
         assert_eq(
             output.gamma_pow_acc,
-            final_challenges.gamma.__pow(BLS12_381_Fr::from(BLOBS_PER_BLOCK as Field)),
+            final_challenges.gamma.__pow(BLS12_381_Fr::from(BLOBS_PER_CHECKPOINT as Field)),
         );
 
         let expected_y = BLS12_381_Fr::from_limbs(y_limbs_6_blobs_from_ts);
