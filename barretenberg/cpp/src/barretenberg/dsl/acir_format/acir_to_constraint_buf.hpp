@@ -111,13 +111,7 @@ void assign_linear_term(mul_quad_<bb::fr>& gate, int index, uint32_t witness_ind
  */
 std::vector<mul_quad_<bb::fr>> split_into_mul_quad_gates(Acir::Expression const& arg);
 
-mul_quad_<bb::fr> serialize_mul_quad_gate(Acir::Expression const& arg);
-
-void constrain_witnesses(Acir::Opcode::AssertZero const& arg, AcirFormat& af);
-
-std::pair<uint32_t, uint32_t> is_assert_equal(Acir::Opcode::AssertZero const& arg,
-                                              arithmetic_triple const& pt,
-                                              AcirFormat const& af);
+bool is_assert_equal(mul_quad_<fr> const& mul_quad);
 
 void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index);
 
