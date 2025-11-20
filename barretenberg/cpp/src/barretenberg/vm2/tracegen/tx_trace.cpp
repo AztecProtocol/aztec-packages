@@ -752,7 +752,7 @@ const InteractionDefinition TxTraceBuilder::interactions =
         // These are all generic, think which, if any, can be made sequential.
         .add<lookup_tx_read_phase_spec_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_read_calldata_hash_settings, InteractionType::LookupSequential>()
+        .add<perm_tx_read_calldata_hash_settings, InteractionType::Permutation>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
         .add<perm_tx_dispatch_exec_start_settings, InteractionType::Permutation>()
         .add<perm_tx_dispatch_exec_end_settings, InteractionType::Permutation>()

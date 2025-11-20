@@ -218,21 +218,12 @@ namespace tx;
     pol commit calldata_size;
     pol commit calldata_hash;
 
-    // TODO: Consider if a permutation is preferable here, and whether that work work with gas:
-    #[READ_CALLDATA_HASH]
-    should_process_call_request {
-        calldata_hash,
-        calldata_size,
-        next_context_id
-    } in calldata_hashing.latch {
-        calldata_hashing.output_hash,
-        calldata_hashing.calldata_size,
-        calldata_hashing.context_id
-    };
+    pol commit should_process_call_request; // @boolean (follows from definition)
+    should_process_call_request = is_public_call_request * (1 - is_padded);
 
     // Read information relating to the public call request from public inputs
     #[READ_PUBLIC_CALL_REQUEST_PHASE]
-    is_public_call_request {
+    should_process_call_request {
         read_pi_offset,
         msg_sender,
         contract_addr,
@@ -247,8 +238,16 @@ namespace tx;
         public_inputs.cols[3]
     };
 
-    pol commit should_process_call_request; // @boolean (follows from definition)
-    should_process_call_request = is_public_call_request * (1 - is_padded);
+    #[READ_CALLDATA_HASH]
+    should_process_call_request {
+        calldata_hash,
+        calldata_size,
+        next_context_id
+    } is calldata_hashing.latch {
+        calldata_hashing.output_hash,
+        calldata_hashing.calldata_size,
+        calldata_hashing.context_id
+    };
 
     pol commit is_teardown; // @boolean (on active row guaranteed by #[READ_PHASE_SPEC])
 

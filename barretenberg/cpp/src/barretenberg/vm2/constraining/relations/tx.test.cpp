@@ -866,7 +866,7 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
 
     check_relation<tx>(trace);
     check_interaction<TxTraceBuilder,
-                      lookup_tx_read_calldata_hash_settings,
+                      perm_tx_read_calldata_hash_settings,
                       lookup_tx_read_phase_spec_settings,
                       lookup_tx_read_phase_length_settings,
                       lookup_tx_read_public_call_request_phase_settings>(trace);
