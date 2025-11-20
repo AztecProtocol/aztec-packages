@@ -46,7 +46,6 @@ export type NewValidatorKeystoreOptions = {
   feeRecipient: AztecAddress;
   coinbase?: EthAddress;
   remoteSigner?: string;
-  fundingAccount?: EthAddress;
   stakerOutput?: boolean;
   gseAddress?: EthAddress;
   l1RpcUrls?: string[];
@@ -75,7 +74,6 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     addressIndex = 0,
     feeRecipient,
     remoteSigner,
-    fundingAccount,
     blsPath,
     ikm,
     mnemonic: _mnemonic,
@@ -113,7 +111,6 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     feeRecipient,
     coinbase,
     remoteSigner,
-    fundingAccount,
   });
 
   // If password provided, write ETH JSON V3 and BLS BN254 keystores and replace plaintext

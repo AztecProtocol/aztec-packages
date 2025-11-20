@@ -42,7 +42,6 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     json,
     feeRecipient: feeRecipientOpt,
     coinbase: coinbaseOpt,
-    fundingAccount: fundingAccountOpt,
     remoteSigner: remoteSignerOpt,
     password,
     encryptedKeystoreDir,
@@ -63,8 +62,6 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     throw new Error('feeRecipient is required (either present in existing file or via --fee-recipient)');
   }
   const coinbase = (coinbaseOpt as EthAddress | undefined) ?? (first.coinbase as EthAddress | undefined);
-  const fundingAccount =
-    (fundingAccountOpt as EthAddress | undefined) ?? (first.fundingAccount as EthAddress | undefined);
   const derivedRemoteSigner = (first.attester as any)?.remoteSignerUrl || (first.attester as any)?.eth?.remoteSignerUrl;
   const remoteSigner = remoteSignerOpt ?? derivedRemoteSigner;
 
@@ -87,7 +84,6 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     feeRecipient,
     coinbase,
     remoteSigner,
-    fundingAccount,
   });
 
   keystore.validators.push(...validators);
