@@ -117,7 +117,18 @@ cat << 'EOF' > /home/$SSH_USER/start.sh
 #!/usr/bin/env bash
 source ./tag.sh
 echo "Starting bootnode container..."
-JSON=$(curl -s http://static.aztec.network/$NETWORK_NAME/bootnodes.json)
+
+# Try primary URL first, fallback to metadata.aztec.network if unreachable
+JSON=$(curl -s --fail http://static.aztec.network/$NETWORK_NAME/bootnodes.json 2>/dev/null)
+if [ -z "$JSON" ]; then
+  echo "Primary URL unreachable, trying fallback..."
+  JSON=$(curl -s --fail https://metadata.aztec.network/network_config.json 2>/dev/null)
+  if [ -z "$JSON" ]; then
+    echo "Error: Could not fetch bootnode data from any source"
+    exit 1
+  fi
+fi
+
 export BOOTSTRAP_NODES=$(echo "$JSON" | jq -r '.bootnodes | join(",")')
 echo "Bootnode enrs: $BOOTSTRAP_NODES"
 docker system prune -f
