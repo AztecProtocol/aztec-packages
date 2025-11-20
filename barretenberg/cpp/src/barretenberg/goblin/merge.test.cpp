@@ -455,23 +455,18 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     OriginTag tag_1 = extract_transcript_tag(*transcript_1);
     OriginTag tag_2 = extract_transcript_tag(*transcript_2);
 
-    info("Verifier 1 transcript parent_tag: ", tag_1.parent_tag);
-    info("Verifier 2 transcript parent_tag: ", tag_2.parent_tag);
-    ASSERT_NE(tag_1.parent_tag, tag_2.parent_tag) << "Transcripts should have different parent tags";
+    info("Verifier 1 transcript_index: ", tag_1.transcript_index);
+    info("Verifier 2 transcript_index: ", tag_2.transcript_index);
+    ASSERT_NE(tag_1.transcript_index, tag_2.transcript_index) << "Transcripts should have different parent tags";
 
     // === SECURITY VIOLATION: Try to use commitments from proof 1 with verifier 2 ===
-    // This simulates a bug where a circuit accidentally mixes values from two different verifiers
-    // The commitments were created as witnesses (no transcript association initially), but when
-    // we try to verify, the proof elements read from transcript_2 will have tag_2.parent_tag,
-    // while operations might mix them with commitments that should be associated with transcript_1
 
     // To make this more realistic, we need to actually receive values from transcript_1 into the commitments
     // In a real scenario, the verifier would receive_from_prover which tags values with the transcript's parent_tag
     // For this test, we'll manually tag the commitments as if they came from transcript_1
-    [[maybe_unused]] OriginTag transcript_1_tag(tag_1.parent_tag, 0, /*is_submitted=*/true);
+    OriginTag transcript_1_tag(tag_1.transcript_index, 0, /*is_submitted=*/true);
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
         // Tag these commitments as if they were read from transcript_1
-        // (only in recursive context where set_origin_tag exists)
         if constexpr (TestFixture::IsRecursive) {
             input_commitments_1.t_commitments[idx].set_origin_tag(transcript_1_tag);
             input_commitments_1.T_prev_commitments[idx].set_origin_tag(transcript_1_tag);
@@ -484,21 +479,11 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     info("Attempting to mix transcript_1 commitments with transcript_2 proof verification...");
 
     // Catch the exception and verify it's the expected cross-transcript error
-    bool caught_expected_error = false;
-    std::string error_message;
-    try {
-        [[maybe_unused]] auto result = verifier_2.verify_proof(proof_2_recursive, input_commitments_1);
-        FAIL() << "Expected exception was not thrown - cross-transcript contamination was not detected!";
-    } catch (const std::runtime_error& e) {
-        error_message = e.what();
-        caught_expected_error = (error_message.find("different transcripts") != std::string::npos);
-    } catch (...) {
-        FAIL() << "Unexpected exception type thrown";
-    }
-
-    ASSERT_TRUE(caught_expected_error) << "Expected error about different transcripts, got: " << error_message;
-    info("✓ OriginTag system correctly detected cross-transcript contamination");
-    info("  Error: ", error_message);
+#ifndef NDEBUG
+    EXPECT_THROW_OR_ABORT([[maybe_unused]] auto result =
+                              verifier_2.verify_proof(proof_2_recursive, input_commitments_1),
+                          "Tags from different transcripts were involved in the same computation");
+#endif
 }
 
 /**
