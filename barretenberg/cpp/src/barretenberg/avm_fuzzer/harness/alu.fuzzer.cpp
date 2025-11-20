@@ -38,71 +38,164 @@ using alu_rel = bb::avm2::alu<FF>;
 
 namespace {
 
-// Do we want the option of making "invalid tag" values, where the value is out of range for the tag?
-// These aren't currently possible with this function since MemoryValue::from_tag will throw in that case.
-MemoryValue read_mem_value(FuzzedDataProvider& fdp)
-{
-    // Grab 32 bytes for a uint256
-    uint64_t limb0 = fdp.ConsumeIntegral<uint64_t>();
-    uint64_t limb1 = fdp.ConsumeIntegral<uint64_t>();
-    uint64_t limb2 = fdp.ConsumeIntegral<uint64_t>();
-    uint64_t limb3 = fdp.ConsumeIntegral<uint64_t>();
+struct AluFuzzerInput {
+    MemoryValue a;
+    MemoryValue b;
+    MemoryValue c = MemoryValue::from_tag(MemoryTag::FF, 0); // Placeholder for result
+    int op_id = 0;                                           // For execution trace alu_op_id
 
-    uint256_t value = uint256_t(limb0, limb1, limb2, limb3);
+    // Serialize to buffer
+    void to_buffer(uint8_t* buffer) const
+    {
+        auto write_mem_value = [](uint8_t* target, MemoryValue mem_value) {
+            serialize::write(target, static_cast<uint8_t>(mem_value.get_tag()));
+            FF::serialize_to_buffer(mem_value.as_ff(), target);
+        };
 
-    int tag_choice = fdp.ConsumeIntegralInRange<int>(0, 6);
-    switch (tag_choice) {
-    case 0:
-        return MemoryValue::from_tag_truncating(MemoryTag::U1, FF(value));
-        break;
-    case 1:
-        return MemoryValue::from_tag_truncating(MemoryTag::U8, FF(value));
-        break;
-    case 2:
-        return MemoryValue::from_tag_truncating(MemoryTag::U16, FF(value));
-        break;
-    case 3:
-        return MemoryValue::from_tag_truncating(MemoryTag::U32, FF(value));
-        break;
-    case 4:
-        return MemoryValue::from_tag_truncating(MemoryTag::U64, FF(value));
-        break;
-    case 5:
-        return MemoryValue::from_tag_truncating(MemoryTag::U128, FF(value));
-        break;
-    case 6:
-        return MemoryValue::from_tag_truncating(MemoryTag::FF, FF(value));
-        break;
-    default:
-        assert(false && "unreachable");
+        write_mem_value(buffer, a);
+        buffer += sizeof(FF) + 1;
+        write_mem_value(buffer, b);
+        buffer += sizeof(FF) + 1;
+        write_mem_value(buffer, c);
+        buffer += sizeof(FF) + 1;
+        serialize::write(buffer, static_cast<uint16_t>(op_id));
     }
-    // To statisfy compiler
-    return MemoryValue::from_tag_truncating(MemoryTag::FF, FF(0));
-}
+
+    static AluFuzzerInput from_buffer(const uint8_t* buffer)
+    {
+        auto read_mem_value = [](const uint8_t* src) -> MemoryValue {
+            uint8_t tag = 0;
+            serialize::read(src, tag);
+            return MemoryValue::from_tag(MemoryTag(tag), FF::serialize_from_buffer(src));
+        };
+
+        AluFuzzerInput input;
+        input.a = read_mem_value(buffer);
+        buffer += sizeof(FF) + 1;
+        input.b = read_mem_value(buffer);
+        buffer += sizeof(FF) + 1;
+        input.c = read_mem_value(buffer);
+        buffer += sizeof(FF) + 1;
+        uint16_t op_id = 0;
+        serialize::read(buffer, op_id);
+        input.op_id = op_id;
+
+        return input;
+    }
+};
 
 } // namespace
+
+extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max_size, unsigned int seed)
+{
+    if (size < sizeof(AluFuzzerInput)) {
+        // Initialize with default input
+        AluFuzzerInput input;
+        input.to_buffer(data);
+        return sizeof(AluFuzzerInput);
+    }
+
+    std::mt19937_64 rng(seed);
+
+    auto op_likes_matched_tags = [](int op_id) -> bool {
+        switch (op_id) {
+        case AVM_EXEC_OP_ID_ALU_ADD:
+        case AVM_EXEC_OP_ID_ALU_SUB:
+        case AVM_EXEC_OP_ID_ALU_MUL:
+        case AVM_EXEC_OP_ID_ALU_DIV:
+        case AVM_EXEC_OP_ID_ALU_FDIV:
+        case AVM_EXEC_OP_ID_ALU_EQ:
+        case AVM_EXEC_OP_ID_ALU_LT:
+        case AVM_EXEC_OP_ID_ALU_LTE:
+        case AVM_EXEC_OP_ID_ALU_SHR:
+        case AVM_EXEC_OP_ID_ALU_SHL:
+            return true;
+        case AVM_EXEC_OP_ID_ALU_NOT:
+        case AVM_EXEC_OP_ID_ALU_TRUNCATE:
+        default:
+            return false;
+        }
+    };
+
+    auto random_mem_value_from_tag = [&rng](MemoryTag tag) -> MemoryValue {
+        std::uniform_int_distribution<uint64_t> dist(0, std::numeric_limits<uint64_t>::max());
+        // TODO(MW): Use array?
+        FF value = FF(dist(rng), dist(rng), dist(rng), dist(rng));
+        // Do we want the option of making "invalid tag" values, where the value is out of range for the tag?
+        // These aren't currently possible with this function since MemoryValue::from_tag will throw in that case.
+        return MemoryValue::from_tag_truncating(MemoryTag(tag), value);
+    };
+
+    auto random_mem_value = [&rng, random_mem_value_from_tag]() -> MemoryValue {
+        std::uniform_int_distribution<int> dist(0, int(MemoryTag::MAX));
+        MemoryTag tag = static_cast<MemoryTag>(dist(rng));
+        return random_mem_value_from_tag(tag);
+    };
+
+    // Deserialize current input
+    AluFuzzerInput input = AluFuzzerInput::from_buffer(data);
+
+    // Choose random ALU operation
+    std::uniform_int_distribution<int> dist(0, 11);
+    input.op_id = 1 << dist(rng);
+
+    // Choose test case (TODO(MW): what else do we want here?)
+    dist = std::uniform_int_distribution<int>(0, 1);
+    int choice = dist(rng);
+
+    // Choose random tag and values
+    switch (choice) {
+    case 0: {
+        // Matching tags (if the op's happy path expects them)
+        input.a = random_mem_value();
+        if (op_likes_matched_tags(input.op_id)) {
+            input.b = random_mem_value_from_tag(input.a.get_tag());
+        } else {
+            // We deal with the below ops in TestOneInput
+            input.b = random_mem_value();
+        }
+        break;
+    }
+    case 1: {
+        // Mismatching tags (if the op's happy path expects a match)
+        input.a = random_mem_value();
+        input.b = random_mem_value();
+        if (op_likes_matched_tags(input.op_id)) {
+            while (input.b.get_tag() == input.a.get_tag()) {
+                input.b = random_mem_value();
+            }
+            input.b = random_mem_value_from_tag(input.a.get_tag());
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
+    // Serialize mutated input back to buffer
+    input.to_buffer(data);
+
+    if (max_size > sizeof(AluFuzzerInput)) {
+        return sizeof(AluFuzzerInput);
+    }
+
+    return sizeof(AluFuzzerInput);
+}
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     using bb::avm2::MemoryValue;
 
-    // two uint256 + <int>op_type + <int>tag_choice + <int>is_zero
-    size_t minimum_size = 64 + (sizeof(int) * 3);
+    const MemoryValue mem_true = MemoryValue::from_tag(MemoryTag::U1, 1);
+    const MemoryValue mem_false = MemoryValue::from_tag(MemoryTag::U1, 0);
 
-    if (size < minimum_size) {
+    if (size < sizeof(AluFuzzerInput)) {
+        info("Input size too small");
         return 0;
     }
 
-    // Fuzzed Data Provider helps with extracting typed data from the raw byte stream.
-    FuzzedDataProvider fuzzed_data(data, size);
-
-    MemoryValue a = read_mem_value(fuzzed_data);
-    MemoryValue b = read_mem_value(fuzzed_data);
-    MemoryValue c = MemoryValue::from_tag(MemoryTag::FF, 0); // Placeholder for result
-    bool error = false;                                      // For execution trace sel_err
-    int op_id = 0;                                           // For execution trace alu_op_id
-
-    int op_type = fuzzed_data.ConsumeIntegralInRange<int>(0, 11);
+    AluFuzzerInput input = AluFuzzerInput::from_buffer(data);
+    bool error = false; // For execution trace sel_err
 
     // Set up gadgets and event emitters
     DeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
@@ -115,81 +208,69 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     GreaterThan greater_than(field_gt, range_check, greater_than_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
 
-    // info("Fuzzing ALU with op_type =", op_type, ", a_tag =", a.to_string(), ", b_tag =", b.to_string());
+    vinfo("Fuzzing ALU with op_id =", input.op_id, ", a_tag =", input.a.to_string(), ", b_tag =", input.b.to_string());
     // Pick and execute operation
     try {
-        switch (op_type) {
-        case 0: {
-            op_id = AVM_EXEC_OP_ID_ALU_ADD;
-            c = alu.add(a, b);
-            assert(c == a + b);
+        switch (input.op_id) {
+        case AVM_EXEC_OP_ID_ALU_ADD: {
+            input.c = alu.add(input.a, input.b);
+            assert(input.c == input.a + input.b);
             break;
         }
-        case 1: {
-            op_id = AVM_EXEC_OP_ID_ALU_SUB;
-            c = alu.sub(a, b);
-            assert(c == a - b);
+        case AVM_EXEC_OP_ID_ALU_SUB: {
+            input.c = alu.sub(input.a, input.b);
+            assert(input.c == input.a - input.b);
             break;
         }
-        case 2: {
-            op_id = AVM_EXEC_OP_ID_ALU_MUL;
-            c = alu.mul(a, b);
-            assert(c == a * b);
+        case AVM_EXEC_OP_ID_ALU_MUL: {
+            input.c = alu.mul(input.a, input.b);
+            assert(input.c == input.a * input.b);
             break;
         }
-        case 3: {
-            op_id = AVM_EXEC_OP_ID_ALU_DIV;
-            c = alu.div(a, b);
-            assert(c == a / b);
+        case AVM_EXEC_OP_ID_ALU_DIV: {
+            input.c = alu.div(input.a, input.b);
+            assert(input.c == input.a / input.b);
             break;
         }
-        case 4: {
-            op_id = AVM_EXEC_OP_ID_ALU_FDIV;
-            c = alu.fdiv(a, b);
-            assert(c == a / b);
+        case AVM_EXEC_OP_ID_ALU_FDIV: {
+            input.c = alu.fdiv(input.a, input.b);
+            assert(input.c == input.a / input.b);
             break;
         }
-        case 5: {
-            op_id = AVM_EXEC_OP_ID_ALU_EQ;
-            c = alu.eq(a, b);
-            assert(c == (a == b ? MemoryValue::from_tag(MemoryTag::U1, 1) : MemoryValue::from_tag(MemoryTag::U1, 0)));
+        case AVM_EXEC_OP_ID_ALU_EQ: {
+            input.c = alu.eq(input.a, input.b);
+            assert(input.c == (input.a == input.b ? mem_true : mem_false));
             break;
         }
-        case 6: {
-            op_id = AVM_EXEC_OP_ID_ALU_LT;
-            c = alu.lt(a, b);
-            assert(c == (a < b ? MemoryValue::from_tag(MemoryTag::U1, 1) : MemoryValue::from_tag(MemoryTag::U1, 0)));
+        case AVM_EXEC_OP_ID_ALU_LT: {
+            input.c = alu.lt(input.a, input.b);
+            assert(input.c == (input.a < input.b ? mem_true : mem_false));
             break;
         }
-        case 7: {
-            op_id = AVM_EXEC_OP_ID_ALU_LTE;
-            c = alu.lte(a, b);
-            assert(c == (a <= b ? MemoryValue::from_tag(MemoryTag::U1, 1) : MemoryValue::from_tag(MemoryTag::U1, 0)));
+        case AVM_EXEC_OP_ID_ALU_LTE: {
+            input.c = alu.lte(input.a, input.b);
+            assert(input.c == (input.a <= input.b ? mem_true : mem_false));
             break;
         }
-        case 8: {
-            op_id = AVM_EXEC_OP_ID_ALU_NOT;
+        case AVM_EXEC_OP_ID_ALU_NOT: {
             // Reset b since if we error we need it to be zero for the trace
-            b = MemoryValue::from_tag(MemoryTag::FF, 0);
-            b = alu.op_not(a);
-            assert(b == ~a);
+            input.b = MemoryValue::from_tag(MemoryTag::FF, 0);
+            input.b = alu.op_not(input.a);
+            assert(input.b == ~input.a);
             break;
         }
-        case 9: {
-            op_id = AVM_EXEC_OP_ID_ALU_SHR;
-            c = alu.shr(a, b);
-            assert(c == (a >> b));
+        case AVM_EXEC_OP_ID_ALU_SHR: {
+            input.c = alu.shr(input.a, input.b);
+            assert(input.c == (input.a >> input.b));
             break;
         }
-        case 10: {
-            op_id = AVM_EXEC_OP_ID_ALU_SHL;
-            c = alu.shl(a, b);
-            assert(c == (a << b));
+        case AVM_EXEC_OP_ID_ALU_SHL: {
+            input.c = alu.shl(input.a, input.b);
+            assert(input.c == (input.a << input.b));
             break;
         }
-        case 11: {
-            op_id = AVM_EXEC_OP_ID_ALU_TRUNCATE;
-            c = alu.truncate(a, b.get_tag());
+        case AVM_EXEC_OP_ID_ALU_TRUNCATE: {
+            input.c = alu.truncate(input.a, input.b.get_tag());
             break;
         }
         default:
@@ -201,28 +282,28 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
 
     TestTraceContainer trace = [&]() {
-        if (op_id == AVM_EXEC_OP_ID_ALU_TRUNCATE) {
+        if (input.op_id == AVM_EXEC_OP_ID_ALU_TRUNCATE) {
             // For truncate we will test using a CAST
             return TestTraceContainer({ {
-                { avm2::Column::execution_register_0_, a.as_ff() },                            // = ia
-                { avm2::Column::execution_register_1_, c.as_ff() },                            // = ic
-                { avm2::Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(b.get_tag()) }, // = ic_tag
-                { avm2::Column::execution_rop_2_, static_cast<uint8_t>(b.get_tag()) },         // = truncate to tag
-                { avm2::Column::execution_sel_exec_dispatch_cast, 1 },                         // = sel
-                { avm2::Column::execution_sel_opcode_error, 0 },                               // = sel_err
+                { avm2::Column::execution_register_0_, input.a.as_ff() },                            // = ia
+                { avm2::Column::execution_register_1_, input.c.as_ff() },                            // = ic
+                { avm2::Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(input.b.get_tag()) }, // = ic_tag
+                { avm2::Column::execution_rop_2_, static_cast<uint8_t>(input.b.get_tag()) }, // = truncate to tag
+                { avm2::Column::execution_sel_exec_dispatch_cast, 1 },                       // = sel
+                { avm2::Column::execution_sel_opcode_error, 0 },                             // = sel_err
             } });
         }
         // Otherwise standard initialization of trace container and execution trace columns
         return TestTraceContainer({ {
-            { avm2::Column::execution_mem_tag_reg_0_, static_cast<uint8_t>(a.get_tag()) }, // = ia_tag
-            { avm2::Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(b.get_tag()) }, // = ib_tag
-            { avm2::Column::execution_mem_tag_reg_2_, static_cast<uint8_t>(c.get_tag()) }, // = ic_tag
-            { avm2::Column::execution_register_0_, a.as_ff() },                            // = ia
-            { avm2::Column::execution_register_1_, b.as_ff() },                            // = ib
-            { avm2::Column::execution_register_2_, c.as_ff() },                            // = ic
-            { avm2::Column::execution_sel_exec_dispatch_alu, 1 },                          // = sel
-            { avm2::Column::execution_sel_opcode_error, error ? 1 : 0 },                   // = sel_err
-            { avm2::Column::execution_subtrace_operation_id, op_id },                      // = alu_op_id
+            { avm2::Column::execution_mem_tag_reg_0_, static_cast<uint8_t>(input.a.get_tag()) }, // = ia_tag
+            { avm2::Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(input.b.get_tag()) }, // = ib_tag
+            { avm2::Column::execution_mem_tag_reg_2_, static_cast<uint8_t>(input.c.get_tag()) }, // = ic_tag
+            { avm2::Column::execution_register_0_, input.a.as_ff() },                            // = ia
+            { avm2::Column::execution_register_1_, input.b.as_ff() },                            // = ib
+            { avm2::Column::execution_register_2_, input.c.as_ff() },                            // = ic
+            { avm2::Column::execution_sel_exec_dispatch_alu, 1 },                                // = sel
+            { avm2::Column::execution_sel_opcode_error, error ? 1 : 0 },                         // = sel_err
+            { avm2::Column::execution_subtrace_operation_id, input.op_id },                      // = alu_op_id
         } });
     }();
 
@@ -252,7 +333,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     check_relation<alu_rel>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 
-    if (op_id == AVM_EXEC_OP_ID_ALU_TRUNCATE) {
+    if (input.op_id == AVM_EXEC_OP_ID_ALU_TRUNCATE) {
         check_interaction<ExecutionTraceBuilder, bb::avm2::lookup_execution_dispatch_to_cast_settings>(trace);
     } else {
         check_interaction<ExecutionTraceBuilder, bb::avm2::lookup_execution_dispatch_to_alu_settings>(trace);
