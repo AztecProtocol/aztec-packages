@@ -106,8 +106,7 @@ bool Goblin::verify(const GoblinProof& proof,
     TranslatorVerifier translator_verifier(transcript);
 
     // Get translation data from ECCVM verifier to pass to Translator verifier
-    // The relations will implicitly verify the translation is correct
-    auto translator_input = eccvm_verifier.get_translator_input_data();
+    TranslatorInputData translator_input = eccvm_verifier.get_translator_input_data();
     // Pass merge commitments as op queue wire commitments (they represent the same data)
     bool translator_verified = translator_verifier.verify_proof(proof.translator_proof,
                                                                 translator_input.evaluation_challenge_x,

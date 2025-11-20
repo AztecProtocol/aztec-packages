@@ -84,7 +84,7 @@ bool TranslatorVerifier::verify_proof(
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
 
-    // Use accumulated_result from ECCVM verifier instead of receiving from transcript
+    // Use accumulated_result from ECCVM verifier
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
     // Receive Gemini masking polynomial commitment (for ZK-PCS)

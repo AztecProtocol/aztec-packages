@@ -40,7 +40,7 @@ class TranslatorProver {
     HonkProof export_proof();
     HonkProof construct_proof();
 
-    // Extract the accumulated result from the circuit (the value that ECCVM verifier will check)
+    // Extract the accumulated result from the circuit
     uint256_t get_accumulated_result() const;
 
     std::shared_ptr<Transcript> transcript;

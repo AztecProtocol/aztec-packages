@@ -45,7 +45,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
     auto [opening_claim, ipa_proof] = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
     // Run the Translator recursive verifier
-    // Get translation data from ECCVM verifier; the relations will implicitly verify translation
+    // Get translation data from ECCVM verifier
     TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, transcript };
     auto translator_input = eccvm_verifier.get_translator_input_data();
     // Pass merge commitments as op queue wire commitments (they represent the same data)

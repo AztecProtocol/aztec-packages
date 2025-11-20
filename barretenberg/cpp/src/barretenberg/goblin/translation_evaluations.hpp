@@ -33,7 +33,7 @@ template <typename BF> struct TranslationEvaluations_ {
 
 /**
  * @brief Data passed from ECCVM Verifier to Translator Verifier for verification
- * @tparam FF The field type (either native or circuit field)
+ * @tparam FF The field type (either bb::fq or bigfield)
  */
 template <typename FF> struct TranslatorInputData_ {
     FF evaluation_challenge_x;
