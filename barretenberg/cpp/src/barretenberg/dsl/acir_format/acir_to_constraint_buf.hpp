@@ -43,7 +43,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
  * \f[
  *          \sum_{i, j} c_{ij} w_i * w_j + \sum_i c_i w_i + const = 0
  * \f]
- * This expressions are internally represented in Barretenberg as a series of mul_quad_ gates, each of which represents an expression
+ * These expressions are internally represented in Barretenberg as a series of mul_quad_ gates, each of which represents an expression
  * either of the form:
  * \f[
  *    mul_{scaling} * (a * b) +
@@ -64,10 +64,10 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
  *    | w1    | w2    | IS_CONSTANT | IS_CONSTANT | 1           | 1         | 0         | 0         | 0         | IS_CONSTANT |
  * 2. Run through the the gates that have been added and add as many linear terms as possible (for the first gate, we can use two witnesses,
  *    while for all the other gates we have only one as the fourth witness is reserved for w4_shift)
- * 3. Run through the remaining linear terms and add as many gates are needed to handle them.
+ * 3. Run through the remaining linear terms and add as many gates as needed to handle them.
  *
  *
- * @example Consider the expression: w1 * w2 + w5 + w6 + const == 0. This expression fits into a single width-4 arithmetic gate is it contains
+ * @example Consider the expression: w1 * w2 + w5 + w6 + const == 0. This expression fits into a single width-4 arithmetic gate as it contains
  * only one multiplication term, and there are only 4 distinct witnesses. We turn this expression into the following gate (where w4_shift is
  * toggled off):
  *
@@ -76,7 +76,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
  * | w1    | w2    | w5    | w6    | 1           | 1         | 1         | 1         | 1         | const     |
  *
  * @example Consider the expression: w1 * w2 + w3 * w4 + w5 + w6 + w7 + const == 0. This expression doesn't fit into a single width-4
- * arithmetic gate as it contains 2 multiplications terms (and also because it contains 7 distinc witnesses). We turn this expression into
+ * arithmetic gate as it contains 2 multiplications terms (and also because it contains 7 distinct witnesses). We turn this expression into
  * the following series of gates (where w4_shift is toggled on in all gates but the first one):
  *
  * | a_idx | b_idx | c_idx | d_idx                        | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const_idx   |

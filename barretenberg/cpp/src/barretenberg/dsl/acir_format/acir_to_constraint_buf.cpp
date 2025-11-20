@@ -229,6 +229,9 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
     };
 
     std::vector<mul_quad_<fr>> result;
+    // We cannot precompute the exact number of gates that will result from the expression. Therefore, we reserve the
+    // maximum number of gates that could ever be needed: one per multiplication term plus one per linear term. The real
+    // number of gates will in general be lower than this.
     result.reserve(arg.mul_terms.size() + linear_terms.size());
 
     // Step 1. Add multiplication terms and linear terms with the same witness index
@@ -852,10 +855,12 @@ bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint3
         uint32_t witness_idx_lhs = std::get<1>(arg.mul_terms[0]).value;
         uint32_t witness_idx_rhs = std::get<2>(arg.mul_terms[0]).value;
 
+        bool lhs_is_distinct = !linear_terms.contains(witness_idx_lhs);
+        bool rhs_is_distinct = !linear_terms.contains(witness_idx_rhs) && witness_idx_lhs != witness_idx_rhs;
+
         size_t total_num_of_distinct_witnesses = linear_terms.size();
-        total_num_of_distinct_witnesses += (linear_terms.contains(witness_idx_lhs) ? 0U : 1U);
-        total_num_of_distinct_witnesses +=
-            (linear_terms.contains(witness_idx_rhs) && (witness_idx_lhs != witness_idx_rhs)) ? 0U : 1U;
+        total_num_of_distinct_witnesses += lhs_is_distinct ? 1U : 0U;
+        total_num_of_distinct_witnesses += rhs_is_distinct ? 1U : 0U;
 
         return total_num_of_distinct_witnesses <= MAX_NUMBER_DISTINCT_WITNESSES;
     }
