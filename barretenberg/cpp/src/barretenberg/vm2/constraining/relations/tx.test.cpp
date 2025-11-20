@@ -822,13 +822,9 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
     test_public_inputs.public_app_logic_call_requests[1].calldata_hash = empty_calldata_hash;
 
     std::vector<simulation::CalldataEvent> calldata_events = {
-        { .context_id = 1,
-          .calldata_size = static_cast<uint32_t>(dummy_setup_calldata.size()),
-          .calldata = dummy_setup_calldata },
-        { .context_id = 5,
-          .calldata_size = static_cast<uint32_t>(non_empty_calldata.size()),
-          .calldata = non_empty_calldata },
-        { .context_id = 6, .calldata_size = 0, .calldata = {} }
+        { .context_id = 1, .calldata = dummy_setup_calldata },
+        { .context_id = 5, .calldata = non_empty_calldata },
+        { .context_id = 6, .calldata = {} },
     };
 
     auto setup_call_request = test_public_inputs.public_setup_call_requests[0];

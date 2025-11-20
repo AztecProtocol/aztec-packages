@@ -443,7 +443,6 @@ class EnqueuedCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest
 
         CalldataEvent cd_event = {
             .context_id = 1,
-            .calldata_size = static_cast<uint32_t>(data.size()),
             .calldata = calldata_ff,
         };
         calldata_builder.process_retrieval({ cd_event }, trace);
@@ -545,7 +544,6 @@ class EnqueuedEmptyCdConstrainingBuilderTest : public DataCopyConstrainingBuilde
         tracegen::CalldataTraceBuilder calldata_builder;
         CalldataEvent cd_event = {
             .context_id = 1,
-            .calldata_size = 0,
             .calldata = {},
         };
         calldata_builder.process_retrieval({ cd_event }, trace);

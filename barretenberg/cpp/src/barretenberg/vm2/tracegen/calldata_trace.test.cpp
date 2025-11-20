@@ -37,7 +37,6 @@ TEST(CalldataTraceGenTest, BasicHashing)
         {
             simulation::CalldataEvent{
                 .context_id = 1,
-                .calldata_size = 3,
                 .calldata = { 10, 20, 30 },
             },
         },
@@ -94,12 +93,10 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
 
     const auto events = { simulation::CalldataEvent{
                               .context_id = 3,
-                              .calldata_size = 2,
                               .calldata = { 1, 2 },
                           },
                           simulation::CalldataEvent{
                               .context_id = 1,
-                              .calldata_size = 1,
                               .calldata = { 3 },
                           } };
 
@@ -181,7 +178,6 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
 
     const auto events = { simulation::CalldataEvent{
         .context_id = 12,
-        .calldata_size = 0,
         .calldata = {},
     } };
 
@@ -234,7 +230,6 @@ TEST(CalldataTraceGenTest, LongerHash)
         {
             simulation::CalldataEvent{
                 .context_id = 1,
-                .calldata_size = 100,
                 .calldata = calldata,
             },
         },
