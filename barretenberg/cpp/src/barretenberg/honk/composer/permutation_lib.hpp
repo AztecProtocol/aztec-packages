@@ -218,17 +218,15 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
  *
  * @param permutation_polynomials sigma or ID poly
  * @param permutation_mappings
- * @param active_region_data specifies regions of execution trace with non-trivial values
  */
 template <typename Flavor>
 void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
     const RefSpan<typename Flavor::Polynomial>& permutation_polynomials,
-    const std::array<Mapping, Flavor::NUM_WIRES>& permutation_mappings,
-    ActiveRegionData& active_region_data)
+    const std::array<Mapping, Flavor::NUM_WIRES>& permutation_mappings)
 {
     using FF = typename Flavor::FF;
 
-    size_t domain_size = active_region_data.size();
+    size_t domain_size = permutation_polynomials[0].size();
 
     // SEPARATOR ensures that the evaluations of `id_i` (`sigma_i`) and `id_j`(`sigma_j`) polynomials on the boolean
     // hypercube do not intersect for i != j.
@@ -243,7 +241,8 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
             const size_t start = thread_data.start[j];
             const size_t end = thread_data.end[j];
             for (size_t i = start; i < end; ++i) {
-                const size_t poly_idx = active_region_data.get_idx(i);
+                const size_t poly_idx =
+                    i + 1; // Sigma/ID polynomials are allocated starting at index 1 (shiftable), so offset by 1
                 const auto idx = static_cast<ptrdiff_t>(poly_idx);
                 const auto& current_row_idx = permutation_mappings[wire_idx].row_idx[idx];
                 const auto& current_col_idx = permutation_mappings[wire_idx].col_idx[idx];
@@ -282,8 +281,7 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
 template <typename Flavor>
 void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuilder& circuit,
                                               typename Flavor::ProverPolynomials& polynomials,
-                                              const std::vector<CyclicPermutation>& copy_cycles,
-                                              ActiveRegionData& active_region_data)
+                                              const std::vector<CyclicPermutation>& copy_cycles)
 {
     constexpr bool generalized = IsUltraOrMegaHonk<Flavor>;
     const size_t polynomial_size = polynomials.get_polynomial_size();
@@ -294,15 +292,14 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
 
         BB_BENCH_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
 
-        compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
-            polynomials.get_sigmas(), mapping.sigmas, active_region_data);
+        compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(polynomials.get_sigmas(),
+                                                                                 mapping.sigmas);
     }
     {
 
         BB_BENCH_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
 
-        compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
-            polynomials.get_ids(), mapping.ids, active_region_data);
+        compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(polynomials.get_ids(), mapping.ids);
     }
 }
 

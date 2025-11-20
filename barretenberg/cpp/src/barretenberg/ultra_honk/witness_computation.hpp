@@ -34,7 +34,6 @@ template <IsUltraOrMegaHonk Flavor> class WitnessComputation {
     static void compute_grand_product_polynomial(Flavor::ProverPolynomials& polynomials,
                                                  std::vector<FF>& public_inputs,
                                                  const size_t pub_inputs_offset,
-                                                 ActiveRegionData& active_region_data,
                                                  RelationParameters<FF>& relation_parameters,
                                                  size_t size_override = 0);
 
