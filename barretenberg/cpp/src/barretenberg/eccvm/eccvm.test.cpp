@@ -9,7 +9,7 @@
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
-#include "barretenberg/eccvm/eccvm_verifier_.hpp"
+#include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"

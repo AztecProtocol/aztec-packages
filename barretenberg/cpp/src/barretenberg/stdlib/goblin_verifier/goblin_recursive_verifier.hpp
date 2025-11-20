@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/eccvm/eccvm_verifier_.hpp"
+#include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
