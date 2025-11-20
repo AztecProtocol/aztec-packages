@@ -629,7 +629,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // that all variables from some connected component were created after finalize method was called
     std::unordered_set<uint32_t> finalize_witnesses;
 
-
   public:
     const std::vector<uint32_t>& get_used_witnesses() const { return used_witnesses; }
     const std::unordered_set<uint32_t>& get_finalize_witnesses() const { return finalize_witnesses; }
@@ -681,8 +680,25 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         }
     }
 
-    void update_logic_witnesses(uint32_t var_idx) {logic_gate_witnesses.insert(var_idx); }
-    std::unordered_set<uint32_t> get_logic_witnesses() const {return logic_gate_witnesses; };
+    void update_logic_witnesses(uint32_t var_idx) { logic_gate_witnesses.insert(var_idx); }
+    std::unordered_set<uint32_t> get_logic_witnesses() const { return logic_gate_witnesses; }
+
+    /**
+     * @brief Save current logic gate witnesses and clear for next constraint
+     * @details After processing each logic constraint, save the accumulated witnesses
+     * to the per-constraint storage and clear for the next constraint.
+     */
+    void save_and_clear_logic_witnesses()
+    {
+        logic_witnesses.emplace_back(std::move(logic_gate_witnesses));
+        logic_gate_witnesses.clear();
+    }
+
+    /**
+     * @brief Get all logic witnesses organized per constraint
+     * @return Vector of witness sets, one per logic constraint
+     */
+    const std::vector<std::unordered_set<uint32_t>>& get_all_logic_witnesses() const { return logic_witnesses; }
 
     // ========================================================================================
 

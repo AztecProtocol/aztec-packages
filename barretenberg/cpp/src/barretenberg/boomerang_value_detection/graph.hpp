@@ -159,9 +159,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void print_delta_range_gate_info(size_t gate_idx, auto& block);
     void print_variable_info(const uint32_t real_idx);
 
-    void initialize_uniqueness();
-    bool propagate_linear_constraints(size_t gate_idx, auto& block);
-
     bool check_variable_unconstrained();
     ~StaticAnalyzer_() = default;
 

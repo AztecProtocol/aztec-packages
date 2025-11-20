@@ -18,7 +18,7 @@ static std::string common_preffix =
 void test_acir(std::vector<uint8_t>& bytecode)
 {
     auto tool = StaticAnalyzerAcir(bytecode);
-    auto [variables_in_one_gate, unconstrained_vars] = tool.analyze_acir(/*debug_info=*/true);
+    auto [variables_in_one_gate, unconstrained_vars] = tool.analyze_acir();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
     if (unconstrained_vars.size() > 0) {
         info("print variables that weren't constrained properly");
@@ -28,17 +28,15 @@ void test_acir(std::vector<uint8_t>& bytecode)
     }
     if (variables_in_one_gate.size() > 0) {
         info("print variables in one gate");
-        for (const auto& elem: variables_in_one_gate) {
+        for (const auto& elem : variables_in_one_gate) {
             tool.print_variable_info(elem);
         }
     }
     const auto logic_gate_witnesses = tool.get_logic_witnesses();
     if (logic_gate_witnesses.size() > 0) {
         info("print_variables_from_logic_gates");
-        for (const auto& elem: logic_gate_witnesses) {
+        for (const auto& elem : logic_gate_witnesses) {
             tool.print_variable_info(elem);
-        for (const auto& elem : unconstrained_vars) {
-            info("elem == ", elem);
         }
     }
 }
@@ -91,14 +89,16 @@ TEST(BoomerangAcirCircuitBuilder, AESCase)
     test_acir(vector_bytecode);
 }
 
-TEST(BoomerangAcirCircuitBuilder, EqualCase) {
+TEST(BoomerangAcirCircuitBuilder, EqualCase)
+{
     std::string init_bytecode_path = "equiv/target/equiv.json";
     std::string bytecode_file = common_preffix + init_bytecode_path;
     std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
     test_acir(vector_bytecode);
 }
 
-TEST(BoomerangAcirCircuitBuilder, BlackBoxAndXorCase) {
+TEST(BoomerangAcirCircuitBuilder, BlackBoxAndXorCase)
+{
     std::string init_bytecode_path = "blackbox_and_xor/target/blackbox_and_xor.json";
     std::string bytecode_file = common_preffix + init_bytecode_path;
     std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
