@@ -28,7 +28,7 @@ template <typename Flavor> class ECCVMVerifier_ {
     using VerifierCommitments = Flavor::VerifierCommitments;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Proof = Flavor::Proof;
-    using PCS = typename Flavor::PCS;
+    using PCS = Flavor::PCS;
     using TranslatorInputData = TranslatorInputData_<FF>;
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
@@ -36,23 +36,23 @@ template <typename Flavor> class ECCVMVerifier_ {
 
     // Proof type from flavor
 
-    // Native constructor
+    // Native constructor - uses fixed VK from default constructor
     explicit ECCVMVerifier_(const std::shared_ptr<Transcript>& transcript)
         requires(!IsRecursive)
-        : transcript(transcript)
+        : key(std::make_shared<VerificationKey>())
+        , transcript(transcript)
     {}
 
-    // Recursive constructor
-    template <typename NativeVK>
-    ECCVMVerifier_(Builder* builder,
-                   const std::shared_ptr<NativeVK>& native_verifier_key,
-                   const std::shared_ptr<Transcript>& transcript)
+    // Recursive constructor - uses fixed native VK from default constructor
+    ECCVMVerifier_(Builder* builder, const std::shared_ptr<Transcript>& transcript)
         requires IsRecursive
-        : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
-        , vk_hash(stdlib::witness_t<Builder>(builder, native_verifier_key->hash()))
-        , builder(builder)
+        : builder(builder)
         , transcript(transcript)
     {
+        // ECCVM has a fixed circuit structure, so VK is constant
+        auto native_vk = std::make_shared<typename Flavor::NativeVerificationKey>();
+        key = std::make_shared<VerificationKey>(builder, native_vk);
+        vk_hash = stdlib::witness_t<Builder>(builder, native_vk->hash());
         key->fix_witness();
         vk_hash.fix_witness();
     }
@@ -71,13 +71,7 @@ template <typename Flavor> class ECCVMVerifier_ {
         return { evaluation_challenge_x, batching_challenge_v, accumulated_result };
     }
 
-    std::shared_ptr<VerificationKey> key = []() {
-        if constexpr (IsRecursive) {
-            return nullptr;
-        } else {
-            return std::make_shared<VerificationKey>();
-        }
-    }();
+    std::shared_ptr<VerificationKey> key;
 
     BF vk_hash;
 

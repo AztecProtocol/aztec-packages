@@ -98,7 +98,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         info("ECCVM Recursive Verifier");
         OuterBuilder outer_circuit;
         std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
-        RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
+        RecursiveVerifier verifier{ &outer_circuit, stdlib_verifier_transcript };
         verifier.transcript->enable_manifest();
         [[maybe_unused]] auto recursive_opening_claim =
             verifier.verify_proof(stdlib::Proof<OuterBuilder>(outer_circuit, proof));
@@ -114,7 +114,6 @@ class ECCVMRecursiveTests : public ::testing::Test {
 
         std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
         InnerVerifier native_verifier(verifier_transcript);
-        native_verifier.key = verification_key;
         native_verifier.transcript->enable_manifest();
         auto native_opening_claim = native_verifier.verify_proof(proof);
 
@@ -182,7 +181,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         OuterBuilder outer_circuit;
 
         std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
-        RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
+        RecursiveVerifier verifier{ &outer_circuit, stdlib_verifier_transcript };
         [[maybe_unused]] auto output = verifier.verify_proof(stdlib::Proof<OuterBuilder>(outer_circuit, proof));
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
         info("Recursive Verifier: estimated num finalized gates = ",
@@ -208,11 +207,9 @@ class ECCVMRecursiveTests : public ::testing::Test {
             // Tamper with the proof to be verified
             tamper_with_proof<InnerProver, InnerFlavor>(proof, static_cast<bool>(idx));
 
-            auto verification_key = std::make_shared<InnerFlavor::VerificationKey>(prover.key);
-
             OuterBuilder outer_circuit;
             std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
-            RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
+            RecursiveVerifier verifier{ &outer_circuit, stdlib_verifier_transcript };
             auto recursive_opening_claim = verifier.verify_proof(stdlib::Proof<OuterBuilder>(outer_circuit, proof));
             stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
@@ -255,13 +252,11 @@ class ECCVMRecursiveTests : public ::testing::Test {
             ECCVMFlavor::PCS::compute_opening_proof(inner_prover.key->commitment_key, opening_claim, ipa_transcript);
             HonkProof ipa_proof = ipa_transcript->export_proof();
 
-            auto verification_key = std::make_shared<InnerFlavor::VerificationKey>(inner_prover.key);
-
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
 
             std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
-            RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
+            RecursiveVerifier verifier{ &outer_circuit, stdlib_verifier_transcript };
 
             [[maybe_unused]] auto recursive_opening_claim =
                 verifier.verify_proof(stdlib::Proof<OuterBuilder>(outer_circuit, proof));
