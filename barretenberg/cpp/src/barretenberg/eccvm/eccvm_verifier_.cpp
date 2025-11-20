@@ -296,8 +296,8 @@ template <typename Flavor> void ECCVMVerifier_<Flavor>::compute_accumulated_resu
     accumulated_result = batched_eval_minus_masking / evaluation_challenge_x;
 }
 
-// Explicit template instantiations
+// Explicit template instantiation for native flavor
+// Note: ECCVMRecursiveFlavor instantiation is in stdlib/eccvm_verifier/eccvm_recursive_verifier.cpp
 template class ECCVMVerifier_<ECCVMFlavor>;
-template class ECCVMVerifier_<ECCVMRecursiveFlavor>;
 
 } // namespace bb

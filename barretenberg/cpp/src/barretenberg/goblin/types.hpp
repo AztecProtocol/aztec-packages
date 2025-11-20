@@ -44,6 +44,7 @@ struct GoblinStdlibProof {
     {
         return merge_proof.size() + eccvm_proof.size() + ipa_proof.size() + translator_proof.size();
     };
+    GoblinStdlibProof() = default;
     GoblinStdlibProof(UltraCircuitBuilder& builder, const GoblinProof& goblin_proof)
         : merge_proof(builder, goblin_proof.merge_proof)
         , eccvm_proof(builder, goblin_proof.eccvm_proof)

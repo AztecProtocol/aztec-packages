@@ -28,7 +28,6 @@ class ChonkRecursiveVerifier {
 
     struct StdlibProof {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
-        using StdlibGoblinProof = GoblinRecursiveVerifier::StdlibProof;
 
         static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
@@ -41,7 +40,7 @@ class ChonkRecursiveVerifier {
         }
 
         StdlibHonkProof mega_proof; // proof of the hiding circuit
-        StdlibGoblinProof goblin_proof;
+        GoblinStdlibProof goblin_proof;
 
         StdlibProof(Builder& builder, const Chonk::Proof& proof)
             : mega_proof(builder, proof.mega_proof)
