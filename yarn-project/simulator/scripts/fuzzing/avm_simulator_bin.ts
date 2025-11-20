@@ -240,18 +240,15 @@ async function executeFromJson(jsonLine: string): Promise<void> {
     }
     if (input.restart) {
       STATE_MANAGER = undefined;
-      // Reinitialize immediately after restart to ensure state manager is ready for next execution
       try {
         await initSimulator();
         if (!STATE_MANAGER) {
           throw new Error('State manager initialization completed but STATE_MANAGER is still undefined');
         }
-        // Send success response to synchronize with fuzzer
         const response = { restarted: true };
         const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
         process.stdout.write(output);
       } catch (error: any) {
-        // If initialization fails during restart, return error response
         const response = { restarted: false, error: error.message };
         const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
         process.stdout.write(output);
