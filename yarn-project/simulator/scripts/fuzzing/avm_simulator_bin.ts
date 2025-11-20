@@ -77,23 +77,53 @@ let STATE_MANAGER: typeof PublicPersistableStateManager | undefined;
 
 async function getStateManager(): Promise<typeof PublicPersistableStateManager> {
   const contractDataSource = new SimpleContractDataSource();
-  const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+  const worldStateService = await NativeWorldStateService.tmp();
+  if (!worldStateService) {
+    throw new Error('NativeWorldStateService.tmp() returned undefined');
+  }
+  const merkleTrees = await worldStateService.fork();
+  if (!merkleTrees) {
+    throw new Error('worldStateService.fork() returned undefined');
+  }
   const treesDb = new PublicTreesDB(merkleTrees);
   const contractsDb = new PublicContractsDB(contractDataSource);
   const trace = new SideEffectTrace();
   const firstNullifier = new Fr(420000);
-  return PublicPersistableStateManager.create(treesDb, contractsDb, trace, firstNullifier, DEFAULT_TIMESTAMP);
+  const stateManager = PublicPersistableStateManager.create(
+    treesDb,
+    contractsDb,
+    trace,
+    firstNullifier,
+    DEFAULT_TIMESTAMP,
+  );
+  if (!stateManager) {
+    throw new Error('PublicPersistableStateManager.create() returned undefined');
+  }
+  return stateManager;
 }
 
 async function initSimulator() {
   if (STATE_MANAGER) {
     return;
   }
-  STATE_MANAGER = await getStateManager();
+  try {
+    STATE_MANAGER = await getStateManager();
+    if (!STATE_MANAGER) {
+      throw new Error('getStateManager() returned undefined');
+    }
+  } catch (error) {
+    // Reset STATE_MANAGER to undefined on error so we can retry
+    STATE_MANAGER = undefined;
+    throw new Error(`Failed to initialize state manager: ${error.message}`);
+  }
 }
 
 async function getSimulator(calldata: (typeof Fr)[]) {
   await initSimulator();
+
+  if (!STATE_MANAGER) {
+    throw new Error('State manager not initialized. This may happen if initialization failed after restart.');
+  }
 
   const globalVariables = GlobalVariables.empty();
   globalVariables.chainId = new Fr(1);
@@ -106,7 +136,7 @@ async function getSimulator(calldata: (typeof Fr)[]) {
   globalVariables.gasFees = new GasFees(1, 1);
 
   const simulator = await AvmSimulator.create(
-    STATE_MANAGER!,
+    STATE_MANAGER,
     AztecAddress.fromNumber(42), // address
     AztecAddress.fromNumber(100), // sender
     new Fr(0), // transaction fee
@@ -185,11 +215,11 @@ const _ = report_and_reset_coverage();
 async function executeBytecodeBase64(
   avmBytecodeBase64: string,
   calldata: (typeof Fr)[],
-): Promise<{ reverted: boolean; output: (typeof Fr)[] }> {
+): Promise<{ reverted: boolean; output: (typeof Fr)[]; revertReason?: string }> {
   const bytecode = Buffer.from(avmBytecodeBase64, 'base64');
   const simulator = await getSimulator(calldata);
   const results = await simulator.executeBytecode(bytecode);
-  return { reverted: results.reverted, output: results.output };
+  return { reverted: results.reverted, output: results.output, revertReason: results.revertReason };
 }
 
 // Execute the AVM bytecode and return the result and the coverage
@@ -210,6 +240,22 @@ async function executeFromJson(jsonLine: string): Promise<void> {
     }
     if (input.restart) {
       STATE_MANAGER = undefined;
+      // Reinitialize immediately after restart to ensure state manager is ready for next execution
+      try {
+        await initSimulator();
+        if (!STATE_MANAGER) {
+          throw new Error('State manager initialization completed but STATE_MANAGER is still undefined');
+        }
+        // Send success response to synchronize with fuzzer
+        const response = { restarted: true };
+        const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
+        process.stdout.write(output);
+      } catch (error: any) {
+        // If initialization fails during restart, return error response
+        const response = { restarted: false, error: error.message };
+        const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
+        process.stdout.write(output);
+      }
       return;
     }
     const calldata = stringArrayToFields(input.inputs);
@@ -227,6 +273,7 @@ async function executeFromJson(jsonLine: string): Promise<void> {
       reverted: result.reverted,
       output: outputStrings,
       coverage: coverage,
+      revertReason: result.revertReason,
     };
 
     const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
@@ -237,6 +284,7 @@ async function executeFromJson(jsonLine: string): Promise<void> {
       reverted: true,
       output: [],
       coverage: coverage,
+      revertReason: error.message,
     };
     const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
     process.stdout.write(output);

@@ -162,6 +162,29 @@ void JsSimulator::restart_simulator()
         throw std::runtime_error("JsSimulator should be initialized before restarting");
     }
     instance->process.write_line("{\"restart\":1}");
+
+    // Read the restart response to ensure synchronization
+    std::string response = instance->process.read_line();
+    // Remove the newline character
+    response.erase(response.find_last_not_of('\n') + 1);
+
+    try {
+        // Decode the response to verify restart completed successfully
+        std::vector<uint8_t> decoded_response = decode_bytecode(response);
+        std::string response_string(decoded_response.begin(), decoded_response.end());
+        if (logging_enabled) {
+            info("Received restart response: ", response_string);
+        }
+        json response_json = json::parse(response_string);
+        bool restarted = response_json["restarted"];
+        if (!restarted) {
+            std::string error = response_json.value("error", "Unknown error");
+            throw std::runtime_error("Restart failed: " + error);
+        }
+    } catch (const std::exception& e) {
+        std::cout << "Error processing restart response: " << e.what() << std::endl;
+        throw std::runtime_error("Failed to restart simulator: " + std::string(e.what()));
+    }
 }
 
 JsSimulator* JsSimulator::getInstance()
@@ -184,7 +207,11 @@ void JsSimulator::initialize(std::string& simulator_path)
 
 SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
 {
+    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
     std::string serialized = serialize_bytecode_and_calldata(bytecode, calldata);
+    if (logging_enabled) {
+        info("Sending request to simulator: ", serialized);
+    }
 
     // Send the request
     process.write_line(serialized);
@@ -207,6 +234,9 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
     }
 
     std::string response_string(decoded_response.begin(), decoded_response.end());
+    if (logging_enabled) {
+        info("Received response from simulator: ", response_string);
+    }
     json response_json = json::parse(response_string);
     bool reverted = response_json["reverted"];
     std::vector<std::string> output = response_json["output"];
