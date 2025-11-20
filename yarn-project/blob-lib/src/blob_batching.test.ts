@@ -1,4 +1,4 @@
-import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
+import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
 import { fromHex } from '@aztec/foundation/bigint-buffer';
 import { poseidon2Hash, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
@@ -110,13 +110,13 @@ describe('Blob Batching', () => {
     );
   });
 
-  it('should construct and verify a batch of BLOBS_PER_BLOCK blobs in a single block', async () => {
-    // Initialize enough fields to require BLOBS_PER_BLOCK blobs
-    const numFields = FIELDS_PER_BLOB * (BLOBS_PER_BLOCK - 1) + 123;
+  it('should construct and verify a batch of BLOBS_PER_CHECKPOINT blobs in a single checkpoint', async () => {
+    // Initialize enough fields to require BLOBS_PER_CHECKPOINT blobs
+    const numFields = FIELDS_PER_BLOB * (BLOBS_PER_CHECKPOINT - 1) + 123;
     const blobFields = Array.from({ length: numFields }, (_, i) => new Fr(456 + i));
     blobFields[0] = new Fr(numFields); // Change the first field to indicate the total number of fields.
     const blobs = getBlobsPerL1Block(blobFields);
-    expect(blobs.length).toBe(BLOBS_PER_BLOCK);
+    expect(blobs.length).toBe(BLOBS_PER_CHECKPOINT);
 
     const finalChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobs]);
 
@@ -124,7 +124,7 @@ describe('Blob Batching', () => {
     const blobFieldsHash = await computeBlobFieldsHash(blobFields);
     const zis = await Promise.all(blobs.map(b => b.computeChallengeZ(blobFieldsHash)));
     let finalZ = zis[0];
-    for (let i = 1; i < BLOBS_PER_BLOCK; i++) {
+    for (let i = 1; i < BLOBS_PER_CHECKPOINT; i++) {
       finalZ = await poseidon2Hash([finalZ, zis[i]]);
     }
     expect(finalZ).toEqual(finalChallenges.z);
@@ -142,7 +142,7 @@ describe('Blob Batching', () => {
     const evalYsToBLSBignum = evalYs.map(y => y.toNoirBigNum());
     const hashedEvals = await Promise.all(evalYsToBLSBignum.map(e => poseidon2Hash(e.limbs.map(Fr.fromHexString))));
     let evaluationsHash = hashedEvals[0];
-    for (let i = 1; i < BLOBS_PER_BLOCK; i++) {
+    for (let i = 1; i < BLOBS_PER_CHECKPOINT; i++) {
       evaluationsHash = await poseidon2Hash([evaluationsHash, hashedEvals[i]]);
     }
     const finalGamma = BLS12Fr.fromBN254Fr(await poseidon2Hash([evaluationsHash, finalZ]));
@@ -153,7 +153,7 @@ describe('Blob Batching', () => {
     let finalY = BLS12Fr.ZERO;
     let powGamma = new BLS12Fr(1n); // Since we start at gamma^0 = 1
     let finalBlobCommitmentsHash: Buffer = Buffer.alloc(0);
-    for (let i = 0; i < BLOBS_PER_BLOCK; i++) {
+    for (let i = 0; i < BLOBS_PER_CHECKPOINT; i++) {
       const cOperand = commitments[i].mul(powGamma);
       const yOperand = evalYs[i].mul(powGamma);
       const qOperand = qs[i].mul(powGamma);
@@ -180,7 +180,7 @@ describe('Blob Batching', () => {
 
     function writeNoirTestData(filePath: string) {
       // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
-      for (let i = 0; i < BLOBS_PER_BLOCK; i++) {
+      for (let i = 0; i < BLOBS_PER_CHECKPOINT; i++) {
         updateInlineTestData(
           filePath,
           `kzg_commitment_x_limbs_blob_${i}_from_ts`,
@@ -192,30 +192,30 @@ describe('Blob Batching', () => {
           toInlineStrArray(commitments[i].y.toNoirBigNum().limbs),
         );
       }
-      updateInlineTestData(filePath, `z_${BLOBS_PER_BLOCK}_blobs_from_ts`, finalZ.toString());
+      updateInlineTestData(filePath, `z_${BLOBS_PER_CHECKPOINT}_blobs_from_ts`, finalZ.toString());
       updateInlineTestData(
         filePath,
-        `gamma_limbs_${BLOBS_PER_BLOCK}_blobs_from_ts`,
+        `gamma_limbs_${BLOBS_PER_CHECKPOINT}_blobs_from_ts`,
         toInlineStrArray(finalGamma.toNoirBigNum().limbs),
       );
       updateInlineTestData(
         filePath,
-        `y_limbs_${BLOBS_PER_BLOCK}_blobs_from_ts`,
+        `y_limbs_${BLOBS_PER_CHECKPOINT}_blobs_from_ts`,
         toInlineStrArray(finalY.toNoirBigNum().limbs),
       );
       updateInlineTestData(
         filePath,
-        `batched_c_x_limbs_${BLOBS_PER_BLOCK}_blobs_from_ts`,
+        `batched_c_x_limbs_${BLOBS_PER_CHECKPOINT}_blobs_from_ts`,
         toInlineStrArray(batchedC.x.toNoirBigNum().limbs),
       );
       updateInlineTestData(
         filePath,
-        `batched_c_y_limbs_${BLOBS_PER_BLOCK}_blobs_from_ts`,
+        `batched_c_y_limbs_${BLOBS_PER_CHECKPOINT}_blobs_from_ts`,
         toInlineStrArray(batchedC.y.toNoirBigNum().limbs),
       );
       updateInlineTestData(
         filePath,
-        `blob_commitments_hash_${BLOBS_PER_BLOCK}_blobs_from_ts`,
+        `blob_commitments_hash_${BLOBS_PER_CHECKPOINT}_blobs_from_ts`,
         batchedBlob.blobCommitmentsHash.toString(),
       );
     }
@@ -226,18 +226,18 @@ describe('Blob Batching', () => {
 
   it.each([
     3, 5, 10,
-    // 32 <- NB Full 32 blocks currently takes around 30s to fully batch
-  ])('should construct and verify a batch of blobs over %p blocks', async numBlocks => {
-    const blobFieldsPerBlock = Array.from({ length: numBlocks }, (_, blockIndex) =>
+    // 32 <- NB Full 32 checkpoints currently takes around 30s to fully batch
+  ])('should construct and verify a batch of blobs over %p checkpoints', async numCheckpoints => {
+    const blobFieldsPerCheckpoint = Array.from({ length: numCheckpoints }, (_, checkpointIndex) =>
       Array.from(
-        { length: FIELDS_PER_BLOB * BLOBS_PER_BLOCK },
-        (_, i) => new Fr(i + blockIndex * (FIELDS_PER_BLOB * BLOBS_PER_BLOCK)),
+        { length: FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT },
+        (_, i) => new Fr(i + checkpointIndex * (FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT)),
       ),
     );
     // Change the first fields to indicate the total number of fields.
-    blobFieldsPerBlock.forEach(fields => (fields[0] = new Fr(fields.length)));
+    blobFieldsPerCheckpoint.forEach(fields => (fields[0] = new Fr(fields.length)));
 
-    const blobs = blobFieldsPerBlock.map(fields => getBlobsPerL1Block(fields));
+    const blobs = blobFieldsPerCheckpoint.map(fields => getBlobsPerL1Block(fields));
     const batchedBlob = await BatchedBlob.batch(blobs);
     expect(batchedBlob.verify()).toBe(true);
   });

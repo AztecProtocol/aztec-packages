@@ -20,13 +20,12 @@ pub unconstrained fn setup(
     };
 
     // Deploy token contract
-    let initializer_call_interface = NFT::interface().constructor(
+    let initializer_call = NFT::interface().constructor(
         owner,
         "TestNFT000000000000000000000000",
         "TN00000000000000000000000000000",
     );
-    let nft_contract_address =
-        env.deploy("NFT").with_public_initializer(owner, initializer_call_interface);
+    let nft_contract_address = env.deploy("NFT").with_public_initializer(owner, initializer_call);
 
     (env, nft_contract_address, owner, recipient)
 }

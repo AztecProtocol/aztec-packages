@@ -97,16 +97,16 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     GateCounter gate_counter{ &builder, collect_gates_per_opcode };
 
     // Add arithmetic gates
-    for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.poly_triple_constraints.at(i);
-        builder.create_poly_gate(constraint);
+    for (size_t i = 0; i < constraint_system.arithmetic_triple_constraints.size(); ++i) {
+        const auto& constraint = constraint_system.arithmetic_triple_constraints.at(i);
+        builder.create_arithmetic_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.poly_triple_constraints.at(i));
+                                constraint_system.original_opcode_indices.arithmetic_triple_constraints.at(i));
     }
 
     for (size_t i = 0; i < constraint_system.quad_constraints.size(); ++i) {
         const auto& constraint = constraint_system.quad_constraints.at(i);
-        builder.create_big_mul_gate(constraint);
+        builder.create_big_mul_add_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.quad_constraints.at(i));
     }
@@ -123,7 +123,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 big_constraint[j].d = next_w4_wire;
                 big_constraint[j].d_scaling = fr(-1);
             }
-            builder.create_big_mul_add_gate(big_constraint[j], true);
+            builder.create_big_mul_add_gate(big_constraint[j], /*include_next_gate_w_4*/ true);
             next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
                                      big_constraint[j].mul_scaling +
                                  builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
@@ -135,7 +135,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
         big_constraint.back().d = next_w4_wire;
         big_constraint.back().d_scaling = fr(-1);
-        builder.create_big_mul_add_gate(big_constraint.back(), false);
+        builder.create_big_mul_add_gate(big_constraint.back(), /*include_next_gate_w_4*/ false);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.big_quad_constraints.at(i));
     }
@@ -583,7 +583,7 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
         // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
         ivc->complete_kernel_circuit_logic(builder);
 
-        // Note: we can't easily track the gate contribution from each individual pg_recursion_constraint since they
+        // Note: we can't easily track the gate contribution from each individual hn_recursion_constraint since they
         // are handled simultaneously in the above function call; instead we track the total contribution
         gate_counter.track_diff(constraints.gates_per_opcode,
                                 constraints.original_opcode_indices.hn_recursion_constraints.at(0));

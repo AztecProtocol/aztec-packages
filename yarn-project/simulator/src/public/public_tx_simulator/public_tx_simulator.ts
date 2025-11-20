@@ -467,7 +467,10 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     const txFee = context.getTransactionFee(TxExecutionPhase.TEARDOWN);
 
     if (context.feePayer.isZero()) {
-      this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
+      // Real transactions are enforced by private kernel to have nonzero fee payer.
+      // Real transactions cannot skip fee enforcement (skipping fee enforcement makes them unprovable).
+      assert(this.config.skipFeeEnforcement, 'Fee payer cannot be 0 unless skipping fee enforcement for simulation');
+      this.log.debug(`Fee payer is 0. Skipping fee enforcement. No one is paying the fee of ${txFee.toBigInt()}`);
       return;
     }
 
@@ -487,6 +490,8 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
         this.config.skipFeeEnforcement,
         `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
       );
+      this.log.debug(`Fee payer balance insufficient, but we're skipping fee enforcement`);
+      // We still proceed and perform the storage write to minimize deviation from normal execution.
       currentBalance = txFee;
     }
 

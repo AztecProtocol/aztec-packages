@@ -1,5 +1,5 @@
 use crate::{
-    context::call_interfaces::{CallInterface, PrivateCallInterface, PublicCallInterface},
+    context::{PrivateCall, PublicCall},
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 use protocol_types::{
@@ -37,17 +37,15 @@ impl<let N: u32> ContractDeployment<N> {
     pub unconstrained fn with_private_initializer<T, let P: u32>(
         self,
         from: AztecAddress,
-        initializer_call: PrivateCallInterface<P, T>,
+        initializer_call: PrivateCall<P, T>,
     ) -> AztecAddress
     where
         T: Deserialize,
     {
-        let instance = txe_oracles::deploy(
-            self.path,
-            initializer_call.get_name(),
-            initializer_call.get_args(),
-            self.secret,
-        );
+        let name = initializer_call.name;
+        let selector = initializer_call.selector;
+        let args = initializer_call.args;
+        let instance = txe_oracles::deploy(self.path, name, args, self.secret);
 
         // initializer_call does not actually have the target_contract value set - it is created with the helper
         // `interface` function created by `generate_contract_interface` in the aztec macros - it represents a call to
@@ -56,13 +54,7 @@ impl<let N: u32> ContractDeployment<N> {
         // We probably want to introduce an intermediate struct to represent this, if we're going to keep this API.
         let _ = self.env.call_private::<T, _>(
             from,
-            PrivateCallInterface::new(
-                instance.to_address(),
-                initializer_call.get_selector(),
-                initializer_call.get_name(),
-                initializer_call.get_args(),
-                initializer_call.get_is_static(),
-            ),
+            PrivateCall::new(instance.to_address(), selector, name, args),
         );
 
         instance.to_address()
@@ -89,17 +81,15 @@ impl<let N: u32> ContractDeployment<N> {
     pub unconstrained fn with_public_initializer<let P: u32, T>(
         self,
         from: AztecAddress,
-        initializer_call: PublicCallInterface<P, T>,
+        initializer_call: PublicCall<P, T>,
     ) -> AztecAddress
     where
         T: Deserialize,
     {
-        let instance = txe_oracles::deploy(
-            self.path,
-            initializer_call.get_name(),
-            initializer_call.get_args(),
-            self.secret,
-        );
+        let name = initializer_call.name;
+        let selector = initializer_call.selector;
+        let args = initializer_call.args;
+        let instance = txe_oracles::deploy(self.path, name, args, self.secret);
 
         // initializer_call does not actually have the target_contract value set - it is created with the helper
         // `interface` function created by `generate_contract_interface` in the aztec macros - it represents a call to
@@ -108,13 +98,7 @@ impl<let N: u32> ContractDeployment<N> {
         // We probably want to introduce an intermediate struct to represent this, if we're going to keep this API.
         let _ = self.env.call_public::<T, _>(
             from,
-            PublicCallInterface::new(
-                instance.to_address(),
-                initializer_call.get_selector(),
-                initializer_call.get_name(),
-                initializer_call.get_args(),
-                initializer_call.get_is_static(),
-            ),
+            PublicCall::new(instance.to_address(), selector, name, args),
         );
 
         instance.to_address()

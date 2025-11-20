@@ -14,7 +14,7 @@ pub contract FPC {
     use crate::{config::Config, utils::safe_cast_to_u128};
     use dep::uint_note::uint_note::PartialUintNote;
     use aztec::{
-        macros::{functions::{external, initializer, only_self}, storage::storage},
+        macros::{functions::{external, initializer, nophasecheck, only_self}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
@@ -77,6 +77,7 @@ pub contract FPC {
     /// - the asset which was used to make the payment.
     // docs:start:fee_entrypoint_private
     #[external("private")]
+    #[nophasecheck]
     fn fee_entrypoint_private(max_fee: u128, authwit_nonce: Field) {
         let accepted_asset = self.storage.config.read().accepted_asset;
 
@@ -153,6 +154,7 @@ pub contract FPC {
     /// Protocol-enshrined fee-payment phase:
     /// 4. The protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     #[external("private")]
+    #[nophasecheck]
     fn fee_entrypoint_public(max_fee: u128, authwit_nonce: Field) {
         let config = self.storage.config.read();
 

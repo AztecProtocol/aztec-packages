@@ -49,7 +49,7 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
         throw_or_abort("No circuit loaded. Call ChonkLoad first.");
     }
 
-    acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_data(std::move(witness));
+    acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_vector(std::move(witness));
     acir_format::AcirProgram program{ std::move(request.loaded_circuit_constraints.value()), std::move(witness_data) };
 
     const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };

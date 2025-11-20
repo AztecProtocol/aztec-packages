@@ -143,6 +143,10 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     // TODO(fcarreiro): complete this.
     assert(cppResult.revertCode.equals(tsResult.revertCode));
     assert(cppResult.gasUsed.totalGas.equals(tsResult.gasUsed.totalGas));
+    assert(cppResult.gasUsed.publicGas.equals(tsResult.gasUsed.publicGas));
+    assert(cppResult.gasUsed.teardownGas.equals(tsResult.gasUsed.teardownGas));
+    assert(cppResult.gasUsed.billedGas.equals(tsResult.gasUsed.billedGas));
+    assert(cppResult.publicInputs.toBuffer().equals(tsResult.publicInputs.toBuffer()));
     // FIXME(https://github.com/AztecProtocol/aztec-packages/issues/18441): a few but not all keccaks fail!
     // expect(cppResult.appLogicReturnValues).toEqual(tsResult.appLogicReturnValues);
 
@@ -182,7 +186,7 @@ export class MeasuredCppPublicTxSimulator extends CppPublicTxSimulator implement
     try {
       result = await super.simulate(tx);
     } finally {
-      this.metrics.stopRecordingTxSimulation(txLabel, result?.revertCode);
+      this.metrics.stopRecordingTxSimulation(txLabel, result?.gasUsed, result?.revertCode);
     }
     return result;
   }
@@ -293,7 +297,7 @@ export class MeasuredCppPublicTxSimulatorHintedDbs
     try {
       result = await super.simulate(tx);
     } finally {
-      this.metrics.stopRecordingTxSimulation(txLabel, result?.revertCode);
+      this.metrics.stopRecordingTxSimulation(txLabel, result?.gasUsed, result?.revertCode);
     }
     return result;
   }

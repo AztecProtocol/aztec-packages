@@ -90,3 +90,10 @@ pub unconstrained fn notify_set_min_revertible_side_effect_counter_oracle_wrappe
 
 #[oracle(privateNotifySetMinRevertibleSideEffectCounter)]
 unconstrained fn notify_set_min_revertible_side_effect_counter_oracle(_counter: u32) {}
+
+pub unconstrained fn is_side_effect_counter_revertible_oracle_wrapper(counter: u32) -> bool {
+    is_side_effect_counter_revertible_oracle(counter)
+}
+
+#[oracle(privateIsSideEffectCounterRevertible)]
+unconstrained fn is_side_effect_counter_revertible_oracle(counter: u32) -> bool {}

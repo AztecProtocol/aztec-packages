@@ -75,7 +75,7 @@ describe('token transfer test', () => {
     // For each round, make both private and public transfers
     for (let i = 1n; i <= ROUNDS; i++) {
       const txs = testAccounts.accounts.map(async a => {
-        const token = await TokenContract.at(testAccounts.tokenAddress, testAccounts.wallet);
+        const token = TokenContract.at(testAccounts.tokenAddress, testAccounts.wallet);
         return proveInteraction(wallet, token.methods.transfer_in_public(a, recipient, transferAmount, 0), {
           from: a,
           fee: {

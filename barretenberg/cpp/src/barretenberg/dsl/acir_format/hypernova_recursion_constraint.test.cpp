@@ -3,6 +3,7 @@
 #include "acir_format_mocks.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
@@ -27,7 +28,6 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
     using VerifierInputs = Chonk::VerifierInputs;
     using QUEUE_TYPE = Chonk::QUEUE_TYPE;
     using VerificationQueue = Chonk::VerificationQueue;
-    using ArithmeticConstraint = AcirFormat::PolyTripleConstraint;
     using PairingPoints = Chonk::PairingPoints;
 
     static constexpr size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
@@ -599,4 +599,133 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
     // We expect the Chonk proof to fail due to the app with a failed UH recursive verification
     auto proof = ivc->prove();
     EXPECT_FALSE(Chonk::verify(proof, ivc->get_vk()));
+}
+
+/**
+ * @brief Test gate count and ECC rows for init kernel (verifies OINK proof)
+ */
+TEST_F(HypernovaRecursionConstraintTest, InitKernelGateCount)
+{
+    BB_DISABLE_ASSERTS();
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+
+    // Mock the post-app accumulation state (OINK proof ready to be verified)
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+
+    // Construct kernel program with gate counting enabled
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+    ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
+
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+
+    // Assert gate count
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], INIT_KERNEL_GATE_COUNT);
+
+    // Assert ECC row count
+    size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    EXPECT_EQ(actual_ecc_rows, INIT_KERNEL_ECC_ROWS);
+
+    // Assert ultra ops count
+    size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
+    EXPECT_EQ(actual_ultra_ops, INIT_KERNEL_ULTRA_OPS);
+}
+
+/**
+ * @brief Test gate count and ECC rows for inner kernel (verifies HN proof for previous kernel + HN for app)
+ */
+TEST_F(HypernovaRecursionConstraintTest, InnerKernelGateCount)
+{
+    BB_DISABLE_ASSERTS();
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/4);
+
+    // Mock the state where we need to verify a previous kernel (HN) and a new app (HN)
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
+
+    // Construct kernel program with gate counting enabled
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+    ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
+
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 2);
+
+    // Assert gate counts (HN verification + OINK verification)
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], INNER_KERNEL_GATE_COUNT_HN);
+
+    // Assert ECC row count
+    size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    EXPECT_EQ(actual_ecc_rows, INNER_KERNEL_ECC_ROWS);
+
+    // Assert ultra ops count
+    size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
+    EXPECT_EQ(actual_ultra_ops, INNER_KERNEL_ULTRA_OPS);
+}
+
+/**
+ * @brief Test gate count and ECC rows for tail kernel (verifies HN_TAIL proof)
+ */
+TEST_F(HypernovaRecursionConstraintTest, TailKernelGateCount)
+{
+    BB_DISABLE_ASSERTS();
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+
+    // Mock the state where we need to verify a tail kernel proof
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
+
+    // Construct kernel program with gate counting enabled
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+    ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
+
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+
+    // Assert gate count
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], TAIL_KERNEL_GATE_COUNT);
+
+    // Assert ECC row count
+    size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    EXPECT_EQ(actual_ecc_rows, TAIL_KERNEL_ECC_ROWS);
+
+    // Assert ultra ops count
+    size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
+    EXPECT_EQ(actual_ultra_ops, TAIL_KERNEL_ULTRA_OPS);
+}
+
+/**
+ * @brief Test gate count and ECC rows for hiding kernel (verifies HN_FINAL proof)
+ */
+TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
+{
+    BB_DISABLE_ASSERTS();
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+
+    // Mock the state where we need to verify a hiding kernel proof
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
+
+    // Construct kernel program with gate counting enabled
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+    ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
+
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+
+    // Assert gate count
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], HIDING_KERNEL_GATE_COUNT);
+
+    // Assert ECC row count
+    size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    EXPECT_EQ(actual_ecc_rows, HIDING_KERNEL_ECC_ROWS);
+
+    // Assert ultra ops count
+    size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
+    EXPECT_EQ(actual_ultra_ops, HIDING_KERNEL_ULTRA_OPS);
 }

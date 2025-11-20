@@ -45,7 +45,6 @@ import { L1ToL2MessageIndexOutOfRangeError, NoteHashIndexOutOfRangeError } from 
  */
 export class PublicContractsDB implements PublicContractsDBInterface {
   private contractStateStack: ContractsDbCheckpoint[] = [new ContractsDbCheckpoint()];
-  private bytecodeCommitmentCache = new Map<string, Fr>();
 
   private log = createLogger('simulator:contracts-data-source');
 
@@ -144,27 +143,25 @@ export class PublicContractsDB implements PublicContractsDBInterface {
   }
 
   public async getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
-    // Try and retrieve from cache
-    const key = contractClassId.toString();
-    const result = this.bytecodeCommitmentCache.get(key);
-    if (result !== undefined) {
-      return result;
+    const currentState = this.getCurrentState();
+    const commitment =
+      currentState.getBytecodeCommitment(contractClassId) ??
+      (await this.dataSource.getBytecodeCommitment(contractClassId));
+    if (commitment !== undefined) {
+      return commitment;
     }
-    // Now try from the store
-    const fromStore = await this.dataSource.getBytecodeCommitment(contractClassId);
-    if (fromStore !== undefined) {
-      this.bytecodeCommitmentCache.set(key, fromStore);
-      return fromStore;
-    }
-
-    // Not in either the store or the cache, build it here and cache
+    // Not in the current state or the store, compute it here
+    // Get the contract class
     const contractClass = await this.getContractClass(contractClassId);
+
     if (contractClass === undefined) {
+      // cannot compute bytecode commitment if contract class is not found
       return undefined;
     }
 
     const value = await computePublicBytecodeCommitment(contractClass.packedBytecode);
-    this.bytecodeCommitmentCache.set(key, value);
+    // Add to cache (current checkpoint state) so we don't compute again
+    currentState.addBytecodeCommitment(contractClassId, value);
     return value;
   }
 

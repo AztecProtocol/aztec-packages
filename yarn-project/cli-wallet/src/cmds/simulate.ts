@@ -27,7 +27,7 @@ export async function simulate(
 ) {
   const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
 
-  const contract = await Contract.at(contractAddress, contractArtifact, wallet);
+  const contract = Contract.at(contractAddress, contractArtifact, wallet);
   const call = contract.methods[functionName](...functionArgs);
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, from);
   const simulationResult = await call.simulate({

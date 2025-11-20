@@ -61,9 +61,11 @@ impl PrivateCallDataValidatorBuilder {
         );
     }
 
-    pub fn validate_as_first_call(self) {
+    pub fn validate_as_first_call(self, claimed_revertible_counter: u32) {
         let private_call = self.private_call.to_private_call_data();
-        PrivateCallDataValidator::new(private_call).validate_as_first_call();
+        PrivateCallDataValidator::new(private_call).validate_as_first_call(
+            claimed_revertible_counter,
+        );
     }
 
     pub fn validate_against_tx_request(self, request: TxRequest) {
