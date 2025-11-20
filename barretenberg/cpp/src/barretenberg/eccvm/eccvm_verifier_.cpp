@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
@@ -296,8 +297,8 @@ template <typename Flavor> void ECCVMVerifier_<Flavor>::compute_accumulated_resu
     accumulated_result = batched_eval_minus_masking / evaluation_challenge_x;
 }
 
-// Explicit template instantiation for native flavor
-// Note: ECCVMRecursiveFlavor instantiation is in stdlib/eccvm_verifier/eccvm_recursive_verifier.cpp
+// Explicit template instantiations
 template class ECCVMVerifier_<ECCVMFlavor>;
+template class ECCVMVerifier_<ECCVMRecursiveFlavor>;
 
 } // namespace bb
