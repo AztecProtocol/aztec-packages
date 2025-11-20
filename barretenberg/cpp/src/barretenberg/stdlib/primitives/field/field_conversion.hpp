@@ -167,15 +167,10 @@ template <typename Field> class StdlibCodec {
             Basefield x = deserialize_from_fields<Basefield>(fr_vec.subspan(0, base_field_frs));
             Basefield y = deserialize_from_fields<Basefield>(fr_vec.subspan(base_field_frs, base_field_frs));
 
-            T out;
-            if constexpr (IsAnyOf<T, grumpkin_commitment>) {
-                out = T(x, y, check_point_at_infinity<T>(fr_vec), /*assert_on_curve=*/false);
-            } else {
-                out = T(x, y, check_point_at_infinity<T>(fr_vec));
-            }
-            // Note that in the case of bn254 with Mega arithmetization, the check is delegated to ECCVM, see
+            // Construct the group element, deriving the point_at_infinity flag (validates the point is on curve)
+            // For goblin_element (bn254 with Mega arithmetization), the on-curve check is delegated to ECCVM, see
             // `on_curve_check` in `ECCVMTranscriptRelationImpl`.
-            out.validate_on_curve();
+            T out = T(x, y, check_point_at_infinity<T>(fr_vec), /*assert_on_curve=*/true);
             return out;
         } else {
             // Case 6: Array or Univariate
