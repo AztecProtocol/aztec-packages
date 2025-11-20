@@ -141,10 +141,9 @@ TEST_F(ECCVMTests, ZeroesCoefficients)
     auto verifier_opening_claim = verifier.verify_proof(proof);
 
     // Verify IPA
-    auto ipa_verify_transcript = std::make_shared<Transcript>();
-    ipa_verify_transcript->load_proof(ipa_transcript->export_proof());
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
     bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verify_transcript);
+        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
 
     bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
                     verifier.translation_masking_consistency_checked;
@@ -166,10 +165,9 @@ TEST_F(ECCVMTests, PointAtInfinity)
     ECCVMVerifier verifier(verifier_transcript);
     auto verifier_opening_claim = verifier.verify_proof(proof);
 
-    auto ipa_verify_transcript = std::make_shared<Transcript>();
-    ipa_verify_transcript->load_proof(ipa_transcript->export_proof());
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
     bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verify_transcript);
+        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
 
     bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
                     verifier.translation_masking_consistency_checked;
@@ -201,10 +199,9 @@ TEST_F(ECCVMTests, ScalarEdgeCase)
     ECCVMVerifier verifier(verifier_transcript);
     auto verifier_opening_claim = verifier.verify_proof(proof);
 
-    auto ipa_verify_transcript = std::make_shared<Transcript>();
-    ipa_verify_transcript->load_proof(ipa_transcript->export_proof());
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
     bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verify_transcript);
+        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
 
     bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
                     verifier.translation_masking_consistency_checked;
@@ -243,10 +240,9 @@ TEST_F(ECCVMTests, BaseCaseFixedSize)
     ECCVMVerifier verifier(verifier_transcript);
     auto verifier_opening_claim = verifier.verify_proof(proof);
 
-    auto ipa_verify_transcript = std::make_shared<Transcript>();
-    ipa_verify_transcript->load_proof(ipa_transcript->export_proof());
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
     bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verify_transcript);
+        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
 
     bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
                     verifier.translation_masking_consistency_checked;
@@ -273,10 +269,9 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     ECCVMVerifier verifier(verifier_transcript);
     auto verifier_opening_claim = verifier.verify_proof(proof);
 
-    auto ipa_verify_transcript = std::make_shared<Transcript>();
-    ipa_verify_transcript->load_proof(ipa_transcript->export_proof());
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
     bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verify_transcript);
+        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
 
     bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
                     verifier.translation_masking_consistency_checked;

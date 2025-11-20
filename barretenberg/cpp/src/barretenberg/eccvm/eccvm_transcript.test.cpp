@@ -351,8 +351,7 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
     auto verifier_opening_claim = verifier.verify_proof(proof);
 
     // Verify IPA with manifest enabled
-    auto verifier_ipa_transcript = std::make_shared<Transcript>();
-    verifier_ipa_transcript->load_proof(prover_ipa_transcript->export_proof());
+    auto verifier_ipa_transcript = std::make_shared<Transcript>(prover_ipa_transcript->export_proof());
     verifier_ipa_transcript->enable_manifest();
     ECCVMFlavor::PCS::reduce_verify(
         verifier.key->pcs_verification_key, verifier_opening_claim, verifier_ipa_transcript);

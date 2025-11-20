@@ -185,7 +185,7 @@ void ECCVMProver::execute_pcs_rounds()
     opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
     // Reduce the opening claims to a single opening claim via Shplonk
-    // IPA proving is done externally by the caller
+    // IPA proving is performed externally
     batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
 }
 

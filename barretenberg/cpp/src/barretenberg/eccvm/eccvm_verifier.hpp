@@ -18,23 +18,23 @@ namespace bb {
  */
 template <typename Flavor> class ECCVMVerifier_ {
   public:
-    using FF = typename Flavor::FF;
-    using BF = typename Flavor::BF;
-    using Curve = typename Flavor::Curve;
-    using Commitment = typename Flavor::Commitment;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
+    using FF = Flavor::FF;
+    using BF = Flavor::BF;
+    using Curve = Flavor::Curve;
+    using Commitment = Flavor::Commitment;
+    using CommitmentLabels = Flavor::CommitmentLabels;
+    using Transcript = Flavor::Transcript;
+    using VerificationKey = Flavor::VerificationKey;
+    using VerifierCommitments = Flavor::VerifierCommitments;
+    using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
+    using Proof = Flavor::Proof;
     using PCS = typename Flavor::PCS;
-    using Transcript = typename Flavor::Transcript;
+    using TranslatorInputData = TranslatorInputData_<FF>;
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
 
     // Proof type from flavor
-    using Proof = typename Flavor::Proof;
-    using TranslatorInputData = TranslatorInputData_<FF>;
 
     // Native constructor
     explicit ECCVMVerifier_(const std::shared_ptr<Transcript>& transcript)
@@ -59,7 +59,7 @@ template <typename Flavor> class ECCVMVerifier_ {
 
     [[nodiscard("IPA claim should be verified/accumulated")]] OpeningClaim<Curve> verify_proof(const Proof& proof);
 
-    void compute_translation_opening_claims(const auto& translation_commitments);
+    void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
     void compute_accumulated_result();
 
     /**
@@ -84,10 +84,6 @@ template <typename Flavor> class ECCVMVerifier_ {
     // Builder pointer (only used for recursive, nullptr for native)
     std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
 
-    std::shared_ptr<Transcript> transcript;
-
-    TranslationEvaluations_<FF> translation_evaluations;
-
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`
     static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
@@ -96,14 +92,17 @@ template <typename Flavor> class ECCVMVerifier_ {
     // Verification flags (native only, recursive uses circuit assertions)
     bool sumcheck_verified = false;
     bool consistency_checked = false;
+    std::shared_ptr<Transcript> transcript;
+    TranslationEvaluations_<FF> translation_evaluations;
+
     bool translation_masking_consistency_checked = false;
 
   private:
-    FF translation_masking_term_eval;
-
     // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;
     FF batching_challenge_v;
+    // The value ∑ mᵢ(x) ⋅ vⁱ which needs to be propagated to TranslatorVerifier
+    FF translation_masking_term_eval;
     // The accumulated result computed from translation evaluations, to be used by TranslatorVerifier
     FF accumulated_result;
 };
