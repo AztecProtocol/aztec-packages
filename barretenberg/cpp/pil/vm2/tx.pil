@@ -79,6 +79,8 @@ namespace tx;
     // Whether this phase reverted
     pol commit reverted; // @boolean
     reverted * (1 - reverted) = 0;
+    // Note: If reverted == 1, is_revertible must be 1 as enforced in tx_discard.pil.
+
     #[END_PHASE_ON_REVERT]
     reverted * (1 - end_phase) = 0;
     // phase_value stays the same unless we are at end_phase or reverted
@@ -88,8 +90,6 @@ namespace tx;
     #[INCR_PHASE_VALUE_ON_END]
     sel' * (1 - reverted) * end_phase * (phase_value' - (phase_value + 1)) = 0;
 
-    // If reverted == 1, is_revertible must be 1
-    reverted * (1 - is_revertible) = 0;
 
     // Control flow
     pol commit read_pi_start_offset; // start index in public inputs to read data for a given phase
@@ -265,8 +265,10 @@ namespace tx;
     should_process_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
     should_process_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
 
-    // Public Call Requests are dispatch to the execution trace
-    // We match the values to the start of an enqueued call in the execution trace
+    // Public Call Requests are dispatched to the execution trace.
+    // We match the values to the start of an enqueued call in the execution trace.
+    // Keys: In execution, `context_id` and `enqueued_call_start == 1` are unique.
+    // Inputs:
     #[DISPATCH_EXEC_START]
     should_process_call_request {
         next_context_id,
