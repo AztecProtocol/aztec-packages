@@ -1,8 +1,9 @@
-#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
-#include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/eccvm/eccvm_verifier_.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -22,7 +23,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
     using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerBuilder = InnerFlavor::CircuitBuilder;
     using InnerProver = ECCVMProver;
-    using InnerVerifier = ECCVMVerifier;
+    using InnerVerifier = ECCVMVerifier_<ECCVMFlavor>;
     using InnerG1 = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
     using InnerBF = InnerFlavor::BF;
@@ -32,7 +33,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
     using Transcript = InnerFlavor::Transcript;
     using StdlibTranscript = RecursiveFlavor::Transcript;
 
-    using RecursiveVerifier = ECCVMRecursiveVerifier;
+    using RecursiveVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor>;
 
     using OuterBuilder = RecursiveFlavor::CircuitBuilder;
     using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
@@ -85,7 +86,13 @@ class ECCVMRecursiveTests : public ::testing::Test {
         InnerBuilder builder = generate_circuit(&engine);
         std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
         InnerProver prover(builder, prover_transcript);
-        ECCVMProof proof = prover.construct_proof();
+        auto [proof, opening_claim] = prover.construct_proof();
+
+        // Compute IPA proof
+        auto ipa_transcript = std::make_shared<Transcript>();
+        ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+        HonkProof ipa_proof = ipa_transcript->export_proof();
+
         auto verification_key = std::make_shared<InnerFlavor::VerificationKey>(prover.key);
 
         info("ECCVM Recursive Verifier");
@@ -93,8 +100,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
         std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
         RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
         verifier.transcript->enable_manifest();
-        auto [opening_claim, ipa_transcript] =
-            verifier.verify_proof(ECCVMRecursiveVerifier::StdlibProof(outer_circuit, proof));
+        [[maybe_unused]] auto recursive_opening_claim =
+            verifier.verify_proof(RecursiveVerifier::Proof(outer_circuit, proof));
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
         info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
@@ -108,7 +115,15 @@ class ECCVMRecursiveTests : public ::testing::Test {
         std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
         InnerVerifier native_verifier(verifier_transcript);
         native_verifier.transcript->enable_manifest();
-        bool native_result = native_verifier.verify_proof(proof);
+        auto native_opening_claim = native_verifier.verify_proof(proof);
+
+        // Verify IPA
+        auto ipa_verify_transcript = std::make_shared<Transcript>();
+        ipa_verify_transcript->load_proof(ipa_proof);
+        bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
+            native_verifier.key->pcs_verification_key, native_opening_claim, ipa_verify_transcript);
+        bool native_result = ipa_verified && native_verifier.sumcheck_verified && native_verifier.consistency_checked &&
+                             native_verifier.translation_masking_consistency_checked;
         EXPECT_TRUE(native_result);
         auto recursive_manifest = verifier.transcript->get_manifest();
         auto native_manifest = native_verifier.transcript->get_manifest();
@@ -154,14 +169,20 @@ class ECCVMRecursiveTests : public ::testing::Test {
         builder.op_queue->merge();
         std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
         InnerProver prover(builder, prover_transcript);
-        ECCVMProof proof = prover.construct_proof();
+        auto [proof, opening_claim] = prover.construct_proof();
+
+        // Compute IPA proof
+        auto ipa_transcript = std::make_shared<Transcript>();
+        ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+        HonkProof ipa_proof = ipa_transcript->export_proof();
+
         auto verification_key = std::make_shared<InnerFlavor::VerificationKey>(prover.key);
 
         OuterBuilder outer_circuit;
 
         std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
         RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
-        [[maybe_unused]] auto output = verifier.verify_proof(ECCVMRecursiveVerifier::StdlibProof(outer_circuit, proof));
+        [[maybe_unused]] auto output = verifier.verify_proof(RecursiveVerifier::Proof(outer_circuit, proof));
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
         info("Recursive Verifier: estimated num finalized gates = ",
              outer_circuit.get_num_finalized_gates_inefficient());
@@ -176,25 +197,30 @@ class ECCVMRecursiveTests : public ::testing::Test {
             InnerBuilder builder = generate_circuit(&engine);
             std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
             InnerProver prover(builder, prover_transcript);
-            ECCVMProof proof = prover.construct_proof();
+            auto [proof, opening_claim] = prover.construct_proof();
+
+            // Compute IPA proof
+            auto ipa_transcript_prover = std::make_shared<Transcript>();
+            ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript_prover);
+            HonkProof ipa_proof_native = ipa_transcript_prover->export_proof();
 
             // Tamper with the proof to be verified
-            tamper_with_proof<InnerProver, InnerFlavor>(proof.pre_ipa_proof, static_cast<bool>(idx));
+            tamper_with_proof<InnerProver, InnerFlavor>(proof, static_cast<bool>(idx));
 
             auto verification_key = std::make_shared<InnerFlavor::VerificationKey>(prover.key);
 
             OuterBuilder outer_circuit;
             std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
             RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
-            auto [opening_claim, ipa_proof] =
-                verifier.verify_proof(ECCVMRecursiveVerifier::StdlibProof(outer_circuit, proof));
+            auto [recursive_opening_claim, recursive_ipa_proof] =
+                verifier.verify_proof(RecursiveVerifier::Proof(outer_circuit, proof));
             stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
             if (idx == 0) {
                 // In this case, we changed the first non-zero value in the proof. It leads to a circuit check failure.
                 EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             } else {
-                // Changing the last commitment in the `pre_ipa_proof` would not result in a circuit check failure at
+                // Changing the last commitment in the `proof_data` would not result in a circuit check failure at
                 // this stage.
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
 
@@ -204,9 +230,10 @@ class ECCVMRecursiveTests : public ::testing::Test {
                     &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
 
                 // Construct ipa_transcript from proof
-                std::shared_ptr<StdlibTranscript> ipa_transcript = std::make_shared<StdlibTranscript>(ipa_proof);
-                EXPECT_FALSE(
-                    IPA<RecursiveFlavor::Curve>::full_verify_recursive(stdlib_pcs_vkey, opening_claim, ipa_transcript));
+                std::shared_ptr<StdlibTranscript> ipa_transcript =
+                    std::make_shared<StdlibTranscript>(recursive_ipa_proof);
+                EXPECT_FALSE(IPA<RecursiveFlavor::Curve>::full_verify_recursive(
+                    stdlib_pcs_vkey, recursive_opening_claim, ipa_transcript));
             }
         }
     }
@@ -221,7 +248,13 @@ class ECCVMRecursiveTests : public ::testing::Test {
             std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
             InnerProver inner_prover(inner_circuit, prover_transcript);
 
-            ECCVMProof proof = inner_prover.construct_proof();
+            auto [proof, opening_claim] = inner_prover.construct_proof();
+
+            // Compute IPA proof
+            auto ipa_transcript = std::make_shared<Transcript>();
+            ECCVMFlavor::PCS::compute_opening_proof(inner_prover.key->commitment_key, opening_claim, ipa_transcript);
+            HonkProof ipa_proof = ipa_transcript->export_proof();
+
             auto verification_key = std::make_shared<InnerFlavor::VerificationKey>(inner_prover.key);
 
             // Create a recursive verification circuit for the proof of the inner circuit
@@ -230,8 +263,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
             std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
             RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
 
-            auto [opening_claim, ipa_transcript] =
-                verifier.verify_proof(ECCVMRecursiveVerifier::StdlibProof(outer_circuit, proof));
+            auto [recursive_opening_claim, recursive_ipa_proof] =
+                verifier.verify_proof(RecursiveVerifier::Proof(outer_circuit, proof));
             stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
             auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);

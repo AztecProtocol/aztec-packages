@@ -8,6 +8,7 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) ?
 
@@ -139,6 +140,9 @@ class ECCVMRecursiveFlavor {
     using VerifierCommitments = ECCVMFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from ECCVM
     using Transcript = StdlibTranscript<CircuitBuilder>;
+
+    // Proof type for recursive verification
+    using Proof = stdlib::Proof<CircuitBuilder>;
 
     using VKAndHash = VKAndHash_<VerificationKey, FF>;
 

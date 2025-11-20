@@ -222,7 +222,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
         create_goblin_prover_output(&builder);
 
     // Tamper with the ECCVM proof
-    for (auto& val : proof.eccvm_proof.pre_ipa_proof) {
+    for (auto& val : proof.eccvm_proof) {
         if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
             val += 1;
             break;
@@ -317,7 +317,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
         create_goblin_prover_output(&builder);
 
     // Tamper with the `op` evaluation in the ECCVM proof using the helper function
-    tamper_with_eccvm_op_eval(proof.eccvm_proof.pre_ipa_proof);
+    tamper_with_eccvm_op_eval(proof.eccvm_proof);
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     [[maybe_unused]] auto goblin_rec_verifier_output =

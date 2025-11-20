@@ -19,7 +19,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
                                                               const MergeCommitments& merge_commitments,
                                                               const MergeSettings merge_settings)
 {
-    StdlibProof stdlib_proof(*builder, proof);
+    GoblinStdlibProof stdlib_proof(*builder, proof);
     return verify(stdlib_proof, merge_commitments, merge_settings);
 }
 
@@ -30,7 +30,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
  * @param t_commitments The commitments to the subtable for the merge being verified
  *
  */
-GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof& proof,
+GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinStdlibProof& proof,
                                                               const MergeCommitments& merge_commitments,
                                                               const MergeSettings merge_settings)
 {
@@ -41,8 +41,10 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
     vinfo("Merge Verifier: degree check identity passed", degree_check_verified);
     vinfo("Merge Verifier: concatenation identity passed", concatenation_check_passed);
     // Run the ECCVM recursive verifier
-    ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
-    auto [opening_claim, ipa_proof] = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    ECCVMVerifier_<ECCVMRecursiveFlavor> eccvm_verifier{ builder,
+                                                         verification_keys.eccvm_verification_key,
+                                                         transcript };
+    auto opening_claim = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
     // Run the Translator recursive verifier
     // Get translation data from ECCVM verifier
@@ -58,6 +60,6 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
 
     translator_pairing_points.aggregate(merge_pairing_points);
 
-    return { translator_pairing_points, opening_claim, ipa_proof };
+    return { translator_pairing_points, opening_claim, proof.ipa_proof };
 }
 } // namespace bb::stdlib::recursion::honk

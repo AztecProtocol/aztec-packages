@@ -5,9 +5,9 @@
 // =====================
 
 #pragma once
+#include "barretenberg/eccvm/eccvm_verifier_.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
-#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -33,31 +33,13 @@ class GoblinRecursiveVerifier {
     using TranslationEvaluations = TranslatorVerifier::TranslationEvaluations;
     using TranslatorInputData = TranslatorInputData_<TranslatorRecursiveVerifier::BF>;
 
-    using ECCVMVerifier = ECCVMRecursiveVerifier;
+    using ECCVMVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor>;
 
     // ECCVM and Translator verification keys
     using VerificationKey = Goblin::VerificationKey;
 
     // Merge commitments
     using MergeCommitments = MergeVerifier::InputCommitments;
-
-    struct StdlibProof {
-        using StdlibHonkProof = bb::stdlib::Proof<Builder>;
-        using StdlibEccvmProof = ECCVMVerifier::StdlibProof;
-
-        StdlibHonkProof merge_proof;
-        StdlibEccvmProof eccvm_proof; // contains pre-IPA and IPA proofs
-        StdlibHonkProof translator_proof;
-
-        StdlibProof() = default;
-
-        StdlibProof(Builder& builder, const GoblinProof& goblin_proof)
-            : merge_proof(builder, goblin_proof.merge_proof)
-            , eccvm_proof(builder,
-                          ECCVMProof{ goblin_proof.eccvm_proof.pre_ipa_proof, goblin_proof.eccvm_proof.ipa_proof })
-            , translator_proof(builder, goblin_proof.translator_proof)
-        {}
-    };
 
     GoblinRecursiveVerifier(Builder* builder,
                             const VerificationKey& verification_keys,
@@ -71,7 +53,7 @@ class GoblinRecursiveVerifier {
         const MergeCommitments& merge_commitments,
         const MergeSettings merge_settings = MergeSettings::PREPEND);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const StdlibProof&,
+        const GoblinStdlibProof&,
         const MergeCommitments& merge_commitments,
         const MergeSettings merge_settings = MergeSettings::PREPEND);
 

@@ -19,11 +19,8 @@
 
 namespace bb {
 
-ECCVMProver::ECCVMProver(CircuitBuilder& builder,
-                         const std::shared_ptr<Transcript>& transcript,
-                         const std::shared_ptr<Transcript>& ipa_transcript)
+ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
-    , ipa_transcript(ipa_transcript)
 {
     BB_BENCH_NAME("ECCVMProver(CircuitBuilder&)");
 
@@ -188,18 +185,16 @@ void ECCVMProver::execute_pcs_rounds()
     opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
     // Reduce the opening claims to a single opening claim via Shplonk
-    const OpeningClaim batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
-
-    // Compute the opening proof for the batched opening claim with the univariate PCS
-    PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, ipa_transcript);
+    // IPA proving is done externally by the caller
+    batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
 }
 
-ECCVMProof ECCVMProver::export_proof()
+ECCVMProver::Proof ECCVMProver::export_proof()
 {
-    return { transcript->export_proof(), ipa_transcript->export_proof() };
+    return { transcript->export_proof() };
 }
 
-ECCVMProof ECCVMProver::construct_proof()
+std::pair<ECCVMProver::Proof, ECCVMProver::OpeningClaim> ECCVMProver::construct_proof()
 {
     BB_BENCH_NAME("ECCVMProver::construct_proof");
 
@@ -210,7 +205,7 @@ ECCVMProof ECCVMProver::construct_proof()
     execute_relation_check_rounds();
     execute_pcs_rounds();
 
-    return export_proof();
+    return { export_proof(), batch_opening_claim };
 }
 
 /**

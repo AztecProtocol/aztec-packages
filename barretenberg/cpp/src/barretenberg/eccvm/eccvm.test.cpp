@@ -3,11 +3,13 @@
 #include <gtest/gtest.h>
 #include <vector>
 
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
-#include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/eccvm/eccvm_verifier_.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
@@ -20,6 +22,7 @@ using namespace bb;
 using FF = ECCVMFlavor::FF;
 using PK = ECCVMFlavor::ProvingKey;
 using Transcript = ECCVMFlavor::Transcript;
+using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
 class ECCVMTests : public ::testing::Test {
   protected:
     void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
@@ -127,11 +130,24 @@ TEST_F(ECCVMTests, ZeroesCoefficients)
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
-    ECCVMProof proof = prover.construct_proof();
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    // Compute IPA proof
+    auto ipa_transcript = std::make_shared<Transcript>();
+    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript);
-    bool verified = verifier.verify_proof(proof);
+    auto verifier_opening_claim = verifier.verify_proof(proof);
+
+    // Verify IPA
+    auto ipa_verify_transcript = std::make_shared<Transcript>();
+    ipa_verify_transcript->load_proof(ipa_transcript->export_proof());
+    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
+        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verify_transcript);
+
+    bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
+                    verifier.translation_masking_consistency_checked;
 
     ASSERT_TRUE(verified);
 }
@@ -141,11 +157,22 @@ TEST_F(ECCVMTests, PointAtInfinity)
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
-    ECCVMProof proof = prover.construct_proof();
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript);
-    bool verified = verifier.verify_proof(proof);
+    auto verifier_opening_claim = verifier.verify_proof(proof);
+
+    auto ipa_verify_transcript = std::make_shared<Transcript>();
+    ipa_verify_transcript->load_proof(ipa_transcript->export_proof());
+    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
+        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verify_transcript);
+
+    bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
+                    verifier.translation_masking_consistency_checked;
 
     ASSERT_TRUE(verified);
 }
@@ -165,11 +192,22 @@ TEST_F(ECCVMTests, ScalarEdgeCase)
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
-    ECCVMProof proof = prover.construct_proof();
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript);
-    bool verified = verifier.verify_proof(proof);
+    auto verifier_opening_claim = verifier.verify_proof(proof);
+
+    auto ipa_verify_transcript = std::make_shared<Transcript>();
+    ipa_verify_transcript->load_proof(ipa_transcript->export_proof());
+    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
+        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verify_transcript);
+
+    bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
+                    verifier.translation_masking_consistency_checked;
 
     ASSERT_TRUE(verified);
 }
@@ -186,7 +224,7 @@ TEST_F(ECCVMTests, ProofLengthCheck)
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
-    ECCVMProof proof = prover.construct_proof();
+    auto [proof, opening_claim] = prover.construct_proof();
     EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 }
 
@@ -196,11 +234,22 @@ TEST_F(ECCVMTests, BaseCaseFixedSize)
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
-    ECCVMProof proof = prover.construct_proof();
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript);
-    bool verified = verifier.verify_proof(proof);
+    auto verifier_opening_claim = verifier.verify_proof(proof);
+
+    auto ipa_verify_transcript = std::make_shared<Transcript>();
+    ipa_verify_transcript->load_proof(ipa_transcript->export_proof());
+    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
+        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verify_transcript);
+
+    bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
+                    verifier.translation_masking_consistency_checked;
 
     ASSERT_TRUE(verified);
 }
@@ -215,11 +264,22 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
 
-    ECCVMProof proof = prover.construct_proof();
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript);
-    bool verified = verifier.verify_proof(proof);
+    auto verifier_opening_claim = verifier.verify_proof(proof);
+
+    auto ipa_verify_transcript = std::make_shared<Transcript>();
+    ipa_verify_transcript->load_proof(ipa_transcript->export_proof());
+    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
+        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verify_transcript);
+
+    bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
+                    verifier.translation_masking_consistency_checked;
     ASSERT_FALSE(verified);
 }
 
