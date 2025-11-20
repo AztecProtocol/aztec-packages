@@ -1,0 +1,6 @@
+[package]
+name = "blackbox_and_xor"
+type = "bin"
+authors = [""]
+
+[dependencies]

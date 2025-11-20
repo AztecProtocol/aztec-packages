@@ -211,8 +211,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
 
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
-    //Witnesses indices that we contain to faster finding subgraphs for logic gates
-    std::vector<uint32_t> logic_gate_witnesses;
 
     bool circuit_finalized = false;
 
@@ -413,57 +411,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         BB_ASSERT(circuit_finalized);
         auto num_filled_gates = get_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
-    }
-
-    std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
-
-    /**
-     * @brief Add a witness index to the boomerang exclusion list
-     * @param var_idx Witness index to add to the boomerang exclusion list
-     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
-     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
-     * when we show that x!=0 -> x*(x^-1) = 1).
-     */
-    void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
-
-    void update_logic_witnesses(uint32_t var_idx) {logic_gate_witnesses.emplace_back(var_idx); }
-
-    uint32_t get_logic_witness_by_index(size_t idx) { BB_ASSERT_LTE(idx, logic_gate_witnesses.size() - 1); return logic_gate_witnesses[idx]; }
-
-    /**
-     * @brief Add a list of witness indices to the boomerang exclusion list
-     * @param used_indices List of witness indices to add to the boomerang exclusion list
-     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
-     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
-     * when we show that x!=0 -> x*(x^-1) = 1).
-     */
-    void update_used_witnesses(const std::vector<uint32_t>& used_indices)
-    {
-        used_witnesses.reserve(used_witnesses.size() + used_indices.size());
-        for (const auto& it : used_indices) {
-            used_witnesses.emplace_back(it);
-        }
-    }
-    /**
-     * @brief Add a witness index to the finalize exclusion list
-     * @param var_idx Witness index to add to the finalize exclusion list
-     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
-     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
-     * connected through the set permutation. We want to exclude these variables from this detection.
-     */
-    void update_finalize_witnesses(uint32_t var_idx) { finalize_witnesses.insert(var_idx); }
-    /**
-     * @brief Add a list of witness indices to the finalize exclusion list
-     * @param finalize_indices List of witness indices to add to the finalize exclusion list
-     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
-     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
-     * connected through the set permutation. We want to exclude these variables from this detection.
-     */
-    void update_finalize_witnesses(const std::vector<uint32_t>& finalize_indices)
-    {
-        for (const auto& it : finalize_indices) {
-            finalize_witnesses.insert(it);
-        }
     }
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
@@ -674,9 +621,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
   private:
     // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
     std::vector<uint32_t> used_witnesses;
+    // Witnesses that can be in one logic gate. We use it to check that all logic constraints
+    // were created correctly
+    std::unordered_set<uint32_t> logic_gate_witnesses;
+    std::vector<std::unordered_set<uint32_t>> logic_witnesses;
     // Witnesses that appear in finalize method (used in boomerang catcher). Need to check
     // that all variables from some connected component were created after finalize method was called
     std::unordered_set<uint32_t> finalize_witnesses;
+
 
   public:
     const std::vector<uint32_t>& get_used_witnesses() const { return used_witnesses; }
@@ -728,6 +680,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             finalize_witnesses.insert(it);
         }
     }
+
+    void update_logic_witnesses(uint32_t var_idx) {logic_gate_witnesses.insert(var_idx); }
+    std::unordered_set<uint32_t> get_logic_witnesses() const {return logic_gate_witnesses; };
 
     // ========================================================================================
 

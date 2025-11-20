@@ -65,14 +65,9 @@ std::unordered_set<uint32_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::get_uncons
 template<typename FF, typename CircuitBuilder>
 void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints() {
     for (size_t i = 0; i < constraint_system.logic_constraints.size(); i++) {
-        const auto& constraint = constraint_system.logic_constraints.at(i);
+        [[maybe_unused]]const auto& constraint = constraint_system.logic_constraints.at(i);
         //in this case we use invariant that variable res from create_logic_gate function was appended in the logic_witnesses after logic
         //constrait were processed. So, we can use the same index as index of logic constraint
-        [[maybe_unused]] std::array<uint32_t, 4> main_vars {constraint.a.index, constraint.b.index, constraint.result, builder.get_logic_witness_by_index(i)};
-        //for variable with res we start finding her gates and all variables that were created during logic constraint:
-        //1. all lookup variables a_chunk, b_chunk & result_chunk for lookups
-        //2. using a_chunk and b_chunk we'll find a_accumulator & b_accumulator
-        //3. after that we'll mark them like they are in logic_constraint with index i
         return;
     }
 }

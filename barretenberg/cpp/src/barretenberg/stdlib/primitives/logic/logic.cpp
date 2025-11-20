@@ -10,6 +10,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include <cstddef>
 
 namespace bb::stdlib {
@@ -81,20 +82,28 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
 
     field_pt a_accumulator(bb::fr::zero());
     field_pt b_accumulator(bb::fr::zero());
+    bb::stdlib::mark_witness_as_logic(a_accumulator);
+    bb::stdlib::mark_witness_as_logic(b_accumulator);
 
     field_pt res(ctx, 0);
+    bb::stdlib::mark_witness_as_logic(res);
     for (size_t i = 0; i < num_chunks; ++i) {
         size_t chunk_size = (i != num_chunks - 1) ? 32 : num_bits - i * 32;
         auto [left_chunk, right_chunk] = get_chunk(left, right, chunk_size);
 
         field_pt a_chunk = witness_pt(ctx, left_chunk);
         field_pt b_chunk = witness_pt(ctx, right_chunk);
+        bb::stdlib::mark_witness_as_logic(a_chunk);
+        bb::stdlib::mark_witness_as_logic(b_chunk);
         const auto multi_table_id = is_xor_gate ? plookup::MultiTableId::UINT32_XOR : plookup::MultiTableId::UINT32_AND;
         field_pt result_chunk = stdlib::plookup_read<Builder>::read_from_2_to_1_table(multi_table_id, a_chunk, b_chunk);
+        bb::stdlib::mark_witness_as_logic(result_chunk);
 
         auto scaling_factor = uint256_t(1) << (32 * i);
         a_accumulator += a_chunk * scaling_factor;
         b_accumulator += b_chunk * scaling_factor;
+        bb::stdlib::mark_witness_as_logic(a_accumulator);
+        bb::stdlib::mark_witness_as_logic(b_accumulator);
 
         if (chunk_size != 32) {
             // If the chunk is smaller than 32 bits, we need to explicitly range constrain it.
@@ -103,6 +112,7 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         }
 
         res += result_chunk * scaling_factor;
+        bb::stdlib::mark_witness_as_logic(res);
 
         left = left >> 32;
         right = right >> 32;
