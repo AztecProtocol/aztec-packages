@@ -30,12 +30,12 @@ export const NETWORKS: Network[] = [
     transactionCongestionThreshold: 40,
   },
   {
-    nodeURL: 'http://34.169.170.55:8080',
+    nodeURL: 'https://devnet.aztec-labs.com',
     name: 'Aztec Devnet',
     description: 'Public development network',
     hasTestAccounts: false,
     hasSponsoredFPC: true,
-    version: '0.85.0',
+    version: '3.0.0-devnet.6',
   },
   {
     nodeURL: 'http://localhost:8080',

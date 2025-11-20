@@ -65,7 +65,7 @@ export function NetworkSelector() {
   // Connect to the first network automatically
   useEffect(() => {
     if (isContextInitialized && !network) {
-      handleNetworkChange(NETWORKS[0].nodeURL);
+      handleNetworkChange(NETWORKS[1].nodeURL);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isContextInitialized]);
@@ -207,7 +207,7 @@ export function NetworkSelector() {
 
       <Dialog open={showNetworkDownNotification} onClose={() => setShowNetworkDownNotification(false)}>
         <DialogTitle css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Testnet is congested</span>
+          <span>The network is congested</span>
           <IconButton onClick={() => setShowNetworkDownNotification(false)}>
             <CloseIcon />
           </IconButton>

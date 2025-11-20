@@ -4,14 +4,16 @@ import { CircularProgress, css, FormControl, IconButton, MenuItem, Select, Typog
 
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { useContext, useEffect, useState, type RefObject } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { type ContractFunctionInteraction, type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
+import { type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AztecContext } from '../../../aztecContext';
 import { CreateAccountDialog } from '../../../wallet/components/CreateAccountDialog';
 import { useTransaction } from '../../../hooks/useTransaction';
+import { ExtensionWallet } from '../../../wallet/extension_wallet';
+import { Fr } from '@aztec/foundation/fields';
 
 const logo = css({
   height: '50px',
@@ -47,12 +49,23 @@ export function WalletHub() {
     {
       name: 'Embedded wallet',
       getWallet: (nodeUrl: string) => EmbeddedWallet.create(nodeUrl),
-      iconURL: new URL('../../../assets/aztec_small_logo.png', import.meta.url).href,
+      iconURL: new URL('../../../assets/aztec_logo.png', import.meta.url).href,
       callback: () => {
         setOpenWalletModal(true);
         return Promise.resolve();
       },
     },
+    // {
+    //   name: 'Aztec keychain',
+    //   getWallet: (_nodeUrl: string) =>
+    //     Promise.resolve(
+    //       ExtensionWallet.create({ chainId: new Fr(11155111), version: new Fr(1667575857) }, 'play.aztec.network'),
+    //     ),
+    //   iconURL: new URL('../../../assets/aztec_logo.png', import.meta.url).href,
+    //   callback: () => {
+    //     return Promise.resolve();
+    //   },
+    // },
   ];
 
   async function handleProviderChanged(providerName: string) {

@@ -21,6 +21,7 @@ import { useTransaction } from '../../hooks/useTransaction';
 import { ContractDescriptions, ContractDocumentationLinks, ContractMethodOrder } from '../../utils/constants';
 import Box from '@mui/material/Box';
 import { trackButtonClick } from '../../utils/matomo';
+import { colors, commonStyles } from '../../global.styles';
 
 const container = css({
   display: 'flex',
@@ -40,7 +41,7 @@ const contractFnContainer = css({
   display: 'block',
   width: '100%',
   overflowY: 'auto',
-  color: 'black',
+  color: colors.text.primary,
   height: '100%',
   '@media (max-width: 900px)': {
     height: 'auto',
@@ -88,12 +89,13 @@ const contractActions = css({
 });
 
 const deployButton = css({
-  background: '#8C7EFF',
+  background: colors.primary.main,
+  color: colors.primary.contrastText,
   height: '30px',
   fontSize: '14px',
   fontWeight: 600,
   padding: '20px 16px',
-  borderRadius: '6px',
+  borderRadius: commonStyles.borderRadius,
   '@media (max-width: 900px)': {
     padding: '4px',
     height: 'auto',
@@ -120,9 +122,11 @@ const contractName = css({
 const contractClassIdCss = css({
   marginBottom: '1rem',
   marginTop: '0.5rem',
-  backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  border: '1px solid rgba(212, 255, 40, 0.15)',
+  color: '#F2EEE1',
   padding: '0px 5px',
-  borderRadius: '3px',
+  borderRadius: '0',
 });
 
 const deployedContractCss = css({
@@ -130,9 +134,11 @@ const deployedContractCss = css({
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
-  backgroundColor: 'var(--mui-palette-grey-200)',
+  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  border: '1px solid rgba(212, 255, 40, 0.15)',
+  color: '#F2EEE1',
   padding: '0px 12px',
-  borderRadius: '6px',
+  borderRadius: '0',
   '@media (max-width: 900px)': {
     padding: '0px 10px',
     width: '100%',
