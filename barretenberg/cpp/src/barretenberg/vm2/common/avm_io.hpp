@@ -509,6 +509,7 @@ struct CallStackMetadata {
     bool reverted;
     std::vector<CallStackMetadata> nested;
     std::vector<PC> internal_call_stack_at_exit; // At return/revert time. Last one is exit PC.
+    std::optional<std::string> halting_message;
     uint32_t num_nested_calls; // This will be different from the size of the nested vector if we went past some limit.
 
     bool operator==(const CallStackMetadata& other) const = default;
@@ -523,6 +524,7 @@ struct CallStackMetadata {
                               reverted,
                               nested,
                               internal_call_stack_at_exit,
+                              halting_message,
                               num_nested_calls);
 };
 

@@ -521,7 +521,9 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     set_execution_result({ .rd_offset = ret_offset,
                            .rd_size = rd_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
-                           .success = true });
+                           .success = true,
+                           .halting_pc = context.get_pc(),
+                           .halting_message = std::nullopt });
 
     context.halt();
 }
@@ -539,7 +541,9 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     set_execution_result({ .rd_offset = rev_offset,
                            .rd_size = rev_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
-                           .success = false });
+                           .success = false,
+                           .halting_pc = context.get_pc(),
+                           .halting_message = "Assertion failed: " });
 
     context.halt();
 }
@@ -1143,27 +1147,27 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         catch (const BytecodeRetrievalError& e) {
             vinfo("Bytecode retrieval error:: ", e.what());
             ex_event.error = ExecutionError::BYTECODE_RETRIEVAL;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const InstructionFetchingError& e) {
             vinfo("Instruction fetching error: ", e.what());
             ex_event.error = ExecutionError::INSTRUCTION_FETCHING;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const AddressingException& e) {
             vinfo("Addressing exception: ", e.what());
             ex_event.error = ExecutionError::ADDRESSING;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const RegisterValidationException& e) {
             vinfo("Register validation exception: ", e.what());
             ex_event.error = ExecutionError::REGISTER_READ;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const OutOfGasException& e) {
             vinfo("Out of gas exception: ", e.what());
             ex_event.error = ExecutionError::GAS;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const OpcodeExecutionException& e) {
             vinfo("Opcode execution exception: ", e.what());
             ex_event.error = ExecutionError::OPCODE_EXECUTION;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const std::exception& e) {
             // This is a coding error, we should not get here.
             // All exceptions should fall in the above catch blocks.
@@ -1246,8 +1250,9 @@ void Execution::handle_exit_call()
     // Optionally collect call stack metadata.
     call_stack_metadata_collector.notify_exit_call(
         result.success,
-        child_context->get_pc(),
-        make_return_data_provider(*child_context),
+        result.halting_pc,
+        result.halting_message,
+        make_return_data_provider(*child_context, result.rd_offset, result.rd_size),
         make_internal_call_stack_provider(child_context->get_internal_call_stack_manager()));
 
     external_call_stack.pop();
@@ -1284,7 +1289,7 @@ void Execution::handle_exit_call()
     // Else: was top level. ExecutionResult is already set and that will be returned.
 }
 
-void Execution::handle_exceptional_halt(ContextInterface& context)
+void Execution::handle_exceptional_halt(ContextInterface& context, const std::string& halting_message)
 {
     context.set_gas_used(context.get_gas_limit()); // Consume all gas.
     context.halt();
@@ -1293,6 +1298,8 @@ void Execution::handle_exceptional_halt(ContextInterface& context)
         .rd_size = 0,
         .gas_used = context.get_gas_used(),
         .success = false,
+        .halting_pc = context.get_pc(),
+        .halting_message = halting_message,
     });
 }
 

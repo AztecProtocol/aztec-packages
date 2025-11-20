@@ -3,8 +3,20 @@
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/internal_call_stack_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 
 namespace bb::avm2::simulation {
+
+// REMOVE
+// void print_call_stack_metadata(const std::stack<CallStackMetadata>& call_stack_metadata)
+// {
+//     auto copy = call_stack_metadata;
+//     while (!copy.empty()) {
+//         const auto& metadata = copy.top();
+//         vinfo("Metadata:", metadata);
+//         copy.pop();
+//     }
+// }
 
 void CallStackMetadataCollector::set_phase(CoarseTransactionPhase phase)
 {
@@ -41,6 +53,7 @@ void CallStackMetadataCollector::notify_enter_call(const AztecAddress& contract_
 
 void CallStackMetadataCollector::notify_exit_call(bool success,
                                                   uint32_t pc,
+                                                  const std::optional<std::string>& halting_message,
                                                   const ReturnDataProvider& return_data_provider,
                                                   const InternalCallStackProvider& internal_call_stack_provider)
 {
@@ -49,14 +62,15 @@ void CallStackMetadataCollector::notify_exit_call(bool success,
     std::vector<PC> internal_call_stack = internal_call_stack_provider();
     internal_call_stack.push_back(pc);
 
-    CallStackMetadata top_call_stack_metadata = std::move(call_stack_metadata.top());
+    CallStackMetadata top_call_stack_metadata = call_stack_metadata.top();
     top_call_stack_metadata.reverted = !success;
+    top_call_stack_metadata.halting_message = std::move(halting_message);
     top_call_stack_metadata.output = std::move(return_data);
     top_call_stack_metadata.internal_call_stack_at_exit = std::move(internal_call_stack);
 
     // While exiting, we will move the top call of the stack to the nested vector of the parent call.
+    assert(call_stack_metadata.size() > 1);
     call_stack_metadata.pop();
-    assert(!call_stack_metadata.empty());
     call_stack_metadata.top().nested.push_back(std::move(top_call_stack_metadata));
 }
 
@@ -92,22 +106,24 @@ CalldataProvider make_calldata_provider(const ContextInterface& context)
     };
 }
 
-ReturnDataProvider make_return_data_provider(const ContextInterface& context)
+ReturnDataProvider make_return_data_provider(const ContextInterface& context, uint32_t rd_offset, uint32_t rd_size)
 {
-    auto rd_addr = context.get_last_rd_addr();
-    auto rd_size = context.get_last_rd_size();
-    return [&context, rd_addr, rd_size](uint32_t max_size) -> std::vector<FF> {
+    return [&context, rd_offset, rd_size](uint32_t max_size) -> std::vector<FF> {
         try {
-            // TODO: check if this will pad to size. We don't want that.
-            auto data = context.get_returndata(rd_addr, std::min(max_size, rd_size));
-            return std::vector<FF>(data.begin(), data.end());
+            const auto& memory = context.get_memory();
+            std::vector<FF> data;
+            data.reserve(std::min(max_size, rd_size));
+            for (uint32_t i = 0; i < std::min(max_size, rd_size); i++) {
+                data.push_back(memory.get(rd_offset + i).as_ff());
+            }
+            return data;
         } catch (...) {
             vinfo("Failed to collect returndata (to:",
                   context.get_address(),
                   " pc:",
                   context.get_pc(),
-                  " rd_addr:",
-                  rd_addr,
+                  " rd_offset:",
+                  rd_offset,
                   " rd_size:",
                   rd_size,
                   " max_size:",

@@ -4,6 +4,7 @@ import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { z } from 'zod';
 
+import { FunctionSelector } from '../abi/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { AllContractDeploymentData, ContractDeploymentData } from '../contract/index.js';
 import { SimulationError } from '../errors/simulation_error.js';
@@ -1054,6 +1055,7 @@ export class CallStackMetadata {
     public gasLimit: Gas,
     public output: Fr[], // returndata or revertdata.
     public internalCallStackAtExit: number[], // At return/revert time. Last one is exit PC.
+    public haltingMessage: string | undefined,
     public reverted: boolean,
     public nested: CallStackMetadata[],
     public numNestedCalls: number, // This will be different from the size of the nested vector if we went past some limit.
@@ -1070,6 +1072,7 @@ export class CallStackMetadata {
         gasLimit: Gas.schema,
         output: Fr.schema.array(),
         internalCallStackAtExit: z.number().array(),
+        haltingMessage: NullishToUndefined(z.string()),
         reverted: z.boolean(),
         nested: CallStackMetadata.schema.array(),
         numNestedCalls: z.number(),
@@ -1084,6 +1087,7 @@ export class CallStackMetadata {
           gasLimit,
           output,
           internalCallStackAtExit,
+          haltingMessage,
           reverted,
           nested,
           numNestedCalls,
@@ -1097,6 +1101,7 @@ export class CallStackMetadata {
             gasLimit,
             output,
             internalCallStackAtExit,
+            haltingMessage,
             reverted,
             nested,
             numNestedCalls,
@@ -1124,23 +1129,47 @@ export class CallStackMetadata {
       Gas.fromPlainObject(obj.gasLimit),
       obj.output.map((f: any) => Fr.fromPlainObject(f)),
       obj.internalCallStackAtExit.map((p: any) => Number(p)),
+      obj.haltingMessage,
       obj.reverted,
       obj.nested.map((n: any) => CallStackMetadata.fromPlainObject(n)),
       obj.numNestedCalls,
     );
   }
 
-  // TODO(fcarreiro): Make this only accept CallStackMetadata[].
-  public static findRevertReason(
-    callStackMetadata: CallStackMetadata[] | NestedProcessReturnValues[],
-  ): SimulationError | undefined {
-    // TODO(fcarreiro): Remove this after migration to the C++ simulator.
-    // If the "stack" comes from TS, it will have this field.
-    if ((callStackMetadata as any).revertReason !== undefined) {
-      return (callStackMetadata as any).revertReason;
+  public getRevertReason(): SimulationError | undefined {
+    const failingCall = this.findDeepestRevert([this]);
+
+    if (!failingCall) {
+      return undefined;
     }
 
-    // TODO(fcarreiro): Construct a revert reason from the callstack from C++.
+    const { stack, leaf } = failingCall;
+    const aztecCallStack = stack.map(call => ({
+      contractAddress: AztecAddress.fromField(call.contractAddress),
+      functionSelector: call.calldata.length > 0 ? FunctionSelector.fromField(call.calldata[0]) : undefined,
+    }));
+
+    // The Noir call stack is the internal call stack at exit of the failing call
+    const noirCallStack = leaf.internalCallStackAtExit.map(pc => `0.${pc}`);
+
+    return new SimulationError(
+      leaf.haltingMessage ?? 'Transaction reverted',
+      aztecCallStack,
+      leaf.output,
+      noirCallStack,
+    );
+  }
+
+  private findDeepestRevert(
+    calls: CallStackMetadata[],
+    parentStack: CallStackMetadata[] = [],
+  ): { stack: CallStackMetadata[]; leaf: CallStackMetadata } | undefined {
+    for (const call of calls) {
+      if (call.reverted) {
+        const nested = this.findDeepestRevert(call.nested, [...parentStack, call]);
+        return nested || { stack: [...parentStack, call], leaf: call };
+      }
+    }
     return undefined;
   }
 }
@@ -1211,6 +1240,42 @@ export class PublicTxResult {
       obj.hints ? AvmExecutionHints.fromPlainObject(obj.hints) : undefined,
       AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs),
     );
+  }
+
+  /** Returns one level of return values for the app logic phase. */
+  public getAppLogicReturnValues(): NestedProcessReturnValues[] {
+    if (this.callStackMetadata.every(metadata => metadata instanceof CallStackMetadata)) {
+      return this.callStackMetadata
+        .filter(metadata => metadata.phase === TxExecutionPhase.APP_LOGIC)
+        .map(metadata => new NestedProcessReturnValues(metadata.output));
+    } else {
+      return (this.callStackMetadata as NestedProcessReturnValues[]).map(
+        metadata => new NestedProcessReturnValues(metadata.values, metadata.nested),
+      );
+    }
+  }
+
+  public findRevertReason(): SimulationError | undefined {
+    if (this.revertCode.isOK()) {
+      return undefined;
+    }
+
+    const callStackMetadata = this.callStackMetadata;
+    // TODO(fcarreiro): Remove this after migration to the C++ simulator.
+    // If the "stack" comes from TS, it will have this field.
+    if ((callStackMetadata as any).revertReason !== undefined) {
+      return (callStackMetadata as any).revertReason;
+    }
+
+    // Handle CallStackMetadata[].
+    let revertReason: SimulationError | undefined = undefined;
+    for (const call of callStackMetadata) {
+      revertReason = (call as CallStackMetadata).getRevertReason();
+      if (revertReason) {
+        break;
+      }
+    }
+    return revertReason;
   }
 }
 

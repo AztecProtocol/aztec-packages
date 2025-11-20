@@ -63,22 +63,22 @@ EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> en
         // TODO(fcarreiro): handle this in a better way.
         catch (const BytecodeRetrievalError& e) {
             vinfo("Bytecode retrieval error:: ", e.what());
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const InstructionFetchingError& e) {
             vinfo("Instruction fetching error: ", e.what());
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const AddressingException& e) {
             vinfo("Addressing exception: ", e.what());
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const RegisterValidationException& e) {
             vinfo("Register validation exception: ", e.what());
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const OutOfGasException& e) {
             vinfo("Out of gas exception: ", e.what());
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const OpcodeExecutionException& e) {
             vinfo("Opcode execution exception: ", e.what());
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const std::exception& e) {
             // This is a coding error, we should not get here.
             // All exceptions should fall in the above catch blocks.

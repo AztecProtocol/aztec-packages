@@ -24,6 +24,7 @@ class CallStackMetadataCollectorInterface {
                                    const Gas& gas_limit) = 0;
     virtual void notify_exit_call(bool success,
                                   uint32_t pc,
+                                  const std::optional<std::string>& halting_message,
                                   const ReturnDataProvider& return_data_provider,
                                   const InternalCallStackProvider& internal_call_stack_provider) = 0;
     virtual std::vector<CallStackMetadata> dump_call_stack_metadata() = 0;

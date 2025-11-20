@@ -2,10 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import { CallStackMetadata } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { NestedProcessReturnValues } from '@aztec/stdlib/tx';
 
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
@@ -135,14 +133,7 @@ async function checkBalance(
   );
   expectToBeTrue(balResult.revertCode.isOK());
   // should be 1 call with 1 return value that is expectedBalance
-  expectToBeTrue(balResult.callStackMetadata.length == 1);
-  // TODO(fcarreiro): remove this once we migrate to the C++ simulator.
-  if (balResult.callStackMetadata[0] instanceof CallStackMetadata) {
-    expectToBeTrue(balResult.callStackMetadata[0].output.length == 1);
-    expectToBeTrue(balResult.callStackMetadata[0].output[0].toBigInt() == expectedBalance);
-  } else {
-    expectToBeTrue(
-      (balResult.callStackMetadata[0] as NestedProcessReturnValues).values?.[0]?.toBigInt() == expectedBalance,
-    );
-  }
+  const appLogicReturnValues = balResult.getAppLogicReturnValues();
+  expectToBeTrue(appLogicReturnValues.length === 1);
+  expectToBeTrue(appLogicReturnValues[0].values?.[0]?.toBigInt() === expectedBalance);
 }

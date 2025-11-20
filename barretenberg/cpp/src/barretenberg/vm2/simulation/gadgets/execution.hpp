@@ -194,6 +194,8 @@ class Execution : public ExecutionInterface {
         MemoryAddress rd_size;
         Gas gas_used;
         bool success;
+        uint32_t halting_pc = 0;                    // PC at which the context halted.
+        std::optional<std::string> halting_message; // If reverted.
     };
 
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -212,7 +214,7 @@ class Execution : public ExecutionInterface {
 
     void handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context);
     void handle_exit_call();
-    void handle_exceptional_halt(ContextInterface& context);
+    void handle_exceptional_halt(ContextInterface& context, const std::string& halting_message);
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
     // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.

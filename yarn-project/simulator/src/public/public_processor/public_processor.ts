@@ -523,7 +523,8 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { hints, publicInputs, gasUsed, revertCode, callStackMetadata } = await this.publicTxSimulator.simulate(tx);
+    const result = await this.publicTxSimulator.simulate(tx);
+    const { hints, publicInputs, gasUsed, revertCode, callStackMetadata } = result;
 
     if (!hints) {
       this.metrics.recordFailedTx();
@@ -555,7 +556,7 @@ export class PublicProcessor implements Traceable {
       throw new Error('Call stack metadata is not a mix of CallStackMetadata and NestedProcessReturnValues');
     })();
     // Extract the revert reason from the call stack metadata.
-    const revertReason = CallStackMetadata.findRevertReason(callStackMetadata);
+    const revertReason = result.findRevertReason();
 
     const processedTx = makeProcessedTxFromTxWithPublicCalls(
       tx,
