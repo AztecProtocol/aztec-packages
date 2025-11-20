@@ -16,15 +16,24 @@ import {
   writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
+import { validateBlsPathOptions, validatePublisherOptions, validateRemoteSignerOptions } from './utils.js';
 
 export type AddValidatorKeysOptions = NewValidatorKeystoreOptions;
 
 export async function addValidatorKeys(existing: string, options: AddValidatorKeysOptions, log: LogFn) {
+  // validate bls-path inputs before proceeding with key generation
+  validateBlsPathOptions(options);
+  // validate publisher options
+  validatePublisherOptions(options);
+  // validate remote signer options
+  validateRemoteSignerOptions(options);
+
   const {
     dataDir,
     file,
     count,
     publisherCount = 0,
+    publishers,
     mnemonic,
     accountIndex = 0,
     addressIndex,
@@ -36,7 +45,7 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     fundingAccount: fundingAccountOpt,
     remoteSigner: remoteSignerOpt,
     password,
-    outDir,
+    encryptedKeystoreDir,
   } = options;
 
   const validatorCount = typeof count === 'number' && Number.isFinite(count) && count > 0 ? Math.floor(count) : 1;
@@ -69,6 +78,7 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
   const { validators, summaries } = await buildValidatorEntries({
     validatorCount,
     publisherCount,
+    publishers,
     accountIndex,
     baseAddressIndex: effectiveBaseAddressIndex,
     mnemonic: mnemonicToUse,
@@ -84,10 +94,16 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
 
   // If password provided, write ETH JSON V3 and BLS BN254 keystores and replace plaintext
   if (password !== undefined) {
-    const targetDir =
-      outDir && outDir.length > 0 ? outDir : dataDir && dataDir.length > 0 ? dataDir : dirname(existing);
+    let targetDir: string;
+    if (encryptedKeystoreDir && encryptedKeystoreDir.length > 0) {
+      targetDir = encryptedKeystoreDir;
+    } else if (dataDir && dataDir.length > 0) {
+      targetDir = dataDir;
+    } else {
+      targetDir = dirname(existing);
+    }
     await writeEthJsonV3ToFile(keystore.validators, { outDir: targetDir, password });
-    await writeBlsBn254ToFile(keystore.validators, { outDir: targetDir, password });
+    await writeBlsBn254ToFile(keystore.validators, { outDir: targetDir, password, blsPath });
   }
 
   let outputPath = existing;
