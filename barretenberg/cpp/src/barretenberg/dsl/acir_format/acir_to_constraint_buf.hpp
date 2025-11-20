@@ -96,34 +96,7 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf);
 /// ========= ACIR OPCODE HANDLERS ========= ///
 /// AUDITTODO(federico): Restructure the functions below so that it is clear how they are used
 
-/**
- * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation.
- */
-arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg);
-
-/**
- * @brief Assigns a linear term to a specific index in a mul_quad_ gate.
- */
-void assign_linear_term(mul_quad_<bb::fr>& gate, int index, uint32_t witness_index, bb::fr const& scaling);
-
-/**
- * @brief Accumulate the input expression into a series of quad gates.
- */
-std::vector<mul_quad_<bb::fr>> split_into_mul_quad_gates(Acir::Expression const& arg);
-
-bool is_assert_equal(mul_quad_<fr> const& mul_quad);
-
-void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index);
-
-void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index);
-
-BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init);
-
-bool is_rom(Acir::MemOp const& mem_op);
-
-uint32_t poly_to_witness(const arithmetic_triple poly);
-
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, BlockConstraint& block);
+/// ========= ARITHMETIC =================== ///
 
 // clang-format off
 /**
@@ -201,4 +174,33 @@ bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint3
  * @details Iterating over the linear terms of the expression, we accumulate selector values for each witness index
  */
 std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr);
+
+/**
+ * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation.
+ */
+arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg);
+
+/**
+ * @brief Assigns a linear term to a specific index in a mul_quad_ gate.
+ */
+void assign_linear_term(mul_quad_<bb::fr>& gate, int index, uint32_t witness_index, bb::fr const& scaling);
+
+bool is_assert_equal(mul_quad_<fr> const& mul_quad);
+
+void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index);
+
+/// ========= MEMORY OPERATIONS ========== ///
+
+BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init);
+
+bool is_rom(Acir::MemOp const& mem_op);
+
+uint32_t poly_to_witness(const arithmetic_triple poly);
+
+void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, BlockConstraint& block);
+
+/// ========= BLACKBOX FUNCTIONS ========= ///
+
+void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index);
+
 } // namespace acir_format
