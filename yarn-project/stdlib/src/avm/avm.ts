@@ -1242,7 +1242,7 @@ export class PublicTxResult {
     );
   }
 
-  /** Returns one level of return values for the app logic phase. */
+  /** Returns one level of return values for the app logic phase, one per enqueued call. */
   public getAppLogicReturnValues(): NestedProcessReturnValues[] {
     if (this.callStackMetadata.every(metadata => metadata instanceof CallStackMetadata)) {
       return this.callStackMetadata

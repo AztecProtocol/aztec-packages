@@ -545,16 +545,7 @@ export class PublicProcessor implements Traceable {
     this.metrics.recordTx(/*phaseCount=*/ 1, durationMs, gasUsed.publicGas);
 
     // Extract the return values from the call stack metadata.
-    const appLogicReturnValues: NestedProcessReturnValues[] = (() => {
-      if (callStackMetadata.every(metadata => metadata instanceof CallStackMetadata)) {
-        return callStackMetadata
-          .filter(metadata => metadata.phase === TxExecutionPhase.APP_LOGIC)
-          .map(metadata => new NestedProcessReturnValues(metadata.output));
-      } else if (callStackMetadata.every(metadata => metadata instanceof NestedProcessReturnValues)) {
-        return callStackMetadata;
-      }
-      throw new Error('Call stack metadata is not a mix of CallStackMetadata and NestedProcessReturnValues');
-    })();
+    const appLogicReturnValues: NestedProcessReturnValues[] = result.getAppLogicReturnValues();
     // Extract the revert reason from the call stack metadata.
     const revertReason = result.findRevertReason();
 

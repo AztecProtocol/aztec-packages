@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -45,7 +46,7 @@ TEST(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
         return { 0, 10 };
     };
 
-    collector.notify_exit_call(true, exit_pc, return_data_provider, internal_call_stack_provider);
+    collector.notify_exit_call(true, exit_pc, std::nullopt, return_data_provider, internal_call_stack_provider);
 
     // Dump and verify
     auto metadata = collector.dump_call_stack_metadata();
@@ -62,6 +63,7 @@ TEST(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
     EXPECT_EQ(call_metadata.is_static_call, false);
     EXPECT_EQ(call_metadata.gas_limit, gas_limit);
     EXPECT_EQ(call_metadata.reverted, false);
+    EXPECT_EQ(call_metadata.halting_message, std::nullopt);
     EXPECT_EQ(call_metadata.num_nested_calls, 0U);
     EXPECT_TRUE(call_metadata.nested.empty());
 }
@@ -100,7 +102,7 @@ TEST(CallStackMetadataCollectorTest, NestedCalls)
     };
     InternalCallStackProvider internal_call_stack_provider3 = []() -> std::vector<PC> { return { 300 }; };
 
-    collector.notify_exit_call(true, 399, return_data_provider3, internal_call_stack_provider3);
+    collector.notify_exit_call(true, 399, std::nullopt, return_data_provider3, internal_call_stack_provider3);
 
     // Exit second call
     std::vector<FF> return_data2 = { FF(0x2222) };
@@ -109,7 +111,8 @@ TEST(CallStackMetadataCollectorTest, NestedCalls)
     };
     InternalCallStackProvider internal_call_stack_provider2 = []() -> std::vector<PC> { return { 200 }; };
 
-    collector.notify_exit_call(false, 299, return_data_provider2, internal_call_stack_provider2);
+    collector.notify_exit_call(
+        false, 299, "Nested call reverted", return_data_provider2, internal_call_stack_provider2);
 
     // Exit first call
     std::vector<FF> return_data1 = { FF(0x1111) };
@@ -118,7 +121,7 @@ TEST(CallStackMetadataCollectorTest, NestedCalls)
     };
     InternalCallStackProvider internal_call_stack_provider1 = []() -> std::vector<PC> { return { 100 }; };
 
-    collector.notify_exit_call(true, 199, return_data_provider1, internal_call_stack_provider1);
+    collector.notify_exit_call(true, 199, std::nullopt, return_data_provider1, internal_call_stack_provider1);
 
     // Dump and verify
     auto metadata = collector.dump_call_stack_metadata();
@@ -130,6 +133,7 @@ TEST(CallStackMetadataCollectorTest, NestedCalls)
     EXPECT_EQ(outer_call.nested.size(), 1U);
     EXPECT_EQ(outer_call.output, return_data1);
     EXPECT_EQ(outer_call.reverted, false);
+    EXPECT_EQ(outer_call.halting_message, std::nullopt);
     EXPECT_EQ(outer_call.internal_call_stack_at_exit, std::vector<PC>({ 100, 199 }));
 
     const auto& middle_call = outer_call.nested[0];
@@ -138,6 +142,7 @@ TEST(CallStackMetadataCollectorTest, NestedCalls)
     EXPECT_EQ(middle_call.nested.size(), 1U);
     EXPECT_EQ(middle_call.output, return_data2);
     EXPECT_EQ(middle_call.reverted, true);
+    EXPECT_EQ(middle_call.halting_message, "Nested call reverted");
     EXPECT_EQ(middle_call.internal_call_stack_at_exit, std::vector<PC>({ 200, 299 }));
 
     const auto& inner_call = middle_call.nested[0];
@@ -146,6 +151,7 @@ TEST(CallStackMetadataCollectorTest, NestedCalls)
     EXPECT_EQ(inner_call.nested.size(), 0U);
     EXPECT_EQ(inner_call.output, return_data3);
     EXPECT_EQ(inner_call.reverted, false);
+    EXPECT_EQ(inner_call.halting_message, std::nullopt);
     EXPECT_EQ(inner_call.is_static_call, true);
     EXPECT_EQ(inner_call.internal_call_stack_at_exit, std::vector<PC>({ 300, 399 }));
 }
@@ -173,7 +179,7 @@ TEST(CallStackMetadataCollectorTest, MultipleSiblingCalls)
     ReturnDataProvider return_data_provider1 = [](uint32_t /*max_size*/) -> std::vector<FF> { return { FF(0xaaaa) }; };
     InternalCallStackProvider internal_call_stack_provider1 = []() -> std::vector<PC> { return { 100, 200 }; };
 
-    collector.notify_exit_call(true, 150, return_data_provider1, internal_call_stack_provider1);
+    collector.notify_exit_call(true, 150, std::nullopt, return_data_provider1, internal_call_stack_provider1);
 
     // Second call (sibling)
     std::vector<FF> calldata2 = { FF(0x2222) };
@@ -184,12 +190,12 @@ TEST(CallStackMetadataCollectorTest, MultipleSiblingCalls)
     ReturnDataProvider return_data_provider2 = [](uint32_t /*max_size*/) -> std::vector<FF> { return { FF(0xbbbb) }; };
     InternalCallStackProvider internal_call_stack_provider2 = []() -> std::vector<PC> { return { 200, 300 }; };
 
-    collector.notify_exit_call(true, 250, return_data_provider2, internal_call_stack_provider2);
+    collector.notify_exit_call(true, 250, std::nullopt, return_data_provider2, internal_call_stack_provider2);
 
     // Outer call (return).
     ReturnDataProvider return_data_provider0 = [](uint32_t /*max_size*/) -> std::vector<FF> { return { FF(0x0000) }; };
     InternalCallStackProvider internal_call_stack_provider0 = []() -> std::vector<PC> { return { 0, 100 }; };
-    collector.notify_exit_call(true, 0, return_data_provider0, internal_call_stack_provider0);
+    collector.notify_exit_call(true, 0, std::nullopt, return_data_provider0, internal_call_stack_provider0);
 
     // Verify both calls are present
     auto metadata = collector.dump_call_stack_metadata();
@@ -198,9 +204,12 @@ TEST(CallStackMetadataCollectorTest, MultipleSiblingCalls)
     const auto& outer_call = metadata[0];
     EXPECT_EQ(outer_call.timestamp, 0U);
     EXPECT_EQ(outer_call.num_nested_calls, 2U);
+    EXPECT_EQ(outer_call.halting_message, std::nullopt);
     ASSERT_EQ(outer_call.nested.size(), 2U);
     EXPECT_EQ(outer_call.nested[0].timestamp, 1U);
+    EXPECT_EQ(outer_call.nested[0].halting_message, std::nullopt);
     EXPECT_EQ(outer_call.nested[1].timestamp, 2U);
+    EXPECT_EQ(outer_call.nested[1].halting_message, std::nullopt);
     EXPECT_EQ(outer_call.nested[0].contract_address, contract1);
     EXPECT_EQ(outer_call.nested[1].contract_address, contract2);
 }
@@ -226,12 +235,13 @@ TEST(CallStackMetadataCollectorTest, CalldataSizeLimit)
     ReturnDataProvider return_data_provider = [](uint32_t /*max_size*/) -> std::vector<FF> { return {}; };
     InternalCallStackProvider internal_call_stack_provider = []() -> std::vector<PC> { return { 100, 200 }; };
 
-    collector.notify_exit_call(true, 200, return_data_provider, internal_call_stack_provider);
+    collector.notify_exit_call(true, 200, std::nullopt, return_data_provider, internal_call_stack_provider);
 
     auto metadata = collector.dump_call_stack_metadata();
     ASSERT_EQ(metadata.size(), 1U);
     // Calldata should be limited to max_calldata_size (1024)
     EXPECT_EQ(metadata[0].calldata.size(), 1024U);
+    EXPECT_EQ(metadata[0].halting_message, std::nullopt);
 }
 
 TEST(CallStackMetadataCollectorTest, ReturnDataSizeLimit)
@@ -256,12 +266,13 @@ TEST(CallStackMetadataCollectorTest, ReturnDataSizeLimit)
     };
     InternalCallStackProvider internal_call_stack_provider = []() -> std::vector<PC> { return { 100, 200 }; };
 
-    collector.notify_exit_call(true, 200, return_data_provider, internal_call_stack_provider);
+    collector.notify_exit_call(true, 200, std::nullopt, return_data_provider, internal_call_stack_provider);
 
     auto metadata = collector.dump_call_stack_metadata();
     ASSERT_EQ(metadata.size(), 1U);
     // Return data should be limited to max_return_data_size (1024)
     EXPECT_EQ(metadata[0].output.size(), 1024U);
+    EXPECT_EQ(metadata[0].halting_message, std::nullopt);
 }
 
 TEST(CallStackMetadataCollectorTest, PhaseTracking)
@@ -278,7 +289,11 @@ TEST(CallStackMetadataCollectorTest, PhaseTracking)
 
     collector.notify_enter_call(contract1, 100, calldata_provider1, false, Gas{ 1000, 2000 });
     collector.notify_exit_call(
-        true, 150, [](uint32_t) -> std::vector<FF> { return {}; }, []() -> std::vector<PC> { return { 100, 200 }; });
+        true,
+        150,
+        std::nullopt,
+        [](uint32_t) -> std::vector<FF> { return {}; },
+        []() -> std::vector<PC> { return { 100, 200 }; });
 
     // Second call in APP_LOGIC phase
     collector.set_phase(CoarseTransactionPhase::APP_LOGIC);
@@ -287,7 +302,11 @@ TEST(CallStackMetadataCollectorTest, PhaseTracking)
 
     collector.notify_enter_call(contract2, 200, calldata_provider2, false, Gas{ 500, 1000 });
     collector.notify_exit_call(
-        true, 250, [](uint32_t) -> std::vector<FF> { return {}; }, []() -> std::vector<PC> { return { 200, 300 }; });
+        true,
+        250,
+        std::nullopt,
+        [](uint32_t) -> std::vector<FF> { return {}; },
+        []() -> std::vector<PC> { return { 200, 300 }; });
 
     // Third call in TEARDOWN phase
     collector.set_phase(CoarseTransactionPhase::TEARDOWN);
@@ -296,14 +315,21 @@ TEST(CallStackMetadataCollectorTest, PhaseTracking)
 
     collector.notify_enter_call(contract3, 300, calldata_provider3, false, Gas{ 200, 400 });
     collector.notify_exit_call(
-        true, 350, [](uint32_t) -> std::vector<FF> { return {}; }, []() -> std::vector<PC> { return { 300, 400 }; });
+        true,
+        350,
+        std::nullopt,
+        [](uint32_t) -> std::vector<FF> { return {}; },
+        []() -> std::vector<PC> { return { 300, 400 }; });
 
     auto metadata = collector.dump_call_stack_metadata();
     ASSERT_EQ(metadata.size(), 3U);
 
     EXPECT_EQ(metadata[0].phase, CoarseTransactionPhase::SETUP);
+    EXPECT_EQ(metadata[0].halting_message, std::nullopt);
     EXPECT_EQ(metadata[1].phase, CoarseTransactionPhase::APP_LOGIC);
+    EXPECT_EQ(metadata[1].halting_message, std::nullopt);
     EXPECT_EQ(metadata[2].phase, CoarseTransactionPhase::TEARDOWN);
+    EXPECT_EQ(metadata[2].halting_message, std::nullopt);
 }
 
 // Test helper functions
@@ -397,14 +423,15 @@ TEST_F(MakeProviderTest, MakeReturnDataProviderSuccess)
         MemoryValue::from<FF>(FF(0x3333)),
     };
 
-    // These are called when creating the provider
-    EXPECT_CALL(mock_context, get_last_rd_addr()).WillOnce(Return(rd_addr));
-    EXPECT_CALL(mock_context, get_last_rd_size()).WillOnce(Return(rd_size));
-
-    auto provider = make_return_data_provider(mock_context);
+    auto provider = make_return_data_provider(mock_context, rd_addr, rd_size);
 
     // This is called when invoking the provider
-    EXPECT_CALL(mock_context, get_returndata(rd_addr, rd_size)).WillOnce(Return(return_data_values));
+    StrictMock<MockMemory> memory;
+    EXPECT_CALL(::testing::Const(mock_context), get_memory()).WillOnce(ReturnRef(memory));
+    ON_CALL(memory, get).WillByDefault([&return_data_values](uint32_t i) -> const MemoryValue& {
+        return return_data_values[i];
+    });
+    EXPECT_CALL(memory, get).Times(static_cast<int>(rd_size));
 
     auto result = provider(1024);
 
@@ -421,17 +448,15 @@ TEST_F(MakeProviderTest, MakeReturnDataProviderRespectsMaxSize)
         return_data_values[i] = MemoryValue::from<FF>(FF(i * 2));
     }
 
-    // These are called when creating the provider
-    EXPECT_CALL(mock_context, get_last_rd_addr()).WillOnce(Return(rd_addr));
-    EXPECT_CALL(mock_context, get_last_rd_size()).WillOnce(Return(rd_size));
-
-    auto provider = make_return_data_provider(mock_context);
+    auto provider = make_return_data_provider(mock_context, rd_addr, rd_size);
 
     // This is called when invoking the provider
-    EXPECT_CALL(mock_context, get_returndata(rd_addr, max_size))
-        .WillOnce([&return_data_values, max_size](uint32_t, uint32_t) {
-            return std::vector<MemoryValue>(return_data_values.begin(), return_data_values.begin() + max_size);
-        });
+    StrictMock<MockMemory> memory;
+    EXPECT_CALL(::testing::Const(mock_context), get_memory()).WillOnce(ReturnRef(memory));
+    ON_CALL(memory, get).WillByDefault([&return_data_values](uint32_t i) -> const MemoryValue& {
+        return return_data_values[i];
+    });
+    EXPECT_CALL(memory, get).Times(static_cast<int>(max_size));
 
     auto result = provider(max_size);
 
@@ -440,19 +465,17 @@ TEST_F(MakeProviderTest, MakeReturnDataProviderRespectsMaxSize)
 
 TEST_F(MakeProviderTest, MakeReturnDataProviderHandlesException)
 {
-    static AztecAddress contract_addr(0x5678);
     uint32_t rd_addr = 200;
     uint32_t rd_size = 3;
+    static AztecAddress contract_addr(0x5678);
 
-    // These are called when creating the provider
-    EXPECT_CALL(mock_context, get_last_rd_addr()).WillOnce(Return(rd_addr));
-    EXPECT_CALL(mock_context, get_last_rd_size()).WillOnce(Return(rd_size));
-
-    auto provider = make_return_data_provider(mock_context);
+    auto provider = make_return_data_provider(mock_context, rd_addr, rd_size);
 
     // This is called when invoking the provider, and throws
-    EXPECT_CALL(mock_context, get_returndata(rd_addr, _))
+    StrictMock<MockMemory> memory;
+    EXPECT_CALL(::testing::Const(mock_context), get_memory())
         .WillOnce(::testing::Throw(std::runtime_error("Test exception")));
+
     // The exception handler may call get_address() and get_pc() for logging (optional)
     EXPECT_CALL(mock_context, get_address()).Times(::testing::AnyNumber()).WillRepeatedly(ReturnRef(contract_addr));
     EXPECT_CALL(mock_context, get_pc()).Times(::testing::AnyNumber()).WillRepeatedly(Return(300));

@@ -153,11 +153,13 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     //   assert(cppResult.getAppLogicReturnValues()[i].equals(tsResult.getAppLogicReturnValues()[i]));
     // }
     // Messages are still not ok for exceptional halts (they are not plumbed in C++).
-    const cppRevertReasonAsObject = JSON.parse(JSON.stringify(cppResult.findRevertReason()));
-    const tsRevertReasonAsObject = JSON.parse(JSON.stringify(tsResult.findRevertReason()));
+    const cppRevertReason = cppResult.findRevertReason() || {};
+    const tsRevertReason = tsResult.findRevertReason() || {};
+    const cppRevertReasonAsObject = JSON.parse(JSON.stringify(cppRevertReason));
+    const tsRevertReasonAsObject = JSON.parse(JSON.stringify(tsRevertReason));
     if (JSON.stringify(cppRevertReasonAsObject) !== JSON.stringify(tsRevertReasonAsObject)) {
-      console.log('cppResult.findRevertReason()', JSON.stringify(cppRevertReasonAsObject, null, 2));
-      console.log('tsResult.findRevertReason()', JSON.stringify(tsRevertReasonAsObject, null, 2));
+      console.log('cppResult.findRevertReason()', cppRevertReasonAsObject);
+      console.log('tsResult.findRevertReason()', tsRevertReasonAsObject);
     }
     // TODO: dont compare the strings since this is not deterministic.
     assert(JSON.stringify(cppRevertReasonAsObject) === JSON.stringify(tsRevertReasonAsObject));
