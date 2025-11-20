@@ -15,23 +15,16 @@ void CalldataTraceBuilder::process_retrieval(
     const simulation::EventEmitterInterface<simulation::CalldataEvent>::Container& events, TraceContainer& trace)
 {
     using C = Column;
-    // Sort events by context_id:
-    auto cmp = [](const simulation::CalldataEvent* a, const simulation::CalldataEvent* b) {
-        return a->context_id < b->context_id;
-    };
-    std::vector<const simulation::CalldataEvent*> sorted_events;
-    sorted_events.reserve(events.size());
-    for (const auto& event : events) {
-        sorted_events.push_back(&event);
-    }
-    std::ranges::sort(sorted_events.begin(), sorted_events.end(), cmp);
 
-    uint32_t row = 1; // Has skip relations
+    // The calldata events must be sorted by context_id according to simulation.
+    // This is a prerequisite to satisfy the constraint #[RANGE_CHECK_CONTEXT_ID_DIFF].
+
+    uint32_t row = 1; // Has shifted columns
 
     for (uint32_t j = 0; j < events.size(); j++) {
-        const auto& event = sorted_events[j];
-        const auto& calldata = event->calldata;
-        const auto context_id = event->context_id;
+        const auto& event = events[j];
+        const auto& calldata = event.calldata;
+        const auto context_id = event.context_id;
         bool is_last = j == events.size() - 1;
 
         for (size_t i = 0; i < calldata.size(); i++) {
@@ -45,7 +38,7 @@ void CalldataTraceBuilder::process_retrieval(
                           { C::calldata_latch, is_latch ? 1 : 0 },
                           // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
                           { C::calldata_diff_context_id,
-                            (is_latch && !is_last) ? sorted_events[j + 1]->context_id - context_id - 1 : 0 },
+                            (is_latch && !is_last) ? events[j + 1].context_id - context_id - 1 : 0 },
                       } });
             row++;
         }
@@ -55,17 +48,16 @@ void CalldataTraceBuilder::process_retrieval(
             // To ensure that we indicate a certain context_id has been processed, we include a special row
             // in the calldata trace. This is the only case where sel = 1 and index = 0. Lookups into this trace
             // to access values always shift by 1, so should never attempt to access a non-existent value:
-            trace.set(
-                row,
-                { {
-                    { C::calldata_sel, 1 },
-                    { C::calldata_context_id, context_id },
-                    { C::calldata_value, 0 },
-                    { C::calldata_index, 0 },
-                    { C::calldata_latch, 1 },
-                    // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
-                    { C::calldata_diff_context_id, !is_last ? sorted_events[j + 1]->context_id - context_id - 1 : 0 },
-                } });
+            trace.set(row,
+                      { {
+                          { C::calldata_sel, 1 },
+                          { C::calldata_context_id, context_id },
+                          { C::calldata_value, 0 },
+                          { C::calldata_index, 0 },
+                          { C::calldata_latch, 1 },
+                          // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
+                          { C::calldata_diff_context_id, !is_last ? events[j + 1].context_id - context_id - 1 : 0 },
+                      } });
             row++;
         }
     }
