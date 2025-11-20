@@ -48,9 +48,9 @@ class ECCVMRecursiveVerifier {
                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
                                     const std::shared_ptr<Transcript>& transcript);
 
-    [[nodiscard("IPA claim should be accumulated")]] IpaClaimAndProof verify_proof(const ECCVMProof& proof);
     [[nodiscard("IPA claim should be accumulated")]] IpaClaimAndProof verify_proof(const StdlibProof& proof);
     void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
+    void compute_accumulated_result();
 
     /**
      * @brief Get the data required by the TranslatorRecursiveVerifier

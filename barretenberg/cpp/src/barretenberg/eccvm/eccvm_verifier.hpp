@@ -31,6 +31,7 @@ class ECCVMVerifier {
     bool verify_proof(const ECCVMProof& proof);
     void compute_translation_opening_claims(
         const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
+    void compute_accumulated_result();
 
     /**
      * @brief Get the data required by the TranslatorVerifier

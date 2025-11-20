@@ -16,13 +16,14 @@ namespace bb {
 */
 class MegaZKFlavor : public bb::MegaFlavor {
   public:
+    // MegaZK is only used in production to prove the Hiding Kernel
+    static constexpr size_t VIRTUAL_LOG_N = HIDING_KERNEL_LOG_N;
+
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
 
     // The number of entities added for ZK (gemini_masking_poly)
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
-
-    static constexpr size_t VIRTUAL_LOG_N = 16;
 
     // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;

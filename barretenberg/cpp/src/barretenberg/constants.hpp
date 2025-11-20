@@ -23,7 +23,8 @@ static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
 // to ensure a constant HN proof size and a HN recursive verifier circuit that is independent of the size of the
 // circuits being folded.
 static constexpr uint32_t CONST_PG_LOG_N = 21;
-
+// Hiding kernel is a constant circuit that is being proven with MegaZKFlavor as a part Chonk
+static constexpr uint32_t HIDING_KERNEL_LOG_N = 16;
 // The size of the AVMRecursiveVerifier circuit arithmetized with Mega.
 static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 
