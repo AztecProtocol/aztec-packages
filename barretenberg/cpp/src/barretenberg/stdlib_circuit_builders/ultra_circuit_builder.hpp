@@ -14,6 +14,7 @@
 
 #include "circuit_builder_base.hpp"
 #include "rom_ram_logic.hpp"
+#include <deque>
 #include <optional>
 #include <unordered_set>
 
@@ -180,14 +181,16 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         };
     };
 
+  private:
+    // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
+    std::deque<plookup::BasicTable> lookup_tables;
+
+  public:
     // Storage for wires and selectors for all gate types
     ExecutionTrace blocks;
 
     // The set of variables which have been constrained to a particular value via an arithmetic gate
     std::unordered_map<FF, uint32_t> constant_variable_indices;
-
-    // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
-    std::vector<plookup::BasicTable> lookup_tables;
 
     // Rom/Ram logic
     RomRamLogic rom_ram_logic;
@@ -223,23 +226,33 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * @param public_inputs indices of public inputs in witness array
      * @param varnum number of known witness
      *
-     * @note The size of witness_values may be less than varnum. The former is the set of actual witness values known at
-     * the time of acir generation. The latter may be larger and essentially acounts for placeholders for witnesses that
-     * we know will exist but whose values are not known during acir generation. Both are in general less than the total
-     * number of variables/witnesses that might be present for a circuit generated from acir, since many gates will
-     * depend on the details of the bberg implementation (or more generally on the backend used to process acir).
+     * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
+     * witness values which are interleaved with zeros when witnesses are optimized away. Not all witness values are
+     * known at the time of acir generation. The number of values that are not known is given by varnum -
+     * witness_values.size(). For each of these witnesses with unknown value, we add to the builder a variable with
+     * value equal to zero.
+     *
+     * @note varnum is in general less than total number of variables/witnesses that might be present for a circuit
+     * generated from acir, since many gates will depend on the details of the bberg implementation (or more generally
+     * on the backend used to process acir).
+     *
      */
     UltraCircuitBuilder_(const size_t size_hint,
-                         auto& witness_values,
+                         const std::vector<FF>& witness_values,
                          const std::vector<uint32_t>& public_inputs,
                          size_t varnum)
         : CircuitBuilderBase<FF>(size_hint, witness_values.empty())
     {
-        for (size_t idx = 0; idx < varnum; ++idx) {
-            // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
-            // be "set" later on via the assert_equal mechanism.
-            auto value = idx < witness_values.size() ? witness_values[idx] : 0;
+        BB_ASSERT_LTE(
+            witness_values.size(),
+            varnum,
+            "UltraCircuitBuilder_: varnum should be bigger or equal than the size of the witness_values vector");
+        for (const auto value : witness_values) {
             this->add_variable(value);
+        }
+        for (size_t idx = witness_values.size(); idx < varnum; ++idx) {
+            // Add dummy variables for the witnesses with unknown value at acir generation time
+            this->add_variable(FF::zero());
         }
 
         // Initialize the builder public_inputs directly from the acir public inputs.
@@ -283,14 +296,12 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void add_gates_to_ensure_all_polys_are_non_zero();
 
-    void create_add_gate(const add_triple_<FF>& in) override;
+    void create_add_gate(const add_triple_<FF>& in);
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
-    void create_big_mul_gate(const mul_quad_<FF>& in);
 
-    void create_mul_gate(const mul_triple_<FF>& in) override;
-    void create_bool_gate(const uint32_t a) override;
-    void create_poly_gate(const poly_triple_<FF>& in) override;
+    void create_bool_gate(const uint32_t a);
+    void create_arithmetic_gate(const arithmetic_triple_<FF>& in);
     void create_ecc_add_gate(const ecc_add_gate_<FF>& in);
     void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
 
@@ -318,7 +329,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
              *    num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM is correctly enforced in the circuit.
              *    Longer term, as Zac says, we would need to refactor the composer to fix this.
              **/
-            create_poly_gate(poly_triple_<FF>{
+            create_arithmetic_gate(arithmetic_triple_<FF>{
                 .a = variable_index,
                 .b = variable_index,
                 .c = variable_index,
@@ -406,6 +417,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      **/
     plookup::BasicTable& get_table(const plookup::BasicTableId id);
     plookup::MultiTable& get_multitable(const plookup::MultiTableId id);
+
+    // Accessors for lookup tables
+    const std::deque<plookup::BasicTable>& get_lookup_tables() const { return lookup_tables; }
+    std::deque<plookup::BasicTable>& get_lookup_tables() { return lookup_tables; }
+    size_t get_num_lookup_tables() const { return lookup_tables.size(); }
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         const plookup::MultiTableId& id,

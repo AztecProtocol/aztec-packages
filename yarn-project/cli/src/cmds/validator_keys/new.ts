@@ -15,18 +15,24 @@ import {
   logValidatorSummaries,
   maybePrintJson,
   resolveKeystoreOutputPath,
-  validateBlsPathOptions,
   writeBlsBn254ToFile,
   writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
 import { processAttesterAccounts } from './staker.js';
+import {
+  validateBlsPathOptions,
+  validatePublisherOptions,
+  validateRemoteSignerOptions,
+  validateStakerOutputOptions,
+} from './utils.js';
 
 export type NewValidatorKeystoreOptions = {
   dataDir?: string;
   file?: string;
   count?: number;
   publisherCount?: number;
+  publishers?: string[];
   mnemonic?: string;
   passphrase?: string;
   accountIndex?: number;
@@ -50,12 +56,19 @@ export type NewValidatorKeystoreOptions = {
 export async function newValidatorKeystore(options: NewValidatorKeystoreOptions, log: LogFn) {
   // validate bls-path inputs before proceeding with key generation
   validateBlsPathOptions(options);
+  // validate staker output options before proceeding with key generation
+  validateStakerOutputOptions(options);
+  // validate publisher options
+  validatePublisherOptions(options);
+  // validate remote signer options
+  validateRemoteSignerOptions(options);
 
   const {
     dataDir,
     file,
     count,
     publisherCount = 0,
+    publishers,
     json,
     coinbase,
     accountIndex = 0,
@@ -74,25 +87,6 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     l1ChainId,
   } = options;
 
-  // Validate staker output requirements
-  if (stakerOutput) {
-    if (!gseAddress) {
-      throw new Error('--gse-address is required when using --staker-output');
-    }
-    if (!l1RpcUrls || l1RpcUrls.length === 0) {
-      throw new Error('--l1-rpc-urls is required when using --staker-output');
-    }
-    if (l1ChainId === undefined) {
-      throw new Error('--l1-chain-id is required when using --staker-output');
-    }
-  }
-
-  if (remoteSigner && !_mnemonic) {
-    throw new Error(
-      'Using --remote-signer requires a deterministic key source. Provide --mnemonic to derive keys, or omit --remote-signer to write new private keys to keystore.',
-    );
-  }
-
   const mnemonic = _mnemonic ?? generateMnemonic(wordlist);
 
   if (!_mnemonic && !json) {
@@ -110,6 +104,7 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
   const { validators, summaries } = await buildValidatorEntries({
     validatorCount,
     publisherCount,
+    publishers,
     accountIndex,
     baseAddressIndex: addressIndex,
     mnemonic,
