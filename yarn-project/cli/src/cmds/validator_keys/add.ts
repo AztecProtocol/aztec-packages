@@ -12,23 +12,28 @@ import {
   buildValidatorEntries,
   logValidatorSummaries,
   maybePrintJson,
-  validateBlsPathOptions,
   writeBlsBn254ToFile,
   writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
+import { validateBlsPathOptions, validatePublisherOptions, validateRemoteSignerOptions } from './utils.js';
 
 export type AddValidatorKeysOptions = NewValidatorKeystoreOptions;
 
 export async function addValidatorKeys(existing: string, options: AddValidatorKeysOptions, log: LogFn) {
   // validate bls-path inputs before proceeding with key generation
   validateBlsPathOptions(options);
+  // validate publisher options
+  validatePublisherOptions(options);
+  // validate remote signer options
+  validateRemoteSignerOptions(options);
 
   const {
     dataDir,
     file,
     count,
     publisherCount = 0,
+    publishers,
     mnemonic,
     accountIndex = 0,
     addressIndex,
@@ -73,6 +78,7 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
   const { validators, summaries } = await buildValidatorEntries({
     validatorCount,
     publisherCount,
+    publishers,
     accountIndex,
     baseAddressIndex: effectiveBaseAddressIndex,
     mnemonic: mnemonicToUse,

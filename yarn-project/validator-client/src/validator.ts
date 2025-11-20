@@ -445,7 +445,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const slot = proposal.payload.header.slotNumber.toBigInt();
     const inCommittee = await this.epochCache.filterInCommittee(slot, this.getValidatorAddresses());
     this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
-    return this.createBlockAttestationsFromProposal(proposal, inCommittee);
+    const attestations = await this.createBlockAttestationsFromProposal(proposal, inCommittee);
+
+    // We broadcast our own attestations to our peers so, in case our block does not get mined on L1,
+    // other nodes can see that our validators did attest to this block proposal, and do not slash us
+    // due to inactivity for missed attestations.
+    void this.p2pClient.broadcastAttestations(attestations).catch(err => {
+      this.log.error(`Failed to broadcast self-attestations for slot ${slot}`, err);
+    });
+    return attestations;
   }
 
   async collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]> {

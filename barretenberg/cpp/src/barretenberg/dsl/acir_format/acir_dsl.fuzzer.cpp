@@ -240,9 +240,10 @@ void print_acir_format_gates(const AcirFormat& acir_format)
 {
     std::cerr << "\n=== RESULTING GATES ===" << std::endl;
 
-    std::cerr << "\nPoly Triple Constraints (" << acir_format.poly_triple_constraints.size() << " total):" << std::endl;
-    for (size_t i = 0; i < acir_format.poly_triple_constraints.size(); ++i) {
-        const auto& gate = acir_format.poly_triple_constraints[i];
+    std::cerr << "\nArithmetic Triple Constraints (" << acir_format.arithmetic_triple_constraints.size()
+              << " total):" << std::endl;
+    for (size_t i = 0; i < acir_format.arithmetic_triple_constraints.size(); ++i) {
+        const auto& gate = acir_format.arithmetic_triple_constraints[i];
         std::cerr << "\nTriple Gate " << i << ":" << std::endl;
         std::cerr << "  a=" << gate.a << ", b=" << gate.b << ", c=" << gate.c << std::endl;
         std::cerr << "  q_m=" << gate.q_m << " (mul coeff)" << std::endl;
