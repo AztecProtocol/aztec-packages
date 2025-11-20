@@ -3,6 +3,8 @@
 set -e
 
 # Installs required dependencies for running an Aztec Bootnode, creates a start script for starting the bootnode and a systemd entry
+# This script fetches the canonical bootnode list from the network config in AztecProtocol/networks repo
+# The list includes ENRs from all bootnode operators (not just ours)
 
 # From terraform
 LOCATION="${LOCATION}"
@@ -113,7 +115,7 @@ if [[ -n "$OTEL_COLLECTOR_URL" ]]; then
   export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="$OTEL_COLLECTOR_URL/v1/metrics"
 fi
 
-cat << 'EOF' > /home/$SSH_USER/start.sh
+cat <<EOF > /home/$SSH_USER/start.sh
 #!/usr/bin/env bash
 source ./tag.sh
 echo "Starting bootnode container..."
@@ -131,6 +133,7 @@ fi
 
 export BOOTSTRAP_NODES=$(echo "$JSON" | jq -r '.bootnodes | join(",")')
 echo "Bootnode enrs: $BOOTSTRAP_NODES"
+
 docker system prune -f
 docker pull $REPO/$IMAGE:$TAG
 docker run \
