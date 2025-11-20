@@ -46,6 +46,7 @@ void create_block_constraints(UltraCircuitBuilder& builder,
     case BlockType::ReturnData:
         bb::assert_failure("UltraCircuitBuilder does not support CallData/ReturnData block constraints. Use "
                            "MegaCircuitBuilder or fall back to RAM and ROM operations.");
+        break;
     default:
         bb::assert_failure("Unexpected block constraint type.");
         break;
@@ -114,6 +115,7 @@ void process_ROM_operations(Builder& builder,
             break;
         default:
             bb::assert_failure("Invalid AccessType for ROM memory operation.");
+            break;
         }
     }
 }
@@ -147,6 +149,7 @@ void process_RAM_operations(Builder& builder,
             break;
         default:
             bb::assert_failure("Invalid AccessType for RAM memory operation.");
+            break;
         }
     }
 }
