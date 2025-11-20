@@ -558,7 +558,8 @@ template <typename Flavor> std::shared_ptr<VerifierInstance_<Flavor>> create_moc
             0, 0); // metadata does not need to be accurate
     verifier_instance->vk = vk;
     verifier_instance->is_complete = true;
-    verifier_instance->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), FF::random_element());
+    verifier_instance->gate_challenges =
+        std::vector<FF>(static_cast<size_t>(CONST_FOLDING_LOG_N), FF::random_element());
 
     for (auto& commitment : verifier_instance->witness_commitments.get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
