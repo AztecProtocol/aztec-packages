@@ -1225,6 +1225,10 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamWrite)
 
 TYPED_TEST(OpcodeGateCountTests, BlockCallData)
 {
+    if constexpr (!IsMegaBuilder<TypeParam>) {
+        GTEST_SKIP() << "CallData only supported on MegaCircuitBuilder";
+    }
+
     WitnessVector witness{ 0, 10, 20, 0, 10 };
 
     // Create a simple CallData block with 2 elements and 1 read
@@ -1270,7 +1274,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
             .init = init,
             .trace = trace,
             .type = BlockType::CallData,
-            .calldata_id = CallDataType::Primary,
+            .calldata_id = CallDataType::Secondary,
         };
 
         AcirFormat constraint_system{
@@ -1292,9 +1296,13 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
 
 TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
 {
+    if constexpr (!IsMegaBuilder<TypeParam>) {
+        GTEST_SKIP() << "ReturnData only supported on MegaCircuitBuilder";
+    }
+
     WitnessVector witness{ 0, 10, 20 };
 
-    // Create a simple ReturnData block with 2 elements and 1 read
+    // Create a simple ReturnData block with 2 elements
     std::vector<uint32_t> init;
     init.push_back(1); // 10
     init.push_back(2); // 20
@@ -1307,7 +1315,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
     };
 
     AcirFormat constraint_system{
-        .varnum = 5,
+        .varnum = 3,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .block_constraints = { block_constraint },
@@ -1316,8 +1324,11 @@ TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
     mock_opcode_indices(constraint_system);
 
     AcirProgram program{ constraint_system, witness };
-    const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
+    const ProgramMetadata metadata{
+        .collect_gates_per_opcode = false
+    }; // We need to set it to false because ReturnData BlockConstraints do not have any trace, so we would be dividing
+       // by zero, and this would throw an error.
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_RETURNDATA<TypeParam> }));
+    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false), BLOCK_RETURNDATA<TypeParam>);
 }

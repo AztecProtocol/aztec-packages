@@ -97,14 +97,14 @@ void process_ROM_operations(Builder& builder,
     using field_ct = stdlib::field_t<Builder>;
     using rom_table_ct = stdlib::rom_table<Builder>;
 
-    rom_table_ct table(init);
+    rom_table_ct table(&builder, init);
     for (const auto& op : constraint.trace) {
         field_ct value = to_field_ct(op.value, builder);
         field_ct index = to_field_ct(op.index, builder);
 
         // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
         // ROM table
-        if (!has_valid_witness_assignments) {
+        if (!has_valid_witness_assignments && !index.is_constant()) {
             builder.set_variable(index.get_witness_index(), 0);
         }
 
@@ -127,14 +127,14 @@ void process_RAM_operations(Builder& builder,
     using field_ct = stdlib::field_t<Builder>;
     using ram_table_ct = stdlib::ram_table<Builder>;
 
-    ram_table_ct table(init);
+    ram_table_ct table(&builder, init);
     for (const auto& op : constraint.trace) {
         field_ct value = to_field_ct(op.value, builder);
         field_ct index = to_field_ct(op.index, builder);
 
         // In case of invalid witness assignment, we set the value of index value to zero to not hit an out-of-bounds
         // index in the RAM table
-        if (!has_valid_witness_assignments) {
+        if (!has_valid_witness_assignments && !index.is_constant()) {
             builder.set_variable(index.get_witness_index(), 0);
         }
 
@@ -173,13 +173,14 @@ void process_call_data_operations(Builder& builder,
 
             // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
             // ROM table
-            if (!has_valid_witness_assignments) {
+            if (!has_valid_witness_assignments && !index.is_constant()) {
                 builder.set_variable(index.get_witness_index(), 0);
             }
 
             switch (op.access_type) {
             case AccessType::Read:
                 value.assert_equal(calldata_array[index]);
+                break;
             default:
                 bb::assert_failure("Invalid AccessType for CallData memory operation.");
                 break;
