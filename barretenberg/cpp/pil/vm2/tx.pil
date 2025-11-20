@@ -267,8 +267,8 @@ namespace tx;
 
     // Public Call Requests are dispatched to the execution trace.
     // We match the values to the start of an enqueued call in the execution trace.
-    // Keys: In execution, `context_id` and `enqueued_call_start == 1` are unique.
-    // Inputs:
+    // Key: In execution, `context_id` and `enqueued_call_start == 1` are unique.
+    // Inputs: All other columns are inputs to the enqueued call.
     #[DISPATCH_EXEC_START]
     should_process_call_request {
         next_context_id,
@@ -334,12 +334,13 @@ namespace tx;
     };
 
     // We retrieve the return values at the end of an enqueued call in the execution trace
+    // Key: In execution, `context_id` and `enqueued_call_end == 1` are unique.
+    // Outputs: All other columns are outputs of the enqueued call.
     #[DISPATCH_EXEC_END]
     should_process_call_request {
        next_context_id,
        next_context_id', // The context id of the next row must be the one after the execution of the enqueued call
        reverted,
-       discard,
        // Tree State
        next_note_hash_tree_root,
        next_note_hash_tree_size,
@@ -351,7 +352,7 @@ namespace tx;
        next_public_data_tree_size,
        next_written_public_data_slots_tree_root,
        next_written_public_data_slots_tree_size,
-       l1_l2_tree_root,
+       // l1_l2_tree_root is immutable in a tx and does not have to be retrieved here.
        next_retrieved_bytecodes_tree_root,
        next_retrieved_bytecodes_tree_size,
        // Side Effect States
@@ -365,7 +366,6 @@ namespace tx;
        execution.context_id,
        execution.next_context_id,
        execution.sel_failure,
-       execution.discard,
        // Tree State
        execution.note_hash_tree_root,
        execution.note_hash_tree_size,
@@ -377,7 +377,6 @@ namespace tx;
        execution.public_data_tree_size,
        execution.written_public_data_slots_tree_root,
        execution.written_public_data_slots_tree_size,
-       execution.l1_l2_tree_root,
        execution.retrieved_bytecodes_tree_root,
        execution.retrieved_bytecodes_tree_size,
        // Side Effect States
