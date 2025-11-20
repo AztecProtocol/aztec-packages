@@ -74,7 +74,7 @@ import {
   Shl,
   Shr,
 } from './opcodes/index.js';
-import { encodeToBytecode } from './serialization/bytecode_serialization.js';
+import { decodeFromBytecode, encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 import {
   mockCheckNullifierExists,
@@ -821,6 +821,19 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(2);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, listSlot0, value0, false);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, listSlot1, value1, false);
+      });
+
+      it('EMITNOTEHASH and NOTEHASHEXISTS', async () => {
+        const bytecode = Buffer.from(
+          'LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATIAAAAsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABLAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADEAAAAAAQACKAAABQQAATsAAAUAAg==',
+          'base64',
+        );
+        const context = createContext([]);
+        const instructions = decodeFromBytecode(bytecode);
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+        expect(results.revertReason).toBeUndefined();
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([10]);
       });
 
       it('Should read a value in storage (list)', async () => {
