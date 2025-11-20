@@ -57,7 +57,7 @@ In an HA setup:
 
 **Minimum HA Setup (2 nodes):**
 - 2 separate servers/VMs
-- Each meeting the [minimum sequencer requirements](../operation/sequencer_management/useful_commands.md#minimum-hardware-requirements)
+- Each meeting the [minimum sequencer requirements](./sequencer_management.md#minimum-hardware-requirements)
 - Different physical locations or availability zones (recommended)
 - Reliable network connectivity for both nodes
 - Access to the same L1 infrastructure (or separate L1 endpoints)
