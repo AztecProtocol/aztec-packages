@@ -109,7 +109,7 @@ export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNam
   const networkConfig = await getNetworkConfig(networkName, cacheDir);
 
   if (!networkConfig) {
-    return;
+    throw new Error(`Failed to fetch network config for network: ${networkName}`);
   }
 
   enrichVar('BOOTSTRAP_NODES', networkConfig.bootnodes.join(','));
