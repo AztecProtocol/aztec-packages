@@ -1,7 +1,11 @@
 use super::TestBuilder;
 use bignum::{BigNum, BLS12_381_Fr};
 use blob::abis::{BatchingBlobCommitment, BlobAccumulator, FinalBlobBatchingChallenges};
-use types::{constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB}, hash::poseidon2_hash, traits::Empty};
+use types::{
+    constants::{BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB},
+    hash::poseidon2_hash,
+    traits::Empty,
+};
 
 impl TestBuilder {
     pub fn new_with_one_blob() -> Self {
@@ -75,9 +79,9 @@ fn overfilled_blob_fields() {
     let mut builder = TestBuilder::default();
 
     builder.right_rollup.end_sponge_blob.num_expected_fields =
-        FIELDS_PER_BLOB * BLOBS_PER_BLOCK + 1;
+        FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT + 1;
     builder.right_rollup.end_sponge_blob.num_absorbed_fields =
-        FIELDS_PER_BLOB * BLOBS_PER_BLOCK + 1;
+        FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT + 1;
 
     builder.execute_with_mock_and_fail();
 }
@@ -124,9 +128,9 @@ fn correct_end_blob_accumulator_with_one_blob() {
 // TODO(#10323): remove the oracle and switch this test to unconstrained.
 #[test]
 fn correct_end_blob_accumulator_with_max_blobs() {
-    // Create BLOBS_PER_BLOCK-1 full blobs and 1 blob with 123 fields.
-    // Fill BLOBS_PER_BLOCK blobs completely with different values (to avoid a constant polynomial)
-    let mut blob_fields = [0; FIELDS_PER_BLOB * (BLOBS_PER_BLOCK - 1) + 123];
+    // Create BLOBS_PER_CHECKPOINT-1 full blobs and 1 blob with 123 fields.
+    // Fill the blobs completely with different values (to avoid a constant polynomial)
+    let mut blob_fields = [0; FIELDS_PER_BLOB * (BLOBS_PER_CHECKPOINT - 1) + 123];
 
     blob_fields[0] = blob_fields.len() as Field;
     for i in 1..blob_fields.len() {
@@ -136,7 +140,7 @@ fn correct_end_blob_accumulator_with_max_blobs() {
     let mut builder = TestBuilder::default_with_blob_fields(blob_fields);
 
     // All hardcoded values in this test are taken from
-    // yarn-project/blob-lib/src/blob_batching.test.ts -> 'should construct and verify a batch of BLOBS_PER_BLOCK full blobs'
+    // yarn-project/blob-lib/src/blob_batching.test.ts -> 'should construct and verify a batch of BLOBS_PER_CHECKPOINT blobs in a single checkpoint'
     // These values are also used in blob_batching.nr -> test_max_blobs_batched(), but the below ensures inputs are
     // propagated properly through the circuit.
     let kzg_commitment_x_limbs_blob_0_from_ts = [

@@ -84,7 +84,7 @@ static std::vector<typename Curve::ScalarField> compute_padding_indicator_array(
     // mixing with sumcheck univariates.
     if constexpr (Curve::is_stdlib_type) {
         for (auto& indicator : result) {
-            indicator.clear_child_tag();
+            indicator.clear_round_provenance();
         }
     }
 

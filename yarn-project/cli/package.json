@@ -130,7 +130,8 @@
   "files": [
     "dest",
     "src",
-    "!*.test.*"
+    "!*.test.*",
+    "public_include_metric_prefixes.json"
   ],
   "types": "./dest/index.d.ts",
   "engines": {

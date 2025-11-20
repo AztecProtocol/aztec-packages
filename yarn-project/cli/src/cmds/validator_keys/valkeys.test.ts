@@ -23,13 +23,16 @@ import {
   writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
+import { validatePublisherOptions } from './utils.js';
 
 const TEST_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
 describe('validator keys utilities', () => {
   let tmp: string;
+  let feeRecipient: AztecAddress;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    feeRecipient = await AztecAddress.random();
     tmp = mkdtempSync(join(tmpdir(), 'aztec-valkeys-'));
   });
 
@@ -43,14 +46,12 @@ describe('validator keys utilities', () => {
       expect(out).toBe('m/12381/3600/5/0/3');
     });
 
-    it('uses default values when parameters are not provided', () => {
-      const out = withValidatorIndex('m/12381/3600/999/0/999');
-      expect(out).toBe('m/12381/3600/0/0/0');
-    });
+    it('only replaces address / account indices when path is the default path', () => {
+      const out = withValidatorIndex('m/12381/3600/0/0/0', 5, 3);
+      expect(out).toBe('m/12381/3600/5/0/3');
 
-    it('uses default address index when only account index is provided', () => {
-      const out = withValidatorIndex('m/12381/3600/999/0/999', 7);
-      expect(out).toBe('m/12381/3600/7/0/0');
+      const out2 = withValidatorIndex('m/12381/3600/33/0/33', 5, 3);
+      expect(out2).toBe('m/12381/3600/33/0/33');
     });
 
     it('returns the path unchanged for non-matching paths', () => {
@@ -59,15 +60,10 @@ describe('validator keys utilities', () => {
       expect(out).toBe(original);
     });
 
-    it('returns the path unchanged for BLS paths with incorrect length', () => {
+    it('returns the path unchanged for BLS paths with different length', () => {
       const shortPath = 'm/12381/3600/0/0';
       const out = withValidatorIndex(shortPath, 5, 3);
       expect(out).toBe(shortPath);
-    });
-
-    it('correctly handles edge case values', () => {
-      const out = withValidatorIndex('m/12381/3600/0/0/0', 0, 0);
-      expect(out).toBe('m/12381/3600/0/0/0');
     });
   });
 
@@ -124,7 +120,7 @@ describe('validator keys utilities', () => {
         accountIndex: 0,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
-        feeRecipient: ('0x' + '11'.repeat(32)) as unknown as AztecAddress,
+        feeRecipient: feeRecipient,
       });
       expect(validators.length).toBe(2);
       expect(summaries.length).toBe(2);
@@ -146,7 +142,7 @@ describe('validator keys utilities', () => {
         accountIndex: 0,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
-        feeRecipient: ('0x' + '33'.repeat(32)) as unknown as AztecAddress,
+        feeRecipient: feeRecipient,
       });
       const v = validators[0] as any;
       expect(Array.isArray(v.publisher)).toBe(true);
@@ -162,7 +158,7 @@ describe('validator keys utilities', () => {
         accountIndex: 0,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
-        feeRecipient: ('0x' + '44'.repeat(32)) as unknown as AztecAddress,
+        feeRecipient: feeRecipient,
       });
 
       // Build with account index 1, same address index
@@ -172,7 +168,7 @@ describe('validator keys utilities', () => {
         accountIndex: 1,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
-        feeRecipient: ('0x' + '44'.repeat(32)) as unknown as AztecAddress,
+        feeRecipient: feeRecipient,
       });
 
       // Extract attesters
@@ -191,7 +187,6 @@ describe('validator keys utilities', () => {
     });
 
     it('derives different BLS and ETH keys when address index changes', async () => {
-      const feeRecipient = await AztecAddress.random();
       // Build with address index 0
       const { validators: v1, summaries: s1 } = await buildValidatorEntries({
         validatorCount: 1,
@@ -225,6 +220,48 @@ describe('validator keys utilities', () => {
       expect(att2.bls).toBeDefined();
       expect(att1.bls).not.toEqual(att2.bls);
       expect(s1[0].attesterBls).not.toEqual(s2[0].attesterBls);
+    });
+
+    it('uses attester address as coinbase when coinbase is not provided', async () => {
+      const { validators, summaries } = await buildValidatorEntries({
+        validatorCount: 1,
+        publisherCount: 0,
+        accountIndex: 0,
+        baseAddressIndex: 0,
+        mnemonic: TEST_MNEMONIC,
+        feeRecipient: feeRecipient,
+        // coinbase not provided
+      });
+
+      expect(validators.length).toBe(1);
+      expect(summaries.length).toBe(1);
+
+      const validator = validators[0];
+      const summary = summaries[0];
+
+      // Coinbase should equal the attester ETH address
+      expect(validator.coinbase).toBe(summary.attesterEth);
+      expect(validator.coinbase).toBeDefined();
+    });
+
+    it('uses provided coinbase when explicitly set', async () => {
+      const customCoinbase = '0x1234567890123456789012345678901234567890' as any;
+      const { validators, summaries } = await buildValidatorEntries({
+        validatorCount: 1,
+        publisherCount: 0,
+        accountIndex: 0,
+        baseAddressIndex: 0,
+        mnemonic: TEST_MNEMONIC,
+        feeRecipient: feeRecipient,
+        coinbase: customCoinbase,
+      });
+
+      expect(validators.length).toBe(1);
+      const validator = validators[0];
+
+      // Coinbase should be the custom value, not the attester address
+      expect(validator.coinbase).toBe(customCoinbase);
+      expect(validator.coinbase).not.toBe(summaries[0].attesterEth);
     });
   });
 
@@ -272,6 +309,65 @@ describe('validator keys utilities', () => {
       expect(out).toContain('bls: 0x1111');
       expect(out).toContain('- 0xpub1');
       expect(out).toContain('- 0xpub2');
+    });
+  });
+
+  describe('validatePublisherOptions', () => {
+    const validPrivateKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const validPrivateKeyWith0x = '0x' + validPrivateKey;
+
+    it('accepts valid publisher private key with 0x prefix', () => {
+      const options = { publishers: [validPrivateKeyWith0x] };
+      expect(() => validatePublisherOptions(options)).not.toThrow();
+      expect(options.publishers).toEqual([validPrivateKeyWith0x]);
+    });
+
+    it('accepts valid publisher private key without 0x prefix and normalizes it', () => {
+      const options = { publishers: [validPrivateKey] };
+      expect(() => validatePublisherOptions(options)).not.toThrow();
+      expect(options.publishers).toEqual([validPrivateKeyWith0x]);
+    });
+
+    it('throws when publisher private key is too short', () => {
+      const options = { publishers: ['0x1234'] };
+      expect(() => validatePublisherOptions(options)).toThrow(/Invalid publisher private key/);
+    });
+
+    it('throws when publisher private key is too long', () => {
+      const options = { publishers: ['0x' + validPrivateKey + 'ff'] };
+      expect(() => validatePublisherOptions(options)).toThrow(/Invalid publisher private key/);
+    });
+
+    it('throws when publisher private key contains invalid characters', () => {
+      const options = { publishers: ['0x' + validPrivateKey.slice(0, -2) + 'zz'] };
+      expect(() => validatePublisherOptions(options)).toThrow(/Invalid publisher private key/);
+    });
+
+    it('throws when both publishers and publisherCount are provided', () => {
+      const options = { publishers: [validPrivateKeyWith0x], publisherCount: 2 };
+      expect(() => validatePublisherOptions(options)).toThrow(
+        /--publishers and --publisher-count cannot be used together/,
+      );
+    });
+
+    it('allows publisherCount without publishers', () => {
+      const options = { publisherCount: 2 };
+      expect(() => validatePublisherOptions(options)).not.toThrow();
+    });
+
+    it('allows neither publishers nor publisherCount', () => {
+      const options = {};
+      expect(() => validatePublisherOptions(options)).not.toThrow();
+    });
+
+    it('accepts multiple publishers and normalizes them', () => {
+      const validPrivateKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+      const validPrivateKeyWith0x = '0x' + validPrivateKey;
+      const anotherKey = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+      const anotherKeyWith0x = '0x' + anotherKey;
+      const options = { publishers: [validPrivateKey, anotherKey] };
+      expect(() => validatePublisherOptions(options)).not.toThrow();
+      expect(options.publishers).toEqual([validPrivateKeyWith0x, anotherKeyWith0x]);
     });
   });
 
@@ -332,7 +428,7 @@ describe('validator keys utilities', () => {
           publisherCount: 1,
           mnemonic: TEST_MNEMONIC,
           password: '',
-          outDir: tmp,
+          encryptedKeystoreDir: tmp,
           feeRecipient: ('0x' + '77'.repeat(32)) as unknown as AztecAddress,
         },
         log,
@@ -362,7 +458,7 @@ describe('validator keys utilities', () => {
           publisherCount: 0,
           mnemonic: TEST_MNEMONIC,
           password,
-          outDir: tmp,
+          encryptedKeystoreDir: tmp,
           feeRecipient: ('0x' + 'ee'.repeat(32)) as unknown as AztecAddress,
         },
         log,
@@ -396,6 +492,105 @@ describe('validator keys utilities', () => {
       const pubkey = await computeBlsPublicKeyCompressed(decryptedBlsKey);
       expect(pubkey).toBeDefined();
       expect(pubkey).toMatch(/^0x[0-9a-fA-F]+$/);
+    });
+
+    it('accepts publishers option with 0x prefix', async () => {
+      const path = join(tmp, 'with-publisher.json');
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+      const publisherKey: string = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'with-publisher.json',
+          count: 1,
+          publishers: [publisherKey],
+          mnemonic: TEST_MNEMONIC,
+          feeRecipient: ('0x' + 'ff'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      const keystore: KeyStore = loadKeystoreFile(path);
+      expect(keystore.validators).toBeDefined();
+      expect(keystore.validators!.length).toBe(1);
+      const validator = keystore.validators![0];
+      expect(validator.publisher).toBe(publisherKey);
+    });
+
+    it('accepts publishers option without 0x prefix and normalizes it', async () => {
+      const path = join(tmp, 'with-publisher-no-prefix.json');
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+      const publisherKeyNoPrefix: string = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+      const expectedKey = '0x' + publisherKeyNoPrefix;
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'with-publisher-no-prefix.json',
+          count: 2,
+          publishers: [publisherKeyNoPrefix],
+          mnemonic: TEST_MNEMONIC,
+          feeRecipient: ('0x' + 'dd'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      const keystore: KeyStore = loadKeystoreFile(path);
+      expect(keystore.validators).toBeDefined();
+      expect(keystore.validators!.length).toBe(2);
+      // Both validators should have the same normalized publisher
+      expect(keystore.validators![0].publisher).toBe(expectedKey);
+      expect(keystore.validators![1].publisher).toBe(expectedKey);
+    });
+
+    it('rejects invalid publisher private key', async () => {
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+      const invalidPublisherKey: string = '0x123'; // Too short
+
+      await expect(
+        newValidatorKeystore(
+          {
+            dataDir: tmp,
+            file: 'invalid-publisher.json',
+            count: 1,
+            publishers: [invalidPublisherKey],
+            mnemonic: TEST_MNEMONIC,
+            feeRecipient: ('0x' + 'cc'.repeat(32)) as unknown as AztecAddress,
+          },
+          log,
+        ),
+      ).rejects.toThrow(/Invalid publisher private key/);
+    });
+
+    it('creates keystore with multiple publishers for all validators', async () => {
+      const path = join(tmp, 'with-multiple-publishers.json');
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+      const publisherKey1: string = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+      const publisherKey2: string = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'with-multiple-publishers.json',
+          count: 1,
+          publishers: [publisherKey1, publisherKey2],
+          mnemonic: TEST_MNEMONIC,
+          feeRecipient: ('0x' + 'ee'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      const keystore: KeyStore = loadKeystoreFile(path);
+      expect(keystore.validators).toBeDefined();
+      expect(keystore.validators!.length).toBe(1);
+      const validator = keystore.validators![0];
+      expect(Array.isArray(validator.publisher)).toBe(true);
+      expect(validator.publisher).toEqual([publisherKey1, publisherKey2]);
     });
   });
 

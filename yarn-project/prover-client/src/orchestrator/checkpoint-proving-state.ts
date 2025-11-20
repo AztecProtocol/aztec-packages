@@ -6,7 +6,7 @@ import {
 } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
-  BLOBS_PER_BLOCK,
+  BLOBS_PER_CHECKPOINT,
   FIELDS_PER_BLOB,
   type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -253,8 +253,8 @@ export class CheckpointProvingState {
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       startBlobAccumulator: this.startBlobAccumulator.toBlobAccumulator(),
       finalBlobChallenges: this.finalBlobBatchingChallenges,
-      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
-      blobCommitments: padArrayEnd(blobCommitments, BLS12Point.ZERO, BLOBS_PER_BLOCK),
+      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT),
+      blobCommitments: padArrayEnd(blobCommitments, BLS12Point.ZERO, BLOBS_PER_CHECKPOINT),
       blobsHash,
     });
 

@@ -858,7 +858,7 @@ export async function setupSponsoredFPC(wallet: Wallet) {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
 
-  await wallet.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
+  await wallet.registerContract(instance, SponsoredFPCContract.artifact);
   getLogger().info(`SponsoredFPC: ${instance.address}`);
   return instance;
 }
@@ -868,7 +868,7 @@ export async function setupSponsoredFPC(wallet: Wallet) {
  * @param wallet - The wallet
  */
 export async function registerSponsoredFPC(wallet: Wallet): Promise<void> {
-  await wallet.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
+  await wallet.registerContract(await getSponsoredFPCInstance(), SponsoredFPCContract.artifact);
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {

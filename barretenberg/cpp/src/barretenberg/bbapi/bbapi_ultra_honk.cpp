@@ -46,7 +46,7 @@ Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&&
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)) };
 
     if (!witness.empty()) {
-        program.witness = acir_format::witness_buf_to_witness_data(std::move(witness));
+        program.witness = acir_format::witness_buf_to_witness_vector(std::move(witness));
     }
     return acir_format::create_circuit<Circuit>(program, metadata);
 }

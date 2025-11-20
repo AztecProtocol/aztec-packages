@@ -1556,6 +1556,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/native@workspace:native"
   dependencies:
+    "@aztec/bb.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"

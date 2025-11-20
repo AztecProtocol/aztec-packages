@@ -26,6 +26,7 @@ namespace bb::avm2::simulation {
 struct TxExecutionResult {
     GasUsed gas_used;
     RevertCode revert_code = RevertCode::OK;
+    FF transaction_fee;
     std::vector<CallStackMetadata> app_logic_return_values;
 };
 
@@ -42,6 +43,7 @@ class TxExecution final {
                 FieldGreaterThanInterface& field_gt,
                 Poseidon2Interface& poseidon2,
                 EventEmitterInterface<TxEvent>& event_emitter,
+                bool skip_fee_enforcement = false,
                 bool collect_call_metadata = false)
         : call_execution(call_execution)
         , context_provider(context_provider)
@@ -55,6 +57,7 @@ class TxExecution final {
                      retrieved_bytecodes_tree,
                      context_provider,
                      side_effect_tracker)
+        , skip_fee_enforcement(skip_fee_enforcement)
         , collect_call_metadata(collect_call_metadata)
     {}
 
@@ -72,6 +75,7 @@ class TxExecution final {
     EventEmitterInterface<TxEvent>& events;
 
     TxContext tx_context;
+    bool skip_fee_enforcement;
     bool collect_call_metadata;
 
     // This function can throw if there is a nullifier collision.

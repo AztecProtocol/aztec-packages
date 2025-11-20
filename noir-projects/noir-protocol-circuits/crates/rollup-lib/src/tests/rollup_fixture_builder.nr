@@ -15,7 +15,7 @@ use types::{
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT, L1_TO_L2_MSG_SUBTREE_HEIGHT,
         L1_TO_L2_MSG_TREE_HEIGHT,
     },
     hash::poseidon2_hash,
@@ -369,9 +369,9 @@ impl RollupFixtureBuilder {
         }
     }
 
-    pub fn get_blob_commitments(self, slot_number: Field) -> [BLSPoint; BLOBS_PER_BLOCK] {
-        let mut commitments: [BLSPoint; BLOBS_PER_BLOCK] = std::mem::zeroed();
-        for i in 0..BLOBS_PER_BLOCK {
+    pub fn get_blob_commitments(self, slot_number: Field) -> [BLSPoint; BLOBS_PER_CHECKPOINT] {
+        let mut commitments: [BLSPoint; BLOBS_PER_CHECKPOINT] = std::mem::zeroed();
+        for i in 0..BLOBS_PER_CHECKPOINT {
             let seed: Field = self.make_fixture(slot_number, i, 58);
             commitments[i] = BLSPoint::hash_to_curve(seed.to_be_bytes::<32>());
         }

@@ -52,7 +52,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
 
     // Construct a hash table for lookup table entries to efficiently determine if a lookup gate is valid
     LookupHashTable lookup_hash_table;
-    for (const auto& table : builder.lookup_tables) {
+    for (const auto& table : builder.get_lookup_tables()) {
         const FF table_index(table.table_index);
         for (size_t i = 0; i < table.size(); ++i) {
             lookup_hash_table.insert({ table.column_1[i], table.column_2[i], table.column_3[i], table_index });
@@ -357,7 +357,7 @@ void UltraCircuitChecker::populate_values(
     values.q_elliptic = block.q_elliptic()[idx];
     values.q_memory = block.q_memory()[idx];
     values.q_nnf = block.q_nnf()[idx];
-    values.q_lookup = block.q_lookup_type()[idx];
+    values.q_lookup = block.q_lookup()[idx];
     values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
     values.q_poseidon2_external = block.q_poseidon2_external()[idx];
     if constexpr (IsMegaBuilder<Builder>) {

@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
+  type ContractInstanceWithAddress,
   DeployMethod,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js/contracts';
@@ -101,8 +102,8 @@ async function deployContract(wallet: Wallet, deployer: AztecAddress) {
     contract.publicKeys,
     wallet,
     PrivateVotingContract.artifact,
-    (address: AztecAddress, wallet: Wallet) =>
-      PrivateVotingContract.at(address, wallet),
+    (instance: ContractInstanceWithAddress, wallet: Wallet) =>
+      PrivateVotingContract.at(instance.address, wallet),
     [deployer.toField()],
     getDefaultInitializer(PrivateVotingContract.artifact)?.name
   );

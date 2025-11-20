@@ -434,6 +434,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                              field_gt,
                              poseidon2,
                              tx_event_emitter,
+                             config.skip_fee_enforcement,
                              config.collect_call_metadata);
 
     PublicInputsBuilder public_inputs_builder;
@@ -442,11 +443,11 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     // This triggers all the work.
     TxExecutionResult tx_execution_result = tx_execution.simulate(tx);
 
-    // TODO(fcarreiro): get these values from somewhere.
-    FF transaction_fee = 0;
     public_inputs_builder.extract_outputs(raw_merkle_db,
-                                          tx_execution_result.gas_used.total_gas,
-                                          transaction_fee,
+                                          // TODO(MW): Use of billed_gas is a bit misleading - we want public + private
+                                          // - teardown, which is stored as billed gas here/in ts:
+                                          tx_execution_result.gas_used.billed_gas,
+                                          tx_execution_result.transaction_fee,
                                           tx_execution_result.revert_code != RevertCode::OK,
                                           side_effect_tracker.get_side_effects());
 
@@ -502,7 +503,6 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const Exec
 
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
-
     return simulate_fast(
         raw_contract_db, raw_merkle_db, config, hints.tx, hints.global_variables, hints.protocol_contracts);
 }

@@ -326,11 +326,12 @@ export class P2PNetworkTest {
           .deployed();
         return { contractAddress: spamContract.address };
       },
-      async ({ contractAddress }) => {
+      ({ contractAddress }) => {
         if (!this.wallet) {
           throw new Error('Call snapshot t.setupAccount before deploying account contract');
         }
-        this.spamContract = await SpamContract.at(contractAddress, this.wallet);
+        this.spamContract = SpamContract.at(contractAddress, this.wallet);
+        return Promise.resolve();
       },
     );
   }

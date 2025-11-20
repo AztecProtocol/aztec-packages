@@ -53,6 +53,18 @@ fn validate_initial_values_constants_incorrect_protocol_nullifier_fails() {
 }
 
 /**
+ * claimed_revertible_counter
+ */
+#[test(should_fail_with = "incorrect initial claimed_revertible_counter")]
+fn validate_initial_values_claimed_revertible_counter_mismatch_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.output.claimed_revertible_counter = 4567;
+
+    builder.validate_as_first_call();
+}
+
+/**
  * min_revertible_side_effect_counter
  */
 #[test]

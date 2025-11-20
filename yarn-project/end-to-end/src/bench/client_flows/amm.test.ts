@@ -1,10 +1,10 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
+import type { ContractInstanceWithAddress, SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
-import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { AMMContract } from '@aztec/noir-contracts.js/AMM';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
@@ -29,17 +29,20 @@ describe('AMM benchmark', () => {
   // The admin that aids in the setup of the test
   let adminAddress: AztecAddress;
   // FPC that accepts bananas
-  let bananaFPC: FPCContract;
+  let bananaFPCInstance: ContractInstanceWithAddress;
   // BananaCoin Token contract, just used to pay fees in this scenario
   let bananaCoin: TokenContract;
+  let bananaCoinInstance: ContractInstanceWithAddress;
   // CandyBarCoin Token contract, which we want to amm
   let candyBarCoin: TokenContract;
+  let candyBarCoinInstance: ContractInstanceWithAddress;
   // AMM contract
   let amm: AMMContract;
+  let ammInstance: ContractInstanceWithAddress;
   // Liquidity contract for the AMM
-  let liquidityToken: TokenContract;
+  let liquidityTokenInstance: ContractInstanceWithAddress;
   // Sponsored FPC contract
-  let sponsoredFPC: SponsoredFPCContract;
+  let sponsoredFPCInstance: ContractInstanceWithAddress;
   // Benchmarking configuration
   const config = t.config.amm;
 
@@ -50,8 +53,20 @@ describe('AMM benchmark', () => {
     await t.applyDeployCandyBarTokenSnapshot();
     await t.applyDeployAmmSnapshot();
     await t.applyDeploySponsoredFPCSnapshot();
-    ({ adminWallet, userWallet, adminAddress, bananaFPC, bananaCoin, candyBarCoin, amm, liquidityToken, sponsoredFPC } =
-      await t.setup());
+    ({
+      adminWallet,
+      userWallet,
+      adminAddress,
+      amm,
+      bananaFPCInstance,
+      bananaCoin,
+      bananaCoinInstance,
+      candyBarCoin,
+      candyBarCoinInstance,
+      ammInstance,
+      liquidityTokenInstance,
+      sponsoredFPCInstance,
+    } = await t.setup());
   });
 
   afterAll(async () => {
@@ -76,15 +91,15 @@ describe('AMM benchmark', () => {
         // Register admin as sender in benchy's wallet, since we need it to discover the minted bananas
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
-        await userWallet.registerContract(bananaFPC);
-        await userWallet.registerContract(bananaCoin);
+        await userWallet.registerContract(bananaFPCInstance, FPCContract.artifact);
+        await userWallet.registerContract(bananaCoinInstance, TokenContract.artifact);
         // Register the CandyBarCoin on the user's Wallet so we can simulate and prove
-        await userWallet.registerContract(candyBarCoin);
+        await userWallet.registerContract(candyBarCoinInstance);
         // Register the AMM and liquidity token on the user's Wallet so we can simulate and prove
-        await userWallet.registerContract(amm);
-        await userWallet.registerContract(liquidityToken);
+        await userWallet.registerContract(ammInstance, AMMContract.artifact);
+        await userWallet.registerContract(liquidityTokenInstance);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
-        await userWallet.registerContract(sponsoredFPC);
+        await userWallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
       });
 
       function addLiquidityTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
