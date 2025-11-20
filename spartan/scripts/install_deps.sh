@@ -21,6 +21,23 @@ if ! command -v kind &> /dev/null; then
   sudo mv ./kind /usr/local/bin/kind
 fi
 
+function get_helm_from_cache {
+  helm_artifact="$1"
+
+  if cache_download "$helm_artifact" >/dev/null; then
+    if [ -f helm ]; then
+      sudo mv helm /usr/local/bin/helm
+    elif [ -f ./usr/local/bin/helm ]; then
+      sudo mv ./usr/local/bin/helm /usr/local/bin/helm
+    else 
+      echo "Could not extract helm from cache"
+      return 1
+    fi
+    sudo chmod +x /usr/local/bin/helm
+    return 0
+  fi
+}
+
 # Install helm if it is not installed
 if ! command -v helm &> /dev/null; then
   echo "Installing helm..."
@@ -28,10 +45,8 @@ if ! command -v helm &> /dev/null; then
   # Determine the helm artifact name based on OS and architecture
   helm_artifact="helm-$(os)-$(arch).tar.gz"
 
-  if cache_download "$helm_artifact" >/dev/null; then
+  if get_helm_from_cache "$helm_artifact" >/dev/null; then
     echo "Using cached Helm binary"
-    sudo mv helm /usr/local/bin/helm
-    sudo chmod +x /usr/local/bin/helm
   else
     echo "Downloading Helm from get.helm.sh..."
     # Download and run the official Helm installer script

@@ -297,6 +297,7 @@ async function getBlockFromRollupTx(
   targetCommitteeSize: number,
   logger: Logger,
 ): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version'>> {
+  logger.trace(`Fetching L2 block ${l2BlockNumber} from rollup tx ${txHash}`);
   const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
 
   const rollupData = extractRollupProposeCalldata(forwarderData, rollupAddress);
@@ -332,6 +333,7 @@ async function getBlockFromRollupTx(
     archive: decodedArgs.archive,
     stateReference: decodedArgs.stateReference,
     header: decodedArgs.header,
+    l1BlockHash: blockHash,
     blobHashes,
     attestations,
     packedAttestations,

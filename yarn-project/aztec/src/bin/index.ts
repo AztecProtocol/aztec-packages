@@ -2,7 +2,7 @@
 //
 import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectWalletCommands } from '@aztec/cli-wallet';
-import { enrichEnvironmentWithChainConfig, enrichEnvironmentWithNetworkConfig } from '@aztec/cli/config';
+import { enrichEnvironmentWithChainName, enrichEnvironmentWithNetworkConfig } from '@aztec/cli/config';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
 import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infrastructure';
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
@@ -41,7 +41,7 @@ async function main() {
 
   const networkName = getActiveNetworkName(networkValue);
   await enrichEnvironmentWithNetworkConfig(networkName);
-  enrichEnvironmentWithChainConfig(networkName);
+  enrichEnvironmentWithChainName(networkName);
 
   const cliVersion = getCliVersion();
   let program = new Command('aztec');
