@@ -63,7 +63,7 @@ export async function retrievedBlockToPublishedL2Block({
   version,
   attestations,
 }: RetrievedL2Block): Promise<PublishedL2Block> {
-  const { totalNumBlobFields, blocks: blocksBlobData } = checkpointBlobData;
+  const { blocks: blocksBlobData } = checkpointBlobData;
 
   // The lastArchiveRoot of a block is the new archive for the previous block.
   const newArchiveRoots = blocksBlobData
@@ -75,7 +75,7 @@ export async function retrievedBlockToPublishedL2Block({
   // field for the `l1ToL2MessageRoot` of the first block. So below we can safely assume it exists:
   const l1toL2MessageTreeRoot = blocksBlobData[0].l1ToL2MessageRoot!;
 
-  const spongeBlob = await SpongeBlob.init(totalNumBlobFields);
+  const spongeBlob = SpongeBlob.init();
   const l2Blocks: L2Block[] = [];
   for (let i = 0; i < blocksBlobData.length; i++) {
     const blockBlobData = blocksBlobData[i];

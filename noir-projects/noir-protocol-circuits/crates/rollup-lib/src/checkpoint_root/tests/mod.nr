@@ -19,8 +19,9 @@ use std::test::OracleMock;
 use types::{
     abis::{
         checkpoint_header::CheckpointHeader, epoch_constant_data::EpochConstantData,
-        fee_recipient::FeeRecipient, sponge_blob::SpongeBlob,
+        fee_recipient::FeeRecipient,
     },
+    blob_data::{create_checkpoint_end_marker, SpongeBlob},
     constants::{
         BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
         BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
@@ -35,6 +36,14 @@ fn is_first_block(vk_index: u32) -> bool {
     (vk_index == BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX)
         | (vk_index == BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX)
         | (vk_index == BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX)
+}
+
+/// Generate the `end_sponge_blob` for the child rollup that absorbs the blob fields.
+/// Except for the last field (the checkpoint end marker), which will be absorbed in the composer.
+unconstrained fn generate_end_sponge_blob<let N: u32>(blob_fields: [Field; N]) -> SpongeBlob {
+    let mut end_sponge_blob = SpongeBlob::init();
+    end_sponge_blob.absorb(blob_fields, blob_fields.len() - 1);
+    end_sponge_blob
 }
 
 struct TestBuilder {
@@ -61,13 +70,13 @@ impl TestBuilder {
         Self::new_single_block(BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX)
     }
 
-    pub fn default_with_blob_fields<let N: u32>(blobs_fields: [Field; N]) -> Self {
+    pub fn default_with_blob_fields<let N: u32>(blob_fields: [Field; N]) -> Self {
         Self::new_with_blob_fields(
             BLOCK_MERGE_ROLLUP_VK_INDEX,
             2,
             BLOCK_ROOT_ROLLUP_VK_INDEX,
             1,
-            blobs_fields,
+            blob_fields,
             // Make this the only checkpoint in the epoch, so that we can test the end blob accumulator against the
             // final blob challenges.
             1,
@@ -81,29 +90,37 @@ impl TestBuilder {
         right_rollup_vk_index: u32,
         num_right_blocks: u32,
     ) -> Self {
-        let blobs_fields: [Field; 14] = [14].concat(make_fixture(25339));
+        let blob_fields_without_end_marker: [Field; 14] = [14].concat(make_fixture(25339));
         Self::new_with_blob_fields(
             left_rollup_vk_index,
             num_left_blocks,
             right_rollup_vk_index,
             num_right_blocks,
-            blobs_fields,
+            blob_fields_without_end_marker.concat([create_checkpoint_end_marker(15)]),
             2,
             false,
         )
     }
 
     pub fn new_single_block(vk_index: u32) -> Self {
-        let blobs_fields: [Field; 8] = [8].concat(make_fixture(89243));
-        Self::new_with_blob_fields(vk_index, 1, 0, 0, blobs_fields, 1, true)
+        let blob_fields_without_end_marker: [Field; 8] = make_fixture(89243);
+        Self::new_with_blob_fields(
+            vk_index,
+            1,
+            0,
+            0,
+            blob_fields_without_end_marker.concat([create_checkpoint_end_marker(9)]),
+            1,
+            true,
+        )
     }
 
-    fn new_with_blob_fields<let N: u32>(
+    fn new_with_blob_fields<let BlobFieldsLen: u32>(
         left_rollup_vk_index: u32,
         num_left_blocks: u32,
         right_rollup_vk_index: u32,
         num_right_blocks: u32,
-        blobs_fields: [Field; N],
+        blob_fields: [Field; BlobFieldsLen],
         num_checkpoints: u32,
         is_single_block: bool,
     ) -> Self {
@@ -145,12 +162,11 @@ impl TestBuilder {
 
         left_rollup.previous_archive = previous_archive;
 
-        let start_sponge_blob = SpongeBlob::init_for_checkpoint(N);
+        let start_sponge_blob = SpongeBlob::init();
         left_rollup.start_sponge_blob = start_sponge_blob;
 
-        // Update the `end_sponge_blob` to be the actual sponge that absorbs all the blob fields.
-        let mut end_sponge_blob = SpongeBlob::new(N); // Not using `init_for_checkpoint` as `blobs_fields` already contains the prefix field.
-        end_sponge_blob.absorb(blobs_fields, N);
+        // Safety: This is just for testing. Unconstrained to speed up the tests.
+        let end_sponge_blob = unsafe { generate_end_sponge_blob(blob_fields) };
         if is_single_block {
             left_rollup.end_sponge_blob = end_sponge_blob;
         } else {
@@ -162,7 +178,7 @@ impl TestBuilder {
             previous_archive_sibling_path,
             start_blob_accumulator: fixture_builder.get_blob_accumulator(slot_number - 1),
             final_blob_challenges: fixture_builder.get_final_blob_challenges(),
-            blobs_fields: pad_end(blobs_fields),
+            blobs_fields: pad_end(blob_fields),
             blob_commitments: fixture_builder.get_blob_commitments(slot_number),
             blobs_hash: slot_number + 9325034,
         };

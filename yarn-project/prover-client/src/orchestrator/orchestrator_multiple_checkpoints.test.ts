@@ -41,7 +41,6 @@ describe('prover/orchestrator/multi-checkpoints', () => {
           const {
             constants,
             blocks: [block],
-            totalNumBlobFields,
             previousBlockHeader,
           } = checkpoints[i];
           await context.orchestrator.startNewCheckpoint(
@@ -49,7 +48,6 @@ describe('prover/orchestrator/multi-checkpoints', () => {
             constants,
             [], // l1ToL2Messages
             numBlocksPerCheckpoint,
-            totalNumBlobFields,
             previousBlockHeader,
           );
 
@@ -94,7 +92,6 @@ describe('prover/orchestrator/multi-checkpoints', () => {
             const {
               constants,
               blocks: [block],
-              totalNumBlobFields,
               previousBlockHeader,
             } = checkpoints[i];
             await context.orchestrator.startNewCheckpoint(
@@ -102,7 +99,6 @@ describe('prover/orchestrator/multi-checkpoints', () => {
               constants,
               [],
               1 /* numBlocks */,
-              totalNumBlobFields,
               previousBlockHeader,
             );
 

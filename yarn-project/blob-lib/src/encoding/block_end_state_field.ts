@@ -8,7 +8,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { BlobDeserializationError } from '../errors.js';
 
-// Must match the implementation in `noir-protocol-circuits/crates/rollup-lib/src/block_merge/components/block_blob_data.nr`.
+// Must match the implementation in `noir-protocol-circuits/crates/types/src/blob_data/block_blob_data.nr`.
 
 export const TOTAL_MANA_USED_BIT_SIZE = 48n;
 

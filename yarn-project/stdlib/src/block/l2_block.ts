@@ -1,4 +1,4 @@
-import { type BlockBlobData, encodeBlockBlobData } from '@aztec/blob-lib/encoding';
+import { type BlockBlobData, encodeBlockBlobData, encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -154,8 +154,8 @@ export class L2Block {
    * TODO(#17027): Remove this method from L2Block and create a dedicated Checkpoint class.
    */
   public getCheckpointBlobFields() {
-    const blockBlobData = this.toBlobFields(true);
-    return [new Fr(blockBlobData.length + 1)].concat(blockBlobData);
+    const blockBlobData = this.toBlockBlobData(true);
+    return encodeCheckpointBlobDataFromBlocks([blockBlobData]);
   }
 
   public toBlobFields(isFirstBlock: boolean): Fr[] {

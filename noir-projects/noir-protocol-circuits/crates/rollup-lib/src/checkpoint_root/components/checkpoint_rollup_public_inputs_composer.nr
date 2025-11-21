@@ -11,9 +11,11 @@ use types::{
         checkpoint_header::CheckpointHeader, epoch_constant_data::EpochConstantData,
         fee_recipient::FeeRecipient,
     },
+    blob_data::SpongeBlob,
     constants::{AZTEC_MAX_EPOCH_DURATION, FIELDS_PER_BLOB},
     content_commitment::ContentCommitment,
     traits::{Empty, Hash},
+    utils::arrays::assert_trailing_zeros,
 };
 
 pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
@@ -106,20 +108,33 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
     }
 
     fn get_end_blob_accumulator(self) -> BlobAccumulator {
+        // Absorb the checkpoint end marker.
         let mut end_sponge_blob = self.merged_rollup.end_sponge_blob;
+        end_sponge_blob.absorb_checkpoint_end_marker();
+
+        let num_blob_fields = end_sponge_blob.num_absorbed_fields;
+        // Check that the first `num_blob_fields` of the given fields do match what's been absorbed into the sponge.
+        let mut expected_end_sponge = SpongeBlob::init();
+        expected_end_sponge.absorb(self.blobs_fields, num_blob_fields);
+        assert_eq(
+            end_sponge_blob,
+            expected_end_sponge,
+            "Provided blob fields do not match the fields that were absorbed",
+        );
+        // Check that all fields after `num_blob_fields` are zero.
+        assert_trailing_zeros(self.blobs_fields, num_blob_fields);
+
         let sponge_blob_hash = end_sponge_blob.squeeze();
 
         if !dep::std::runtime::is_unconstrained() {
-            let (end_blob_accumulator, hashed_blobs_fields) = evaluate_blobs_and_batch(
+            let end_blob_accumulator = evaluate_blobs_and_batch(
                 self.blobs_fields,
-                end_sponge_blob.num_expected_fields,
+                num_blob_fields,
+                sponge_blob_hash,
                 self.blob_commitments,
                 self.final_blob_challenges,
                 self.start_blob_accumulator,
             );
-
-            // Check that the injected fields do match what's been absorbed into the sponge by comparing their hashes.
-            assert_eq(sponge_blob_hash, hashed_blobs_fields, "Mismatched blob fields hash");
 
             end_blob_accumulator
         } else {
@@ -129,7 +144,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             unsafe {
                 blob::mock_blob_oracle::evaluate_blobs_and_batch(
                     self.blobs_fields,
-                    end_sponge_blob.num_expected_fields,
+                    num_blob_fields,
                     sponge_blob_hash,
                     self.blob_commitments,
                     self.final_blob_challenges,

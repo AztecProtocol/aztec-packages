@@ -11,7 +11,6 @@ use crate::{
         block_root_rollup_private_inputs::BlockRootRollupPrivateInputs,
         block_root_single_tx_first_rollup_private_inputs::BlockRootSingleTxFirstRollupPrivateInputs,
         block_root_single_tx_rollup_private_inputs::BlockRootSingleTxRollupPrivateInputs,
-        components::block_blob_data::{create_block_end_marker, create_block_end_state_field},
     },
     tests::RollupFixtureBuilder,
 };
@@ -21,6 +20,7 @@ use types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader,
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
+    blob_data::SpongeBlob,
     constants::{
         ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, PARITY_ROOT_VK_INDEX,
         PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
@@ -178,7 +178,6 @@ impl TestBuilder {
                 previous_archive: left.constants.last_archive,
                 previous_state,
                 constants: self.checkpoint_constants,
-                start_sponge_blob: left.start_sponge_blob,
                 timestamp: left.constants.global_variables.timestamp,
                 new_l1_to_l2_message_subtree_root_sibling_path,
                 new_archive_sibling_path,
@@ -256,24 +255,28 @@ impl TestBuilder {
 
         // --- Sponge blobs ---
 
-        assert_eq(pi.start_sponge_blob, left.start_sponge_blob);
+        let expected_start_sponge_blob = if is_empty_block {
+            SpongeBlob::init()
+        } else {
+            // Although the first block should always have an empty start sponge blob, but it's not checked in this
+            // circuit. So here we simply check that the output is whatever value assigned to the left rollup.
+            left.start_sponge_blob
+        };
+        assert_eq(pi.start_sponge_blob, expected_start_sponge_blob);
 
-        let mut expected_end_sponge_blob = right.end_sponge_blob;
-        let blob_data = [
-            create_block_end_marker(
-                left.constants.global_variables,
-                self.num_left_txs + self.num_right_txs,
-            ),
-            create_block_end_state_field(pi.end_state, pi.accumulated_mana_used),
-            pi.previous_archive.root,
-            pi.end_state.partial.note_hash_tree.root,
-            pi.end_state.partial.nullifier_tree.root,
-            pi.end_state.partial.public_data_tree.root,
-        ];
-        expected_end_sponge_blob.absorb(blob_data, blob_data.len());
-        if self.is_first_block_root {
-            expected_end_sponge_blob.absorb([pi.end_state.l1_to_l2_message_tree.root], 1);
-        }
+        let mut expected_end_sponge_blob = if is_empty_block {
+            SpongeBlob::init()
+        } else {
+            right.end_sponge_blob
+        };
+        expected_end_sponge_blob.absorb_block_end_data(
+            left.constants.global_variables,
+            pi.previous_archive,
+            pi.end_state,
+            self.num_left_txs + self.num_right_txs,
+            pi.accumulated_mana_used,
+            self.is_first_block_root,
+        );
         assert_eq(pi.end_sponge_blob, expected_end_sponge_blob);
 
         // --- Archive ---

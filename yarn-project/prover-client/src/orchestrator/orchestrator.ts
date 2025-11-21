@@ -146,7 +146,6 @@ export class ProvingOrchestrator implements EpochProver {
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,
-    totalNumBlobFields: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
   ) {
     if (!this.provingState) {
@@ -179,7 +178,6 @@ export class ProvingOrchestrator implements EpochProver {
       checkpointIndex,
       constants,
       totalNumBlocks,
-      totalNumBlobFields,
       headerOfLastBlockInPreviousCheckpoint,
       lastArchiveSiblingPath,
       l1ToL2Messages,
@@ -229,7 +227,7 @@ export class ProvingOrchestrator implements EpochProver {
     const lastArchiveTreeSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const lastArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
 
-    const blockProvingState = await checkpointProvingState.startNewBlock(
+    const blockProvingState = checkpointProvingState.startNewBlock(
       blockNumber,
       timestamp,
       totalNumTxs,

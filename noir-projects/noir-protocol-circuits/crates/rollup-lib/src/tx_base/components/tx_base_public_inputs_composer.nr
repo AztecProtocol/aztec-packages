@@ -1,10 +1,9 @@
 use crate::{
-    abis::{PublicChonkVerifierPublicInputs, TxEffect, TxRollupPublicInputs},
+    abis::{PublicChonkVerifierPublicInputs, TxRollupPublicInputs},
     tx_base::components::{
         private_tx_effect_builder,
         public_tx_effect_builder,
         tree_snapshot_builder::{build_tree_snapshots, TreeSnapshotDiffHints},
-        tx_blob_data::{append_tx_effect_to_sponge_blob, TxEffectArrayLengths},
     },
 };
 use dep::types::{
@@ -12,8 +11,9 @@ use dep::types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
         gas::Gas, kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
-        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
+        partial_state_reference::PartialStateReference,
     },
+    blob_data::{SpongeBlob, TxEffect, TxEffectArrayLengths},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_L2_TO_L1_MSG_SUBTREES_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -112,11 +112,8 @@ impl TxBasePublicInputsComposer {
     }
 
     pub fn finish(self) -> TxRollupPublicInputs {
-        let end_sponge_blob = append_tx_effect_to_sponge_blob(
-            self.tx_effect,
-            self.tx_effect_array_lengths,
-            self.start_sponge_blob,
-        );
+        let mut end_sponge_blob = self.start_sponge_blob;
+        end_sponge_blob.absorb_tx_blob_data(self.tx_effect, self.tx_effect_array_lengths);
 
         let out_hash = self.compute_kernel_out_hash();
 

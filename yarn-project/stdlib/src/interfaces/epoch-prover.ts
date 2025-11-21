@@ -30,7 +30,6 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
    * @param constants - The constants for this checkpoint.
    * @param l1ToL2Messages - The set of L1 to L2 messages to be included in this checkpoint.
    * @param totalNumBlocks - The total number of blocks expected in the checkpoint (must be at least one).
-   * @param totalNumBlobFields - The total number of blob fields expected in the checkpoint.
    * @param headerOfLastBlockInPreviousCheckpoint - The header of the last block in the previous checkpoint.
    */
   startNewCheckpoint(
@@ -38,7 +37,6 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,
-    totalNumBlobFields: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
   ): Promise<void>;
 

@@ -1,5 +1,5 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { SpongeBlob, encodeBlockEndBlobData, getTotalNumBlobFieldsFromTxs } from '@aztec/blob-lib';
+import { SpongeBlob, encodeBlockEndBlobData } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
   CHONK_PROOF_LENGTH,
@@ -243,14 +243,10 @@ describe('LightBlockBuilder', () => {
     );
     const lastL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
 
-    const numBlobFields = getTotalNumBlobFieldsFromTxs([txs.map(tx => tx.txEffect.getTxStartMarker())]);
-    const startSpongeBlob = await SpongeBlob.init(numBlobFields);
-
     const parityOutput = await getParityOutput(l1ToL2Messages);
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
 
-    // Clone the sponge blob to avoid mutating the start state.
-    const spongeBlobState = startSpongeBlob.clone();
+    const spongeBlobState = SpongeBlob.init();
     const rollupOutputs = await getPrivateBaseRollupOutputs(txs, lastArchive, newL1ToL2Snapshot, spongeBlobState);
 
     const previousRollups = await getTopMerges!(rollupOutputs);
@@ -261,7 +257,6 @@ describe('LightBlockBuilder', () => {
       lastArchiveSiblingPath,
       lastL1ToL2Snapshot,
       lastL1ToL2MessageSubtreeRootSiblingPath,
-      startSpongeBlob,
     );
 
     // Absorb blob end states into the sponge blob.
@@ -369,7 +364,6 @@ describe('LightBlockBuilder', () => {
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     lastL1ToL2Snapshot: AppendOnlyTreeSnapshot,
     lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
-    startSpongeBlob: SpongeBlob,
   ) => {
     const mergeRollupVk = getVkData(
       previousRollups.length === 1 ? 'PrivateTxBaseRollupArtifact' : 'TxMergeRollupArtifact',
@@ -401,7 +395,6 @@ describe('LightBlockBuilder', () => {
         previousState: previousBlockHeader.state,
         previousArchive: lastArchive,
         constants,
-        startSpongeBlob,
         timestamp: globalVariables.timestamp,
         newArchiveSiblingPath,
         newL1ToL2MessageSubtreeRootSiblingPath,

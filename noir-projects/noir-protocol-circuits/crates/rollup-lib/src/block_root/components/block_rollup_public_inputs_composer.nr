@@ -1,13 +1,12 @@
 use crate::{abis::{BlockRollupPublicInputs, TxRollupPublicInputs}, tx_merge::merge_tx_rollups};
-use super::block_blob_data::create_block_end_blob_data;
 use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader,
         checkpoint_constant_data::CheckpointConstantData, global_variables::GlobalVariables,
-        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
-        state_reference::StateReference,
+        partial_state_reference::PartialStateReference, state_reference::StateReference,
     },
+    blob_data::SpongeBlob,
     constants::{
         ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
         L1_TO_L2_MSG_TREE_HEIGHT,
@@ -202,25 +201,20 @@ impl BlockRollupPublicInputsComposer {
 
         // Absorb data for this block into the end sponge blob.
         let mut block_end_sponge_blob = self.end_sponge_blob;
-        let blob_data = create_block_end_blob_data(
+        // `in_hash` is not 0 if and only if it's the first block in the checkpoint.
+        let is_first_block_in_checkpoint = self.in_hash != 0;
+        block_end_sponge_blob.absorb_block_end_data(
             global_variables,
             last_archive,
             state,
             self.num_txs,
             self.accumulated_mana_used,
+            is_first_block_in_checkpoint,
         );
-        // Include the last field (the l1-to-l2 message tree root) only if `in_hash` is not 0, which must always be the
-        // case for the first block root in a checkpoint.
-        let num_blob_data_to_absorb = if self.in_hash == 0 {
-            blob_data.len() - 1
-        } else {
-            blob_data.len()
-        };
-        block_end_sponge_blob.absorb(blob_data, num_blob_data_to_absorb);
 
         // Duplicate the `block_end_sponge_blob` so that we can squeeze it.
-        // This is because `squeeze` will mutate the sponge to be in squeeze mode (and may absorb an extra field if not
-        // full). But we want to propagate the un-squeezed sponge so that it can keep absorbing data in the next block.
+        // This is because `squeeze` will mutate the sponge to be in squeeze mode to update the state. But we want to
+        // propagate the un-squeezed sponge so that it can keep absorbing data in the next block.
         let mut duplicated_end_sponge_blob = block_end_sponge_blob;
         let sponge_blob_hash = duplicated_end_sponge_blob.squeeze();
 

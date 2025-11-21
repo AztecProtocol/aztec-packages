@@ -2,7 +2,7 @@ import {
   BatchedBlobAccumulator,
   type FinalBlobBatchingChallenges,
   SpongeBlob,
-  encodeCheckpointBlobData,
+  encodeCheckpointBlobDataFromBlocks,
 } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
@@ -54,7 +54,6 @@ export class CheckpointProvingState {
     public readonly index: number,
     public readonly constants: CheckpointConstantData,
     public readonly totalNumBlocks: number,
-    private readonly totalNumBlobFields: number,
     private readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
     private readonly headerOfLastBlockInPreviousCheckpoint: BlockHeader,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
@@ -82,13 +81,13 @@ export class CheckpointProvingState {
     return this.parentEpoch.epochNumber;
   }
 
-  public async startNewBlock(
+  public startNewBlock(
     blockNumber: number,
     timestamp: UInt64,
     totalNumTxs: number,
     lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
-  ): Promise<BlockProvingState> {
+  ): BlockProvingState {
     const index = blockNumber - this.firstBlockNumber;
     if (index >= this.totalNumBlocks) {
       throw new Error(`Unable to start a new block at index ${index}. Expected at most ${this.totalNumBlocks} blocks.`);
@@ -102,8 +101,7 @@ export class CheckpointProvingState {
     const lastL1ToL2MessageSubtreeRootSiblingPath =
       index === 0 ? this.lastL1ToL2MessageSubtreeRootSiblingPath : this.newL1ToL2MessageSubtreeRootSiblingPath;
 
-    const startSpongeBlob =
-      index === 0 ? await SpongeBlob.init(this.totalNumBlobFields) : this.blocks[index - 1]?.getEndSpongeBlob();
+    const startSpongeBlob = index === 0 ? SpongeBlob.init() : this.blocks[index - 1]?.getEndSpongeBlob();
     if (!startSpongeBlob) {
       throw new Error(
         'Cannot start a new block before the trees have progressed from the tx effects in the previous block.',
@@ -200,10 +198,7 @@ export class CheckpointProvingState {
       return;
     }
 
-    this.blobFields = encodeCheckpointBlobData({
-      totalNumBlobFields: this.totalNumBlobFields,
-      blocks: this.blocks.map(b => b!.getBlockBlobData()),
-    });
+    this.blobFields = encodeCheckpointBlobDataFromBlocks(this.blocks.map(b => b!.getBlockBlobData()));
     this.endBlobAccumulator = await accumulateBlobs(this.blobFields!, startBlobAccumulator);
     this.startBlobAccumulator = startBlobAccumulator;
 

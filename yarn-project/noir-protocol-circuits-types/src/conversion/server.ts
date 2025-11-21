@@ -246,7 +246,6 @@ function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
   return {
     sponge: mapPoseidon2SpongeToNoir(spongeBlob.sponge),
     num_absorbed_fields: mapNumberToNoir(spongeBlob.numAbsorbedFields),
-    num_expected_fields: mapNumberToNoir(spongeBlob.numExpectedFields),
   };
 }
 
@@ -259,7 +258,6 @@ function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
   return new SpongeBlob(
     mapPoseidon2SpongeFromNoir(spongeBlob.sponge),
     mapNumberFromNoir(spongeBlob.num_absorbed_fields),
-    mapNumberFromNoir(spongeBlob.num_expected_fields),
   );
 }
 
@@ -821,7 +819,6 @@ export function mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir(
     previous_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.previousArchive),
     previous_state: mapStateReferenceToNoir(inputs.previousState),
     constants: mapCheckpointConstantDataToNoir(inputs.constants),
-    start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
     timestamp: mapU64ToNoir(inputs.timestamp),
     new_l1_to_l2_message_subtree_root_sibling_path: mapTuple(
       inputs.newL1ToL2MessageSubtreeRootSiblingPath,

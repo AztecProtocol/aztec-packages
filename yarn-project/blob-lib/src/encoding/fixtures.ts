@@ -198,12 +198,12 @@ export function makeCheckpointBlobData({
       seed,
     );
 
-  const totalNumBlobFields =
-    overrides.totalNumBlobFields ??
+  const numBlobFields =
+    overrides.checkpointEndMarker?.numBlobFields ??
     getTotalNumBlobFieldsFromTxs(blocks.map(block => block.txs.map(tx => tx.txStartMarker)));
 
   return {
-    totalNumBlobFields,
     blocks,
+    checkpointEndMarker: { numBlobFields },
   };
 }

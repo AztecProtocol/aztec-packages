@@ -40,7 +40,6 @@ describe('prover/orchestrator/lifecycle', () => {
       const {
         constants,
         blocks: [block],
-        totalNumBlobFields,
         previousBlockHeader,
       } = await context.makeCheckpoint(1, {
         numTxsPerBlock: 0,
@@ -54,7 +53,6 @@ describe('prover/orchestrator/lifecycle', () => {
         constants,
         [],
         1,
-        totalNumBlobFields,
         previousBlockHeader,
       );
 

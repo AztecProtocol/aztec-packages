@@ -6,9 +6,9 @@ use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        checkpoint_constant_data::CheckpointConstantData, sponge_blob::SpongeBlob,
-        state_reference::StateReference,
+        checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
+    blob_data::SpongeBlob,
     constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH},
     proof::proof_data::UltraHonkProofData,
 };
@@ -21,9 +21,6 @@ pub struct BlockRootEmptyTxFirstRollupPrivateInputs {
     // The previous block is not in the same checkpoint as the current block. So we need to provide the constants for
     // the current checkpoint.
     pub(crate) constants: CheckpointConstantData,
-    // The start sponge blob of this block. No data has been absorbed yet, since it's the first block. But it must be
-    // initialized with the total number of blob fields in the entire checkpoint.
-    pub(crate) start_sponge_blob: SpongeBlob,
     // The timestamp of this block. It's given as a free value here, but will be checked against the previous block's
     // timestamp in the checkpoint root.
     pub(crate) timestamp: u64,
@@ -39,11 +36,14 @@ impl BlockRootEmptyTxFirstRollupPrivateInputs {
     pub fn execute(self) -> BlockRollupPublicInputs {
         validate_parity_root(self.parity_root, self.constants.vk_tree_root);
 
+        // Since it's the first block in a checkpoint, the start sponge blob is empty.
+        let start_sponge_blob = SpongeBlob::init();
+
         BlockRollupPublicInputsComposer::new_from_no_rollups(
             self.previous_archive,
             self.previous_state,
             self.constants,
-            self.start_sponge_blob,
+            start_sponge_blob,
             self.timestamp,
         )
             .with_new_l1_to_l2_messages(

@@ -46,7 +46,6 @@ describe('prover/orchestrator', () => {
           constants,
           blocks: [{ header }],
           l1ToL2Messages,
-          totalNumBlobFields,
           previousBlockHeader,
         } = await context.makeCheckpoint(1, { numTxsPerBlock: 0, numL1ToL2Messages });
 
@@ -91,7 +90,6 @@ describe('prover/orchestrator', () => {
           constants,
           [message],
           1,
-          totalNumBlobFields,
           previousBlockHeader,
         );
 
@@ -129,7 +127,6 @@ describe('prover/orchestrator', () => {
         const {
           constants,
           blocks: [{ header, txs }],
-          totalNumBlobFields,
           previousBlockHeader,
         } = await context.makeCheckpoint(numBlocks);
 
@@ -141,7 +138,6 @@ describe('prover/orchestrator', () => {
           constants,
           [],
           numBlocks,
-          totalNumBlobFields,
           previousBlockHeader,
         );
 
@@ -165,7 +161,6 @@ describe('prover/orchestrator', () => {
         const {
           constants,
           blocks: [{ header, txs }],
-          totalNumBlobFields,
           previousBlockHeader,
         } = await context.makeCheckpoint(numBlocks, {
           numTxsPerBlock: 2,
@@ -180,7 +175,6 @@ describe('prover/orchestrator', () => {
           constants,
           [],
           numBlocks,
-          totalNumBlobFields,
           previousBlockHeader,
         );
 
@@ -226,14 +220,12 @@ describe('prover/orchestrator', () => {
 
         // Start checkpoint in reverse order.
         for (let checkpointIndex = numCheckpoints - 1; checkpointIndex >= 0; checkpointIndex--) {
-          const { constants, blocks, l1ToL2Messages, totalNumBlobFields, previousBlockHeader } =
-            checkpoints[checkpointIndex];
+          const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
           await context.orchestrator.startNewCheckpoint(
             checkpointIndex,
             constants,
             l1ToL2Messages,
             blocks.length,
-            totalNumBlobFields,
             previousBlockHeader,
           );
 
@@ -265,13 +257,12 @@ describe('prover/orchestrator', () => {
 
         await Promise.all(
           checkpoints.map(async (checkpoint, checkpointIndex) => {
-            const { constants, blocks, l1ToL2Messages, totalNumBlobFields, previousBlockHeader } = checkpoint;
+            const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoint;
             await context.orchestrator.startNewCheckpoint(
               checkpointIndex,
               constants,
               l1ToL2Messages,
               blocks.length,
-              totalNumBlobFields,
               previousBlockHeader,
             );
 
