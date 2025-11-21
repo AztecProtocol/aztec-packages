@@ -1,5 +1,0 @@
-    Blocking waiting for file lock on package cache
-   0.153692532s  INFO prepare_target{force=false package_id=powdr-parser v0.0.1 (/mnt/user-data/khashayar/aztec-packages/bb-pilcom/powdr/parser) target="powdr_parser"}: cargo::core::compiler::fingerprint: fingerprint dirty for powdr-parser v0.0.1 (/mnt/user-data/khashayar/aztec-packages/bb-pilcom/powdr/parser)/Check { test: true }/TargetInner { name_inferred: true, ..: lib_target("powdr_parser", ["lib"], "/mnt/user-data/khashayar/aztec-packages/bb-pilcom/powdr/parser/src/lib.rs", Edition2021) }
-   0.153714614s  INFO prepare_target{force=false package_id=powdr-parser v0.0.1 (/mnt/user-data/khashayar/aztec-packages/bb-pilcom/powdr/parser) target="powdr_parser"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
-    Checking powdr-parser v0.0.1 (/mnt/user-data/khashayar/aztec-packages/bb-pilcom/powdr/parser)
-error: could not compile `powdr-parser` (lib test) due to 1 previous error
