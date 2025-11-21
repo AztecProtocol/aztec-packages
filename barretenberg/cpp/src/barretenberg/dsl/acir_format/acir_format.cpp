@@ -671,4 +671,9 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirProgram&, const ProgramMetadata&);
 
+template void set_zero_idx<UltraCircuitBuilder>(const UltraCircuitBuilder&,
+                                                mul_quad_<typename UltraCircuitBuilder::FF>&);
+
+template void set_zero_idx<MegaCircuitBuilder>(const MegaCircuitBuilder&, mul_quad_<typename MegaCircuitBuilder::FF>&);
+
 } // namespace acir_format
