@@ -44,8 +44,9 @@ void create_block_constraints(UltraCircuitBuilder& builder,
         break;
     case BlockType::CallData:
     case BlockType::ReturnData:
-        bb::assert_failure("UltraCircuitBuilder does not support CallData/ReturnData block constraints. Use "
-                           "MegaCircuitBuilder or fall back to RAM and ROM operations.");
+        bb::assert_failure(
+            "UltraCircuitBuilder (standalone Noir application) does not support CallData/ReturnData "
+            "block constraints. Use MegaCircuitBuilder (Aztec app) or fall back to RAM and ROM operations.");
         break;
     default:
         bb::assert_failure("Unexpected block constraint type.");
