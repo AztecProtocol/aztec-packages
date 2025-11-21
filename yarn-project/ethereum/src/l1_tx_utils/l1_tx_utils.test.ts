@@ -121,7 +121,7 @@ describe('L1TxUtils', () => {
     beforeEach(() => {
       config = {
         gasLimitBufferPercentage: 20,
-        maxGwei: 500n,
+        maxGwei: 500,
         maxSpeedUpAttempts: 3,
         checkIntervalMs: CHECK_INTERVAL_MS,
         stallTimeMs: 1000,
@@ -308,8 +308,8 @@ describe('L1TxUtils', () => {
     }, 20_000);
 
     it('respects max gas price limits during spikes', async () => {
-      const maxGwei = 500n;
-      const newBaseFee = (maxGwei - 10n) * WEI_CONST;
+      const maxGwei = 500;
+      const newBaseFee = BigInt((maxGwei - 10) * Number(WEI_CONST));
 
       // Set base fee high but still under our max
       await cheatCodes.setNextBlockBaseFeePerGas(newBaseFee);
@@ -326,7 +326,7 @@ describe('L1TxUtils', () => {
         { maxGwei },
       );
 
-      expect(receipt.effectiveGasPrice).toBeLessThanOrEqual(maxGwei * WEI_CONST);
+      expect(receipt.effectiveGasPrice).toBeLessThanOrEqual(BigInt(maxGwei * Number(WEI_CONST)));
     }, 60_000);
 
     it('adds appropriate buffer to gas estimation', async () => {
@@ -337,7 +337,7 @@ describe('L1TxUtils', () => {
       // First deploy without any buffer
       gasUtils.updateConfig({
         gasLimitBufferPercentage: 0,
-        maxGwei: 500n,
+        maxGwei: 500,
         maxSpeedUpAttempts: 5,
         checkIntervalMs: 100,
         stallTimeMs: 1000,
@@ -356,7 +356,7 @@ describe('L1TxUtils', () => {
       // Now deploy with 20% buffer
       gasUtils.updateConfig({
         gasLimitBufferPercentage: 20,
-        maxGwei: 500n,
+        maxGwei: 500,
         maxSpeedUpAttempts: 3,
         checkIntervalMs: 100,
         stallTimeMs: 1000,
