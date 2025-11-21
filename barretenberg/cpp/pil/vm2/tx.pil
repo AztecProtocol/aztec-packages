@@ -238,11 +238,9 @@ namespace tx;
     pol commit calldata_hash;
 
     pol commit should_process_call_request; // @boolean on active rows (follows from definition)
-    should_process_call_request = is_public_call_request * (1 - is_padded);
+    should_process_call_request = sel * is_public_call_request * (1 - is_padded);
 
     // Read information relating to the public call request from public inputs
-    // Note: A malicious prover could activate `should_process_call_request` outside of the
-    //       active trace but it does not affect the security.
     #[READ_PUBLIC_CALL_REQUEST_PHASE]
     should_process_call_request {
         read_pi_offset,
@@ -277,6 +275,7 @@ namespace tx;
     pol commit next_l2_gas_used_sent_to_enqueued_call;
     pol commit next_da_gas_used_sent_to_enqueued_call;
 
+    // Note that `prev_l2_gas_used` and `prev_da_gas_used` are constrained in tx_context.pil.
     // prev_gas_used_sent_to_enqueued_call = is_teardown ? 0 : prev_gas_used
     should_process_call_request * ((0 - prev_l2_gas_used) * is_teardown + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
     should_process_call_request * ((0 - prev_da_gas_used) * is_teardown + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
