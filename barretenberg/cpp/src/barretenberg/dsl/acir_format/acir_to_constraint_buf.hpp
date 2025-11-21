@@ -120,8 +120,8 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf);
  * The usage of \f$w4_{shift}\f$ is toggled on and off according to whether the expression fits in a single width-4 arithmetic gate or not.
  *
  * The process of turning an Acir::Expression into a series of gates is split into the following steps:
- * 1. Add as many gates as there are multiplication terms. While adding these gates, attempt to add linear terms if they have the same witnesses
- *    indices of witnesses involved in the multiplication. For example, for w1 * w2 + w1, the first (and only) gate will be:
+ * 1. Add as many gates as there are multiplication terms. While adding these gates, attempt to add linear terms if they have the same
+ *    witnesses indices of witnesses involved in the multiplication. For example, for w1 * w2 + w1, the first (and only) gate will be:
  *    | a_idx | b_idx | c_idx       | d_idx       | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const_idx   |
  *    |-------|-------|-------------|-------------|-------------|-----------|-----------|-----------|-----------|-------------|
  *    | w1    | w2    | IS_CONSTANT | IS_CONSTANT | 1           | 1         | 0         | 0         | 0         | IS_CONSTANT |
@@ -129,31 +129,17 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf);
  *    while for all the other gates we have only one as the fourth witness is reserved for w4_shift)
  * 3. Run through the remaining linear terms and add as many gates as needed to handle them.
  *
+ * @note In the case of expressions that require more than one gate, this function performs the first step in a two-step process. Namely, it
+ * leaves the d-terms of all the gates except the first one unassigned. The function create_big_quad_constraint handles the second part,
+ * which assigns the d-terms.
  *
- * @example Consider the expression: w1 * w2 + w5 + w6 + const == 0. This expression fits into a single width-4 arithmetic gate as it contains
- * only one multiplication term, and there are only 4 distinct witnesses. We turn this expression into the following gate (where w4_shift is
- * toggled off):
+ * @example Consider the expression: w1 * w2 + w5 + w6 + const == 0. This expression fits into a single width-4 arithmetic gate as it
+ * contains only one multiplication term, and there are only 4 distinct witnesses. We turn this expression into the following gate
+ * (where w4_shift is toggled off):
  *
  * | a_idx | b_idx | c_idx | d_idx | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const_idx |
  * |-------|-------|-------|-------|-------------|-----------|-----------|-----------|-----------|-----------|
  * | w1    | w2    | w5    | w6    | 1           | 1         | 1         | 1         | 1         | const     |
- *
- * @example Consider the expression: w1 * w2 + w3 * w4 + w5 + w6 + w7 + const == 0. This expression doesn't fit into a single width-4
- * arithmetic gate as it contains 2 multiplications terms (and also because it contains 7 distinct witnesses). We turn this expression into
- * the following series of gates (where w4_shift is toggled on in all gates but the first one):
- *
- * | a_idx | b_idx | c_idx | d_idx                        | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const_idx   |
- * |-------|-------|-------|------------------------------|-------------|-----------|-----------|-----------|-----------|-------------|
- * | w1    | w2    | w5    | w6                           | 1           | 1         | 1         | 1         | 1         | const       |
- * | w3    | w4    | w7    | -(w1 * w2 + w5 + w6 + const) | 1           | 1         | 1         | 1         | -1        | IS_CONSTANT |
- *
- * If we didn't have the option of using w4_shift, we would have needed a third gate to accomodate the expression. Note that we
- * don't know the witness index of the witness -(w1 * w2 + w5 + w6 + const) when we split the expression into multiple gates.
- * For this reason, we leave d_idx unassigned for all gates except the first one when we split the expression, and we set d_idx
- * when we add the constraints for the expression to the builder.
- *
- *
- *
  *
  */
 // clang-format on

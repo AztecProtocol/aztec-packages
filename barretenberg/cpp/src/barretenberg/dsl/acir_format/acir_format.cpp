@@ -11,10 +11,6 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
-#include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
-#include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
-#include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
@@ -135,31 +131,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // split_into_mul_quad_gates for more information.
     for (auto [big_constraint, opcode_idx] : zip_view(constraint_system.big_quad_constraints,
                                                       constraint_system.original_opcode_indices.big_quad_constraints)) {
-        // The index/value of the 4-th witness in the previous mul_add gate (not used in the first gate)
-        // It is result of the expression calculated on the previous gate
-        uint32_t next_w4_wire_idx = 0;
-        fr next_w4_wire_value = fr::zero();
-        for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
-            // Replace IS_CONSTANT indices with zero indices
-            set_zero_idx(builder, big_constraint[j]);
-            // Create the mul_add gate
-            builder.create_big_mul_add_gate(big_constraint[j], /*include_next_gate_w_4*/ true);
-            // Update the index/value of the 4-th wire
-            next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
-                                     big_constraint[j].mul_scaling +
-                                 builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
-                                 builder.get_variable(big_constraint[j].b) * big_constraint[j].b_scaling +
-                                 builder.get_variable(big_constraint[j].c) * big_constraint[j].c_scaling +
-                                 builder.get_variable(big_constraint[j].d) * big_constraint[j].d_scaling +
-                                 big_constraint[j].const_scaling;
-            next_w4_wire_value = -next_w4_wire_value;
-            next_w4_wire_idx = builder.add_variable(next_w4_wire_value);
-            // Set the 4-th wire of the next gate's
-            big_constraint[j + 1].d = next_w4_wire_idx;
-            big_constraint[j + 1].d_scaling = fr(-1);
-        }
-        set_zero_idx(builder, big_constraint.back());
-        builder.create_big_mul_add_gate(big_constraint.back(), /*include_next_gate_w_4*/ false);
+        create_big_quad_constraint(builder, big_constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
