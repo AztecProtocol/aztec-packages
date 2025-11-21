@@ -33,8 +33,7 @@ namespace bb {
 
 /**
  * @brief cycle_node represents the idx of a value of the circuit.
- * It will belong to a CyclicPermutation, such that all nodes in a CyclicPermutation
- * must have the value.
+ * It will belong to a CyclicPermutation, which constrains all nodes in a CyclicPermutation to have the same value.
  * The total number of constraints is always <2^32 since that is the type used to represent variables, so we can save
  * space by using a type smaller than size_t.
  */
@@ -181,8 +180,6 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
                 }
                 if (last_node) {
                     mapping.sigmas[current_column].is_tag[current_row] = true;
-
-                    // TODO(Zac): yikes, std::maps (tau) are expensive. Can we find a way to get rid of this?
                     mapping.sigmas[current_column].row_idx[current_row] =
                         circuit_constructor.tau().at(real_variable_tags[cycle_idx]);
                 }
@@ -252,7 +249,7 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
                     // We intentionally want to break the cycles of the public input variables.
                     // During the witness generation, the left and right wire polynomials at idx i contain the i-th
                     // public input. Let n = SEPARATOR. The CyclicPermutation created for these variables
-                    // always start with (i) -> (n+i), followed by the indices of the variables in the "real" gates. We
+                    // always starts with (i) -> (n+i), followed by the indices of the variables in the "real" gates. We
                     // make i point to -(i+1), so that the only way of repairing the cycle is add the mapping
                     //  -(i+1) -> (n+i)
                     // These indices are chosen so they can easily be computed by the verifier. They can expect
