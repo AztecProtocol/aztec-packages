@@ -76,7 +76,7 @@ class ChonkRecursiveVerifier {
             end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
             goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), it + start_idx, it + end_idx);
 
-            // ECCVM proof
+            // ECCVM proof (IPA is separate)
             start_idx = end_idx;
             end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
             goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), it + start_idx, it + end_idx);

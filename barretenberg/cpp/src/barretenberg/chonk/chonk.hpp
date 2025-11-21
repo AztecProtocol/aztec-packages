@@ -102,8 +102,8 @@ class Chonk : public IVCBase {
         {
             return /*mega_proof*/ MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
                    /*merge_proof*/ MERGE_PROOF_SIZE +
-                   /*eccvm pre-ipa proof*/ (ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH) +
-                   /*eccvm ipa proof*/ IPA_PROOF_LENGTH +
+                   /*eccvm proof*/ ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS +
+                   /*ipa proof*/ IPA_PROOF_LENGTH +
                    /*translator*/ TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
         }
 
