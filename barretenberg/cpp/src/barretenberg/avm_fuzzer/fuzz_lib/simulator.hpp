@@ -40,6 +40,8 @@ class JsSimulator : public Simulator {
     JsSimulator(std::string& simulator_path);
     Process process;
 
+    void restart_simulator_process();
+
   public:
     JsSimulator(JsSimulator& other) = delete;
     void operator=(const JsSimulator&) = delete;

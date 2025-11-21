@@ -928,7 +928,7 @@ TEST(fuzz, EmitNoteHashThenNoteHashExists)
     auto cpp_simulator = CppSimulator();
     auto result = cpp_simulator.simulate(bytecode, {});
     EXPECT_FALSE(result.reverted);
-    // TODO(sn): fix when https://github.com/AztecProtocol/aztec-packages/pull/18475 is merged
+    // TODO(sn):fix notes
     // EXPECT_EQ(result.output.at(0), 1);
 }
 } // namespace notes_and_nullifiers

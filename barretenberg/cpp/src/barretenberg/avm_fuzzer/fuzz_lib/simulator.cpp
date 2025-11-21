@@ -152,6 +152,17 @@ JsSimulator::JsSimulator(std::string& simulator_path)
     , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
 {}
 
+void JsSimulator::restart_simulator_process()
+{
+    if (instance == nullptr) {
+        throw std::runtime_error("JsSimulator should be initialized before restarting");
+    }
+    std::cout << "Restarting JsSimulator process" << std::endl;
+    std::string simulator_path = instance->simulator_path;
+    delete instance;
+    instance = new JsSimulator(simulator_path);
+}
+
 void JsSimulator::restart_simulator()
 {
     bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
@@ -163,19 +174,40 @@ void JsSimulator::restart_simulator()
     }
     instance->process.write_line("{\"restart\":1}");
 
-    // Read the restart response to ensure synchronization
     std::string response = instance->process.read_line();
-    // Remove the newline character
+    if (logging_enabled) {
+        std::cout << "Raw restart response length: " << response.length() << std::endl;
+        std::cout << "Raw restart response (first 200 chars): " << response.substr(0, 200) << std::endl;
+    }
     response.erase(response.find_last_not_of('\n') + 1);
+    if (response.empty()) {
+        std::cout << "Received empty response from simulator after restart command" << std::endl;
+        return;
+    }
 
     try {
-        // Decode the response to verify restart completed successfully
         std::vector<uint8_t> decoded_response = decode_bytecode(response);
         std::string response_string(decoded_response.begin(), decoded_response.end());
         if (logging_enabled) {
             info("Received restart response: ", response_string);
         }
         json response_json = json::parse(response_string);
+
+        // Check if this is actually a restart response (has "restarted" field)
+        if (response_json.contains("reverted")) {
+            if (logging_enabled) {
+                info("Discarding stale simulation response, reading restart response");
+            }
+            response = instance->process.read_line();
+            response.erase(response.find_last_not_of('\n') + 1);
+            decoded_response = decode_bytecode(response);
+            response_string = std::string(decoded_response.begin(), decoded_response.end());
+            if (logging_enabled) {
+                info("Received restart response: ", response_string);
+            }
+            response_json = json::parse(response_string);
+        }
+
         bool restarted = response_json["restarted"];
         if (!restarted) {
             std::string error = response_json.value("error", "Unknown error");
@@ -186,7 +218,6 @@ void JsSimulator::restart_simulator()
         throw std::runtime_error("Failed to restart simulator: " + std::string(e.what()));
     }
 }
-
 JsSimulator* JsSimulator::getInstance()
 {
     if (instance == nullptr) {
@@ -228,7 +259,7 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
     } catch (const std::exception& e) {
         std::cout << "Error decoding response: " << e.what() << std::endl;
         std::cout << "Response: " << response << std::endl;
-        restart_simulator();
+        restart_simulator_process();
 
         return simulate(bytecode, calldata);
     }

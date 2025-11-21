@@ -280,17 +280,13 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::SHR_16, 1 },
     { InstructionGenerationOptions::CAST_8, 1 },
     { InstructionGenerationOptions::CAST_16, 1 },
-    { InstructionGenerationOptions::SSTORE,
-      0 }, // TODO(sn): disabling until https://github.com/AztecProtocol/aztec-packages/pull/18475 is merged
-    { InstructionGenerationOptions::SLOAD,
-      0 }, // TODO(sn): disabling until https://github.com/AztecProtocol/aztec-packages/pull/18475 is merged
+    { InstructionGenerationOptions::SSTORE, 1 },
+    { InstructionGenerationOptions::SLOAD, 1 },
     { InstructionGenerationOptions::GETENVVAR, 1 },
     { InstructionGenerationOptions::EMITNULLIFIER, 1 },
     { InstructionGenerationOptions::NULLIFIEREXISTS, 1 },
-    { InstructionGenerationOptions::EMITNOTEHASH,
-      0 }, // TODO(sn): disabling until https://github.com/AztecProtocol/aztec-packages/pull/18475 is merged
-    { InstructionGenerationOptions::NOTEHASHEXISTS,
-      0 }, // TODO(sn): disabling until https://github.com/AztecProtocol/aztec-packages/pull/18475 is merged
+    { InstructionGenerationOptions::EMITNOTEHASH, 0 },
+    { InstructionGenerationOptions::NOTEHASHEXISTS, 0 },
 });
 
 enum class SStoreMutationOptions { src_offset_index, slot_offset, slot };

@@ -24,6 +24,7 @@ var { UInt64 } = require('@aztec/stdlib/types');
 var { NativeWorldStateService } = require('@aztec/world-state');
 
 var { createInterface } = require('readline');
+var { writeSync } = require('fs');
 
 var { AvmSimulator } = require('../../public/avm/avm_simulator.js');
 var { SimpleContractDataSource } = require('../../public/fixtures/simple_contract_data_source.js');
@@ -235,7 +236,7 @@ async function executeFromJson(jsonLine: string): Promise<void> {
   try {
     const input = JSON.parse(jsonLine.trim());
     if ((!input.bytecode || !input.inputs) && !input.restart) {
-      process.stdout.write('Error: JSON must contain "bytecode" and "inputs" fields or "restart" field\n');
+      writeSync(process.stdout.fd, 'Error: JSON must contain "bytecode" and "inputs" fields or "restart" field\n');
       return;
     }
     if (input.restart) {
@@ -247,11 +248,11 @@ async function executeFromJson(jsonLine: string): Promise<void> {
         }
         const response = { restarted: true };
         const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
-        process.stdout.write(output);
+        writeSync(process.stdout.fd, output);
       } catch (error: any) {
         const response = { restarted: false, error: error.message };
         const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
-        process.stdout.write(output);
+        writeSync(process.stdout.fd, output);
       }
       return;
     }
@@ -274,7 +275,7 @@ async function executeFromJson(jsonLine: string): Promise<void> {
     };
 
     const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
-    process.stdout.write(output);
+    writeSync(process.stdout.fd, output);
   } catch (error) {
     const coverage = Object.fromEntries(report_and_reset_coverage());
     const response = {
@@ -284,7 +285,7 @@ async function executeFromJson(jsonLine: string): Promise<void> {
       revertReason: error.message,
     };
     const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
-    process.stdout.write(output);
+    writeSync(process.stdout.fd, output);
   }
 }
 
