@@ -129,11 +129,7 @@ class IpcServer {
      *
      * Note: Some transports (like shared memory) may not need explicit accept calls.
      */
-    virtual int accept(uint64_t timeout_ns)
-    {
-        (void)timeout_ns;
-        return -1;
-    }
+    virtual int accept() { return -1; }
 
     /**
      * @brief Run server event loop with handler
@@ -157,9 +153,9 @@ class IpcServer {
     {
         while (!shutdown_requested_.load(std::memory_order_acquire)) {
             // Try to accept new clients (non-blocking for socket servers)
-            accept(0);
+            accept();
 
-            int client_id = wait_for_data(100000000);
+            int client_id = wait_for_data(100000000); // 100ms timeout
             if (client_id < 0) {
                 // Timeout or error - check shutdown flag on next iteration
                 continue;

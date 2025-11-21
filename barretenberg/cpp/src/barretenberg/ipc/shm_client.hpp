@@ -84,81 +84,71 @@ class ShmClient : public IpcClient {
 
     bool send(const void* data, size_t len, uint64_t timeout_ns) override
     {
-        (void)timeout_ns; // TODO(charlie): Use timeout parameter
-
         if (!producer_.has_value()) {
             return false;
         }
 
-        // Add 4-byte length prefix to match socket behavior
-        size_t total_len = sizeof(uint32_t) + len;
-        uint32_t spin_time_ns = 10000000; // 10ms
+        uint32_t timeout_ns_u32 = (timeout_ns > UINT32_MAX) ? UINT32_MAX : static_cast<uint32_t>(timeout_ns);
 
-        // Wait for enough space
-        if (!producer_->wait_for_space(total_len, spin_time_ns)) {
-            return false;
+        // Claim and publish length prefix separately
+        void* len_buf = producer_->claim(sizeof(uint32_t), timeout_ns_u32);
+        if (len_buf == nullptr) {
+            return false; // Timeout or no space
         }
-
-        // Claim space
-        size_t granted = 0;
-        void* buf = producer_->claim(total_len, &granted);
-        if (granted < total_len) {
-            return false; // Not enough space
-        }
-
-        // Write message with length prefix
         auto len_u32 = static_cast<uint32_t>(len);
-        std::memcpy(buf, &len_u32, sizeof(uint32_t));
-        std::memcpy(static_cast<uint8_t*>(buf) + sizeof(uint32_t), data, len);
-        producer_->publish(total_len);
+        std::memcpy(len_buf, &len_u32, sizeof(uint32_t));
+        producer_->publish(sizeof(uint32_t));
+
+        // Claim and publish message data separately
+        void* data_buf = producer_->claim(len, timeout_ns_u32);
+        if (data_buf == nullptr) {
+            return false; // Timeout or no space
+        }
+        std::memcpy(data_buf, data, len);
+        producer_->publish(len);
 
         return true;
     }
 
-    ssize_t recv(void* buffer, size_t max_len, uint64_t timeout_ns) override
+    std::span<const uint8_t> recv(uint64_t timeout_ns) override
     {
         if (!response_ring_.has_value()) {
-            return -1;
+            return {};
         }
 
-        uint32_t spin_time_ns = 10000000; // 10ms
-        const int max_retries = timeout_ns > 0 ? static_cast<int>(timeout_ns / spin_time_ns) : 100;
+        uint32_t timeout_ns_u32 = (timeout_ns > UINT32_MAX) ? UINT32_MAX : static_cast<uint32_t>(timeout_ns);
 
-        for (int retry = 0; retry < max_retries; retry++) {
-            if (response_ring_->wait_for_data(spin_time_ns)) {
-                // Data available - peek skips padding automatically
-                size_t n = 0;
-                void* data = response_ring_->peek(&n);
-                if (data == nullptr || n < sizeof(uint32_t)) {
-                    if (n > 0) {
-                        response_ring_->release(n);
-                    }
-                    continue;
-                }
-
-                // Read length prefix
-                uint32_t msg_len = 0;
-                std::memcpy(&msg_len, data, sizeof(uint32_t));
-
-                if (n < sizeof(uint32_t) + msg_len) {
-                    // Incomplete message - wait and retry
-                    continue;
-                }
-
-                if (msg_len > max_len) {
-                    response_ring_->release(sizeof(uint32_t) + msg_len);
-                    return -1; // Buffer too small
-                }
-
-                // Copy message data (skip length prefix)
-                std::memcpy(buffer, static_cast<const uint8_t*>(data) + sizeof(uint32_t), msg_len);
-                response_ring_->release(sizeof(uint32_t) + msg_len);
-
-                return static_cast<ssize_t>(msg_len);
-            }
+        // Peek and release the length prefix (4 bytes)
+        void* len_ptr = response_ring_->peek(sizeof(uint32_t), timeout_ns_u32);
+        if (len_ptr == nullptr) {
+            return {}; // Timeout
         }
 
-        return -1; // Timeout
+        // Read the message length
+        uint32_t msg_len = 0;
+        std::memcpy(&msg_len, len_ptr, sizeof(uint32_t));
+
+        // Release the length prefix
+        response_ring_->release(sizeof(uint32_t));
+
+        // Now peek the message data (do NOT release yet - caller will release)
+        void* msg_ptr = response_ring_->peek(msg_len, timeout_ns_u32);
+        if (msg_ptr == nullptr) {
+            return {}; // Timeout
+        }
+
+        // Return span directly into ring buffer (zero-copy!)
+        return std::span<const uint8_t>(static_cast<const uint8_t*>(msg_ptr), msg_len);
+    }
+
+    void release(size_t message_size) override
+    {
+        if (!response_ring_.has_value()) {
+            return;
+        }
+
+        // Release the message data
+        response_ring_->release(message_size);
     }
 
     void close() override { close_internal(); }

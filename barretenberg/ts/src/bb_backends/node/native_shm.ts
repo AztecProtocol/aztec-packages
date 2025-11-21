@@ -59,7 +59,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     }
 
     // Create a unique shared memory name
-    const shmName = `bb-${process.pid}-${Date.now()}`;
+    const shmName = `bb-${process.pid}`;
 
     // Default maxClients to 1 if not specified
     const clientCount = maxClients ?? 1;
