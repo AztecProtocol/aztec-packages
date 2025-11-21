@@ -43,7 +43,6 @@ template <typename Builder> inline constexpr size_t POSEIDON2_PERMUTATION = 73 +
 template <typename Builder> inline constexpr size_t MULTI_SCALAR_MUL = 3550 + ZERO_GATE;
 template <typename Builder> inline constexpr size_t EC_ADD = 66 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLOCK_ROM_READ = 9 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE + MEGA_OFFSET<Builder>;
 
 // ========================================
 // Honk Recursion Constants

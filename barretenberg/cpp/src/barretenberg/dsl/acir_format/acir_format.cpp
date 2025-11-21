@@ -11,10 +11,6 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
-#include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
-#include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
-#include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
@@ -35,6 +31,22 @@
 namespace acir_format {
 
 using namespace bb;
+
+template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad)
+{
+    using FF = Builder::FF;
+
+    auto replace_and_check_zero_scaling = [&](uint32_t& index, const FF& scaling) {
+        if (index == bb::stdlib::IS_CONSTANT) {
+            index = builder.zero_idx();
+            BB_ASSERT_EQ(scaling, FF(0), "mul_quad_ gate with IS_CONSTANT witness index has non-zero scaling");
+        }
+    };
+
+    replace_and_check_zero_scaling(mul_quad.b, mul_quad.b_scaling);
+    replace_and_check_zero_scaling(mul_quad.c, mul_quad.c_scaling);
+    replace_and_check_zero_scaling(mul_quad.d, mul_quad.d_scaling);
+}
 
 template <typename Builder>
 void perform_full_IPA_verification(Builder& builder,
@@ -97,67 +109,52 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     GateCounter gate_counter{ &builder, collect_gates_per_opcode };
 
     // Add arithmetic gates
-    for (size_t i = 0; i < constraint_system.arithmetic_triple_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.arithmetic_triple_constraints.at(i);
+
+    // AUDITTODO(federico): remove poly_triple_constraints
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.arithmetic_triple_constraints,
+                  constraint_system.original_opcode_indices.arithmetic_triple_constraints)) {
         builder.create_arithmetic_gate(constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.arithmetic_triple_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
-    for (size_t i = 0; i < constraint_system.quad_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.quad_constraints.at(i);
+    // Add standard width-4 Ultra arithmetic gates
+    for (auto [constraint, opcode_idx] :
+         zip_view(constraint_system.quad_constraints, constraint_system.original_opcode_indices.quad_constraints)) {
+        set_zero_idx(builder, constraint);
         builder.create_big_mul_add_gate(constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.quad_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
-    // Oversize gates are a vector of mul_quad gates.
-    for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); ++i) {
-        auto& big_constraint = constraint_system.big_quad_constraints.at(i);
-        fr next_w4_wire_value = fr(0);
-        // Define the 4th wire of these mul_quad gates, which is implicitly used by the previous gate.
-        for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
-            if (j == 0) {
-                next_w4_wire_value = builder.get_variable(big_constraint[0].d);
-            } else {
-                uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
-                big_constraint[j].d = next_w4_wire;
-                big_constraint[j].d_scaling = fr(-1);
-            }
-            builder.create_big_mul_add_gate(big_constraint[j], /*include_next_gate_w_4*/ true);
-            next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
-                                     big_constraint[j].mul_scaling +
-                                 builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
-                                 builder.get_variable(big_constraint[j].b) * big_constraint[j].b_scaling +
-                                 builder.get_variable(big_constraint[j].c) * big_constraint[j].c_scaling +
-                                 next_w4_wire_value * big_constraint[j].d_scaling + big_constraint[j].const_scaling;
-            next_w4_wire_value = -next_w4_wire_value;
-        }
-        uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
-        big_constraint.back().d = next_w4_wire;
-        big_constraint.back().d_scaling = fr(-1);
-        builder.create_big_mul_add_gate(big_constraint.back(), /*include_next_gate_w_4*/ false);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.big_quad_constraints.at(i));
+
+    // When an expression doesn't fit into a single width-4 gate, we split it across multiple gates and we leverage
+    // w4_shift to use the least possible number of intermediate witnesses. See the documentation of
+    // split_into_mul_quad_gates for more information.
+    for (auto [big_constraint, opcode_idx] : zip_view(constraint_system.big_quad_constraints,
+                                                      constraint_system.original_opcode_indices.big_quad_constraints)) {
+        create_big_quad_constraint(builder, big_constraint);
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add logic constraint
-    for (size_t i = 0; i < constraint_system.logic_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.logic_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.logic_constraints, constraint_system.original_opcode_indices.logic_constraints)) {
         create_logic_gate(
             builder, constraint.a, constraint.b, constraint.result, constraint.num_bits, constraint.is_xor_gate);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.logic_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add range constraint
+
+    // AUDITTODO(federico): evaluate the minimal range optimization
+
     // preprocessing: remove range constraints if they are implied by memory operations
     for (auto const& index_range : constraint_system.index_range) {
         if (constraint_system.minimal_range[index_range.first] == index_range.second) {
             constraint_system.minimal_range.erase(index_range.first);
         }
     }
-    for (size_t i = 0; i < constraint_system.range_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.range_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.range_constraints, constraint_system.original_opcode_indices.range_constraints)) {
         uint32_t range = constraint.num_bits;
         if (constraint_system.minimal_range.contains(constraint.witness)) {
             range = constraint_system.minimal_range[constraint.witness];
@@ -165,108 +162,90 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             constraint_system.minimal_range.erase(constraint.witness);
         }
         builder.create_range_constraint(constraint.witness, range, "");
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.range_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add aes128 constraints
-    for (size_t i = 0; i < constraint_system.aes128_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.aes128_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.aes128_constraints, constraint_system.original_opcode_indices.aes128_constraints)) {
         create_aes128_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.aes128_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add sha256 constraints
-    for (size_t i = 0; i < constraint_system.sha256_compression.size(); ++i) {
-        const auto& constraint = constraint_system.sha256_compression[i];
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.sha256_compression, constraint_system.original_opcode_indices.sha256_compression)) {
         create_sha256_compression_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.sha256_compression[i]);
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add ECDSA k1 constraints
-    for (size_t i = 0; i < constraint_system.ecdsa_k1_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.ecdsa_k1_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraint_system.ecdsa_k1_constraints, constraint_system.original_opcode_indices.ecdsa_k1_constraints)) {
         create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.ecdsa_k1_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add ECDSA r1 constraints
-    for (size_t i = 0; i < constraint_system.ecdsa_r1_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.ecdsa_r1_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraint_system.ecdsa_r1_constraints, constraint_system.original_opcode_indices.ecdsa_r1_constraints)) {
         create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.ecdsa_r1_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add blake2s constraints
-    for (size_t i = 0; i < constraint_system.blake2s_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.blake2s_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraint_system.blake2s_constraints, constraint_system.original_opcode_indices.blake2s_constraints)) {
         create_blake2s_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.blake2s_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add blake3 constraints
-    for (size_t i = 0; i < constraint_system.blake3_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.blake3_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.blake3_constraints, constraint_system.original_opcode_indices.blake3_constraints)) {
         create_blake3_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.blake3_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add keccak permutations
-    for (size_t i = 0; i < constraint_system.keccak_permutations.size(); ++i) {
-        const auto& constraint = constraint_system.keccak_permutations[i];
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraint_system.keccak_permutations, constraint_system.original_opcode_indices.keccak_permutations)) {
         create_keccak_permutations(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.keccak_permutations[i]);
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
-    for (size_t i = 0; i < constraint_system.poseidon2_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.poseidon2_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.poseidon2_constraints,
+                  constraint_system.original_opcode_indices.poseidon2_constraints)) {
         create_poseidon2_permutations(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.poseidon2_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add multi scalar mul constraints
-    for (size_t i = 0; i < constraint_system.multi_scalar_mul_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.multi_scalar_mul_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.multi_scalar_mul_constraints,
+                  constraint_system.original_opcode_indices.multi_scalar_mul_constraints)) {
         create_multi_scalar_mul_constraint(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.multi_scalar_mul_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add ec add constraints
-    for (size_t i = 0; i < constraint_system.ec_add_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.ec_add_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.ec_add_constraints, constraint_system.original_opcode_indices.ec_add_constraints)) {
         create_ec_add_constraint(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.ec_add_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add block constraints
-    for (size_t i = 0; i < constraint_system.block_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.block_constraints.at(i);
+    for (const auto& [constraint, opcode_indices] :
+         zip_view(constraint_system.block_constraints, constraint_system.original_opcode_indices.block_constraints)) {
         create_block_constraints(builder, constraint, has_valid_witness_assignments);
         if (collect_gates_per_opcode) {
-            size_t avg_gates_per_opcode =
-                gate_counter.compute_diff() / constraint_system.original_opcode_indices.block_constraints.at(i).size();
-            for (size_t opcode_index : constraint_system.original_opcode_indices.block_constraints.at(i)) {
+            size_t avg_gates_per_opcode = gate_counter.compute_diff() / opcode_indices.size();
+            for (size_t opcode_index : opcode_indices) {
                 constraint_system.gates_per_opcode[opcode_index] = avg_gates_per_opcode;
             }
         }
-    }
-
-    // assert equals
-    for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
-        const auto& constraint = constraint_system.assert_equalities.at(i);
-        builder.assert_equal(constraint.a, constraint.b);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.assert_equalities.at(i));
     }
 
     // RecursionConstraints
@@ -485,8 +464,9 @@ process_honk_recursion_constraints(Builder& builder,
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
-    size_t idx = 0;
-    for (auto& constraint : constraint_system.honk_recursion_constraints) {
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.honk_recursion_constraints,
+                  constraint_system.original_opcode_indices.honk_recursion_constraints)) {
         HonkRecursionConstraintOutput<Builder> honk_recursion_constraint;
 
         if (constraint.proof_type == HONK_ZK) {
@@ -512,8 +492,7 @@ process_honk_recursion_constraints(Builder& builder,
                           constraint.proof_type == ROOT_ROLLUP_HONK);
         output.is_root_rollup = constraint.proof_type == ROOT_ROLLUP_HONK;
 
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
     BB_ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
               "Root rollup must accumulate two IPA proofs.");
@@ -609,16 +588,16 @@ process_chonk_recursion_constraints(Builder& builder,
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
-    size_t idx = 0;
-    for (auto& constraint : constraint_system.chonk_recursion_constraints) {
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.chonk_recursion_constraints,
+                  constraint_system.original_opcode_indices.chonk_recursion_constraints)) {
         HonkRecursionConstraintOutput<Builder> honk_output =
             create_chonk_recursion_constraints(builder, constraint, has_valid_witness_assignments);
 
         // Update the output
         output.update(honk_output, /*update_ipa_data=*/true);
 
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.chonk_recursion_constraints.at(idx++));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     return output;
@@ -632,16 +611,16 @@ process_avm_recursion_constraints(Builder& builder,
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
-    size_t idx = 0;
-    for (auto& constraint : constraint_system.avm_recursion_constraints) {
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.avm_recursion_constraints,
+                  constraint_system.original_opcode_indices.avm_recursion_constraints)) {
         HonkRecursionConstraintOutput<Builder> avm2_recursion_output =
             create_avm2_recursion_constraints_goblin(builder, constraint, has_valid_witness_assignments);
 
         // Update the output
         output.update(avm2_recursion_output, /*update_ipa_data=*/true);
 
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.avm_recursion_constraints.at(idx++));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
     return output;
 }
@@ -691,5 +670,10 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 };
 
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirProgram&, const ProgramMetadata&);
+
+template void set_zero_idx<UltraCircuitBuilder>(const UltraCircuitBuilder&,
+                                                mul_quad_<typename UltraCircuitBuilder::FF>&);
+
+template void set_zero_idx<MegaCircuitBuilder>(const MegaCircuitBuilder&, mul_quad_<typename MegaCircuitBuilder::FF>&);
 
 } // namespace acir_format
