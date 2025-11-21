@@ -175,55 +175,6 @@ The hiding kernel:
 - Applies ZK protections to all sensitive data
 - Is then proven using MegaZK to produce the final Chonk proof
 
-## Serialization
-
-### Proof Serialization
-
-```cpp
-// To field elements
-std::vector<FF> fields = proof.to_field_elements();
-
-// From field elements
-Chonk::Proof proof = Chonk::Proof::from_field_elements(fields);
-
-// To/from msgpack
-msgpack::sbuffer buf = proof.to_msgpack_buffer();
-Chonk::Proof proof = Chonk::Proof::from_msgpack_buffer(buf);
-
-// To/from file
-proof.to_file_msgpack("proof.bin");
-Chonk::Proof proof = Chonk::Proof::from_file_msgpack("proof.bin");
-```
-
-### VK Serialization
-
-```cpp
-// To field elements
-std::vector<bb::fr> fields = vk.to_field_elements();
-
-// From field elements
-vk.from_field_elements(fields);
-```
-
-## Proof Size
-
-The proof length can be computed statically:
-
-```cpp
-// Without public inputs
-size_t len = Chonk::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS();
-
-// With HidingKernelIO public inputs
-size_t len = Chonk::Proof::PROOF_LENGTH();
-```
-
-Components:
-- Mega proof (MegaZK flavor)
-- Merge proof
-- ECCVM proof
-- IPA proof
-- Translator proof
-
 ## Integration with Goblin
 
 Chonk uses Goblin for efficient non-native EC operations:
@@ -234,6 +185,40 @@ Goblin& goblin = ivc.get_goblin();
 ```
 
 The op queue accumulates EC operations from all circuits, which are then proven by ECCVM and Translator.
+
+### Merge Protocol
+
+Each circuit produces a subtable of ECC operations that must be merged into the global op queue. The **Merge protocol** proves this merge was done correctly.
+
+**What it proves:** For each of 4 wire columns $j$:
+
+$$M_j(X) = L_j(X) + X^k \cdot R_j(X)$$
+
+where:
+- $M_j$ = merged table (result)
+- $L_j$ = left table (prepended data)
+- $R_j$ = right table (existing data)
+- $k$ = shift size (degree of $L_j$)
+
+It also proves the degree bound $\deg(L_j) < k$.
+
+**Proof components:**
+
+1. **Commitments**: $[M_j]$ for merged tables, $[G]$ for degree check polynomial where $G(X) = X^{k-1} \sum_i \alpha_i L_i(X)$
+
+2. **Evaluations at $\kappa$**: $l_j = L_j(\kappa)$, $r_j = R_j(\kappa)$, $m_j = M_j(\kappa)$
+
+3. **Evaluation at $\kappa^{-1}$**: $g = G(\kappa^{-1})$ (for degree check)
+
+4. **Shplonk batched quotient**: Batches all opening claims
+
+5. **KZG opening proof**: Final univariate opening
+
+The verifier checks:
+- $m_j = l_j + \kappa^k \cdot r_j$ (merge relation)
+- $g = \kappa^{-(k-1)} \sum_i \alpha_i l_i$ (degree bound)
+
+Note: Commitments to $L_j$ (current subtable) and $R_j$ (previous table) are reused from the HyperNova transcript, avoiding redundant work.
 
 ## Debugging
 
@@ -266,17 +251,77 @@ Chonk uses [HyperNova](https://eprint.iacr.org/2023/573) (Kothapalli, Setty, Tzi
 | `HypernovaFoldingProver` | Prover-side folding operations |
 | `HypernovaFoldingVerifier<Flavor>` | Verifier-side folding (native or recursive) |
 
-### Accumulator
+### Sumcheck to Claim
 
-The accumulator represents a "folded" circuit ready for further folding or final verification:
+Each circuit is converted to **claims** via Sumcheck. Sumcheck reduces proving a multivariate polynomial identity to proving evaluations at a random point:
 
+1. Prover commits to all polynomials (witnesses + precomputed selectors)
+2. Sumcheck protocol produces a random challenge point `r = (r₀, r₁, ..., rₙ₋₁)`
+3. Prover evaluates all `NUM_ALL_ENTITIES` entities at `r`:
+   - Unshifted evaluations: `pᵢ(r)`
+   - Shifted evaluations: `pⱼ_shifted(r)` for shiftable polynomials
+4. Result is `NUM_ALL_ENTITIES` evaluation claims, where shifted polynomials share commitments with their unshifted counterparts
+
+For MegaFlavor: `NUM_ALL_ENTITIES = 60` evaluations (55 unshifted + 5 shifted).
+
+### Batching Claims into Accumulator
+
+The individual evaluation claims are batched into a single accumulator using random linear combinations:
+
+**1. Generate batching challenges:**
+- Unshifted: $\rho_0, \rho_1, \ldots, \rho_{N_u-1}$ where $N_u$ = `NUM_UNSHIFTED_ENTITIES`
+- Shifted: $\sigma_0, \sigma_1, \ldots, \sigma_{N_s-1}$ where $N_s$ = `NUM_SHIFTED_ENTITIES`
+
+**2. Batch polynomials:**
+
+$$p_{\text{unshifted}} = \sum_{i=0}^{N_u-1} \rho_i \cdot p_i$$
+
+$$p_{\text{shifted}} = \sum_{j=0}^{N_s-1} \sigma_j \cdot p_j$$
+
+**3. Batch evaluations:**
+
+$$v_{\text{unshifted}} = \sum_{i=0}^{N_u-1} \rho_i \cdot p_i(r)$$
+
+$$v_{\text{shifted}} = \sum_{j=0}^{N_s-1} \sigma_j \cdot p_{j,\text{shifted}}(r)$$
+
+**4. Batch commitments:**
+
+$$[p_{\text{unshifted}}] = \sum_{i=0}^{N_u-1} \rho_i \cdot [p_i]$$
+
+$$[p_{\text{shifted}}] = \sum_{j=0}^{N_s-1} \sigma_j \cdot [p_j]$$
+
+The resulting accumulator contains $(r, v_{\text{unshifted}}, v_{\text{shifted}}, [p_{\text{unshifted}}], [p_{\text{shifted}}])$.
+
+### Accumulator Structure
+
+The accumulator stores a claim (commitment + evaluation at a point) that represents all previously folded circuits:
+
+**Prover Accumulator** (`MultilinearBatchingProverClaim`):
 ```cpp
-// Prover accumulator (contains full polynomial data)
-using ProverAccumulator = MultilinearBatchingProverClaim;
-
-// Verifier accumulator (contains commitments only)
-using VerifierAccumulator = MultilinearBatchingVerifierClaim;
+struct MultilinearBatchingProverClaim {
+    std::vector<FF> challenge;           // Evaluation point (r₀, r₁, ...)
+    FF non_shifted_evaluation;           // p(r)
+    FF shifted_evaluation;               // p_shifted(r)
+    Polynomial non_shifted_polynomial;   // Full polynomial p
+    Polynomial shifted_polynomial;       // Full shifted polynomial
+    Commitment non_shifted_commitment;   // [p]
+    Commitment shifted_commitment;       // [p_shifted]
+    size_t dyadic_size;
+};
 ```
+
+**Verifier Accumulator** (`MultilinearBatchingVerifierClaim`):
+```cpp
+struct MultilinearBatchingVerifierClaim {
+    std::vector<FF> challenge;           // Evaluation point
+    FF non_shifted_evaluation;           // Claimed evaluation p(r)
+    FF shifted_evaluation;               // Claimed shifted evaluation
+    Commitment non_shifted_commitment;   // [p]
+    Commitment shifted_commitment;       // [p_shifted]
+};
+```
+
+The verifier accumulator contains only commitments (no full polynomials), making it suitable for in-circuit verification.
 
 ### Folding Operations
 
@@ -299,10 +344,35 @@ auto [folding_proof, folded_accumulator] = prover.fold(accumulator, incoming_ins
 ```
 
 The fold operation:
-1. Runs Sumcheck on the incoming instance
-2. Produces random linear combination challenges
-3. Combines polynomials and commitments into the new accumulator
-4. Generates a folding proof for the verifier
+
+1. **Convert instance to accumulator**: Run Sumcheck on the incoming instance to produce an incoming accumulator claim
+
+2. **Batch the two accumulators**: Use `MultilinearBatchingProver` to fold:
+   - Constructs a circuit with 4 witness columns and 2 "evaluation" columns:
+     - `w_non_shifted_accumulator`, `w_non_shifted_instance` - batched polynomials
+     - `w_shifted_accumulator`, `w_shifted_instance` - batched shifted polynomials
+     - `w_evaluations_accumulator` = $\text{eq}(X, r_{\text{acc}})$
+     - `w_evaluations_instance` = $\text{eq}(X, r_{\text{inst}})$
+
+   - Runs Sumcheck on the batching relation which checks:
+
+   $$\sum_X p_{\text{acc}}(X) \cdot \text{eq}(X, r_{\text{acc}}) = v_{\text{acc}}$$
+
+   $$\sum_X p_{\text{inst}}(X) \cdot \text{eq}(X, r_{\text{inst}}) = v_{\text{inst}}$$
+
+   This verifies that the claimed evaluations match the polynomials at the respective challenge points.
+
+3. **Compute folded claim**: Generate batching challenge $\gamma$ and compute:
+
+$$p_{\text{new}} = p_{\text{inst}} + \gamma \cdot p_{\text{acc}}$$
+
+$$[p_{\text{new}}] = [p_{\text{inst}}] + \gamma \cdot [p_{\text{acc}}]$$
+
+$$v_{\text{new}} = v_{\text{inst}} + \gamma \cdot v_{\text{acc}}$$
+
+   (Same formulas apply to shifted polynomials)
+
+4. **Output**: Folding proof (Sumcheck univariates + evaluations) and new accumulator
 
 ### Verification
 
@@ -321,14 +391,24 @@ auto [sumcheck1_valid, sumcheck2_valid, folded_accumulator] =
 
 ### Final Decider
 
-After all folding, the `HypernovaDeciderProver` produces a final proof that the accumulator is valid:
+After all folding, the `HypernovaDeciderProver` produces a final proof that the accumulated claim is valid:
 
 ```cpp
-HypernovaDeciderProver decider_prover(accumulator);
-HonkProof decider_proof = decider_prover.construct_proof();
+HypernovaDeciderProver decider_prover(transcript);
+HonkProof decider_proof = decider_prover.construct_proof(commitment_key, accumulator);
 ```
 
-The decider proof is verified in the hiding circuit to produce the final Chonk proof.
+The decider proves that the batched polynomials in the accumulator actually evaluate to the claimed values at the challenge point. It consists of:
+
+1. **Shplemini**: Multivariate-to-univariate reduction
+   - Reduces opening claims at multivariate point $r = (r_0, \ldots, r_{n-1})$ to a univariate claim
+   - Uses Gemini folding to iteratively reduce dimension
+   - Produces batched quotient commitments
+
+2. **KZG opening proof**: Proves the final univariate evaluation claim
+   - Opens the reduced polynomial at the Shplemini challenge point
+
+The decider proof is verified recursively in the hiding kernel, which then gets proven with MegaZK to produce the final Chonk proof.
 
 ## Related Components
 
@@ -336,3 +416,52 @@ The decider proof is verified in the hiding circuit to produce the final Chonk p
 - **Goblin**: Non-native EC arithmetic (ECCVM + Translator)
 - **MegaFlavor/MegaZKFlavor**: The underlying Honk proof system
 - **DataBusDepot**: Databus commitment management
+
+## Proof Size
+
+The proof length can be computed statically:
+
+```cpp
+// Without public inputs
+size_t len = Chonk::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS();
+
+// With HidingKernelIO public inputs
+size_t len = Chonk::Proof::PROOF_LENGTH();
+```
+
+Components:
+- Mega proof (MegaZK flavor)
+- Merge proof
+- ECCVM proof
+- IPA proof
+- Translator proof
+
+## Serialization
+
+### Proof Serialization
+
+```cpp
+// To field elements
+std::vector<FF> fields = proof.to_field_elements();
+
+// From field elements
+Chonk::Proof proof = Chonk::Proof::from_field_elements(fields);
+
+// To/from msgpack
+msgpack::sbuffer buf = proof.to_msgpack_buffer();
+Chonk::Proof proof = Chonk::Proof::from_msgpack_buffer(buf);
+
+// To/from file
+proof.to_file_msgpack("proof.bin");
+Chonk::Proof proof = Chonk::Proof::from_file_msgpack("proof.bin");
+```
+
+### VK Serialization
+
+```cpp
+// To field elements
+std::vector<bb::fr> fields = vk.to_field_elements();
+
+// From field elements
+vk.from_field_elements(fields);
+```
