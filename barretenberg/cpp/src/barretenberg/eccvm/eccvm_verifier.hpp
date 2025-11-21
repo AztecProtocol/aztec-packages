@@ -34,30 +34,27 @@ template <typename Flavor> class ECCVMVerifier_ {
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
 
-    // Proof type from flavor
-
-    // Native constructor - uses fixed VK from default constructor
-    explicit ECCVMVerifier_(const std::shared_ptr<Transcript>& transcript)
-        requires(!IsRecursive)
-        : key(std::make_shared<VerificationKey>())
-        , transcript(transcript)
-    {}
-
-    // Recursive constructor - uses fixed native VK from default constructor
-    ECCVMVerifier_(Builder* builder, const std::shared_ptr<Transcript>& transcript)
-        requires IsRecursive
-        : builder(builder)
+    // Unified constructor for both native and recursive verification
+    // For recursive case, extracts builder from proof elements via get_context()
+    ECCVMVerifier_(const std::shared_ptr<Transcript>& transcript, const Proof& proof)
+        : proof(proof)
         , transcript(transcript)
     {
-        // ECCVM has a fixed circuit structure, so VK is constant
-        auto native_vk = std::make_shared<typename Flavor::NativeVerificationKey>();
-        key = std::make_shared<VerificationKey>(builder, native_vk);
-        vk_hash = stdlib::witness_t<Builder>(builder, native_vk->hash());
-        key->fix_witness();
-        vk_hash.fix_witness();
+        if constexpr (IsRecursive) {
+            // Extract builder from proof - safe since transcript cannot hash non-witness elements
+            builder = proof.back().get_context();
+            // ECCVM has a fixed circuit structure, so VK is constant
+            auto native_vk = std::make_shared<typename Flavor::NativeVerificationKey>();
+            key = std::make_shared<VerificationKey>(builder, native_vk);
+            vk_hash = stdlib::witness_t<Builder>(builder, native_vk->hash());
+            key->fix_witness();
+            vk_hash.fix_witness();
+        } else {
+            key = std::make_shared<VerificationKey>();
+        }
     }
 
-    [[nodiscard("IPA claim should be verified/accumulated")]] OpeningClaim<Curve> verify_proof(const Proof& proof);
+    [[nodiscard("IPA claim should be verified/accumulated")]] OpeningClaim<Curve> verify_proof();
 
     void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
     void compute_accumulated_result();
@@ -72,6 +69,7 @@ template <typename Flavor> class ECCVMVerifier_ {
     }
 
     std::shared_ptr<VerificationKey> key;
+    Proof proof;
 
     BF vk_hash;
 

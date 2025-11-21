@@ -346,9 +346,9 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
-    ECCVMVerifier verifier(verifier_transcript);
+    ECCVMVerifier verifier(verifier_transcript, proof);
     verifier.transcript->enable_manifest();
-    auto verifier_opening_claim = verifier.verify_proof(proof);
+    auto verifier_opening_claim = verifier.verify_proof();
 
     // Verify IPA with manifest enabled
     auto verifier_ipa_transcript = std::make_shared<Transcript>(prover_ipa_transcript->export_proof());

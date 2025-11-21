@@ -108,8 +108,8 @@ bool Goblin::verify(const GoblinProof& proof,
         merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
     bool merge_verified = merge_pairing_points.check() && degree_check_passed && concatenation_check_passed;
 
-    ECCVMVerifier_<ECCVMFlavor> eccvm_verifier(transcript);
-    auto opening_claim = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    ECCVMVerifier_<ECCVMFlavor> eccvm_verifier(transcript, proof.eccvm_proof);
+    auto opening_claim = eccvm_verifier.verify_proof();
 
     // Verify IPA opening
     auto ipa_transcript = std::make_shared<NativeTranscript>(proof.ipa_proof);

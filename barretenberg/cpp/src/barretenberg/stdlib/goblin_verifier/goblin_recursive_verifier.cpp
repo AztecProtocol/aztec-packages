@@ -41,8 +41,8 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinStdlib
     vinfo("Merge Verifier: degree check identity passed", degree_check_verified);
     vinfo("Merge Verifier: concatenation identity passed", concatenation_check_passed);
     // Run the ECCVM recursive verifier
-    ECCVMRecursiveVerifier eccvm_verifier{ builder, transcript };
-    auto opening_claim = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    ECCVMRecursiveVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
+    auto opening_claim = eccvm_verifier.verify_proof();
 
     // Run the Translator recursive verifier
     // Get translation data from ECCVM verifier

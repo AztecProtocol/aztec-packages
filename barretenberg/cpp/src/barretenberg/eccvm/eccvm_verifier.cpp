@@ -16,7 +16,7 @@ namespace bb {
  * @brief Verifies an ECCVM Honk proof for given program settings.
  * @details Works for both native verification and recursive (in-circuit) verification.
  */
-template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<Flavor>::verify_proof(const Proof& proof)
+template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<Flavor>::verify_proof()
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
