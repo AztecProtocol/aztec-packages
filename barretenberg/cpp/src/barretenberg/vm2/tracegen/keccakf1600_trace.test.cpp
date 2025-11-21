@@ -32,7 +32,8 @@ simulation::KeccakF1600Event create_standard_event_mem_slice()
         for (size_t j = 0; j < 5; j++) {
             const uint64_t input_value = (i * 5 + j) + 1000;
             const uint64_t output_value = (i * 5 + j) + 10000;
-            event.src_mem_values[i][j] = MemoryValue::from<uint64_t>(input_value);
+            // Keccak layout: memory[5 * j + i] = A[i][j]
+            event.src_mem_values[(5 * j) + i] = MemoryValue::from<uint64_t>(input_value);
             event.rounds[0].state[i][j] = input_value;
             if (i == 0 && j == 0) {
                 event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_iota_00 = output_value;
@@ -73,7 +74,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_rw, 0),
                       ROW_FIELD_EQ(keccak_memory_addr, 100),
                       ROW_FIELD_EQ(keccak_memory_space_id, 23),
-                      ROW_FIELD_EQ(keccak_memory_val00, 1000),
+                      ROW_FIELD_EQ(keccak_memory_val_0_, 1000),
                       ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
                       ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_error, 0),
@@ -92,7 +93,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_rw, 0),
                       ROW_FIELD_EQ(keccak_memory_addr, 100 + AVM_KECCAKF1600_STATE_SIZE - 1),
                       ROW_FIELD_EQ(keccak_memory_space_id, 23),
-                      ROW_FIELD_EQ(keccak_memory_val00, 1000 + AVM_KECCAKF1600_STATE_SIZE - 1),
+                      ROW_FIELD_EQ(keccak_memory_val_0_, 1000 + AVM_KECCAKF1600_STATE_SIZE - 1),
                       ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
                       ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_error, 0),
@@ -111,7 +112,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_rw, 1),
                       ROW_FIELD_EQ(keccak_memory_addr, 200),
                       ROW_FIELD_EQ(keccak_memory_space_id, 23),
-                      ROW_FIELD_EQ(keccak_memory_val00, 10000),
+                      ROW_FIELD_EQ(keccak_memory_val_0_, 10000),
                       ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
                       ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_error, 0),
@@ -130,7 +131,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_rw, 1),
                       ROW_FIELD_EQ(keccak_memory_addr, 200 + AVM_KECCAKF1600_STATE_SIZE - 1),
                       ROW_FIELD_EQ(keccak_memory_space_id, 23),
-                      ROW_FIELD_EQ(keccak_memory_val00, 10000 + AVM_KECCAKF1600_STATE_SIZE - 1),
+                      ROW_FIELD_EQ(keccak_memory_val_0_, 10000 + AVM_KECCAKF1600_STATE_SIZE - 1),
                       ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
                       ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_error, 0),
