@@ -1,6 +1,11 @@
 global NOTE_HASH_LEAF_PREIMAGE_LENGTH: u32 = 1;
 
-use crate::{merkle_tree::LeafPreimage, side_effect::{Counted, Readable, Scoped}, traits::Empty};
+use crate::{
+    address::aztec_address::AztecAddress,
+    merkle_tree::LeafPreimage,
+    side_effect::{Counted, Readable, Scoped},
+    traits::Empty,
+};
 
 pub struct NoteHashLeafPreimage {
     pub value: Field,
@@ -24,6 +29,10 @@ impl LeafPreimage for NoteHashLeafPreimage {
 
 impl Readable for NoteHashLeafPreimage {
     fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>) {
+        assert(
+            read_request.contract_address.is_zero(),
+            "Settled read request must have zero contract address",
+        );
         assert_eq(
             self.value,
             read_request.innermost(),

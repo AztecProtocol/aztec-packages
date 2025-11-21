@@ -15,7 +15,7 @@ You should run your own full node if you want to interact with the network in th
 
 ### Minimum Hardware Requirements
 
-- 2 core / 4 vCPU (released in 2015 or later)
+- 8 core / 16 vCPU (released in 2015 or later)
 - 16 GB RAM
 - 1 TB NVMe SSD
 - 25 Mbps network connection

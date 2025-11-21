@@ -2,16 +2,18 @@ import { useContext, useEffect } from 'react';
 import { AztecContext } from '../../../aztecContext';
 import { css } from '@emotion/react';
 import WarningIcon from '@mui/icons-material/WarningOutlined';
+import { colors, commonStyles } from '../../../global.styles';
 
 const container = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: '#00000063',
+  backgroundColor: commonStyles.glassDarker,
+  border: commonStyles.borderMedium,
   padding: '1rem',
-  color: '#fff',
+  color: colors.text.primary,
   width: '100%',
-  borderRadius: '6px',
+  borderRadius: commonStyles.borderRadius,
   marginTop: '2rem',
   '@media (max-width: 900px)': {
     marginTop: '1rem',
@@ -53,7 +55,7 @@ export function NetworkCongestionNotice() {
 
   return (
     <div css={container}>
-      <WarningIcon sx={{ color: '#8d7dff', marginRight: '0.5rem' }} />
+      <WarningIcon sx={{ color: colors.primary.main, marginRight: '0.5rem' }} />
       <span>
         The {network?.name ?? 'Network'} is congested right now. Your transactions may take longer or may be dropped.
       </span>

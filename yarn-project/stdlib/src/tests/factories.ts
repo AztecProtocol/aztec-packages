@@ -93,7 +93,7 @@ import { Gas, GasFees, GasSettings } from '../gas/index.js';
 import { computeCalldataHash } from '../hash/hash.js';
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
-import { ReadRequest } from '../kernel/hints/read_request.js';
+import { ReadRequest, ScopedReadRequest } from '../kernel/hints/read_request.js';
 import {
   ClaimedLengthArray,
   PartialPrivateTailPublicInputsForPublic,
@@ -234,8 +234,8 @@ export function makeSelector(seed: number): FunctionSelector {
   return new FunctionSelector(seed);
 }
 
-function makeReadRequest(n: number): ReadRequest {
-  return new ReadRequest(new Fr(BigInt(n)), n + 1);
+function makeScopedReadRequest(n: number): ScopedReadRequest {
+  return new ScopedReadRequest(new ReadRequest(new Fr(BigInt(n)), n + 1), makeAztecAddress(n + 2));
 }
 
 /**
@@ -642,8 +642,16 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
     minRevertibleSideEffectCounter: fr(0),
-    noteHashReadRequests: makeClaimedLengthArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
-    nullifierReadRequests: makeClaimedLengthArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
+    noteHashReadRequests: makeClaimedLengthArray(
+      MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+      makeScopedReadRequest,
+      seed + 0x300,
+    ),
+    nullifierReadRequests: makeClaimedLengthArray(
+      MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+      makeScopedReadRequest,
+      seed + 0x310,
+    ),
     keyValidationRequestsAndGenerators: makeClaimedLengthArray(
       MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
       makeKeyValidationRequestAndGenerators,

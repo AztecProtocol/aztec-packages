@@ -13,6 +13,7 @@ import { AztecContext } from '../../../aztecContext';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
 import { trackButtonClick } from '../../../utils/matomo';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 export function AccountSelector() {
   const { setFrom, wallet, from, currentTx } = useContext(AztecContext);
@@ -72,6 +73,7 @@ export function AccountSelector() {
           value={from?.toString() ?? ''}
           label="Account"
           open={isOpen}
+          IconComponent={KeyboardArrowDownIcon}
           onOpen={() => setIsOpen(true)}
           onClose={() => setIsOpen(false)}
           onChange={e => {
@@ -86,6 +88,17 @@ export function AccountSelector() {
               return `${account?.alias.split(':')[1]} (${formatFrAsString(account?.item.toString())})`;
             }
             return selected ?? 'Select Account';
+          }}
+          MenuProps={{
+            disableScrollLock: true,
+            PaperProps: {
+              sx: {
+                width: '300px',
+                '@media (max-width: 900px)': {
+                  width: '100vw',
+                },
+              },
+            },
           }}
         >
           {!wallet && (

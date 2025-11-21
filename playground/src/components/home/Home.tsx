@@ -5,9 +5,10 @@ import { useState } from 'react';
 import { AztecContext } from '../../aztecContext';
 import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
-import logoURL from '../../assets/aztec_logo.png';
+import { AztecLogo } from '../AztecLogo';
 import { TxPanel } from '../navbar/TxPanel';
 import { trackButtonClick } from '../../utils/matomo';
+import { colors, commonStyles } from '../../global.styles';
 
 const container = css({
   display: 'flex',
@@ -24,8 +25,10 @@ const headerFrame = css({
   alignItems: 'center',
   marginTop: '1rem',
   marginBottom: '2rem',
-  backgroundColor: '#ffffff38',
-  borderRadius: '10px',
+  backgroundColor: colors.background.paper,
+  backdropFilter: commonStyles.backdropBlur,
+  border: commonStyles.borderLight,
+  borderRadius: commonStyles.borderRadius,
   padding: '12px',
   height: '80px',
   '@media (max-width: 900px)': {
@@ -35,48 +38,39 @@ const headerFrame = css({
 });
 
 const logo = css({
-  width: '120px',
   marginLeft: '1rem',
   marginTop: '2px',
   '@media (max-width: 900px)': {
-    width: '90px',
     marginLeft: '0.5rem',
     marginRight: '0.5rem',
   },
 });
 
-const headerTitle = css({
-  fontWeight: 500,
-  fontSize: '24px',
-  lineHeight: '48px',
-  letterSpacing: '0.03em',
-  color: '#2D2D2D',
-  textDecoration: 'none',
-  marginLeft: '1rem',
+const headerSpacer = css({
   flexGrow: 1,
-  '@media (max-width: 900px)': {
-    fontSize: '18px',
-    lineHeight: '20px',
-    marginLeft: '0rem',
-  },
 });
 
 const docsButton = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#8C7EFF',
+  background: colors.primary.main,
   textDecoration: 'none',
-  borderRadius: '6px',
-  fontWeight: 500,
-  color: '#FFFFFF',
+  borderRadius: commonStyles.borderRadius,
+  fontWeight: 600,
+  color: colors.primary.contrastText,
   fontSize: '16px',
   minWidth: '100px',
   padding: '10px 16px',
+  transition: 'box-shadow 0.2s ease',
+  '&:hover': {
+    boxShadow: `0px 4px 12px ${commonStyles.borderVeryStrong.replace('1px solid ', '')}`,
+  },
   '@media (max-width: 900px)': {
     padding: '8px 10px',
     fontSize: '14px',
     fontWeight: 600,
+    marginRight: '0.5rem',
   },
 });
 
@@ -155,10 +149,11 @@ export default function Home() {
           onClick={() => {
             setShowContractInterface(false);
           }}
+          css={logo}
         >
-          <img css={logo} src={logoURL} alt="Aztec Logo" />
+          <AztecLogo height={48} />
         </div>
-        <div css={headerTitle}>Playground</div>
+        <div css={headerSpacer} />
         <a
           href="https://docs.aztec.network/"
           target="_blank"

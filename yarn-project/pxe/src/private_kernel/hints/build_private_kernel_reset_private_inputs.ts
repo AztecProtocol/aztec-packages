@@ -24,7 +24,6 @@ import {
   PrivateKernelResetDimensions,
   PrivateKernelResetHints,
   type PrivateKernelSimulateOutput,
-  type ReadRequest,
   ReadRequestActionEnum,
   ReadRequestResetActions,
   type ScopedKeyValidationRequestAndGenerator,
@@ -47,12 +46,10 @@ import type { PrivateKernelOracle } from '../private_kernel_oracle.js';
 
 function collectNestedReadRequests<N extends number>(
   executionStack: PrivateCallExecutionResult[],
-  extractReadRequests: (execution: PrivateCallExecutionResult) => ClaimedLengthArray<ReadRequest, N>,
+  extractReadRequests: (execution: PrivateCallExecutionResult) => ClaimedLengthArray<ScopedReadRequest, N>,
 ): ScopedReadRequest[] {
   return collectNested(executionStack, executionResult => {
-    return extractReadRequests(executionResult)
-      .getActiveItems()
-      .map(readRequest => new ScopedReadRequest(readRequest, executionResult.publicInputs.callContext.contractAddress));
+    return extractReadRequests(executionResult).getActiveItems();
   });
 }
 

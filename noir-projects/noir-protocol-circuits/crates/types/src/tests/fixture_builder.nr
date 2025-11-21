@@ -371,11 +371,11 @@ impl FixtureBuilder {
             is_fee_payer: self.is_fee_payer,
             include_by_timestamp: self.include_by_timestamp,
             note_hash_read_requests: ClaimedLengthArray {
-                array: subarray(self.note_hash_read_requests.storage().map(|r| r.inner)),
+                array: subarray(self.note_hash_read_requests.storage()),
                 length: self.note_hash_read_requests.len(),
             },
             nullifier_read_requests: ClaimedLengthArray {
-                array: subarray(self.nullifier_read_requests.storage().map(|r| r.inner)),
+                array: subarray(self.nullifier_read_requests.storage()),
                 length: self.nullifier_read_requests.len(),
             },
             key_validation_requests_and_generators: ClaimedLengthArray {
@@ -908,24 +908,26 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_note_hash_read_request(&mut self, value: Field) -> u32 {
+    pub fn add_settled_note_hash_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
-        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
+        let read_request = Counted::new(value, self.next_counter()).scope(AztecAddress::zero());
         self.note_hash_read_requests.push(read_request);
         read_request_index
     }
 
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
         let value = self.mock_note_hash_value(note_hash_index);
-        self.add_note_hash_read_request(value)
+        let read_request_index = self.note_hash_read_requests.len();
+        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
+        self.note_hash_read_requests.push(read_request);
+        read_request_index
     }
 
     pub fn append_note_hash_read_requests(&mut self, num_reads: u32) {
         let index_offset = self.note_hash_read_requests.len();
         for i in 0..self.note_hash_read_requests.max_len() {
             if i < num_reads {
-                let value = self.mock_note_hash_read_value(index_offset + i);
-                let _ = self.add_note_hash_read_request(value);
+                let _ = self.add_read_request_for_pending_note_hash(index_offset + i);
             }
         }
     }
