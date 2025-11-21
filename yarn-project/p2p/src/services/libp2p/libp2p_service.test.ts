@@ -1,9 +1,19 @@
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { L2Block } from '@aztec/stdlib/block';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import {
+  BlockAttestation,
+  BlockProposal,
+  ConsensusPayload,
+  PeerErrorSeverity,
+  SignatureDomainSeparator,
+  getHashedSignaturePayloadEthSignedMessage,
+} from '@aztec/stdlib/p2p';
+import { makeL2BlockHeader } from '@aztec/stdlib/testing';
 import type { TxValidator } from '@aztec/stdlib/tx';
+import { TxHash } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -11,6 +21,7 @@ import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { BitVector } from '../reqresp/protocols/block_txs/bitvector.js';
 import type { BlockTxsRequest, BlockTxsResponse } from '../reqresp/protocols/block_txs/block_txs_reqresp.js';
@@ -403,6 +414,182 @@ describe('LibP2PService', () => {
 
       const ok = await service.validateRequestedBlockTxs(request, response, peerId);
       expect(ok).toBe(false);
+      expect(peerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('processAttestationFromPeer - duplicate signature detection', () => {
+    let service: any;
+    let peerManager: MockProxy<PeerManagerInterface>;
+    let attestationPool: MockProxy<AttestationPool>;
+    let peerId: PeerId;
+    let mockEpochCache: any;
+
+    beforeEach(() => {
+      peerManager = mock<PeerManagerInterface>();
+      attestationPool = mock<AttestationPool>();
+      peerId = mock<PeerId>({
+        toString: () => 'peer-id',
+      });
+
+      mockEpochCache = {
+        getCommittee: jest.fn(() => Promise.resolve({ committee: [EthAddress.random(), EthAddress.random()] })),
+      };
+
+      service = Object.create(LibP2PService.prototype);
+      service.peerManager = peerManager;
+      service.mempools = { attestationPool };
+      service.logger = createLogger('p2p:test');
+      service.tracer = getTelemetryClient().getTracer('p2p:test');
+      service.epochCache = mockEpochCache;
+      service.validateAttestation = jest.fn(() => Promise.resolve(true));
+      service.validateReceivedMessage = jest.fn(async (validationFunc: any) => {
+        const result = await validationFunc();
+        return result;
+      });
+    });
+
+    function createAttestation(signer: Secp256k1Signer, slotNumber: number, archive: Fr): BlockAttestation {
+      const header = makeL2BlockHeader(1, 2, slotNumber);
+      const payload = new ConsensusPayload(header.toCheckpointHeader(), archive, header.state);
+      const attestationHash = getHashedSignaturePayloadEthSignedMessage(
+        payload,
+        SignatureDomainSeparator.blockAttestation,
+      );
+      const attestationSignature = signer.sign(attestationHash);
+      const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+      const proposerSignature = signer.sign(proposalHash);
+      return new BlockAttestation(payload, attestationSignature, proposerSignature);
+    }
+
+    it('should penalize peer when receiving attestation with different signature for same slot/proposalId/sender', async () => {
+      const slotNumber = 100;
+      const archive = Fr.random();
+      const signer = Secp256k1Signer.random();
+
+      // Create the first attestation
+      const attestation1 = createAttestation(signer, slotNumber, archive);
+
+      // Create a second attestation with different signature
+      const differentSigner = Secp256k1Signer.random();
+      const attestation2 = createAttestation(differentSigner, slotNumber, archive);
+
+      // Verify they have different attestation signatures and different senders
+      expect(attestation1.signature.equals(attestation2.signature)).toBe(false);
+      const sender1 = attestation1.getSender()!.toString();
+      const sender2 = attestation2.getSender()!.toString();
+      expect(sender1).not.toBe(sender2);
+
+      // Mock: first attestation exists in the pool, return it when querying by sender2
+      // This simulates the edge case where somehow an attestation with sender2 already exists
+      // but with attestation1's signature (which shouldn't happen in practice but tests the defensive code)
+      attestationPool.hasAttestation.mockResolvedValue(true);
+      attestationPool.getAttestation.mockResolvedValue(attestation1);
+      attestationPool.canAddAttestation.mockResolvedValue(true);
+
+      // Process the second attestation (with different signature)
+      await service.processAttestationFromPeer(attestation2.toBuffer(), 'msg-id', peerId);
+
+      // Verify that the peer was penalized
+      expect(peerManager.penalizePeer).toHaveBeenCalledWith(peerId, PeerErrorSeverity.LowToleranceError);
+    });
+
+    it('should not penalize peer when receiving duplicate attestation with same signature', async () => {
+      const slotNumber = 100;
+      const archive = Fr.random();
+      const signer = Secp256k1Signer.random();
+
+      const attestation = createAttestation(signer, slotNumber, archive);
+
+      // Mock: attestation exists in the pool with the same signature
+      attestationPool.hasAttestation.mockResolvedValue(true);
+      attestationPool.getAttestation.mockResolvedValue(attestation);
+      attestationPool.canAddAttestation.mockResolvedValue(true);
+
+      // Process the same attestation again
+      await service.processAttestationFromPeer(attestation.toBuffer(), 'msg-id', peerId);
+
+      // Verify that the peer was NOT penalized
+      expect(peerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('processBlockFromPeer - duplicate signature detection', () => {
+    let service: any;
+    let peerManager: MockProxy<PeerManagerInterface>;
+    let attestationPool: MockProxy<AttestationPool>;
+    let peerId: PeerId;
+
+    beforeEach(() => {
+      peerManager = mock<PeerManagerInterface>();
+      attestationPool = mock<AttestationPool>();
+      peerId = mock<PeerId>({
+        toString: () => 'peer-id',
+      });
+
+      service = Object.create(LibP2PService.prototype);
+      service.peerManager = peerManager;
+      service.mempools = { attestationPool };
+      service.logger = createLogger('p2p:test');
+      service.tracer = getTelemetryClient().getTracer('p2p:test');
+      service.validateBlockProposal = jest.fn(() => Promise.resolve(true));
+      service.validateReceivedMessage = jest.fn(async (validationFunc: any) => {
+        const result = await validationFunc();
+        return result;
+      });
+      service.processValidBlockProposal = jest.fn(() => Promise.resolve());
+    });
+
+    function createBlockProposal(signer: Secp256k1Signer, slotNumber: number, archive: Fr): BlockProposal {
+      const header = makeL2BlockHeader(1, 2, slotNumber);
+      const payload = new ConsensusPayload(header.toCheckpointHeader(), archive, header.state);
+      const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+      const signature = signer.sign(hash);
+      const txHashes = [TxHash.random(), TxHash.random()];
+      return new BlockProposal(payload, signature, txHashes);
+    }
+
+    it('should penalize peer when receiving block proposal with different signature for same archive', async () => {
+      const slotNumber = 100;
+      const archive = Fr.random();
+      const signer1 = Secp256k1Signer.random();
+      const signer2 = Secp256k1Signer.random();
+
+      // Create two block proposals with the same content but signed by different signers
+      const proposal1 = createBlockProposal(signer1, slotNumber, archive);
+      const proposal2 = createBlockProposal(signer2, slotNumber, archive);
+
+      // Verify they have different signatures
+      expect(proposal1.signature.equals(proposal2.signature)).toBe(false);
+
+      // Mock: first proposal exists in the pool
+      attestationPool.hasBlockProposal.mockResolvedValue(true);
+      attestationPool.getBlockProposal.mockResolvedValue(proposal1);
+      attestationPool.canAddProposal.mockResolvedValue(true);
+
+      // Process the second proposal (with different signature)
+      await service.processBlockFromPeer(proposal2.toBuffer(), 'msg-id', peerId);
+
+      // Verify that the peer was penalized
+      expect(peerManager.penalizePeer).toHaveBeenCalledWith(peerId, PeerErrorSeverity.LowToleranceError);
+    });
+
+    it('should not penalize peer when receiving duplicate block proposal with same signature', async () => {
+      const slotNumber = 100;
+      const archive = Fr.random();
+      const signer = Secp256k1Signer.random();
+
+      const proposal = createBlockProposal(signer, slotNumber, archive);
+
+      // Mock: proposal exists in the pool with the same signature
+      attestationPool.hasBlockProposal.mockResolvedValue(true);
+      attestationPool.getBlockProposal.mockResolvedValue(proposal);
+      attestationPool.canAddProposal.mockResolvedValue(true);
+
+      // Process the same proposal again
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-id', peerId);
+
+      // Verify that the peer was NOT penalized
       expect(peerManager.penalizePeer).not.toHaveBeenCalled();
     });
   });

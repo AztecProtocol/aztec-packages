@@ -94,6 +94,15 @@ export interface AttestationPool {
   getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
 
   /**
+   * Get existing Attestation for slot, proposal and sender
+   *
+   * @param slot - The slot to query
+   * @param proposalId - The proposal to query
+   * @param sender - The sender to query
+   */
+  getAttestation(slot: bigint, proposalId: string, sender: string): Promise<BlockAttestation | undefined>;
+
+  /**
    * Check if a specific attestation exists in the pool
    *
    * @param attestation - The attestation to check

@@ -50,6 +50,17 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve([]);
   }
 
+  public getAttestation(slot: bigint, proposalId: string, sender: string): Promise<BlockAttestation | undefined> {
+    const slotAttestationMap = this.attestations.get(slot);
+    if (slotAttestationMap) {
+      const proposalAttestationMap = slotAttestationMap.get(proposalId);
+      if (proposalAttestationMap) {
+        return Promise.resolve(proposalAttestationMap.get(sender));
+      }
+    }
+    return Promise.resolve(undefined);
+  }
+
   public addAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       // Perf: order and group by slot before insertion

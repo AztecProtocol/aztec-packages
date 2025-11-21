@@ -70,6 +70,7 @@ function mockAttestationPool(): AttestationPool {
     deleteAttestationsForSlotAndProposal: () => Promise.resolve(),
     getAttestationsForSlot: () => Promise.resolve([]),
     getAttestationsForSlotAndProposal: () => Promise.resolve([]),
+    getAttestation: () => Promise.resolve(undefined),
     addBlockProposal: () => Promise.resolve(),
     getBlockProposal: () => Promise.resolve(undefined),
     hasBlockProposal: () => Promise.resolve(false),

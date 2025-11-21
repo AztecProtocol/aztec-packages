@@ -136,6 +136,15 @@ export class KvAttestationPool implements AttestationPool {
     return attestations;
   }
 
+  public async getAttestation(slot: bigint, proposalId: string, sender: string): Promise<BlockAttestation | undefined> {
+    const buffer = await this.attestations.getAsync(this.getAttestationKey(slot, proposalId, sender));
+    if (buffer) {
+      return BlockAttestation.fromBuffer(buffer);
+    }
+
+    return Promise.resolve(undefined);
+  }
+
   public async deleteAttestationsOlderThan(oldestSlot: bigint): Promise<void> {
     const olderThan = await toArray(this.proposalsForSlot.keysAsync({ end: new Fr(oldestSlot).toString() }));
     for (const oldSlot of olderThan) {

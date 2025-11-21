@@ -134,6 +134,54 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     expect(await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), archive.toString())).toHaveLength(1);
   });
 
+  it('should retrieve a specific attestation by slot, proposalId, and sender', async () => {
+    const slotNumber = 420;
+    const archive = Fr.random();
+    const attestations = signers.map(signer => mockAttestation(signer, slotNumber, archive));
+
+    await ap.addAttestations(attestations);
+
+    // Retrieve each attestation individually by sender
+    for (const attestation of attestations) {
+      const sender = attestation.getSender()!.toString();
+      const retrieved = await ap.getAttestation(BigInt(slotNumber), archive.toString(), sender);
+
+      expect(retrieved).toBeDefined();
+      expect(retrieved!.toBuffer()).toEqual(attestation.toBuffer());
+      expect(retrieved!.getSender()?.toString()).toEqual(sender);
+    }
+  });
+
+  it('should return undefined when getting non-existent attestation', async () => {
+    const slotNumber = 420;
+    const archive = Fr.random();
+    const nonExistentSender = '0x1234567890123456789012345678901234567890';
+
+    const retrieved = await ap.getAttestation(BigInt(slotNumber), archive.toString(), nonExistentSender);
+
+    expect(retrieved).toBeUndefined();
+  });
+
+  it('should return undefined for attestation after it is deleted', async () => {
+    const slotNumber = 420;
+    const archive = Fr.random();
+    const attestation = mockAttestation(signers[0], slotNumber, archive);
+    const sender = attestation.getSender()!.toString();
+
+    await ap.addAttestations([attestation]);
+
+    // Verify it exists
+    let retrieved = await ap.getAttestation(BigInt(slotNumber), archive.toString(), sender);
+    expect(retrieved).toBeDefined();
+
+    // Delete the attestation
+    await ap.deleteAttestations([attestation]);
+
+    // Should now return undefined
+    retrieved = await ap.getAttestation(BigInt(slotNumber), archive.toString(), sender);
+    expect(retrieved).toBeUndefined();
+  });
+
   it('should store attestations by differing slot', async () => {
     const slotNumbers = [1, 2, 3, 4];
     const attestations = signers.map((signer, i) => mockAttestation(signer, slotNumbers[i]));

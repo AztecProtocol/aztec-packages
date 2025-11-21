@@ -824,6 +824,17 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       if (!isValid) {
         return { result: TopicValidatorResult.Reject };
       } else if (exists) {
+        const existingAttestation = await pool.getAttestation(
+          attestation.payload.header.slotNumber.toBigInt(),
+          attestation.archive.toString(),
+          attestation.getSender()!.toString(),
+        );
+        if (existingAttestation && !existingAttestation.signature.equals(attestation.signature)) {
+          this.logger.warn('Penalizing the peer for sending the same attestation with a different signature.');
+          this.peerManager.penalizePeer(source, PeerErrorSeverity.LowToleranceError);
+          return { result: TopicValidatorResult.Reject };
+        }
+
         return { result: TopicValidatorResult.Ignore, obj: attestation };
       } else if (!canAdd) {
         this.logger.warn(`Dropping block attestation due to per-(slot, proposalId) attestation cap`, {
@@ -883,6 +894,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       if (!isValid) {
         return { result: TopicValidatorResult.Reject };
       } else if (exists) {
+        const existingBlockProposal = await pool?.getBlockProposal(block.payload.archive.toString());
+        if (existingBlockProposal && !existingBlockProposal.signature.equals(block.signature)) {
+          this.logger.warn('Penalizing the peer for sending the same block proposal with a different signature.');
+          this.peerManager.penalizePeer(source, PeerErrorSeverity.LowToleranceError);
+          return { result: TopicValidatorResult.Reject };
+        }
+
         return { result: TopicValidatorResult.Ignore, obj: block };
       } else if (!canAdd) {
         this.peerManager.penalizePeer(source, PeerErrorSeverity.MidToleranceError);
