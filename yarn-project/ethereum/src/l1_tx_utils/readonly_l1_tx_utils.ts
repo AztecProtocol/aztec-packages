@@ -321,8 +321,8 @@ export class ReadOnlyL1TxUtils {
     }
 
     // maxGwei and maxBlobGwei are hard limits
-    const effectiveMaxGwei = gasConfig.maxGwei! * WEI_CONST;
-    const effectiveMaxBlobGwei = gasConfig.maxBlobGwei! * WEI_CONST;
+    const effectiveMaxGwei = BigInt(Math.trunc(gasConfig.maxGwei! * Number(WEI_CONST)));
+    const effectiveMaxBlobGwei = BigInt(Math.trunc(gasConfig.maxBlobGwei! * Number(WEI_CONST)));
 
     // Ensure we don't exceed maxGwei
     if (effectiveMaxGwei > 0n) {
