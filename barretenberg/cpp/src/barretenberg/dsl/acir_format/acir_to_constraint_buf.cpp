@@ -800,7 +800,7 @@ bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint3
         //     2.a If they are distinct, update the total number of witnesses to be added to wires according to result
         //         of the check at step 1: each distinct witness already in the linear terms subtracts one from the
         //         total
-        //     2.b If they are equal, update the total number of witnesses to be added to wire according to result of
+        //     2.b If they are equal, update the total number of witnesses to be added to wires according to result of
         //         the check at step 1: if the witness is already in the linear terms, it removes one from the total
 
         // Number of witnesses to be put in wires if the witnesses from the linear terms and the multiplication term are
