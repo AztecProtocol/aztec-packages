@@ -123,6 +123,12 @@ interface OpcodeDocumentation {
   tagUpdates?: string[];
   /** Additional notes */
   notes?: string[];
+  /** Gas scaling information for dynamic gas costs */
+  gasScaling?: {
+    l2Gas?: string;
+    daGas?: string;
+    note?: string;
+  };
 }
 
 /**
@@ -396,6 +402,11 @@ function generateOpcodeDoc(
   // Add notes if present
   if (minimalMetadata.notes) {
     doc.notes = minimalMetadata.notes;
+  }
+
+  // Add gas scaling if present
+  if (minimalMetadata.gasScaling) {
+    doc.gasScaling = minimalMetadata.gasScaling;
   }
 
   return doc;
@@ -803,60 +814,34 @@ function generateOpcodeMDX(doc: OpcodeDocumentation): string {
 }
 
 /**
- * Generate a complete MDX file with all opcodes.
+ * Generate quick reference markdown page.
  */
-function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): string {
+function generateQuickReference(docs: Record<string, OpcodeDocumentation>, fullDocFilename: string): string {
   const lines: string[] = [];
 
-  // Frontmatter
-  lines.push('---');
-  lines.push('title: AVM Instruction Set');
-  lines.push('description: Complete reference for all Aztec Virtual Machine instructions');
-  lines.push('---');
-  lines.push('');
-
-  // Introduction
-  lines.push('# AVM Instruction Set');
+  // Title and introduction
+  lines.push('# Instruction Set Quick Reference');
   lines.push('');
   lines.push(
-    'This document provides a comprehensive reference for all Aztec Virtual Machine (AVM) instructions. The AVM is the virtual machine used for **public execution** in the Aztec protocol. This is _not_ a specification of the ACIR instruction set used for private execution.',
+    'Quick reference for all Aztec Virtual Machine (AVM) instructions. The AVM is the virtual machine used for **public execution** in the Aztec protocol.',
   );
   lines.push('');
-  lines.push(`**Total Opcodes**: ${Object.keys(docs).length}`);
+  lines.push(`For detailed documentation of each instruction, see [Instruction Set Details](${fullDocFilename}).`);
   lines.push('');
-
-  // Definitions and notes
-  lines.push('## Definitions and Notes');
+  lines.push('## Understanding the AVM');
   lines.push('');
+  lines.push('Before diving into the instruction set, familiarize yourself with these core concepts:');
+  lines.push('');
+  lines.push('- **[Introduction](./)**: What is the AVM and why do we need it?');
+  lines.push('- **[Memory Model](memory)**: Memory notation and tagged memory (`M[x]` and `T[x]`)');
   lines.push(
-    '- **`M[x]`**: Denotes the value in memory at offset `x`. Memory is a linear array of field elements, each with an associated type tag.',
+    '- **[Addressing Modes](addressing)**: Direct, indirect, and relative addressing along with their gas implications',
   );
   lines.push(
-    '- **`storage[address][slot]`**: Denotes the value in persistent storage at the given contract address and storage slot.',
+    '- **[Gas Metering](gas)**: How L2 and DA gas costs are calculated and charged during instruction execution',
   );
   lines.push(
-    '- **`T[x]`**: Denotes the type tag of the memory cell at offset `x`. Tags include `FIELD`, `UINT1`, `UINT8`, `UINT16`, `UINT32`, `UINT64` and `UINT128`.',
-  );
-  lines.push(
-    '- **`mod 2^k`**: All arithmetic operations are performed modulo 2^k, where `k` is the bit-width of the operand type (e.g., k=8 for `UINT8`, k=254 for `FIELD`).',
-  );
-  lines.push(
-    '- **`mod p`**: Field operations are performed modulo the BN254 field prime `p = 21888242871839275222246405745257275088548364400416034343698204186575808495617`.',
-  );
-  lines.push(
-    '- **Immediate**: A constant value encoded directly in the bytecode that does not require a memory read to access.',
-  );
-  lines.push(
-    '- **`pc++`**: Every instruction increments the program counter (`PC`) by its instruction size (in bytes) unless it performs explicit control flow (jumps, internal calls/returns, calls/returns/reverts) or encounters an error.',
-  );
-  lines.push(
-    "- **Gas metering**: Every instruction has an associated gas cost (L2 and DA components). If insufficient gas remains when an instruction is reached, execution halts with an out-of-gas error. This error condition is implicit for all instructions and is not explicitly listed in each instruction's error conditions.",
-  );
-  lines.push(
-    '- **Wire formats**: Many instructions have multiple wire format variants. They are named with a suffix (e.g., `ADD_8`, `ADD_16`). **This suffix refers only to the encoding size of operands in the bytecode**, not to type constraints or tag checks. For example, `ADD_8` means the instruction uses 8-bit operand offsets in its encoding, but it does **not** imply that operands must have the `UINT8` tag. The actual type constraints are specified in each instruction\'s "Tag Checks" and "Tag Updates" sections. For many operations, multiple wire format variants exist to optimize bytecode size: smaller operand encodings save space when operands fit within the smaller range.',
-  );
-  lines.push(
-    '- **Addressing Modes**: Instructions that have memory-offset operands include an Addressing Modes bitmask that defines the addressing mode for each memory-offset operand. Every memory-offset operand is associated with two bits in this bitmask. These bits specify whether the operand should be treated as indirect (`M[M[x]]`) and/or relative (`M[x] + M[0]`). By default, operands use direct addressing (`M[x]`). If both bits for an operand are 0, direct addressing is used; otherwise, the operand applies indirect and/or relative addressing as indicated by the bitmask.',
+    '- **[Wire Formats](wire-format)**: How instructions are encoded in bytecode and why opcodes have variants like `ADD_8` and `ADD_16`',
   );
   lines.push('');
 
@@ -870,10 +855,10 @@ function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): strin
   // Quick reference list
   lines.push('## Quick Reference');
   lines.push('');
-  lines.push('Click on an opcode name to jump to its detailed documentation.');
+  lines.push('Click on an opcode name to view its detailed documentation.');
   lines.push('');
   for (const doc of allOpcodeDocInfos) {
-    const nameLink = `[${doc.name}](#${doc.name.toLowerCase()})`;
+    const nameLink = `[${doc.name}](${fullDocFilename}#${doc.name.toLowerCase()})`;
     const opcodes = getOpcodeRangeString(doc.wireFormats);
     const summary = doc.summary || '';
     const wireFormatCount = doc.wireFormats.length;
@@ -889,14 +874,65 @@ function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): strin
   }
   lines.push('');
 
-  lines.push('## Full Instruction Set');
+  return lines.join('\n');
+}
+
+/**
+ * Generate full instruction set details markdown page.
+ */
+function generateFullInstructionSet(docs: Record<string, OpcodeDocumentation>, quickRefFilename: string): string {
+  const lines: string[] = [];
+
+  // Title and introduction
+  lines.push('# Instruction Set Details');
+  lines.push('');
+  lines.push(
+    'Comprehensive reference for all Aztec Virtual Machine (AVM) instructions. The AVM is the virtual machine used for **public execution** in the Aztec protocol. This is _not_ a specification of the ACIR instruction set used for private execution.',
+  );
+  lines.push('');
+  lines.push(`For a quick overview, see [Instruction Set Quick Reference](${quickRefFilename}).`);
+  lines.push('');
+  lines.push('## Definitions and Notes');
+  lines.push('');
+  lines.push(
+    '- **`M[x]`**: Denotes the value in memory at offset `x`, or sometimes the "value after memory offset operand x is fully resolved and accessed".',
+  );
+  lines.push(
+    '- **`T[x]`**: Denotes the type tag of the memory cell at offset `x`. Tags include `FIELD`, `UINT1`, `UINT8`, `UINT16`, `UINT32`, `UINT64` and `UINT128`.',
+  );
+  lines.push(
+    '- **Immediate**: A constant value encoded directly in the bytecode that does not require a memory read to access.',
+  );
+  lines.push(
+    '- **`pc++`**: Every instruction increments the program counter (`PC`) by its instruction size (in bytes) unless it performs explicit control flow (jumps, internal calls/returns, calls/returns/reverts) or encounters an error.',
+  );
+  lines.push(
+    "- **Gas metering**: Every instruction has an associated gas cost (L2 and DA components). If insufficient gas remains when an instruction is reached, execution halts with an out-of-gas error. This error condition is implicit for all instructions and is not explicitly listed in each instruction's error conditions.",
+  );
+  lines.push(
+    '- **`mod 2^k`**: All arithmetic operations are performed modulo 2^k, where `k` is the bit-width of the operand type (e.g., k=8 for `UINT8`, k=254 for `FIELD`).',
+  );
+  lines.push(
+    '- **`mod p`**: Field operations are performed modulo the BN254 field prime `p = 21888242871839275222246405745257275088548364400416034343698204186575808495617`.',
+  );
+  lines.push(
+    '- **`storage[address][slot]`**: Denotes the value in persistent storage at the given contract address and storage slot.',
+  );
+  lines.push('');
+
+  // Sort by lowest opcode value
+  const allOpcodeDocInfos = Object.values(docs).sort((a, b) => {
+    const aLowestOpcode = Math.min(...a.wireFormats.map(wf => wf.opcode));
+    const bLowestOpcode = Math.min(...b.wireFormats.map(wf => wf.opcode));
+    return aLowestOpcode - bLowestOpcode;
+  });
+
+  lines.push('## Instructions');
   lines.push('');
 
   // Generate documentation for each opcode
   for (const doc of allOpcodeDocInfos) {
     lines.push(`### ${doc.name}`);
-    lines.push('');
-    lines.push(`<div className="opcode-card">`);
     lines.push('');
 
     // Summary
@@ -930,20 +966,60 @@ function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): strin
     // Gas Costs (complete)
     lines.push('#### Gas Costs');
     lines.push('');
-    lines.push('| Component | Value |');
-    lines.push('|-----------|-------|');
-    if (doc.gasCosts.l2Base !== undefined) {
-      lines.push(`| L2 Base | ${doc.gasCosts.l2Base} |`);
+
+    // Helper function to wrap M[...] in backticks
+    const wrapMemoryRefs = (str: string): string => {
+      return str.replace(/M\[[^\]]+\]/g, match => `\`${match}\``);
+    };
+
+    // Determine if we need the "Scales with" column
+    const hasDynamicGas = doc.gasCosts.l2Dynamic !== undefined || doc.gasCosts.daDynamic !== undefined;
+    const hasAddressingModes = doc.addressingModes.supported;
+    const needsScalesWithColumn = hasDynamicGas || hasAddressingModes;
+
+    if (needsScalesWithColumn) {
+      lines.push('| Component | Value | Scales with |');
+      lines.push('|-----------|-------|-------------|');
+      if (doc.gasCosts.l2Base !== undefined) {
+        lines.push(`| L2 Base | ${doc.gasCosts.l2Base} | - |`);
+      }
+      if (doc.gasCosts.daBase !== undefined) {
+        lines.push(`| DA Base | ${doc.gasCosts.daBase} | - |`);
+      }
+      // Add L2 Addressing row for instructions with memory offset operands
+      if (hasAddressingModes) {
+        lines.push(
+          `| L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |`,
+        );
+      }
+      if (doc.gasCosts.l2Dynamic !== undefined) {
+        const scalesWith = doc.gasScaling?.l2Gas ? wrapMemoryRefs(doc.gasScaling.l2Gas) : '-';
+        lines.push(`| L2 Dynamic | ${doc.gasCosts.l2Dynamic} | ${scalesWith} |`);
+      }
+      if (doc.gasCosts.daDynamic !== undefined) {
+        const scalesWith = doc.gasScaling?.daGas ? wrapMemoryRefs(doc.gasScaling.daGas) : '-';
+        lines.push(`| DA Dynamic | ${doc.gasCosts.daDynamic} | ${scalesWith} |`);
+      }
+    } else {
+      lines.push('| Component | Value |');
+      lines.push('|-----------|-------|');
+      if (doc.gasCosts.l2Base !== undefined) {
+        lines.push(`| L2 Base | ${doc.gasCosts.l2Base} |`);
+      }
+      if (doc.gasCosts.daBase !== undefined) {
+        lines.push(`| DA Base | ${doc.gasCosts.daBase} |`);
+      }
     }
-    if (doc.gasCosts.daBase !== undefined) {
-      lines.push(`| DA Base | ${doc.gasCosts.daBase} |`);
+    lines.push('');
+
+    // Add instruction-specific gas note if present
+    if (doc.gasScaling?.note) {
+      lines.push(doc.gasScaling.note);
+      lines.push('');
     }
-    if (doc.gasCosts.l2Dynamic !== undefined) {
-      lines.push(`| L2 Dynamic | ${doc.gasCosts.l2Dynamic} |`);
-    }
-    if (doc.gasCosts.daDynamic !== undefined) {
-      lines.push(`| DA Dynamic | ${doc.gasCosts.daDynamic} |`);
-    }
+
+    // Add link to gas metering page
+    lines.push('*See [Gas Metering](gas) for details on how gas costs are computed and applied.');
     lines.push('');
 
     // Operands (complete with addressing mode bits)
@@ -961,7 +1037,9 @@ function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): strin
     // Wire formats (complete with Mermaid)
     if (doc.wireFormats && doc.wireFormats.length > 0) {
       lines.push('#### Wire Formats');
-      lines.push('See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.');
+      lines.push(
+        'See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).',
+      );
       lines.push('');
       for (const wf of doc.wireFormats) {
         lines.push(`**${wf.name}** (Opcode ${formatOpcodeHex(wf.opcode)}):`);
@@ -976,7 +1054,7 @@ function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): strin
     // Addressing Modes
     if (doc.addressingModes?.supported) {
       lines.push('#### Addressing Modes');
-      lines.push('See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.');
+      lines.push('See [Addressing](addressing) page for a detailed explanation.');
       lines.push('');
       lines.push(`${doc.addressingModes.encoding}`);
       lines.push('');
@@ -1023,41 +1101,11 @@ function generateAllOpcodesMDX(docs: Record<string, OpcodeDocumentation>): strin
       lines.push('');
     }
 
-    lines.push('</div>');
-    lines.push('');
     lines.push('---');
     lines.push('');
   }
 
-  // Footer
-  lines.push('## Notes');
-  lines.push('');
-  lines.push('- **M[x]** denotes memory at offset x');
-  lines.push('- **Addressing modes** allow operands to use direct, indirect, or relative addressing');
-  lines.push('- Gas costs may include dynamic components based on operand values or state access patterns');
-  lines.push('');
-
   return lines.join('\n');
-}
-
-/**
- * Generate individual MDX files for each opcode in a directory.
- */
-function generateIndividualMDXFiles(docs: Record<string, OpcodeDocumentation>, outputDir: string): void {
-  // Create output directory if it doesn't exist
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
-
-  //let count = 0;
-  for (const [name, doc] of Object.entries(docs)) {
-    const mdx = generateOpcodeMDX(doc);
-    const filename = path.join(outputDir, `${name.toLowerCase()}.mdx`);
-    fs.writeFileSync(filename, mdx, 'utf-8');
-    //count++;
-  }
-
-  //console.log(`Generated ${count} individual MDX files in ${outputDir}`);
 }
 
 /**
@@ -1069,8 +1117,7 @@ function main() {
 
     // Parse command line arguments
     let outputFile = 'avm-isa.json';
-    let format: 'json' | 'mdx' | 'both' | 'mdx-individual' = 'json';
-    let mdxOutputDir = 'avm-isa-docs';
+    let format: 'json' | 'md' | 'both' = 'json';
 
     for (let i = 0; i < args.length; i++) {
       if (args[i] === '--format' && i + 1 < args.length) {
@@ -1078,9 +1125,6 @@ function main() {
         i++;
       } else if (args[i] === '--output' && i + 1 < args.length) {
         outputFile = args[i + 1];
-        i++;
-      } else if (args[i] === '--mdx-dir' && i + 1 < args.length) {
-        mdxOutputDir = args[i + 1];
         i++;
       } else if (!args[i].startsWith('--')) {
         outputFile = args[i];
@@ -1097,17 +1141,25 @@ function main() {
       //console.log(`✓ JSON documentation: ${outputFile}`);
     }
 
-    // Generate MDX (single file)
-    if (format === 'mdx' || format === 'both') {
-      const mdxOutput = generateAllOpcodesMDX(docs);
-      const mdxFile = outputFile.replace(/\.json$/, '.mdx');
-      fs.writeFileSync(mdxFile, mdxOutput, 'utf-8');
-      //console.log(`✓ MDX documentation: ${mdxFile}`);
-    }
+    // Generate Markdown files
+    if (format === 'md' || format === 'both') {
+      // Compute filenames
+      const quickRefFile = outputFile.replace(/\.json$/, '-quick-reference.md');
+      const fullFile = outputFile.replace(/\.json$/, '-full.md');
 
-    // Generate individual MDX files
-    if (format === 'mdx-individual') {
-      generateIndividualMDXFiles(docs, mdxOutputDir);
+      // Extract basenames for links
+      const quickRefBasename = quickRefFile.split('/').pop()!;
+      const fullBasename = fullFile.split('/').pop()!;
+
+      // Generate quick reference
+      const quickRefOutput = generateQuickReference(docs, fullBasename);
+      fs.writeFileSync(quickRefFile, quickRefOutput, 'utf-8');
+      //console.log(`✓ Quick reference: ${quickRefFile}`);
+
+      // Generate full instruction set
+      const fullOutput = generateFullInstructionSet(docs, quickRefBasename);
+      fs.writeFileSync(fullFile, fullOutput, 'utf-8');
+      //console.log(`✓ Full instruction set: ${fullFile}`);
     }
 
     //console.log(`\nDocumentation generated successfully!`);
@@ -1117,17 +1169,14 @@ function main() {
       //console.log(`\nUsage:`);
       //console.log(`  JSON output: ${outputFile}`);
     }
-    if (format === 'mdx' || format === 'both') {
-      //console.log(`  MDX output: ${outputFile.replace(/\.json$/, '.mdx')}`);
-    }
-    if (format === 'mdx-individual') {
-      //console.log(`  Individual MDX files: ${mdxOutputDir}/`);
+    if (format === 'md' || format === 'both') {
+      //console.log(`  Quick reference: ${outputFile.replace(/\.json$/, '-quick-reference.md')}`);
+      //console.log(`  Full instruction set: ${outputFile.replace(/\.json$/, '-full.md')}`);
     }
 
     //console.log(`\nOptions:`);
-    //console.log(`  --format json|mdx|both|mdx-individual  Output format (default: json)`);
-    //console.log(`  --output <file>                        Output file path`);
-    //console.log(`  --mdx-dir <dir>                        Directory for individual MDX files`);
+    //console.log(`  --format json|md|both  Output format (default: json)`);
+    //console.log(`  --output <file>        Output file path`);
   } catch {
     //console.error('Error generating documentation:');
     //console.error(error);

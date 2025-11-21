@@ -60,6 +60,12 @@ export interface MinimalOpcodeMetadata {
   tagChecks?: string[];
   /** Tag updates/assignments performed by the instruction (e.g., '`T[dstOffset] = T[aOffset]`') */
   tagUpdates?: string[];
+  /** Gas scaling information for dynamic gas costs */
+  gasScaling?: {
+    l2Gas?: string; // What L2 dynamic gas scales with (e.g., "copySize")
+    daGas?: string; // What DA dynamic gas scales with
+    note?: string; // Optional note for unusual scaling behavior
+  };
 }
 
 /**
@@ -73,7 +79,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     expression: 'M[dstOffset] = M[aOffset] + M[bOffset]',
     details:
       'Performs addition. Both operands must have the same type tag. For integer types (UINT8, UINT16, UINT32, UINT64, UINT128), the operation is performed modulo 2^k where k is the bit-width (e.g., k=8 for UINT8). For FIELD type, the operation is performed modulo p (the BN254 field prime). The result inherits the tag from the operands.',
-    errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
+    errors: [
+      { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       aOffset: 'Memory offset of first input',
       bOffset: 'Memory offset of second input',
@@ -88,7 +97,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     expression: 'M[dstOffset] = M[aOffset] - M[bOffset]',
     details:
       'Performs subtraction. Both operands must have the same type tag. For integer types (UINT8, UINT16, UINT32, UINT64, UINT128), the operation is performed modulo 2^k where k is the bit-width (e.g., k=8 for UINT8). For FIELD type, the operation is performed modulo p (the BN254 field prime). The result inherits the tag from the operands.',
-    errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
+    errors: [
+      { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       aOffset: 'Memory offset of the minuend',
       bOffset: 'Memory offset of the subtrahend',
@@ -103,7 +115,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     expression: 'M[dstOffset] = M[aOffset] * M[bOffset]',
     details:
       'Performs multiplication. Both operands must have the same type tag. For integer types (UINT8, UINT16, UINT32, UINT64, UINT128), the operation is performed modulo 2^k where k is the bit-width (e.g., k=8 for UINT8). For FIELD type, the operation is performed modulo p (the BN254 field prime). The result inherits the tag from the operands.',
-    errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
+    errors: [
+      { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       aOffset: 'Memory offset of the first factor',
       bOffset: 'Memory offset of the second factor',
@@ -122,6 +137,7 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
       { condition: 'INVALID_TAG_TYPE', description: 'Operands are not integral types' },
       { condition: 'DIVISION_BY_ZERO', description: 'Second operand (divisor) is zero' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       aOffset: 'Memory offset of the dividend',
@@ -141,6 +157,7 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
       { condition: 'INVALID_TAG_TYPE', description: 'Operands do not have FIELD type tag' },
       { condition: 'DIVISION_BY_ZERO', description: 'Second operand (divisor) is zero' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       aOffset: 'Memory offset of the dividend',
@@ -155,11 +172,14 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Set memory to immediate value',
     expression: 'M[dstOffset] = value',
     details:
-      'Stores an immediate value at the specified memory offset with the given type tag. Multiple wire formats support different value sizes.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Specified tag is not a valid TypeTag' }],
+      'Stores an immediate value (a constant encoded directly in the bytecode) at the specified memory offset with the given type tag. Multiple wire formats support different value sizes.',
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Specified tag is not a valid TypeTag' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
-      tag: 'Type tag to assign to the value',
-      value: 'Immediate value to store',
+      inTag: "Type tag to assign to the value. Unrelated to the opcode's wire format (`SET_8` vs `SET_16`, etc.)",
+      value: 'Constant from the bytecode to store into memory',
       dstOffset: 'Memory offset for value will be stored',
     },
     tagChecks: [],
@@ -170,7 +190,9 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Move value between memory locations',
     expression: 'M[dstOffset] = M[srcOffset]',
     details: 'Copies a value and its type tag from the source memory offset to the destination offset.',
-    errors: [],
+    errors: [
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       srcOffset: 'Memory offset to read from',
       dstOffset: 'Memory offset to write to',
@@ -183,8 +205,11 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Shift left (a &lt;&lt; b)',
     expression: 'M[dstOffset] = M[aOffset] << M[bOffset]',
     details:
-      'Performs left bit shift. Both operands must have the same integral type tag (UINT8, UINT16, UINT32, UINT64, UINT128). The result is computed modulo 2^k where k is the bit-width of the operand type (e.g., k=8 for UINT8). The result inherits the tag from the operands.',
-    errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
+      'Performs left bit shift. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result is computed modulo 2^k where k is the bit-width of the operand type (e.g., k=8 for UINT8). The result inherits the tag from the operands.',
+    errors: [
+      { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       aOffset: 'Memory offset of the value to shift',
       bOffset: 'Memory offset of the shift amount',
@@ -198,8 +223,11 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Shift right (a &gt;&gt; b)',
     expression: 'M[dstOffset] = M[aOffset] >> M[bOffset]',
     details:
-      'Performs right bit shift (logical, zero-fill). Both operands must have the same integral type tag (UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.',
-    errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
+      'Performs right bit shift (logical, zero-fill). Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.',
+    errors: [
+      { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       aOffset: 'Memory offset of the value to shift',
       bOffset: 'Memory offset of the shift amount',
@@ -214,10 +242,11 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Bitwise AND (a &amp; b)',
     expression: 'M[dstOffset] = M[aOffset] & M[bOffset]',
     details:
-      'Performs bitwise AND operation. Both operands must have the same integral type tag. The result inherits the tag from the operands.',
+      'Performs bitwise AND operation. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.',
     errors: [
       { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
       { condition: 'INVALID_TAG_TYPE', description: 'Operands are not integral types' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       aOffset: 'Memory offset of first input',
@@ -232,10 +261,11 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Bitwise OR (a | b)',
     expression: 'M[dstOffset] = M[aOffset] | M[bOffset]',
     details:
-      'Performs bitwise OR operation. Both operands must have the same integral type tag. The result inherits the tag from the operands.',
+      'Performs bitwise OR operation. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.',
     errors: [
       { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
       { condition: 'INVALID_TAG_TYPE', description: 'Operands are not integral types' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       aOffset: 'Memory offset of first input',
@@ -250,10 +280,11 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Bitwise XOR (a ^ b)',
     expression: 'M[dstOffset] = M[aOffset] ^ M[bOffset]',
     details:
-      'Performs bitwise XOR operation. Both operands must have the same integral type tag. The result inherits the tag from the operands.',
+      'Performs bitwise XOR operation. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.',
     errors: [
       { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
       { condition: 'INVALID_TAG_TYPE', description: 'Operands are not integral types' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       aOffset: 'Memory offset of first input',
@@ -268,8 +299,11 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Bitwise NOT (~a)',
     expression: 'M[dstOffset] = ~M[srcOffset]',
     details:
-      "Performs bitwise NOT operation (one's complement). The operand must have an integral type tag. The result inherits the tag from the operand.",
-    errors: [{ condition: 'INVALID_TAG_TYPE', description: 'Operand is not an integral type' }],
+      "Performs bitwise NOT operation (one's complement). The operand must have an integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operand.",
+    errors: [
+      { condition: 'INVALID_TAG_TYPE', description: 'Operand is not an integral type' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       srcOffset: 'Memory offset of the value to negate',
       dstOffset: 'Memory offset for result',
@@ -284,7 +318,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     expression: 'M[dstOffset] = (M[aOffset] == M[bOffset]) ? 1 : 0',
     details:
       'Compares two values for equality. Both operands must have the same type tag. The result is a Uint1 (0 or 1).',
-    errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
+    errors: [
+      { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       aOffset: 'Memory offset of first value to compare',
       bOffset: 'Memory offset of second value to compare',
@@ -297,8 +334,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   LT: {
     summary: 'Less than (a &lt; b)',
     expression: 'M[dstOffset] = (M[aOffset] < M[bOffset]) ? 1 : 0',
-    details: 'Compares two values. Both operands must have the same type tag. The result is a Uint1 (0 or 1).',
-    errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
+    details:
+      'Compares two values. Both operands must have the same type tag. For integer types, performs standard numeric comparison. For FIELD type, performs lexicographic comparison treating field elements as integers (0 < 1 < ... < p-1). The result is a Uint1 (0 or 1).',
+    errors: [
+      { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       aOffset: 'Memory offset of first value to compare',
       bOffset: 'Memory offset of second value to compare',
@@ -311,8 +352,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   LTE: {
     summary: 'Less than or equal (a &lt;= b)',
     expression: 'M[dstOffset] = (M[aOffset] <= M[bOffset]) ? 1 : 0',
-    details: 'Compares two values. Both operands must have the same type tag. The result is a Uint1 (0 or 1).',
-    errors: [{ condition: 'TAG_MISMATCH', description: 'Operands have different type tags' }],
+    details:
+      'Compares two values. Both operands must have the same type tag. For integer types, performs standard numeric comparison. For FIELD type, performs lexicographic comparison treating field elements as integers (0 < 1 < ... < p-1). The result is a Uint1 (0 or 1).',
+    errors: [
+      { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       aOffset: 'Memory offset of first value to compare',
       bOffset: 'Memory offset of second value to compare',
@@ -325,8 +370,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   CAST: {
     summary: 'Type cast memory value',
     expression: 'M[dstOffset] = M[srcOffset] as tag',
-    details: 'Changes the type tag of a value. The value itself is preserved, only its type interpretation changes.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Destination tag is not a valid TypeTag' }],
+    details:
+      'Changes the type tag of a value. The value itself is preserved if casting to a larger type. When casting to a smaller type, the value is truncated by keeping only the least significant bits that fit in the destination type (equivalent to modulo 2^k where k is the bit-width of the destination type).',
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Destination tag is not a valid TypeTag' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       dstTag: 'Type tag to cast the value to',
       srcOffset: 'Memory offset of the value to cast',
@@ -340,8 +389,9 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   JUMP: {
     summary: 'Unconditional jump',
     expression: 'PC = jumpOffset',
-    details: 'Sets the program counter to the specified offset. The offset is an immediate value (not from memory).',
-    errors: [{ condition: 'INVALID_PROGRAM_COUNTER', description: 'Jump offset is outside valid bytecode range' }],
+    details:
+      "Sets the program counter to the specified offset. The offset is an immediate value (not from memory). While this instruction itself does not validate the jump target, an invalid target will trigger an instruction fetching error at the start of the next instruction's processing.",
+    errors: [],
     operandDescriptions: {
       jumpOffset: 'Immediate bytecode offset to jump to',
     },
@@ -353,10 +403,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Conditional jump',
     expression: 'if M[condOffset] != 0 then PC = loc else PC = PC + instructionSize',
     details:
-      'Jumps to the specified location if the condition is non-zero (true). The condition must have type tag Uint1.',
+      "Jumps to the specified location if the condition is non-zero (true). The condition must have type tag Uint1. While this instruction itself does not validate the jump target, an invalid target will trigger an instruction fetching error at the start of the next instruction's processing.",
     errors: [
       { condition: 'INVALID_TAG', description: 'Condition operand is not Uint1' },
-      { condition: 'INVALID_PROGRAM_COUNTER', description: 'Jump location is outside valid bytecode range' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       loc: 'Immediate bytecode offset to jump to if condition is true',
@@ -369,11 +419,9 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   INTERNALCALL: {
     summary: 'Internal function call',
     expression: 'internalCallStack.push({callPc: PC, returnPc: PC + instructionSize}); PC = loc',
-    details: 'Pushes current PC and return address onto internal call stack, then jumps to the target location.',
-    errors: [
-      { condition: 'INVALID_PROGRAM_COUNTER', description: 'Call location is outside valid bytecode range' },
-      { condition: 'CALL_STACK_OVERFLOW', description: 'Internal call stack is full' },
-    ],
+    details:
+      "Pushes current PC and return PC onto internal call stack, then jumps to the target location. While this instruction itself does not validate the jump target, an invalid target will trigger an instruction fetching error at the start of the next instruction's processing.",
+    errors: [],
     operandDescriptions: {
       loc: 'Immediate bytecode offset of the function to call',
     },
@@ -384,8 +432,8 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   INTERNALRETURN: {
     summary: 'Return from internal call',
     expression: 'PC = internalCallStack.pop().returnPc',
-    details: 'Pops return address from internal call stack and sets PC to that address.',
-    errors: [{ condition: 'CALL_STACK_UNDERFLOW', description: 'Internal call stack is empty' }],
+    details: 'Pops return PC from internal call stack and sets PC to it.',
+    errors: [{ condition: 'INTERNAL_CALL_STACK_EMPTY', description: 'Internal call stack is empty' }],
     operandDescriptions: {},
     tagChecks: [],
     tagUpdates: [],
@@ -396,8 +444,11 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Get environment variable',
     expression: 'M[dstOffset] = environmentVariable[varEnum]',
     details:
-      'Retrieves environment variables like address, sender, chainId, timestamp, gas left, etc. The variable is specified by an immediate enum value.',
-    errors: [{ condition: 'INVALID_ENV_VAR', description: 'Variable enum is not a valid EnvironmentVariable' }],
+      'Retrieves environment variables from the currently executing context. "Environment" refers to information specific to the current execution context, with some information specific to the block (e.g., BLOCKNUMBER, TIMESTAMP), some to the transaction (e.g., TRANSACTIONFEE), and some to the currently executing contract call (e.g., ADDRESS, SENDER, gas remaining). The variable is specified by an immediate enum value. Supported enum values: `[ADDRESS=0, SENDER, TRANSACTIONFEE, CHAINID, VERSION, BLOCKNUMBER, TIMESTAMP, BASEFEEPERL2GAS, BASEFEEPERDAGAS, ISSTATICCALL, L2GASLEFT, DAGASLEFT]`.',
+    errors: [
+      { condition: 'INVALID_ENV_VAR', description: 'Env var enum is not in the range of valid enum values' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       varEnum: 'Immediate value specifying which environment variable to read',
     },
@@ -407,23 +458,34 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
 
   CALLDATACOPY: {
     summary: 'Copy calldata to memory',
-    expression: 'M[dstOffset:dstOffset+copySize] = calldata[cdOffset:cdOffset+copySize]',
-    details: "Copies a slice of the current call's calldata into memory at the specified offset.",
-    errors: [{ condition: 'INVALID_TAG', description: 'Size operand is not Uint32' }],
+    expression:
+      'M[dstOffset:dstOffset+M[copySizeOffset]] = calldata[M[cdStartOffset]:M[cdStartOffset]+M[copySizeOffset]]',
+    details:
+      "Copies a section of the current call's calldata into memory at the specified offset. Reads M[copySizeOffset] elements starting at calldata offset M[cdStartOffset], writing them to memory starting at dstOffset. If the read extends past the end of calldata, the out-of-bounds region is padded with zeros. If the write would exceed addressable memory, the instruction errors.",
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Size operand is not Uint32' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
-      cdOffset: 'Memory offset of the calldata start index to copy from',
-      copySize: 'Memory offset of the number of elements to copy',
+      cdStartOffset: 'Memory offset of the calldata start index to copy from',
+      copySizeOffset: 'Memory offset of the number of elements to copy',
       dstOffset: 'Memory offset for writing calldata',
     },
-    tagChecks: ['`T[copySize] == UINT32`'],
-    tagUpdates: ['`T[dstOffset:dstOffset+copySize] = FIELD`'],
+    tagChecks: ['`T[copySizeOffset] == UINT32`'],
+    tagUpdates: ['`T[dstOffset:dstOffset+M[copySizeOffset]] = FIELD`'],
+    gasScaling: {
+      l2Gas: 'M[copySizeOffset]',
+    },
   },
 
   RETURNDATASIZE: {
-    summary: 'Get return data size',
+    summary: 'Get returndata size',
     expression: 'M[dstOffset] = nestedReturndata.length',
-    details: 'Returns the size of the return data from the most recent nested contract call. Result is Uint32.',
-    errors: [],
+    details:
+      "Returns the size of the return data from the most recent nested external call (CALL or STATICCALL instruction). The size is determined by the nested call's RETURN or REVERT instruction. If there has been no nested external call, or if the nested call truly errored (did not explicitly execute a REVERT instruction), this returns 0. Result is Uint32.",
+    errors: [
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       dstOffset: 'Memory offset for size will be written',
     },
@@ -432,24 +494,35 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   },
 
   RETURNDATACOPY: {
-    summary: 'Copy return data to memory',
-    expression: 'M[dstOffset:dstOffset+copySize] = nestedReturndata[rdOffset:rdOffset+copySize]',
-    details: 'Copies a slice of the return data from the most recent nested contract call into memory.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Size operand is not Uint32' }],
+    summary: 'Copy returndata to memory',
+    expression:
+      'M[dstOffset:dstOffset+M[copySizeOffset]] = nestedReturndata[M[rdStartOffset]:M[rdStartOffset]+M[copySizeOffset]]',
+    details:
+      'Copies a section of the returndata from the most recent nested external call (CALL or STATICCALL instruction) into memory. Reads M[copySizeOffset] elements starting at return data offset M[rdStartOffset], writing them to memory starting at dstOffset. If the read extends past the end of return data, the out-of-bounds region is padded with zeros. If the write would exceed addressable memory, the instruction errors.',
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Size operand is not Uint32' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
-      rdOffset: 'Memory offset of the return data start index to copy from',
-      copySize: 'Memory offset of the number of elements to copy',
+      rdStartOffset: 'Memory offset of the return data start index to copy from',
+      copySizeOffset: 'Memory offset of the number of elements to copy',
       dstOffset: 'Memory offset for writing return data',
     },
-    tagChecks: ['`T[copySize] == UINT32`'],
-    tagUpdates: ['`T[dstOffset:dstOffset+copySize] = FIELD`'],
+    tagChecks: ['`T[copySizeOffset] == UINT32`'],
+    tagUpdates: ['`T[dstOffset:dstOffset+M[copySizeOffset]] = FIELD`'],
+    gasScaling: {
+      l2Gas: 'M[copySizeOffset]',
+    },
   },
 
   SUCCESSCOPY: {
-    summary: 'Get success status of last call',
+    summary: 'Get success status of latest external call',
     expression: 'M[dstOffset] = nestedCallSuccess ? 1 : 0',
-    details: 'Returns 1 if the most recent nested call succeeded, 0 if it reverted. Result is Uint1.',
-    errors: [],
+    details:
+      'Returns 1 if the most recent nested external call (CALL or STATICCALL instruction) succeeded, 0 if it reverted. Result is Uint1.',
+    errors: [
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       dstOffset: 'Memory offset for success status (0 or 1) will be written',
     },
@@ -459,11 +532,14 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
 
   // Storage Operations
   SLOAD: {
-    summary: 'Load value from storage',
+    summary: 'Load value from public storage',
     expression: 'M[dstOffset] = storage[contractAddress][M[slotOffset]]',
     details:
-      'Reads from public storage at the specified slot. Both slot and result have type tag FIELD. Gas cost varies based on whether the slot is warm or cold.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Slot operand is not FIELD' }],
+      'Reads from public storage at the specified slot. Performs a read of the Public Data Tree. The contractAddress is the address of the currently executing contract and does not come from the bytecode. Both slot and result have type tag FIELD. Gas cost varies based on whether the slot is warm (recently accessed) or cold (first access in this transaction).',
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Slot operand is not FIELD' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       slotOffset: 'Memory offset of the storage slot to read from',
       dstOffset: 'Memory offset for loaded value will be written',
@@ -473,13 +549,18 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   },
 
   SSTORE: {
-    summary: 'Store value to storage',
+    summary: 'Store value to public storage',
     expression: 'storage[contractAddress][M[slotOffset]] = M[srcOffset]',
     details:
-      'Writes to public storage at the specified slot. Both slot and value must have type tag FIELD. Gas cost varies based on whether the slot is warm or cold. Reverts in static calls.',
+      'Writes to public storage at the specified slot. Performs a write to the Public Data Tree. The contractAddress is the address of the currently executing contract and does not come from the bytecode. Both slot and value must have type tag FIELD. Gas cost varies based on whether the slot is warm (recently accessed) or cold (first access in this transaction). Reverts in static calls.',
     errors: [
       { condition: 'INVALID_TAG', description: 'Slot or value operand is not FIELD' },
       { condition: 'STATIC_CALL_ALTERATION', description: 'Attempted storage write in static call context' },
+      {
+        condition: 'SIDE_EFFECT_LIMIT_REACHED',
+        description: 'Exceeded maximum public data updates per transaction (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)',
+      },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       srcOffset: 'Memory offset of the value to store',
@@ -494,8 +575,15 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Check existence of note hash',
     expression: 'M[existsOffset] = noteHashTree.exists(M[noteHashOffset], M[leafIndexOffset]) ? 1 : 0',
     details:
-      'Queries whether the specified note hash exists at the given leaf index. Note hash must be FIELD, leaf index must be Uint64. Result is Uint1.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Note hash is not FIELD or leaf index is not Uint64' }],
+      'Performs a read of the Note Hash Tree to query whether the specified note hash exists at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for note hashes of only the currently executing contract. Note that it is difficult to check for existence of a note hash emitted earlier in the same block because this opcode requires leafIndex. Note hash must be FIELD, leaf index must be Uint64. Result is Uint1.',
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Note hash is not FIELD or leaf index is not Uint64' },
+      {
+        condition: 'INDEX_OUT_OF_RANGE',
+        description: 'Leaf index exceeds note hash tree size (NOTE_HASH_TREE_LEAF_COUNT)',
+      },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       noteHashOffset: 'Memory offset of the note hash to check',
       leafIndexOffset: 'Memory offset of the leaf index in the note hash tree',
@@ -509,10 +597,15 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Emit note hash',
     expression: 'noteHashes.append(M[noteHashOffset])',
     details:
-      "Adds a note hash to the current call's accumulated note hashes. Note hash must have type tag FIELD. Reverts in static calls.",
+      'Writes a new note hash to the Note Hash Tree. Note hash must have type tag FIELD. Reverts in static calls.',
     errors: [
       { condition: 'INVALID_TAG', description: 'Note hash operand is not FIELD' },
       { condition: 'STATIC_CALL_ALTERATION', description: 'Attempted note hash emission in static call context' },
+      {
+        condition: 'SIDE_EFFECT_LIMIT_REACHED',
+        description: 'Exceeded maximum note hashes per transaction (MAX_NOTE_HASHES_PER_TX)',
+      },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       noteHashOffset: 'Memory offset of the note hash to emit',
@@ -525,8 +618,11 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Check existence of nullifier',
     expression: 'M[existsOffset] = nullifierTree.exists(M[addressOffset], M[nullifierOffset]) ? 1 : 0',
     details:
-      'Queries whether the specified nullifier exists for the given contract address. Both address and nullifier must be FIELD. Result is Uint1.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Address or nullifier is not FIELD' }],
+      'Performs a read of the Nullifier Tree to query whether the specified nullifier exists for the given contract address. Any contract address can be specified, not just the currently executing contract. Both address and nullifier must be FIELD. Result is Uint1.',
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Address or nullifier is not FIELD' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       nullifierOffset: 'Memory offset of the nullifier to check',
       addressOffset: 'Memory offset of the contract address',
@@ -540,11 +636,16 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Emit nullifier',
     expression: 'nullifiers.append(M[nullifierOffset])',
     details:
-      "Adds a nullifier to the current call's accumulated nullifiers. Nullifier must have type tag FIELD. Reverts in static calls or if nullifier already exists.",
+      'Writes a new nullifier to the Nullifier Tree. This opcode can only emit nullifiers from the currently executing contract address. Nullifier must have type tag FIELD. Reverts in static calls or if nullifier already exists.',
     errors: [
       { condition: 'INVALID_TAG', description: 'Nullifier operand is not FIELD' },
       { condition: 'STATIC_CALL_ALTERATION', description: 'Attempted nullifier emission in static call context' },
       { condition: 'NULLIFIER_COLLISION', description: 'Nullifier already exists' },
+      {
+        condition: 'SIDE_EFFECT_LIMIT_REACHED',
+        description: 'Exceeded maximum nullifiers per transaction (MAX_NULLIFIERS_PER_TX)',
+      },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       nullifierOffset: 'Memory offset of the nullifier to emit',
@@ -557,8 +658,15 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Check existence of L1-to-L2 message',
     expression: 'M[existsOffset] = l1ToL2Messages.exists(M[msgHashOffset], M[msgLeafIndexOffset]) ? 1 : 0',
     details:
-      'Queries whether the specified L1-to-L2 message hash exists at the given leaf index. Message hash must be FIELD, leaf index must be Uint64. Result is Uint1.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Message hash is not FIELD or leaf index is not Uint64' }],
+      'Checks whether the specified L1-to-L2 message hash exists in the L1 to L2 message tree at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for messages with any particular recipient. Message hash must be FIELD, leaf index must be Uint64. Result is Uint1.',
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Message hash is not FIELD or leaf index is not Uint64' },
+      {
+        condition: 'INDEX_OUT_OF_RANGE',
+        description: 'Leaf index exceeds L1-to-L2 message tree size (L1_TO_L2_MSG_TREE_LEAF_COUNT)',
+      },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       msgHashOffset: 'Memory offset of the L1-to-L2 message hash',
       msgLeafIndexOffset: 'Memory offset of the leaf index in the message tree',
@@ -572,10 +680,11 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Get contract instance information',
     expression: 'M[dstOffset] = contractInstance.exists ? 1 : 0; M[dstOffset+1] = contractInstance[memberEnum]',
     details:
-      'Looks up contract instance by address and retrieves the specified member (deployer, classId, or initHash). Returns existence flag (Uint1) and member value (FIELD).',
+      'Looks up contract instance by address and retrieves the specified member. This opcode can get contract instance information for any contract address, not just the currently executing one. Returns existence flag (Uint1) and member value (FIELD). If the contract does not exist, the member value is set to 0. Supported enum values: `[DEPLOYER=0, CLASS_ID, INIT_HASH]`.',
     errors: [
       { condition: 'INVALID_TAG', description: 'Address operand is not FIELD' },
-      { condition: 'INVALID_MEMBER_ENUM', description: 'Member enum is not a valid ContractInstanceMember' },
+      { condition: 'INVALID_MEMBER_ENUM', description: 'Member enum is not in the range of valid enum values' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       memberEnum: 'Immediate value specifying which contract instance member to retrieve',
@@ -585,13 +694,18 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   },
 
   EMITUNENCRYPTEDLOG: {
-    summary: 'Emit unencrypted log',
+    summary: 'Emit public log',
     expression: 'unencryptedLogs.append(M[logOffset:logOffset+M[logSizeOffset]])',
     details:
-      "Appends an unencrypted (public) log to the current call's accumulated logs. Log size must be Uint32, log data must be FIELD elements. Reverts in static calls.",
+      'Emits a public log from the currently executing contract. Log size must be Uint32, log data must be FIELD elements. Reverts in static calls.',
     errors: [
       { condition: 'INVALID_TAG', description: 'Log size is not Uint32 or log data is not FIELD' },
       { condition: 'STATIC_CALL_ALTERATION', description: 'Attempted log emission in static call context' },
+      {
+        condition: 'SIDE_EFFECT_LIMIT_REACHED',
+        description: 'Exceeded maximum cumulative log size per transaction (FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)',
+      },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       logOffset: 'Memory offset of the start of the log data',
@@ -599,16 +713,25 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     },
     tagChecks: ['`T[logSizeOffset] == UINT32`', '`T[logOffset:logOffset+M[logSizeOffset]]` == FIELD'],
     tagUpdates: [],
+    gasScaling: {
+      l2Gas: 'M[logSizeOffset]',
+      daGas: 'M[logSizeOffset]',
+    },
   },
 
   SENDL2TOL1MSG: {
     summary: 'Send L2-to-L1 message',
     expression: 'l2ToL1Messages.append({recipient: M[recipientOffset], content: M[contentOffset]})',
     details:
-      'Queues a message to be sent to L1. Both recipient and content must have type tag FIELD. Reverts in static calls.',
+      'Sends a message to L1, with the specified recipient, from the currently executing contract. Both recipient and content must have type tag FIELD. Reverts in static calls.',
     errors: [
       { condition: 'INVALID_TAG', description: 'Recipient or content is not FIELD' },
       { condition: 'STATIC_CALL_ALTERATION', description: 'Attempted L2-to-L1 message send in static call context' },
+      {
+        condition: 'SIDE_EFFECT_LIMIT_REACHED',
+        description: 'Exceeded maximum L2-to-L1 messages per transaction (MAX_L2_TO_L1_MSGS_PER_TX)',
+      },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       recipientOffset: 'Memory offset of the L1 recipient address',
@@ -631,6 +754,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     errors: [
       { condition: 'INVALID_TAG', description: 'Gas, address, or size operands have incorrect tags' },
       { condition: 'OUT_OF_GAS', description: 'Insufficient gas for the nested call' },
+      {
+        condition: 'SIDE_EFFECT_LIMIT_REACHED',
+        description:
+          'Exceeded maximum unique contract class IDs per transaction (MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS)',
+      },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       l2GasOffset: 'Memory offset of the L2 gas to allocate to the nested call',
@@ -661,6 +790,12 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     errors: [
       { condition: 'INVALID_TAG', description: 'Gas, address, or size operands have incorrect tags' },
       { condition: 'OUT_OF_GAS', description: 'Insufficient gas for the nested call' },
+      {
+        condition: 'SIDE_EFFECT_LIMIT_REACHED',
+        description:
+          'Exceeded maximum unique contract class IDs per transaction (MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS)',
+      },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       l2GasOffset: 'Memory offset of the L2 gas to allocate to the nested call',
@@ -683,7 +818,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Return from call',
     expression: 'return M[returnOffset:returnOffset+M[returnSizeOffset]]; halt',
     details: 'Halts execution and returns data to the caller. Return size must be Uint32. Sets success flag.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Return size operand is not Uint32' }],
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Return size operand is not Uint32' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       returnOffset: 'Memory offset of the start of the return data',
       returnSizeOffset: 'Memory offset of the return data size',
@@ -697,7 +835,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     expression: 'revert M[returnOffset:returnOffset+M[retSizeOffset]]; halt',
     details:
       'Halts execution with revert status and returns error data to the caller. Revert size must be Uint32. Undoes state changes.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Revert size operand is not Uint32' }],
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Revert size operand is not Uint32' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       returnOffset: 'Memory offset of the start of the revert data',
       retSizeOffset: 'Memory offset of the revert data size',
@@ -713,7 +854,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       'M[outputStateOffset:outputStateOffset+4] = poseidon2Permutation(/*input=*/M[inputStateOffset:inputStateOffset+4])',
     details:
       'Computes the Poseidon2 permutation on a state of 4 field elements. Input and output states must have type tag FIELD.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Input state elements are not FIELD' }],
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Input state elements are not FIELD' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       inputStateOffset: 'Memory offset of the input state (4 field elements)',
       outputStateOffset: 'Memory offset for output state will be written',
@@ -728,7 +872,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       'M[outputOffset:outputOffset+8] = sha256compress(/*state=*/M[stateOffset:stateOffset+8], /*inputs=*/M[inputsOffset:inputsOffset+16])',
     details:
       'Computes the SHA-256 compression function on an 8-word state and 16-word input block. State and inputs must be Uint32. Outputs 8 Uint32 words.',
-    errors: [{ condition: 'INVALID_TAG', description: 'State or inputs are not Uint32' }],
+    errors: [
+      { condition: 'INVALID_TAG', description: 'State or inputs are not Uint32' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       stateOffset: 'Memory offset of the 8-word SHA-256 state',
       inputsOffset: 'Memory offset of the 16-word input block',
@@ -743,7 +890,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     expression: 'M[dstOffset:dstOffset+25] = keccakf1600(/*input=*/M[inputOffset:inputOffset+25])',
     details:
       'Computes the Keccak-f[1600] permutation on a state of 25 Uint64 elements. Input and output must have type tag Uint64.',
-    errors: [{ condition: 'INVALID_TAG', description: 'Input state elements are not Uint64' }],
+    errors: [
+      { condition: 'INVALID_TAG', description: 'Input state elements are not Uint64' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
     operandDescriptions: {
       inputOffset: 'Memory offset of the input state (25 Uint64 elements)',
       dstOffset: 'Memory offset for output state will be written',
@@ -763,6 +913,7 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     errors: [
       { condition: 'INVALID_TAG', description: 'Point coordinates are not FIELD or infinity flags are not Uint1' },
       { condition: 'POINT_NOT_ON_CURVE', description: 'One or both points are not on the Grumpkin curve' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       p1XOffset: "Memory offset of the first point's x-coordinate",
@@ -801,6 +952,7 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       { condition: 'INVALID_NUM_LIMBS', description: 'Number of limbs is zero but value is non-zero' },
       { condition: 'INVALID_DECOMPOSITION', description: 'Value cannot be decomposed into specified radix/limbs' },
       { condition: 'INVALID_BIT_MODE', description: 'Bit mode is enabled but radix is not 2' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       srcOffset: 'Memory offset of the field element to decompose',
@@ -815,19 +967,24 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       '`T[numLimbsOffset] == UINT32`',
       '`T[outputBitsOffset] == UINT1`',
     ],
-    tagUpdates: ['`T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset]` ? UINT1 : UINT8'],
+    tagUpdates: ['`T[dstOffset:dstOffset+M[numLimbsOffset]] = (M[outputBitsOffset] ? UINT1 : UINT8)`'],
+    gasScaling: {
+      l2Gas: 'M[numLimbsOffset], M[radixOffset]*',
+      note: '*Note: The L2 gas cost scales linearly with M[numLimbsOffset], but also includes a per-limb multiplier based on M[radixOffset]',
+    },
   },
 
   // Misc Operations
   DEBUGLOG: {
-    summary: 'Emit debug log',
+    summary: 'Output debug log',
     expression: 'debugLog(level, message, M[fieldsOffset:fieldsOffset+M[fieldsSizeOffset]])',
     details:
-      'Emits a debug log with a message string and field values. Only executed if debug logging is enabled. Level must be Uint8, fields must be FIELD, message size and fields size are immediate. Counts against max debug memory reads limit.',
+      'Prints a debug log to console as a formatted a message, and pushes a structured debug object (`{contractAddress, level, message, fields[]}`) to an accumulated list for the transaction. This opcode does nearly nothing when executed by sequencers or provers (only performs PC increment and address resolution). It is meant for local debugging or for use by RPC nodes and wallets. Logs are only printed if logging level is "Debug" (6) or higher. Message size is an immediate (constant in the bytecode). Throws an irrecoverable error if truly doing debug logging and log level is invalid (greater than 7) or upon reaching the node\'s configured maxDebugLogMemoryReads.',
     errors: [
       { condition: 'INVALID_TAG', description: 'Fields operands are not FIELD type' },
       { condition: 'INVALID_LOG_LEVEL', description: 'Log level is not a valid LogLevel enum value' },
       { condition: 'DEBUG_MEMORY_LIMIT_EXCEEDED', description: 'Exceeded maximum debug log memory reads' },
+      { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
       messageSize: 'Immediate value specifying message string length',
@@ -835,7 +992,7 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       fieldsOffset: 'Memory offset of the start of field values to log',
       fieldsSizeOffset: 'Memory offset of the number of fields to log',
     },
-    tagChecks: ['`T[fieldsSizeOffset] == UINT32`'],
+    tagChecks: ['`T[fieldsSizeOffset] == UINT32`', '`T[fieldsOffset:fieldsOffset+M[fieldsSizeOffset]] == FIELD`'],
     tagUpdates: [],
   },
 };

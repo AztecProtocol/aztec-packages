@@ -25,8 +25,7 @@
     "build:fuzzer": "tsc scripts/fuzzing/avm_simulator_bin.ts --outDir dest/scripts/fuzzing --module commonjs --target es2022 --esModuleInterop --allowSyntheticDefaultImports --resolveJsonModule --skipLibCheck",
     "regen-isa": "node --loader ts-node/esm src/public/avm/tools/generate_opcode_docs.ts --format both --output generated/avm-isa.json",
     "regen-isa:json": "node --loader ts-node/esm src/public/avm/tools/generate_opcode_docs.ts --format json --output generated/avm-isa.json",
-    "regen-isa:mdx": "node --loader ts-node/esm src/public/avm/tools/generate_opcode_docs.ts --format mdx --output generated/avm-isa.mdx",
-    "regen-isa:mdx-individual": "node --loader ts-node/esm src/public/avm/tools/generate_opcode_docs.ts --format mdx-individual --mdx-dir generated/avm-isa-docs"
+    "regen-isa:md": "node --loader ts-node/esm src/public/avm/tools/generate_opcode_docs.ts --format md --output generated/avm-isa.json"
   },
   "inherits": [
     "../package.common.json"

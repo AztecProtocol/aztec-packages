@@ -28,6 +28,8 @@ They are run with the assistance of an oracle that provides any value read from 
 
 Public functions can call other public function, but no private functions.
 
+See the specifications of the [Aztec Virtual Machine (AVM) for public execution](./docs/index.md).
+
 ### Unconstrained Functions
 
 Unconstrained functions are useful to extract useful data for users that could produce very large execution traces - such as the summed balance of all a users notes

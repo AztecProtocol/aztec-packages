@@ -1,297 +1,23 @@
----
-title: AVM Instruction Set
-description: Complete reference for all Aztec Virtual Machine instructions
----
+# Instruction Set Details
 
-# AVM Instruction Set
+Comprehensive reference for all Aztec Virtual Machine (AVM) instructions. The AVM is the virtual machine used for **public execution** in the Aztec protocol. This is _not_ a specification of the ACIR instruction set used for private execution.
 
-This document provides a comprehensive reference for all Aztec Virtual Machine (AVM) instructions. The AVM is the virtual machine used for **public execution** in the Aztec protocol. This is _not_ a specification of the ACIR instruction set used for private execution.
-
-**Total Opcodes**: 46
+For a quick overview, see [Instruction Set Quick Reference](avm-isa-quick-reference.md).
 
 ## Definitions and Notes
 
-- **`M[x]`**: Denotes the value in memory at offset `x`. Memory is a linear array of field elements, each with an associated type tag.
-- **`storage[address][slot]`**: Denotes the value in persistent storage at the given contract address and storage slot.
+- **`M[x]`**: Denotes the value in memory at offset `x`, or sometimes the "value after memory offset operand x is fully resolved and accessed".
 - **`T[x]`**: Denotes the type tag of the memory cell at offset `x`. Tags include `FIELD`, `UINT1`, `UINT8`, `UINT16`, `UINT32`, `UINT64` and `UINT128`.
-- **`mod 2^k`**: All arithmetic operations are performed modulo 2^k, where `k` is the bit-width of the operand type (e.g., k=8 for `UINT8`, k=254 for `FIELD`).
-- **`mod p`**: Field operations are performed modulo the BN254 field prime `p = 21888242871839275222246405745257275088548364400416034343698204186575808495617`.
 - **Immediate**: A constant value encoded directly in the bytecode that does not require a memory read to access.
 - **`pc++`**: Every instruction increments the program counter (`PC`) by its instruction size (in bytes) unless it performs explicit control flow (jumps, internal calls/returns, calls/returns/reverts) or encounters an error.
 - **Gas metering**: Every instruction has an associated gas cost (L2 and DA components). If insufficient gas remains when an instruction is reached, execution halts with an out-of-gas error. This error condition is implicit for all instructions and is not explicitly listed in each instruction's error conditions.
+- **`mod 2^k`**: All arithmetic operations are performed modulo 2^k, where `k` is the bit-width of the operand type (e.g., k=8 for `UINT8`, k=254 for `FIELD`).
+- **`mod p`**: Field operations are performed modulo the BN254 field prime `p = 21888242871839275222246405745257275088548364400416034343698204186575808495617`.
+- **`storage[address][slot]`**: Denotes the value in persistent storage at the given contract address and storage slot.
 
-### Gas Metering Phases
-
-Gas costs are tracked across different dimensions (L2 and DA) and applied in distinct phases during instruction execution:
-
-1. **Base gas costs** are charged immediately at the start of instruction execution.
-2. **L2 Addressing costs** are charged based on the number of active bits in the addressing mode bitmask (3 L2 gas per indirect memory offset, 3 L2 gas per relative memory offset).
-3. **Memory offset operands are resolved** to their final values (for instructions with dynamic gas costs).
-4. **Dynamic gas costs** are charged after operand resolution. These often scale with values read from resolved memory offsets (e.g., a size parameter).
-
-Not all instructions have all phases. Instructions without dynamic costs skip phases 3-4. Base and addressing costs are present for all instructions.
-
-**Note**: L2 gas is also referred to as "mana" elsewhere in the protocol documentation.
-
-- **Wire formats**: Many instructions have multiple wire format variants. They are named with a suffix (e.g., `ADD_8`, `ADD_16`). **This suffix refers only to the encoding size of operands in the bytecode**, not to type constraints or tag checks. For example, `ADD_8` means the instruction uses 8-bit operand offsets in its encoding, but it does **not** imply that operands must have the `UINT8` tag. The actual type constraints are specified in each instruction's "Tag Checks" and "Tag Updates" sections. For many operations, multiple wire format variants exist to optimize bytecode size: smaller operand encodings save space when operands fit within the smaller range.
-- **Addressing Modes**: Instructions that have memory-offset operands include an Addressing Modes bitmask that defines the addressing mode for each memory-offset operand. Every memory-offset operand is associated with two bits in this bitmask. These bits specify whether the operand should be treated as indirect (`M[M[x]]`) and/or relative (`M[x] + M[0]`). By default, operands use direct addressing (`M[x]`). If both bits for an operand are 0, direct addressing is used; otherwise, the operand applies indirect and/or relative addressing as indicated by the bitmask.
-
-## Quick Reference
-
-Click on an opcode name to jump to its detailed documentation.
-
-* **[ADD](#add)**: Addition (a + b)
-    * Opcodes `0x00`-`0x01` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[aOffset] + M[bOffset]
-    ```
-* **[SUB](#sub)**: Subtraction (a - b)
-    * Opcodes `0x02`-`0x03` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[aOffset] - M[bOffset]
-    ```
-* **[MUL](#mul)**: Multiplication (a * b)
-    * Opcodes `0x04`-`0x05` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[aOffset] * M[bOffset]
-    ```
-* **[DIV](#div)**: Integer division (a / b)
-    * Opcodes `0x06`-`0x07` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[aOffset] / M[bOffset]
-    ```
-* **[FDIV](#fdiv)**: Field division (a / b)
-    * Opcodes `0x08`-`0x09` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[aOffset] / M[bOffset]
-    ```
-* **[EQ](#eq)**: Equality check (a == b)
-    * Opcodes `0x0A`-`0x0B` (2 wire formats)
-    ```javascript
-    M[dstOffset] = (M[aOffset] == M[bOffset]) ? 1 : 0
-    ```
-* **[LT](#lt)**: Less than (a &lt; b)
-    * Opcodes `0x0C`-`0x0D` (2 wire formats)
-    ```javascript
-    M[dstOffset] = (M[aOffset] < M[bOffset]) ? 1 : 0
-    ```
-* **[LTE](#lte)**: Less than or equal (a &lt;= b)
-    * Opcodes `0x0E`-`0x0F` (2 wire formats)
-    ```javascript
-    M[dstOffset] = (M[aOffset] <= M[bOffset]) ? 1 : 0
-    ```
-* **[AND](#and)**: Bitwise AND (a &amp; b)
-    * Opcodes `0x10`-`0x11` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[aOffset] & M[bOffset]
-    ```
-* **[OR](#or)**: Bitwise OR (a | b)
-    * Opcodes `0x12`-`0x13` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[aOffset] | M[bOffset]
-    ```
-* **[XOR](#xor)**: Bitwise XOR (a ^ b)
-    * Opcodes `0x14`-`0x15` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[aOffset] ^ M[bOffset]
-    ```
-* **[NOT](#not)**: Bitwise NOT (~a)
-    * Opcodes `0x16`-`0x17` (2 wire formats)
-    ```javascript
-    M[dstOffset] = ~M[srcOffset]
-    ```
-* **[SHL](#shl)**: Shift left (a &lt;&lt; b)
-    * Opcodes `0x18`-`0x19` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[aOffset] << M[bOffset]
-    ```
-* **[SHR](#shr)**: Shift right (a &gt;&gt; b)
-    * Opcodes `0x1A`-`0x1B` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[aOffset] >> M[bOffset]
-    ```
-* **[CAST](#cast)**: Type cast memory value
-    * Opcodes `0x1C`-`0x1D` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[srcOffset] as tag
-    ```
-* **[GETENVVAR](#getenvvar)**: Get environment variable
-    * Opcode `0x1E`
-    ```javascript
-    M[dstOffset] = environmentVariable[varEnum]
-    ```
-* **[CALLDATACOPY](#calldatacopy)**: Copy calldata to memory
-    * Opcode `0x1F`
-    ```javascript
-    M[dstOffset:dstOffset+M[copySizeOffset]] = calldata[M[cdStartOffset]:M[cdStartOffset]+M[copySizeOffset]]
-    ```
-* **[SUCCESSCOPY](#successcopy)**: Get success status of last call
-    * Opcode `0x20`
-    ```javascript
-    M[dstOffset] = nestedCallSuccess ? 1 : 0
-    ```
-* **[RETURNDATASIZE](#returndatasize)**: Get return data size
-    * Opcode `0x21`
-    ```javascript
-    M[dstOffset] = nestedReturndata.length
-    ```
-* **[RETURNDATACOPY](#returndatacopy)**: Copy return data to memory
-    * Opcode `0x22`
-    ```javascript
-    M[dstOffset:dstOffset+M[copySizeOffset]] = nestedReturndata[M[rdStartOffset]:M[rdStartOffset]+M[copySizeOffset]]
-    ```
-* **[JUMP](#jump)**: Unconditional jump
-    * Opcode `0x23`
-    ```javascript
-    PC = jumpOffset
-    ```
-* **[JUMPI](#jumpi)**: Conditional jump
-    * Opcode `0x24`
-    ```javascript
-    if M[condOffset] != 0 then PC = loc else PC = PC + instructionSize
-    ```
-* **[INTERNALCALL](#internalcall)**: Internal function call
-    * Opcode `0x25`
-    ```javascript
-    internalCallStack.push({callPc: PC, returnPc: PC + instructionSize}); PC = loc
-    ```
-* **[INTERNALRETURN](#internalreturn)**: Return from internal call
-    * Opcode `0x26`
-    ```javascript
-    PC = internalCallStack.pop().returnPc
-    ```
-* **[SET](#set)**: Set memory to immediate value
-    * Opcodes `0x27`-`0x2C` (6 wire formats)
-    ```javascript
-    M[dstOffset] = value
-    ```
-* **[MOV](#mov)**: Move value between memory locations
-    * Opcodes `0x2D`-`0x2E` (2 wire formats)
-    ```javascript
-    M[dstOffset] = M[srcOffset]
-    ```
-* **[SLOAD](#sload)**: Load value from storage
-    * Opcode `0x2F`
-    ```javascript
-    M[dstOffset] = storage[contractAddress][M[slotOffset]]
-    ```
-* **[SSTORE](#sstore)**: Store value to storage
-    * Opcode `0x30`
-    ```javascript
-    storage[contractAddress][M[slotOffset]] = M[srcOffset]
-    ```
-* **[NOTEHASHEXISTS](#notehashexists)**: Check existence of note hash
-    * Opcode `0x31`
-    ```javascript
-    M[existsOffset] = noteHashTree.exists(M[noteHashOffset], M[leafIndexOffset]) ? 1 : 0
-    ```
-* **[EMITNOTEHASH](#emitnotehash)**: Emit note hash
-    * Opcode `0x32`
-    ```javascript
-    noteHashes.append(M[noteHashOffset])
-    ```
-* **[NULLIFIEREXISTS](#nullifierexists)**: Check existence of nullifier
-    * Opcode `0x33`
-    ```javascript
-    M[existsOffset] = nullifierTree.exists(M[addressOffset], M[nullifierOffset]) ? 1 : 0
-    ```
-* **[EMITNULLIFIER](#emitnullifier)**: Emit nullifier
-    * Opcode `0x34`
-    ```javascript
-    nullifiers.append(M[nullifierOffset])
-    ```
-* **[L1TOL2MSGEXISTS](#l1tol2msgexists)**: Check existence of L1-to-L2 message
-    * Opcode `0x35`
-    ```javascript
-    M[existsOffset] = l1ToL2Messages.exists(M[msgHashOffset], M[msgLeafIndexOffset]) ? 1 : 0
-    ```
-* **[GETCONTRACTINSTANCE](#getcontractinstance)**: Get contract instance information
-    * Opcode `0x36`
-    ```javascript
-    M[dstOffset] = contractInstance.exists ? 1 : 0; M[dstOffset+1] = contractInstance[memberEnum]
-    ```
-* **[EMITUNENCRYPTEDLOG](#emitunencryptedlog)**: Emit unencrypted log
-    * Opcode `0x37`
-    ```javascript
-    unencryptedLogs.append(M[logOffset:logOffset+M[logSizeOffset]])
-    ```
-* **[SENDL2TOL1MSG](#sendl2tol1msg)**: Send L2-to-L1 message
-    * Opcode `0x38`
-    ```javascript
-    l2ToL1Messages.append({recipient: M[recipientOffset], content: M[contentOffset]})
-    ```
-* **[CALL](#call)**: Call external contract
-    * Opcode `0x39`
-    ```javascript
-    nestedCallResult = executeContract(
-        /*address=*/M[addrOffset],
-        /*args=*/M[argsOffset:argsOffset+M[argsSizeOffset]],
-        {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]}
-    )
-    ```
-* **[STATICCALL](#staticcall)**: Static call to external contract
-    * Opcode `0x3A`
-    ```javascript
-    nestedCallResult = executeContractStatic(
-        /*address=*/M[addrOffset],
-        /*args=*/M[argsOffset:argsOffset+M[argsSizeOffset]],
-        {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]}
-    )
-    ```
-* **[RETURN](#return)**: Return from call
-    * Opcode `0x3B`
-    ```javascript
-    return M[returnOffset:returnOffset+M[returnSizeOffset]]; halt
-    ```
-* **[REVERT](#revert)**: Revert execution
-    * Opcodes `0x3C`-`0x3D` (2 wire formats)
-    ```javascript
-    revert M[returnOffset:returnOffset+M[retSizeOffset]]; halt
-    ```
-* **[DEBUGLOG](#debuglog)**: Emit debug log
-    * Opcode `0x3E`
-    ```javascript
-    debugLog(level, message, M[fieldsOffset:fieldsOffset+M[fieldsSizeOffset]])
-    ```
-* **[POSEIDON2](#poseidon2)**: Poseidon2 permutation
-    * Opcode `0x3F`
-    ```javascript
-    M[outputStateOffset:outputStateOffset+4] = poseidon2Permutation(/*input=*/M[inputStateOffset:inputStateOffset+4])
-    ```
-* **[SHA256COMPRESSION](#sha256compression)**: SHA-256 compression
-    * Opcode `0x40`
-    ```javascript
-    M[outputOffset:outputOffset+8] = sha256compress(/*state=*/M[stateOffset:stateOffset+8], /*inputs=*/M[inputsOffset:inputsOffset+16])
-    ```
-* **[KECCAKF1600](#keccakf1600)**: Keccak-f[1600] permutation
-    * Opcode `0x41`
-    ```javascript
-    M[dstOffset:dstOffset+25] = keccakf1600(/*input=*/M[inputOffset:inputOffset+25])
-    ```
-* **[ECADD](#ecadd)**: Grumpkin elliptic curve addition
-    * Opcode `0x42`
-    ```javascript
-    M[dstOffset:dstOffset+3] = grumpkinAdd(
-        /*point1=*/{x: M[p1XOffset], y: M[p1YOffset], isInfinite: M[p1IsInfiniteOffset]},
-        /*point2=*/{x: M[p2XOffset], y: M[p2YOffset], isInfinite: M[p2IsInfiniteOffset]}
-    )
-    ```
-* **[TORADIXBE](#toradixbe)**: Convert to radix (big-endian)
-    * Opcode `0x43`
-    ```javascript
-    M[dstOffset:dstOffset+M[numLimbsOffset]] = toRadixBE(
-        /*value=*/M[srcOffset],
-        /*radix=*/M[radixOffset],
-        /*numLimbs=*/M[numLimbsOffset],
-        /*outputBits=*/M[outputBitsOffset]
-    )
-    ```
-
-## Full Instruction Set
+## Instructions
 
 ### ADD
-
-<div className="opcode-card">
 
 Addition (a + b)
 
@@ -313,7 +39,7 @@ Performs addition. Both operands must have the same type tag. For integer types 
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -324,7 +50,7 @@ Performs addition. Both operands must have the same type tag. For integer types 
 | `dstOffset` | Memory offset | Memory offset for result |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **ADD_8** (Opcode 0x00):
 
@@ -361,7 +87,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -397,14 +123,11 @@ packet-beta
 #### Error Conditions
 
 - **TAG_MISMATCH**: Operands have different type tags
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### SUB
-
-<div className="opcode-card">
 
 Subtraction (a - b)
 
@@ -426,7 +149,7 @@ Performs subtraction. Both operands must have the same type tag. For integer typ
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -437,7 +160,7 @@ Performs subtraction. Both operands must have the same type tag. For integer typ
 | `dstOffset` | Memory offset | Memory offset for result |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SUB_8** (Opcode 0x02):
 
@@ -474,7 +197,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -510,14 +233,11 @@ packet-beta
 #### Error Conditions
 
 - **TAG_MISMATCH**: Operands have different type tags
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### MUL
-
-<div className="opcode-card">
 
 Multiplication (a * b)
 
@@ -539,7 +259,7 @@ Performs multiplication. Both operands must have the same type tag. For integer 
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -550,7 +270,7 @@ Performs multiplication. Both operands must have the same type tag. For integer 
 | `dstOffset` | Memory offset | Memory offset for result |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **MUL_8** (Opcode 0x04):
 
@@ -587,7 +307,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -623,14 +343,11 @@ packet-beta
 #### Error Conditions
 
 - **TAG_MISMATCH**: Operands have different type tags
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### DIV
-
-<div className="opcode-card">
 
 Integer division (a / b)
 
@@ -652,7 +369,7 @@ Performs integer division (truncating). Both operands must have the same integra
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -663,7 +380,7 @@ Performs integer division (truncating). Both operands must have the same integra
 | `dstOffset` | Memory offset | Memory offset for quotient |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **DIV_8** (Opcode 0x06):
 
@@ -700,7 +417,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -739,14 +456,11 @@ packet-beta
 - **TAG_MISMATCH**: Operands have different type tags
 - **INVALID_TAG_TYPE**: Operands are not integral types
 - **DIVISION_BY_ZERO**: Second operand (divisor) is zero
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### FDIV
-
-<div className="opcode-card">
 
 Field division (a / b)
 
@@ -768,7 +482,7 @@ Performs field division (computes a * b^(-1) mod p where p is the BN254 field mo
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -779,7 +493,7 @@ Performs field division (computes a * b^(-1) mod p where p is the BN254 field mo
 | `dstOffset` | Memory offset | Memory offset for result |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **FDIV_8** (Opcode 0x08):
 
@@ -816,7 +530,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -855,14 +569,11 @@ packet-beta
 - **TAG_MISMATCH**: Operands have different type tags
 - **INVALID_TAG_TYPE**: Operands do not have FIELD type tag
 - **DIVISION_BY_ZERO**: Second operand (divisor) is zero
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### EQ
-
-<div className="opcode-card">
 
 Equality check (a == b)
 
@@ -884,7 +595,7 @@ Compares two values for equality. Both operands must have the same type tag. The
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -895,7 +606,7 @@ Compares two values for equality. Both operands must have the same type tag. The
 | `dstOffset` | Memory offset | Memory offset for result (0 or 1) |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **EQ_8** (Opcode 0x0A):
 
@@ -932,7 +643,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -968,14 +679,11 @@ packet-beta
 #### Error Conditions
 
 - **TAG_MISMATCH**: Operands have different type tags
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### LT
-
-<div className="opcode-card">
 
 Less than (a &lt; b)
 
@@ -987,7 +695,7 @@ M[dstOffset] = (M[aOffset] < M[bOffset]) ? 1 : 0
 
 #### Details
 
-Compares two values. Both operands must have the same type tag. The result is a Uint1 (0 or 1).
+Compares two values. Both operands must have the same type tag. For integer types, performs standard numeric comparison. For FIELD type, performs lexicographic comparison treating field elements as integers (0 < 1 < ... < p-1). The result is a Uint1 (0 or 1).
 
 #### Gas Costs
 
@@ -997,7 +705,7 @@ Compares two values. Both operands must have the same type tag. The result is a 
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -1008,7 +716,7 @@ Compares two values. Both operands must have the same type tag. The result is a 
 | `dstOffset` | Memory offset | Memory offset for result (0 or 1) |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **LT_8** (Opcode 0x0C):
 
@@ -1045,7 +753,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -1081,14 +789,11 @@ packet-beta
 #### Error Conditions
 
 - **TAG_MISMATCH**: Operands have different type tags
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### LTE
-
-<div className="opcode-card">
 
 Less than or equal (a &lt;= b)
 
@@ -1100,7 +805,7 @@ M[dstOffset] = (M[aOffset] <= M[bOffset]) ? 1 : 0
 
 #### Details
 
-Compares two values. Both operands must have the same type tag. The result is a Uint1 (0 or 1).
+Compares two values. Both operands must have the same type tag. For integer types, performs standard numeric comparison. For FIELD type, performs lexicographic comparison treating field elements as integers (0 < 1 < ... < p-1). The result is a Uint1 (0 or 1).
 
 #### Gas Costs
 
@@ -1110,7 +815,7 @@ Compares two values. Both operands must have the same type tag. The result is a 
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -1121,7 +826,7 @@ Compares two values. Both operands must have the same type tag. The result is a 
 | `dstOffset` | Memory offset | Memory offset for result (0 or 1) |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **LTE_8** (Opcode 0x0E):
 
@@ -1158,7 +863,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -1194,14 +899,11 @@ packet-beta
 #### Error Conditions
 
 - **TAG_MISMATCH**: Operands have different type tags
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### AND
-
-<div className="opcode-card">
 
 Bitwise AND (a &amp; b)
 
@@ -1213,7 +915,7 @@ M[dstOffset] = M[aOffset] & M[bOffset]
 
 #### Details
 
-Performs bitwise AND operation. Both operands must have the same integral type tag. The result inherits the tag from the operands.
+Performs bitwise AND operation. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.
 
 #### Gas Costs
 
@@ -1224,7 +926,7 @@ Performs bitwise AND operation. Both operands must have the same integral type t
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | L2 Dynamic | 3 | - |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -1235,7 +937,7 @@ Performs bitwise AND operation. Both operands must have the same integral type t
 | `dstOffset` | Memory offset | Memory offset for result |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **AND_8** (Opcode 0x10):
 
@@ -1272,7 +974,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -1310,14 +1012,11 @@ packet-beta
 
 - **TAG_MISMATCH**: Operands have different type tags
 - **INVALID_TAG_TYPE**: Operands are not integral types
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### OR
-
-<div className="opcode-card">
 
 Bitwise OR (a | b)
 
@@ -1329,7 +1028,7 @@ M[dstOffset] = M[aOffset] | M[bOffset]
 
 #### Details
 
-Performs bitwise OR operation. Both operands must have the same integral type tag. The result inherits the tag from the operands.
+Performs bitwise OR operation. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.
 
 #### Gas Costs
 
@@ -1340,7 +1039,7 @@ Performs bitwise OR operation. Both operands must have the same integral type ta
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | L2 Dynamic | 3 | - |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -1351,7 +1050,7 @@ Performs bitwise OR operation. Both operands must have the same integral type ta
 | `dstOffset` | Memory offset | Memory offset for result |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **OR_8** (Opcode 0x12):
 
@@ -1388,7 +1087,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -1426,14 +1125,11 @@ packet-beta
 
 - **TAG_MISMATCH**: Operands have different type tags
 - **INVALID_TAG_TYPE**: Operands are not integral types
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### XOR
-
-<div className="opcode-card">
 
 Bitwise XOR (a ^ b)
 
@@ -1445,7 +1141,7 @@ M[dstOffset] = M[aOffset] ^ M[bOffset]
 
 #### Details
 
-Performs bitwise XOR operation. Both operands must have the same integral type tag. The result inherits the tag from the operands.
+Performs bitwise XOR operation. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.
 
 #### Gas Costs
 
@@ -1456,7 +1152,7 @@ Performs bitwise XOR operation. Both operands must have the same integral type t
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | L2 Dynamic | 3 | - |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -1467,7 +1163,7 @@ Performs bitwise XOR operation. Both operands must have the same integral type t
 | `dstOffset` | Memory offset | Memory offset for result |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **XOR_8** (Opcode 0x14):
 
@@ -1504,7 +1200,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -1542,14 +1238,11 @@ packet-beta
 
 - **TAG_MISMATCH**: Operands have different type tags
 - **INVALID_TAG_TYPE**: Operands are not integral types
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### NOT
-
-<div className="opcode-card">
 
 Bitwise NOT (~a)
 
@@ -1561,7 +1254,7 @@ M[dstOffset] = ~M[srcOffset]
 
 #### Details
 
-Performs bitwise NOT operation (one's complement). The operand must have an integral type tag. The result inherits the tag from the operand.
+Performs bitwise NOT operation (one's complement). The operand must have an integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operand.
 
 #### Gas Costs
 
@@ -1571,7 +1264,7 @@ Performs bitwise NOT operation (one's complement). The operand must have an inte
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -1581,7 +1274,7 @@ Performs bitwise NOT operation (one's complement). The operand must have an inte
 | `dstOffset` | Memory offset | Memory offset for result |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **NOT_8** (Opcode 0x16):
 
@@ -1616,7 +1309,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -1652,14 +1345,11 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG_TYPE**: Operand is not an integral type
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### SHL
-
-<div className="opcode-card">
 
 Shift left (a &lt;&lt; b)
 
@@ -1671,7 +1361,7 @@ M[dstOffset] = M[aOffset] << M[bOffset]
 
 #### Details
 
-Performs left bit shift. Both operands must have the same integral type tag (UINT8, UINT16, UINT32, UINT64, UINT128). The result is computed modulo 2^k where k is the bit-width of the operand type (e.g., k=8 for UINT8). The result inherits the tag from the operands.
+Performs left bit shift. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result is computed modulo 2^k where k is the bit-width of the operand type (e.g., k=8 for UINT8). The result inherits the tag from the operands.
 
 #### Gas Costs
 
@@ -1681,7 +1371,7 @@ Performs left bit shift. Both operands must have the same integral type tag (UIN
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -1692,7 +1382,7 @@ Performs left bit shift. Both operands must have the same integral type tag (UIN
 | `dstOffset` | Memory offset | Memory offset for result |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SHL_8** (Opcode 0x18):
 
@@ -1729,7 +1419,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -1765,14 +1455,11 @@ packet-beta
 #### Error Conditions
 
 - **TAG_MISMATCH**: Operands have different type tags
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### SHR
-
-<div className="opcode-card">
 
 Shift right (a &gt;&gt; b)
 
@@ -1784,7 +1471,7 @@ M[dstOffset] = M[aOffset] >> M[bOffset]
 
 #### Details
 
-Performs right bit shift (logical, zero-fill). Both operands must have the same integral type tag (UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.
+Performs right bit shift (logical, zero-fill). Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.
 
 #### Gas Costs
 
@@ -1794,7 +1481,7 @@ Performs right bit shift (logical, zero-fill). Both operands must have the same 
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -1805,7 +1492,7 @@ Performs right bit shift (logical, zero-fill). Both operands must have the same 
 | `dstOffset` | Memory offset | Memory offset for result |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SHR_8** (Opcode 0x1A):
 
@@ -1842,7 +1529,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -1878,14 +1565,11 @@ packet-beta
 #### Error Conditions
 
 - **TAG_MISMATCH**: Operands have different type tags
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### CAST
-
-<div className="opcode-card">
 
 Type cast memory value
 
@@ -1897,7 +1581,7 @@ M[dstOffset] = M[srcOffset] as tag
 
 #### Details
 
-Changes the type tag of a value. The value itself is preserved, only its type interpretation changes.
+Changes the type tag of a value. The value itself is preserved if casting to a larger type. When casting to a smaller type, the value is truncated by keeping only the least significant bits that fit in the destination type (equivalent to modulo 2^k where k is the bit-width of the destination type).
 
 #### Gas Costs
 
@@ -1907,7 +1591,7 @@ Changes the type tag of a value. The value itself is preserved, only its type in
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -1918,7 +1602,7 @@ Changes the type tag of a value. The value itself is preserved, only its type in
 | `dstTag` | Type tag | Type tag to cast the value to |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **CAST_8** (Opcode 0x1C):
 
@@ -1955,7 +1639,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -1987,14 +1671,11 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Destination tag is not a valid TypeTag
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### GETENVVAR
-
-<div className="opcode-card">
 
 Get environment variable
 
@@ -2006,7 +1687,7 @@ M[dstOffset] = environmentVariable[varEnum]
 
 #### Details
 
-Retrieves environment variables like address, sender, chainId, timestamp, gas left, etc. The variable is specified by an immediate enum value.
+Retrieves environment variables from the currently executing context. "Environment" refers to information specific to the current execution context, with some information specific to the block (e.g., BLOCKNUMBER, TIMESTAMP), some to the transaction (e.g., TRANSACTIONFEE), and some to the currently executing contract call (e.g., ADDRESS, SENDER, gas remaining). The variable is specified by an immediate enum value. Supported enum values: `[ADDRESS=0, SENDER, TRANSACTIONFEE, CHAINID, VERSION, BLOCKNUMBER, TIMESTAMP, BASEFEEPERL2GAS, BASEFEEPERDAGAS, ISSTATICCALL, L2GASLEFT, DAGASLEFT]`.
 
 #### Gas Costs
 
@@ -2016,7 +1697,7 @@ Retrieves environment variables like address, sender, chainId, timestamp, gas le
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -2026,7 +1707,7 @@ Retrieves environment variables like address, sender, chainId, timestamp, gas le
 | `varEnum` | Memory offset | Immediate value specifying which environment variable to read |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **GETENVVAR_16** (Opcode 0x1E):
 
@@ -2045,7 +1726,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -2076,15 +1757,12 @@ packet-beta
 
 #### Error Conditions
 
-- **INVALID_ENV_VAR**: Variable enum is not a valid EnvironmentVariable
-
-</div>
+- **INVALID_ENV_VAR**: Env var enum is not in the range of valid enum values
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### CALLDATACOPY
-
-<div className="opcode-card">
 
 Copy calldata to memory
 
@@ -2096,7 +1774,7 @@ M[dstOffset:dstOffset+M[copySizeOffset]] = calldata[M[cdStartOffset]:M[cdStartOf
 
 #### Details
 
-Copies a slice of the current call's calldata into memory at the specified offset.
+Copies a section of the current call's calldata into memory at the specified offset. Reads M[copySizeOffset] elements starting at calldata offset M[cdStartOffset], writing them to memory starting at dstOffset. If the read extends past the end of calldata, the out-of-bounds region is padded with zeros. If the write would exceed addressable memory, the instruction errors.
 
 #### Gas Costs
 
@@ -2107,7 +1785,7 @@ Copies a slice of the current call's calldata into memory at the specified offse
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | L2 Dynamic | 3 | `M[copySizeOffset]` |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -2118,7 +1796,7 @@ Copies a slice of the current call's calldata into memory at the specified offse
 | `dstOffset` | Memory offset | Memory offset for writing calldata |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **CALLDATACOPY** (Opcode 0x1F):
 
@@ -2138,7 +1816,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -2174,16 +1852,13 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Size operand is not Uint32
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### SUCCESSCOPY
 
-<div className="opcode-card">
-
-Get success status of last call
+Get success status of latest external call
 
 Opcode `0x20`
 
@@ -2193,7 +1868,7 @@ M[dstOffset] = nestedCallSuccess ? 1 : 0
 
 #### Details
 
-Returns 1 if the most recent nested call succeeded, 0 if it reverted. Result is Uint1.
+Returns 1 if the most recent nested external call (CALL or STATICCALL instruction) succeeded, 0 if it reverted. Result is Uint1.
 
 #### Gas Costs
 
@@ -2203,7 +1878,7 @@ Returns 1 if the most recent nested call succeeded, 0 if it reverted. Result is 
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -2212,7 +1887,7 @@ Returns 1 if the most recent nested call succeeded, 0 if it reverted. Result is 
 | `dstOffset` | Memory offset | Memory offset for success status (0 or 1) will be written |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SUCCESSCOPY** (Opcode 0x20):
 
@@ -2230,7 +1905,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -2259,15 +1934,15 @@ packet-beta
 
 - `T[dstOffset] = UINT1`
 
-</div>
+#### Error Conditions
+
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### RETURNDATASIZE
 
-<div className="opcode-card">
-
-Get return data size
+Get returndata size
 
 Opcode `0x21`
 
@@ -2277,7 +1952,7 @@ M[dstOffset] = nestedReturndata.length
 
 #### Details
 
-Returns the size of the return data from the most recent nested contract call. Result is Uint32.
+Returns the size of the return data from the most recent nested external call (CALL or STATICCALL instruction). The size is determined by the nested call's RETURN or REVERT instruction. If there has been no nested external call, or if the nested call truly errored (did not explicitly execute a REVERT instruction), this returns 0. Result is Uint32.
 
 #### Gas Costs
 
@@ -2287,7 +1962,7 @@ Returns the size of the return data from the most recent nested contract call. R
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -2296,7 +1971,7 @@ Returns the size of the return data from the most recent nested contract call. R
 | `dstOffset` | Memory offset | Memory offset for size will be written |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **RETURNDATASIZE** (Opcode 0x21):
 
@@ -2314,7 +1989,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -2343,15 +2018,15 @@ packet-beta
 
 - `T[dstOffset] = UINT32`
 
-</div>
+#### Error Conditions
+
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### RETURNDATACOPY
 
-<div className="opcode-card">
-
-Copy return data to memory
+Copy returndata to memory
 
 Opcode `0x22`
 
@@ -2361,7 +2036,7 @@ M[dstOffset:dstOffset+M[copySizeOffset]] = nestedReturndata[M[rdStartOffset]:M[r
 
 #### Details
 
-Copies a slice of the return data from the most recent nested contract call into memory.
+Copies a section of the returndata from the most recent nested external call (CALL or STATICCALL instruction) into memory. Reads M[copySizeOffset] elements starting at return data offset M[rdStartOffset], writing them to memory starting at dstOffset. If the read extends past the end of return data, the out-of-bounds region is padded with zeros. If the write would exceed addressable memory, the instruction errors.
 
 #### Gas Costs
 
@@ -2372,7 +2047,7 @@ Copies a slice of the return data from the most recent nested contract call into
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | L2 Dynamic | 3 | `M[copySizeOffset]` |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -2383,7 +2058,7 @@ Copies a slice of the return data from the most recent nested contract call into
 | `dstOffset` | Memory offset | Memory offset for writing return data |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **RETURNDATACOPY** (Opcode 0x22):
 
@@ -2403,7 +2078,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -2439,14 +2114,11 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Size operand is not Uint32
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### JUMP
-
-<div className="opcode-card">
 
 Unconditional jump
 
@@ -2458,7 +2130,7 @@ PC = jumpOffset
 
 #### Details
 
-Sets the program counter to the specified offset. The offset is an immediate value (not from memory).
+Sets the program counter to the specified offset. The offset is an immediate value (not from memory). While this instruction itself does not validate the jump target, an invalid target will trigger an instruction fetching error at the start of the next instruction's processing.
 
 #### Gas Costs
 
@@ -2468,7 +2140,7 @@ Sets the program counter to the specified offset. The offset is an immediate val
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -2477,7 +2149,7 @@ Sets the program counter to the specified offset. The offset is an immediate val
 | `jumpOffset` | Memory offset | Immediate bytecode offset to jump to |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **JUMP** (Opcode 0x23):
 
@@ -2494,23 +2166,15 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 undefined
 
 Memory offset operands (`jumpOffset`) are encoded as follows:
 
-#### Error Conditions
-
-- **INVALID_PROGRAM_COUNTER**: Jump offset is outside valid bytecode range
-
-</div>
-
 ---
 
 ### JUMPI
-
-<div className="opcode-card">
 
 Conditional jump
 
@@ -2522,7 +2186,7 @@ if M[condOffset] != 0 then PC = loc else PC = PC + instructionSize
 
 #### Details
 
-Jumps to the specified location if the condition is non-zero (true). The condition must have type tag Uint1.
+Jumps to the specified location if the condition is non-zero (true). The condition must have type tag Uint1. While this instruction itself does not validate the jump target, an invalid target will trigger an instruction fetching error at the start of the next instruction's processing.
 
 #### Gas Costs
 
@@ -2532,7 +2196,7 @@ Jumps to the specified location if the condition is non-zero (true). The conditi
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -2542,7 +2206,7 @@ Jumps to the specified location if the condition is non-zero (true). The conditi
 | `loc` | Memory offset | Immediate bytecode offset to jump to if condition is true |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **JUMPI** (Opcode 0x24):
 
@@ -2561,7 +2225,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -2593,15 +2257,11 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Condition operand is not Uint1
-- **INVALID_PROGRAM_COUNTER**: Jump location is outside valid bytecode range
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### INTERNALCALL
-
-<div className="opcode-card">
 
 Internal function call
 
@@ -2613,7 +2273,7 @@ internalCallStack.push({callPc: PC, returnPc: PC + instructionSize}); PC = loc
 
 #### Details
 
-Pushes current PC and return address onto internal call stack, then jumps to the target location.
+Pushes current PC and return PC onto internal call stack, then jumps to the target location. While this instruction itself does not validate the jump target, an invalid target will trigger an instruction fetching error at the start of the next instruction's processing.
 
 #### Gas Costs
 
@@ -2622,7 +2282,7 @@ Pushes current PC and return address onto internal call stack, then jumps to the
 | L2 Base | 9 |
 | DA Base | 0 |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -2631,7 +2291,7 @@ Pushes current PC and return address onto internal call stack, then jumps to the
 | `loc` | Memory offset | Immediate bytecode offset of the function to call |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **INTERNALCALL** (Opcode 0x25):
 
@@ -2647,18 +2307,9 @@ packet-beta
 8-39: "Operand: loc"
 ```
 
-#### Error Conditions
-
-- **INVALID_PROGRAM_COUNTER**: Call location is outside valid bytecode range
-- **CALL_STACK_OVERFLOW**: Internal call stack is full
-
-</div>
-
 ---
 
 ### INTERNALRETURN
-
-<div className="opcode-card">
 
 Return from internal call
 
@@ -2670,7 +2321,7 @@ PC = internalCallStack.pop().returnPc
 
 #### Details
 
-Pops return address from internal call stack and sets PC to that address.
+Pops return PC from internal call stack and sets PC to it.
 
 #### Gas Costs
 
@@ -2679,10 +2330,10 @@ Pops return address from internal call stack and sets PC to that address.
 | L2 Base | 9 |
 | DA Base | 0 |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **INTERNALRETURN** (Opcode 0x26):
 
@@ -2699,15 +2350,11 @@ packet-beta
 
 #### Error Conditions
 
-- **CALL_STACK_UNDERFLOW**: Internal call stack is empty
-
-</div>
+- **INTERNAL_CALL_STACK_EMPTY**: Internal call stack is empty
 
 ---
 
 ### SET
-
-<div className="opcode-card">
 
 Set memory to immediate value
 
@@ -2719,7 +2366,7 @@ M[dstOffset] = value
 
 #### Details
 
-Stores an immediate value at the specified memory offset with the given type tag. Multiple wire formats support different value sizes.
+Stores an immediate value (a constant encoded directly in the bytecode) at the specified memory offset with the given type tag. Multiple wire formats support different value sizes.
 
 #### Gas Costs
 
@@ -2729,18 +2376,18 @@ Stores an immediate value at the specified memory offset with the given type tag
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
 | Name | Type | Description |
 |------|------|-------------|
 | `dstOffset` | Memory offset | Memory offset for value will be stored |
-| `inTag` | Type tag | Type tag |
-| `value` | Immediate value | Immediate value to store |
+| `inTag` | Type tag | Type tag to assign to the value. Unrelated to the opcode's wire format (`SET_8` vs `SET_16`, etc.) |
+| `value` | Immediate value | Constant from the bytecode to store into memory |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SET_8** (Opcode 0x27):
 
@@ -2845,7 +2492,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -2877,14 +2524,11 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Specified tag is not a valid TypeTag
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### MOV
-
-<div className="opcode-card">
 
 Move value between memory locations
 
@@ -2906,7 +2550,7 @@ Copies a value and its type tag from the source memory offset to the destination
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -2916,7 +2560,7 @@ Copies a value and its type tag from the source memory offset to the destination
 | `dstOffset` | Memory offset | Memory offset to write to |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **MOV_8** (Opcode 0x2D):
 
@@ -2951,7 +2595,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -2980,15 +2624,15 @@ packet-beta
 
 - `T[dstOffset] = T[srcOffset]`
 
-</div>
+#### Error Conditions
+
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### SLOAD
 
-<div className="opcode-card">
-
-Load value from storage
+Load value from public storage
 
 Opcode `0x2F`
 
@@ -2998,7 +2642,7 @@ M[dstOffset] = storage[contractAddress][M[slotOffset]]
 
 #### Details
 
-Reads from public storage at the specified slot. Both slot and result have type tag FIELD. Gas cost varies based on whether the slot is warm or cold.
+Reads from public storage at the specified slot. Performs a read of the Public Data Tree. The contractAddress is the address of the currently executing contract and does not come from the bytecode. Both slot and result have type tag FIELD. Gas cost varies based on whether the slot is warm (recently accessed) or cold (first access in this transaction).
 
 #### Gas Costs
 
@@ -3008,7 +2652,7 @@ Reads from public storage at the specified slot. Both slot and result have type 
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3018,7 +2662,7 @@ Reads from public storage at the specified slot. Both slot and result have type 
 | `dstOffset` | Memory offset | Memory offset for loaded value will be written |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SLOAD** (Opcode 0x2F):
 
@@ -3037,7 +2681,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -3073,16 +2717,13 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Slot operand is not FIELD
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### SSTORE
 
-<div className="opcode-card">
-
-Store value to storage
+Store value to public storage
 
 Opcode `0x30`
 
@@ -3092,7 +2733,7 @@ storage[contractAddress][M[slotOffset]] = M[srcOffset]
 
 #### Details
 
-Writes to public storage at the specified slot. Both slot and value must have type tag FIELD. Gas cost varies based on whether the slot is warm or cold. Reverts in static calls.
+Writes to public storage at the specified slot. Performs a write to the Public Data Tree. The contractAddress is the address of the currently executing contract and does not come from the bytecode. Both slot and value must have type tag FIELD. Gas cost varies based on whether the slot is warm (recently accessed) or cold (first access in this transaction). Reverts in static calls.
 
 #### Gas Costs
 
@@ -3103,7 +2744,7 @@ Writes to public storage at the specified slot. Both slot and value must have ty
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | DA Dynamic | 1024 | - |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3113,7 +2754,7 @@ Writes to public storage at the specified slot. Both slot and value must have ty
 | `slotOffset` | Memory offset | Memory offset of the storage slot to write to |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SSTORE** (Opcode 0x30):
 
@@ -3132,7 +2773,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -3166,14 +2807,12 @@ packet-beta
 
 - **INVALID_TAG**: Slot or value operand is not FIELD
 - **STATIC_CALL_ALTERATION**: Attempted storage write in static call context
-
-</div>
+- **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum public data updates per transaction (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### NOTEHASHEXISTS
-
-<div className="opcode-card">
 
 Check existence of note hash
 
@@ -3185,7 +2824,7 @@ M[existsOffset] = noteHashTree.exists(M[noteHashOffset], M[leafIndexOffset]) ? 1
 
 #### Details
 
-Queries whether the specified note hash exists at the given leaf index. Note hash must be FIELD, leaf index must be Uint64. Result is Uint1.
+Performs a read of the Note Hash Tree to query whether the specified note hash exists at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for note hashes of only the currently executing contract. Note that it is difficult to check for existence of a note hash emitted earlier in the same block because this opcode requires leafIndex. Note hash must be FIELD, leaf index must be Uint64. Result is Uint1.
 
 #### Gas Costs
 
@@ -3195,7 +2834,7 @@ Queries whether the specified note hash exists at the given leaf index. Note has
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3206,7 +2845,7 @@ Queries whether the specified note hash exists at the given leaf index. Note has
 | `existsOffset` | Memory offset | Memory offset for result (0 or 1) will be written |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **NOTEHASHEXISTS** (Opcode 0x31):
 
@@ -3226,7 +2865,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -3263,14 +2902,12 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Note hash is not FIELD or leaf index is not Uint64
-
-</div>
+- **INDEX_OUT_OF_RANGE**: Leaf index exceeds note hash tree size (NOTE_HASH_TREE_LEAF_COUNT)
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### EMITNOTEHASH
-
-<div className="opcode-card">
 
 Emit note hash
 
@@ -3282,7 +2919,7 @@ noteHashes.append(M[noteHashOffset])
 
 #### Details
 
-Adds a note hash to the current call's accumulated note hashes. Note hash must have type tag FIELD. Reverts in static calls.
+Writes a new note hash to the Note Hash Tree. Note hash must have type tag FIELD. Reverts in static calls.
 
 #### Gas Costs
 
@@ -3292,7 +2929,7 @@ Adds a note hash to the current call's accumulated note hashes. Note hash must h
 | DA Base | 512 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3301,7 +2938,7 @@ Adds a note hash to the current call's accumulated note hashes. Note hash must h
 | `noteHashOffset` | Memory offset | Memory offset of the note hash to emit |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **EMITNOTEHASH** (Opcode 0x32):
 
@@ -3319,7 +2956,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -3352,14 +2989,12 @@ packet-beta
 
 - **INVALID_TAG**: Note hash operand is not FIELD
 - **STATIC_CALL_ALTERATION**: Attempted note hash emission in static call context
-
-</div>
+- **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum note hashes per transaction (MAX_NOTE_HASHES_PER_TX)
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### NULLIFIEREXISTS
-
-<div className="opcode-card">
 
 Check existence of nullifier
 
@@ -3371,7 +3006,7 @@ M[existsOffset] = nullifierTree.exists(M[addressOffset], M[nullifierOffset]) ? 1
 
 #### Details
 
-Queries whether the specified nullifier exists for the given contract address. Both address and nullifier must be FIELD. Result is Uint1.
+Performs a read of the Nullifier Tree to query whether the specified nullifier exists for the given contract address. Any contract address can be specified, not just the currently executing contract. Both address and nullifier must be FIELD. Result is Uint1.
 
 #### Gas Costs
 
@@ -3381,7 +3016,7 @@ Queries whether the specified nullifier exists for the given contract address. B
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3392,7 +3027,7 @@ Queries whether the specified nullifier exists for the given contract address. B
 | `existsOffset` | Memory offset | Memory offset for result (0 or 1) will be written |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **NULLIFIEREXISTS** (Opcode 0x33):
 
@@ -3412,7 +3047,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -3449,14 +3084,11 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Address or nullifier is not FIELD
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### EMITNULLIFIER
-
-<div className="opcode-card">
 
 Emit nullifier
 
@@ -3468,7 +3100,7 @@ nullifiers.append(M[nullifierOffset])
 
 #### Details
 
-Adds a nullifier to the current call's accumulated nullifiers. Nullifier must have type tag FIELD. Reverts in static calls or if nullifier already exists.
+Writes a new nullifier to the Nullifier Tree. This opcode can only emit nullifiers from the currently executing contract address. Nullifier must have type tag FIELD. Reverts in static calls or if nullifier already exists.
 
 #### Gas Costs
 
@@ -3478,7 +3110,7 @@ Adds a nullifier to the current call's accumulated nullifiers. Nullifier must ha
 | DA Base | 512 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3487,7 +3119,7 @@ Adds a nullifier to the current call's accumulated nullifiers. Nullifier must ha
 | `nullifierOffset` | Memory offset | Memory offset of the nullifier to emit |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **EMITNULLIFIER** (Opcode 0x34):
 
@@ -3505,7 +3137,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -3539,14 +3171,12 @@ packet-beta
 - **INVALID_TAG**: Nullifier operand is not FIELD
 - **STATIC_CALL_ALTERATION**: Attempted nullifier emission in static call context
 - **NULLIFIER_COLLISION**: Nullifier already exists
-
-</div>
+- **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum nullifiers per transaction (MAX_NULLIFIERS_PER_TX)
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### L1TOL2MSGEXISTS
-
-<div className="opcode-card">
 
 Check existence of L1-to-L2 message
 
@@ -3558,7 +3188,7 @@ M[existsOffset] = l1ToL2Messages.exists(M[msgHashOffset], M[msgLeafIndexOffset])
 
 #### Details
 
-Queries whether the specified L1-to-L2 message hash exists at the given leaf index. Message hash must be FIELD, leaf index must be Uint64. Result is Uint1.
+Checks whether the specified L1-to-L2 message hash exists in the L1 to L2 message tree at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for messages with any particular recipient. Message hash must be FIELD, leaf index must be Uint64. Result is Uint1.
 
 #### Gas Costs
 
@@ -3568,7 +3198,7 @@ Queries whether the specified L1-to-L2 message hash exists at the given leaf ind
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3579,7 +3209,7 @@ Queries whether the specified L1-to-L2 message hash exists at the given leaf ind
 | `existsOffset` | Memory offset | Memory offset for result (0 or 1) will be written |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **L1TOL2MSGEXISTS** (Opcode 0x35):
 
@@ -3599,7 +3229,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -3636,14 +3266,12 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Message hash is not FIELD or leaf index is not Uint64
-
-</div>
+- **INDEX_OUT_OF_RANGE**: Leaf index exceeds L1-to-L2 message tree size (L1_TO_L2_MSG_TREE_LEAF_COUNT)
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### GETCONTRACTINSTANCE
-
-<div className="opcode-card">
 
 Get contract instance information
 
@@ -3655,7 +3283,7 @@ M[dstOffset] = contractInstance.exists ? 1 : 0; M[dstOffset+1] = contractInstanc
 
 #### Details
 
-Looks up contract instance by address and retrieves the specified member (deployer, classId, or initHash). Returns existence flag (Uint1) and member value (FIELD).
+Looks up contract instance by address and retrieves the specified member. This opcode can get contract instance information for any contract address, not just the currently executing one. Returns existence flag (Uint1) and member value (FIELD). If the contract does not exist, the member value is set to 0. Supported enum values: `[DEPLOYER=0, CLASS_ID, INIT_HASH]`.
 
 #### Gas Costs
 
@@ -3665,7 +3293,7 @@ Looks up contract instance by address and retrieves the specified member (deploy
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3676,7 +3304,7 @@ Looks up contract instance by address and retrieves the specified member (deploy
 | `memberEnum` | Memory offset | Immediate value specifying which contract instance member to retrieve |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **GETCONTRACTINSTANCE** (Opcode 0x36):
 
@@ -3696,7 +3324,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -3729,17 +3357,14 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Address operand is not FIELD
-- **INVALID_MEMBER_ENUM**: Member enum is not a valid ContractInstanceMember
-
-</div>
+- **INVALID_MEMBER_ENUM**: Member enum is not in the range of valid enum values
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### EMITUNENCRYPTEDLOG
 
-<div className="opcode-card">
-
-Emit unencrypted log
+Emit public log
 
 Opcode `0x37`
 
@@ -3749,7 +3374,7 @@ unencryptedLogs.append(M[logOffset:logOffset+M[logSizeOffset]])
 
 #### Details
 
-Appends an unencrypted (public) log to the current call's accumulated logs. Log size must be Uint32, log data must be FIELD elements. Reverts in static calls.
+Emits a public log from the currently executing contract. Log size must be Uint32, log data must be FIELD elements. Reverts in static calls.
 
 #### Gas Costs
 
@@ -3761,7 +3386,7 @@ Appends an unencrypted (public) log to the current call's accumulated logs. Log 
 | L2 Dynamic | 3 | `M[logSizeOffset]` |
 | DA Dynamic | 512 | `M[logSizeOffset]` |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3771,7 +3396,7 @@ Appends an unencrypted (public) log to the current call's accumulated logs. Log 
 | `logOffset` | Memory offset | Memory offset of the start of the log data |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **EMITUNENCRYPTEDLOG** (Opcode 0x37):
 
@@ -3790,7 +3415,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -3824,14 +3449,12 @@ packet-beta
 
 - **INVALID_TAG**: Log size is not Uint32 or log data is not FIELD
 - **STATIC_CALL_ALTERATION**: Attempted log emission in static call context
-
-</div>
+- **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum cumulative log size per transaction (FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### SENDL2TOL1MSG
-
-<div className="opcode-card">
 
 Send L2-to-L1 message
 
@@ -3843,7 +3466,7 @@ l2ToL1Messages.append({recipient: M[recipientOffset], content: M[contentOffset]}
 
 #### Details
 
-Queues a message to be sent to L1. Both recipient and content must have type tag FIELD. Reverts in static calls.
+Sends a message to L1, with the specified recipient, from the currently executing contract. Both recipient and content must have type tag FIELD. Reverts in static calls.
 
 #### Gas Costs
 
@@ -3853,7 +3476,7 @@ Queues a message to be sent to L1. Both recipient and content must have type tag
 | DA Base | 512 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3863,7 +3486,7 @@ Queues a message to be sent to L1. Both recipient and content must have type tag
 | `contentOffset` | Memory offset | Memory offset of the message content |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SENDL2TOL1MSG** (Opcode 0x38):
 
@@ -3882,7 +3505,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -3916,14 +3539,12 @@ packet-beta
 
 - **INVALID_TAG**: Recipient or content is not FIELD
 - **STATIC_CALL_ALTERATION**: Attempted L2-to-L1 message send in static call context
-
-</div>
+- **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum L2-to-L1 messages per transaction (MAX_L2_TO_L1_MSGS_PER_TX)
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### CALL
-
-<div className="opcode-card">
 
 Call external contract
 
@@ -3949,7 +3570,7 @@ Calls another contract with the specified calldata and gas allocation. Can modif
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -3962,7 +3583,7 @@ Calls another contract with the specified calldata and gas allocation. Can modif
 | `argsOffset` | Memory offset | Memory offset of the start of the calldata |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **CALL** (Opcode 0x39):
 
@@ -3984,7 +3605,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 16-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -4032,14 +3653,12 @@ packet-beta
 
 - **INVALID_TAG**: Gas, address, or size operands have incorrect tags
 - **OUT_OF_GAS**: Insufficient gas for the nested call
-
-</div>
+- **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum unique contract class IDs per transaction (MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS)
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### STATICCALL
-
-<div className="opcode-card">
 
 Static call to external contract
 
@@ -4065,7 +3684,7 @@ Calls another contract in static mode (read-only). Any state modifications in th
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -4078,7 +3697,7 @@ Calls another contract in static mode (read-only). Any state modifications in th
 | `argsOffset` | Memory offset | Memory offset of the start of the calldata |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **STATICCALL** (Opcode 0x3A):
 
@@ -4100,7 +3719,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 16-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -4148,14 +3767,12 @@ packet-beta
 
 - **INVALID_TAG**: Gas, address, or size operands have incorrect tags
 - **OUT_OF_GAS**: Insufficient gas for the nested call
-
-</div>
+- **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum unique contract class IDs per transaction (MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS)
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### RETURN
-
-<div className="opcode-card">
 
 Return from call
 
@@ -4177,7 +3794,7 @@ Halts execution and returns data to the caller. Return size must be Uint32. Sets
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -4187,7 +3804,7 @@ Halts execution and returns data to the caller. Return size must be Uint32. Sets
 | `returnOffset` | Memory offset | Memory offset of the start of the return data |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **RETURN** (Opcode 0x3B):
 
@@ -4206,7 +3823,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -4238,14 +3855,11 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Return size operand is not Uint32
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### REVERT
-
-<div className="opcode-card">
 
 Revert execution
 
@@ -4267,7 +3881,7 @@ Halts execution with revert status and returns error data to the caller. Revert 
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -4277,7 +3891,7 @@ Halts execution with revert status and returns error data to the caller. Revert 
 | `returnOffset` | Memory offset | Memory offset of the start of the revert data |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **REVERT_8** (Opcode 0x3C):
 
@@ -4312,7 +3926,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -4344,16 +3958,13 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Revert size operand is not Uint32
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### DEBUGLOG
 
-<div className="opcode-card">
-
-Emit debug log
+Output debug log
 
 Opcode `0x3E`
 
@@ -4363,7 +3974,7 @@ debugLog(level, message, M[fieldsOffset:fieldsOffset+M[fieldsSizeOffset]])
 
 #### Details
 
-Emits a debug log with a message string and field values. Only executed if debug logging is enabled. Level must be Uint8, fields must be FIELD, message size and fields size are immediate. Counts against max debug memory reads limit.
+Prints a debug log to console as a formatted a message, and pushes a structured debug object (`{contractAddress, level, message, fields[]}`) to an accumulated list for the transaction. This opcode does nearly nothing when executed by sequencers or provers (only performs PC increment and address resolution). It is meant for local debugging or for use by RPC nodes and wallets. Logs are only printed if logging level is "Debug" (6) or higher. Message size is an immediate (constant in the bytecode). Throws an irrecoverable error if truly doing debug logging and log level is invalid (greater than 7) or upon reaching the node's configured maxDebugLogMemoryReads.
 
 #### Gas Costs
 
@@ -4373,7 +3984,7 @@ Emits a debug log with a message string and field values. Only executed if debug
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -4386,7 +3997,7 @@ Emits a debug log with a message string and field values. Only executed if debug
 | `messageSize` | Memory offset | Immediate value specifying message string length |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **DEBUGLOG** (Opcode 0x3E):
 
@@ -4408,7 +4019,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -4436,20 +4047,18 @@ packet-beta
 #### Tag Checks
 
 - `T[fieldsSizeOffset] == UINT32`
+- `T[fieldsOffset:fieldsOffset+M[fieldsSizeOffset]] == FIELD`
 
 #### Error Conditions
 
 - **INVALID_TAG**: Fields operands are not FIELD type
 - **INVALID_LOG_LEVEL**: Log level is not a valid LogLevel enum value
 - **DEBUG_MEMORY_LIMIT_EXCEEDED**: Exceeded maximum debug log memory reads
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### POSEIDON2
-
-<div className="opcode-card">
 
 Poseidon2 permutation
 
@@ -4471,7 +4080,7 @@ Computes the Poseidon2 permutation on a state of 4 field elements. Input and out
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -4481,7 +4090,7 @@ Computes the Poseidon2 permutation on a state of 4 field elements. Input and out
 | `outputStateOffset` | Memory offset | Memory offset for output state will be written |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **POSEIDON2** (Opcode 0x3F):
 
@@ -4500,7 +4109,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -4536,14 +4145,11 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Input state elements are not FIELD
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### SHA256COMPRESSION
-
-<div className="opcode-card">
 
 SHA-256 compression
 
@@ -4565,7 +4171,7 @@ Computes the SHA-256 compression function on an 8-word state and 16-word input b
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -4576,7 +4182,7 @@ Computes the SHA-256 compression function on an 8-word state and 16-word input b
 | `inputsOffset` | Memory offset | Memory offset of the 16-word input block |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SHA256COMPRESSION** (Opcode 0x40):
 
@@ -4596,7 +4202,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -4633,14 +4239,11 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: State or inputs are not Uint32
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### KECCAKF1600
-
-<div className="opcode-card">
 
 Keccak-f[1600] permutation
 
@@ -4662,7 +4265,7 @@ Computes the Keccak-f[1600] permutation on a state of 25 Uint64 elements. Input 
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -4672,7 +4275,7 @@ Computes the Keccak-f[1600] permutation on a state of 25 Uint64 elements. Input 
 | `inputOffset` | Memory offset | Memory offset of the input state (25 Uint64 elements) |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **KECCAKF1600** (Opcode 0x41):
 
@@ -4691,7 +4294,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -4727,14 +4330,11 @@ packet-beta
 #### Error Conditions
 
 - **INVALID_TAG**: Input state elements are not Uint64
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### ECADD
-
-<div className="opcode-card">
 
 Grumpkin elliptic curve addition
 
@@ -4759,7 +4359,7 @@ Performs elliptic curve point addition on the Grumpkin curve. Each point is repr
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -4774,7 +4374,7 @@ Performs elliptic curve point addition on the Grumpkin curve. Each point is repr
 | `dstOffset` | Memory offset | Memory offset for result point will be written (3 values) |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **ECADD** (Opcode 0x42):
 
@@ -4798,7 +4398,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 16-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -4850,14 +4450,11 @@ packet-beta
 
 - **INVALID_TAG**: Point coordinates are not FIELD or infinity flags are not Uint1
 - **POINT_NOT_ON_CURVE**: One or both points are not on the Grumpkin curve
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
 
 ### TORADIXBE
-
-<div className="opcode-card">
 
 Convert to radix (big-endian)
 
@@ -4887,7 +4484,7 @@ Decomposes a field element into limbs in the specified radix (2-256). If outputB
 
 *Note: The L2 gas cost scales linearly with M[numLimbsOffset], but also includes a per-limb multiplier based on M[radixOffset]
 
-*See [Gas Metering Phases](#gas-metering-phases) for details on how gas costs are applied.
+*See [Gas Metering](gas) for details on how gas costs are computed and applied.
 
 #### Operands
 
@@ -4900,7 +4497,7 @@ Decomposes a field element into limbs in the specified radix (2-256). If outputB
 | `dstOffset` | Memory offset | Memory offset for limb array will be written |
 
 #### Wire Formats
-See explanation of "Wire format naming" in [Definitions and Notes](#definitions-and-notes) section.
+See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **TORADIXBE** (Opcode 0x43):
 
@@ -4922,7 +4519,7 @@ packet-beta
 ```
 
 #### Addressing Modes
-See explanation of "Addressing Modes" in [Definitions and Notes](#definitions-and-notes) section.
+See [Addressing](addressing) page for a detailed explanation.
 
 16-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
@@ -4964,7 +4561,7 @@ packet-beta
 
 #### Tag Updates
 
-- `T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset]` ? UINT1 : UINT8
+- `T[dstOffset:dstOffset+M[numLimbsOffset]] = (M[outputBitsOffset] ? UINT1 : UINT8)`
 
 #### Error Conditions
 
@@ -4973,13 +4570,6 @@ packet-beta
 - **INVALID_NUM_LIMBS**: Number of limbs is zero but value is non-zero
 - **INVALID_DECOMPOSITION**: Value cannot be decomposed into specified radix/limbs
 - **INVALID_BIT_MODE**: Bit mode is enabled but radix is not 2
-
-</div>
+- **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---
-
-## Notes
-
-- **M[x]** denotes memory at offset x
-- **Addressing modes** allow operands to use direct, indirect, or relative addressing
-- Gas costs may include dynamic components based on operand values or state access patterns
