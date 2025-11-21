@@ -322,12 +322,9 @@ for $A_{k,i},c_k\in\mathbb{F}$ where $c_k$ denotes the fixed part.
 Collecting these, say $N$, observable values into a vector $v\in\mathbb{F}^N$, we can write $v = A r + c$ for a given matrix $A \in \mathbb{F}^{N \times 40}$ and vector $c \in \mathbb{F}^N$.
 
 Thus, the number of linear equations in $r$ induced by this transcript of observable values can be bounded as follows.
-
-    - 20 observables across all wires ($L_j(\kappa), R_j(\kappa), R_j(u), M_j(u'), M_{j,\text{shift}}(u')$)
-
-    - 2 shared observables ($G(\kappa^{-1})$ and $Q(z)$)
-
-    - 10 observables from commitments ($[L_j]$ and $[R_j]$ for $j \in \{1, 2, 3, 4\}$, $[G]$ and $[Q]$)
+- 20 observables across all wires ($L_j(\kappa), R_j(\kappa), R_j(u), M_j(u'), M_{j,\text{shift}}(u')$)
+- 2 shared observables ($G(\kappa^{-1})$ and $Q(z)$)
+- 10 observables from commitments ($[L_j]$ and $[R_j]$ for $j \in \{1, 2, 3, 4\}$, $[G]$ and $[Q]$)
 
 We therefore have at most $32$ linear equations in $40$ unknowns when considering $v = A r + c$. Hence at least $8$ independent coefficients remain uniformly distributed from the verifier’s point of view.  This suffices to hide the contribution of the true ECC op-queue.
 
@@ -335,25 +332,17 @@ We therefore have at most $32$ linear equations in $40$ unknowns when considerin
 
 The simulator proceeds as follows.
 
-    - Choose the dummy op-queue. This determines the fixed part $c_{\mathrm{dummy}}$ without the random non-ops.
-
-    - Sample challenges $\kappa, u, u', z$ using the same distribution as in the real protocol.
-
-    - Sample $r_{\mathrm{sim}} \in \mathbb{F}^{40}$ uniformly at random.
-
-    - Compute the corresponding simulated openings $v_{\mathrm{sim}} = A r_{\mathrm{sim}} + c_{\mathrm{dummy}}$.
+- Choose the dummy op-queue. This determines the fixed part $c_{\mathrm{dummy}}$ without the random non-ops.
+- Sample challenges $\kappa, u, u', z$ using the same distribution as in the real protocol.
+- Sample $r_{\mathrm{sim}} \in \mathbb{F}^{40}$ uniformly at random.
+- Compute the corresponding simulated openings $v_{\mathrm{sim}} = A r_{\mathrm{sim}} + c_{\mathrm{dummy}}$.
+- Build the simulated polynomials as follows.
 
     - Build simulated polynomials $L_j^{\mathrm{sim}}, R_j^{\mathrm{sim}}$ whose coefficients match $r_{\mathrm{sim}}$ in positions corresponding to random non-ops and the dummy op-queue elsewhere.
-
-	    Build the polynomial
-        $M_j^{\mathrm{sim}}(X) = L_j^{\mathrm{sim}}(X) + X^{\ell}R_j^{\mathrm{sim}}(X)$.
-
-	    Build the degree check polynomial as
-	    $G^{\mathrm{sim}}(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i L_i^{\mathrm{sim}}(X)$.
-
-	    Build the Shplonk quotient polynomial $Q^{\mathrm{sim}}$ as per the honest protocol using the simulated openings.
-
-        In this way,
+    - Build the polynomial $M_j^{\mathrm{sim}}(X) = L_j^{\mathrm{sim}}(X) + X^{\ell}R_j^{\mathrm{sim}}(X)$.
+    - Build the degree check polynomial as $G^{\mathrm{sim}}(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i L_i^{\mathrm{sim}}(X)$.
+    - Build the Shplonk quotient polynomial $Q^{\mathrm{sim}}$ as per the honest protocol using the simulated openings.
+    - In this way,
         $L_j^{\mathrm{sim}}(\kappa),
         R_j^{\mathrm{sim}}(\kappa),
         R_j^{\mathrm{sim}}(u),
@@ -362,8 +351,7 @@ The simulator proceeds as follows.
         G^{\mathrm{sim}}(\kappa^{-1}),
         Q^{\mathrm{sim}}(z)$
         are consistent with the corresponding entries in $v_{\mathrm{sim}}$.
-
-    - Run the commitment protocol honestly on the simulated polynomials to compute the commitments $[L_j^{\mathrm{sim}}], [R_j^{\mathrm{sim}}], [M_j^{\mathrm{sim}}], [G^{\mathrm{sim}}]$ and $[Q^{\mathrm{sim}}]$. Construct the opening proofs at the points $\kappa,\kappa^{-1},u,u',z$ to match $v_{\mathrm{sim}}$.
+- Run the commitment protocol honestly on the simulated polynomials to compute the commitments $[L_j^{\mathrm{sim}}], [R_j^{\mathrm{sim}}], [M_j^{\mathrm{sim}}], [G^{\mathrm{sim}}]$ and $[Q^{\mathrm{sim}}]$. Construct the opening proofs at the points $\kappa,\kappa^{-1},u,u',z$ to match $v_{\mathrm{sim}}$.
 
 ###### Indistinguishability
 In the real world, the prover samples a vector $r_{\mathrm{real}} \in \mathbb{F}^{40}$ uniformly at random, corresponding to the random non-ops.
