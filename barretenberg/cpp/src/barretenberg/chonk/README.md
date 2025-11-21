@@ -6,7 +6,7 @@ Chonk ("Client Honk") implements Repeated Computation with Global state (RCG) as
 
 Unlike Incrementally Verifiable Computation (IVC), RCG:
 
-- **Deferred proving**: The entire computation completes before proving starts
+- **Deferred proving**: Witness generation for all circuits completes before proving starts
 - **Global consistency**: Supports global consistency checks across the whole computation (not just local state transitions)
 - **Space efficient**: Maintains prover space efficiency comparable to IVC despite proving global properties
 
@@ -19,7 +19,7 @@ Chonk enables proving the correct execution of a chain of circuits (apps and ker
 - **Folding-based accumulation**: Circuits are folded using HyperNova
 - **Efficient EC operations**: Goblin handles non-native elliptic curve arithmetic
 - **Zero-knowledge**: The final proof reveals nothing about intermediate computations
-- **Constant verification cost**: Verification time is independent of the number of accumulated circuits
+- **Bounded verification**: ECCVM/Translator are sized for a fixed op queue capacity (`OP_QUEUE_SIZE`), giving constant verification cost
 
 ## Architecture
 
@@ -111,9 +111,9 @@ ivc.accumulate(circuit, vk);
 ```
 
 During accumulation:
-1. Circuit is folded into the prover accumulator using HyperNova
+1. Circuit is folded into the prover accumulator using HyperNova (see [HyperNova Folding](#hypernova-folding))
 2. A folding proof is generated and added to the verification queue
-3. Goblin processes any EC operations via the op queue
+3. Goblin processes any EC operations via the op queue (see [Merge Protocol](#merge-protocol))
 
 ### 3. Kernel Circuit Completion
 
@@ -201,22 +201,6 @@ where:
 - $k$ = shift size (degree of $L_j$)
 
 It also proves the degree bound $\deg(L_j) < k$.
-
-**Proof components:**
-
-1. **Commitments**: $[M_j]$ for merged tables, $[G]$ for degree check polynomial where $G(X) = X^{k-1} \sum_i \alpha_i L_i(X)$
-
-2. **Evaluations at $\kappa$**: $l_j = L_j(\kappa)$, $r_j = R_j(\kappa)$, $m_j = M_j(\kappa)$
-
-3. **Evaluation at $\kappa^{-1}$**: $g = G(\kappa^{-1})$ (for degree check)
-
-4. **Shplonk batched quotient**: Batches all opening claims
-
-5. **KZG opening proof**: Final univariate opening
-
-The verifier checks:
-- $m_j = l_j + \kappa^k \cdot r_j$ (merge relation)
-- $g = \kappa^{-(k-1)} \sum_i \alpha_i l_i$ (degree bound)
 
 Note: Commitments to $L_j$ (current subtable) and $R_j$ (previous table) are reused from the HyperNova transcript, avoiding redundant work.
 
