@@ -6,12 +6,11 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import {
-  type FeeOptions,
-  BaseWallet,
   AccountManager,
   DeployAccountOptions,
   SimulateOptions,
 } from '@aztec/aztec.js/wallet';
+import { type FeeOptions, BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { randomBytes } from '@aztec/foundation/crypto';

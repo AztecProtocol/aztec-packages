@@ -61,6 +61,7 @@
     "txe",
     "test-wallet",
     "validator-client",
+    "wallet-sdk",
     "world-state"
   ],
   "prettier": "@aztec/foundation/prettier",

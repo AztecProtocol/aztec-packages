@@ -70,6 +70,7 @@ __metadata:
     "@aztec/noir-contracts.js": "link:../yarn-project/noir-contracts.js"
     "@aztec/pxe": "link:../yarn-project/pxe"
     "@aztec/stdlib": "link:../yarn-project/stdlib"
+    "@aztec/wallet-sdk": "link:../yarn-project/wallet-sdk"
     "@emotion/react": "npm:^11.14.0"
     "@emotion/styled": "npm:^11.14.0"
     "@eslint/js": "npm:^9.18.0"
@@ -113,6 +114,12 @@ __metadata:
 "@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fplayground%40workspace%3A."
+  languageName: node
+  linkType: soft
+
+"@aztec/wallet-sdk@link:../yarn-project/wallet-sdk::locator=%40aztec%2Fplayground%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wallet-sdk@link:../yarn-project/wallet-sdk::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 

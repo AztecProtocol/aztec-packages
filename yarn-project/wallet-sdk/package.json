@@ -1,22 +1,17 @@
 {
-  "name": "@aztec/entrypoints",
-  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/entrypoints",
-  "description": "Implementation of sample contract entrypoints for the Aztec Network",
+  "name": "@aztec/wallet-sdk",
+  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/wallet-sdk",
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./account": "./dest/account_entrypoint.js",
-    "./default": "./dest/default_entrypoint.js",
-    "./multicall": "./dest/default_multi_call_entrypoint.js",
-    "./interfaces": "./dest/interfaces.js",
-    "./payload": "./dest/payload.js",
-    "./encoding": "./dest/encoding.js"
+    "./base-wallet": "./dest/base-wallet/index.js",
+    "./providers/extension": "./dest/providers/extension/index.js",
+    "./manager": "./dest/manager/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
     ],
-    "name": "Entrypoints",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
@@ -67,25 +62,33 @@
     ]
   },
   "dependencies": {
+    "@aztec/aztec.js": "workspace:^",
     "@aztec/constants": "workspace:^",
+    "@aztec/entrypoints": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/protocol-contracts": "workspace:^",
-    "@aztec/stdlib": "workspace:^",
-    "tslib": "^2.4.0",
-    "zod": "^3.23.8"
+    "@aztec/pxe": "workspace:^",
+    "@aztec/stdlib": "workspace:^"
   },
   "devDependencies": {
+    "@aztec/noir-contracts.js": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
     "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
+    "resolve-typescript-plugin": "^2.0.1",
+    "ts-loader": "^9.5.4",
     "ts-node": "^10.9.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "util": "^0.12.5"
   },
   "files": [
     "dest",
     "src",
-    "!*.test.*"
+    "!*.test.*",
+    "artifacts"
   ],
+  "types": "./dest/index.d.ts",
   "engines": {
     "node": ">=20.10"
   }

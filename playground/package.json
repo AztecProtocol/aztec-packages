@@ -24,6 +24,7 @@
     "@aztec/noir-contracts.js": "link:../yarn-project/noir-contracts.js",
     "@aztec/pxe": "link:../yarn-project/pxe",
     "@aztec/stdlib": "link:../yarn-project/stdlib",
+    "@aztec/wallet-sdk": "link:../yarn-project/wallet-sdk",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.3.1",

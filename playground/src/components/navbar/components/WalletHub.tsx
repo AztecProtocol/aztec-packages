@@ -1,76 +1,103 @@
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import WalletIcon from '@mui/icons-material/Wallet';
-import { CircularProgress, FormControl, IconButton, MenuItem, Select, Typography } from '@mui/material';
+import { CircularProgress, FormControl, IconButton, MenuItem, Select, Typography, Box } from '@mui/material';
 
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import SettingsIcon from '@mui/icons-material/Settings';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import { useContext, useEffect, useState } from 'react';
 import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
-import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AztecContext } from '../../../aztecContext';
 import { CreateAccountDialog } from '../../../wallet/components/CreateAccountDialog';
 import { useTransaction } from '../../../hooks/useTransaction';
-import { ExtensionWallet } from '../../../wallet/extension_wallet';
+import { type WalletProvider, WalletManager } from '@aztec/wallet-sdk/manager';
 import { Fr } from '@aztec/foundation/fields';
-import type { ChainInfo } from '@aztec/aztec.js/account';
 
-type Provider = {
-  name: string;
-  getWallet: (chainInfo: ChainInfo) => Promise<Wallet>;
-  iconURL: string;
-  callback: () => Promise<void>;
+// Extend WalletProvider locally for UI properties
+type ExtendedWalletProvider = WalletProvider & {
+  callback?: () => void;
 };
 
 export function WalletHub() {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<ExtendedWalletProvider | null>(null);
   const [openWalletModal, setOpenWalletModal] = useState(false);
-  const { setWallet, network, wallet, setIsEmbeddedWalletSelected } = useContext(AztecContext);
+  const [providers, setProviders] = useState<ExtendedWalletProvider[]>([]);
+  const { setWallet, network, wallet, setIsEmbeddedWalletSelected, setFrom } = useContext(AztecContext);
   const { sendTx } = useTransaction();
 
   useEffect(() => {
     if (network) {
-      const currentProvider = selectedProvider ?? providers[0];
-      handleProviderChanged(currentProvider.name);
+      discoverWallets();
     }
   }, [network]);
 
-  const providers: Provider[] = [
-    {
+  async function discoverWallets() {
+    if (!network) return;
+    setLoading(true);
+
+    const wallets = await WalletManager.configure({
+      extensions: { enabled: true },
+      webWallets: { urls: [] },
+    }).getAvailableWallets({
+      chainInfo: {
+        chainId: new Fr(network.chainId),
+        version: new Fr(network.version),
+      },
+      timeout: 200,
+    });
+
+    const embeddedWallet: ExtendedWalletProvider = {
+      id: 'embedded',
+      type: 'embedded',
       name: 'Embedded wallet',
-      getWallet: (chainInfo: ChainInfo) => EmbeddedWallet.create(chainInfo),
-      iconURL: new URL('../../../assets/aztec_logo.png', import.meta.url).href,
+      icon: new URL('../../../assets/aztec_logo.png', import.meta.url).href,
+      connect: () =>
+        EmbeddedWallet.create({
+          chainId: new Fr(network.chainId),
+          version: new Fr(network.version),
+        }),
       callback: () => {
         setOpenWalletModal(true);
-        return Promise.resolve();
       },
-    },
-    // {
-    //   name: 'Aztec keychain',
-    //   getWallet: (chainInfo: ChainInfo) => Promise.resolve(ExtensionWallet.create(chainInfo, 'play.aztec.network')),
-    //   iconURL: new URL('../../../assets/aztec_logo.png', import.meta.url).href,
-    //   callback: () => {
-    //     return Promise.resolve();
-    //   },
-    // },
-  ];
+    };
 
-  async function handleProviderChanged(providerName: string) {
-    const provider = providers.find(p => p.name === providerName);
-    if (provider) {
+    const allProviders = [embeddedWallet, ...wallets];
+    setProviders(allProviders);
+
+    // Auto-select first provider (always re-connect when network changes)
+    if (allProviders.length > 0) {
+      const providerToSelect = allProviders[0];
+      await connectProvider(providerToSelect);
+    }
+  }
+
+  async function connectProvider(provider: ExtendedWalletProvider) {
+    try {
       setLoading(true);
       setOpen(false);
       setSelectedProvider(provider);
-      setIsEmbeddedWalletSelected(provider === providers[0]);
-      const wallet = await provider.getWallet({
-        chainId: new Fr(network.chainId),
-        version: new Fr(network.version),
-      });
+      setIsEmbeddedWalletSelected(provider.type === 'embedded');
+
+      // Reset the selected account when changing wallet/network
+      setFrom(null);
+
+      const wallet = await provider.connect('play.aztec.network');
       setWallet(wallet);
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+    } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleProviderChanged(providerId: string) {
+    const provider = providers.find(p => p.id === providerId);
+    if (provider) {
+      await connectProvider(provider);
     }
   }
 
@@ -102,7 +129,7 @@ export function WalletHub() {
       <FormControl css={navbarSelect}>
         <Select
           fullWidth
-          value={selectedProvider?.name || ''}
+          value={selectedProvider?.id || ''}
           displayEmpty
           variant="outlined"
           IconComponent={KeyboardArrowDownIcon}
@@ -142,11 +169,28 @@ export function WalletHub() {
           {network &&
             providers.map(provider => (
               <MenuItem
-                key={provider.name}
-                value={provider.name}
+                key={provider.id}
+                value={provider.id}
                 sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}
               >
-                <img src={provider.iconURL} style={{ height: '50px', marginRight: '0.5rem' }} />
+                {provider.icon ? (
+                  <img src={provider.icon} style={{ height: '50px', marginRight: '0.5rem' }} />
+                ) : (
+                  <Box
+                    sx={{
+                      height: '50px',
+                      width: '50px',
+                      marginRight: '0.5rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <AccountBalanceWalletIcon sx={{ fontSize: '28px', color: 'var(--mui-palette-primary-main)' }} />
+                  </Box>
+                )}
                 <Typography variant="body1">{provider.name}</Typography>
               </MenuItem>
             ))}
@@ -164,7 +208,7 @@ export function WalletHub() {
       )}
       {openWalletModal && (
         <CreateAccountDialog
-          wallet={wallet as EmbeddedWallet}
+          wallet={wallet as unknown as EmbeddedWallet}
           open={openWalletModal}
           onClose={(address, publiclyDeploy, interaction, opts) =>
             handleEmbeddedWalletModalClose(address, publiclyDeploy, interaction, opts)
