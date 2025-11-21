@@ -254,6 +254,7 @@ namespace tx;
     pol commit setup_phase_value;
     sel * (constants.AVM_TX_PHASE_VALUE_SETUP - setup_phase_value) = 0;
 
+    // Restore side effect and tree states to their values at the end of setup phase.
     #[RESTORE_STATE_ON_REVERT]
     reverted {
         setup_phase_value,

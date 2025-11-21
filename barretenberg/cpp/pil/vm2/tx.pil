@@ -403,7 +403,6 @@ namespace tx;
     // Shared column to track the inverse of the remaining side effects for note hashes, nullifiers and l2 to l1 messages
     pol commit remaining_side_effects_inv;
 
-    // TODO: Maybe unify with other public inputs reads?
     // Read the tree value from public inputs
     #[READ_TREE_INSERT_VALUE]
     is_tree_insert_phase { read_pi_offset, leaf_value } in
@@ -428,8 +427,8 @@ namespace tx;
         leaf_value,
         prev_note_hash_tree_size,
         prev_note_hash_tree_root,
-        precomputed.zero,
-        sel_revertible_append_note_hash,
+        precomputed.zero, // Already siloed. (No need to pass address.)
+        sel_revertible_append_note_hash, // Not unique for revertible note hashes.
         prev_num_note_hashes_emitted,
         discard, // from tx_discard.pil virtual trace
         next_note_hash_tree_root
@@ -468,11 +467,12 @@ namespace tx;
     pol commit should_nullifier_append; // @boolean (follows from definition)
     should_nullifier_append = should_try_nullifier_append * (1 - nullifier_limit_error);
 
+    // We revert if the nullifier already exists.
     #[NULLIFIER_APPEND]
     should_nullifier_append {
-        reverted,
         leaf_value,
         prev_nullifier_tree_root,
+        reverted,
         next_nullifier_tree_root,
         prev_nullifier_tree_size,
         discard, // from tx_discard.pil virtual trace
@@ -480,9 +480,9 @@ namespace tx;
         precomputed.zero
     } in
     nullifier_check.write {
-        nullifier_check.exists,
         nullifier_check.nullifier,
         nullifier_check.root,
+        nullifier_check.exists,
         nullifier_check.write_root,
         nullifier_check.tree_size_before_write,
         nullifier_check.discard,
@@ -587,6 +587,7 @@ namespace tx;
 
     pol commit fee_payer_balance;
 
+    // Retrieve fee_payer_balance
     #[BALANCE_READ]
     is_collect_fee {
        fee_payer_balance,
