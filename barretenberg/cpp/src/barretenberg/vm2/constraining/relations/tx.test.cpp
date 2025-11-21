@@ -72,7 +72,7 @@ TEST(TxExecutionConstrainingTest, NegativeNoExtraneousRows)
             { C::tx_sel, 1 },
         },
     });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NO_EXTRANEOUS_ROWS), "NO_EXTRANEOUS_ROWS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
 }
 
 class TxExecutionConstrainingTestHelper : public ::testing::Test {

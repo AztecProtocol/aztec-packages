@@ -11,15 +11,50 @@ include "tx_context.pil";
 include "tx_discard.pil";
 include "ff_gt.pil";
 
-// Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
-// The tx trace manages the various phases that a transaction will undergo while it is being executed.
-// These different phases for a tx include:
-// (a) Non-Revertible Private Insertion of nullifiers, note hashes and L2 to L1 Messages
-// (b) Non-Revertible SETUP phase
-// (c) Revertible Private insertion of nullifiers, note hashes and L2 to L1 Messages
-// (d) Revertible APPLOGIC phase
-// (e) Revertible TEARDOWN phase
-// (f) Non-Revertible Collect Gas Phase
+/**
+ * Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
+ * This is the top-level trace of the AVM circuit.
+ * The tx trace manages the various phases that a transaction will undergo while it is being executed.
+ *
+ * These different phases for a tx are defined in the TransactionPhase enum in aztec_types.hpp.
+ * The phases are:
+ * - Non-revertible insertions:
+ *   - nullifiers (0)
+ *   - note hashes (1)
+ *   - L2 to L1 messages (2)
+ * - Setup phase (3), where the setup enqueued calls are executed.
+ * - Revertible insertions:
+ *   - nullifiers (4)
+ *   - note hashes (5)
+ *   - L2 to L1 messages (6)
+ * - App logic phase (7), where the app logic enqueued calls are executed.
+ * - Teardown phase (8), where the teardown enqueued call is executed.
+ * - Collect Gas fee (9)
+ * - Tree padding (10)
+ * - Cleanup (11)
+ *
+ * The phase value is (except when TX revert) evolving in increasing order. We constrain that it starts at 0 and ends
+ * at 11 (Cleanup).
+ * Each phase has some static attributes that are read from the precomputed table via the #[READ_PHASE_SPEC] lookup.
+ * The attributes are used to set some selectors and useful to dispatch to the specific work done in each phase.
+ *
+ * In additoin to tx.pil, the two following virtual sub-traces are part of the tx trace:
+ * - tx_context.pil manages the side effect states and tree states that are updated in each phase.
+ * - tx_discard.pil manages the discard column that is used to discard the side effects and tree states if the tx reverts.
+ *
+ * Most of the phases have a variable number of events that are processed in the phase. The phase length is retrieved
+ * from the public inputs (#[READ_PHASE_LENGTH]) and is used to setup a decreasing counter (`remaining_phase_counter`).
+ * The phase is completed when the counter reaches 1 (which toggles `end_phase` selector).
+ * If the phase is empty, i.e., `remaining_phase_counter == 0`, we set `is_padded` selector to 1 and
+ * we create a "dummy" row for the phase called "padded" row.
+ *
+ * The control flow in the happy path consists in simply traversing the phases in increasing order and executing the events
+ * in each phase. If an error occurs during a phase, we set the `reverted` selector to 1 and we jump to a phase which is specified
+ * by the `next_phase_on_revert` (defined in the precomputed table, see #[READ_PHASE_SPEC] lookup).
+ * When a revert is encountered, we neet to restore the side effect and tree states to their values at the end of the setup phase.
+ * We note that not all phases are allowed to revert (specified by the `is_revertible` selector in #[READ_PHASE_SPEC] lookup).
+ * A revert condition within a non-revertible phase is not provable.
+*/
 
 namespace tx;
 
@@ -28,30 +63,42 @@ namespace tx;
     #[skippable_if]
     sel = 0;
 
-    // Lifecycle constraints: we want all executions of the AVM to have exactly one run of the tx trace
-    // and no extraneous rows in the tx trace
+   /***************************************************************************
+    * Trace Shape and Some Selectors
+    **************************************************************************/
 
-    // Can only turn on sel after the first row
-    #[NO_EXTRANEOUS_ROWS]
-    (1 - sel) * sel' * (1 - precomputed.first_row) = 0;
-    // You MUST turn on sel after the first row
-
-    // Sel can only become off after the last phase (cleanup)
-    #[NO_EARLY_END]
-    sel * (1 - sel') * (phase_value - constants.AVM_TX_PHASE_VALUE_LAST) = 0;
+    // The active trace can only start after the first row and be contiguous.
+    #[TRACE_CONTINUITY]
+    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
 
     // Most of transaction initial constraints are in tx_context.pil
     pol commit start_tx; // @boolean by definition
     #[START_WITH_SEL]
     start_tx' = precomputed.first_row;
 
-    pol commit phase_value;
-    // if is_padded = 1, this is a padded row
+    pol commit phase_value; // Number of the phase (starting from 0)
+    pol commit remaining_phase_counter; // Number of events remaining in the phase
+
+    // If is_padded = 1, this is a padded row
     // A padded row exists for a phase (refer to a to f above for the phases) that is unused for this transaction
     // This means that the length of values to read for it is 0. We still need to perform some check to prevent
     // malicious skipping of valid phases.
     pol commit is_padded; // @boolean
     is_padded * (1 - is_padded) = 0;
+
+    // If remaining_phase_counter == 0, is_padded = 1
+    // Leaves end_phase unconstrained but the prover has no choice since if he doesn't activate end_phase
+    // remaining_phase_counter will become p-1 and he'll never be able to complete a run.
+    pol commit remaining_phase_inv;
+    #[REM_COUNT_IS_ZERO]
+    sel * (remaining_phase_counter * (is_padded * (1 - remaining_phase_inv) + remaining_phase_inv) - 1 + is_padded) = 0;
+
+    pol commit is_revertible; // @boolean (on any active row guaranteed by #[READ_PHASE_SPEC])
+    // Whether this phase reverted
+    pol commit reverted; // @boolean
+    reverted * (1 - reverted) = 0;
+    // Note: If reverted == 1, is_revertible must be 1 as enforced in tx_discard.pil.
+
     // A padded row can't revert
     is_padded * reverted = 0;
 
@@ -60,60 +107,45 @@ namespace tx;
     pol commit end_phase; // @boolean
     end_phase * (1 - end_phase) = 0;
 
-    pol NOT_PHASE_END = sel * (1 - end_phase);
+    // If the phase is not padded, nor reverted, `remaining_phase_counter == 1 <==> end_phase = 1`
+    pol REM_COUNT_MINUS_1 = remaining_phase_counter - 1;
+    pol commit remaining_phase_minus_one_inv;
+    #[REM_COUNT_IS_ONE]
+    sel * (1 - reverted) * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
 
-    // sel == 1 when start_tx, is_padded, reverted, start_phase, end_phase, ... is 1
-    // Note that is_tree_insert_phase covers the 4 selectors sel_[nr/r]_append_[note_hash/nullifier].
+    #[IS_PADDED_OR_REVERTED_END_PHASE]
+    (is_padded + reverted) * (1 - end_phase) = 0;
+
+    // sel == 1 when start_tx, is_padded, reverted, start_phase, end_phase are 1.
     #[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS]
-    (start_tx + is_padded + reverted + start_phase + end_phase + is_tree_insert_phase
-              + sel_non_revertible_append_l2_l1_msg + sel_revertible_append_l2_l1_msg) * (1 - sel) = 0;
+    (start_tx + is_padded + reverted + start_phase + end_phase) * (1 - sel) = 0;
 
-    #[START_PHASE_VALUE_INITIALIZATION]
-    start_tx * (phase_value - constants.AVM_TX_PHASE_VALUE_START) = 0;
+    // Sel can only become off after the last phase (cleanup)
+    #[NO_EARLY_END]
+    sel * (1 - sel') * (phase_value - constants.AVM_TX_PHASE_VALUE_LAST) = 0;
 
     #[START_FOLLOWS_END]
     sel' * (start_phase' - end_phase - precomputed.first_row) = 0;
 
-    // end_phase = 1, remaining_phase - 1 = 0;
-    pol commit is_revertible; // @boolean (on any active row guaranteed by #[READ_PHASE_SPEC])
-    // Whether this phase reverted
-    pol commit reverted; // @boolean
-    reverted * (1 - reverted) = 0;
-    // Note: If reverted == 1, is_revertible must be 1 as enforced in tx_discard.pil.
+   /***************************************************************************
+    * Control Flow
+    **************************************************************************/
+    #[START_PHASE_VALUE_INITIALIZATION]
+    start_tx * (phase_value - constants.AVM_TX_PHASE_VALUE_START) = 0;
 
-    #[END_PHASE_ON_REVERT]
-    reverted * (1 - end_phase) = 0;
-    // phase_value stays the same unless we are at end_phase or reverted
+    // Phase_value stays the same unless we are at end_phase (or reverted)
+    pol NOT_PHASE_END = sel * (1 - end_phase);
     #[PHASE_VALUE_CONTINUITY]
     NOT_PHASE_END * (phase_value' - phase_value) = 0;
     // At the start of a new phase, we need to increment the phase value
     #[INCR_PHASE_VALUE_ON_END]
     sel' * (1 - reverted) * end_phase * (phase_value' - (phase_value + 1)) = 0;
 
-
-    // Control flow
     pol commit read_pi_start_offset; // start index in public inputs to read data for a given phase
     pol commit read_pi_offset; // index in public inputs to read data from -> Revisit!
     pol commit read_pi_length_offset; // index in public inputs to read lengths from
     pol commit write_pi_offset; // index in public inputs to write data to: Constrain in the phases that need it.
     pol commit next_phase_on_revert; // phase to jump to if we revert
-
-    pol commit remaining_phase_inv;
-    pol commit remaining_phase_counter;
-    // If remaining_phase_counter == 0, is_padded = 1
-    // Leaves end_phase unconstrained but the prover has no choice since if he doesn't activate end_phase
-    // remaining_phase_counter will become p-1 and he'll never be able to complete a run.
-    #[REM_COUNT_IS_ZERO]
-    sel * (remaining_phase_counter * (is_padded * (1 - remaining_phase_inv) + remaining_phase_inv) - 1 + is_padded) = 0;
-
-    pol REM_COUNT_MINUS_1 = remaining_phase_counter - 1;
-    pol commit remaining_phase_minus_one_inv;
-    // If remaining_phase_counter == 1, end_phase = 1
-    #[REM_COUNT_IS_ONE]
-    sel * (1 - reverted) * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
-
-    #[IS_PADDED_END_PHASE]
-    is_padded * (1 - end_phase) = 0;
 
     #[READ_PHASE_SPEC]
     sel {
@@ -164,20 +196,6 @@ namespace tx;
         precomputed.next_phase_on_revert
     };
 
-    // If is_public_call_request == 1 ==> sel == 1.
-    // Note that this implies that is_public_call_request is boolean as precomputed.is_public_call_request is boolean
-    // due to the #[READ_PHASE_SPEC] lookup when sel == 1. If sel == 0, the below constraint implies is_public_call_request == 0.
-    #[SEL_ACTIVE_ON_PUBLIC_CALL_REQUEST]
-    is_public_call_request * (1 - sel) = 0;
-
-    // If is_collect_fee == 1 ==> sel == 1. (implies boolean with same reasoning as above)
-    #[SEL_ACTIVE_ON_COLLECT_FEE]
-    is_collect_fee * (1 - sel) = 0;
-
-    // If is_cleanup == 1 ==> sel == 1. (implies boolean with same reasoning as above)
-    #[SEL_ACTIVE_ON_CLEANUP]
-    is_cleanup * (1 - sel) = 0;
-
     // If a phase reverts (when it is allowed to), it jumps to a known next phase
     #[PHASE_JUMP_ON_REVERT]
     reverted * (next_phase_on_revert - phase_value') = 0;
@@ -209,8 +227,10 @@ namespace tx;
     #[INCR_READ_PI_OFFSET]
     NOT_PHASE_END * (read_pi_offset' - (read_pi_offset + 1)) = 0;
 
-    // === Public Call Request Phase ===
-    pol commit is_public_call_request; // @boolean (follows from #[READ_PHASE_SPEC] and #[SEL_ACTIVE_ON_PUBLIC_CALL_REQUEST])
+   /***************************************************************************
+    * Public Call Request (Phases SETUP, APP_LOGIC and TEARDOWN)
+    **************************************************************************/
+    pol commit is_public_call_request; // @boolean on active rows (follows from #[READ_PHASE_SPEC])
     pol commit msg_sender;
     pol commit contract_addr;
     pol commit is_static; // @boolean
@@ -218,10 +238,12 @@ namespace tx;
     pol commit calldata_size;
     pol commit calldata_hash;
 
-    pol commit should_process_call_request; // @boolean (follows from definition)
+    pol commit should_process_call_request; // @boolean on active rows (follows from definition)
     should_process_call_request = is_public_call_request * (1 - is_padded);
 
     // Read information relating to the public call request from public inputs
+    // Note: A malicious prover could activate `should_process_call_request` outside of the
+    //       active trace but it does not affect the security.
     #[READ_PUBLIC_CALL_REQUEST_PHASE]
     should_process_call_request {
         read_pi_offset,
@@ -386,31 +408,35 @@ namespace tx;
        execution.da_gas_used
     };
 
-    // === PRIVATE SIDE EFFECT INSERTIONS ===
+   /***************************************************************************
+    * Private Side Effect Insertions
+    **************************************************************************/
     pol commit sel_revertible_append_note_hash; // @boolean
     pol commit sel_non_revertible_append_note_hash; // @boolean
     pol commit sel_revertible_append_nullifier; // @boolean
     pol commit sel_non_revertible_append_nullifier; // @boolean
     pol commit sel_revertible_append_l2_l1_msg; // @boolean
     pol commit sel_non_revertible_append_l2_l1_msg; // @boolean
-    // The 6 above selectors are booleans thanks to #[READ_PHASE_SPEC] and #[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS].
+    // The 6 above selectors are booleans thanks to #[READ_PHASE_SPEC] on active rows.
     // Furthermore, phase spec guarantees that they are mutually exclusive.
 
     // A tree selector means we need to get the tree value
-    pol commit is_tree_insert_phase; // @boolean (follows from mutual exclusivity of the 6 above selectors)
+    pol commit is_tree_insert_phase; // @boolean on active rows (follows from mutual exclusivity of the 6 above selectors)
     is_tree_insert_phase = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
     pol commit leaf_value;
     // Shared column to track the inverse of the remaining side effects for note hashes, nullifiers and l2 to l1 messages
     pol commit remaining_side_effects_inv;
 
     // Read the tree value from public inputs
+    // Note: A malicious prover could activate `is_tree_insert_phase` outside of the active
+    //       trace but it does not affect the security.
     #[READ_TREE_INSERT_VALUE]
     is_tree_insert_phase { read_pi_offset, leaf_value } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     // ===== NOTE HASHES =====
     pol commit should_try_note_hash_append; // @boolean (follows from definition)
-    should_try_note_hash_append = (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
+    should_try_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
 
     // If we are at the maximum emitted note hashes, we must revert
     pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX - prev_num_note_hashes_emitted;
@@ -450,7 +476,7 @@ namespace tx;
 
     // ===== NULLIFIERS =====
     pol commit should_try_nullifier_append; // @boolean (follows from definition)
-    should_try_nullifier_append = (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
+    should_try_nullifier_append = sel * (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
 
     pol commit nullifier_limit_error; // @boolean
     nullifier_limit_error * (1 - nullifier_limit_error) = 0;
@@ -496,7 +522,7 @@ namespace tx;
 
     // ===== L2 - L1 Messages =====
     pol commit should_try_l2_l1_msg_append; // @boolean (follows from definition)
-    should_try_l2_l1_msg_append = (1 - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
+    should_try_l2_l1_msg_append = sel * (1 - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
 
     pol commit l2_l1_msg_contract_address;
     pol commit l2_l1_msg_recipient;
@@ -527,10 +553,16 @@ namespace tx;
     #[UPDATE_NUM_L2_TO_L1_MSGS]
     should_try_l2_l1_msg_append * (1 - reverted) * (prev_num_l2_to_l1_messages + 1 - next_num_l2_to_l1_messages) = 0;
 
-    // Collect Gas
+   /***************************************************************************
+    * Collect Gas Phase
+    **************************************************************************/
     pol commit is_collect_fee; // @boolean (follows from #[READ_PHASE_SPEC] and #[SEL_ACTIVE_ON_COLLECT_FEE])
     pol commit effective_fee_per_da_gas;
     pol commit effective_fee_per_l2_gas;
+
+    // If is_collect_fee == 1 ==> sel == 1.
+    #[SEL_ACTIVE_ON_COLLECT_FEE]
+    is_collect_fee * (1 - sel) = 0;
 
     #[READ_EFFECTIVE_FEE_PUBLIC_INPUTS]
     is_collect_fee {
@@ -640,7 +672,9 @@ namespace tx;
     is_collect_fee { write_pi_offset, fee }
     in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
-    // ===== TREE PADDING =====
+   /***************************************************************************
+    * Tree Padding Phase
+    **************************************************************************/
     pol commit is_tree_padding; // @boolean (on active rows follows from #[READ_PHASE_SPEC])
 
     // Roots and num emitted don't change, only size changes.
@@ -658,6 +692,12 @@ namespace tx;
     #[NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING]
     is_tree_padding * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
 
-    // ===== CLEANUP =====
+   /***************************************************************************
+    * Cleanup Phase
+    **************************************************************************/
     // Most constraints for this phase are located in tx_context.pil
     pol commit is_cleanup; // @boolean (follows from #[READ_PHASE_SPEC] and #[SEL_ACTIVE_ON_CLEANUP])
+
+    // If is_cleanup == 1 ==> sel == 1. (implies boolean with same reasoning as above)
+    #[SEL_ACTIVE_ON_CLEANUP]
+    is_cleanup * (1 - sel) = 0;
