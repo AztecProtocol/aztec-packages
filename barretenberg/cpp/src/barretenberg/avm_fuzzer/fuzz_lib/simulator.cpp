@@ -92,7 +92,7 @@ Tx create_default_tx(const AztecAddress& contract_address,
         .app_logic_enqueued_calls = {
             PublicCallRequestWithCalldata{
                 .request = PublicCallRequest{
-                    .msg_sender = 0,
+                    .msg_sender = 100,
                     .contract_address = contract_address,
                     .is_static_call = is_static_call,
                     .calldata_hash = 0,
@@ -152,16 +152,72 @@ JsSimulator::JsSimulator(std::string& simulator_path)
     , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
 {}
 
-void JsSimulator::restart_simulator()
+void JsSimulator::restart_simulator_process()
 {
     if (instance == nullptr) {
         throw std::runtime_error("JsSimulator should be initialized before restarting");
     }
+    std::cout << "Restarting JsSimulator process" << std::endl;
     std::string simulator_path = instance->simulator_path;
     delete instance;
     instance = new JsSimulator(simulator_path);
 }
 
+void JsSimulator::restart_simulator()
+{
+    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
+    if (logging_enabled) {
+        info("Restarting JsSimulator");
+    }
+    if (instance == nullptr) {
+        throw std::runtime_error("JsSimulator should be initialized before restarting");
+    }
+    instance->process.write_line("{\"restart\":1}");
+
+    std::string response = instance->process.read_line();
+    if (logging_enabled) {
+        std::cout << "Raw restart response length: " << response.length() << std::endl;
+        std::cout << "Raw restart response (first 200 chars): " << response.substr(0, 200) << std::endl;
+    }
+    response.erase(response.find_last_not_of('\n') + 1);
+    if (response.empty()) {
+        std::cout << "Received empty response from simulator after restart command" << std::endl;
+        return;
+    }
+
+    try {
+        std::vector<uint8_t> decoded_response = decode_bytecode(response);
+        std::string response_string(decoded_response.begin(), decoded_response.end());
+        if (logging_enabled) {
+            info("Received restart response: ", response_string);
+        }
+        json response_json = json::parse(response_string);
+
+        // Check if this is actually a restart response (has "restarted" field)
+        if (response_json.contains("reverted")) {
+            if (logging_enabled) {
+                info("Discarding stale simulation response, reading restart response");
+            }
+            response = instance->process.read_line();
+            response.erase(response.find_last_not_of('\n') + 1);
+            decoded_response = decode_bytecode(response);
+            response_string = std::string(decoded_response.begin(), decoded_response.end());
+            if (logging_enabled) {
+                info("Received restart response: ", response_string);
+            }
+            response_json = json::parse(response_string);
+        }
+
+        bool restarted = response_json["restarted"];
+        if (!restarted) {
+            std::string error = response_json.value("error", "Unknown error");
+            throw std::runtime_error("Restart failed: " + error);
+        }
+    } catch (const std::exception& e) {
+        std::cout << "Error processing restart response: " << e.what() << std::endl;
+        throw std::runtime_error("Failed to restart simulator: " + std::string(e.what()));
+    }
+}
 JsSimulator* JsSimulator::getInstance()
 {
     if (instance == nullptr) {
@@ -182,7 +238,11 @@ void JsSimulator::initialize(std::string& simulator_path)
 
 SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
 {
+    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
     std::string serialized = serialize_bytecode_and_calldata(bytecode, calldata);
+    if (logging_enabled) {
+        info("Sending request to simulator: ", serialized);
+    }
 
     // Send the request
     process.write_line(serialized);
@@ -199,12 +259,15 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
     } catch (const std::exception& e) {
         std::cout << "Error decoding response: " << e.what() << std::endl;
         std::cout << "Response: " << response << std::endl;
-        restart_simulator();
+        restart_simulator_process();
 
         return simulate(bytecode, calldata);
     }
 
     std::string response_string(decoded_response.begin(), decoded_response.end());
+    if (logging_enabled) {
+        info("Received response from simulator: ", response_string);
+    }
     json response_json = json::parse(response_string);
     bool reverted = response_json["reverted"];
     std::vector<std::string> output = response_json["output"];
