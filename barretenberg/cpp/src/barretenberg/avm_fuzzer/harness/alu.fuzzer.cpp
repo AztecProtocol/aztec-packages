@@ -140,14 +140,18 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     input.op_id = 1 << dist(rng);
 
     // Choose test case (TODO(MW): what else do we want here?)
-    dist = std::uniform_int_distribution<int>(0, 1);
+    dist = std::uniform_int_distribution<int>(0, 4);
     int choice = dist(rng);
 
     // Choose random tag and values
     switch (choice) {
     case 0: {
-        // Matching tags (if the op's happy path expects them)
+        // Set a
         input.a = random_mem_value();
+        break;
+    }
+    case 1: {
+        // Matching tags (if the op's happy path expects them)
         if (op_likes_matched_tags(input.op_id)) {
             input.b = random_mem_value_from_tag(input.a.get_tag());
         } else {
@@ -156,16 +160,24 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
         }
         break;
     }
-    case 1: {
+    case 2: {
         // Mismatching tags (if the op's happy path expects a match)
-        input.a = random_mem_value();
         input.b = random_mem_value();
         if (op_likes_matched_tags(input.op_id)) {
             while (input.b.get_tag() == input.a.get_tag()) {
                 input.b = random_mem_value();
             }
-            input.b = random_mem_value_from_tag(input.a.get_tag());
         }
+        break;
+    }
+    case 3: {
+        // Set a = b
+        input.a = input.b;
+        break;
+    }
+    case 4: {
+        // Swap a and b
+        std::swap(input.a, input.b);
         break;
     }
     default:
