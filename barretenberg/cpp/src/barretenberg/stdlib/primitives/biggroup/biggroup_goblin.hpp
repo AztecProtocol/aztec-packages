@@ -51,16 +51,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         , _y(input.y)
         , _is_infinity(input.is_point_at_infinity())
     {}
-    goblin_element(const Fq& x, const Fq& y)
+
+    // Construct a goblin biggroup element from its coordinates
+    // The on-curve check is skipped as it is performed in ECCVM (assert_on_curve is unused)
+    goblin_element(const Fq& x, const Fq& y, [[maybe_unused]] bool assert_on_curve = true)
         : _x(x)
         , _y(y)
         , _is_infinity(false)
     {}
-    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity)
+
+    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity, [[maybe_unused]] bool assert_on_curve = true)
         : _x(x)
         , _y(y)
         , _is_infinity(is_infinity)
     {}
+
     goblin_element(const goblin_element& other) = default;
     goblin_element(goblin_element&& other) noexcept = default;
     goblin_element& operator=(const goblin_element& other) = default;
@@ -448,7 +453,7 @@ using BiggroupGoblin = goblin_element<bb::MegaCircuitBuilder,
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, goblin_element<C, Fq, Fr, G> const& v)
 {
-    return os << "{ " << v._x << " , " << v._y << " }";
+    return os << "{ " << v.x() << " , " << v.y() << " }";
 }
 } // namespace bb::stdlib::element_goblin
 

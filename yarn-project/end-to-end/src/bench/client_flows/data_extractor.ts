@@ -1,6 +1,4 @@
-import type { Logger } from '@aztec/aztec.js/log';
-import { BBNativePrivateKernelProver } from '@aztec/bb-prover/client/native';
-import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bundle';
+import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import { createLogger, logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -11,26 +9,7 @@ import { Decoder } from 'msgpackr';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { type Log, type ProverType, ProxyLogger, generateBenchmark } from './benchmark.js';
-
-type NativeProverConfig = { bbBinaryPath?: string; bbWorkingDirectory?: string };
-
-async function createProver(config: NativeProverConfig = {}, log: Logger) {
-  const simulator = new WASMSimulator();
-  if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
-    return { prover: new BBWASMBundlePrivateKernelProver(simulator, 16, log), type: 'wasm' as ProverType };
-  } else {
-    const bbConfig = config as Required<NativeProverConfig>;
-    return {
-      prover: await BBNativePrivateKernelProver.new(
-        { bbSkipCleanup: false, numConcurrentIVCVerifiers: 1, bbIVCConcurrency: 1, ...bbConfig },
-        simulator,
-        log,
-      ),
-      type: 'native' as ProverType,
-    };
-  }
-}
+import { type Log, ProxyLogger, generateBenchmark } from './benchmark.js';
 
 async function main() {
   ProxyLogger.create();
@@ -41,10 +20,9 @@ async function main() {
   }
   const flows = await readdir(ivcFolder);
   logger.info(`Flows in ${ivcFolder}: \n${flows.map(flowName => `\t- ${flowName}`).join('\n')}`);
-  const { prover, type: proverType } = await createProver(
-    { bbBinaryPath: process.env.BB_BINARY_PATH, bbWorkingDirectory: process.env.BB_WORKING_DIRECTORY },
-    proxyLogger.createLogger('bb:prover'),
-  );
+  const simulator = new WASMSimulator();
+  const log = proxyLogger.createLogger('bb:prover');
+  const prover = new BBBundlePrivateKernelProver(simulator, log);
 
   const userLog = createLogger('chonk_flows:data_processor');
 
@@ -96,7 +74,7 @@ async function main() {
     if (!(profile.stats.timings as ProvingTimings).proving) {
       (profile.stats.timings as ProvingTimings).proving = provingTime;
     }
-    const benchmark = generateBenchmark(flow, currentLogs, profile.stats, privateExecutionSteps, proverType, error);
+    const benchmark = generateBenchmark(flow, currentLogs, profile.stats, privateExecutionSteps, 'native', error);
     await writeFile(join(ivcFolder, flow, 'benchmark.json'), JSON.stringify(benchmark, null, 2));
     proxyLogger.flushLogs();
   }

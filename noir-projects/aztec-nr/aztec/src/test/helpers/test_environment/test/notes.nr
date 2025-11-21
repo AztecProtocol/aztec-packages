@@ -276,9 +276,8 @@ unconstrained fn get_squashed_note_fails() {
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_for_read_request) =
-            get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_for_read_request);
+        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
+        destroy_note_unsafe(context, retrieved_note, note_hash_read);
 
         let (_, _) = get_note::<MockNote>(context, STORAGE_SLOT);
     });
@@ -296,9 +295,8 @@ unconstrained fn get_settled_squashed_note_fails() {
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_for_read_request) =
-            get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_for_read_request);
+        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
+        destroy_note_unsafe(context, retrieved_note, note_hash_read);
 
         emission
     });
@@ -320,9 +318,8 @@ unconstrained fn view_settled_squashed_note_fails() {
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_for_read_request) =
-            get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_for_read_request);
+        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
+        destroy_note_unsafe(context, retrieved_note, note_hash_read);
 
         emission
     });
@@ -346,9 +343,8 @@ unconstrained fn get_settled_note_with_transient_nullifier_note_fails() {
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_for_read_request) =
-            get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_for_read_request);
+        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
+        destroy_note_unsafe(context, retrieved_note, note_hash_read);
 
         let (_, _) = get_note::<MockNote>(context, STORAGE_SLOT);
     });
@@ -368,9 +364,8 @@ unconstrained fn get_settled_note_with_settled_nullifier_note_fails() {
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_for_read_request) =
-            get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_for_read_request);
+        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
+        destroy_note_unsafe(context, retrieved_note, note_hash_read);
     });
 
     env.private_context(|context| { let (_, _) = get_note::<MockNote>(context, STORAGE_SLOT); });
@@ -390,9 +385,8 @@ unconstrained fn view_settled_note_with_settled_nullifier_note_fails() {
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_for_read_request) =
-            get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_for_read_request);
+        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
+        destroy_note_unsafe(context, retrieved_note, note_hash_read);
     });
 
     env.utility_context(|_| { let _ = view_note::<MockNote>(STORAGE_SLOT); });

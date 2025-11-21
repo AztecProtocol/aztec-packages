@@ -3,13 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import {
-  AvmExecutionHints,
-  AvmTxHint,
-  type ProcessedPhase,
-  PublicSimulatorConfig,
-  PublicTxResult,
-} from '@aztec/stdlib/avm';
+import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -72,6 +66,15 @@ class TxSimTeardownRevert extends Error {
     this.name = 'TxSimTeardownRevert';
   }
 }
+
+/** Only used internally. */
+type ProcessedPhase = {
+  phase: TxExecutionPhase;
+  durationMs?: number;
+  returnValues: NestedProcessReturnValues[];
+  reverted: boolean;
+  revertReason?: SimulationError;
+};
 
 export class PublicTxSimulator implements PublicTxSimulatorInterface {
   protected log: Logger;
@@ -197,6 +200,10 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     const publicInputs = await context.generateAvmCircuitPublicInputs();
     const revertCode = context.getFinalRevertCode();
 
+    // We only return the app logic phase information.
+    const appLogicReturnValues =
+      processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
+
     return new PublicTxResult(
       /*gasUsed=*/ {
         totalGas: context.getActualGasUsed(),
@@ -206,7 +213,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       },
       /*revertCode=*/ revertCode,
       /*revertReason=*/ context.revertReason,
-      /*processedPhases=*/ processedPhases,
+      /*appLogicReturnValues=*/ appLogicReturnValues,
       /*logs=*/ context.state.getActiveStateManager().getLogs(),
       /*hints=*/ hints,
       /*publicInputs=*/ publicInputs,
@@ -460,7 +467,10 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     const txFee = context.getTransactionFee(TxExecutionPhase.TEARDOWN);
 
     if (context.feePayer.isZero()) {
-      this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
+      // Real transactions are enforced by private kernel to have nonzero fee payer.
+      // Real transactions cannot skip fee enforcement (skipping fee enforcement makes them unprovable).
+      assert(this.config.skipFeeEnforcement, 'Fee payer cannot be 0 unless skipping fee enforcement for simulation');
+      this.log.debug(`Fee payer is 0. Skipping fee enforcement. No one is paying the fee of ${txFee.toBigInt()}`);
       return;
     }
 
@@ -480,6 +490,8 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
         this.config.skipFeeEnforcement,
         `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
       );
+      this.log.debug(`Fee payer balance insufficient, but we're skipping fee enforcement`);
+      // We still proceed and perform the storage write to minimize deviation from normal execution.
       currentBalance = txFee;
     }
 

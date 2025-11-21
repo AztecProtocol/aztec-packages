@@ -1,29 +1,24 @@
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import WalletIcon from '@mui/icons-material/Wallet';
-import { CircularProgress, css, FormControl, IconButton, MenuItem, Select, Typography } from '@mui/material';
+import { CircularProgress, FormControl, IconButton, MenuItem, Select, Typography } from '@mui/material';
 
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { useContext, useEffect, useState, type RefObject } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { type ContractFunctionInteraction, type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
+import { type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AztecContext } from '../../../aztecContext';
 import { CreateAccountDialog } from '../../../wallet/components/CreateAccountDialog';
 import { useTransaction } from '../../../hooks/useTransaction';
-
-const logo = css({
-  height: '50px',
-  width: '50px',
-  marginRight: '1rem',
-  objectFit: 'cover',
-  objectPosition: 'left',
-});
+import { ExtensionWallet } from '../../../wallet/extension_wallet';
+import { Fr } from '@aztec/foundation/fields';
+import type { ChainInfo } from '@aztec/aztec.js/account';
 
 type Provider = {
   name: string;
-  getWallet: (nodeUrl: string) => Promise<Wallet>;
+  getWallet: (chainInfo: ChainInfo) => Promise<Wallet>;
   iconURL: string;
   callback: () => Promise<void>;
 };
@@ -46,13 +41,21 @@ export function WalletHub() {
   const providers: Provider[] = [
     {
       name: 'Embedded wallet',
-      getWallet: (nodeUrl: string) => EmbeddedWallet.create(nodeUrl),
-      iconURL: new URL('../../../assets/aztec_small_logo.png', import.meta.url).href,
+      getWallet: (chainInfo: ChainInfo) => EmbeddedWallet.create(chainInfo),
+      iconURL: new URL('../../../assets/aztec_logo.png', import.meta.url).href,
       callback: () => {
         setOpenWalletModal(true);
         return Promise.resolve();
       },
     },
+    // {
+    //   name: 'Aztec keychain',
+    //   getWallet: (chainInfo: ChainInfo) => Promise.resolve(ExtensionWallet.create(chainInfo, 'play.aztec.network')),
+    //   iconURL: new URL('../../../assets/aztec_logo.png', import.meta.url).href,
+    //   callback: () => {
+    //     return Promise.resolve();
+    //   },
+    // },
   ];
 
   async function handleProviderChanged(providerName: string) {
@@ -62,7 +65,10 @@ export function WalletHub() {
       setOpen(false);
       setSelectedProvider(provider);
       setIsEmbeddedWalletSelected(provider === providers[0]);
-      const wallet = await provider.getWallet(network.nodeURL);
+      const wallet = await provider.getWallet({
+        chainId: new Fr(network.chainId),
+        version: new Fr(network.version),
+      });
       setWallet(wallet);
       setLoading(false);
     }
@@ -114,6 +120,17 @@ export function WalletHub() {
           }}
           disabled={loading}
           onChange={e => handleProviderChanged(e.target.value)}
+          MenuProps={{
+            disableScrollLock: true,
+            PaperProps: {
+              sx: {
+                width: '300px',
+                '@media (max-width: 900px)': {
+                  width: '100vw',
+                },
+              },
+            },
+          }}
         >
           {!network && (
             <div css={navbarSelectLabel}>
@@ -137,7 +154,6 @@ export function WalletHub() {
       </FormControl>
       {selectedProvider && selectedProvider.callback && (
         <IconButton
-          css={{ marginRight: '1rem' }}
           onClick={event => {
             event.stopPropagation();
             selectedProvider.callback();

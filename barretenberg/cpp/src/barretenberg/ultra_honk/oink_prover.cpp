@@ -25,6 +25,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
     }
     // Add circuit size public input size and public inputs to transcript->
     execute_preamble_round();
+    // For ZK flavors: create and commit to Gemini masking polynomial
+    commit_to_masking_poly();
     // Compute first three wire commitments
     execute_wire_commitments_round();
     // Compute sorted list accumulator and commitment
@@ -269,6 +271,20 @@ Flavor::Commitment OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<F
 
     return commitment;
 }
+
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
+{
+    if constexpr (Flavor::HasZK) {
+        // Create a random masking polynomial for Gemini
+        const size_t polynomial_size = prover_instance->dyadic_size();
+        prover_instance->polynomials.gemini_masking_poly = Polynomial<FF>::random(polynomial_size);
+
+        // Commit to the masking polynomial and send to transcript
+        auto masking_commitment =
+            prover_instance->commitment_key.commit(prover_instance->polynomials.gemini_masking_poly);
+        transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
+    }
+};
 
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;

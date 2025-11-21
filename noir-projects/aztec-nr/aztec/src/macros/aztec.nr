@@ -6,11 +6,13 @@ use crate::macros::{
         internal_functions::generate_call_internal_struct,
     },
     dispatch::generate_public_dispatch,
-    functions::utils::check_each_fn_macroified,
     internals_functions_generation::{create_fn_abi_exports, process_functions},
     notes::NOTES,
     storage::STORAGE_LAYOUT_NAME,
-    utils::{get_trait_impl_method, module_has_storage},
+    utils::{
+        get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal,
+        is_fn_test, module_has_storage,
+    },
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
@@ -311,6 +313,24 @@ comptime fn generate_process_message() -> Quoted {
                 _compute_note_hash_and_nullifier,
                 message_ciphertext,
                 message_context,
+            );
+        }
+    }
+}
+
+/// Checks if each function in the module is marked with either #[external(...)], #[contract_library_method], or #[test].
+/// Non-macroified functions are not allowed in contracts.
+comptime fn check_each_fn_macroified(m: Module) {
+    for f in m.functions() {
+        let name = f.name();
+        if !is_fn_external(f)
+            & !is_fn_contract_library_method(f)
+            & !is_fn_internal(f)
+            & !is_fn_test(f) {
+            // We  don't suggest that #[contract_library_method] is allowed because we don't want to introduce another
+            // concept
+            panic(
+                f"Function {name} must be marked as either #[external(...)], #[internal(...)], or #[test]",
             );
         }
     }

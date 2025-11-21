@@ -433,6 +433,13 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
+  async privateIsSideEffectCounterRevertible([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    const isRevertible = await this.handlerAsPrivate().privateIsSideEffectCounterRevertible(
+      Fr.fromString(sideEffectCounter).toNumber(),
+    );
+    return Promise.resolve([toACVMField(isRevertible)]);
+  }
+
   async privateGetNextAppTagAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
     const tag = await this.handlerAsPrivate().privateGetNextAppTagAsSender(
       AztecAddress.fromString(sender),

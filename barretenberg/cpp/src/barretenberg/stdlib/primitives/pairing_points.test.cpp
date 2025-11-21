@@ -38,8 +38,8 @@ TYPED_TEST(PairingPointsTests, TestDefault)
 
     Builder builder;
 
-    Group P0(DEFAULT_PAIRING_POINTS_P0_X, DEFAULT_PAIRING_POINTS_P0_Y);
-    Group P1(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y);
+    Group P0(DEFAULT_PAIRING_POINTS_P0_X, DEFAULT_PAIRING_POINTS_P0_Y, /*assert_on_curve=*/false);
+    Group P1(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y, /*assert_on_curve=*/false);
     P0.convert_constant_to_fixed_witness(&builder);
     P1.convert_constant_to_fixed_witness(&builder);
     PairingPoints<TypeParam> pp(P0, P1);

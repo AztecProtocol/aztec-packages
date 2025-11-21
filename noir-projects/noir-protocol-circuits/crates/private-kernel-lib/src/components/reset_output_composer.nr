@@ -33,7 +33,6 @@ pub struct ResetOutputComposer {
     pub padded_side_effects: PaddedSideEffects, // this is a hint, of sorts. TODO(MC): consider renaming.
     pub note_hash_read_request_actions: [ReadRequestAction; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     pub nullifier_read_request_actions: [ReadRequestAction; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-    pub validation_requests_split_counter_hint: u32,
     pub hints: ResetOutputHints,
 }
 
@@ -57,7 +56,6 @@ impl ResetOutputComposer {
         transient_data_squashing_hints: [TransientDataSquashingHint; TransientDataSquashingHintsLen],
         note_hash_read_request_actions: [ReadRequestAction; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
         nullifier_read_request_actions: [ReadRequestAction; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-        validation_requests_split_counter_hint: u32,
     ) -> Self {
         // Hints for:
         // - Squashing:
@@ -70,7 +68,6 @@ impl ResetOutputComposer {
             padded_side_effects,
             note_hash_read_request_actions,
             nullifier_read_request_actions,
-            validation_requests_split_counter_hint,
             hints,
         }
     }
@@ -137,7 +134,6 @@ impl ResetOutputComposer {
             note_hash_read_requests: kept_note_hash_read_requests,
             nullifier_read_requests: kept_nullifier_read_requests,
             scoped_key_validation_requests_and_generators,
-            split_counter: Option::some(self.validation_requests_split_counter_hint),
         }
     }
 

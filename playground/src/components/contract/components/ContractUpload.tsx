@@ -8,14 +8,15 @@ import { useContext } from 'react';
 import { AztecContext } from '../../../aztecContext';
 import Box from '@mui/material/Box';
 import { VERSION } from '../../../utils/constants';
+import { colors, commonStyles } from '../../../global.styles';
 
 const dropZoneContainer = css({
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
   height: '100%',
-  border: '3px dashed var(--mui-palette-primary-dark)',
-  borderRadius: '15px',
+  border: commonStyles.borderDashed,
+  borderRadius: commonStyles.borderRadius,
   margin: '2rem 0',
   alignItems: 'center',
   justifyContent: 'center',
@@ -23,7 +24,7 @@ const dropZoneContainer = css({
 
 const uploadIcon = css({
   fontSize: '64px',
-  color: 'var(--mui-palette-primary-dark)',
+  color: colors.primary.main,
   marginBottom: '1rem',
 });
 
@@ -52,13 +53,21 @@ export function ContractUpload() {
       <div {...getRootProps({ className: 'dropzone' })}>
         <input {...getInputProps()} />
         <UploadFileIcon css={uploadIcon} />
-        <Typography variant="h5" sx={{ mb: 2, color: 'var(--mui-palette-primary-dark)' }}>
+        <Typography variant="h5" sx={{ mb: 2, color: colors.primary.main }}>
           Upload Contract JSON Artifact
         </Typography>
         <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
 
         <Box
-          sx={{ textAlign: 'left', backgroundColor: 'var(--mui-palette-grey-A200)', p: 2, borderRadius: '5px', my: 3 }}
+          sx={{
+            textAlign: 'left',
+            backgroundColor: commonStyles.glassDark,
+            border: commonStyles.borderNormal,
+            color: colors.text.primary,
+            p: 2,
+            borderRadius: commonStyles.borderRadius,
+            my: 3
+          }}
         >
           <Box>
             <a
@@ -91,7 +100,7 @@ export function ContractUpload() {
         <Button
           variant="contained"
           color="primary"
-          sx={{ mt: 2, '&:hover': { backgroundColor: 'var(--mui-palette-primary-dark)' } }}
+          sx={{ mt: 2 }}
         >
           Select File
         </Button>

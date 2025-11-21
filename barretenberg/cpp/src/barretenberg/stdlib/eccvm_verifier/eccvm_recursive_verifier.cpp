@@ -65,6 +65,9 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
+    // Receive Gemini masking polynomial commitment (for ZK-PCS)
+    commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
@@ -220,7 +223,7 @@ void ECCVMRecursiveVerifier::compute_translation_opening_claims(const std::vecto
     // OriginTag false positive: Small IPA evaluations need to satisfy an identity where they are mixing without
     // challenges, it is safe because these evaluations are opened in Shplonk.
     for (auto& eval : small_ipa_evaluations) {
-        eval.clear_child_tag();
+        eval.clear_round_provenance();
     }
 
     // Check Grand Sum Identity at r

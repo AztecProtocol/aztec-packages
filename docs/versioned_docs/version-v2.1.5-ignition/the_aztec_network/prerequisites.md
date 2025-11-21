@@ -191,7 +191,7 @@ source ~/.bashrc
 Install the correct version for the current mainnet:
 
 ```bash
-aztec-up v2.1.5
+aztec-up 2.1.5
 ```
 
 Verify the version:

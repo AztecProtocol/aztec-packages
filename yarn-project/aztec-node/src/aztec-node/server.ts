@@ -1154,6 +1154,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         skipFeeEnforcement,
         collectDebugLogs: true,
         collectHints: false,
+        collectCallMetadata: true,
         maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
         collectStatistics: false,
       });

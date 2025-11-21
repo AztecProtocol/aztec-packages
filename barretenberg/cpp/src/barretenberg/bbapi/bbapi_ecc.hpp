@@ -303,7 +303,7 @@ struct Bn254G1FromCompressed {
         bool operator==(const Response&) const = default;
     };
 
-    std::array<uint8_t, 32> compressed;
+    std::array<uint8_t, 32> compressed = {};
     Response execute(BBApiRequest& request) &&;
     MSGPACK_FIELDS(compressed);
     bool operator==(const Bn254G1FromCompressed&) const = default;

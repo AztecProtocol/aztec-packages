@@ -380,6 +380,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.p2pService.propagate(proposal);
   }
 
+  public async broadcastAttestations(attestations: BlockAttestation[]): Promise<void> {
+    this.log.verbose(`Broadcasting ${attestations.length} attestations to peers`);
+    await Promise.all(attestations.map(att => this.p2pService.propagate(att)));
+  }
+
   public async getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]> {
     return (
       (await (proposalId

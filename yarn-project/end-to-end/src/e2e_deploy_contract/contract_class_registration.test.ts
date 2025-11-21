@@ -167,7 +167,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           deployer: opts.deployer,
         });
         expect(registered.address).toEqual(instance.address);
-        const contract = await StatefulTestContract.at(instance.address, wallet);
+        const contract = StatefulTestContract.at(instance.address, wallet);
         return { contract, initArgs, instance, publicKeys };
       };
 
@@ -297,7 +297,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   testDeployingAnInstance('from a contract', async instance => {
     // Register the instance to be deployed in the pxe
-    await wallet.registerContract({ artifact, instance });
+    await wallet.registerContract(instance, artifact);
     // Set up the contract that calls the deployer (which happens to be the TestContract) and call it
     const deployer = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
     await deployer.methods.publish_contract_instance(instance.address).send({ from: defaultAccountAddress }).wait();

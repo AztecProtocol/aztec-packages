@@ -59,14 +59,14 @@ function release_git_push {
   local branch_name=$1
   local tag_name=$2
   local version=$3
-  local mirrored_repo_url="https://github.com/AztecProtocol/l1-contracts.git"
+  local mirrored_repo_url="https://github.com/AztecProtocol/aztec-starter-vanilla.git"
 
   cd boxes/vanilla
   rm -rf release-out && mkdir release-out
   git archive HEAD | tar -x -C release-out
   cd release-out
 
-  $root/ci3/npm/release_prep_package_json $version
+  release_prep_package_json $version
 
   # CI needs to authenticate from GITHUB_TOKEN.
   gh auth setup-git &>/dev/null || true

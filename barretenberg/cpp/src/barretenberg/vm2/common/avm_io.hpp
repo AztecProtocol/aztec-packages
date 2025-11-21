@@ -461,23 +461,31 @@ struct AvmFastSimulationInputs {
 // Tx Simulation Result
 ////////////////////////////////////////////////////////////////////////////
 
-// TODO(fcarreiro): Remove.
-// I'm using this structure as dummy content for optionals and vectors that will be empty for now.
-struct DummyStructure {
-    bool dummy;
-    bool operator==(const DummyStructure& other) const = default;
-    MSGPACK_FIELDS(dummy);
+// Metadata about a given call.
+// NOTE: This is currently a superset of the NestedProcessReturnValues class in TS
+// but it will likely be extended to include more information.
+struct CallStackMetadata {
+    std::vector<FF> calldata;
+    std::optional<std::vector<FF>> values;
+    std::vector<CallStackMetadata> nested;
+
+    bool operator==(const CallStackMetadata& other) const = default;
+    MSGPACK_CAMEL_CASE_FIELDS(calldata, values, nested);
 };
+
+// TODO(fcarreiro/mwood): add.
+using SimulationError = bool;
 
 struct TxSimulationResult {
     // Simulation.
     GasUsed gas_used;
     RevertCode revert_code;
-    std::optional<DummyStructure> revert_reason;
-    // These are only guaranteed to be present if the simulator is configured to collect them.
-    // TODO(fcarreiro): Sort these out.
-    std::optional<std::vector<DummyStructure>> processed_phases;
-    std::optional<std::vector<FF>> app_logic_return_value;
+    std::optional<SimulationError> revert_reason;
+    // The following fields are only guaranteed to be present if the simulator is configured to collect them.
+    // NOTE: This vector will be populated with one CallStackMetadata per app logic enqueued call.
+    // IMPORTANT: The nesting will only be 1 level deep! You will get one result per enqueued call
+    // but no information about nested calls. This can be added later.
+    std::vector<CallStackMetadata> app_logic_return_values;
     std::optional<std::vector<DebugLog>> logs;
     // Proving request data.
     PublicInputs public_inputs;
@@ -486,7 +494,7 @@ struct TxSimulationResult {
     bool operator==(const TxSimulationResult& other) const = default;
 
     MSGPACK_CAMEL_CASE_FIELDS(
-        gas_used, revert_code, revert_reason, processed_phases, app_logic_return_value, logs, public_inputs, hints);
+        gas_used, revert_code, revert_reason, app_logic_return_values, logs, public_inputs, hints);
 };
 
 } // namespace bb::avm2

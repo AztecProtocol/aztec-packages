@@ -13,7 +13,7 @@ function build_src {
   echo_header "l1-contracts build_src"
 
   # Deps install
-  yarn
+  npm_install_deps
 
   local artifact=l1-contracts-src-$hash.tar.gz
   if ! cache_download $artifact; then
@@ -251,7 +251,7 @@ function release_git_push {
 
   # Update the package version in package.json.
   # TODO remove package.json.
-  $root/ci3/npm/release_prep_package_json $version
+  release_prep_package_json $version
 
   # CI needs to authenticate from GITHUB_TOKEN.
   gh auth setup-git &>/dev/null || true

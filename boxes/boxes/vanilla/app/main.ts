@@ -147,7 +147,7 @@ voteButton.addEventListener('click', async (e) => {
     }
 
     // Prepare contract interaction
-    const votingContract = await PrivateVotingContract.at(
+    const votingContract = PrivateVotingContract.at(
       AztecAddress.fromString(contractAddress),
       wallet
     );
@@ -181,7 +181,7 @@ async function updateVoteTally(wallet: Wallet, from: AztecAddress) {
   displayStatusMessage('Updating vote tally...');
 
   // Prepare contract interaction
-  const votingContract = await PrivateVotingContract.at(
+  const votingContract = PrivateVotingContract.at(
     AztecAddress.fromString(contractAddress),
     wallet
   );

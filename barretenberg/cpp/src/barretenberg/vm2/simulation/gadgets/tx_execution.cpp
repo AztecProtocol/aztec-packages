@@ -64,7 +64,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     const Gas& gas_limit = tx.gas_settings.gas_limits;
     const Gas& teardown_gas_limit = tx.gas_settings.teardown_gas_limits;
     tx_context.gas_used = tx.gas_used_by_private;
-    std::optional<std::vector<FF>> app_logic_return_value;
+
+    // NOTE: This vector will be populated with one CallStackMetadata per app logic enqueued call.
+    // IMPORTANT: The nesting will only be 1 level deep! You will get one result per enqueued call
+    // but no information about nested calls. This can be added later.
+    std::vector<CallStackMetadata> app_logic_return_values;
 
     events.emit(TxStartupEvent{
         .state = tx_context.serialize_tx_context_event(),
@@ -158,7 +162,12 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                 // This call should not throw unless it's an unexpected unrecoverable failure.
                 EnqueuedCallResult result = call_execution.execute(std::move(context));
                 tx_context.gas_used = result.gas_used;
-                app_logic_return_value = std::move(result.output);
+
+                if (collect_call_metadata) {
+                    app_logic_return_values.push_back(
+                        CallStackMetadata{ .calldata = call.calldata, .values = std::move(result.output) });
+                }
+
                 emit_public_call_request(call,
                                          TransactionPhase::APP_LOGIC,
                                          /*transaction_fee=*/FF(0),
@@ -187,11 +196,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     }
 
     // Compute the transaction fee here so it can be passed to teardown
-    const Gas& gas_used_before_teardown = tx_context.gas_used;
     const uint128_t& fee_per_da_gas = tx.effective_gas_fees.fee_per_da_gas;
     const uint128_t& fee_per_l2_gas = tx.effective_gas_fees.fee_per_l2_gas;
-    const FF fee = FF(fee_per_da_gas) * FF(gas_used_before_teardown.da_gas) +
-                   FF(fee_per_l2_gas) * FF(gas_used_before_teardown.l2_gas);
+    const FF fee =
+        FF(fee_per_da_gas) * FF(tx_context.gas_used.da_gas) + FF(fee_per_l2_gas) * FF(tx_context.gas_used.l2_gas);
+    Gas gas_used_by_teardown = { 0, 0 };
 
     // Teardown.
     try {
@@ -199,9 +208,6 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             emit_empty_phase(TransactionPhase::TEARDOWN);
         } else {
             const auto& teardown_enqueued_call = tx.teardown_enqueued_call.value();
-
-            std::string fn_name = get_debug_function_name(teardown_enqueued_call.request.contract_address,
-                                                          teardown_enqueued_call.calldata);
             vinfo("[TEARDOWN] Executing enqueued call to ",
                   teardown_enqueued_call.request.contract_address,
                   "::",
@@ -220,7 +226,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                                                                   TransactionPhase::TEARDOWN);
             // This call should not throw unless it's an unexpected unrecoverable failure.
             EnqueuedCallResult result = call_execution.execute(std::move(context));
-            // Check what to do here for GAS
+            gas_used_by_teardown = result.gas_used;
             emit_public_call_request(teardown_enqueued_call,
                                      TransactionPhase::TEARDOWN,
                                      fee,
@@ -258,14 +264,17 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
 
     return {
         .gas_used = {
-            .total_gas = tx_context.gas_used,
-            // TODO(fcarreiro): complete.
-            .teardown_gas = { 0, 0 },
-            .public_gas = { 0, 0 },
-            .billed_gas = { 0, 0 },
+            // Follows PublicTxContext.getActualGasUsed()
+            .total_gas = tx_context.gas_used + (tx.teardown_enqueued_call ? (gas_used_by_teardown - teardown_gas_limit) : Gas {0, 0}),
+            .teardown_gas = gas_used_by_teardown,
+            // Follows PublicTxContext.getActualPublicGasUsed()
+            .public_gas = tx_context.gas_used + gas_used_by_teardown - tx.gas_used_by_private,
+            // Follows PublicTxContext.getTotalGasUsed()
+            .billed_gas = tx_context.gas_used,
         },
         .revert_code = tx_context.revert_code,
-        .app_logic_return_value = std::move(app_logic_return_value),
+        .transaction_fee = fee,
+        .app_logic_return_values = std::move(app_logic_return_values),
     };
 }
 
@@ -550,13 +559,31 @@ void TxExecution::pay_fee(const AztecAddress& fee_payer,
                           const uint128_t& fee_per_da_gas,
                           const uint128_t& fee_per_l2_gas)
 {
+    if (fee_payer == 0) {
+        if (skip_fee_enforcement) {
+            vinfo("Fee payer is 0. Skipping fee enforcement. No one is paying the fee of ", fee);
+            return;
+        }
+        // Real transactions are enforced by private kernel to have nonzero fee payer.
+        // Real transactions cannot skip fee enforcement (skipping fee enforcement makes them unprovable).
+        // Unrecoverable error.
+        throw TxExecutionException("Fee payer cannot be 0 unless skipping fee enforcement for simulation");
+    }
+
     const TxContextEvent state_before = tx_context.serialize_tx_context_event();
     const FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
-    const FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
+    FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
 
     if (field_gt.ff_gt(fee, fee_payer_balance)) {
-        // Unrecoverable error.
-        throw TxExecutionException("Not enough balance for fee payer to pay for transaction");
+        if (skip_fee_enforcement) {
+            vinfo("Fee payer balance insufficient, but we're skipping fee enforcement");
+            // We still proceed and perform the storage write to minimize deviation from normal execution.
+            fee_payer_balance = fee;
+        } else {
+            // Without "skipFeeEnforcement", such transactions should be filtered by GasTxValidator.
+            // Unrecoverable error.
+            throw TxExecutionException("Not enough balance for fee payer to pay for transaction");
+        }
     }
 
     merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);

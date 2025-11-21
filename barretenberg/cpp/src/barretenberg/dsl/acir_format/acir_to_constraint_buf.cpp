@@ -27,15 +27,55 @@ namespace acir_format {
 
 using namespace bb;
 
-/**
- * @brief Deserialize `buf` either based on the first byte interpreted as a
-          Noir serialization format byte, or falling back to `bincode` if
-          the format cannot be recognized. Currently only `msgpack` format
-          is expected, or the legacy `bincode` format.
- * @note Due to the lack of exception handling available to us in Wasm we can't
- *       try `bincode` format and if it fails try `msgpack`; instead we have to
- *       make a decision and commit to it.
- */
+/// ========= HELPERS ========= ///
+
+uint256_t from_big_endian_bytes(std::vector<uint8_t> const& bytes)
+{
+    BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
+    uint256_t result = 0;
+    for (uint8_t byte : bytes) {
+        result <<= 8;
+        result |= byte;
+    }
+    return result;
+}
+
+WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
+{
+    WitnessOrConstant<bb::fr> result = std::visit(
+        [&](auto&& e) {
+            using T = std::decay_t<decltype(e)>;
+            if constexpr (std::is_same_v<T, Acir::FunctionInput::Witness>) {
+                return WitnessOrConstant<bb::fr>{
+                    .index = e.value.value,
+                    .value = bb::fr::zero(),
+                    .is_constant = false,
+                };
+            } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
+                return WitnessOrConstant<bb::fr>{
+                    .index = bb::stdlib::IS_CONSTANT,
+                    .value = from_big_endian_bytes(e.value),
+                    .is_constant = true,
+                };
+            } else {
+                bb::assert_failure("acir_format::parse_input: unrecognized Acir::FunctionInput variant.");
+            }
+        },
+        input.value);
+    return result;
+}
+
+uint32_t get_witness_from_function_input(Acir::FunctionInput input)
+{
+    BB_ASSERT(std::holds_alternative<Acir::FunctionInput::Witness>(input.value),
+              "get_witness_from_function_input: input must be a Witness variant");
+
+    auto input_witness = std::get<Acir::FunctionInput::Witness>(input.value);
+    return input_witness.value.value;
+}
+
+/// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
+
 template <typename T>
 T deserialize_any_format(std::vector<uint8_t>&& buf,
                          std::function<T(msgpack::object const&)> decode_msgpack,
@@ -70,6 +110,7 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
                 // In experiments bincode data was parsed as 0.
                 // All the top level formats we look for are MAP types.
                 if (o.type == msgpack::type::MAP) {
+                    BB_ASSERT(false, "Msgpack is not currently supported.");
                     return decode_msgpack(o);
                 }
             }
@@ -82,13 +123,61 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
     return decode_bincode(std::move(buf));
 }
 
-/**
- * @brief Deserializes a `Program` from bytes, trying `msgpack` or `bincode` formats.
- * @note Ignores the Brillig parts of the bytecode when using `msgpack`.
- */
-Acir::Program deserialize_program(std::vector<uint8_t>&& buf)
+AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
 {
-    return deserialize_any_format<Acir::Program>(
+    AcirFormat af;
+    // `varnum` is the true number of variables, thus we add one to the index which starts at zero
+    af.varnum = circuit.current_witness_index + 1;
+    af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
+    af.public_inputs = join({ transform::map(circuit.public_parameters.value, [](auto e) { return e.value; }),
+                              transform::map(circuit.return_values.value, [](auto e) { return e.value; }) });
+    // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
+    // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
+    std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
+    for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
+        const auto& gate = circuit.opcodes[i];
+        std::visit(
+            [&](auto&& arg) {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, Acir::Opcode::AssertZero>) {
+                    handle_arithmetic(arg, af, i);
+                } else if constexpr (std::is_same_v<T, Acir::Opcode::BlackBoxFuncCall>) {
+                    handle_blackbox_func_call(arg, af, i);
+                } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
+                    auto block = handle_memory_init(arg);
+                    uint32_t block_id = arg.block_id.value;
+                    block_id_to_block_constraint[block_id] = { block, /*opcode_indices=*/{ i } };
+                } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
+                    auto block = block_id_to_block_constraint.find(arg.block_id.value);
+                    if (block == block_id_to_block_constraint.end()) {
+                        throw_or_abort("unitialized MemoryOp");
+                    }
+                    handle_memory_op(arg, af, block->second.first);
+                    block->second.second.push_back(i);
+                } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
+                    vinfo("acir_format:circuit_serde_to_acir_format: Encountered unhadled BrillingCall. Barretenberg "
+                          "treats this as a no-op.");
+                } else {
+                    bb::assert_failure("circuit_serde_to_acir_format: Unrecognized Acir Opcode.");
+                }
+            },
+            gate.value);
+    }
+    for (const auto& [block_id, block] : block_id_to_block_constraint) {
+        // Note: the trace will always be empty for ReturnData since it cannot be explicitly read from in noir
+        if (!block.first.trace.empty() || block.first.type == BlockType::ReturnData ||
+            block.first.type == BlockType::CallData) {
+            af.block_constraints.push_back(block.first);
+            af.original_opcode_indices.block_constraints.push_back(block.second);
+        }
+    }
+    return af;
+}
+
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
+{
+    // We need to deserialize into Acir::Program first because the buffer returned by Noir has this structure
+    auto program = deserialize_any_format<Acir::Program>(
         std::move(buf),
         [](auto o) -> Acir::Program {
             Acir::Program program;
@@ -105,14 +194,15 @@ Acir::Program deserialize_program(std::vector<uint8_t>&& buf)
             return program;
         },
         &Acir::Program::bincodeDeserialize);
+    BB_ASSERT_EQ(program.functions.size(), 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
+
+    return circuit_serde_to_acir_format(program.functions[0]);
 }
 
-/**
- * @brief Deserializes a `WitnessStack` from bytes, trying `msgpack` or `bincode` formats.
- */
-Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t>&& buf)
+WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
 {
-    return deserialize_any_format<Witnesses::WitnessStack>(
+    // We need to deserialize into WitnessStack first because the buffer returned by Noir has this structure
+    auto witness_stack = deserialize_any_format<Witnesses::WitnessStack>(
         std::move(buf),
         [](auto o) {
             Witnesses::WitnessStack witness_stack;
@@ -125,31 +215,46 @@ Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t>&& buf)
             return witness_stack;
         },
         &Witnesses::WitnessStack::bincodeDeserialize);
+    BB_ASSERT_EQ(
+        witness_stack.stack.size(), 1U, "witness_buf_to_witness_vector: expected single WitnessMap in WitnessStack");
+
+    return witness_map_to_witness_vector(witness_stack.stack[0].witness);
 }
 
-// TODO(tom): clean this up.
-uint256_t from_be_bytes(std::vector<uint8_t> const& bytes)
+WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness_map)
 {
-    BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
-    uint256_t result = 0;
-    for (uint8_t byte : bytes) {
-        result <<= 8;
-        result |= byte;
+    // Note that the WitnessMap is in increasing order of witness indices because the comparator for the Acir::Witness
+    // is defined in terms of the witness index.
+
+    WitnessVector witness_vector;
+    for (size_t index = 0; const auto& e : witness_map.value) {
+        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
+        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
+        // which do not exist within the `WitnessMap` with the dummy value of zero.
+        while (index < e.first.value) {
+            witness_vector.emplace_back(0);
+            index++;
+        }
+        witness_vector.emplace_back(from_big_endian_bytes(e.second));
+        index++;
     }
-    return result;
+
+    return witness_vector;
 }
+
+/// ========= ACIR OPCODE HANDLERS ========= ///
 
 /**
  * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation
  *
  * @param arg acir representation of an 3-wire arithmetic operation
- * @return poly_triple
+ * @return arithmetic_triple
  * @note In principle Acir::Expression can accommodate arbitrarily many quadratic and linear terms but in practice
  * the ones processed here have a max of 1 and 3 respectively, in accordance with the standard width-3 arithmetic gate.
  */
-poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
+arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg)
 {
-    poly_triple pt{
+    arithmetic_triple pt{
         .a = 0,
         .b = 0,
         .c = 0,
@@ -170,7 +275,7 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
-        pt.q_m = from_be_bytes(std::get<0>(mul_term));
+        pt.q_m = from_big_endian_bytes(std::get<0>(mul_term));
         pt.a = std::get<1>(mul_term).value;
         pt.b = std::get<2>(mul_term).value;
         a_set = true;
@@ -180,7 +285,7 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
     BB_ASSERT_LTE(arg.linear_combinations.size(), 3U, "We can only accommodate 3 linear terms");
     for (const auto& linear_term : arg.linear_combinations) {
-        fr selector_value(from_be_bytes(std::get<0>(linear_term)));
+        fr selector_value(from_big_endian_bytes(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
@@ -198,7 +303,7 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
             pt.q_o += selector_value; // Accumulate coefficients for duplicate witnesses
             c_set = true;
         } else {
-            return poly_triple{
+            return arithmetic_triple{
                 .a = 0,
                 .b = 0,
                 .c = 0,
@@ -212,14 +317,10 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     }
 
     // Set constant value q_c
-    pt.q_c = from_be_bytes(arg.q_c);
+    pt.q_c = from_big_endian_bytes(arg.q_c);
     return pt;
 }
 
-/// @brief
-
-/// @param scaling The scaling factor to apply to the linear term.
-/// @note This function is used internally to update the fields of a mul_quad_ gate with a linear term.
 /**
  * @brief Assigns a linear term to a specific index in a mul_quad_ gate.
  * @param gate The mul_quad_ gate to assign the linear term to.
@@ -272,7 +373,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
                                .b_scaling = fr::zero(),
                                .c_scaling = fr::zero(),
                                .d_scaling = fr::zero(),
-                               .const_scaling = fr(from_be_bytes(arg.q_c)) };
+                               .const_scaling = fr(from_big_endian_bytes(arg.q_c)) };
 
     // list of witnesses that are part of mul terms
     std::set<uint32_t> all_mul_terms;
@@ -288,7 +389,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
 
         // we add a mul term (if there are some) to every intermediate gate
         if (current_mul_term != arg.mul_terms.end()) {
-            mul_gate.mul_scaling = fr(from_be_bytes(std::get<0>(*current_mul_term)));
+            mul_gate.mul_scaling = fr(from_big_endian_bytes(std::get<0>(*current_mul_term)));
             mul_gate.a = std::get<1>(*current_mul_term).value;
             mul_gate.b = std::get<2>(*current_mul_term).value;
             mul_gate.a_scaling = fr::zero();
@@ -299,7 +400,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
             bool b_processed = false;
             for (auto lin_term : arg.linear_combinations) {
                 auto w = std::get<1>(lin_term).value;
-                fr coeff = fr(from_be_bytes(std::get<0>(lin_term)));
+                fr coeff = fr(from_big_endian_bytes(std::get<0>(lin_term)));
 
                 if (w == mul_gate.a && !processed_mul_terms.contains(mul_gate.a)) {
                     mul_gate.a_scaling += coeff; // Accumulate
@@ -335,7 +436,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
             if (!all_mul_terms.contains(w)) {
                 if (i < max_size) {
                     assign_linear_term(
-                        mul_gate, i, w, fr(from_be_bytes(std::get<0>(*current_linear_term)))); // * fr(-1)));
+                        mul_gate, i, w, fr(from_big_endian_bytes(std::get<0>(*current_linear_term)))); // * fr(-1)));
                     ++i;
                 } else {
                     // No more available wire, but there is still some linear terms; we need another mul_gate
@@ -386,7 +487,7 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
     // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
-        quad.mul_scaling = from_be_bytes(std::get<0>(mul_term));
+        quad.mul_scaling = from_big_endian_bytes(std::get<0>(mul_term));
         quad.a = std::get<1>(mul_term).value;
         quad.b = std::get<2>(mul_term).value;
         a_set = true;
@@ -394,7 +495,7 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
     }
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
     for (const auto& linear_term : arg.linear_combinations) {
-        fr selector_value(from_be_bytes(std::get<0>(linear_term)));
+        fr selector_value(from_big_endian_bytes(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
@@ -431,7 +532,7 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
     }
 
     // Set constant value q_c
-    quad.const_scaling = from_be_bytes(arg.q_c);
+    quad.const_scaling = from_big_endian_bytes(arg.q_c);
     return quad;
 }
 
@@ -450,7 +551,7 @@ void constrain_witnesses(Acir::Opcode::AssertZero const& arg, AcirFormat& af)
 }
 
 std::pair<uint32_t, uint32_t> is_assert_equal(Acir::Opcode::AssertZero const& arg,
-                                              poly_triple const& pt,
+                                              arithmetic_triple const& pt,
                                               AcirFormat const& af)
 {
     if (!arg.value.mul_terms.empty() || arg.value.linear_combinations.size() != 2) {
@@ -472,7 +573,7 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
     bool might_fit_in_polytriple = arg.value.linear_combinations.size() <= 3 && arg.value.mul_terms.size() <= 1;
     bool needs_to_be_parsed_as_mul_quad = !might_fit_in_polytriple;
     if (might_fit_in_polytriple) {
-        poly_triple pt = serialize_arithmetic_gate(arg.value);
+        arithmetic_triple pt = serialize_arithmetic_gate(arg.value);
 
         auto assert_equal = is_assert_equal(arg, pt, af);
         uint32_t w1 = std::get<0>(assert_equal);
@@ -512,11 +613,11 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
         }
         // Even if the number of linear terms is less than 3, we might not be able to fit it into a width-3 arithmetic
         // gate. This is the case if the linear terms are all distinct witness from the multiplication term. In that
-        // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a width-4
-        // gate instead. We could probably always use a width-4 gate in fact.
-        if (pt != poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
-            af.poly_triple_constraints.push_back(pt);
-            af.original_opcode_indices.poly_triple_constraints.push_back(opcode_index);
+        // case, the serialize_arithmetic_gate() function will return a arithmetic_triple with all 0's, and we use a
+        // width-4 gate instead. We could probably always use a width-4 gate in fact.
+        if (pt != arithmetic_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
+            af.arithmetic_triple_constraints.push_back(pt);
+            af.original_opcode_indices.arithmetic_triple_constraints.push_back(opcode_index);
         } else {
             needs_to_be_parsed_as_mul_quad = true;
         }
@@ -545,41 +646,6 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
         }
     }
     constrain_witnesses(arg, af);
-}
-uint32_t get_witness_from_function_input(Acir::FunctionInput input)
-{
-    auto input_witness = std::get<Acir::FunctionInput::Witness>(input.value);
-    return input_witness.value.value;
-}
-
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
-{
-    WitnessOrConstant result = std::visit(
-        [&](auto&& e) {
-            using T = std::decay_t<decltype(e)>;
-            if constexpr (std::is_same_v<T, Acir::FunctionInput::Witness>) {
-                return WitnessOrConstant<bb::fr>{
-                    .index = e.value.value,
-                    .value = bb::fr::zero(),
-                    .is_constant = false,
-                };
-            } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
-                return WitnessOrConstant<bb::fr>{
-                    .index = bb::stdlib::IS_CONSTANT,
-                    .value = from_be_bytes(e.value),
-                    .is_constant = true,
-                };
-            } else {
-                throw_or_abort("Unrecognized Acir::ConstantOrWitnessEnum variant.");
-            }
-            return WitnessOrConstant<bb::fr>{
-                .index = bb::stdlib::IS_CONSTANT,
-                .value = bb::fr::zero(),
-                .is_constant = true,
-            };
-        },
-        input.value);
-    return result;
 }
 
 void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index)
@@ -808,6 +874,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     af.constrained_witness.insert(output);
                 }
                 af.original_opcode_indices.poseidon2_constraints.push_back(opcode_index);
+            } else {
+                bb::assert_failure("handle_blackbox_func_call: Unrecognized BlackBoxFuncCall variant.");
             }
         },
         arg.value.value);
@@ -816,12 +884,12 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
 BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
 {
     BlockConstraint block{ .init = {}, .trace = {}, .type = BlockType::ROM };
-    std::vector<poly_triple> init;
+    std::vector<arithmetic_triple> init;
     std::vector<MemOp> trace;
 
     auto len = mem_init.init.size();
     for (size_t i = 0; i < len; ++i) {
-        block.init.push_back(poly_triple{
+        block.init.push_back(arithmetic_triple{
             .a = mem_init.init[i].value,
             .b = 0,
             .c = 0,
@@ -848,10 +916,10 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
 bool is_rom(Acir::MemOp const& mem_op)
 {
     return mem_op.operation.mul_terms.empty() && mem_op.operation.linear_combinations.empty() &&
-           from_be_bytes(mem_op.operation.q_c) == 0;
+           from_big_endian_bytes(mem_op.operation.q_c) == 0;
 }
 
-uint32_t poly_to_witness(const poly_triple poly)
+uint32_t poly_to_witness(const arithmetic_triple poly)
 {
     if (poly.q_m == 0 && poly.q_r == 0 && poly.q_o == 0 && poly.q_l == 1 && poly.q_c == 0) {
         return poly.a;
@@ -872,7 +940,7 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, Bloc
     }
 
     // Update the ranges of the index using the array length
-    poly_triple index = serialize_arithmetic_gate(mem_op.op.index);
+    arithmetic_triple index = serialize_arithmetic_gate(mem_op.op.index);
     int bit_range = std::bit_width(block.init.size());
     uint32_t index_witness = poly_to_witness(index);
     if (index_witness != 0 && bit_range > 0) {
@@ -900,143 +968,6 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, Bloc
     MemOp acir_mem_op =
         MemOp{ .access_type = access_type, .index = index, .value = serialize_arithmetic_gate(mem_op.op.value) };
     block.trace.push_back(acir_mem_op);
-}
-
-AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
-{
-    AcirFormat af;
-    // `varnum` is the true number of variables, thus we add one to the index which starts at zero
-    af.varnum = circuit.current_witness_index + 1;
-    af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
-    af.public_inputs = join({ transform::map(circuit.public_parameters.value, [](auto e) { return e.value; }),
-                              transform::map(circuit.return_values.value, [](auto e) { return e.value; }) });
-    // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
-    // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
-    std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
-    for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
-        const auto& gate = circuit.opcodes[i];
-        std::visit(
-            [&](auto&& arg) {
-                using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, Acir::Opcode::AssertZero>) {
-                    handle_arithmetic(arg, af, i);
-                } else if constexpr (std::is_same_v<T, Acir::Opcode::BlackBoxFuncCall>) {
-                    handle_blackbox_func_call(arg, af, i);
-                } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
-                    auto block = handle_memory_init(arg);
-                    uint32_t block_id = arg.block_id.value;
-                    block_id_to_block_constraint[block_id] = { block, /*opcode_indices=*/{ i } };
-                } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
-                    auto block = block_id_to_block_constraint.find(arg.block_id.value);
-                    if (block == block_id_to_block_constraint.end()) {
-                        throw_or_abort("unitialized MemoryOp");
-                    }
-                    handle_memory_op(arg, af, block->second.first);
-                    block->second.second.push_back(i);
-                }
-            },
-            gate.value);
-    }
-    for (const auto& [block_id, block] : block_id_to_block_constraint) {
-        // Note: the trace will always be empty for ReturnData since it cannot be explicitly read from in noir
-        if (!block.first.trace.empty() || block.first.type == BlockType::ReturnData ||
-            block.first.type == BlockType::CallData) {
-            af.block_constraints.push_back(block.first);
-            af.original_opcode_indices.block_constraints.push_back(block.second);
-        }
-    }
-    return af;
-}
-
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
-{
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
-    // `program_buf_to_acir_format` once Honk fully supports all ACIR test flows For now the backend still expects
-    // to work with a single ACIR function
-    auto program = deserialize_program(std::move(buf));
-    auto circuit = program.functions[0];
-
-    return circuit_serde_to_acir_format(circuit);
-}
-
-/**
- * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
- *
- * @param witness_map ACIR-native `WitnessMap` deserialized from a buffer
- * @return A `WitnessVector` equivalent to the passed `WitnessMap`.
- * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
- *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
- */
-WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness_map)
-{
-    WitnessVector wv;
-    size_t index = 0;
-    for (const auto& e : witness_map.value) {
-        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
-        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
-        while (index < e.first.value) {
-            wv.emplace_back(0);
-            index++;
-        }
-        wv.emplace_back(from_be_bytes(e.second));
-        index++;
-    }
-    return wv;
-}
-
-WitnessVector witness_buf_to_witness_data(std::vector<uint8_t>&& buf)
-{
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
-    // `witness_buf_to_witness_stack` once Honk fully supports all ACIR test flows. For now the backend still
-    // expects to work with the stop of the `WitnessStack`.
-    auto witness_stack = deserialize_witness_stack(std::move(buf));
-    auto w = witness_stack.stack[witness_stack.stack.size() - 1].witness;
-
-    return witness_map_to_witness_vector(w);
-}
-
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t>&& buf)
-{
-    auto program = deserialize_program(std::move(buf));
-
-    std::vector<AcirFormat> constraint_systems;
-    constraint_systems.reserve(program.functions.size());
-    for (auto const& function : program.functions) {
-        constraint_systems.emplace_back(circuit_serde_to_acir_format(function));
-    }
-
-    return constraint_systems;
-}
-
-WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t>&& buf)
-{
-    auto witness_stack = deserialize_witness_stack(std::move(buf));
-    WitnessVectorStack witness_vector_stack;
-    witness_vector_stack.reserve(witness_stack.stack.size());
-    for (auto const& stack_item : witness_stack.stack) {
-        witness_vector_stack.emplace_back(stack_item.index, witness_map_to_witness_vector(stack_item.witness));
-    }
-    return witness_vector_stack;
-}
-
-AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path)
-{
-    vinfo("in get_acir_program_stack; witness path is ", witness_path);
-    std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
-    std::vector<AcirFormat> constraint_systems = program_buf_to_acir_format(std::move(bytecode));
-    WitnessVectorStack witness_stack = [&]() {
-        if (witness_path.empty()) {
-            info("producing a stack of empties");
-            WitnessVectorStack stack_of_empties{ constraint_systems.size(),
-                                                 std::make_pair(uint32_t(), WitnessVector()) };
-            return stack_of_empties;
-        }
-        std::vector<uint8_t> witness_data = get_bytecode(witness_path);
-        return witness_buf_to_witness_stack(std::move(witness_data));
-    }();
-
-    return { std::move(constraint_systems), std::move(witness_stack) };
 }
 
 } // namespace acir_format

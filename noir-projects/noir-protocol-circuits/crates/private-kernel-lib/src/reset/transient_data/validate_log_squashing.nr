@@ -31,7 +31,7 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
     note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     expected_kept_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
     expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
-    min_revertible_side_effect_counter: u32,
+    split_counter: u32,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     note_log_linked_source_indices: [NoteLogLinkedSourceIndices; LogsLen],
 ) {
@@ -99,7 +99,7 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
             // know it must point to a valid entry in `note_hashes`.
 
             // === Log and squashed note hash must both be revertible or non-revertible ===
-            // If the squashed note hash is revertible (i.e., counter >= min_revertible_side_effect_counter), the log
+            // If the squashed note hash is revertible (i.e., counter >= split_counter), the log
             // must also be revertible.
             // If the squashed note hash is non-revertible, the log must be non-revertible.
             //
@@ -111,9 +111,8 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
             //
             // While it is unlikely that an app would want to retain a log linked to a discarded note hash, or discard
             // a log while its note hash is kept, it is still a valid scenario that must be handled.
-            let is_note_hash_revertible =
-                hinted_squashed_note_hash.counter() >= min_revertible_side_effect_counter;
-            let is_log_revertible = log.counter() >= min_revertible_side_effect_counter;
+            let is_note_hash_revertible = hinted_squashed_note_hash.counter() >= split_counter;
+            let is_log_revertible = log.counter() >= split_counter;
             assert_eq(
                 is_note_hash_revertible,
                 is_log_revertible,
@@ -526,7 +525,7 @@ mod tests {
         builder.add_squashing_hint(0, 0);
 
         // All the data is non-revertible.
-        builder.min_revertible_side_effect_counter = 10;
+        builder.split_counter = 10;
 
         builder.validate();
     }
@@ -544,7 +543,7 @@ mod tests {
         builder.add_squashing_hint(0, 0);
 
         // Make the log non-revertible, the note hash and nullifier revertible.
-        builder.min_revertible_side_effect_counter = 6;
+        builder.split_counter = 6;
 
         builder.validate();
     }
@@ -562,7 +561,7 @@ mod tests {
         builder.add_squashing_hint(0, 0);
 
         // All the data is revertible.
-        builder.min_revertible_side_effect_counter = 1;
+        builder.split_counter = 1;
 
         builder.validate();
     }
@@ -580,7 +579,7 @@ mod tests {
         builder.add_squashing_hint(0, 0);
 
         // Make the log revertible, the note hash and nullifier non-revertible.
-        builder.min_revertible_side_effect_counter = 10;
+        builder.split_counter = 10;
 
         builder.validate();
     }

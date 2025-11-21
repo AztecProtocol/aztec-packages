@@ -39,13 +39,6 @@ fn non_empty_key_validations() {
     let _ = builder.execute();
 }
 
-#[test(should_fail_with = "split_counter must be 0 for pure private tx")]
-fn non_zero_validation_requests_split_counter() {
-    let mut builder = TestBuilder::new();
-    builder.previous_kernel.validation_requests_split_counter = Option::some(123);
-    let _ = builder.execute();
-}
-
 // --- fee_payer ---
 
 #[test(should_fail_with = "Fee payer can't be empty")]

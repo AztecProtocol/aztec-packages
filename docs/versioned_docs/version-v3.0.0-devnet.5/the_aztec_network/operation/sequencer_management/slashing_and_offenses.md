@@ -64,12 +64,14 @@ Your sequencer automatically detects and votes to slash the following offenses:
 **What it is**: A validator fails to attest to block proposals when selected for committee duty, or fails to propose a block when selected as proposer.
 
 **Detection criteria**:
-- Validator misses more than 20% of attestations (configured via `SLASH_INACTIVITY_TARGET_PERCENTAGE=0.8`, which sets a 80% attendance target)
-- Occurs in 2 or more consecutive epochs where the validator was on the committee (configured via `SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD=2`)
+- Measured **per epoch** for validators on the committee during that epoch (committees are assigned per epoch and remain constant for all slots in that epoch)
+- The Sentinel calculates: `(missed_proposals + missed_attestations) / (total_proposals + total_attestations)`
+- A validator is considered inactive for an epoch if this ratio meets or exceeds `SLASH_INACTIVITY_TARGET_PERCENTAGE` (e.g., 0.8 = 80% or more duties missed)
+- Requires **consecutive committee participation with inactivity**: Must be inactive for N consecutive epochs where they were on the committee (configured via `SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD=2`). Epochs where the validator was not on the committee are not counted, so a validator inactive in epochs 1, 3, and 5 meets the threshold for 3 consecutive inactive epochs even though epochs 2 and 4 are skipped.
 
 **Proposed penalty**: 1% of stake
 
-**Note**: Requires the Sentinel to be enabled (`SENTINEL_ENABLED=true`). The Sentinel tracks attestation and proposal activity for all validators over the configured history period.
+**Note**: Requires the Sentinel to be enabled (`SENTINEL_ENABLED=true`). The Sentinel tracks attestation and proposal activity for all validators.
 
 ### 2. Valid Epoch Not Proven
 
@@ -145,7 +147,7 @@ Your sequencer comes pre-configured with default slashing settings. You can opti
 SLASH_GRACE_PERIOD_L2_SLOTS=128  # Default: first round is grace period
 
 # Inactivity detection (requires SENTINEL_ENABLED=true)
-SLASH_INACTIVITY_TARGET_PERCENTAGE=0.8  # 80% - slash if missing >20% attestations
+SLASH_INACTIVITY_TARGET_PERCENTAGE=0.8  # Slash if missed proposals + attestations >= 80%
 SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD=2  # Must be inactive for 2+ epochs
 SLASH_INACTIVITY_PENALTY=2000000000000000000000  # 2000 tokens (1%)
 
