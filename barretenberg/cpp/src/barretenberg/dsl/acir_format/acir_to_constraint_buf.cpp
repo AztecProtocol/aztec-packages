@@ -134,6 +134,8 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
     // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
     // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
     std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
+
+    bool has_brillig = false;
     for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
         const auto& gate = circuit.opcodes[i];
         std::visit(
@@ -155,8 +157,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
                     handle_memory_op(arg, af, block->second.first);
                     block->second.second.push_back(i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
-                    vinfo("acir_format:circuit_serde_to_acir_format: Encountered unhadled BrillingCall. Barretenberg "
-                          "treats this as a no-op.");
+                    has_brillig = true;
                 } else {
                     bb::assert_failure("circuit_serde_to_acir_format: Unrecognized Acir Opcode.");
                 }
@@ -170,6 +171,11 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
             af.block_constraints.push_back(block.first);
             af.original_opcode_indices.block_constraints.push_back(block.second);
         }
+    }
+
+    if (has_brillig) {
+        vinfo("acir_format:circuit_serde_to_acir_format: Encountered unhadled BrilligCall during circuit "
+              "deserialization. Barretenberg treats this as a no-op.");
     }
     return af;
 }
@@ -773,10 +779,10 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, Bloc
 
 bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms)
 {
-    static constexpr size_t MAX_NUMBER_DISTINCT_WITNESSES = 4; // Equal to the number of wires in the arithmetization
+    static constexpr size_t NUM_WIRES = 4; // Equal to the number of wires in the arithmetization
 
     // If there are more than 4 distinct witnesses in the linear terms, then we need multiple arithmetic gates
-    if (linear_terms.size() > MAX_NUMBER_DISTINCT_WITNESSES) {
+    if (linear_terms.size() > NUM_WIRES) {
         return false;
     }
 
@@ -786,20 +792,38 @@ bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint3
     }
 
     if (arg.mul_terms.size() == 1) {
+        // In this case we have two witnesses coming from the multiplication term plus the linear terms.
+        // We proceed as follows:
+        //  0. Start from the assumption that all witnesses (from linear terms and multiplication) are distinct
+        //  1. Check if the lhs and rhs witness in the multiplication are already contained in the linear terms
+        //  2. Check if the lhs witness and the rhs witness are equal
+        //     2.a If they are distinct, update the total number of witnesses to be added to wires according to result
+        //         of the check at step 1: each distinct witness already in the linear terms subtracts one from the
+        //         total
+        //     2.b If they are equal, update the total number of witnesses to be added to wire according to result of
+        //         the check at step 1: if the witness is already in the linear terms, it removes one from the total
+
+        // Number of witnesses to be put in wires if the witnesses from the linear terms and the multiplication term are
+        // all different
+        size_t num_witnesses_to_be_put_in_wires = 2 + linear_terms.size();
+
         uint32_t witness_idx_lhs = std::get<1>(arg.mul_terms[0]).value;
         uint32_t witness_idx_rhs = std::get<2>(arg.mul_terms[0]).value;
 
-        bool lhs_is_distinct = !linear_terms.contains(witness_idx_lhs);
-        bool rhs_is_distinct = !linear_terms.contains(witness_idx_rhs) && witness_idx_lhs != witness_idx_rhs;
+        bool lhs_is_distinct_from_linear_terms = !linear_terms.contains(witness_idx_lhs);
+        bool rhs_is_distinct_from_linear_terms = !linear_terms.contains(witness_idx_rhs);
 
-        size_t total_num_of_distinct_witnesses = linear_terms.size();
-        total_num_of_distinct_witnesses += lhs_is_distinct ? 1U : 0U;
-        total_num_of_distinct_witnesses += rhs_is_distinct ? 1U : 0U;
+        if (witness_idx_lhs != witness_idx_rhs) {
+            num_witnesses_to_be_put_in_wires -= lhs_is_distinct_from_linear_terms ? 0U : 1U;
+            num_witnesses_to_be_put_in_wires -= rhs_is_distinct_from_linear_terms ? 0U : 1U;
+        } else {
+            num_witnesses_to_be_put_in_wires -= lhs_is_distinct_from_linear_terms ? 0U : 1U;
+        }
 
-        return total_num_of_distinct_witnesses <= MAX_NUMBER_DISTINCT_WITNESSES;
+        return num_witnesses_to_be_put_in_wires <= NUM_WIRES;
     }
 
-    return linear_terms.size() <= MAX_NUMBER_DISTINCT_WITNESSES;
+    return linear_terms.size() <= NUM_WIRES;
 }
 
 std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr)
