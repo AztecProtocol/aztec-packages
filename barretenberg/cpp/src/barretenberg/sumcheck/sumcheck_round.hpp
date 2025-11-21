@@ -294,7 +294,7 @@ template <typename Flavor> class SumcheckProverRound {
                     accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                     lazy_extended_edges,
                                                     relation_parameters,
-                                                    gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+                                                    gate_separators[edge_idx]);
                 }
             }
         });
@@ -478,7 +478,7 @@ template <typename Flavor> class SumcheckProverRound {
                     // All subrelation in MultilinearBatchingFlavor are linearly dependent, i.e. they are not scaled by
                     // `pow`-polynomial, hence we don't need to initialize `scaling_factor`.
                     if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
-                        scaling_factor = gate_separators[(edge_idx >> 1) * gate_separators.periodicity];
+                        scaling_factor = gate_separators[edge_idx];
                     }
                     accumulate_relation_univariates(thread_univariate_accumulators[chunk.thread_index],
                                                     extended_edges,
@@ -500,28 +500,6 @@ template <typename Flavor> class SumcheckProverRound {
 
         return round_univariate;
     };
-    // TODO(Khashayar-audit): remove the method and take back the constexpr if to prove method.
-    // currently it's not clear in the prove method that we are disabling the contribution of some rows
-    // because the removal is done as a part of the compute_hiding_univariate method. This leads to the code being
-    // confusing in the prove method.
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_hiding_univariate(
-        const size_t round_idx,
-        const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-        const bb::RelationParameters<FF>& relation_parameters,
-        const bb::GateSeparatorPolynomial<FF>& gate_separators,
-        const SubrelationSeparators& alpha,
-        const ZKData& zk_sumcheck_data,
-        const RowDisablingPolynomial<FF> row_disabling_polynomial)
-        requires Flavor::HasZK
-    {
-        auto hiding_univariate = compute_libra_univariate(zk_sumcheck_data, round_idx);
-        if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            hiding_univariate -= compute_disabled_contribution(
-                polynomials, relation_parameters, gate_separators, alpha, round_idx, row_disabling_polynomial);
-        }
-        return hiding_univariate;
-    }
 
     /*!
      * @brief For ZK Flavors: A method disabling the last 4 rows of the ProverPolynomials
@@ -550,10 +528,8 @@ template <typename Flavor> class SumcheckProverRound {
 
         for (size_t edge_idx = start_edge_idx; edge_idx < round_size; edge_idx += 2) {
             extend_edges(extended_edges, polynomials, edge_idx);
-            accumulate_relation_univariates(univariate_accumulator,
-                                            extended_edges,
-                                            relation_parameters,
-                                            gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+            accumulate_relation_univariates(
+                univariate_accumulator, extended_edges, relation_parameters, gate_separators[edge_idx]);
         }
         result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separators);
         bb::Univariate<FF, 2> row_disabling_factor =
