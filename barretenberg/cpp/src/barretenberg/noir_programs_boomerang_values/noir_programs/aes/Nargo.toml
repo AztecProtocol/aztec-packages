@@ -1,0 +1,6 @@
+[package]
+name = "aes"
+type = "bin"
+authors = [""]
+
+[dependencies]
