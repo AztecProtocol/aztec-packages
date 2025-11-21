@@ -87,8 +87,6 @@ namespace tx;
     is_padded * (1 - is_padded) = 0;
 
     // If remaining_phase_counter == 0, is_padded = 1
-    // Leaves end_phase unconstrained but the prover has no choice since if he doesn't activate end_phase
-    // remaining_phase_counter will become p-1 and he'll never be able to complete a run.
     pol commit remaining_phase_inv;
     #[REM_COUNT_IS_ZERO]
     sel * (remaining_phase_counter * (is_padded * (1 - remaining_phase_inv) + remaining_phase_inv) - 1 + is_padded) = 0;
@@ -118,7 +116,8 @@ namespace tx;
 
     // sel == 1 when start_tx, is_padded, reverted, start_phase, end_phase are 1.
     #[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS]
-    (start_tx + is_padded + reverted + start_phase + end_phase) * (1 - sel) = 0;
+    (start_tx + start_phase + end_phase) * (1 - sel) = 0;
+    // From #[IS_PADDED_OR_REVERTED_END_PHASE], we transitively get `(is_padded = 1 || reverted = 1) ==> sel == 1`.
 
     // Sel can only become off after the last phase (cleanup)
     #[NO_EARLY_END]
