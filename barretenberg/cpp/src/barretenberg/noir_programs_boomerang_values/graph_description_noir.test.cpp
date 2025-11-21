@@ -81,14 +81,6 @@ TEST(BoomerangAcirCircuitBuilder, FibCase)
     test_acir(vector_bytecode);
 }
 
-TEST(BoomerangAcirCircuitBuilder, AESCase)
-{
-    std::string init_bytecode_path = "aes/target/blackbox.json";
-    std::string bytecode_file = common_preffix + init_bytecode_path;
-    std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
-    test_acir(vector_bytecode);
-}
-
 TEST(BoomerangAcirCircuitBuilder, EqualCase)
 {
     std::string init_bytecode_path = "equiv/target/equiv.json";
@@ -100,6 +92,14 @@ TEST(BoomerangAcirCircuitBuilder, EqualCase)
 TEST(BoomerangAcirCircuitBuilder, BlackBoxAndXorCase)
 {
     std::string init_bytecode_path = "blackbox_and_xor/target/blackbox_and_xor.json";
+    std::string bytecode_file = common_preffix + init_bytecode_path;
+    std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
+    test_acir(vector_bytecode);
+}
+
+TEST(BoomerangAcirCircuitBuilder, BlackBoxAesCase)
+{
+    std::string init_bytecode_path = "aes/target/aes.json";
     std::string bytecode_file = common_preffix + init_bytecode_path;
     std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
     test_acir(vector_bytecode);
