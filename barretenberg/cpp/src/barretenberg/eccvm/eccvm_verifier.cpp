@@ -30,16 +30,9 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
     // Load proof into transcript
     transcript->load_proof(proof);
 
-    // Fiat-Shamir the vk hash
-    if constexpr (IsRecursive) {
-        // We do not need to hash the vk in-circuit because both the vk and vk hash are hardcoded as constants.
-        transcript->add_to_hash_buffer("vk_hash", vk_hash);
-        vinfo("ECCVM vk hash in recursive verifier: ", vk_hash);
-    } else {
-        vk_hash = key->hash();
-        transcript->add_to_hash_buffer("vk_hash", vk_hash);
-        vinfo("ECCVM vk hash in verifier: ", vk_hash);
-    }
+    // Fiat-Shamir the vk hash (computed in constructor)
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+    vinfo("ECCVM vk hash: ", vk_hash);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;

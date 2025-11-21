@@ -40,17 +40,18 @@ template <typename Flavor> class ECCVMVerifier_ {
         : proof(proof)
         , transcript(transcript)
     {
+        // ECCVM VK is constant
+        auto native_vk = std::make_shared<ECCVMFlavor::VerificationKey>();
         if constexpr (IsRecursive) {
             // Extract builder from proof - safe since transcript cannot hash non-witness elements
             builder = proof.back().get_context();
-            // ECCVM has a fixed circuit structure, so VK is constant
-            auto native_vk = std::make_shared<typename Flavor::NativeVerificationKey>();
             key = std::make_shared<VerificationKey>(builder, native_vk);
             vk_hash = stdlib::witness_t<Builder>(builder, native_vk->hash());
             key->fix_witness();
             vk_hash.fix_witness();
         } else {
-            key = std::make_shared<VerificationKey>();
+            key = native_vk;
+            vk_hash = native_vk->hash();
         }
     }
 
