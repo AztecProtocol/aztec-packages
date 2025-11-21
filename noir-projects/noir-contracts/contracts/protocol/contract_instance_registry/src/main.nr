@@ -16,7 +16,6 @@ pub contract ContractInstanceRegistry {
         },
         state_vars::{DelayedPublicMutable, Map},
     };
-    use contract_class_registry::ContractClassRegistry;
 
     #[event]
     struct ContractInstancePublished {
@@ -104,8 +103,10 @@ pub contract ContractInstanceRegistry {
         universal_deploy: bool,
     ) {
         // contract class must be published in order to publish an instance
-        self.call(ContractClassRegistry::at(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)
-            .assert_class_id_is_published(contract_class_id));
+        self.context.push_nullifier_read_request(
+            contract_class_id.to_field(),
+            CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+        );
 
         let deployer = if universal_deploy {
             AztecAddress::zero()

@@ -81,7 +81,6 @@ describe('Deployment benchmark', () => {
             1 + // Multicall entrypoint
               1 + // Kernel init
               2 + // ContractInstanceRegistry publish + kernel inner
-              2 + // ContractClassRegistry assert_class_id_is_published + kernel inner
               2 + // Account constructor + kernel inner
               2 + // Account entrypoint (wrapped fee payload) + kernel inner
               paymentMethodManager.circuits + // Payment method circuits

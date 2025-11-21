@@ -14,7 +14,7 @@ use crate::{
         PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
-    side_effect::Counted,
+    side_effect::{Counted, scoped::Scoped},
     traits::{Deserialize, Empty, Serialize},
     utils::arrays::ClaimedLengthArray,
 };
@@ -33,8 +33,8 @@ pub struct PrivateCircuitPublicInputs {
 
     pub include_by_timestamp: u64,
 
-    pub note_hash_read_requests: ClaimedLengthArray<Counted<Field>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
-    pub nullifier_read_requests: ClaimedLengthArray<Counted<Field>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    pub note_hash_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    pub nullifier_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     pub key_validation_requests_and_generators: ClaimedLengthArray<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     pub note_hashes: ClaimedLengthArray<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,

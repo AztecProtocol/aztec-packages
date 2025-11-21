@@ -288,7 +288,6 @@ pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQ
 pub global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 =
     KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH + 1;
 pub global PARTIAL_STATE_REFERENCE_LENGTH: u32 = 6;
-pub global READ_REQUEST_LENGTH: u32 = 2;
 pub global TREE_LEAF_READ_REQUEST_LENGTH: u32 = 2;
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/messages/payload.nr.
 pub global PRIVATE_LOG_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS + 1 /* length */;
@@ -371,6 +370,8 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENG
     + 20 /* coinbase */
     + 16 /* gas_fees.fee_per_da_gas */
     + 16 /* gas_fees.fee_per_l2_gas */;
+
+pub global SCOPED_READ_REQUEST_LEN: u32 = 3;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 1 /* args_hash */
     + 1 /* returns_hash */
@@ -378,8 +379,8 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 1 /* is_fee_payer */
     + 1 /* include_by_timestamp */
     // The `(... + 1)` is because these arrays include a `length` field.
-    + (READ_REQUEST_LENGTH * MAX_NOTE_HASH_READ_REQUESTS_PER_CALL + 1)
-    + (READ_REQUEST_LENGTH * MAX_NULLIFIER_READ_REQUESTS_PER_CALL + 1)
+    + (SCOPED_READ_REQUEST_LEN * MAX_NOTE_HASH_READ_REQUESTS_PER_CALL + 1)
+    + (SCOPED_READ_REQUEST_LEN * MAX_NULLIFIER_READ_REQUESTS_PER_CALL + 1)
     + (KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH * MAX_KEY_VALIDATION_REQUESTS_PER_CALL + 1)
     + (NOTE_HASH_LENGTH * MAX_NOTE_HASHES_PER_CALL + 1)
     + (NULLIFIER_LENGTH * MAX_NULLIFIERS_PER_CALL + 1)
@@ -406,7 +407,6 @@ pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 56;
 pub global PAIRING_POINTS_SIZE: u32 = 16;
 pub global IPA_CLAIM_SIZE: u32 = 10;
 
-pub global SCOPED_READ_REQUEST_LEN: u32 = READ_REQUEST_LENGTH + 1;
 pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
 // The `(... + 1)` is because these arrays include a `length` field.
 pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = (
