@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.1.7](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.6...v2.1.7) (2025-11-20)
+
+
+### Miscellaneous
+
+* Accumulated backports to v2 ([#18506](https://github.com/AztecProtocol/aztec-packages/issues/18506)) ([8fca955](https://github.com/AztecProtocol/aztec-packages/commit/8fca955302e21c54dd1d13386b8bbb60fe15ceb8))
+
+## [2.1.6](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.5...v2.1.6) (2025-11-16)
+
+
+### Bug Fixes
+
+* Bump failed viem install ([#18444](https://github.com/AztecProtocol/aztec-packages/issues/18444)) ([2c1ba82](https://github.com/AztecProtocol/aztec-packages/commit/2c1ba82632f6ae4f72e716bfb2591e5db19e79d9))
+
+
+### Miscellaneous
+
+* fix helm from cache ([#18446](https://github.com/AztecProtocol/aztec-packages/issues/18446)) ([1074b96](https://github.com/AztecProtocol/aztec-packages/commit/1074b9640f2342f98d71dd04ffb2304f28a977e8))
+
+## [2.1.5](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.4...v2.1.5) (2025-11-15)
+
+
+### Miscellaneous
+
+* backport to v2 ([#18433](https://github.com/AztecProtocol/aztec-packages/issues/18433)) ([5796a10](https://github.com/AztecProtocol/aztec-packages/commit/5796a10d8bb77b180bf393f1b528856121626aa3))
+
 ## [2.1.4](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.3...v2.1.4) (2025-11-12)
 
 
