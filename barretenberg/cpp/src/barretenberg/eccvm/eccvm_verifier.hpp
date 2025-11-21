@@ -101,10 +101,8 @@ template <typename Flavor> class ECCVMVerifier_ {
     FF accumulated_result;
 };
 
-// Type alias for native verifier
+// Type aliases
 using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
-
-// Note: For recursive verifier, use ECCVMVerifier_<ECCVMRecursiveFlavor_<Builder>> directly
-// or define alias in the appropriate namespace
+using ECCVMRecursiveVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor>;
 
 } // namespace bb

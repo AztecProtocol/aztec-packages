@@ -33,8 +33,6 @@ class GoblinRecursiveVerifier {
     using TranslationEvaluations = TranslatorVerifier::TranslationEvaluations;
     using TranslatorInputData = TranslatorInputData_<TranslatorRecursiveVerifier::BF>;
 
-    using ECCVMVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor>;
-
     // ECCVM and Translator verification keys
     using VerificationKey = Goblin::VerificationKey;
 

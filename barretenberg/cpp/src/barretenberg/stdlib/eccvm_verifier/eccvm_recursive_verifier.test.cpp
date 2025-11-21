@@ -23,7 +23,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
     using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerBuilder = InnerFlavor::CircuitBuilder;
     using InnerProver = ECCVMProver;
-    using InnerVerifier = ECCVMVerifier_<ECCVMFlavor>;
+    using InnerVerifier = ECCVMVerifier;
     using InnerG1 = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
     using InnerBF = InnerFlavor::BF;
@@ -33,7 +33,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
     using Transcript = InnerFlavor::Transcript;
     using StdlibTranscript = RecursiveFlavor::Transcript;
 
-    using RecursiveVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor>;
+    using RecursiveVerifier = ECCVMRecursiveVerifier;
 
     using OuterBuilder = RecursiveFlavor::CircuitBuilder;
     using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
