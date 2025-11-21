@@ -9,7 +9,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { AztecContext } from '../../../aztecContext';
-import { parseAliasedBuffersAsString } from '../../../utils/conversion';
 import { navbarButtonStyle, navbarSelect } from '../../../styles/common';
 import { NETWORKS } from '../../../utils/networks';
 import { useNotifications } from '@toolpad/core/useNotifications';
@@ -65,36 +64,46 @@ export function NetworkSelector() {
   // Connect to the first network automatically
   useEffect(() => {
     if (isContextInitialized && !network) {
-      handleNetworkChange(NETWORKS[0].nodeURL);
+      handleNetworkChange(NETWORKS[0].name);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isContextInitialized]);
 
   useEffect(() => {
     const refreshNetworks = async () => {
-      const aliasedBuffers = await playgroundDB.listNetworks();
-      const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
-      const networks = [
+      const storedNetworks = await playgroundDB.listNetworks();
+      const updatedNetworks = [
         ...NETWORKS,
-        ...aliasedNetworks.map(network => ({
-          nodeURL: network.item,
-          name: network.alias,
-          description: 'Custom network',
+        ...storedNetworks.map(net => ({
+          nodeURL: net.networkUrl,
+          name: net.alias,
+          description:
+            net.chainId && net.version ? `Chain ID: ${net.chainId} • Version: ${net.version}` : 'Custom network',
           hasTestAccounts: false,
           hasSponsoredFPC: true,
+          chainId: net.chainId,
+          version: net.version,
+          nodeVersion: net.nodeVersion,
         })),
       ];
-      setNetworks(networks);
+      setNetworks(updatedNetworks);
     };
-    if (isContextInitialized) {
+    if (isContextInitialized && playgroundDB) {
       refreshNetworks();
     }
-  }, [isContextInitialized]);
+  }, [isContextInitialized, playgroundDB]);
 
-  const handleNetworkChange = async (nodeURL: string) => {
+  const handleNetworkChange = async (name: string) => {
+    if (!name) {
+      return;
+    }
+
     let network = null;
     try {
-      network = networks.find(network => network.nodeURL === nodeURL);
+      network = networks.find(network => network.name === name);
+      if (!network) {
+        throw new Error('Network not found');
+      }
       setNetwork(network);
       setWallet(null);
       setCurrentContractAddress(null);
@@ -120,22 +129,61 @@ export function NetworkSelector() {
     }
   };
 
-  const handleNetworkAdded = async (network?: string, alias?: string) => {
-    if (network && alias) {
-      await playgroundDB.storeNetwork(alias, network);
-      const aliasedBuffers = await playgroundDB.listNetworks();
-      const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
-      const networks = [
-        ...NETWORKS,
-        ...aliasedNetworks.map(network => ({
-          nodeURL: network.item,
-          name: network.alias,
-          description: 'Custom network',
-          hasTestAccounts: false,
-          hasSponsoredFPC: true,
-        })),
-      ];
-      setNetworks(networks);
+  const handleNetworkAdded = async (
+    networkUrl?: string,
+    alias?: string,
+    chainId?: number,
+    version?: string,
+    nodeVersion?: string,
+  ) => {
+    if (networkUrl && alias && chainId && version) {
+      try {
+        await playgroundDB.storeNetwork(networkUrl, alias, chainId, version, nodeVersion);
+        const storedNetworks = await playgroundDB.listNetworks();
+        const updatedNetworks = [
+          ...NETWORKS,
+          ...storedNetworks.map(net => ({
+            nodeURL: net.networkUrl,
+            name: net.alias,
+            description:
+              net.chainId && net.version ? `Chain ID: ${net.chainId} • Version: ${net.version}` : 'Custom network',
+            hasTestAccounts: false,
+            hasSponsoredFPC: true,
+            chainId: net.chainId,
+            version: net.version,
+            nodeVersion: net.nodeVersion,
+          })),
+        ];
+        setNetworks(updatedNetworks);
+
+        // Automatically connect to the newly added network
+        // Find the network in updatedNetworks instead of relying on state
+        const newNetwork = updatedNetworks.find(net => net.name === alias);
+        if (newNetwork) {
+          setNetwork(newNetwork);
+          setWallet(null);
+          setCurrentContractAddress(null);
+          setCurrentContractArtifact(null);
+          setShowContractInterface(false);
+          setConnecting(true);
+          try {
+            setNode(await createAztecNodeClient(newNetwork.nodeURL));
+          } catch (error) {
+            console.error(error);
+            setNetwork(null);
+            notifications.show('Failed to connect to network', {
+              severity: 'error',
+            });
+          } finally {
+            setConnecting(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error in handleNetworkAdded:', error);
+        notifications.show('Failed to add network: ' + (error instanceof Error ? error.message : 'Unknown error'), {
+          severity: 'error',
+        });
+      }
     }
     setOpenAddNetworksDialog(false);
   };
@@ -156,7 +204,7 @@ export function NetworkSelector() {
       <FormControl css={navbarSelect}>
         <Select
           fullWidth
-          value={network?.nodeURL || ''}
+          value={network?.name || ''}
           displayEmpty
           variant="outlined"
           IconComponent={KeyboardArrowDownIcon}
@@ -174,16 +222,32 @@ export function NetworkSelector() {
           }}
           disabled={connecting}
           onChange={e => handleNetworkChange(e.target.value)}
+          MenuProps={{
+            disableScrollLock: true,
+            PaperProps: {
+              sx: {
+                width: '300px',
+                marginLeft: '-12px',
+                '@media (max-width: 900px)': {
+                  width: '100vw',
+                  marginLeft: 0,
+                },
+              },
+            },
+          }}
         >
           {networks.map(network => (
             <MenuItem
               key={network.name}
-              value={network.nodeURL}
+              value={network.name}
               sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
             >
               <Typography variant="body1">{network.name}</Typography>
               <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
-                {network.description} • {network.nodeURL}
+                {network.description}
+              </Typography>
+              <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
+                {network.nodeURL}
               </Typography>
             </MenuItem>
           ))}
@@ -191,7 +255,8 @@ export function NetworkSelector() {
           <MenuItem
             key="create"
             value=""
-            onClick={() => {
+            onClick={e => {
+              e.stopPropagation();
               trackButtonClick('Add Custom Network', 'Network Selector');
               setOpen(false);
               setOpenAddNetworksDialog(true);
@@ -207,7 +272,7 @@ export function NetworkSelector() {
 
       <Dialog open={showNetworkDownNotification} onClose={() => setShowNetworkDownNotification(false)}>
         <DialogTitle css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Testnet is congested</span>
+          <span>The network is congested</span>
           <IconButton onClick={() => setShowNetworkDownNotification(false)}>
             <CloseIcon />
           </IconButton>

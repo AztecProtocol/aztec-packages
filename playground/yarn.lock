@@ -73,9 +73,6 @@ __metadata:
     "@emotion/react": "npm:^11.14.0"
     "@emotion/styled": "npm:^11.14.0"
     "@eslint/js": "npm:^9.18.0"
-    "@fontsource/inter": "npm:^5.2.5"
-    "@fontsource/roboto": "npm:^5.1.1"
-    "@fontsource/space-grotesk": "npm:^5.2.6"
     "@mui/icons-material": "npm:^6.3.1"
     "@mui/material": "npm:^6.3.1"
     "@mui/styles": "npm:^6.3.1"
@@ -736,27 +733,6 @@ __metadata:
     "@eslint/core": "npm:^0.13.0"
     levn: "npm:^0.4.1"
   checksum: 10c0/554847c8f2b6bfe0e634f317fc43d0b54771eea0015c4f844f75915fdb9e6170c830c004291bad57db949d61771732e459f36ed059f45cf750af223f77357c5c
-  languageName: node
-  linkType: hard
-
-"@fontsource/inter@npm:^5.2.5":
-  version: 5.2.5
-  resolution: "@fontsource/inter@npm:5.2.5"
-  checksum: 10c0/071e12a6a9c8cf6e95da43ba532e80eb8e35c1ffd2384c9c6555d7f222e306e22968f7c4fff5065b9f81503db622cf3de8a688fbc1cb0c04aa3803c797f6f6a0
-  languageName: node
-  linkType: hard
-
-"@fontsource/roboto@npm:^5.1.1":
-  version: 5.2.5
-  resolution: "@fontsource/roboto@npm:5.2.5"
-  checksum: 10c0/b254985468a3ba78323d66b0725af1b2dc60dbacc82a907c0f67ccc659cc30c52b66bbadd3f2afdea53971ddae60c96e582efbcaee2db52886201c3f56b830a8
-  languageName: node
-  linkType: hard
-
-"@fontsource/space-grotesk@npm:^5.2.6":
-  version: 5.2.6
-  resolution: "@fontsource/space-grotesk@npm:5.2.6"
-  checksum: 10c0/4ce284cac461031721c104844dbbeb8df75e3a1d3fd0573fcefc442f3aa8f5dd4362595cd067f09a2a47b7fd9a6f94f6882647da67139fd8e690cff9e603d39f
   languageName: node
   linkType: hard
 

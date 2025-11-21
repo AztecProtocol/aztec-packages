@@ -3,7 +3,7 @@ import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
 import { getStubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub/lazy';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
 import type { Aliased } from '@aztec/aztec.js/wallet';
-import { type Account, type AccountContract, SignerlessAccount } from '@aztec/aztec.js/account';
+import { type Account, type AccountContract, type ChainInfo, SignerlessAccount } from '@aztec/aztec.js/account';
 import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager, BaseWallet } from '@aztec/aztec.js/wallet';
@@ -20,6 +20,7 @@ import { convertFromUTF8BufferAsString } from '../utils/conversion';
 import { WebLogger } from '../utils/web_logger';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { NETWORKS } from '../utils/networks';
 
 /**
  * Data for generating an account.
@@ -48,8 +49,16 @@ export class EmbeddedWallet extends BaseWallet {
     super(pxe, aztecNode);
   }
 
-  static async create(nodeURL: string) {
-    const aztecNode = createAztecNodeClient(nodeURL);
+  static async create(chainInfo: ChainInfo) {
+    const network = NETWORKS.find(
+      network => new Fr(network.chainId).equals(chainInfo.chainId) && new Fr(network.version).equals(chainInfo.version),
+    );
+    if (!network) {
+      throw new Error(
+        `Cannot create an embedded wallet for chainId ${chainInfo.chainId} and rollup version ${chainInfo.version}`,
+      );
+    }
+    const aztecNode = createAztecNodeClient(network.nodeURL);
 
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const rollupAddress = l1Contracts.rollupAddress;
