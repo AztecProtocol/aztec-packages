@@ -281,51 +281,103 @@ Within the **CHONK** proving system, the Merge Protocol achieves zero-knowledge 
 - 4 $M_j$ wires (op queue columns), each with 10 random coefficients (6 from $L_j$ tail kernel, 4 from $R_j$ hiding kernel)
 - **Total: 40 random coefficients**
 
-**Per-Wire DoF Consumption:**
+Let $r = (r_1, \ldots, r_{40}) \in \mathbb{F}^{40}$ denote these coefficients.
 
-For each wire $j \in \{1, 2, 3, 4\}$:
+The polynomials $L_j, R_j, M_j$ have the form
+$$F(X)= F^{\mathrm{fixed}}(X)+ F^{\mathrm{rand}}(X) = F^{\mathrm{fixed}}(X) + \sum_{i=1}^{40} r_i  B_i^{F}(X)$$,
+where $\{B_i^{F}(X)\}$ are the basis polynomials determined by which rows the random non-ops occupy on that wire, and for many $i$, $B_i^{F}=0$.
 
-1. **Commitments** (copy-constrained between Merge and Translator):
-   - $[L_j]$, $[R_j]$, $[M_j]$ → 3 commitments per wire
-   - **Per $R_j$: -1 DoF**
-   - **Per $L_j$: -1 DoF**
-   - Simulator has access to srs $\tau$ and computes $[M_j]$ from $\ell$, $R_j(\tau)$, and $L_j(\tau)$.
+The verifier observes the following.
 
-2. **Independent evaluation constraints:**
-   - Merge: $L_j(\kappa)$ → **-1 DoF**
-   - Merge: $R_j(\kappa)$ → **-1 DoF**
-     - Note: $M_j(\kappa) = L_j(\kappa) + \kappa^\ell \cdot R_j(\kappa)$ is not independent, provides no new info
-   - MegaZK: $R_j(u)$ (as `ecc_op_wire`) → **-1 DoF**
-   - Translator: $M_j(u^\prime)$ → **-1 DoF**
-   - Translator: $M_{j, \text{shifted}}(u^\prime)$ → **-1 DoF**
-   - **Per $L_j$: -3 DoF** (WLOG assuming that $M_j$ uses randmoness from $L_j$ for its evaluations at challenges.)
-   - **Per $R_j$: -2 DoF**
+1. Per wire observables:
+    - Merge: $L_j(\kappa)$
+    - Merge: $R_j(\kappa)$
+        - Note: $M_j(\kappa) = L_j(\kappa) + \kappa^\ell \cdot R_j(\kappa)$ (not an independent constraint)
+    - MegaZK: $R_j(u)$ (as `$ecc_op_wire$`)
+    - Translator: $M_j(u^\prime)$
+    - Translator: $M_{j, \text{shifted}}(u^\prime)$
 
+Each wire contributes at most 5 observable values, and hence totalling at most 20.
 
-**Per-Wire Subtotal:** $-4$ per $L_j$; $-3$ per $R_j$.
+2. Shared observables:
+    - Degree check: $G(X) = X^{\ell - 1} \cdot \sum_{j=1}^4 \alpha_j L_j(X)$, with opening $G(\kappa^{-1})$
 
-**Cross-Wire Shared Operations:**
+    - Shplonk quotient polynomial $Q(X)$, with opening $Q(z)$
 
-These operations batch across all 4 wires and draw from the **residual pool** of $3 \times 4 = 12$ DoF:
-
-1. **Degree check polynomial** $G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i L_i(X)$:
-   - Commitment $[G]$ → **-1 DoF** (shared across $L_i$ wires)
-   - Evaluation $G(\kappa^{-1})$ → **-1 DoF** (shared across $L_i$ wires)
-   - Verification: $\sum_i \alpha_i L_i(\kappa) = G(\kappa^{-1}) \cdot \kappa^{\ell-1}$ (consistency check, not new constraint)
-   - **Total: -2 DoF** (shared across $L_j$).
-
-2. **Shplonk batching:**
-   - Batches all 13 opening claims (4 × 3 for $L, R, M$ plus $G$)
-   - Quotient commitment $[Q]$ → **-1 DoF** shared across $L_j$ and $R_j$.
-
-3. **KZG Quotient:**
-   - Verifies Shplonk quotient opening → **-1 DoF** (shared across $L_j$ and $R_j$)
-
-**Shared Operations Total:** $L_j$ wires lose $2$ shared DoFs, $R_j$ wires lose $2$ shared DoFs.
+These contribute at most $2$ more observables.
 
 
-**Final Balance:**
-- $6$ shared DoFs across $L_j$ wires, $2$ shared DoFs across $R_j$ wires✓
+3. Observable commitments:
+
+    - For each wire $j$: $[L_j]$ and $[R_j]$, giving $2\times 4 = 8$ observables
+
+    - For the shared polynomials: $[G]$ and $[Q]$, giving $2$ more observables.
+
+    - Note that the commitment $[M_j]$ adds no new independent constraint because it is determined from $\ell$, $L_j(\tau)$ and $R_j(\tau)$.
+
+Each of these observable values is an evaluation of a linear function of $r$. That is each value is of the form
+$$f_k(r) = \sum_{i=1}^{40} A_{k,i} r_i + c_k$$
+for $A_{k,i},c_k\in\mathbb{F}$ where $c_k$ denotes the fixed part.
+
+Collecting these, say $N$, observable values into a vector $v\in\mathbb{F}^N$, we can write $v = A r + c$ for a given matrix $A \in \mathbb{F}^{N \times 40}$ and vector $c \in \mathbb{F}^N$.
+
+Thus, the number of linear equations in $r$ induced by this transcript of observable values can be bounded as follows.
+
+    - 20 observables across all wires ($L_j(\kappa), R_j(\kappa), R_j(u), M_j(u'), M_{j,\text{shift}}(u')$)
+
+    - 2 shared observables ($G(\kappa^{-1})$ and $Q(z)$)
+
+    - 10 observables from commitments ($[L_j]$ and $[R_j]$ for $j \in \{1, 2, 3, 4\}$, $[G]$ and $[Q]$)
+
+We therefore have at most $32$ linear equations in $40$ unknowns when considering $v = A r + c$. Hence at least $8$ independent coefficients remain uniformly distributed from the verifier’s point of view.  This suffices to hide the contribution of the true ECC op-queue.
+
+##### The simulator
+
+The simulator proceeds as follows.
+
+    - Choose the dummy op-queue. This determines the fixed part $c_{\mathrm{dummy}}$ without the random non-ops.
+
+    - Sample challenges $\kappa, u, u', z$ using the same distribution as in the real protocol.
+
+    - Sample $r_{\mathrm{sim}} \in \mathbb{F}^{40}$ uniformly at random.
+
+    - Compute the corresponding simulated openings $v_{\mathrm{sim}} = A r_{\mathrm{sim}} + c_{\mathrm{dummy}}$.
+
+    - Build simulated polynomials $L_j^{\mathrm{sim}}, R_j^{\mathrm{sim}}$ whose coefficients match $r_{\mathrm{sim}}$ in positions corresponding to random non-ops and the dummy op-queue elsewhere.
+
+	    Build the polynomial
+        $M_j^{\mathrm{sim}}(X) = L_j^{\mathrm{sim}}(X) + X^{\ell}R_j^{\mathrm{sim}}(X)$.
+
+	    Build the degree check polynomial as
+	    $G^{\mathrm{sim}}(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i L_i^{\mathrm{sim}}(X)$.
+
+	    Build the Shplonk quotient polynomial $Q^{\mathrm{sim}}$ as per the honest protocol using the simulated openings.
+
+        In this way,
+        $L_j^{\mathrm{sim}}(\kappa),
+        R_j^{\mathrm{sim}}(\kappa),
+        R_j^{\mathrm{sim}}(u),
+        M_j^{\mathrm{sim}}(u'),
+        M_{j,\mathrm{shift}}^{\mathrm{sim}}(u'),
+        G^{\mathrm{sim}}(\kappa^{-1}),
+        Q^{\mathrm{sim}}(z)$
+        are consistent with the corresponding entries in $v_{\mathrm{sim}}$.
+
+    - Run the commitment protocol honestly on the simulated polynomials to compute the commitments $[L_j^{\mathrm{sim}}], [R_j^{\mathrm{sim}}], [M_j^{\mathrm{sim}}], [G^{\mathrm{sim}}]$ and $[Q^{\mathrm{sim}}]$. Construct the opening proofs at the points $\kappa,\kappa^{-1},u,u',z$ to match $v_{\mathrm{sim}}$.
+
+###### Indistinguishability
+In the real world, the prover samples a vector $r_{\mathrm{real}} \in \mathbb{F}^{40}$ uniformly at random, corresponding to the random non-ops.
+The observable opened values satisfy $v_{\mathrm{real}} = A(\kappa, u,u',z)\, r_{\mathrm{real}} + c_{\mathrm{real}}$,  where $A(\kappa,u,u',z)$ depends only on the protocol structure and challenges, and $c_{\mathrm{real}}$ is the fixed part determined by the real op-queue.
+In the simulated world we have $v_{\mathrm{sim}} = A(\kappa,u,u',z)\, r_{\mathrm{sim}} + c_{\mathrm{dummy}}$, with $r_{\mathrm{sim}}$ uniform in $\mathbb{F}^{40}$ and $c_{\mathrm{dummy}}$ the fixed part for the dummy op-queue.
+
+$A(\kappa,u,u',z)$ is the same in both worlds and does not depend on the op-queue.
+$r_{\mathrm{real}}$ and $r_{\mathrm{sim}}$ are both sampled uniformly at random from $\mathbb{F}^{40}$.
+$c_{\mathrm{real}}$ and $c_{\mathrm{dummy}}$ are fixed vectors.
+Therefore, $v_{\mathrm{real}} = A r_{\mathrm{real}} + c_{\mathrm{real}}$ and $v_{\mathrm{sim}} = A r_{\mathrm{sim}} + c_{\mathrm{dummy}}$ have the same distribution.
+Further, in both worlds, commitments and opening proofs are generated by running the protocols honestly. Hence, the distributions of the observable values in both the real and simulated world are indistinguishable.
+
+
+
 
 **Conclusion:** 3 + 2 random non-ops are sufficient for hiding.
 
