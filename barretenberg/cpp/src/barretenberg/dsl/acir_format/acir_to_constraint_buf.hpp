@@ -106,7 +106,7 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf);
  * \f[
  *          \sum_{i, j} c_{ij} w_i * w_j + \sum_i c_i w_i + const = 0
  * \f]
- * These expressions are internally represented in Barretenberg as a series of mul_quad_ gates, each of which represents an expression
+ * These expressions are internally represented in Barretenberg as a series of mul_quad_<bb::fr> gates, each of which represents an expression
  * either of the form:
  * \f[
  *    mul_{scaling} * (a * b) +
@@ -167,7 +167,7 @@ std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr);
 arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg);
 
 /**
- * @brief Assigns a linear term to a specific index in a mul_quad_ gate.
+ * @brief Assigns a linear term to a specific index in a mul_quad_<bb::fr> gate.
  */
 void assign_linear_term(mul_quad_<bb::fr>& gate, int index, uint32_t witness_index, bb::fr const& scaling);
 
