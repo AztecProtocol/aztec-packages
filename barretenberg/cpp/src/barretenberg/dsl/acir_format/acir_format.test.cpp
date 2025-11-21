@@ -650,25 +650,6 @@ TYPED_TEST(OpcodeGateCountTests, KeccakPermutation)
     EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ KECCAK_PERMUTATION<TypeParam> }));
 }
 
-TYPED_TEST(OpcodeGateCountTests, AssertEquality)
-{
-    AcirFormat constraint_system{
-        .varnum = 3,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .assert_equalities = { { .a = 0, .b = 1 } },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
-    };
-    mock_opcode_indices(constraint_system);
-
-    WitnessVector witness{ 5, 5 };
-    AcirProgram program{ constraint_system, witness };
-    const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
-    auto builder = create_circuit<TypeParam>(program, metadata);
-
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ ASSERT_EQUALITY<TypeParam> }));
-}
-
 TYPED_TEST(OpcodeGateCountTests, Poseidon2Permutation)
 {
     Poseidon2Constraint

@@ -11,12 +11,15 @@
 
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "big_quad_constraints.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
+#include "chonk_recursion_constraints.hpp"
 #include "ec_operations.hpp"
 #include "ecdsa_constraints.hpp"
 #include "honk_recursion_constraint.hpp"
+#include "hypernova_recursion_constraint.hpp"
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
 #include "multi_scalar_mul.hpp"
@@ -53,7 +56,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> avm_recursion_constraints;
     std::vector<size_t> hn_recursion_constraints;
     std::vector<size_t> chonk_recursion_constraints;
-    std::vector<size_t> assert_equalities;
     std::vector<size_t> arithmetic_triple_constraints;
     std::vector<size_t> quad_constraints;
     std::vector<size_t> big_quad_constraints;
@@ -88,7 +90,6 @@ struct AcirFormat {
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> hn_recursion_constraints;
     std::vector<RecursionConstraint> chonk_recursion_constraints;
-    std::vector<bb::arithmetic_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
 
     // A standard plonk arithmetic constraint, as defined in the arithmetic_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
@@ -107,8 +108,6 @@ struct AcirFormat {
     // Has length equal to num_acir_opcodes.
     std::vector<size_t> gates_per_opcode;
 
-    // Set of constrained witnesses
-    std::set<uint32_t> constrained_witness;
     // map witness with their minimal bit-range
     std::map<uint32_t, uint32_t> minimal_range;
     // map witness with their minimal bit-range implied by array operations
@@ -139,8 +138,7 @@ struct AcirFormat {
                    arithmetic_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
-                   block_constraints,
-                   assert_equalities);
+                   block_constraints);
 
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
@@ -237,5 +235,14 @@ template <typename Builder> class GateCounter {
     bool collect_gates_per_opcode;
     size_t prev_gate_count{};
 };
+
+/**
+ * @brief Replace indices which are set to IS_CONSTANT with the zero index of the builder
+ *
+ * @details When creating a mul_quad_ gate, unused witness indices are set to IS_CONSTANT. When adding the gate to
+ * the builder, we replace these indices with the zero index. Note that we don't do this replacement for a, so that
+ * we implicitly get a check that the gate is non-zero when adding it to the Builder.
+ */
+template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad);
 
 } // namespace acir_format
