@@ -88,13 +88,15 @@ export class LightweightBlockFactory implements IBlockFactory {
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
 
     const outHash = computeBlockOutHash(txs.map(tx => tx.txEffect.l2ToL1Msgs));
-    const inHash = await computeInHashFromL1ToL2Messages(this.l1ToL2Messages!);
+    const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages!);
     const numBlobFields = blockBlobFields.length + 1;
     const blobFields = blockBlobFields.concat([encodeCheckpointEndMarker({ numBlobFields })]);
     const blobsHash = computeBlobsHashFromBlobs(getBlobsPerL1Block(blobFields));
+    const blockHeaderHash = await header.hash();
     const contentCommitment = new ContentCommitment(blobsHash, inHash, outHash);
     const l2BlockHeader = L2BlockHeader.from({
       ...header,
+      blockHeadersHash: blockHeaderHash,
       contentCommitment,
     });
 

@@ -137,11 +137,11 @@ impl BlockRollupPublicInputsComposer {
     ) -> BlockRollupPublicInputs {
         // Build the header of this block and then insert its hash to the archive tree.
         let (block_header, end_sponge_blob) = self.create_block_header_and_end_sponge_blob();
-        let block_hash = block_header.hash();
+        let block_header_hash = block_header.hash();
         let new_archive = append_only_tree::append_leaf_to_snapshot::<ARCHIVE_HEIGHT>(
             self.previous_archive,
             new_archive_sibling_path,
-            block_hash,
+            block_header_hash,
         );
 
         let start_state = StateReference {
@@ -159,6 +159,7 @@ impl BlockRollupPublicInputsComposer {
             end_sponge_blob,
             start_timestamp: self.timestamp,
             end_timestamp: self.timestamp,
+            block_headers_hash: block_header_hash,
             in_hash: self.in_hash,
             out_hash: self.out_hash,
             accumulated_fees: self.accumulated_fees,

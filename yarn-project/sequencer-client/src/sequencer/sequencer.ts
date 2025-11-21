@@ -485,6 +485,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       ...newGlobalVariables,
       timestamp: newGlobalVariables.timestamp,
       lastArchiveRoot: chainTipArchive,
+      blockHeadersHash: Fr.ZERO,
       contentCommitment: ContentCommitment.empty(),
       totalManaUsed: Fr.ZERO,
     });

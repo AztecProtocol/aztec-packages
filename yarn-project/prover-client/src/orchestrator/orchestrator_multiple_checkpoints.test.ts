@@ -1,5 +1,6 @@
-import { timesAsync } from '@aztec/foundation/collection';
-import type { Fr } from '@aztec/foundation/fields';
+import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { padArrayEnd, timesAsync } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -10,8 +11,6 @@ const LONG_TIMEOUT = 600_000;
 
 describe('prover/orchestrator/multi-checkpoints', () => {
   let context: TestContext;
-
-  const countHeaderHashes = (checkpointHeaderHashes: Fr[]) => checkpointHeaderHashes.findIndex(h => h.isEmpty());
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
@@ -59,8 +58,12 @@ describe('prover/orchestrator/multi-checkpoints', () => {
 
         logger.info('Finalizing epoch');
         const epoch = await context.orchestrator.finalizeEpoch();
-        expect(countHeaderHashes(epoch.publicInputs.checkpointHeaderHashes)).toEqual(numCheckpoints);
         expect(epoch.proof).toBeDefined();
+
+        const headerHashes = checkpoints.map(c => c.header.hash());
+        expect(epoch.publicInputs.checkpointHeaderHashes).toEqual(
+          padArrayEnd(headerHashes, Fr.ZERO, AZTEC_MAX_EPOCH_DURATION),
+        );
       },
       LONG_TIMEOUT,
     );
@@ -117,12 +120,12 @@ describe('prover/orchestrator/multi-checkpoints', () => {
 
           logger.info('Finalizing epoch');
           const epoch = await context.orchestrator.finalizeEpoch();
-          const numProposedCheckpoints = countHeaderHashes(epoch.publicInputs.checkpointHeaderHashes);
-          expect(numProposedCheckpoints).toEqual(checkpoints.length);
-          expect(epoch.publicInputs.checkpointHeaderHashes.slice(0, numProposedCheckpoints)).toEqual(
-            checkpoints.map(c => c.header.hash()),
-          );
           expect(epoch.proof).toBeDefined();
+
+          const headerHashes = checkpoints.map(c => c.header.hash());
+          expect(epoch.publicInputs.checkpointHeaderHashes).toEqual(
+            padArrayEnd(headerHashes, Fr.ZERO, AZTEC_MAX_EPOCH_DURATION),
+          );
         }
       },
       LONG_TIMEOUT,

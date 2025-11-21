@@ -51,6 +51,7 @@ export async function writeJson(
       body: `0x${block.body.toBuffer().toString('hex')}`,
       header: {
         lastArchiveRoot: asHex(block.header.lastArchive.root),
+        blockHeadersHash: asHex(block.header.blockHeadersHash),
         contentCommitment: {
           blobsHash: asHex(block.header.contentCommitment.blobsHash),
           inHash: asHex(block.header.contentCommitment.inHash),

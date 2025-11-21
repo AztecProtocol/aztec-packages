@@ -293,8 +293,9 @@ impl TestBuilder {
             total_fees: pi.accumulated_fees,
             total_mana_used: pi.accumulated_mana_used,
         };
+        let block_header_hash = block_header.hash();
         let expected_archive_root = root_from_sibling_path(
-            block_header.hash(),
+            block_header_hash,
             pi.previous_archive.next_available_leaf_index,
             self.new_archive_sibling_path,
         );
@@ -304,6 +305,10 @@ impl TestBuilder {
             pi.new_archive.next_available_leaf_index,
             pi.previous_archive.next_available_leaf_index + 1,
         );
+
+        // --- Block headers hash ---
+
+        assert_eq(pi.block_headers_hash, block_header_hash);
 
         // --- Partial state ---
 

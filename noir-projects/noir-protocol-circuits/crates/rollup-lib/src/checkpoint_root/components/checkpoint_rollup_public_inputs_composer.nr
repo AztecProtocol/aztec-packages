@@ -97,6 +97,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
 
         CheckpointHeader {
             last_archive_root: merged_rollup.previous_archive.root,
+            block_headers_hash: merged_rollup.block_headers_hash,
             content_commitment,
             slot_number: constants.slot_number,
             timestamp: merged_rollup.end_timestamp,

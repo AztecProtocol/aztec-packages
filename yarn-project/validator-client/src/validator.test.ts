@@ -235,8 +235,8 @@ describe('ValidatorClient', () => {
       blockBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
     };
 
-    beforeEach(async () => {
-      const emptyInHash = await computeInHashFromL1ToL2Messages([]);
+    beforeEach(() => {
+      const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
       const blockHeader = makeL2BlockHeader(1, 100, 100, { contentCommitment });
       blockNumber = blockHeader.getBlockNumber();

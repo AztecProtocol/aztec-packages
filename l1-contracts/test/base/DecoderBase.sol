@@ -46,6 +46,7 @@ contract DecoderBase is TestBase {
   }
 
   struct AlphabeticalHeader {
+    bytes32 blockHeadersHash;
     address coinbase;
     AlphabeticalContentCommitment contentCommitment;
     bytes32 feeRecipient;
@@ -104,6 +105,7 @@ contract DecoderBase is TestBase {
         body: full.block.body,
         header: ProposedHeader({
           lastArchiveRoot: full.block.header.lastArchiveRoot,
+          blockHeadersHash: full.block.header.blockHeadersHash,
           contentCommitment: ContentCommitment({
             blobsHash: full.block.header.contentCommitment.blobsHash,
             inHash: full.block.header.contentCommitment.inHash,

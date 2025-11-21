@@ -304,6 +304,7 @@ impl RollupFixtureBuilder {
             end_sponge_blob: self.get_sponge_blob(end_block_number),
             start_timestamp: self.get_timestamp(start_block_number),
             end_timestamp: self.get_timestamp(end_block_number),
+            block_headers_hash: self.get_block_headers_hash(end_block_number),
             in_hash,
             out_hash: self.get_out_hash(end_block_number),
             accumulated_fees: self.get_fee(end_block_number),
@@ -394,6 +395,10 @@ impl RollupFixtureBuilder {
 
     fn get_mana_used(_self: Self, tx_or_block_number: u32) -> Field {
         tx_or_block_number as Field * 23
+    }
+
+    fn get_block_headers_hash(_self: Self, block_number: u32) -> Field {
+        block_number as Field * 429317
     }
 
     fn get_out_hash(_self: Self, tx_or_block_number: u32) -> Field {

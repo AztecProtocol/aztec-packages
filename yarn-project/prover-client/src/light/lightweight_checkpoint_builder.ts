@@ -7,7 +7,7 @@ import { L2BlockNew } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { computeCheckpointOutHash, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
-import { CheckpointConstantData, CheckpointHeader } from '@aztec/stdlib/rollup';
+import { CheckpointConstantData, CheckpointHeader, computeBlockHeadersHash } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import { ContentCommitment, type GlobalVariables, type ProcessedTx, StateReference } from '@aztec/stdlib/tx';
 
@@ -106,13 +106,14 @@ export class LightweightCheckpointBuilder {
     this.blobFields.push(checkpointEndMarker);
 
     const blocks = this.blocks;
+    const blockHeadersHash = await computeBlockHeadersHash(blocks.map(block => block.header));
 
     const newArchive = this.lastArchives[this.lastArchives.length - 1];
 
     const blobs = getBlobsPerL1Block(this.blobFields);
     const blobsHash = computeBlobsHashFromBlobs(blobs);
 
-    const inHash = await computeInHashFromL1ToL2Messages(this.l1ToL2Messages);
+    const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages);
 
     const outHash = computeCheckpointOutHash(blocks.map(block => block.body.txEffects.map(tx => tx.l2ToL1Msgs)));
 
@@ -125,6 +126,7 @@ export class LightweightCheckpointBuilder {
 
     const header = CheckpointHeader.from({
       lastArchiveRoot: this.lastArchives[0].root,
+      blockHeadersHash,
       contentCommitment: new ContentCommitment(blobsHash, inHash, outHash),
       slotNumber: constants.slotNumber,
       timestamp,

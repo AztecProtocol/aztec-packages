@@ -357,7 +357,8 @@ pub global BLOCK_HEADER_LENGTH_BYTES: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYT
     - 12
     + 32 * TOTAL_FEES_LENGTH
     + 32 * TOTAL_MANA_USED_LENGTH;
-pub global PROPOSED_BLOCK_HEADER_LENGTH: u32 = 1 /* last_archive_root */
+pub global CHECKPOINT_HEADER_LENGTH: u32 = 1 /* last_archive_root */
+    + 1 /* block_headers_hash */
     + CONTENT_COMMITMENT_LENGTH
     + 1 /* slot_number */
     + 1 /* timestamp */
@@ -365,7 +366,7 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* fee_recipient */
     + GAS_FEES_LENGTH
     + TOTAL_MANA_USED_LENGTH;
-pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENGTH - 4) * 32
+pub global CHECKPOINT_HEADER_SIZE_IN_BYTES: u32 = (CHECKPOINT_HEADER_LENGTH - 4) * 32
     + 8 /* timestamp */
     + 20 /* coinbase */
     + 16 /* gas_fees.fee_per_da_gas */
@@ -538,6 +539,7 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
     + 2 * STATE_REFERENCE_LENGTH /* start_state and end_state */
     + 2 * SPONGE_BLOB_LENGTH /* start_sponge_blob and end_sponge_blob */
     + 2 /* start_timestamp and end_timestamp */
+    + 1 /* block_headers_hash */
     + 1 /* in_hash */
     + 1 /* out_hash */
     + 1 /* accumulated_fees */

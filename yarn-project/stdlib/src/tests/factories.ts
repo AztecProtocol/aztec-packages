@@ -814,8 +814,9 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
     makeStateReference(seed + 0x500),
     makeSpongeBlob(seed + 0x600),
     makeSpongeBlob(seed + 0x700),
+    BigInt(seed + 0x800),
     BigInt(seed + 0x810),
-    BigInt(seed + 0x820),
+    fr(seed + 0x820),
     fr(seed + 0x830),
     fr(seed + 0x840),
     fr(seed + 0x850),
@@ -919,12 +920,14 @@ export function makeL2BlockHeader(
     new Fr(seed + 0x800),
     new Fr(seed + 0x900),
     new Fr(seed + 0xa00),
+    new Fr(seed + 0xb00),
   );
 }
 
 export function makeCheckpointHeader(seed = 0) {
   return CheckpointHeader.from({
     lastArchiveRoot: fr(seed + 0x100),
+    blockHeadersHash: fr(seed + 0x150),
     contentCommitment: makeContentCommitment(seed + 0x200),
     slotNumber: new Fr(seed + 0x300),
     timestamp: BigInt(seed + 0x400),

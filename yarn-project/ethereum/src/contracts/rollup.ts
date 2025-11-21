@@ -61,6 +61,7 @@ export type EpochProofPublicInputArgs = {
 
 export type ViemHeader = {
   lastArchiveRoot: `0x${string}`;
+  blockHeadersHash: `0x${string}`;
   contentCommitment: ViemContentCommitment;
   slotNumber: bigint;
   timestamp: bigint;

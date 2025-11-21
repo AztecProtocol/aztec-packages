@@ -170,7 +170,7 @@ export class BlockProposalHandler {
 
     // Check that I have the same set of l1ToL2Messages as the proposal
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
-    const computedInHash = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
+    const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
     const proposalInHash = proposal.payload.header.contentCommitment.inHash;
     if (!computedInHash.equals(proposalInHash)) {
       this.log.warn(`L1 to L2 messages in hash mismatch, skipping processing`, {

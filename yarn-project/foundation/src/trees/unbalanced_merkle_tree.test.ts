@@ -1,18 +1,17 @@
-import { sha256Trunc } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
-import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
+import { computeBalancedMerkleTreeRoot, shaMerkleHash } from './balanced_merkle_tree.js';
 import { computeUnbalancedMerkleTreeRoot, findLeafLevelAndIndex } from './unbalanced_merkle_tree.js';
 
 describe('computeUnbalancedMerkleTreeRoot', () => {
-  const hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right]));
+  const hasher = shaMerkleHash;
 
   const createLeaves = (numLeaves: number, offset = 1) => {
     return Array.from({ length: numLeaves }, (_, i) => new Fr(i + offset).toBuffer());
   };
 
-  const computeBalancedTreeRoot = (leaves: Buffer[]) => {
-    return MerkleTreeCalculator.computeTreeRootSync(leaves);
-  };
+  it('0 leaves', () => {
+    expect(computeUnbalancedMerkleTreeRoot([])).toEqual(Buffer.alloc(32));
+  });
 
   it('1 leaf', () => {
     const leaves = createLeaves(1);
@@ -56,7 +55,7 @@ describe('computeUnbalancedMerkleTreeRoot', () => {
 
     const leaves = createLeaves(5);
 
-    const size4TreeRoot = computeBalancedTreeRoot(leaves.slice(0, 4));
+    const size4TreeRoot = computeBalancedMerkleTreeRoot(leaves.slice(0, 4));
     const expectedRoot = hasher(size4TreeRoot, leaves[4]);
 
     expect(computeUnbalancedMerkleTreeRoot(leaves)).toEqual(expectedRoot);
@@ -75,10 +74,10 @@ describe('computeUnbalancedMerkleTreeRoot', () => {
 
     const leaves = createLeaves(7);
 
-    const size2TreeRoot = computeBalancedTreeRoot(leaves.slice(4, 6));
+    const size2TreeRoot = computeBalancedMerkleTreeRoot(leaves.slice(4, 6));
     const rightBranchRoot = hasher(size2TreeRoot, leaves[6]);
 
-    const size4TreeRoot = computeBalancedTreeRoot(leaves.slice(0, 4));
+    const size4TreeRoot = computeBalancedMerkleTreeRoot(leaves.slice(0, 4));
     const expectedRoot = hasher(size4TreeRoot, rightBranchRoot);
 
     expect(computeUnbalancedMerkleTreeRoot(leaves)).toEqual(expectedRoot);
@@ -97,8 +96,8 @@ describe('computeUnbalancedMerkleTreeRoot', () => {
 
     const leaves = createLeaves(10);
 
-    const size2TreeRoot = computeBalancedTreeRoot(leaves.slice(8, 10));
-    const size8TreeRoot = computeBalancedTreeRoot(leaves.slice(0, 8));
+    const size2TreeRoot = computeBalancedMerkleTreeRoot(leaves.slice(8, 10));
+    const size8TreeRoot = computeBalancedMerkleTreeRoot(leaves.slice(0, 8));
     const expectedRoot = hasher(size8TreeRoot, size2TreeRoot);
 
     expect(computeUnbalancedMerkleTreeRoot(leaves)).toEqual(expectedRoot);
@@ -109,16 +108,16 @@ describe('computeUnbalancedMerkleTreeRoot', () => {
 
     const leaves = createLeaves(31);
 
-    const size2TreeRoot = computeBalancedTreeRoot(leaves.slice(28, 30));
+    const size2TreeRoot = computeBalancedMerkleTreeRoot(leaves.slice(28, 30));
     const subtreeRoot0 = hasher(size2TreeRoot, leaves[30]);
 
-    const size4TreeRoot = computeBalancedTreeRoot(leaves.slice(24, 28));
+    const size4TreeRoot = computeBalancedMerkleTreeRoot(leaves.slice(24, 28));
     const subtreeRoot1 = hasher(size4TreeRoot, subtreeRoot0);
 
-    const size8TreeRoot = computeBalancedTreeRoot(leaves.slice(16, 24));
+    const size8TreeRoot = computeBalancedMerkleTreeRoot(leaves.slice(16, 24));
     const subtreeRoot2 = hasher(size8TreeRoot, subtreeRoot1);
 
-    const size16TreeRoot = computeBalancedTreeRoot(leaves.slice(0, 16));
+    const size16TreeRoot = computeBalancedMerkleTreeRoot(leaves.slice(0, 16));
     const expectedRoot = hasher(size16TreeRoot, subtreeRoot2);
 
     expect(computeUnbalancedMerkleTreeRoot(leaves)).toEqual(expectedRoot);
@@ -126,7 +125,7 @@ describe('computeUnbalancedMerkleTreeRoot', () => {
 
   it('32 leaves', () => {
     const leaves = createLeaves(32);
-    const expectedRoot = computeBalancedTreeRoot(leaves);
+    const expectedRoot = computeBalancedMerkleTreeRoot(leaves);
     expect(computeUnbalancedMerkleTreeRoot(leaves)).toEqual(expectedRoot);
   });
 });

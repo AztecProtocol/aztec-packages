@@ -25,7 +25,7 @@ import { Body, CommitteeAttestation, L2Block, L2BlockHeader, PublishedL2Block } 
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 
 import {
   type GetContractEventsReturnType,
@@ -115,14 +115,19 @@ export async function retrievedBlockToPublishedL2Block({
     const clonedSpongeBlob = spongeBlob.clone();
     const spongeBlobHash = await clonedSpongeBlob.squeeze();
 
-    const header = L2BlockHeader.from({
+    const blockHeader = BlockHeader.from({
       lastArchive: new AppendOnlyTreeSnapshot(lastArchiveRoot, l2BlockNumber),
-      contentCommitment: checkpointHeader.contentCommitment,
       state,
+      spongeBlobHash,
       globalVariables,
       totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
       totalManaUsed: new Fr(blockEndStateField.totalManaUsed),
-      spongeBlobHash,
+    });
+
+    const header = L2BlockHeader.from({
+      ...blockHeader,
+      blockHeadersHash: checkpointHeader.blockHeadersHash,
+      contentCommitment: checkpointHeader.contentCommitment,
     });
 
     const newArchive = new AppendOnlyTreeSnapshot(newArchiveRoots[i], l2BlockNumber + 1);

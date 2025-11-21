@@ -37,6 +37,7 @@ struct ContentCommitment {
 
 struct ProposedHeader {
   bytes32 lastArchiveRoot;
+  bytes32 blockHeadersHash;
   ContentCommitment contentCommitment;
   Slot slotNumber;
   Timestamp timestamp;
@@ -67,6 +68,7 @@ library ProposedHeaderLib {
     return Hash.sha256ToField(
       abi.encodePacked(
         _header.lastArchiveRoot,
+        _header.blockHeadersHash,
         _header.contentCommitment.blobsHash,
         _header.contentCommitment.inHash,
         _header.contentCommitment.outHash,

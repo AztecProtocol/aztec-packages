@@ -6,6 +6,7 @@ mod start_states_tests;
 
 use crate::{
     abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs},
+    block_merge::accumulate_block_headers_hash,
     checkpoint_root::{
         checkpoint_root_rollup_private_inputs::{
             CheckpointRootRollupHints, CheckpointRootRollupPrivateInputs,
@@ -274,6 +275,12 @@ impl TestBuilder {
             self.right_rollup
         };
 
+        let block_headers_hash = if self.is_single_block {
+            left.block_headers_hash
+        } else {
+            accumulate_block_headers_hash(left.block_headers_hash, right.block_headers_hash)
+        };
+
         let out_hash = if self.is_single_block {
             left.out_hash
         } else {
@@ -287,6 +294,7 @@ impl TestBuilder {
 
         CheckpointHeader {
             last_archive_root: left.previous_archive.root,
+            block_headers_hash,
             content_commitment: ContentCommitment {
                 blobs_hash: self.hints.blobs_hash,
                 in_hash: left.in_hash,
