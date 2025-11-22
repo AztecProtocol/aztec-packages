@@ -98,10 +98,11 @@ void generate_keccak_trace(TestTraceContainer& trace,
         trace,
         [&](MemorySimulator& memory_simulator, size_t i) {
             // Write in memory first to fill source values in memory.
+            // Standard Keccak layout: memory[(y * 5) + x] = A[x][y]
             // Arbitrary values: 100 * i + j * 2^32 + k
             for (size_t j = 0; j < 5; j++) {
                 for (size_t k = 0; k < 5; k++) {
-                    memory_simulator.set(src_addresses[i] + static_cast<MemoryAddress>((5 * j) + k),
+                    memory_simulator.set(src_addresses[i] + static_cast<MemoryAddress>((k * 5) + j),
                                          MemoryValue::from<uint64_t>((static_cast<uint64_t>(j) << 32) + k + (100 * i)));
                 }
             }
@@ -123,10 +124,11 @@ void generate_keccak_trace_with_tag_error(TestTraceContainer& trace,
         trace,
         [&](MemorySimulator& memory_simulator, size_t) {
             // Write in memory first to fill source values in memory.
+            // Standard Keccak layout: memory[(y * 5) + x] = A[x][y]
             // Arbitrary values: 100 + j * 2^32 + k
             for (size_t j = 0; j < 5; j++) {
                 for (size_t k = 0; k < 5; k++) {
-                    const size_t idx = (5 * j) + k;
+                    const size_t idx = (k * 5) + j;
                     if (idx == error_offset) {
                         memory_simulator.set(
                             src_address + static_cast<MemoryAddress>(idx),
