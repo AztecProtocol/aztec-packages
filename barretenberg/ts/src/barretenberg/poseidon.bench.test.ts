@@ -47,7 +47,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
     // Setup native shared memory API (async)
     try {
-      nativeShmApi = await Barretenberg.new({ backend: BackendType.NativeSharedMemory, threads: 1 });
+      nativeShmApi = await Barretenberg.new({ backend: BackendType.NativeSharedMemoryAsync, threads: 1 });
     } catch (error) {
       console.warn(
         'Failed to initialize Native Shared Memory (async) backend:',
@@ -94,7 +94,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
         nativeSocketTime = performance.now() - nativeSocketStart;
       }
 
-      // Benchmark 2: Native Socket (async, request pipelined)
+      // Benchmark 3: Native Socket (async, request pipelined)
       let nativeSocketPipelinedTime = 0;
       if (nativeSocketApi) {
         const nativeSocketPipelinedStart = performance.now();
@@ -107,7 +107,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
         nativeSocketPipelinedTime = performance.now() - nativeSocketPipelinedStart;
       }
 
-      // Benchmark 3: Native Shared Memory (async)
+      // Benchmark 4: Native Shared Memory (async)
       let nativeShmTime = 0;
       if (nativeShmApi) {
         const nativeShmStart = performance.now();
@@ -117,7 +117,20 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
         nativeShmTime = performance.now() - nativeShmStart;
       }
 
-      // Benchmark 4: Native Shared Memory (sync)
+      // Benchmark 5: Native Shared Memory (async, request pipelined)
+      let nativeShmPipelinedTime = 0;
+      if (nativeShmApi) {
+        const nativeShmPipelinedStart = performance.now();
+        // Use promise.all to pipeline requests
+        const promises = [];
+        for (let i = 0; i < ITERATIONS; i++) {
+          promises.push(nativeShmApi.poseidon2Hash({ inputs }));
+        }
+        await Promise.all(promises);
+        nativeShmPipelinedTime = performance.now() - nativeShmPipelinedStart;
+      }
+
+      // Benchmark 6: Native Shared Memory (sync)
       let nativeShmSyncTime = 0;
       if (nativeShmSyncApi) {
         const nativeShmSyncStart = performance.now();
@@ -129,13 +142,16 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
       // Calculate metrics (all relative to WASM baseline)
       const nativeSocketOverhead = ((nativeSocketTime - wasmTime) / wasmTime) * 100;
+      const nativeSocketPipelinedOverhead = ((nativeSocketPipelinedTime - wasmTime) / wasmTime) * 100;
       const nativeShmOverhead = ((nativeShmTime - wasmTime) / wasmTime) * 100;
+      const nativeShmPipelinedOverhead = ((nativeShmPipelinedTime - wasmTime) / wasmTime) * 100;
       const nativeShmSyncOverhead = ((nativeShmSyncTime - wasmTime) / wasmTime) * 100;
 
       const avgWasmTimeUs = (wasmTime / ITERATIONS) * 1000;
       const avgNativeSocketTimeUs = (nativeSocketTime / ITERATIONS) * 1000;
       const avgNativeSocketPipelinedTimeUs = (nativeSocketPipelinedTime / ITERATIONS) * 1000;
       const avgNativeShmTimeUs = (nativeShmTime / ITERATIONS) * 1000;
+      const avgNativeShmPipelinedTimeUs = (nativeShmPipelinedTime / ITERATIONS) * 1000;
       const avgNativeShmSyncTimeUs = (nativeShmSyncTime / ITERATIONS) * 1000;
 
       process.stdout.write(
@@ -168,7 +184,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
           `│ Native Socket Pipelined: ${nativeSocketPipelinedTime
             .toFixed(2)
             .padStart(8)}ms (${avgNativeSocketPipelinedTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(
-            ((nativeSocketPipelinedTime - wasmTime) / wasmTime) * 100,
+            nativeSocketPipelinedOverhead,
           )}   │\n`,
         );
       } else {
@@ -181,6 +197,14 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
         );
       } else {
         process.stdout.write(`│ Native Shared:                                      unavailable │\n`);
+      }
+
+      if (nativeShmApi) {
+        process.stdout.write(
+          `│ Native Shared Pipelined: ${nativeShmPipelinedTime.toFixed(2).padStart(8)}ms (${avgNativeShmPipelinedTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(nativeShmPipelinedOverhead)}   │\n`,
+        );
+      } else {
+        process.stdout.write(`│ Native Shared Pipelined:                            unavailable │\n`);
       }
 
       if (nativeShmSyncApi) {

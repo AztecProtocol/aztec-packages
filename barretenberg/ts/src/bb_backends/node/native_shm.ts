@@ -19,6 +19,8 @@ try {
   addon = null;
 }
 
+let instanceCounter = 0;
+
 /**
  * Synchronous shared memory backend that communicates with bb binary via shared memory.
  * Uses NAPI module to interface with shared memory IPC.
@@ -56,7 +58,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     }
 
     // Create a unique shared memory name
-    const shmName = `bb-${process.pid}`;
+    const shmName = `bb-sync-${process.pid}-${instanceCounter++}`;
 
     // If threads not set use 1 thread. We're not expected to do long lived work on sync backends.
     const hwc = threads ? threads.toString() : '1';
@@ -73,14 +75,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     }
 
     // Spawn bb process with shared memory mode (SPSC-only, no max-clients needed)
-    const args = [
-      'msgpack',
-      'run',
-      '--input',
-      `${shmName}.shm`,
-      '--request-ring-size',
-      `${1024 * 1024 * 2}`,
-    ];
+    const args = ['msgpack', 'run', '--input', `${shmName}.shm`, '--request-ring-size', `${1024 * 1024 * 2}`];
     const bbProcess = spawn(bbBinaryPath, args, {
       stdio: ['ignore', logFd ?? 'ignore', logFd ?? 'ignore'],
       env,

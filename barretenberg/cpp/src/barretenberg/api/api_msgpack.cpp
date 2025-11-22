@@ -293,7 +293,6 @@ int execute_msgpack_run(const std::string& msgpack_input_file,
         std::string base_name = msgpack_input_file.substr(0, msgpack_input_file.size() - 4);
         auto server = ipc::IpcServer::create_shm(base_name, request_ring_size, response_ring_size);
         std::cerr << "Shared memory server at " << base_name << '\n';
-        std::cerr << "IPC server ready" << '\n';
         return execute_msgpack_ipc_server(std::move(server));
     }
 
