@@ -223,18 +223,16 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
  */
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_add_gate(const add_triple_<FF>& in)
 {
-    this->assert_valid_variables({ in.a, in.b, in.c });
-
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx());
-    blocks.arithmetic.q_m().emplace_back(0);
-    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
-    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
-    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
-    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
+    // Delegate to create_big_add_gate with 4th wire set to zero
+    create_big_add_gate({ .a = in.a,
+                          .b = in.b,
+                          .c = in.c,
+                          .d = this->zero_idx(),
+                          .a_scaling = in.a_scaling,
+                          .b_scaling = in.b_scaling,
+                          .c_scaling = in.c_scaling,
+                          .d_scaling = 0,
+                          .const_scaling = in.const_scaling });
 }
 
 /**
@@ -292,50 +290,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<F
 }
 
 /**
- * @brief Create a basic multiplication gate q_m * a * b + q_1 * a + q_2 * b + q_3 * c + q_4 * d + q_c = 0 (q_arith = 1)
- *
- * @param in Structure containing variables and witness selectors
- */
-template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_gate(const mul_quad_<FF>& in)
-{
-    this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
-    blocks.arithmetic.q_m().emplace_back(in.mul_scaling);
-    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
-    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
-    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
-    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_4().emplace_back(in.d_scaling);
-    blocks.arithmetic.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
-}
-
-/**
- * @brief Create a multiplication gate with q_m * a * b + q_3 * c + q_const = 0
- *
- * @details q_arith == 1
- *
- * @param in Structure containing variables and witness selectors
- */
-template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_mul_gate(const mul_triple_<FF>& in)
-{
-    this->assert_valid_variables({ in.a, in.b, in.c });
-
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx());
-    blocks.arithmetic.q_m().emplace_back(in.mul_scaling);
-    blocks.arithmetic.q_1().emplace_back(0);
-    blocks.arithmetic.q_2().emplace_back(0);
-    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
-    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
-}
-/**
  * @brief Generate an arithmetic gate equivalent to x^2 - x = 0, which forces x to be 0 or 1
  *
  * @param variable_index the variable which needs to be constrained
@@ -364,7 +318,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
  * @param in Structure containing variables and witness selectors
  */
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_poly_gate(const poly_triple_<FF>& in)
+void UltraCircuitBuilder_<ExecutionTrace>::create_arithmetic_gate(const arithmetic_triple_<FF>& in)
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
@@ -536,9 +490,31 @@ plookup::BasicTable& UltraCircuitBuilder_<ExecutionTrace>::get_table(const plook
 }
 
 /**
- * @brief Perform a series of lookups, one for each 'row' in read_values.
+ * @brief Create gates from pre-computed accumulator values which simultaneously establish individual basic-table
+ * lookups and the reconstruction of the desired result from those components.
+ *
+ * @details To perform a lookup, we often need to decompose inputs into smaller "limbs", look up each limb in a
+ * BasicTable, then reconstruct the result. E.g., to perform a 32-bit XOR, we decompose into 6-bit limbs, look up each
+ * limb's XOR in a 6-bit XOR table, then reconstruct the full 32-bit XOR from those.
+ *
+ * This method creates a sequence of lookup gates that simultaneously establish (1) the individual BasicTable lookups,
+ * and (2) the reconstruction of the final result from the results of the BasicTable lookups. This is done via an
+ * accumulator pattern where the wires in each gate store accumulated sums and we use step size coefficients (stored in
+ * q_2, q_m, q_c) to extract actual table entries via an expression of the form `derived_entry_i = w_i - step_size_i *
+ * w_i_shift` where w_i is the wire value at the current row, w_i_shift is the wire value at the next row.
+ *
+ * The last lookup has zero step size coefficients (q_2 = q_m = q_c = 0) because there's no next accumulator to
+ * subtract; its wire values already contain the raw slices.
+ *
+ * @param id MultiTable identifier specifying which lookup operation to perform
+ * @param read_values Pre-computed accumulator values and lookup entries from plookup::get_lookup_accumulators
+ * @param key_a_index Witness index for first input; reused in first lookup gate to avoid creating duplicate variables
+ * @param key_b_index Optional witness index for second input (2-to-1 lookups); reused in first lookup if provided
+ *
+ * @return ReadData<uint32_t> containing witness indices for all created gates. Primary use: [C3][0] contains the
+ * result of the lookup operation. All indices are returned (not just the result) because some algorithms like SHA256
+ * need access to the intermediate decomposed limb values.
  */
-
 template <typename ExecutionTrace>
 plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_from_plookup_accumulators(
     const plookup::MultiTableId& id,
@@ -546,34 +522,43 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
     const uint32_t key_a_index,
     std::optional<uint32_t> key_b_index)
 {
+    using plookup::ColumnIdx;
+
     const auto& multi_table = plookup::get_multitable(id);
-    const size_t num_lookups = read_values[plookup::ColumnIdx::C1].size();
+    const size_t num_lookups = read_values[ColumnIdx::C1].size();
     plookup::ReadData<uint32_t> read_data;
+
     for (size_t i = 0; i < num_lookups; ++i) {
-        // get basic lookup table; construct and add to builder.lookup_tables if not already present
-        auto& table = get_table(multi_table.basic_table_ids[i]);
+        const bool is_first_lookup = (i == 0);
+        const bool is_last_lookup = (i == num_lookups - 1);
 
-        table.lookup_gates.emplace_back(read_values.lookup_entries[i]); // used for constructing sorted polynomials
+        // Get basic lookup table; construct and add to builder.lookup_tables if not already present
+        plookup::BasicTable& table = get_table(multi_table.basic_table_ids[i]);
+        table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
 
-        const auto first_idx = (i == 0) ? key_a_index : this->add_variable(read_values[plookup::ColumnIdx::C1][i]);
-        const auto second_idx = (i == 0 && (key_b_index.has_value()))
-                                    ? key_b_index.value()
-                                    : this->add_variable(read_values[plookup::ColumnIdx::C2][i]);
-        const auto third_idx = this->add_variable(read_values[plookup::ColumnIdx::C3][i]);
+        // Create witness variables: first lookup reuses user's input indices, subsequent create new variables
+        const auto first_idx = is_first_lookup ? key_a_index : this->add_variable(read_values[ColumnIdx::C1][i]);
+        const auto second_idx = (is_first_lookup && key_b_index.has_value())
+                                    ? *key_b_index
+                                    : this->add_variable(read_values[ColumnIdx::C2][i]);
+        const auto third_idx = this->add_variable(read_values[ColumnIdx::C3][i]);
 
-        read_data[plookup::ColumnIdx::C1].push_back(first_idx);
-        read_data[plookup::ColumnIdx::C2].push_back(second_idx);
-        read_data[plookup::ColumnIdx::C3].push_back(third_idx);
+        read_data[ColumnIdx::C1].push_back(first_idx);
+        read_data[ColumnIdx::C2].push_back(second_idx);
+        read_data[ColumnIdx::C3].push_back(third_idx);
         this->assert_valid_variables({ first_idx, second_idx, third_idx });
 
-        blocks.lookup.q_3().emplace_back(FF(table.table_index));
+        // Populate lookup gate: wire values and selectors
         blocks.lookup.populate_wires(first_idx, second_idx, third_idx, this->zero_idx());
-        blocks.lookup.q_1().emplace_back(0);
-        blocks.lookup.q_2().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_1_step_sizes[i + 1]));
-        blocks.lookup.q_m().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_2_step_sizes[i + 1]));
-        blocks.lookup.q_c().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_3_step_sizes[i + 1]));
-        blocks.lookup.q_4().emplace_back(0);
-        blocks.lookup.set_gate_selector(1);
+        blocks.lookup.set_gate_selector(1);                      // mark as lookup gate
+        blocks.lookup.q_3().emplace_back(FF(table.table_index)); // unique table identifier
+        // Step size coefficients: zero for last lookup (no next accumulator), negative step sizes otherwise
+        blocks.lookup.q_2().emplace_back(is_last_lookup ? 0 : -multi_table.column_1_step_sizes[i + 1]);
+        blocks.lookup.q_m().emplace_back(is_last_lookup ? 0 : -multi_table.column_2_step_sizes[i + 1]);
+        blocks.lookup.q_c().emplace_back(is_last_lookup ? 0 : -multi_table.column_3_step_sizes[i + 1]);
+        blocks.lookup.q_1().emplace_back(0); // unused
+        blocks.lookup.q_4().emplace_back(0); // unused
+
         check_selector_length_consistency();
         this->increment_num_gates();
     }
@@ -2053,7 +2038,7 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
                                         block.q_elliptic()[idx],
                                         block.q_memory()[idx],
                                         block.q_nnf()[idx],
-                                        block.q_lookup_type()[idx],
+                                        block.q_lookup()[idx],
                                         curve_b };
 
             std::vector<uint32_t> tmp_w = {

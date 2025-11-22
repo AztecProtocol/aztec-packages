@@ -14,8 +14,8 @@ use dep::types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
         gas_fees::GasFees, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-        sponge_blob::SpongeBlob,
     },
+    blob_data::SpongeBlob,
     constants::{
         ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, PUBLIC_CHONK_VERIFIER_VK_INDEX,

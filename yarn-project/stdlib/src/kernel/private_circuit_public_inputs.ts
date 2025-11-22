@@ -35,7 +35,7 @@ import {
   ClaimedLengthArrayFromBuffer,
   ClaimedLengthArrayFromFields,
 } from './claimed_length_array.js';
-import { ReadRequest } from './hints/read_request.js';
+import { ScopedReadRequest } from './hints/read_request.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
 import { CountedPublicCallRequest, PublicCallRequest } from './public_call_request.js';
@@ -72,11 +72,11 @@ export class PrivateCircuitPublicInputs {
     /**
      * Read requests created by the corresponding function call.
      */
-    public noteHashReadRequests: ClaimedLengthArray<ReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    public noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     /**
      * Nullifier read requests created by the corresponding function call.
      */
-    public nullifierReadRequests: ClaimedLengthArray<ReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    public nullifierReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     /**
      * Key validation requests and generators created by the corresponding function call.
      */
@@ -169,8 +169,8 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readBoolean(),
       reader.readUInt64(),
-      reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
-      reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
         ClaimedLengthArrayFromBuffer(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ),
@@ -200,8 +200,8 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readBoolean(),
       reader.readU64(),
-      reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
-      reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
         ClaimedLengthArrayFromFields(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ),
@@ -234,8 +234,8 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       false,
       0n,
-      ClaimedLengthArray.empty(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
-      ClaimedLengthArray.empty(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(NoteHash, MAX_NOTE_HASHES_PER_CALL),
       ClaimedLengthArray.empty(Nullifier, MAX_NULLIFIERS_PER_CALL),

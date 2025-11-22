@@ -7,7 +7,7 @@ use crate::note::{
     note_getter_options::NoteGetterOptions,
     note_interface::{NoteHash, NoteType},
     note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_read_request,
+    utils::compute_note_hash_read,
 };
 use crate::note::retrieved_note::RetrievedNote;
 use crate::state_vars::storage::HasStorageSlot;
@@ -389,11 +389,10 @@ where
     ///     easier ways to customize your own note encryption options.
     ///
     pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
-        let note_hash = compute_note_hash_for_read_request(retrieved_note, self.storage_slot);
-        let has_been_read = self.context.note_hash_read_requests.any(|r| r.inner == note_hash);
-        assert(has_been_read, "Can only remove a note that has been read from the set.");
+        let note_hash_read = compute_note_hash_read(retrieved_note, self.storage_slot);
+        self.context.assert_has_been_requested(note_hash_read);
 
-        destroy_note_unsafe(self.context, retrieved_note, note_hash);
+        destroy_note_unsafe(self.context, retrieved_note, note_hash_read);
     }
 
     /// Returns a collection of which belong to this PrivateSet.

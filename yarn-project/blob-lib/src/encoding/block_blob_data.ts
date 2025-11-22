@@ -15,7 +15,7 @@ import {
 } from './block_end_state_field.js';
 import { type TxBlobData, decodeTxBlobData, encodeTxBlobData } from './tx_blob_data.js';
 
-// Must match the implementation in `noir-protocol-circuits/crates/rollup-lib/src/block_merge/components/block_blob_data.nr`.
+// Must match the implementation in `noir-protocol-circuits/crates/types/src/blob_data/block_blob_data.nr`.
 
 export interface BlockEndBlobData {
   blockEndMarker: BlockEndMarker;

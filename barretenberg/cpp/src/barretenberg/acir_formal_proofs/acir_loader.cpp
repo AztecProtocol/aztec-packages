@@ -28,9 +28,8 @@ std::vector<uint8_t> readFile(std::string filename)
 
 AcirToSmtLoader::AcirToSmtLoader(std::string filename)
 {
-    this->acir_program_buf = readFile(filename);
     this->instruction_name = filename;
-    this->constraint_system = acir_format::program_buf_to_acir_format(this->acir_program_buf, false).at(0);
+    this->constraint_system = acir_format::circuit_buf_to_acir_format(readFile(filename));
     this->circuit_buf = this->get_circuit_builder().export_circuit();
 }
 

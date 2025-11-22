@@ -15,7 +15,6 @@ describe('prover/orchestrator/errors', () => {
   let orchestrator: ProvingOrchestrator;
   let constants: CheckpointConstantData;
   let block: { header: BlockHeader; txs: ProcessedTx[] };
-  let totalNumBlobFields: number;
   let previousBlockHeader: BlockHeader;
   let finalBlobChallenges: FinalBlobBatchingChallenges;
   const numBlocks = 1;
@@ -26,7 +25,6 @@ describe('prover/orchestrator/errors', () => {
     ({
       constants,
       blocks: [block],
-      totalNumBlobFields,
       previousBlockHeader,
     } = await context.makeCheckpoint(numBlocks, { numTxsPerBlock: 1 }));
     finalBlobChallenges = await context.getFinalBlobChallenges();
@@ -47,7 +45,6 @@ describe('prover/orchestrator/errors', () => {
         constants,
         [], // l1ToL2Messages
         numBlocks,
-        totalNumBlobFields,
         previousBlockHeader,
       );
       const { blockNumber, timestamp } = block.header.globalVariables;
@@ -67,7 +64,6 @@ describe('prover/orchestrator/errors', () => {
         constants,
         [], // l1ToL2Messages
         numBlocks,
-        totalNumBlobFields,
         previousBlockHeader,
       );
 
@@ -89,7 +85,6 @@ describe('prover/orchestrator/errors', () => {
         constants,
         [], // l1ToL2Messages
         2, // numBlocks
-        totalNumBlobFields,
         previousBlockHeader,
       );
 
@@ -121,7 +116,6 @@ describe('prover/orchestrator/errors', () => {
         constants,
         [],
         numBlocks,
-        totalNumBlobFields,
         previousBlockHeader,
       );
       await expect(async () => await orchestrator.addTxs(block.txs)).rejects.toThrow(
@@ -136,7 +130,6 @@ describe('prover/orchestrator/errors', () => {
         constants,
         [],
         numBlocks,
-        totalNumBlobFields,
         previousBlockHeader,
       );
       await expect(async () => await orchestrator.setBlockCompleted(block.header.getBlockNumber())).rejects.toThrow(
@@ -151,7 +144,6 @@ describe('prover/orchestrator/errors', () => {
         constants,
         [],
         numBlocks,
-        totalNumBlobFields,
         previousBlockHeader,
       );
       const { blockNumber, timestamp } = block.header.globalVariables;
@@ -173,7 +165,6 @@ describe('prover/orchestrator/errors', () => {
             constants,
             l1ToL2Messages,
             numBlocks,
-            totalNumBlobFields,
             previousBlockHeader,
           ),
       ).rejects.toThrow('Too many L1 to L2 messages');

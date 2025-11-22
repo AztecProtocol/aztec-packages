@@ -25,7 +25,7 @@ import { Body, CommitteeAttestation, L2Block, L2BlockHeader, PublishedL2Block } 
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 
 import {
   type GetContractEventsReturnType,
@@ -63,7 +63,7 @@ export async function retrievedBlockToPublishedL2Block({
   version,
   attestations,
 }: RetrievedL2Block): Promise<PublishedL2Block> {
-  const { totalNumBlobFields, blocks: blocksBlobData } = checkpointBlobData;
+  const { blocks: blocksBlobData } = checkpointBlobData;
 
   // The lastArchiveRoot of a block is the new archive for the previous block.
   const newArchiveRoots = blocksBlobData
@@ -75,7 +75,7 @@ export async function retrievedBlockToPublishedL2Block({
   // field for the `l1ToL2MessageRoot` of the first block. So below we can safely assume it exists:
   const l1toL2MessageTreeRoot = blocksBlobData[0].l1ToL2MessageRoot!;
 
-  const spongeBlob = await SpongeBlob.init(totalNumBlobFields);
+  const spongeBlob = SpongeBlob.init();
   const l2Blocks: L2Block[] = [];
   for (let i = 0; i < blocksBlobData.length; i++) {
     const blockBlobData = blocksBlobData[i];
@@ -115,14 +115,19 @@ export async function retrievedBlockToPublishedL2Block({
     const clonedSpongeBlob = spongeBlob.clone();
     const spongeBlobHash = await clonedSpongeBlob.squeeze();
 
-    const header = L2BlockHeader.from({
+    const blockHeader = BlockHeader.from({
       lastArchive: new AppendOnlyTreeSnapshot(lastArchiveRoot, l2BlockNumber),
-      contentCommitment: checkpointHeader.contentCommitment,
       state,
+      spongeBlobHash,
       globalVariables,
       totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
       totalManaUsed: new Fr(blockEndStateField.totalManaUsed),
-      spongeBlobHash,
+    });
+
+    const header = L2BlockHeader.from({
+      ...blockHeader,
+      blockHeadersHash: checkpointHeader.blockHeadersHash,
+      contentCommitment: checkpointHeader.contentCommitment,
     });
 
     const newArchive = new AppendOnlyTreeSnapshot(newArchiveRoots[i], l2BlockNumber + 1);

@@ -1,3 +1,4 @@
+import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -39,8 +40,8 @@ export class Checkpoint {
     return serializeToBuffer(this.archive, this.header, this.blocks.length, this.blocks);
   }
 
-  public toBlobFields() {
-    const blocksBlobFields = this.blocks.flatMap((block, i) => block.toBlobFields(i === 0));
-    return [new Fr(blocksBlobFields.length + 1)].concat(blocksBlobFields);
+  public toBlobFields(): Fr[] {
+    const blocks = this.blocks.map((block, i) => block.toBlockBlobData(i === 0));
+    return encodeCheckpointBlobDataFromBlocks(blocks);
   }
 }

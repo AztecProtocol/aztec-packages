@@ -103,6 +103,7 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ci-barretenberg"
     ;;
   "grind")
+    prep_vars
     # Spin up ec2 instance and run the merge-queue flow.
     run() {
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
@@ -311,4 +312,3 @@ case "$cmd" in
     exit 1
     ;;
 esac
-

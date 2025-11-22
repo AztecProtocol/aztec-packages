@@ -35,7 +35,7 @@ fn validate_propagated_from_private_call__note_hash_read_requests_output_mismatc
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "propagated contract address does not match")]
+#[test(should_fail_with = "source item does not append to dest")]
 fn validate_propagated_from_private_call__note_hash_read_requests_mismatch_contract_address_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -124,7 +124,7 @@ fn validate_propagated_from_private_call__note_hash_read_requests_with_previous_
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "propagated contract address does not match")]
+#[test(should_fail_with = "source item does not append to dest")]
 fn validate_propagated_from_private_call__note_hash_read_requests_with_previous_mismatch_contract_address_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 

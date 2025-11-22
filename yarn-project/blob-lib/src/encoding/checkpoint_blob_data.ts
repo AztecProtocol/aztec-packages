@@ -3,18 +3,30 @@ import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import { BlobDeserializationError } from '../errors.js';
 import { type BlockBlobData, decodeBlockBlobData, encodeBlockBlobData } from './block_blob_data.js';
+import {
+  type CheckpointEndMarker,
+  decodeCheckpointEndMarker,
+  encodeCheckpointEndMarker,
+  isCheckpointEndMarker,
+} from './checkpoint_end_marker.js';
 import type { TxStartMarker } from './tx_start_marker.js';
 
 export interface CheckpointBlobData {
-  totalNumBlobFields: number;
+  checkpointEndMarker: CheckpointEndMarker;
   blocks: BlockBlobData[];
 }
 
 export function encodeCheckpointBlobData(checkpointBlobData: CheckpointBlobData): Fr[] {
   return [
-    new Fr(checkpointBlobData.totalNumBlobFields),
     ...checkpointBlobData.blocks.map(block => encodeBlockBlobData(block)).flat(),
+    encodeCheckpointEndMarker(checkpointBlobData.checkpointEndMarker),
   ];
+}
+
+export function encodeCheckpointBlobDataFromBlocks(blocks: BlockBlobData[]): Fr[] {
+  const blocksBlobFields = blocks.map(block => encodeBlockBlobData(block)).flat();
+  const numBlobFields = blocksBlobFields.length + 1; // +1 for the checkpoint end marker.
+  return blocksBlobFields.concat(encodeCheckpointEndMarker({ numBlobFields }));
 }
 
 export function decodeCheckpointBlobData(fields: Fr[] | FieldReader): CheckpointBlobData {
@@ -24,52 +36,60 @@ export function decodeCheckpointBlobData(fields: Fr[] | FieldReader): Checkpoint
     throw new BlobDeserializationError(`Cannot decode empty blob data.`);
   }
 
-  const firstField = reader.readField();
-  // Use toBigInt instead of toNumber so that we can catch it and throw a more descriptive error if the first field is
-  // larger than a javascript integer.
-  const totalNumBlobFields = firstField.toBigInt();
-  if (totalNumBlobFields > BigInt(reader.remainingFields() + 1)) {
-    // +1 because we already read the first field.
+  const blocks = [];
+  let checkpointEndMarker: CheckpointEndMarker | undefined;
+  while (!reader.isFinished() && !checkpointEndMarker) {
+    blocks.push(decodeBlockBlobData(reader, blocks.length === 0 /* isFirstBlock */));
+
+    // After reading a block, the next item must be either a checkpoint end marker or another block.
+    // The first field of a block is always a tx start marker. So if the provided fields are valid, it's not possible to
+    // misinterpret a tx start marker as checkpoint end marker, or vice versa.
+    const nextField = reader.peekField();
+    if (isCheckpointEndMarker(nextField)) {
+      checkpointEndMarker = decodeCheckpointEndMarker(reader.readField());
+      const numFieldsRead = reader.cursor;
+      if (numFieldsRead !== checkpointEndMarker.numBlobFields) {
+        throw new BlobDeserializationError(
+          `Incorrect encoding of blob fields: mismatch number of blob fields. Expected ${checkpointEndMarker.numBlobFields} fields, got ${numFieldsRead}.`,
+        );
+      }
+    }
+  }
+
+  if (!checkpointEndMarker) {
+    throw new BlobDeserializationError(`Incorrect encoding of blob fields: checkpoint end marker does not exist.`);
+  }
+
+  const remainingFields = reader.readFieldArray(reader.remainingFields());
+  if (!remainingFields.every(f => f.isZero())) {
     throw new BlobDeserializationError(
-      `Incorrect encoding of blob fields: not enough fields for checkpoint blob data. Expected ${totalNumBlobFields} fields, got ${reader.remainingFields() + 1}.`,
+      `Incorrect encoding of blob fields: unexpected non-zero field after checkpoint end marker.`,
     );
   }
 
-  const blocks = [];
-  while (reader.cursor < totalNumBlobFields) {
-    blocks.push(decodeBlockBlobData(reader, blocks.length === 0 /* isFirstBlock */));
-  }
   return {
-    totalNumBlobFields: Number(totalNumBlobFields),
+    checkpointEndMarker,
     blocks,
   };
 }
 
 export function decodeCheckpointBlobDataFromBuffer(buf: Buffer): CheckpointBlobData {
   const reader = BufferReader.asReader(buf);
-  const firstField = reader.readObject(Fr);
-
-  // Use toBigInt instead of toNumber so that we can catch it and throw a more descriptive error if the first field is
-  // larger than a javascript integer.
-  const numFields = firstField.toBigInt();
-  const totalFieldsInBuffer = BigInt(buf.length / Fr.SIZE_IN_BYTES);
-  if (numFields > totalFieldsInBuffer) {
-    throw new BlobDeserializationError(
-      `Failed to deserialize blob buffer: not enough fields for checkpoint blob data. Expected ${numFields} fields, got ${totalFieldsInBuffer}.`,
-    );
-  }
-
-  const numFieldsWithoutPrefix = Number(numFields) - 1;
-  const blobFields = [firstField].concat(reader.readArray(numFieldsWithoutPrefix, Fr));
-
+  const totalFieldsInBuffer = Math.floor(buf.length / Fr.SIZE_IN_BYTES);
+  const blobFields = reader.readArray(totalFieldsInBuffer, Fr);
   return decodeCheckpointBlobData(blobFields);
 }
 
-export function getTotalNumBlobFieldsFromTxs(txs: TxStartMarker[][]): number {
+export function getTotalNumBlobFieldsFromTxs(txsPerBlock: TxStartMarker[][]): number {
+  const numBlocks = txsPerBlock.length;
+  if (!numBlocks) {
+    return 0;
+  }
+
   return (
-    1 + // totalNumBlobFields
-    (txs.length ? 1 : 0) + // l1ToL2Messages root in the first block
-    txs.length * 6 + // 6 fields for each block end blob data.
-    txs.reduce((total, txs) => total + txs.reduce((total, tx) => total + tx.numBlobFields, 0), 0)
+    (numBlocks ? 1 : 0) + // l1ToL2Messages root in the first block
+    numBlocks * 6 + // 6 fields for each block end blob data.
+    txsPerBlock.reduce((total, txs) => total + txs.reduce((total, tx) => total + tx.numBlobFields, 0), 0) +
+    1 // checkpoint end marker
   );
 }

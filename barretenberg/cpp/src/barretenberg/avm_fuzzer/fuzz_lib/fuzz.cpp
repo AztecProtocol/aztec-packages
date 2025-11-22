@@ -36,8 +36,19 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
 
     // If the results does not match
     if (!compare_simulator_results(cpp_result, js_result)) {
-        log_result(cpp_result, fuzzer_data, bytecode);
-        throw std::runtime_error("Simulator results are different");
+        // we restart the js simulator, becuase it works on the same worldstate for every run
+        // while cpp simulator works on a new worldstate for every run
+        JsSimulator::restart_simulator();
+        js_simulator = JsSimulator::getInstance();
+        js_result = js_simulator->simulate(bytecode, fuzzer_data.calldata);
+        // if the bug is persistent on "cleared" worldstate, we throw an error
+        if (!compare_simulator_results(cpp_result, js_result)) {
+            info("CppSimulator result: ");
+            log_result(cpp_result, fuzzer_data, bytecode);
+            info("JsSimulator result: ");
+            log_result(js_result, fuzzer_data, bytecode);
+            throw std::runtime_error("Simulator results are different");
+        }
     }
     bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
     if (logging_enabled) {

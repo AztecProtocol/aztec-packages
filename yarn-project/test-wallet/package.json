@@ -68,7 +68,8 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/pxe": "workspace:^",
-    "@aztec/stdlib": "workspace:^"
+    "@aztec/stdlib": "workspace:^",
+    "@aztec/wallet-sdk": "workspace:^"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",

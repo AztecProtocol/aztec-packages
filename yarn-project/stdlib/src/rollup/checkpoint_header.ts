@@ -20,6 +20,8 @@ export class CheckpointHeader {
   constructor(
     /** Root of the archive tree before this block is added. */
     public lastArchiveRoot: Fr,
+    /** Hash of the headers of all blocks in this checkpoint. */
+    public blockHeadersHash: Fr,
     /** Content commitment of the L2 block. */
     public contentCommitment: ContentCommitment,
     /** Slot number of the L2 block */
@@ -40,6 +42,7 @@ export class CheckpointHeader {
     return z
       .object({
         lastArchiveRoot: schemas.Fr,
+        blockHeadersHash: schemas.Fr,
         contentCommitment: ContentCommitment.schema,
         slotNumber: schemas.Fr,
         timestamp: schemas.BigInt,
@@ -54,6 +57,7 @@ export class CheckpointHeader {
   static getFields(fields: FieldsOf<CheckpointHeader>) {
     return [
       fields.lastArchiveRoot,
+      fields.blockHeadersHash,
       fields.contentCommitment,
       fields.slotNumber,
       fields.timestamp,
@@ -73,6 +77,7 @@ export class CheckpointHeader {
 
     return new CheckpointHeader(
       reader.readObject(Fr),
+      reader.readObject(Fr),
       reader.readObject(ContentCommitment),
       Fr.fromBuffer(reader),
       reader.readUInt64(),
@@ -86,6 +91,7 @@ export class CheckpointHeader {
   equals(other: CheckpointHeader) {
     return (
       this.lastArchiveRoot.equals(other.lastArchiveRoot) &&
+      this.blockHeadersHash.equals(other.blockHeadersHash) &&
       this.contentCommitment.equals(other.contentCommitment) &&
       this.slotNumber.equals(other.slotNumber) &&
       this.timestamp === other.timestamp &&
@@ -100,6 +106,7 @@ export class CheckpointHeader {
     // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return serializeToBuffer([
       this.lastArchiveRoot,
+      this.blockHeadersHash,
       this.contentCommitment,
       this.slotNumber,
       bigintToUInt64BE(this.timestamp),
@@ -117,6 +124,7 @@ export class CheckpointHeader {
   static empty(fields: Partial<FieldsOf<CheckpointHeader>> = {}) {
     return CheckpointHeader.from({
       lastArchiveRoot: Fr.ZERO,
+      blockHeadersHash: Fr.ZERO,
       contentCommitment: ContentCommitment.empty(),
       slotNumber: Fr.ZERO,
       timestamp: 0n,
@@ -131,6 +139,7 @@ export class CheckpointHeader {
   static random(): CheckpointHeader {
     return new CheckpointHeader(
       Fr.random(),
+      Fr.random(),
       ContentCommitment.random(),
       new Fr(BigInt(Math.floor(Math.random() * 1000) + 1)),
       BigInt(Math.floor(Date.now() / 1000)),
@@ -144,6 +153,7 @@ export class CheckpointHeader {
   isEmpty(): boolean {
     return (
       this.lastArchiveRoot.isZero() &&
+      this.blockHeadersHash.isZero() &&
       this.contentCommitment.isEmpty() &&
       this.slotNumber.isZero() &&
       this.timestamp === 0n &&
@@ -169,6 +179,7 @@ export class CheckpointHeader {
   static fromViem(header: ViemHeader) {
     return new CheckpointHeader(
       Fr.fromString(header.lastArchiveRoot),
+      Fr.fromString(header.blockHeadersHash),
       ContentCommitment.fromViem(header.contentCommitment),
       new Fr(header.slotNumber),
       header.timestamp,
@@ -182,6 +193,7 @@ export class CheckpointHeader {
   toViem(): ViemHeader {
     return {
       lastArchiveRoot: this.lastArchiveRoot.toString(),
+      blockHeadersHash: this.blockHeadersHash.toString(),
       contentCommitment: this.contentCommitment.toViem(),
       slotNumber: this.slotNumber.toBigInt(),
       timestamp: this.timestamp,
@@ -198,6 +210,7 @@ export class CheckpointHeader {
   toInspect() {
     return {
       lastArchive: this.lastArchiveRoot.toString(),
+      blockHeadersHash: this.blockHeadersHash.toString(),
       contentCommitment: this.contentCommitment.toInspect(),
       slotNumber: this.slotNumber.toBigInt(),
       timestamp: this.timestamp,
@@ -212,6 +225,7 @@ export class CheckpointHeader {
     const gasfees = `da:${this.gasFees.feePerDaGas}, l2:${this.gasFees.feePerL2Gas}`;
     return `Header {
   lastArchiveRoot: ${this.lastArchiveRoot.toString()},
+  blockHeadersHash: ${this.blockHeadersHash.toString()},
   contentCommitment: ${inspect(this.contentCommitment)},
   slotNumber: ${this.slotNumber.toBigInt()},
   timestamp: ${this.timestamp},

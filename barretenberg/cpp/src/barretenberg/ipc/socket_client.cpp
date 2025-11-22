@@ -70,36 +70,37 @@ bool SocketClient::send(const void* data, size_t len, uint64_t /*timeout_ns*/)
     return bytes_sent == len;
 }
 
-ssize_t SocketClient::recv(void* buffer, size_t max_len, uint64_t /*timeout_ns*/)
+std::span<const uint8_t> SocketClient::recv(uint64_t /*timeout_ns*/)
 {
     if (fd_ < 0) {
-        errno = EINVAL;
-        return -1;
+        return {};
     }
 
     // Read length prefix (4 bytes)
     uint32_t msg_len = 0;
     ssize_t n = ::recv(fd_, &msg_len, sizeof(msg_len), MSG_WAITALL);
     if (n < 0 || static_cast<size_t>(n) != sizeof(msg_len)) {
-        return -1;
+        return {};
     }
 
-    if (msg_len > max_len) {
-        errno = EMSGSIZE;
-        return -1;
+    // Ensure buffer is large enough
+    if (recv_buffer_.size() < msg_len) {
+        recv_buffer_.resize(msg_len);
     }
 
-    // Read message data
-    n = ::recv(fd_, buffer, msg_len, MSG_WAITALL);
-    if (n < 0) {
-        return -1;
-    }
-    const auto bytes_received = static_cast<size_t>(n);
-    if (bytes_received != msg_len) {
-        return -1;
+    // Read message data into internal buffer
+    n = ::recv(fd_, recv_buffer_.data(), msg_len, MSG_WAITALL);
+    if (n < 0 || static_cast<size_t>(n) != msg_len) {
+        return {};
     }
 
-    return n;
+    // Return span into internal buffer
+    return std::span<const uint8_t>(recv_buffer_.data(), msg_len);
+}
+
+void SocketClient::release(size_t /*message_size*/)
+{
+    // No-op for sockets - data is already consumed from kernel buffer during recv()
 }
 
 void SocketClient::close()

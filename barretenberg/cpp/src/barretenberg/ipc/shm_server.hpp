@@ -128,39 +128,27 @@ class ShmServer : public IpcServer {
             return {};
         }
 
-        // Wait for data to be available (blocks until data present)
-        consumer_->wait_for_data(100000); // Spin for 100ms before yielding
-
-        // Peek at data in ring buffer (zero-copy!)
-        size_t n = 0;
-        void* data = consumer_->peek(client_idx, &n);
-
-        if (data == nullptr) {
-            return {}; // Client disconnected or error
+        // Peek the length prefix (4 bytes) with blocking timeout
+        void* len_ptr = consumer_->peek(client_idx, sizeof(uint32_t), 100000000); // 100ms timeout
+        if (len_ptr == nullptr) {
+            return {}; // Timeout or client disconnected
         }
 
-        // Handle implicit padding: if we get less than 4 bytes, it's padding at ring wrap boundary
-        // Release it and retry
-        if (n < sizeof(uint32_t)) {
-            consumer_->release(client_idx, n);
-            // Retry peek after releasing padding
-            data = consumer_->peek(client_idx, &n);
-            if (data == nullptr || n < sizeof(uint32_t)) {
-                // Still no valid data after skipping padding
-                return {};
-            }
-        }
-
-        // Read length prefix
+        // Read message length
         uint32_t msg_len = 0;
-        std::memcpy(&msg_len, data, sizeof(uint32_t));
+        std::memcpy(&msg_len, len_ptr, sizeof(uint32_t));
 
-        if (n < sizeof(uint32_t) + msg_len) {
-            throw_or_abort("Ring buffer corruption: incomplete message (protocol violation)");
+        // Release the length prefix
+        consumer_->release(client_idx, sizeof(uint32_t));
+
+        // Now peek the message data with blocking timeout
+        void* msg_ptr = consumer_->peek(client_idx, msg_len, 100000000);
+        if (msg_ptr == nullptr) {
+            return {}; // Timeout
         }
 
-        // Return span directly into ring buffer (skip 4-byte length prefix, zero-copy!)
-        return std::span<const uint8_t>(static_cast<const uint8_t*>(data) + sizeof(uint32_t), msg_len);
+        // Return span directly into ring buffer (zero-copy!)
+        return std::span<const uint8_t>(static_cast<const uint8_t*>(msg_ptr), msg_len);
     }
 
     void release(int client_id, size_t message_size) override
@@ -173,9 +161,8 @@ class ShmServer : public IpcServer {
             return;
         }
 
-        // Release the entire message (length prefix + data)
-        size_t total_size = sizeof(uint32_t) + message_size;
-        consumer_->release(client_idx, total_size);
+        // Release just the message data (length prefix was already released in receive())
+        consumer_->release(client_idx, message_size);
     }
 
     bool send(int client_id, const void* data, size_t len) override
@@ -190,25 +177,22 @@ class ShmServer : public IpcServer {
 
         SpscShm& response_ring = response_rings_[client_idx];
 
-        // Add 4-byte length prefix to match socket behavior
-        size_t total_len = sizeof(uint32_t) + len;
-
-        if (!response_ring.wait_for_space(total_len, 10000000)) { // 10ms
-            return false;
+        // Claim and publish length prefix separately
+        void* len_buf = response_ring.claim(sizeof(uint32_t), 100000000); // 100ms timeout
+        if (len_buf == nullptr) {
+            return false; // Timeout or no space
         }
-
-        // Claim handles wrapping internally
-        size_t granted = 0;
-        void* buf = response_ring.claim(total_len, &granted);
-        if (granted < total_len) {
-            return false;
-        }
-
-        // Write length prefix then data
         auto len_u32 = static_cast<uint32_t>(len);
-        std::memcpy(buf, &len_u32, sizeof(uint32_t));
-        std::memcpy(static_cast<uint8_t*>(buf) + sizeof(uint32_t), data, len);
-        response_ring.publish(total_len);
+        std::memcpy(len_buf, &len_u32, sizeof(uint32_t));
+        response_ring.publish(sizeof(uint32_t));
+
+        // Claim and publish message data separately
+        void* data_buf = response_ring.claim(len, 100000000); // 100ms timeout
+        if (data_buf == nullptr) {
+            return false; // Timeout or no space
+        }
+        std::memcpy(data_buf, data, len);
+        response_ring.publish(len);
 
         return true;
     }

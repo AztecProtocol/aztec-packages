@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 #include <sys/types.h>
 
@@ -41,13 +42,27 @@ class IpcClient {
     virtual bool send(const void* data, size_t len, uint64_t timeout_ns) = 0;
 
     /**
-     * @brief Receive a message from the server
-     * @param buffer Buffer to store received message
-     * @param max_len Maximum length to receive
-     * @param timeout_ns Timeout in nanoseconds (0 = infinite)
-     * @return Number of bytes received, or -1 on error/timeout
+     * @brief Receive a message from the server (zero-copy for shared memory)
+     * @param timeout_ns Timeout in nanoseconds
+     * @return Span of message data (empty on error/timeout)
+     *
+     * The span remains valid until release() is called or the next recv().
+     * For shared memory: direct view into ring buffer (true zero-copy)
+     * For sockets: view into internal buffer (eliminates one copy)
+     *
+     * Must be followed by release() to consume the message.
      */
-    virtual ssize_t recv(void* buffer, size_t max_len, uint64_t timeout_ns) = 0;
+    virtual std::span<const uint8_t> recv(uint64_t timeout_ns) = 0;
+
+    /**
+     * @brief Release the previously received message
+     * @param message_size Size of the message being released (from span.size())
+     *
+     * Must be called after recv() to consume the message and free resources.
+     * For shared memory: releases space in the ring buffer
+     * For sockets: no-op (message already consumed during recv)
+     */
+    virtual void release(size_t message_size) = 0;
 
     /**
      * @brief Close the connection

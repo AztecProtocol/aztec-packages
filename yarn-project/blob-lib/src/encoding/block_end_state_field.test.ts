@@ -28,7 +28,7 @@ describe('block end state field', () => {
 
     // AZTEC_GENERATE_TEST_DATA=1 yarn test block_end_state_field.test.ts
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/components/block_blob_data.nr',
+      'noir-projects/noir-protocol-circuits/crates/types/src/blob_data/block_blob_data.nr',
       'block_end_state_field_from_typescript',
       encoded.toString(),
     );
@@ -49,7 +49,7 @@ describe('block end state field', () => {
 
     // AZTEC_GENERATE_TEST_DATA=1 yarn test block_end_state_field.test.ts
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/components/block_blob_data.nr',
+      'noir-projects/noir-protocol-circuits/crates/types/src/blob_data/block_blob_data.nr',
       'large_block_end_state_field_from_typescript',
       encoded.toString(),
     );

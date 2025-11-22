@@ -56,8 +56,7 @@ describe('prover/orchestrator/failures', () => {
       orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
 
       for (let checkpointIndex = 0; checkpointIndex < checkpoints.length; checkpointIndex++) {
-        const { constants, blocks, l1ToL2Messages, totalNumBlobFields, previousBlockHeader } =
-          checkpoints[checkpointIndex];
+        const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
           await orchestrator.startNewCheckpoint(
@@ -65,7 +64,6 @@ describe('prover/orchestrator/failures', () => {
             constants,
             l1ToL2Messages,
             blocks.length,
-            totalNumBlobFields,
             previousBlockHeader,
           );
 

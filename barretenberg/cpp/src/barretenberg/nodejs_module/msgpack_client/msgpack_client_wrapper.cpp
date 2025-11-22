@@ -23,10 +23,6 @@ MsgpackClientWrapper::MsgpackClientWrapper(const Napi::CallbackInfo& info)
         max_clients = info[1].As<Napi::Number>().Uint32Value();
     }
 
-    // Allocate response buffer once (16MB should be enough for most responses)
-    const size_t MAX_RESPONSE_SIZE = 16 * 1024 * 1024;
-    response_buffer_.resize(MAX_RESPONSE_SIZE);
-
     // Create shared memory client
     client_ = bb::ipc::IpcClient::create_shm(shm_name, max_clients);
 
@@ -62,20 +58,28 @@ Napi::Value MsgpackClientWrapper::call(const Napi::CallbackInfo& info)
     const uint8_t* input_data = input_buffer.Data();
     size_t input_len = input_buffer.Length();
 
-    // Send request (timeout 0 = infinite)
-    if (!client_->send(input_data, input_len, 0)) {
-        throw Napi::Error::New(
-            env, "Failed to send msgpack request. Input data probably too large. Consider --request-ring-size.");
+    // Send request with retry on backpressure (1s timeout per attempt)
+    // NOTE: timeout_ns=0 means IMMEDIATE timeout (not infinite wait!)
+    // Loop until send succeeds - handles case where consumer is temporarily behind
+    constexpr uint64_t TIMEOUT_NS = 1000000000; // 1 second
+    while (!client_->send(input_data, input_len, TIMEOUT_NS)) {
+        // Ring buffer full, consumer is behind - retry
     }
 
-    // Receive response using pre-allocated buffer
-    ssize_t bytes_received = client_->recv(response_buffer_.data(), response_buffer_.size(), 0);
-    if (bytes_received < 0) {
-        throw Napi::Error::New(env, "Failed to receive msgpack response");
+    // Receive response with retry (1s timeout per attempt)
+    // Loop until response is ready - handles case where server is processing
+    std::span<const uint8_t> response;
+    while ((response = client_->recv(TIMEOUT_NS)).empty()) {
+        // Response not ready yet, server is processing - retry
     }
 
-    // Create JavaScript Buffer with the response
-    return Napi::Buffer<uint8_t>::Copy(env, response_buffer_.data(), static_cast<size_t>(bytes_received));
+    // Create JavaScript Buffer with the response (copy to JS land)
+    auto js_buffer = Napi::Buffer<uint8_t>::Copy(env, response.data(), response.size());
+
+    // Release the message (for shared memory this frees space in ring buffer)
+    client_->release(response.size());
+
+    return js_buffer;
 }
 
 Napi::Value MsgpackClientWrapper::close(const Napi::CallbackInfo& info)

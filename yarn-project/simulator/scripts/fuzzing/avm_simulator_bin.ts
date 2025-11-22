@@ -1,6 +1,9 @@
+var { GasFees } = require('@aztec/stdlib/gas');
+
 var { createInstrumenter } = require('istanbul-lib-instrument');
 var { hookRequire } = require('istanbul-lib-hook');
 var { gzipSync } = require('zlib');
+
 const INSTRUMENTER = createInstrumenter({ compact: true });
 
 hookRequire(
@@ -13,7 +16,6 @@ hookRequire(
     return newCode;
   },
 );
-
 var { DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT } = require('@aztec/constants');
 var { Fr } = require('@aztec/foundation/fields');
 var { AztecAddress } = require('@aztec/stdlib/aztec-address');
@@ -22,6 +24,7 @@ var { UInt64 } = require('@aztec/stdlib/types');
 var { NativeWorldStateService } = require('@aztec/world-state');
 
 var { createInterface } = require('readline');
+var { writeSync } = require('fs');
 
 var { AvmSimulator } = require('../../public/avm/avm_simulator.js');
 var { SimpleContractDataSource } = require('../../public/fixtures/simple_contract_data_source.js');
@@ -69,35 +72,79 @@ function stringArrayToFields(arr: string[]): (typeof Fr)[] {
   return arr.map(stringToField);
 }
 
-const DEFAULT_TIMESTAMP: typeof UInt64 = 99833n;
+const DEFAULT_TIMESTAMP: typeof UInt64 = 1000000;
 
 let STATE_MANAGER: typeof PublicPersistableStateManager | undefined;
+
+async function getStateManager(): Promise<typeof PublicPersistableStateManager> {
+  const contractDataSource = new SimpleContractDataSource();
+  const worldStateService = await NativeWorldStateService.tmp();
+  if (!worldStateService) {
+    throw new Error('NativeWorldStateService.tmp() returned undefined');
+  }
+  const merkleTrees = await worldStateService.fork();
+  if (!merkleTrees) {
+    throw new Error('worldStateService.fork() returned undefined');
+  }
+  const treesDb = new PublicTreesDB(merkleTrees);
+  const contractsDb = new PublicContractsDB(contractDataSource);
+  const trace = new SideEffectTrace();
+  const firstNullifier = new Fr(420000);
+  const stateManager = PublicPersistableStateManager.create(
+    treesDb,
+    contractsDb,
+    trace,
+    firstNullifier,
+    DEFAULT_TIMESTAMP,
+  );
+  if (!stateManager) {
+    throw new Error('PublicPersistableStateManager.create() returned undefined');
+  }
+  return stateManager;
+}
 
 async function initSimulator() {
   if (STATE_MANAGER) {
     return;
   }
-  const contractDataSource = new SimpleContractDataSource();
-  const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-  const treesDb = new PublicTreesDB(merkleTrees);
-  const contractsDb = new PublicContractsDB(contractDataSource);
-  const trace = new SideEffectTrace();
-  const firstNullifier = new Fr(420000);
-  STATE_MANAGER = PublicPersistableStateManager.create(treesDb, contractsDb, trace, firstNullifier, DEFAULT_TIMESTAMP);
+  try {
+    STATE_MANAGER = await getStateManager();
+    if (!STATE_MANAGER) {
+      throw new Error('getStateManager() returned undefined');
+    }
+  } catch (error) {
+    // Reset STATE_MANAGER to undefined on error so we can retry
+    STATE_MANAGER = undefined;
+    throw new Error(`Failed to initialize state manager: ${error.message}`);
+  }
 }
 
 async function getSimulator(calldata: (typeof Fr)[]) {
   await initSimulator();
 
+  if (!STATE_MANAGER) {
+    throw new Error('State manager not initialized. This may happen if initialization failed after restart.');
+  }
+
+  const globalVariables = GlobalVariables.empty();
+  globalVariables.chainId = new Fr(1);
+  globalVariables.version = new Fr(1);
+  globalVariables.blockNumber = 1;
+  globalVariables.slotNumber = new Fr(1);
+  globalVariables.timestamp = 1000000;
+  globalVariables.coinbase = AztecAddress.ZERO;
+  globalVariables.feeRecipient = AztecAddress.ZERO;
+  globalVariables.gasFees = new GasFees(1, 1);
+
   const simulator = await AvmSimulator.create(
-    STATE_MANAGER!,
-    AztecAddress.zero(),
-    AztecAddress.zero(),
-    new Fr(0),
-    GlobalVariables.empty(),
-    false,
+    STATE_MANAGER,
+    AztecAddress.fromNumber(42), // address
+    AztecAddress.fromNumber(100), // sender
+    new Fr(0), // transaction fee
+    globalVariables,
+    false, // is static call
     calldata,
-    { l2Gas: DEFAULT_L2_GAS_LIMIT, daGas: DEFAULT_DA_GAS_LIMIT },
+    { l2Gas: 1000000, daGas: 1000000 },
   );
   return simulator;
 }
@@ -169,11 +216,11 @@ const _ = report_and_reset_coverage();
 async function executeBytecodeBase64(
   avmBytecodeBase64: string,
   calldata: (typeof Fr)[],
-): Promise<{ reverted: boolean; output: (typeof Fr)[] }> {
+): Promise<{ reverted: boolean; output: (typeof Fr)[]; revertReason?: string }> {
   const bytecode = Buffer.from(avmBytecodeBase64, 'base64');
   const simulator = await getSimulator(calldata);
   const results = await simulator.executeBytecode(bytecode);
-  return { reverted: results.reverted, output: results.output };
+  return { reverted: results.reverted, output: results.output, revertReason: results.revertReason };
 }
 
 // Execute the AVM bytecode and return the result and the coverage
@@ -188,8 +235,25 @@ async function executeBytecodeBase64(
 async function executeFromJson(jsonLine: string): Promise<void> {
   try {
     const input = JSON.parse(jsonLine.trim());
-    if (!input.bytecode || !input.inputs) {
-      process.stdout.write('Error: JSON must contain "bytecode" and "inputs" fields\n');
+    if ((!input.bytecode || !input.inputs) && !input.restart) {
+      writeSync(process.stdout.fd, 'Error: JSON must contain "bytecode" and "inputs" fields or "restart" field\n');
+      return;
+    }
+    if (input.restart) {
+      STATE_MANAGER = undefined;
+      try {
+        await initSimulator();
+        if (!STATE_MANAGER) {
+          throw new Error('State manager initialization completed but STATE_MANAGER is still undefined');
+        }
+        const response = { restarted: true };
+        const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
+        writeSync(process.stdout.fd, output);
+      } catch (error: any) {
+        const response = { restarted: false, error: error.message };
+        const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
+        writeSync(process.stdout.fd, output);
+      }
       return;
     }
     const calldata = stringArrayToFields(input.inputs);
@@ -207,19 +271,21 @@ async function executeFromJson(jsonLine: string): Promise<void> {
       reverted: result.reverted,
       output: outputStrings,
       coverage: coverage,
+      revertReason: result.revertReason,
     };
 
     const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
-    process.stdout.write(output);
+    writeSync(process.stdout.fd, output);
   } catch (error) {
     const coverage = Object.fromEntries(report_and_reset_coverage());
     const response = {
       reverted: true,
       output: [],
       coverage: coverage,
+      revertReason: error.message,
     };
     const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
-    process.stdout.write(output);
+    writeSync(process.stdout.fd, output);
   }
 }
 

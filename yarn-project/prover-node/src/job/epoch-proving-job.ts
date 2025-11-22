@@ -184,7 +184,6 @@ export class EpochProvingJob implements Traceable {
           checkpointConstants,
           l1ToL2Messages,
           totalNumBlocks,
-          blobFieldsPerCheckpoint[checkpointIndex].length,
           previousHeader,
         );
 

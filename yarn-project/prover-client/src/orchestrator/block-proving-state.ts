@@ -346,7 +346,6 @@ export class BlockProvingState {
           this.lastArchiveTreeSnapshot,
           this.headerOfLastBlockInPreviousCheckpoint.state,
           this.constants,
-          this.startSpongeBlob,
           this.timestamp,
           this.lastL1ToL2MessageSubtreeRootSiblingPath,
           this.lastArchiveSiblingPath,

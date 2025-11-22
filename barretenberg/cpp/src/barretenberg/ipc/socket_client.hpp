@@ -3,8 +3,10 @@
 #include "barretenberg/ipc/ipc_client.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <sys/types.h>
+#include <vector>
 
 namespace bb::ipc {
 
@@ -26,7 +28,8 @@ class SocketClient : public IpcClient {
 
     bool connect() override;
     bool send(const void* data, size_t len, uint64_t timeout_ns) override;
-    ssize_t recv(void* buffer, size_t max_len, uint64_t timeout_ns) override;
+    std::span<const uint8_t> recv(uint64_t timeout_ns) override;
+    void release(size_t message_size) override;
     void close() override;
 
   private:
@@ -34,6 +37,7 @@ class SocketClient : public IpcClient {
 
     std::string socket_path_;
     int fd_ = -1;
+    std::vector<uint8_t> recv_buffer_; // Internal buffer for socket recv
 };
 
 } // namespace bb::ipc

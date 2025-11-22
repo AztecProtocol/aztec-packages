@@ -3,7 +3,7 @@ import { BLS12Point, Fr } from '@aztec/foundation/fields';
 
 import { Blob } from './blob.js';
 import { type CheckpointBlobData, decodeCheckpointBlobDataFromBuffer } from './encoding/index.js';
-import { computeBlobFieldsHash, computeBlobsHash } from './hash.js';
+import { computeBlobsHash } from './hash.js';
 
 /**
  * @param blobs - The blobs to emit.
@@ -47,16 +47,6 @@ export function getBlobsPerL1Block(fields: Fr[]): Blob[] {
 export function decodeCheckpointBlobDataFromBlobs(blobs: Blob[]): CheckpointBlobData {
   const buf = Buffer.concat(blobs.map(b => b.data));
   return decodeCheckpointBlobDataFromBuffer(buf);
-}
-
-export async function computeBlobFieldsHashFromBlobs(blobs: Blob[]): Promise<Fr> {
-  const fields = blobs.map(b => b.toFields()).flat();
-  const numBlobFields = fields[0].toNumber();
-  if (numBlobFields > fields.length) {
-    throw new Error(`The prefix indicates ${numBlobFields} fields. Got ${fields.length}.`);
-  }
-
-  return await computeBlobFieldsHash(fields.slice(0, numBlobFields));
 }
 
 export function computeBlobsHashFromBlobs(blobs: Blob[]): Fr {
