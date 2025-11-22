@@ -281,7 +281,7 @@ int execute_msgpack_ipc_server(std::unique_ptr<ipc::IpcServer> server)
 #endif
 
 int execute_msgpack_run(const std::string& msgpack_input_file,
-                        int max_clients,
+                        [[maybe_unused]] int max_clients,
                         [[maybe_unused]] size_t request_ring_size,
                         [[maybe_unused]] size_t response_ring_size)
 {
