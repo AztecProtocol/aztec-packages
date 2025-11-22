@@ -34,15 +34,13 @@ struct alignas(SPSC_CACHELINE) SpscCtrl {
     alignas(SPSC_CACHELINE) std::atomic<uint64_t> tail; // bytes consumed
     std::array<char, SPSC_CACHELINE - sizeof(tail)> _pad1;
 
-    // Producer-owned sequencer and flag (written by producer in publish())
+    // Producer-owned sequencer (written by producer in publish())
     alignas(SPSC_CACHELINE) std::atomic<uint32_t> data_seq;
-    std::atomic<bool> producer_blocked; // Written by producer in wait_for_space()
-    std::array<char, SPSC_CACHELINE - sizeof(data_seq) - sizeof(producer_blocked)> _pad2;
+    std::array<char, SPSC_CACHELINE - sizeof(data_seq)> _pad2;
 
-    // Consumer-owned sequencer and flag (written by consumer)
+    // Consumer-owned sequencer (written by consumer in release())
     alignas(SPSC_CACHELINE) std::atomic<uint32_t> space_seq;
-    std::atomic<bool> consumer_blocked; // Written by consumer in wait_for_data()
-    std::array<char, SPSC_CACHELINE - sizeof(space_seq) - sizeof(consumer_blocked)> _pad3;
+    std::array<char, SPSC_CACHELINE - sizeof(space_seq)> _pad3;
 
     // Immutable capacity information
     alignas(SPSC_CACHELINE) uint64_t capacity; // power of two
