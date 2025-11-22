@@ -28,15 +28,16 @@ function test_cmds {
 
 function release {
   echo_header "playground release"
+  echo_stderr "NOTE: Playground releases are disabled on the v2 branch as it is only for the transactionless ignition chain!"
 
-  do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$(dist_tag) --quiet
-  do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$REF_NAME --quiet
+  # do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$(dist_tag) --quiet
+  # do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$REF_NAME --quiet
 
-  # We want the root to redirect to the latest master version.
-  echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=/latest"></head></html>' | \
-    do_or_dryrun aws s3 cp - s3://play.aztec.network/index.html --content-type text/html
+  # # We want the root to redirect to the latest master version.
+  # echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=/latest"></head></html>' | \
+  #   do_or_dryrun aws s3 cp - s3://play.aztec.network/index.html --content-type text/html
 
-  invalidate_cloudfront
+  # invalidate_cloudfront
 }
 
 function invalidate_cloudfront {
