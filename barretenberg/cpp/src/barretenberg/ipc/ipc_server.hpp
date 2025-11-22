@@ -192,7 +192,6 @@ class IpcServer {
     // Factory methods
     static std::unique_ptr<IpcServer> create_socket(const std::string& socket_path, int max_clients);
     static std::unique_ptr<IpcServer> create_shm(const std::string& base_name,
-                                                 size_t max_clients,
                                                  size_t request_ring_size = static_cast<size_t>(1024 * 1024),
                                                  size_t response_ring_size = static_cast<size_t>(1024 * 1024));
 

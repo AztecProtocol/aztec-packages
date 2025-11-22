@@ -20,7 +20,6 @@ namespace {
 
 class ShmTest : public ::testing::Test {
   protected:
-    static constexpr size_t MAX_CLIENTS = 3;
     std::string shm_name;
 
     std::unique_ptr<IpcServer> server;
@@ -39,8 +38,8 @@ class ShmTest : public ::testing::Test {
         oss << "shm_" << std::hex << (hasher(full_name) & 0xFFFFFF) << "_" << getpid();
         shm_name = oss.str();
 
-        // Create server
-        server = IpcServer::create_shm(shm_name, MAX_CLIENTS);
+        // Create server (SPSC - single client only)
+        server = IpcServer::create_shm(shm_name);
         ASSERT_TRUE(server->listen()) << "Server failed to listen";
 
         // Start server thread
@@ -95,7 +94,7 @@ class ShmTest : public ::testing::Test {
 TEST_F(ShmTest, BasicEcho)
 {
     std::cerr << "Creating client..." << '\n';
-    auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
+    auto client = IpcClient::create_shm(shm_name);
 
     std::cerr << "Connecting client..." << '\n';
     ASSERT_TRUE(client->connect()) << "Client failed to connect";
@@ -121,7 +120,7 @@ TEST_F(ShmTest, BasicEcho)
 // Test with varying message sizes to trigger ring buffer wrapping
 TEST_F(ShmTest, VaryingMessageSizes)
 {
-    auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
+    auto client = IpcClient::create_shm(shm_name);
     ASSERT_TRUE(client->connect()) << "Client failed to connect";
 
     // Test with different message sizes: 50, 100, 200, 400, 800, 1600 bytes
@@ -155,7 +154,7 @@ TEST_F(ShmTest, VaryingMessageSizes)
 // sustained high-throughput single-client workloads with natural ring buffer advancement
 TEST_F(ShmTest, HighVolumeSequentialMessages)
 {
-    auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
+    auto client = IpcClient::create_shm(shm_name);
     ASSERT_TRUE(client->connect()) << "Client failed to connect";
 
     // Simulate the benchmark: many iterations with varying message sizes
@@ -195,243 +194,6 @@ TEST_F(ShmTest, HighVolumeSequentialMessages)
     client->close();
 }
 
-// Test multiple concurrent clients to stress MPSC behavior
-TEST_F(ShmTest, ConcurrentClients)
-{
-    constexpr size_t num_clients = 3;
-    std::vector<std::thread> client_threads;
-    std::atomic<size_t> failures{ 0 };
-
-    client_threads.reserve(num_clients);
-    for (size_t client_idx = 0; client_idx < num_clients; client_idx++) {
-        client_threads.emplace_back([client_idx, &failures, shm_name = this->shm_name]() {
-            auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
-            if (!client->connect()) {
-                failures.fetch_add(1);
-                return;
-            }
-
-            // Each client sends 100 messages
-            for (size_t i = 0; i < 100; i++) {
-                std::vector<uint8_t> send_data = { static_cast<uint8_t>(client_idx), static_cast<uint8_t>(i & 0xFF) };
-
-                if (!client->send(send_data.data(), send_data.size(), 100000000)) {
-                    failures.fetch_add(1);
-                    break;
-                }
-
-                auto response = client->recv(100000000);
-                if (response.empty() || response.size() != send_data.size()) {
-                    failures.fetch_add(1);
-                    break;
-                }
-
-                if (std::memcmp(response.data(), send_data.data(), send_data.size()) != 0) {
-                    failures.fetch_add(1);
-                    break;
-                }
-
-                client->release(response.size());
-            }
-
-            client->close();
-        });
-    }
-
-    for (auto& t : client_threads) {
-        t.join();
-    }
-
-    EXPECT_EQ(failures.load(), 0) << failures.load() << " failures occurred in concurrent client test";
-}
-
-// Concurrent clients with constrained buffer size under high load
-// 4 concurrent clients sending large messages (8-18KB) to a small ring buffer (48KB)
-// Tests correctness under extreme concurrent stress with frequent buffer wrapping
-TEST_F(ShmTest, ConcurrentClientsSmallRingHighLoad)
-{
-    // AGGRESSIVE: Small ring buffers to force very frequent wrapping
-    // 48KB rings with up to 18KB messages = wraps every 2-3 messages
-    // Request/response are SEPARATE rings
-    constexpr size_t SMALL_RING_SIZE = 48 * 1024; // 48KB per ring
-    constexpr size_t NUM_PRODUCER_THREADS = 4;
-    constexpr size_t MESSAGES_PER_THREAD = 500;
-
-    // Create server with small ring buffers to trigger wrapping frequently
-    // Use short name for macOS compatibility (31-char limit)
-    std::string race_test_shm = "shm_race_" + std::to_string(getpid());
-    auto race_server = IpcServer::create_shm(race_test_shm, MAX_CLIENTS, SMALL_RING_SIZE, SMALL_RING_SIZE);
-    ASSERT_TRUE(race_server->listen()) << "Race test server failed to listen";
-
-    std::atomic<bool> server_running{ true };
-    std::atomic<size_t> messages_processed{ 0 };
-    std::atomic<size_t> data_corruption_detected{ 0 };
-
-    // Start aggressive echo server that reads as fast as possible
-    std::thread server_thread([&]() {
-        while (server_running.load(std::memory_order_acquire)) {
-            race_server->accept();
-
-            // Poll very aggressively - minimal timeout to maximize race window
-            int client_id = race_server->wait_for_data(1000000); // 1ms timeout
-            if (client_id < 0) {
-                continue;
-            }
-
-            auto request = race_server->receive(client_id);
-            if (!request.empty()) {
-                // Validate message integrity before echoing
-                // Each message should start with a magic header: [thread_id][msg_seq][pattern...]
-                if (request.size() >= 8) {
-                    uint32_t thread_id, msg_seq;
-                    std::memcpy(&thread_id, request.data(), sizeof(uint32_t));
-                    std::memcpy(&msg_seq, request.data() + 4, sizeof(uint32_t));
-
-                    // Validate the pattern in the rest of the message
-                    bool corrupted = false;
-                    for (size_t i = 8; i < request.size(); i += 4) {
-                        uint32_t expected = thread_id ^ msg_seq ^ static_cast<uint32_t>(i);
-                        uint32_t actual;
-                        std::memcpy(&actual, request.data() + i, sizeof(uint32_t));
-                        if (actual != expected) {
-                            corrupted = true;
-                            data_corruption_detected.fetch_add(1, std::memory_order_relaxed);
-                            std::cerr << "CORRUPTION DETECTED: thread=" << thread_id << " seq=" << msg_seq
-                                      << " offset=" << i << " expected=0x" << std::hex << expected << " actual=0x"
-                                      << actual << std::dec << '\n';
-                            break;
-                        }
-                    }
-
-                    if (!corrupted) {
-                        messages_processed.fetch_add(1, std::memory_order_relaxed);
-                    }
-                }
-
-                // Echo back regardless of corruption to unblock client
-                race_server->send(client_id, request.data(), request.size());
-                race_server->release(client_id, request.size());
-            }
-        }
-    });
-
-    // Give server time to initialize
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-    // Launch multiple producer threads that hammer the server
-    std::vector<std::thread> producer_threads;
-    std::atomic<size_t> send_failures{ 0 };
-    std::atomic<size_t> recv_failures{ 0 };
-    std::atomic<size_t> validation_failures{ 0 };
-
-    producer_threads.reserve(NUM_PRODUCER_THREADS);
-    for (size_t thread_id = 0; thread_id < NUM_PRODUCER_THREADS; thread_id++) {
-        producer_threads.emplace_back([&, thread_id]() {
-            auto client = IpcClient::create_shm(race_test_shm, MAX_CLIENTS);
-            if (!client->connect()) {
-                send_failures.fetch_add(1);
-                return;
-            }
-
-            // AGGRESSIVE message sizes to force wrapping constantly
-            // With 48KB ring, these sizes (8-18KB) will wrap every 2-5 messages
-            // Keep max size < ring size to ensure wrapping logic works
-            std::vector<size_t> message_sizes = { 8192, 12288, 14336, 16384, 18432 };
-
-            std::vector<uint8_t> send_buffer(24 * 1024); // Max size buffer
-
-            for (size_t msg_seq = 0; msg_seq < MESSAGES_PER_THREAD; msg_seq++) {
-                // Rotate through different sizes to create unpredictable wrap points
-                size_t msg_size = message_sizes[msg_seq % message_sizes.size()];
-
-                // Build message with validation header and pattern
-                uint32_t tid = static_cast<uint32_t>(thread_id);
-                uint32_t seq = static_cast<uint32_t>(msg_seq);
-
-                std::memcpy(send_buffer.data(), &tid, sizeof(uint32_t));
-                std::memcpy(send_buffer.data() + 4, &seq, sizeof(uint32_t));
-
-                // Fill rest with verifiable pattern
-                for (size_t i = 8; i < msg_size; i += 4) {
-                    uint32_t pattern = tid ^ seq ^ static_cast<uint32_t>(i);
-                    std::memcpy(send_buffer.data() + i, &pattern, sizeof(uint32_t));
-                }
-
-                // Send with timeout
-                if (!client->send(send_buffer.data(), msg_size, 100000000)) { // 100ms
-                    send_failures.fetch_add(1);
-                    std::cerr << "Send failed: thread=" << thread_id << " seq=" << msg_seq << '\n';
-                    break;
-                }
-
-                // Receive echo
-                auto response = client->recv(100000000);
-                if (response.empty() || response.size() != msg_size) {
-                    recv_failures.fetch_add(1);
-                    std::cerr << "Recv failed: thread=" << thread_id << " seq=" << msg_seq << " got=" << response.size()
-                              << " expected=" << msg_size << '\n';
-                    break;
-                }
-
-                // Validate echoed data
-                if (std::memcmp(response.data(), send_buffer.data(), msg_size) != 0) {
-                    validation_failures.fetch_add(1);
-                    std::cerr << "Validation failed: thread=" << thread_id << " seq=" << msg_seq << '\n';
-
-                    // Find first mismatch
-                    for (size_t i = 0; i < msg_size; i++) {
-                        if (response.data()[i] != send_buffer[i]) {
-                            std::cerr << "  First mismatch at offset " << i << ": expected=0x" << std::hex
-                                      << static_cast<int>(send_buffer[i]) << " actual=0x"
-                                      << static_cast<int>(response.data()[i]) << std::dec << '\n';
-                            break;
-                        }
-                    }
-                    break;
-                }
-
-                client->release(response.size());
-
-                // No delay - hammer the server as fast as possible to maximize race probability
-            }
-
-            client->close();
-        });
-    }
-
-    // Wait for all producers to finish
-    for (auto& t : producer_threads) {
-        t.join();
-    }
-
-    // Stop server
-    server_running.store(false, std::memory_order_release);
-    race_server->request_shutdown();
-    server_thread.join();
-    race_server->close();
-
-    // Report results
-    // size_t expected_messages = NUM_PRODUCER_THREADS * MESSAGES_PER_THREAD;
-    // std::cerr << "\n=== Concurrent Clients Small Ring High Load Test Results ===" << '\n';
-    // std::cerr << "Expected messages:        " << expected_messages << '\n';
-    // std::cerr << "Messages processed:       " << messages_processed.load() << '\n';
-    // std::cerr << "Data corruption detected: " << data_corruption_detected.load() << '\n';
-    // std::cerr << "Send failures:            " << send_failures.load() << '\n';
-    // std::cerr << "Recv failures:            " << recv_failures.load() << '\n';
-    // std::cerr << "Validation failures:      " << validation_failures.load() << '\n';
-
-    // Test expectations
-    // The PRIMARY goal is detecting corruption - that's the race condition bug
-    // Send/recv failures could indicate the bug OR just heavy load/timeouts
-    EXPECT_EQ(data_corruption_detected.load(), 0) << "*** DATA CORRUPTION DETECTED - RACE CONDITION TRIGGERED! ***";
-    EXPECT_EQ(validation_failures.load(), 0) << "Message validation failed";
-
-    // Report but don't fail on occasional timeouts (they could indicate load or the bug)
-    if (send_failures.load() > 0 || recv_failures.load() > 0) {
-        std::cerr << "WARNING: Some send/recv operations timed out - could indicate bug or just load\n";
-    }
-}
-
 // Single client with constrained buffer under high volume
 // Single client sends 3000 large messages (12-18KB) to a tiny ring buffer (40KB)
 // Tests buffer management under aggressive constraints isolated from concurrency issues
@@ -444,7 +206,7 @@ TEST_F(ShmTest, SingleClientSmallRingHighVolume)
 
     // Use short name for macOS compatibility (31-char limit)
     std::string wrap_test_shm = "shm_wrap_" + std::to_string(getpid());
-    auto wrap_server = IpcServer::create_shm(wrap_test_shm, MAX_CLIENTS, TINY_RING_SIZE, TINY_RING_SIZE);
+    auto wrap_server = IpcServer::create_shm(wrap_test_shm, TINY_RING_SIZE, TINY_RING_SIZE);
     ASSERT_TRUE(wrap_server->listen()) << "Wrap test server failed to listen";
 
     std::atomic<bool> server_running{ true };
@@ -481,7 +243,7 @@ TEST_F(ShmTest, SingleClientSmallRingHighVolume)
 
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    auto client = IpcClient::create_shm(wrap_test_shm, MAX_CLIENTS);
+    auto client = IpcClient::create_shm(wrap_test_shm);
     ASSERT_TRUE(client->connect());
 
     std::vector<uint8_t> send_buffer(24 * 1024);

@@ -161,13 +161,14 @@ class SpscShm {
      */
     void wakeup_all();
 
+    bool wait_for_data(size_t need, uint32_t spin_ns);
+
   private:
     // Private constructor for create/connect factories
     SpscShm(int fd, size_t map_len, SpscCtrl* ctrl, uint8_t* buf);
 
     // Internal helpers
     uint64_t free_space() const;                        // bytes free to write
-    bool wait_for_data(size_t need, uint32_t spin_ns);  // returns true if data available
     bool wait_for_space(size_t need, uint32_t spin_ns); // returns true if space available
 
     int fd_ = -1;

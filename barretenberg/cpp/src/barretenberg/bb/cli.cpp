@@ -547,11 +547,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string msgpack_input_file;
     msgpack_run_command->add_option(
         "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
-    int max_clients = 1;
-    msgpack_run_command
-        ->add_option(
-            "--max-clients", max_clients, "Maximum concurrent clients for shared memory IPC server (default: 1)")
-        ->check(CLI::PositiveNumber);
     size_t request_ring_size = 1024 * 1024; // 1MB default
     msgpack_run_command
         ->add_option(
@@ -562,6 +557,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
         ->add_option("--response-ring-size",
                      response_ring_size,
                      "Response ring buffer size for shared memory IPC (default: 1MB)")
+        ->check(CLI::PositiveNumber);
+    int max_clients = 1;
+    msgpack_run_command
+        ->add_option("--max-clients",
+                     max_clients,
+                     "Maximum concurrent clients for socket IPC servers (default: 1, only used for .sock files)")
         ->check(CLI::PositiveNumber);
 
     /***************************************************************************************************************
