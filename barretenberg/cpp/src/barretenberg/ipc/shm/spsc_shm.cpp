@@ -269,7 +269,7 @@ void* SpscShm::peek(size_t want, uint32_t timeout_ns)
     uint64_t cap = ctrl_->capacity;
     uint64_t mask = ctrl_->mask;
     uint64_t pos = tail & mask;
-    uint64_t till_end = cap - pos;
+    [[maybe_unused]] uint64_t till_end = cap - pos;
 
     // At this point wait_for_data() has guaranteed contiguity from tail
     // (or we would have wrapped via wrap_head), so want must fit here.
