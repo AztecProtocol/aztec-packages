@@ -62,7 +62,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
 
     // If threads not set use 1 thread. We're not expected to do long lived work on sync backends.
     const hwc = threads ? threads.toString() : '1';
-    const env = { ...process.env, HARDWARE_CONCURRENCY: '1' };
+    const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
 
     // Set up file logging if logger is provided.
     // Direct file redirection bypasses Node event loop - logs are written even if process hangs.
@@ -75,7 +75,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     }
 
     // Spawn bb process with shared memory mode (SPSC-only, no max-clients needed)
-    const args = ['msgpack', 'run', '--input', `${shmName}.shm`, '--request-ring-size', `${1024 * 1024 * 2}`];
+    const args = ['msgpack', 'run', '--input', `${shmName}.shm`, '--request-ring-size', `${1024 * 1024 * 4}`];
     const bbProcess = spawn(bbBinaryPath, args, {
       stdio: ['ignore', logFd ?? 'ignore', logFd ?? 'ignore'],
       env,

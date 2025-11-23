@@ -47,7 +47,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
     // Setup native shared memory API (async)
     try {
-      nativeShmApi = await Barretenberg.new({ backend: BackendType.NativeSharedMemoryAsync, threads: 1 });
+      nativeShmApi = await Barretenberg.new({ backend: BackendType.NativeSharedMemory, threads: 1 });
     } catch (error) {
       console.warn(
         'Failed to initialize Native Shared Memory (async) backend:',

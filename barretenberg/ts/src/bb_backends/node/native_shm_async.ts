@@ -33,9 +33,6 @@ let instanceCounter = 0;
  * - TypeScript manages promise queue (single-threaded, no mutex needed)
  * - C++ background thread polls for responses, calls JavaScript callback
  * - JavaScript callback pops queue and resolves promises in FIFO order
- *
- * This architecture eliminates C++ mutex/queue complexity by leveraging
- * JavaScript's single-threaded nature for queue management.
  */
 export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
   private process: ChildProcess;
@@ -44,7 +41,6 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
 
   // Queue of pending callbacks for pipelined requests
   // Responses come back in FIFO order, so we match them with queued callbacks
-  // No mutex needed - JavaScript is single-threaded!
   private pendingCallbacks: Array<{
     resolve: (data: Uint8Array) => void;
     reject: (error: Error) => void;
@@ -101,8 +97,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     const shmName = `bb-async-${process.pid}-${instanceCounter++}`;
 
     // If threads not set use num cpu cores, max 32 (same as socket backend)
-    const os = await import('os');
-    const hwc = threads ? threads.toString() : Math.min(32, os.cpus().length).toString();
+    const hwc = threads ? threads.toString() : '1';
     const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
 
     // Set up file logging if logger is provided
@@ -123,9 +118,9 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
       '--input',
       `${shmName}.shm`,
       '--request-ring-size',
-      `${1024 * 1024 * 4}`, // 4MB request buffer (2x sync version)
+      `${1024 * 1024 * 4}`,
       '--response-ring-size',
-      `${1024 * 1024 * 4}`, // 4MB response buffer
+      `${1024 * 1024 * 4}`,
     ];
     const bbProcess = spawn(bbBinaryPath, args, {
       stdio: ['ignore', logFd ?? 'ignore', logFd ?? 'ignore'],

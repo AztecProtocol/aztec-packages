@@ -8,10 +8,8 @@ export enum BackendType {
   WasmWorker = 'WasmWorker',
   /** Native via Unix domain socket (async only) */
   NativeUnixSocket = 'NativeUnixSocket',
-  /** Native via shared memory (sync only) */
+  /** Native via shared memory */
   NativeSharedMemory = 'NativeSharedMemory',
-  /** Native via shared memory (async with request pipelining) */
-  NativeSharedMemoryAsync = 'NativeSharedMemoryAsync',
 }
 
 export type BackendOptions = {
