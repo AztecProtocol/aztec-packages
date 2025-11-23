@@ -141,12 +141,14 @@ $ while true; do
 */
 TEST(ShmTest, SingleClientSmallRingHighVolume)
 {
-    constexpr size_t TINY_RING_SIZE = 8UL * 1024;
+    constexpr size_t RING_SIZE = 8UL * 1024;
     constexpr size_t NUM_ITERATIONS = 100000;
+    // Sizing ensures that no matter that state of the internal ring buffer, we can't deadlock.
+    constexpr size_t MAX_MSG_SIZE = RING_SIZE / 2 - 4;
 
     // Use short name for macOS compatibility (31-char limit)
     std::string wrap_test_shm = "shm_wrap_" + std::to_string(getpid());
-    auto server = IpcServer::create_shm(wrap_test_shm, TINY_RING_SIZE, TINY_RING_SIZE);
+    auto server = IpcServer::create_shm(wrap_test_shm, RING_SIZE, RING_SIZE);
     ASSERT_TRUE(server->listen()) << "Wrap test server failed to listen";
 
     std::atomic<bool> server_running{ true };
@@ -202,54 +204,74 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
     auto client = IpcClient::create_shm(wrap_test_shm);
     ASSERT_TRUE(client->connect());
 
-    // Use 8KB buffer to allow testing up to full ring size messages
-    std::vector<uint8_t> send_buffer(TINY_RING_SIZE / 2 - 4);
-
     // Random message sizes between 1 byte and 8KB
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<size_t> size_dist(1, send_buffer.size());
+    std::uniform_int_distribution<size_t> size_dist(1, MAX_MSG_SIZE);
 
-    for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
-        size_t size = size_dist(gen);
-        // std::cerr << "Client: Iteration " << iter << ": sending " << size << " bytes" << '\n';
+    // Store sizes for each iteration so receiver knows what to expect
+    std::vector<size_t> iteration_sizes(NUM_ITERATIONS);
+    for (size_t i = 0; i < NUM_ITERATIONS; i++) {
+        iteration_sizes[i] = size_dist(gen);
+        // iteration_sizes[i] = MAX_MSG_SIZE;
+    }
 
-        // Fill buffer with iteration-specific pattern
-        // First byte is iteration number (mod 256), rest is XOR pattern with offset
-        uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
-        for (size_t i = 0; i < size; i++) {
-            send_buffer[i] = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
-        }
+    // Sender thread: continuously send requests
+    std::thread sender_thread([&]() {
+        std::vector<uint8_t> send_buffer(MAX_MSG_SIZE);
 
-        // Retry send until success - timeouts are expected under extreme load
-        while (!client->send(send_buffer.data(), size, 100000000)) {
-            // Timeout - retry (ring might be full, server might be slow)
-            std::cerr << "Client send timeout, retrying..." << '\n';
-        }
+        for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
+            size_t size = iteration_sizes[iter];
+            // std::cerr << "Client: Iteration " << iter << ": sending " << size << " bytes" << '\n';
 
-        // Retry recv until success - timeouts are expected under extreme load
-        std::span<const uint8_t> response;
-        while ((response = client->receive(100000000)).empty()) {
-            // Timeout - retry
-        }
-        // std::cerr << "Client received response of " << response.size() << " bytes" << '\n';
+            // Fill buffer with iteration-specific pattern
+            // First byte is iteration number (mod 256), rest is XOR pattern with offset
+            uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
+            for (size_t i = 0; i < size; i++) {
+                send_buffer[i] = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
+            }
 
-        ASSERT_EQ(response.size(), size) << "Size mismatch at iteration " << iter;
-
-        // Validate entire response - check iteration byte and pattern
-        if (response.size() > 0) {
-            ASSERT_EQ(response[0], iter_byte) << "Iteration byte mismatch at iteration " << iter;
-            for (size_t i = 0; i < response.size(); i++) {
-                uint8_t expected = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
-                if (response[i] != expected) {
-                    FAIL() << "Data corruption at iteration " << iter << " offset " << i
-                           << ": expected=" << (int)expected << " actual=" << (int)response[i];
-                }
+            // Retry send until success - timeouts are expected under extreme load
+            while (!client->send(send_buffer.data(), size, 100000000)) {
+                // Timeout - retry (ring might be full, server might be slow)
+                std::cerr << "Client send timeout, retrying..." << '\n';
             }
         }
+    });
 
-        client->release(response.size());
-    }
+    // Receiver thread: continuously receive and validate responses
+    std::thread receiver_thread([&]() {
+        for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
+            size_t expected_size = iteration_sizes[iter];
+
+            // Retry recv until success - timeouts are expected under extreme load
+            std::span<const uint8_t> response;
+            while ((response = client->receive(100000000)).empty()) {
+                // Timeout - retry
+            }
+            // std::cerr << "Client received response of " << response.size() << " bytes" << '\n';
+
+            ASSERT_EQ(response.size(), expected_size) << "Size mismatch at iteration " << iter;
+
+            // Validate entire response - check iteration byte and pattern
+            uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
+            if (response.size() > 0) {
+                ASSERT_EQ(response[0], iter_byte) << "Iteration byte mismatch at iteration " << iter;
+                for (size_t i = 0; i < response.size(); i++) {
+                    uint8_t expected = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
+                    if (response[i] != expected) {
+                        FAIL() << "Data corruption at iteration " << iter << " offset " << i
+                               << ": expected=" << (int)expected << " actual=" << (int)response[i];
+                    }
+                }
+            }
+
+            client->release(response.size());
+        }
+    });
+
+    sender_thread.join();
+    receiver_thread.join();
 
     client->close();
 

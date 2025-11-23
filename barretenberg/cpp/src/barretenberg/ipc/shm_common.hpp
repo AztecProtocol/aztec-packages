@@ -14,7 +14,8 @@ inline bool ring_send_msg(SpscShm& ring, const void* data, size_t len, uint64_t 
     // Prevent sending messages larger than half the ring buffer capacity.
     // This simplifies wrap-around logic.
     if (len > ring.capacity() / 2 - 4) {
-        throw std::runtime_error("ring_send_msg: message too large for ring buffer");
+        throw std::runtime_error(
+            "ring_send_msg: message too large for ring buffer, must be <= half capacity minus 4 bytes");
     }
 
     // Atomic send: claim space for entire message (length + data)
