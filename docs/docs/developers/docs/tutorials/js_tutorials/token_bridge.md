@@ -15,6 +15,7 @@ Before starting, make sure you have the Aztec local network running at version #
 ## What You'll Build
 
 You'll create two contracts with **privacy at the core**:
+
 - **NFTPunk (L2)** - An NFT contract with encrypted ownership using `PrivateSet`
 - **NFTBridge (L2)** - A bridge that mints NFTs privately when claiming L1 messages
 
@@ -25,7 +26,7 @@ This tutorial focuses on the L2 side to keep things manageable. You'll learn the
 Let's start simple. Since this is an Ethereum project, it's easier to just start with Hardhat:
 
 ```bash
-git clone https://github.com/signorecello/hardhat-aztec-example
+git clone https://github.com/critesjosh/hardhat-aztec-example
 ```
 
 You're cloning a repo here to make it easier for Aztec's `l1-contracts` to be mapped correctly. You should now have a `hardhat-aztec-example` folder with Hardhat's default starter, with a few changes in `package.json`.
@@ -115,10 +116,10 @@ Notes are powerful concepts. Learn more about how to use them in the [state mana
 
 :::
 
-
 ### Define Storage
 
 Back in `main.nr`, you can now build the contract storage. You need:
+
 - **admin**: Who controls the contract (set once, never changes)
 - **minter**: The bridge address (set once by admin)
 - **nfts**: Track which NFTs exist (public, needed for bridging)
@@ -129,7 +130,6 @@ One interesting aspect of this storage configuration is the use of `DelayedPubli
 Write the storage struct and a simple [initializer](../../foundational-topics/contract_creation.md#initialization) to set the admin in the `main.nr` file:
 
 #include_code contract_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
-
 
 ### Utility Functions
 
@@ -220,6 +220,7 @@ NFTPunk = { path = "../nft" }
 ### Understanding Bridges
 
 A bridge has two jobs:
+
 1. **Claim**: When someone deposits an NFT on L1, mint it on L2
 2. **Exit**: When someone wants to withdraw, burn on L2 and unlock on L1
 
@@ -230,7 +231,6 @@ This means having knowledge about the L2 NFT contract, and the bridge on the L1 
 Clean up `main.nr` which is just a placeholder, and let's write the storage struct and the constructor. We'll use `PublicImmutable` since these values never change:
 
 #include_code bridge_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge/src/main.nr rust
-
 
 You can't initialize the `portal` value in the constructor because the L1 portal hasn't been deployed yet. You'll need another function to set it up after the L1 portal is deployed.
 
@@ -283,6 +283,7 @@ An `artifacts` folder should appear with TypeScript bindings for each contract. 
 ## Part 3: The Ethereum Side
 
 Now build the L1 contracts. You need:
+
 - A simple ERC721 NFT contract (the "CryptoPunk")
 - A portal contract that locks/unlocks NFTs and communicates with Aztec
 
@@ -326,9 +327,9 @@ Add these two functions with explanatory comments:
 #include_code portal_deposit_and_withdraw /docs/examples/tutorials/token_bridge_contract/contracts/NFTPortal.sol solidity
 
 The portal handles two flows:
+
 - **depositToAztec**: Locks NFT on L1, sends message to L2
 - **withdraw**: Verifies L2 message, unlocks NFT on L1
-
 
 ### Compile
 
@@ -362,7 +363,6 @@ This section assumes you're working locally using the local network. For the tes
 
 :::
 
-
 ### Deploying and Initializing
 
 First, initialize the clients: `aztec.js` for Aztec and `viem` for Ethereum:
@@ -391,7 +391,6 @@ Complete these initialization steps:
 #include_code initialize_l2_bridge /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
 
 This completes the setup. It's a lot of configuration, but you're dealing with four contracts across two chains.
-
 
 ### L1 → L2 Flow
 
@@ -444,10 +443,12 @@ npx hardhat run scripts/index.ts --network localhost
 A complete private NFT bridge with:
 
 1. **L1 Contracts** (Solidity)
+
    - `SimpleNFT`: Basic ERC721 for testing
    - `NFTPortal`: Locks/unlocks NFTs and handles L1↔L2 messaging
 
 2. **L2 Contracts** (Noir)
+
    - `NFTPunk`: Private NFT with encrypted ownership using `PrivateSet`
    - `NFTBridge`: Claims L1 messages and mints NFTs privately
 
@@ -467,6 +468,7 @@ A complete private NFT bridge with:
 - Add proper access controls
 
 :::tip Learn More
+
 - [State management page](../../foundational-topics/state_management.md)
 - [Cross-chain messaging](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md)
-:::
+  :::
