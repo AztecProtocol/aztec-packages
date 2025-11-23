@@ -283,13 +283,11 @@ Within the **CHONK** proving system, the Merge Protocol achieves zero-knowledge 
 
 Let $r = (r_1, \ldots, r_{40}) \in \mathbb{F}^{40}$ denote these coefficients.
 
-The polynomials $L_j, R_j, M_j$ have the form
-$$F(X)= F^{\mathrm{fixed}}(X)+ F^{\mathrm{rand}}(X) = F^{\mathrm{fixed}}(X) + \sum_{i=1}^{40} r_i  B_i^{F}(X)$$,
-where $\{B_i^{F}(X)\}$ are the basis polynomials determined by which rows the random non-ops occupy on that wire, and for many $i$, $B_i^{F}=0$.
-
 The verifier observes the following.
 
-1. Per wire observables:
+1. Per wire $j \in \{1, 2, 3, 4\}$ observables:
+    - Commitments (copy-constrained between Merge and Translator): $[L_j], [R_j]$
+        - Note that the commitment $[M_j]$ can be determined from $\ell$, $L_j(\tau)$ and $R_j(\tau)$.
     - Merge: $L_j(\kappa)$
     - Merge: $R_j(\kappa)$
         - Note: $M_j(\kappa) = L_j(\kappa) + \kappa^\ell \cdot R_j(\kappa)$ (not an independent constraint)
@@ -297,34 +295,33 @@ The verifier observes the following.
     - Translator: $M_j(u^\prime)$
     - Translator: $M_{j, \text{shifted}}(u^\prime)$
 
-Each wire contributes at most 5 observable values, and hence totalling at most 20.
+Each wire contributes at most 7 observable values, and hence totalling at most 28.
 
 2. Shared observables:
-    - Degree check: $G(X) = X^{\ell - 1} \cdot \sum_{j=1}^4 \alpha_j L_j(X)$, with opening $G(\kappa^{-1})$
+    - Degree check polynomial $G(X) = X^{\ell - 1} \cdot \sum_{j=1}^4 \alpha_j L_j(X^{-1})$:
+        - Commitment: $[G]$
+        - Evaluation: $G(\kappa^{-1})$
+        - Consistency check: $\sum_i \alpha_i L_i(\kappa) = G(\kappa^{-1}) \cdot \kappa^{\ell-1}$ (not new constraint, asserts linear dependence between $L_i(\kappa)$ and $G(\kappa^{-1})$)
 
-    - Shplonk quotient polynomial $Q(X)$, with opening $Q(z)$
+    - Shplonk batching (Batches all 13 opening claims ($4 \times 3$ for $L, R, M$ plus $G$)):
+        - Quotient commitment: $[Q]$
+        - Quotient opening: $Q(z)$
 
-These contribute at most $2$ more observables.
+These contribute at most $4$ more observables.
 
+These polynomials have the form
+$F(X)= F^{\mathrm{fixed}}(X)+ F^{\mathrm{rand}}(X) = F^{\mathrm{fixed}}(X) + \sum_{i=1}^{40} r_i  B_i^{F}(X)$,
+where $\{B_i^{F}(X)\}$ are the basis polynomials determined by which rows the random non-ops occupy on that wire, and for many $i$, $B_i^{F}=0$.
 
-3. Observable commitments:
-
-    - For each wire $j$: $[L_j]$ and $[R_j]$, giving $2\times 4 = 8$ observables
-
-    - For the shared polynomials: $[G]$ and $[Q]$, giving $2$ more observables.
-
-    - Note that the commitment $[M_j]$ adds no new independent constraint because it is determined from $\ell$, $L_j(\tau)$ and $R_j(\tau)$.
-
-Each of these observable values is an evaluation of a linear function of $r$. That is each value is of the form
-$$f_k(r) = \sum_{i=1}^{40} A_{k,i} r_i + c_k$$
+Further, each of these observable values is an evaluation of a linear function of $r$. That is each value is of the form
+$f_k(r) = \sum_{i=1}^{40} A_{k,i} r_i + c_k$
 for $A_{k,i},c_k\in\mathbb{F}$ where $c_k$ denotes the fixed part.
 
 Collecting these, say $N$, observable values into a vector $v\in\mathbb{F}^N$, we can write $v = A r + c$ for a given matrix $A \in \mathbb{F}^{N \times 40}$ and vector $c \in \mathbb{F}^N$.
 
 Thus, the number of linear equations in $r$ induced by this transcript of observable values can be bounded as follows.
-- 20 observables across all wires ($L_j(\kappa), R_j(\kappa), R_j(u), M_j(u'), M_{j,\text{shift}}(u')$)
-- 2 shared observables ($G(\kappa^{-1})$ and $Q(z)$)
-- 10 observables from commitments ($[L_j]$ and $[R_j]$ for $j \in \{1, 2, 3, 4\}$, $[G]$ and $[Q]$)
+- 28 observables across all wires ($[L_j], [R_j], L_j(\kappa), R_j(\kappa), R_j(u), M_j(u'), M_{j,\text{shift}}(u')$ for $j \in \{1, 2, 3, 4\}$)
+- 4 shared observables ($[G], G(\kappa^{-1}), [Q], Q(z)$)
 
 We therefore have at most $32$ linear equations in $40$ unknowns when considering $v = A r + c$. Hence at least $8$ independent coefficients remain uniformly distributed from the verifier’s point of view.  This suffices to hide the contribution of the true ECC op-queue.
 
