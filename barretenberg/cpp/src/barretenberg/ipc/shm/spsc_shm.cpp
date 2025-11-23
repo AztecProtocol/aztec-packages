@@ -147,6 +147,8 @@ SpscShm SpscShm::create(const std::string& name, size_t min_capacity)
     // Initialize atomics with release ordering to ensure capacity/mask/wrap_head are visible
     ctrl->head.store(0ULL, std::memory_order_release);
     ctrl->tail.store(0ULL, std::memory_order_release);
+    ctrl->consumer_blocked.store(false, std::memory_order_release);
+    ctrl->producer_blocked.store(false, std::memory_order_release);
 
     auto* buf = reinterpret_cast<uint8_t*>(ctrl + 1);
     return SpscShm(fd, map_len, ctrl, buf);
@@ -245,7 +247,9 @@ void SpscShm::publish(size_t n)
     // Ensure that head update is visible before waking consumer.
     std::atomic_thread_fence(std::memory_order_release);
 
-    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), 1);
+    if (ctrl_->consumer_blocked.load(std::memory_order_acquire)) {
+        futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), 1);
+    }
 }
 
 void* SpscShm::peek(size_t want, uint32_t timeout_ns)
@@ -299,9 +303,13 @@ void SpscShm::release(size_t n)
 
     uint64_t new_tail = tail + total_release;
     ctrl_->tail.store(new_tail, std::memory_order_release);
+
     // Ensure that tail update is visible before waking producer.
     std::atomic_thread_fence(std::memory_order_release);
-    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), 1);
+
+    if (ctrl_->producer_blocked.load(std::memory_order_acquire)) {
+        futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), 1);
+    }
 }
 
 bool SpscShm::wait_for_data(size_t need, uint32_t timeout_ns)
@@ -384,7 +392,9 @@ bool SpscShm::wait_for_data(size_t need, uint32_t timeout_ns)
     }
 
     // Wait on futex for producer to signal new data
+    ctrl_->consumer_blocked.store(true, std::memory_order_release);
     futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), head_now, remaining_timeout);
+    ctrl_->consumer_blocked.store(false, std::memory_order_relaxed);
 
     bool result = check_available();
     previous_had_data_ = result; // Update flag based on final result
@@ -471,7 +481,9 @@ bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
     }
 
     // Wait on futex for consumer to signal freed space
+    ctrl_->producer_blocked.store(true, std::memory_order_release);
     futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), tail_now, remaining_timeout);
+    ctrl_->producer_blocked.store(false, std::memory_order_relaxed);
 
     bool result = check_space();
     previous_had_space_ = result; // Update flag based on final result

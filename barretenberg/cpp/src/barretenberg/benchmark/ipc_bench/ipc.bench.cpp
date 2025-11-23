@@ -180,7 +180,7 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
 
                         // Receive with retry (100ms timeout)
                         std::span<const uint8_t> response;
-                        while ((response = clients[i]->recv(TIMEOUT_NS)).empty()) {
+                        while ((response = clients[i]->receive(TIMEOUT_NS)).empty()) {
                             // Response not ready, retry
                             if (stop_background.load(std::memory_order_relaxed)) {
                                 return; // Exit if shutting down
@@ -228,7 +228,7 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             }
 
             std::span<const uint8_t> response;
-            while ((response = clients[0]->recv(TIMEOUT_NS)).empty()) {
+            while ((response = clients[0]->receive(TIMEOUT_NS)).empty()) {
                 // Retry until response ready
             }
 
@@ -276,7 +276,7 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
 
             // Receive response with retry
             std::span<const uint8_t> resp;
-            while ((resp = clients[0]->recv(TIMEOUT_NS)).empty()) {
+            while ((resp = clients[0]->receive(TIMEOUT_NS)).empty()) {
                 // Response not ready, retry
             }
 

@@ -20,129 +20,13 @@ using namespace bb::ipc;
 
 namespace {
 
-// Global cleanup for signal handling
-std::atomic<bool> signal_received{ false };
-void signal_handler(int signum)
-{
-    (void)signum;
-    signal_received.store(true);
-    // Exit immediately - gtest TearDown won't be called, so we rely on close() being called in destructors
-    std::_Exit(128 + signum);
-}
-
-// Register signal handlers on test startup
-struct SignalHandlerRegistrar {
-    SignalHandlerRegistrar()
-    {
-        std::signal(SIGINT, signal_handler);
-        std::signal(SIGTERM, signal_handler);
-    }
-} signal_handler_registrar;
-
-// class ShmTest : public ::testing::Test {
-//   protected:
-//     std::string shm_name;
-
-//     std::unique_ptr<IpcServer> server;
-//     std::thread server_thread;
-//     std::atomic<bool> server_running{ false };
-//     std::atomic<size_t> requests_processed{ 0 };
-
-//     void SetUp() override
-//     {
-//         // Generate unique SHM name based on test name + PID for parallel execution
-//         // Use short hash-based names (macOS has 31-char limit)
-//         const ::testing::TestInfo* test_info = ::testing::UnitTest::GetInstance()->current_test_info();
-//         std::string full_name = std::string(test_info->test_suite_name()) + "_" + test_info->name();
-//         std::hash<std::string> hasher;
-//         std::ostringstream oss;
-//         oss << "shm_" << std::hex << (hasher(full_name) & 0xFFFFFF) << "_" << getpid();
-//         shm_name = oss.str();
-
-//         // Create server (SPSC - single client only)
-//         server = IpcServer::create_shm(shm_name);
-//         ASSERT_TRUE(server->listen()) << "Server failed to listen";
-
-//         // Start server thread
-//         server_running.store(true, std::memory_order_release);
-//         server_thread = std::thread([this]() {
-//             // Echo server: receive message and send it back
-
-//             while (server_running.load(std::memory_order_acquire)) {
-//                 // Try to accept connections first (non-blocking)
-//                 server->accept();
-
-//                 int client_id = server->wait_for_data(100000000);
-//                 if (client_id < 0) {
-//                     continue; // Timeout, check running flag
-//                 }
-
-//                 // Receive message (zero-copy for SHM!)
-//                 auto request = server->receive(client_id);
-//                 if (!request.empty()) {
-//                     // Echo the message back
-//                     server->send(client_id, request.data(), request.size());
-//                     requests_processed.fetch_add(1, std::memory_order_relaxed);
-
-//                     // Release the message
-//                     server->release(client_id, request.size());
-//                 }
-//             }
-//         });
-
-//         // Give server more time to fully initialize all shared memory segments
-//         std::this_thread::sleep_for(std::chrono::milliseconds(500));
-//     }
-
-//     void TearDown() override
-//     {
-//         // Stop server
-//         server_running.store(false, std::memory_order_release);
-
-//         // Request shutdown (wakes blocked threads)
-//         if (server_thread.joinable()) {
-//             server->request_shutdown();
-//             server_thread.join();
-//         }
-
-//         // Clean up resources
-//         server->close();
-//         server.reset();
-//     }
-// };
-
-// // Test basic send/receive with small messages
-// TEST_F(ShmTest, BasicEcho)
-// {
-//     auto client = IpcClient::create_shm(shm_name);
-
-//     ASSERT_TRUE(client->connect()) << "Client failed to connect";
-
-//     std::vector<uint8_t> send_data = { 1, 2, 3, 4, 5 };
-
-//     ASSERT_TRUE(client->send(send_data.data(), send_data.size(), 1000000000)); // 1s timeout
-
-//     auto response = client->recv(5000000000); // 5s timeout
-
-//     ASSERT_FALSE(response.empty()) << "Failed to receive response";
-//     ASSERT_EQ(response.size(), send_data.size());
-//     EXPECT_EQ(std::memcmp(response.data(), send_data.data(), send_data.size()), 0);
-
-//     client->release(response.size());
-//     client->close();
-// }
-
 /**
-You can really stress test this with e.g.:
-$ ./ci3/start_interactive
-$ while true; do
-    echo 'dump_fail "build/bin/ipc_tests --gtest_filter='*SingleClientSmallRingHighVolume'" >/dev/null'
-  done | parallel -j250 --halt now,fail=1
-*/
+ * You can really stress test this with grind_ipc.sh
+ */
 TEST(ShmTest, SingleClientSmallRingHighVolume)
 {
     constexpr size_t RING_SIZE = 8UL * 1024;
-    constexpr size_t NUM_ITERATIONS = 100000;
+    constexpr size_t NUM_ITERATIONS = 300000;
     // Sizing ensures that no matter that state of the internal ring buffer, we can't deadlock.
     constexpr size_t MAX_MSG_SIZE = RING_SIZE / 2 - 4;
 
