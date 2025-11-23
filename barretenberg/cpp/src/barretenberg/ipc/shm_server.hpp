@@ -1,8 +1,9 @@
 #pragma once
 
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/ipc/ipc_server.hpp"
-#include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include "ipc_server.hpp"
+#include "shm/spsc_shm.hpp"
+#include "shm_common.hpp"
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
@@ -70,6 +71,7 @@ class ShmServer : public IpcServer {
 
     int wait_for_data(uint64_t timeout_ns) override
     {
+        assert(request_ring_);
         if (!request_ring_.has_value()) {
             return -1;
         }
@@ -81,72 +83,29 @@ class ShmServer : public IpcServer {
         return -1; // Timeout
     }
 
-    std::span<const uint8_t> receive(int client_id) override
+    std::span<const uint8_t> receive([[maybe_unused]] int client_id) override
     {
-        (void)client_id; // Ignored, always single client
         if (!request_ring_.has_value()) {
             return {};
         }
-
-        // Peek the length prefix (4 bytes) with blocking timeout
-        void* len_ptr = request_ring_->peek(sizeof(uint32_t), 100000000); // 100ms timeout
-        if (len_ptr == nullptr) {
-            return {}; // Timeout or client disconnected
-        }
-
-        // Read message length
-        uint32_t msg_len = 0;
-        std::memcpy(&msg_len, len_ptr, sizeof(uint32_t));
-
-        // Release the length prefix
-        request_ring_->release(sizeof(uint32_t));
-
-        // Now peek the message data with blocking timeout
-        void* msg_ptr = request_ring_->peek(msg_len, 100000000);
-        if (msg_ptr == nullptr) {
-            return {}; // Timeout
-        }
-
-        // Return span directly into ring buffer (zero-copy!)
-        return std::span<const uint8_t>(static_cast<const uint8_t*>(msg_ptr), msg_len);
+        // TODO: Plumb timeout.
+        return ring_receive_msg(request_ring_.value(), 100000000); // 100ms timeout
     }
 
-    void release(int client_id, size_t message_size) override
+    void release([[maybe_unused]] int client_id, size_t message_size) override
     {
-        (void)client_id; // Ignored, always single client
         if (!request_ring_.has_value()) {
             return;
         }
-
-        // Release just the message data (length prefix was already released in receive())
-        request_ring_->release(message_size);
+        request_ring_->release(sizeof(uint32_t) + message_size);
     }
 
-    bool send(int client_id, const void* data, size_t len) override
+    bool send([[maybe_unused]] int client_id, const void* data, size_t len) override
     {
-        (void)client_id; // Ignored, always single client
         if (!response_ring_.has_value()) {
             return false;
         }
-
-        // Claim and publish length prefix separately
-        void* len_buf = response_ring_->claim(sizeof(uint32_t), 100000000); // 100ms timeout
-        if (len_buf == nullptr) {
-            return false; // Timeout or no space
-        }
-        auto len_u32 = static_cast<uint32_t>(len);
-        std::memcpy(len_buf, &len_u32, sizeof(uint32_t));
-        response_ring_->publish(sizeof(uint32_t));
-
-        // Claim and publish message data separately
-        void* data_buf = response_ring_->claim(len, 100000000); // 100ms timeout
-        if (data_buf == nullptr) {
-            return false; // Timeout or no space
-        }
-        std::memcpy(data_buf, data, len);
-        response_ring_->publish(len);
-
-        return true;
+        return ring_send_msg(response_ring_.value(), data, len, 100000000);
     }
 
     void close() override { close_internal(); }

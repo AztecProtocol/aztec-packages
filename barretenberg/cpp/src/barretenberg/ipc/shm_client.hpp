@@ -1,7 +1,9 @@
 #pragma once
 
-#include "barretenberg/ipc/ipc_client.hpp"
-#include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include "ipc_client.hpp"
+#include "shm/spsc_shm.hpp"
+#include "shm_common.hpp"
+#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
@@ -62,25 +64,7 @@ class ShmClient : public IpcClient {
         if (!request_ring_.has_value()) {
             return false;
         }
-
-        // Claim and publish length prefix
-        void* len_buf = request_ring_->claim(sizeof(uint32_t), static_cast<uint32_t>(timeout_ns));
-        if (len_buf == nullptr) {
-            return false; // Timeout or no space
-        }
-        auto len_u32 = static_cast<uint32_t>(len);
-        std::memcpy(len_buf, &len_u32, sizeof(uint32_t));
-        request_ring_->publish(sizeof(uint32_t));
-
-        // Claim and publish message data
-        void* data_buf = request_ring_->claim(len, static_cast<uint32_t>(timeout_ns));
-        if (data_buf == nullptr) {
-            return false; // Timeout or no space
-        }
-        std::memcpy(data_buf, data, len);
-        request_ring_->publish(len);
-
-        return true;
+        return ring_send_msg(request_ring_.value(), data, len, timeout_ns);
     }
 
     std::span<const uint8_t> recv(uint64_t timeout_ns) override
@@ -88,28 +72,7 @@ class ShmClient : public IpcClient {
         if (!response_ring_.has_value()) {
             return {};
         }
-
-        // Peek the length prefix (4 bytes)
-        void* len_ptr = response_ring_->peek(sizeof(uint32_t), static_cast<uint32_t>(timeout_ns));
-        if (len_ptr == nullptr) {
-            return {}; // Timeout
-        }
-
-        // Read message length
-        uint32_t msg_len = 0;
-        std::memcpy(&msg_len, len_ptr, sizeof(uint32_t));
-
-        // Release the length prefix
-        response_ring_->release(sizeof(uint32_t));
-
-        // Now peek the message data
-        void* msg_ptr = response_ring_->peek(msg_len, static_cast<uint32_t>(timeout_ns));
-        if (msg_ptr == nullptr) {
-            return {}; // Timeout
-        }
-
-        // Return span directly into ring buffer (zero-copy!)
-        return std::span<const uint8_t>(static_cast<const uint8_t*>(msg_ptr), msg_len);
+        return ring_receive_msg(response_ring_.value(), timeout_ns);
     }
 
     void release(size_t message_size) override
@@ -117,9 +80,7 @@ class ShmClient : public IpcClient {
         if (!response_ring_.has_value()) {
             return;
         }
-
-        // Release just the message data (length prefix was already released in recv())
-        response_ring_->release(message_size);
+        response_ring_->release(sizeof(uint32_t) + message_size);
     }
 
     void close() override

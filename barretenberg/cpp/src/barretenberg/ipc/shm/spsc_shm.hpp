@@ -28,19 +28,20 @@ constexpr size_t SPSC_CACHELINE = 64;
 struct alignas(SPSC_CACHELINE) SpscCtrl {
     // Producer-owned (written by producer, read by consumer)
     alignas(SPSC_CACHELINE) std::atomic<uint64_t> head; // bytes written
-    std::array<char, SPSC_CACHELINE - sizeof(head)> _pad0;
+    uint64_t wrap_head; // Head value when last message wrapped (UINT64_MAX = no wrap), synchronized by head
+    std::array<char, SPSC_CACHELINE - sizeof(head) - sizeof(wrap_head)> _pad0;
 
     // Consumer-owned (written by consumer, read by producer)
     alignas(SPSC_CACHELINE) std::atomic<uint64_t> tail; // bytes consumed
     std::array<char, SPSC_CACHELINE - sizeof(tail)> _pad1;
 
     // Producer-owned sequencer (written by producer in publish())
-    alignas(SPSC_CACHELINE) std::atomic<uint32_t> data_seq;
-    std::array<char, SPSC_CACHELINE - sizeof(data_seq)> _pad2;
+    // alignas(SPSC_CACHELINE) std::atomic<uint32_t> data_seq;
+    // std::array<char, SPSC_CACHELINE - sizeof(data_seq) - sizeof(wrap_head)> _pad2;
 
     // Consumer-owned sequencer (written by consumer in release())
-    alignas(SPSC_CACHELINE) std::atomic<uint32_t> space_seq;
-    std::array<char, SPSC_CACHELINE - sizeof(space_seq)> _pad3;
+    // alignas(SPSC_CACHELINE) std::atomic<uint32_t> space_seq;
+    // std::array<char, SPSC_CACHELINE - sizeof(space_seq)> _pad3;
 
     // Immutable capacity information
     alignas(SPSC_CACHELINE) uint64_t capacity; // power of two
@@ -107,6 +108,8 @@ class SpscShm {
     // Introspection
     uint64_t available() const; // bytes ready to read
 
+    uint64_t capacity() const { return ctrl_->capacity; }
+
     /**
      * Producer API: claim() and publish() must be used in pairs
      *
@@ -160,14 +163,11 @@ class SpscShm {
     void wakeup_all();
 
     bool wait_for_data(size_t need, uint32_t spin_ns);
+    bool wait_for_space(size_t need, uint32_t spin_ns);
 
   private:
     // Private constructor for create/connect factories
     SpscShm(int fd, size_t map_len, SpscCtrl* ctrl, uint8_t* buf);
-
-    // Internal helpers
-    uint64_t free_space() const;                        // bytes free to write
-    bool wait_for_space(size_t need, uint32_t spin_ns); // returns true if space available
 
     int fd_ = -1;
     size_t map_len_ = 0;
