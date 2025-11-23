@@ -244,10 +244,9 @@ void SpscShm::publish(size_t n)
     // Advance head atomically with release - synchronizes wrap_head write
     ctrl_->head.store(head + total_advance, std::memory_order_release);
 
-    // Ensure that head update is visible before waking consumer.
-    std::atomic_thread_fence(std::memory_order_release);
-
     if (ctrl_->consumer_blocked.load(std::memory_order_acquire)) {
+        // Ensure that head update is visible before waking consumer.
+        std::atomic_thread_fence(std::memory_order_release);
         futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), 1);
     }
 }
@@ -304,10 +303,9 @@ void SpscShm::release(size_t n)
     uint64_t new_tail = tail + total_release;
     ctrl_->tail.store(new_tail, std::memory_order_release);
 
-    // Ensure that tail update is visible before waking producer.
-    std::atomic_thread_fence(std::memory_order_release);
-
     if (ctrl_->producer_blocked.load(std::memory_order_acquire)) {
+        // Ensure that tail update is visible before waking producer.
+        std::atomic_thread_fence(std::memory_order_release);
         futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), 1);
     }
 }
@@ -386,13 +384,16 @@ bool SpscShm::wait_for_data(size_t need, uint32_t timeout_ns)
 
     // About to block - load seq, final check, then block
     uint32_t head_now = static_cast<uint32_t>(ctrl_->head.load(std::memory_order_acquire));
+
+    ctrl_->consumer_blocked.store(true, std::memory_order_release);
+
     if (check_available()) {
+        ctrl_->consumer_blocked.store(false, std::memory_order_relaxed);
         previous_had_data_ = true; // Found data before blocking
         return true;
     }
 
     // Wait on futex for producer to signal new data
-    ctrl_->consumer_blocked.store(true, std::memory_order_release);
     futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), head_now, remaining_timeout);
     ctrl_->consumer_blocked.store(false, std::memory_order_relaxed);
 
@@ -475,13 +476,16 @@ bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
 
     // About to block - load seq, final check, then block
     uint32_t tail_now = static_cast<uint32_t>(ctrl_->tail.load(std::memory_order_acquire));
+
+    // Wait on futex for consumer to signal freed space
+    ctrl_->producer_blocked.store(true, std::memory_order_release);
+
     if (check_space()) {
+        ctrl_->producer_blocked.store(false, std::memory_order_relaxed);
         previous_had_space_ = true; // Found space before blocking
         return true;
     }
 
-    // Wait on futex for consumer to signal freed space
-    ctrl_->producer_blocked.store(true, std::memory_order_release);
     futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), tail_now, remaining_timeout);
     ctrl_->producer_blocked.store(false, std::memory_order_relaxed);
 
