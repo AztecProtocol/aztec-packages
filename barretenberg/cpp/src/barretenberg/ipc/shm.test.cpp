@@ -142,12 +142,12 @@ $ while true; do
 TEST(ShmTest, SingleClientSmallRingHighVolume)
 {
     constexpr size_t TINY_RING_SIZE = 8UL * 1024;
-    constexpr size_t NUM_ITERATIONS = 10000;
+    constexpr size_t NUM_ITERATIONS = 100000;
 
     // Use short name for macOS compatibility (31-char limit)
     std::string wrap_test_shm = "shm_wrap_" + std::to_string(getpid());
-    auto wrap_server = IpcServer::create_shm(wrap_test_shm, TINY_RING_SIZE, TINY_RING_SIZE);
-    ASSERT_TRUE(wrap_server->listen()) << "Wrap test server failed to listen";
+    auto server = IpcServer::create_shm(wrap_test_shm, TINY_RING_SIZE, TINY_RING_SIZE);
+    ASSERT_TRUE(server->listen()) << "Wrap test server failed to listen";
 
     std::atomic<bool> server_running{ true };
     std::atomic<size_t> corruptions{ 0 };
@@ -155,39 +155,45 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
     // Echo server with validation
     std::thread server_thread([&]() {
         while (server_running.load(std::memory_order_acquire)) {
-            wrap_server->accept();
+            server->accept();
 
-            int client_id = wrap_server->wait_for_data(10000000); // 10ms
+            int client_id = server->wait_for_data(10000000); // 10ms
             if (client_id < 0) {
                 continue;
             }
 
-            auto request = wrap_server->receive(client_id);
+            auto request_buf = server->receive(client_id);
             // std::cerr << "Server received " << request.size() << " bytes" << '\n';
-            if (!request.empty()) {
-                // Validate pattern: first byte should be XOR with offsets
-                // Check a few bytes to detect corruption without slowing down too much
-                if (request.size() > 0) {
-                    uint8_t first = request[0];
-                    for (size_t i = 0; i < std::min(request.size(), size_t(16)); i++) {
-                        uint8_t expected = static_cast<uint8_t>((first ^ i) & 0xFF);
-                        if (request[i] != expected) {
-                            corruptions.fetch_add(1);
-                            std::cerr << "Pattern mismatch at offset " << i << ": expected=" << (int)expected
-                                      << " actual=" << (int)request[i] << '\n';
-                            break;
-                        }
+
+            if (request_buf.empty()) {
+                continue;
+            }
+
+            // Take a copy of the request so we can release.
+            std::vector<uint8_t> request(request_buf.begin(), request_buf.end());
+            server->release(client_id, request.size());
+
+            // Validate pattern: first byte should be XOR with offsets
+            // Check a few bytes to detect corruption without slowing down too much
+            if (request.size() > 0) {
+                uint8_t first = request[0];
+                for (size_t i = 0; i < std::min(request.size(), size_t(16)); i++) {
+                    uint8_t expected = static_cast<uint8_t>((first ^ i) & 0xFF);
+                    if (request[i] != expected) {
+                        corruptions.fetch_add(1);
+                        std::cerr << "Pattern mismatch at offset " << i << ": expected=" << (int)expected
+                                  << " actual=" << (int)request[i] << '\n';
+                        break;
                     }
                 }
-
-                // Retry send until success - must succeed before releasing request
-                while (!wrap_server->send(client_id, request.data(), request.size())) {
-                    // Timeout - retry (response ring might be full)
-                    std::cerr << "Server send timeout, retrying..." << '\n';
-                }
-                // std::cerr << "Server sent response of " << request.size() << " bytes" << '\n';
-                wrap_server->release(client_id, request.size());
             }
+
+            // Retry send until success.
+            while (!server->send(client_id, request.data(), request.size())) {
+                // Timeout - retry (response ring might be full)
+                std::cerr << "Server send timeout, retrying..." << '\n';
+            }
+            // std::cerr << "Server sent response of " << request.size() << " bytes" << '\n';
         }
     });
 
@@ -197,7 +203,7 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
     ASSERT_TRUE(client->connect());
 
     // Use 8KB buffer to allow testing up to full ring size messages
-    std::vector<uint8_t> send_buffer(TINY_RING_SIZE / 8);
+    std::vector<uint8_t> send_buffer(TINY_RING_SIZE / 2 - 4);
 
     // Random message sizes between 1 byte and 8KB
     std::random_device rd;
@@ -206,7 +212,7 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
 
     for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
         size_t size = size_dist(gen);
-        std::cerr << "Client: Iteration " << iter << ": sending " << size << " bytes" << '\n';
+        // std::cerr << "Client: Iteration " << iter << ": sending " << size << " bytes" << '\n';
 
         // Fill buffer with iteration-specific pattern
         // First byte is iteration number (mod 256), rest is XOR pattern with offset
@@ -223,10 +229,10 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
 
         // Retry recv until success - timeouts are expected under extreme load
         std::span<const uint8_t> response;
-        while ((response = client->recv(100000000)).empty()) {
+        while ((response = client->receive(100000000)).empty()) {
             // Timeout - retry
         }
-        std::cerr << "Client received response of " << response.size() << " bytes" << '\n';
+        // std::cerr << "Client received response of " << response.size() << " bytes" << '\n';
 
         ASSERT_EQ(response.size(), size) << "Size mismatch at iteration " << iter;
 
@@ -248,9 +254,9 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
     client->close();
 
     server_running.store(false);
-    wrap_server->request_shutdown();
+    server->request_shutdown();
     server_thread.join();
-    wrap_server->close();
+    server->close();
 
     EXPECT_EQ(corruptions.load(), 0) << "Corruptions detected in single-threaded wrap test";
 }

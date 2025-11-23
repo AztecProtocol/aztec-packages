@@ -67,7 +67,7 @@ class ShmClient : public IpcClient {
         return ring_send_msg(request_ring_.value(), data, len, timeout_ns);
     }
 
-    std::span<const uint8_t> recv(uint64_t timeout_ns) override
+    std::span<const uint8_t> receive(uint64_t timeout_ns) override
     {
         if (!response_ring_.has_value()) {
             return {};

@@ -55,7 +55,7 @@ void MsgpackClientAsync::poll_responses()
 
     while (true) { // Run forever until process exits
         // Poll for response (blocks with timeout using futex)
-        std::span<const uint8_t> response = client_->recv(TIMEOUT_NS);
+        std::span<const uint8_t> response = client_->receive(TIMEOUT_NS);
 
         if (response.empty()) {
             // Timeout - just continue polling

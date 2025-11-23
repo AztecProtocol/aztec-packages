@@ -35,7 +35,7 @@ class ShmServer : public IpcServer {
         , response_ring_size_(response_ring_size)
     {}
 
-    ~ShmServer() override { close_internal(); }
+    ~ShmServer() override { close(); }
 
     // Non-copyable, non-movable (owns shared memory resources)
     ShmServer(const ShmServer&) = delete;
@@ -108,7 +108,18 @@ class ShmServer : public IpcServer {
         return ring_send_msg(response_ring_.value(), data, len, 100000000);
     }
 
-    void close() override { close_internal(); }
+    void close() override
+    {
+        // Close rings
+        request_ring_.reset();
+        response_ring_.reset();
+
+        // Clean up shared memory
+        std::string req_name = base_name_ + "_request";
+        std::string resp_name = base_name_ + "_response";
+        SpscShm::unlink(req_name);
+        SpscShm::unlink(resp_name);
+    }
 
     void wakeup_all() override
     {
@@ -122,19 +133,6 @@ class ShmServer : public IpcServer {
     }
 
   private:
-    void close_internal()
-    {
-        // Close rings
-        request_ring_.reset();
-        response_ring_.reset();
-
-        // Clean up shared memory
-        std::string req_name = base_name_ + "_request";
-        std::string resp_name = base_name_ + "_response";
-        SpscShm::unlink(req_name);
-        SpscShm::unlink(resp_name);
-    }
-
     std::string base_name_;
     size_t request_ring_size_;
     size_t response_ring_size_;

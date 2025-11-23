@@ -252,22 +252,17 @@ void* SpscShm::peek(size_t want, uint32_t timeout_ns)
 {
     // Wait for contiguous data to be available
     if (!wait_for_data(want, timeout_ns)) {
-        std::cerr << "PEEK TIMEOUT: want=" << want << " timeout_ns=" << timeout_ns << "\n";
         return nullptr; // Timeout
     }
 
     // Read head with acquire to synchronize wrap_head
-    uint64_t head = ctrl_->head.load(std::memory_order_acquire);
+    ctrl_->head.load(std::memory_order_acquire);
 
     uint64_t tail = ctrl_->tail.load(std::memory_order_relaxed);
-
-    std::cerr << "peek(want=" << want << "): head=" << head << " tail=" << tail << " wrap_head=" << ctrl_->wrap_head
-              << "\n";
 
     // Check if we're at the position where a message wrapped
     // If tail == wrap_head, the message starts at position 0
     if (tail == ctrl_->wrap_head) {
-        std::cerr << "  -> wrapped message, returning buf_\n";
         return buf_;
     }
 
@@ -275,8 +270,6 @@ void* SpscShm::peek(size_t want, uint32_t timeout_ns)
     uint64_t mask = ctrl_->mask;
     uint64_t pos = tail & mask;
     uint64_t till_end = cap - pos;
-
-    std::cerr << "  -> pos=" << pos << " till_end=" << till_end << "\n";
 
     // At this point wait_for_data() has guaranteed contiguity from tail
     // (or we would have wrapped via wrap_head), so want must fit here.

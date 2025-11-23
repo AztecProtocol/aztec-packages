@@ -52,7 +52,7 @@ class IpcClient {
      *
      * Must be followed by release() to consume the message.
      */
-    virtual std::span<const uint8_t> recv(uint64_t timeout_ns) = 0;
+    virtual std::span<const uint8_t> receive(uint64_t timeout_ns) = 0;
 
     /**
      * @brief Release the previously received message
