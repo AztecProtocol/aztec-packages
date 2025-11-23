@@ -146,17 +146,64 @@ This creates circuit witnesses for:
 - Proofs in the verification queue
 - Verification keys and their hashes
 
-## Databus and Commitments
+## Databus
+
+The databus enables data passing between circuits in the IVC chain through commitment equality checks.
+
+### Databus Columns
+
+Each circuit has three databus columns:
+
+| Column | Purpose |
+|--------|---------|
+| `calldata` | Input from previous kernel's return data |
+| `secondary_calldata` | Input from previous app's return data |
+| `return_data` | Output to be consumed by next circuit |
+
+### Data Flow
+
+```
+App₀ ──return_data──┐
+                    ↓
+              Kernel₀ ←─calldata─── (empty for first kernel)
+                │
+          return_data
+                ↓
+App₁ ──return_data──┐
+                    ↓
+              Kernel₁ ←─calldata─── Kernel₀.return_data
+                      ←─secondary_calldata─── App₁.return_data
+```
+
+### Consistency Checks
+
+The databus ensures data integrity through commitment equality checks. For circuit $i$ verified in circuit $i+1$:
+
+$$[R_{i-1}] = [C_i]$$
+
+where $R$ = return data commitment, $C$ = calldata commitment.
+
+In practice, circuit $i+1$ checks:
+- `π_i.public_inputs.[kernel_return_data] == π_i.[calldata]`
+- `π_i.public_inputs.[app_return_data] == π_i.[secondary_calldata]`
 
 ### DataBusDepot
 
-Manages linking of databus commitments between circuits:
-- Tracks table commitments (calldata, returndata, etc.)
-- Ensures consistency across the IVC chain
+Manages propagation of return data commitments between circuits:
 
-### Table Commitments
+```cpp
+DataBusDepot bus_depot;
 
-Each circuit produces commitments to its wire polynomials. These must be linked correctly for databus operations to work across circuits.
+// Set commitments from previous circuits
+bus_depot.set_app_return_data_commitment(app_commitment);
+bus_depot.set_kernel_return_data_commitment(kernel_commitment);
+
+// Retrieve for consistency checks (or get default if none exists)
+auto kernel_return = bus_depot.get_kernel_return_data_commitment(builder);
+auto app_return = bus_depot.get_app_return_data_commitment(builder);
+```
+
+When no previous commitment exists (e.g., first kernel has no previous kernel), a default commitment is used that satisfies the consistency check with empty calldata.
 
 ## Zero-Knowledge Handling
 
