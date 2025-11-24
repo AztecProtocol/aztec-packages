@@ -94,7 +94,20 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
         nativeSocketTime = performance.now() - nativeSocketStart;
       }
 
-      // Benchmark 3: Native Shared Memory (async)
+      // Benchmark 3: Native Socket (async, request pipelined)
+      let nativeSocketPipelinedTime = 0;
+      if (nativeSocketApi) {
+        const nativeSocketPipelinedStart = performance.now();
+        // Use promise.all to pipeline requests
+        const promises = [];
+        for (let i = 0; i < ITERATIONS; i++) {
+          promises.push(nativeSocketApi.poseidon2Hash({ inputs }));
+        }
+        await Promise.all(promises);
+        nativeSocketPipelinedTime = performance.now() - nativeSocketPipelinedStart;
+      }
+
+      // Benchmark 4: Native Shared Memory (async)
       let nativeShmTime = 0;
       if (nativeShmApi) {
         const nativeShmStart = performance.now();
@@ -104,7 +117,20 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
         nativeShmTime = performance.now() - nativeShmStart;
       }
 
-      // Benchmark 4: Native Shared Memory (sync)
+      // Benchmark 5: Native Shared Memory (async, request pipelined)
+      let nativeShmPipelinedTime = 0;
+      if (nativeShmApi) {
+        const nativeShmPipelinedStart = performance.now();
+        // Use promise.all to pipeline requests
+        const promises = [];
+        for (let i = 0; i < ITERATIONS; i++) {
+          promises.push(nativeShmApi.poseidon2Hash({ inputs }));
+        }
+        await Promise.all(promises);
+        nativeShmPipelinedTime = performance.now() - nativeShmPipelinedStart;
+      }
+
+      // Benchmark 6: Native Shared Memory (sync)
       let nativeShmSyncTime = 0;
       if (nativeShmSyncApi) {
         const nativeShmSyncStart = performance.now();
@@ -116,16 +142,20 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
       // Calculate metrics (all relative to WASM baseline)
       const nativeSocketOverhead = ((nativeSocketTime - wasmTime) / wasmTime) * 100;
+      const nativeSocketPipelinedOverhead = ((nativeSocketPipelinedTime - wasmTime) / wasmTime) * 100;
       const nativeShmOverhead = ((nativeShmTime - wasmTime) / wasmTime) * 100;
+      const nativeShmPipelinedOverhead = ((nativeShmPipelinedTime - wasmTime) / wasmTime) * 100;
       const nativeShmSyncOverhead = ((nativeShmSyncTime - wasmTime) / wasmTime) * 100;
 
       const avgWasmTimeUs = (wasmTime / ITERATIONS) * 1000;
       const avgNativeSocketTimeUs = (nativeSocketTime / ITERATIONS) * 1000;
+      const avgNativeSocketPipelinedTimeUs = (nativeSocketPipelinedTime / ITERATIONS) * 1000;
       const avgNativeShmTimeUs = (nativeShmTime / ITERATIONS) * 1000;
+      const avgNativeShmPipelinedTimeUs = (nativeShmPipelinedTime / ITERATIONS) * 1000;
       const avgNativeShmSyncTimeUs = (nativeShmSyncTime / ITERATIONS) * 1000;
 
       process.stdout.write(
-        `┌─ Size ${size.toString().padStart(3)} field elements ──────────────────────────────────┐\n`,
+        `┌─ Size ${size.toString().padStart(3)} field elements ───────────────────────────────────────┐\n`,
       );
       const formatOverhead = (overhead: number): string => {
         const sign = overhead >= 0 ? '+' : '-';
@@ -135,37 +165,57 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
       if (wasmApi) {
         process.stdout.write(
-          `│ WASM:               ${wasmTime.toFixed(2).padStart(8)}ms (${avgWasmTimeUs.toFixed(2).padStart(7)}µs/call) [baseline] │\n`,
+          `│ WASM:                    ${wasmTime.toFixed(2).padStart(8)}ms (${avgWasmTimeUs.toFixed(2).padStart(7)}µs/call) [baseline] │\n`,
         );
       } else {
-        process.stdout.write(`│ WASM:                                          unavailable │\n`);
+        process.stdout.write(`│ WASM:                                               unavailable │\n`);
       }
 
       if (nativeSocketApi) {
         process.stdout.write(
-          `│ Native Socket:      ${nativeSocketTime.toFixed(2).padStart(8)}ms (${avgNativeSocketTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(nativeSocketOverhead)}   │\n`,
+          `│ Native Socket:           ${nativeSocketTime.toFixed(2).padStart(8)}ms (${avgNativeSocketTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(nativeSocketOverhead)}   │\n`,
         );
       } else {
-        process.stdout.write(`│ Native Socket:                                 unavailable │\n`);
+        process.stdout.write(`│ Native Socket:                                      unavailable │\n`);
+      }
+
+      if (nativeSocketApi) {
+        process.stdout.write(
+          `│ Native Socket Pipelined: ${nativeSocketPipelinedTime
+            .toFixed(2)
+            .padStart(8)}ms (${avgNativeSocketPipelinedTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(
+            nativeSocketPipelinedOverhead,
+          )}   │\n`,
+        );
+      } else {
+        process.stdout.write(`│ Native Socket Pipelined:                            unavailable │\n`);
       }
 
       if (nativeShmApi) {
         process.stdout.write(
-          `│ Native Shared:      ${nativeShmTime.toFixed(2).padStart(8)}ms (${avgNativeShmTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(nativeShmOverhead)}   │\n`,
+          `│ Native Shared:           ${nativeShmTime.toFixed(2).padStart(8)}ms (${avgNativeShmTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(nativeShmOverhead)}   │\n`,
         );
       } else {
-        process.stdout.write(`│ Native Shared:                                 unavailable │\n`);
+        process.stdout.write(`│ Native Shared:                                      unavailable │\n`);
+      }
+
+      if (nativeShmApi) {
+        process.stdout.write(
+          `│ Native Shared Pipelined: ${nativeShmPipelinedTime.toFixed(2).padStart(8)}ms (${avgNativeShmPipelinedTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(nativeShmPipelinedOverhead)}   │\n`,
+        );
+      } else {
+        process.stdout.write(`│ Native Shared Pipelined:                            unavailable │\n`);
       }
 
       if (nativeShmSyncApi) {
         process.stdout.write(
-          `│ Native Shared Sync: ${nativeShmSyncTime.toFixed(2).padStart(8)}ms (${avgNativeShmSyncTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(nativeShmSyncOverhead)}   │\n`,
+          `│ Native Shared Sync:      ${nativeShmSyncTime.toFixed(2).padStart(8)}ms (${avgNativeShmSyncTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(nativeShmSyncOverhead)}   │\n`,
         );
       } else {
-        process.stdout.write(`│ Native Shared Sync:                            unavailable │\n`);
+        process.stdout.write(`│ Native Shared Sync:                                 unavailable │\n`);
       }
 
-      process.stdout.write(`└────────────────────────────────────────────────────────────┘\n`);
+      process.stdout.write(`└─────────────────────────────────────────────────────────────────┘\n`);
 
       const wasmResult = await wasmApi!.poseidon2Hash({ inputs });
 

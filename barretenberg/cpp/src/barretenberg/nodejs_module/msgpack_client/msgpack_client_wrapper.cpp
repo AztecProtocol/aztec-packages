@@ -17,14 +17,8 @@ MsgpackClientWrapper::MsgpackClientWrapper(const Napi::CallbackInfo& info)
     }
     std::string shm_name = info[0].As<Napi::String>();
 
-    // Arg 1: max clients (number, default 1)
-    size_t max_clients = 1;
-    if (info.Length() > 1 && info[1].IsNumber()) {
-        max_clients = info[1].As<Napi::Number>().Uint32Value();
-    }
-
-    // Create shared memory client
-    client_ = bb::ipc::IpcClient::create_shm(shm_name, max_clients);
+    // Create shared memory client (SPSC-only, no max_clients needed)
+    client_ = bb::ipc::IpcClient::create_shm(shm_name);
 
     // Connect to bb server
     if (!client_->connect()) {
@@ -69,7 +63,7 @@ Napi::Value MsgpackClientWrapper::call(const Napi::CallbackInfo& info)
     // Receive response with retry (1s timeout per attempt)
     // Loop until response is ready - handles case where server is processing
     std::span<const uint8_t> response;
-    while ((response = client_->recv(TIMEOUT_NS)).empty()) {
+    while ((response = client_->receive(TIMEOUT_NS)).empty()) {
         // Response not ready yet, server is processing - retry
     }
 
