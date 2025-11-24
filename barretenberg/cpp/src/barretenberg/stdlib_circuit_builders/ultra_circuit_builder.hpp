@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
+#include "boomerang_utils.hpp"
 #include "circuit_builder_base.hpp"
 #include "rom_ram_logic.hpp"
 #include <deque>
@@ -614,91 +615,39 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // TOOLING: Boomerang Detection
     // ========================================================================================
     // The boomerang mechanism enables detection of variables used in only one gate, which may
-    // indicate bugs.
-    // Note: some patterns (like x*(x^-1)=1 for non-zero checks) intentionally employ single-use witnesses. These
-    // members and methods allow excluding such witnesses from boomerang detection.
-
-  private:
-    // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
-    std::vector<uint32_t> used_witnesses;
-    // Witnesses that can be in one logic gate. We use it to check that all logic constraints
-    // were created correctly
-    std::unordered_set<uint32_t> logic_gate_witnesses;
-    std::vector<std::unordered_set<uint32_t>> logic_witnesses;
-    // Witnesses that appear in finalize method (used in boomerang catcher). Need to check
-    // that all variables from some connected component were created after finalize method was called
-    std::unordered_set<uint32_t> finalize_witnesses;
+    // indicate bugs. See BoomerangUtils class for implementation details.
 
   public:
-    const std::vector<uint32_t>& get_used_witnesses() const { return used_witnesses; }
-    const std::unordered_set<uint32_t>& get_finalize_witnesses() const { return finalize_witnesses; }
+    BoomerangUtils boomerang_utils;
 
-    /**
-     * @brief Add a witness index to the boomerang exclusion list
-     * @param var_idx Witness index to add to the boomerang exclusion list
-     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
-     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
-     * when we show that x!=0 -> x*(x^-1) = 1).
-     */
-    void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
-
-    /**
-     * @brief Add a list of witness indices to the boomerang exclusion list
-     * @param used_indices List of witness indices to add to the boomerang exclusion list
-     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
-     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
-     * when we show that x!=0 -> x*(x^-1) = 1).
-     */
+    // Delegating methods for backward compatibility
+    const std::vector<uint32_t>& get_used_witnesses() const { return boomerang_utils.get_used_witnesses(); }
+    const std::unordered_set<uint32_t>& get_finalize_witnesses() const
+    {
+        return boomerang_utils.get_finalize_witnesses();
+    }
+    void update_used_witnesses(uint32_t var_idx) { boomerang_utils.update_used_witnesses(var_idx); }
     void update_used_witnesses(const std::vector<uint32_t>& used_indices)
     {
-        used_witnesses.reserve(used_witnesses.size() + used_indices.size());
-        for (const auto& it : used_indices) {
-            used_witnesses.emplace_back(it);
-        }
+        boomerang_utils.update_used_witnesses(used_indices);
     }
-
-    /**
-     * @brief Add a witness index to the finalize exclusion list
-     * @param var_idx Witness index to add to the finalize exclusion list
-     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
-     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
-     * connected through the set permutation. We want to exclude these variables from this detection.
-     */
-    void update_finalize_witnesses(uint32_t var_idx) { finalize_witnesses.insert(var_idx); }
-
-    /**
-     * @brief Add a list of witness indices to the finalize exclusion list
-     * @param finalize_indices List of witness indices to add to the finalize exclusion list
-     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
-     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
-     * connected through the set permutation. We want to exclude these variables from this detection.
-     */
+    void update_finalize_witnesses(uint32_t var_idx) { boomerang_utils.update_finalize_witnesses(var_idx); }
     void update_finalize_witnesses(const std::vector<uint32_t>& finalize_indices)
     {
-        for (const auto& it : finalize_indices) {
-            finalize_witnesses.insert(it);
-        }
+        boomerang_utils.update_finalize_witnesses(finalize_indices);
     }
-
-    void update_logic_witnesses(uint32_t var_idx) { logic_gate_witnesses.insert(var_idx); }
-    std::unordered_set<uint32_t> get_logic_witnesses() const { return logic_gate_witnesses; }
-
-    /**
-     * @brief Save current logic gate witnesses and clear for next constraint
-     * @details After processing each logic constraint, save the accumulated witnesses
-     * to the per-constraint storage and clear for the next constraint.
-     */
-    void save_and_clear_logic_witnesses()
+    void update_constraint_witnesses(uint32_t var_idx) { boomerang_utils.update_constraint_witnesses(var_idx); }
+    std::unordered_set<uint32_t> get_constraint_witnesses() const { return boomerang_utils.get_constraint_witnesses(); }
+    void save_and_clear_logic_witnesses() { boomerang_utils.save_and_clear_logic_witnesses(); }
+    const std::vector<std::unordered_set<uint32_t>>& get_all_logic_witnesses() const
     {
-        logic_witnesses.emplace_back(std::move(logic_gate_witnesses));
-        logic_gate_witnesses.clear();
+        return boomerang_utils.get_all_logic_witnesses();
     }
-
-    /**
-     * @brief Get all logic witnesses organized per constraint
-     * @return Vector of witness sets, one per logic constraint
-     */
-    const std::vector<std::unordered_set<uint32_t>>& get_all_logic_witnesses() const { return logic_witnesses; }
+    void save_and_clear_aes128_witnesses() { boomerang_utils.save_and_clear_aes128_witnesses(); }
+    const std::vector<std::unordered_set<uint32_t>>& get_all_aes128_witnesses() const
+    {
+        return boomerang_utils.get_all_aes128_witnesses();
+    }
 
     // ========================================================================================
 
