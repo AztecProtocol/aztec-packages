@@ -39,7 +39,7 @@ struct RewardConfig {
   IRewardDistributor rewardDistributor;
   Bps sequencerBps;
   IBoosterCore booster;
-  uint96 blockReward;
+  uint96 checkpointReward;
 }
 
 struct RewardStorage {
@@ -55,7 +55,7 @@ struct Values {
   address sequencer;
   uint256 proverFee;
   uint256 sequencerFee;
-  uint256 sequencerBlockReward;
+  uint256 sequencerCheckpointReward;
   uint256 manaUsed;
 }
 
@@ -184,29 +184,29 @@ library RewardLib {
 
       {
         uint256 added = length - $er.longestProvenLength;
-        uint256 blockRewardsDesired = added * getBlockReward();
-        uint256 blockRewardsAvailable = 0;
+        uint256 checkpointRewardsDesired = added * getCheckpointReward();
+        uint256 checkpointRewardsAvailable = 0;
 
-        // Only if we require block rewards and are canonical will we claim.
-        if (blockRewardsDesired > 0) {
+        // Only if we require checkpoint rewards and are canonical will we claim.
+        if (checkpointRewardsDesired > 0) {
           // Cache the reward distributor contract
           IRewardDistributor distributor = rewardStorage.config.rewardDistributor;
 
           if (address(this) == distributor.canonicalRollup()) {
             uint256 amountToClaim =
-              Math.min(blockRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor)));
+              Math.min(checkpointRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor)));
 
             if (amountToClaim > 0) {
               distributor.claim(address(this), amountToClaim);
-              blockRewardsAvailable = amountToClaim;
+              checkpointRewardsAvailable = amountToClaim;
             }
           }
         }
 
-        uint256 sequenceBlockRewards = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
-        v.sequencerBlockReward = sequenceBlockRewards / added;
+        uint256 sequenceCheckpointRewards = BpsLib.mul(checkpointRewardsAvailable, rewardStorage.config.sequencerBps);
+        v.sequencerCheckpointReward = sequenceCheckpointRewards / added;
 
-        $er.rewards += (blockRewardsAvailable - sequenceBlockRewards).toUint128();
+        $er.rewards += (checkpointRewardsAvailable - sequenceCheckpointRewards).toUint128();
       }
 
       bool isTxsEnabled = FeeLib.isTxsEnabled();
@@ -235,7 +235,7 @@ library RewardLib {
 
         {
           v.sequencer = fieldToAddress(_args.fees[i * 2]);
-          rewardStorage.sequencerRewards[v.sequencer] += (v.sequencerBlockReward + v.sequencerFee);
+          rewardStorage.sequencerRewards[v.sequencer] += (v.sequencerCheckpointReward + v.sequencerFee);
         }
       }
 
@@ -271,8 +271,8 @@ library RewardLib {
     return getStorage().proverClaimed[_prover].get(Epoch.unwrap(_epoch));
   }
 
-  function getBlockReward() internal view returns (uint256) {
-    return getStorage().config.blockReward;
+  function getCheckpointReward() internal view returns (uint256) {
+    return getStorage().config.checkpointReward;
   }
 
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover) internal view returns (uint256) {

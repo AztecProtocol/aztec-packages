@@ -20,7 +20,7 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
-// Struct to store configuration of an attester (block producer)
+// Struct to store configuration of an attester (checkpoint producer)
 // Keep track of the actor who can initiate and control withdraws for the attester.
 // Keep track of the public key in G1 of BN254 that has registered on the instance
 struct AttesterConfig {
@@ -28,7 +28,7 @@ struct AttesterConfig {
   address withdrawer;
 }
 
-// Struct to track the attesters (block producers) on a particular rollup instance
+// Struct to track the attesters (checkpoint producers) on a particular rollup instance
 // throughout time, along with each attester's current config.
 // Finally a flag to track if the instance exists.
 struct InstanceAttesterRegistry {

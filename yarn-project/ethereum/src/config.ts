@@ -200,14 +200,14 @@ const DefaultRewardConfig = {
   sequencerBps: 8000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
-  blockReward: 500n * 10n ** 18n,
+  checkpointReward: 500n * 10n ** 18n,
 };
 
 const MainnetRewardConfig = {
   sequencerBps: 7_000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
-  blockReward: 400n * 10n ** 18n,
+  checkpointReward: 400n * 10n ** 18n,
 };
 
 export const getRewardConfig = (networkName: NetworkNames) => {

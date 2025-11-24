@@ -10,8 +10,8 @@ import type { ViemClient } from '../types.js';
 
 export type ChainMonitorEventMap = {
   'l1-block': [{ l1BlockNumber: number; timestamp: bigint }];
-  'l2-block': [{ l2BlockNumber: number; l1BlockNumber: number; l2SlotNumber: number; timestamp: bigint }];
-  'l2-block-proven': [{ l2ProvenBlockNumber: number; l1BlockNumber: number; timestamp: bigint }];
+  checkpoint: [{ checkpointNumber: number; l1BlockNumber: number; l2SlotNumber: number; timestamp: bigint }];
+  'checkpoint-proven': [{ provenCheckpointNumber: number; l1BlockNumber: number; timestamp: bigint }];
   'l2-messages': [{ totalL2Messages: number; l1BlockNumber: number }];
   'l2-epoch': [{ l2EpochNumber: number; timestamp: bigint; committee: EthAddress[] | undefined }];
   'l2-slot': [{ l2SlotNumber: number; timestamp: bigint }];
@@ -27,14 +27,14 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
 
   /** Current L1 block number */
   public l1BlockNumber!: number;
-  /** Current L2 block number */
-  public l2BlockNumber!: number;
-  /** Current L2 proven block number */
-  public l2ProvenBlockNumber!: number;
-  /** L1 timestamp for the current L2 block */
-  public l2BlockTimestamp!: bigint;
-  /** L1 timestamp for the proven L2 block */
-  public l2ProvenBlockTimestamp!: bigint;
+  /** Current checkpoint number */
+  public checkpointNumber!: number;
+  /** Current proven checkpoint number */
+  public provenCheckpointNumber!: number;
+  /** L1 timestamp for the current checkpoint */
+  public checkpointTimestamp!: bigint;
+  /** L1 timestamp for the proven checkpoint */
+  public provenCheckpointTimestamp!: bigint;
   /** Total number of L2 messages pushed into the Inbox */
   public totalL2Messages: number = 0;
   /** Current L2 epoch number */
@@ -114,28 +114,28 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     this.emit('l1-block', { l1BlockNumber: newL1BlockNumber, timestamp });
     let msg = `L1 block ${newL1BlockNumber} mined at ${timestampString}`;
 
-    const newL2BlockNumber = Number(await this.rollup.getBlockNumber());
-    if (this.l2BlockNumber !== newL2BlockNumber) {
-      const epochNumber = await this.rollup.getEpochNumberForBlock(BigInt(newL2BlockNumber));
-      msg += ` with new L2 block ${newL2BlockNumber} for epoch ${epochNumber}`;
-      this.l2BlockNumber = newL2BlockNumber;
-      this.l2BlockTimestamp = timestamp;
-      this.emit('l2-block', {
-        l2BlockNumber: newL2BlockNumber,
+    const newCheckpointNumber = Number(await this.rollup.getCheckpointNumber());
+    if (this.checkpointNumber !== newCheckpointNumber) {
+      const epochNumber = await this.rollup.getEpochNumberForCheckpoint(BigInt(newCheckpointNumber));
+      msg += ` with new checkpoint ${newCheckpointNumber} for epoch ${epochNumber}`;
+      this.checkpointNumber = newCheckpointNumber;
+      this.checkpointTimestamp = timestamp;
+      this.emit('checkpoint', {
+        checkpointNumber: newCheckpointNumber,
         l1BlockNumber: newL1BlockNumber,
         l2SlotNumber: Number(l2SlotNumber),
         timestamp,
       });
     }
 
-    const newL2ProvenBlockNumber = Number(await this.rollup.getProvenBlockNumber());
-    if (this.l2ProvenBlockNumber !== newL2ProvenBlockNumber) {
-      const epochNumber = await this.rollup.getEpochNumberForBlock(BigInt(newL2ProvenBlockNumber));
-      msg += ` with proof up to L2 block ${newL2ProvenBlockNumber} for epoch ${epochNumber}`;
-      this.l2ProvenBlockNumber = newL2ProvenBlockNumber;
-      this.l2ProvenBlockTimestamp = timestamp;
-      this.emit('l2-block-proven', {
-        l2ProvenBlockNumber: newL2ProvenBlockNumber,
+    const newProvenCheckpointNumber = Number(await this.rollup.getProvenCheckpointNumber());
+    if (this.provenCheckpointNumber !== newProvenCheckpointNumber) {
+      const epochNumber = await this.rollup.getEpochNumberForCheckpoint(BigInt(newProvenCheckpointNumber));
+      msg += ` with proof up to checkpoint ${newProvenCheckpointNumber} for epoch ${epochNumber}`;
+      this.provenCheckpointNumber = newProvenCheckpointNumber;
+      this.provenCheckpointTimestamp = timestamp;
+      this.emit('checkpoint-proven', {
+        provenCheckpointNumber: newProvenCheckpointNumber,
         l1BlockNumber: newL1BlockNumber,
         timestamp,
       });
@@ -168,8 +168,8 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
       l1BlockNumber: this.l1BlockNumber,
       l2SlotNumber,
       l2Epoch,
-      l2BlockNumber: this.l2BlockNumber,
-      l2ProvenBlockNumber: this.l2ProvenBlockNumber,
+      checkpointNumber: this.checkpointNumber,
+      provenCheckpointNumber: this.provenCheckpointNumber,
       totalL2Messages: this.totalL2Messages,
       committee,
     });
@@ -225,19 +225,19 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     });
   }
 
-  public waitUntilL2Block(l2BlockNumber: number | bigint): Promise<void> {
-    const targetBlock = typeof l2BlockNumber === 'bigint' ? l2BlockNumber.valueOf() : l2BlockNumber;
-    if (this.l2BlockNumber >= targetBlock) {
+  public waitUntilCheckpoint(checkpointNumber: number | bigint): Promise<void> {
+    const targetBlock = typeof checkpointNumber === 'bigint' ? checkpointNumber.valueOf() : checkpointNumber;
+    if (this.checkpointNumber >= targetBlock) {
       return Promise.resolve();
     }
     return new Promise(resolve => {
-      const listener = (data: { l2BlockNumber: number; timestamp: bigint }) => {
-        if (data.l2BlockNumber >= targetBlock) {
-          this.off('l2-block', listener);
+      const listener = (data: { checkpointNumber: number; timestamp: bigint }) => {
+        if (data.checkpointNumber >= targetBlock) {
+          this.off('checkpoint', listener);
           resolve();
         }
       };
-      this.on('l2-block', listener);
+      this.on('checkpoint', listener);
     });
   }
 }
