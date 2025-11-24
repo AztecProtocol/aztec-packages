@@ -5,10 +5,7 @@ use dep::protocol_types::{
         GENERATOR_INDEX__PUBLIC_BYTECODE, GENERATOR_INDEX__PUBLIC_CALLDATA,
         GENERATOR_INDEX__SECRET_HASH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
     },
-    hash::{
-        poseidon2_hash_subarray, poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice,
-        sha256_to_field,
-    },
+    hash::{poseidon2_hash_subarray, poseidon2_hash_with_separator, sha256_to_field},
     point::Point,
     traits::ToField,
 };
@@ -60,7 +57,7 @@ pub fn compute_l1_to_l2_message_nullifier(message_hash: Field, secret: Field) ->
 }
 
 // Computes the hash of input arguments or return values for private functions, or for authwit creation.
-pub fn hash_args_array<let N: u32>(args: [Field; N]) -> Field {
+pub fn hash_args<let N: u32>(args: [Field; N]) -> Field {
     if args.len() == 0 {
         0
     } else {
@@ -68,23 +65,9 @@ pub fn hash_args_array<let N: u32>(args: [Field; N]) -> Field {
     }
 }
 
-// Same as `hash_args_array`, but takes a slice instead of an array.
-pub fn hash_args(args: [Field]) -> Field {
-    if args.len() == 0 {
-        0
-    } else {
-        poseidon2_hash_with_separator_slice(args, GENERATOR_INDEX__FUNCTION_ARGS)
-    }
-}
-
 // Computes the hash of calldata for public functions.
 pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
     poseidon2_hash_with_separator(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
-}
-
-// Same as `hash_calldata_array`, but takes a slice instead of an array.
-pub fn hash_calldata(calldata: [Field]) -> Field {
-    poseidon2_hash_with_separator_slice(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
 }
 
 /**
@@ -127,7 +110,7 @@ unconstrained fn compute_var_args_hash() {
     for i in 0..100 {
         input[i] = i as Field;
     }
-    let hash = hash_args_array(input);
+    let hash = hash_args(input);
     dep::std::println(hash);
     // Used in yarn-project/stdlib test snapshots:
     assert(hash == 0x19b0d74feb06ebde19edd85a28986c97063e84b3b351a8b666c7cac963ce655f);
@@ -140,9 +123,6 @@ unconstrained fn compute_calldata_hash() {
         input[i] = i as Field;
     }
     let hash = hash_calldata_array(input);
-    dep::std::println(hash);
-    let hash_check = hash_calldata(input.as_slice());
-    assert(hash == hash_check);
     // Used in cpp vm2 tests:
     assert(hash == 0x191383c9f8964afd3ea8879a03b7dda65d6724773966d18dcf80e452736fc1f3);
 }

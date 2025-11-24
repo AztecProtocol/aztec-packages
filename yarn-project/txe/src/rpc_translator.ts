@@ -266,12 +266,7 @@ export class RPCTranslator {
     ]);
   }
 
-  // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  privateStoreInExecutionCache(
-    _foreignLength: ForeignCallSingle,
-    foreignValues: ForeignCallArray,
-    foreignHash: ForeignCallSingle,
-  ) {
+  privateStoreInExecutionCache(foreignValues: ForeignCallArray, foreignHash: ForeignCallSingle) {
     const values = fromArray(foreignValues);
     const hash = fromSingle(foreignHash);
 
@@ -927,7 +922,6 @@ export class RPCTranslator {
     foreignFrom: ForeignCallSingle,
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
-    _foreignArgsLength: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
     foreignArgsHash: ForeignCallSingle,
     foreignIsStaticCall: ForeignCallSingle,
@@ -954,7 +948,6 @@ export class RPCTranslator {
   async txeSimulateUtilityFunction(
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
-    _foreignArgsLength: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
   ) {
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
@@ -973,7 +966,6 @@ export class RPCTranslator {
   async txePublicCallNewFlow(
     foreignFrom: ForeignCallSingle,
     foreignAddress: ForeignCallSingle,
-    _foreignLength: ForeignCallSingle,
     foreignCalldata: ForeignCallArray,
     foreignIsStaticCall: ForeignCallSingle,
   ) {
