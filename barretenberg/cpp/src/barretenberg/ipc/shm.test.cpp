@@ -42,6 +42,7 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
 
     // Echo server with validation
     std::thread server_thread([&]() {
+        size_t iter = 0;
         while (server_running.load(std::memory_order_acquire)) {
             server->accept();
 
@@ -79,10 +80,11 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
             // Retry send until success.
             while (!server->send(client_id, request.data(), request.size())) {
                 // Timeout - retry (response ring might be full)
-                std::cerr << "Server send size " << request.size() << " timeout, retrying..." << '\n';
+                std::cerr << iter << " Server send size " << request.size() << " timeout, retrying..." << '\n';
                 dynamic_cast<ShmServer*>(server.get())->debug_dump();
             }
             // std::cerr << "Server sent response of " << request.size() << " bytes" << '\n';
+            iter++;
         }
     });
 
@@ -121,7 +123,7 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
             // Retry send until success - timeouts are expected under extreme load
             while (!client->send(send_buffer.data(), size, 100000000)) {
                 // Timeout - retry (ring might be full, server might be slow)
-                std::cerr << "Client send size " << size << " timeout, retrying..." << '\n';
+                std::cerr << iter << " Client send size " << size << " timeout, retrying..." << '\n';
                 dynamic_cast<ShmClient*>(client.get())->debug_dump();
             }
         }
@@ -135,6 +137,7 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
             // Retry recv until success - timeouts are expected under extreme load
             std::span<const uint8_t> response;
             while ((response = client->receive(100000000)).empty()) {
+                std::cerr << iter << " Client receive timeout, retrying..." << '\n';
                 // Timeout - retry
             }
             // std::cerr << "Client received response of " << response.size() << " bytes" << '\n';
