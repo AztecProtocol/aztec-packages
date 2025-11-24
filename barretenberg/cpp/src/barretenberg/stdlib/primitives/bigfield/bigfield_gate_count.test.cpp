@@ -649,7 +649,7 @@ TEST_F(BigfieldGateCountTest, VerticalBatching)
 {
     // Use 2^12 = 4096 rows (actual number of ops, since translator uses 2 rows per op)
     constexpr size_t NUM_ROWS = 4096;
-    constexpr size_t BATCH_SIZE = 16;
+    constexpr size_t BATCH_SIZE = 1024; // Maximum batch size
     constexpr size_t NUM_BATCHES = NUM_ROWS / BATCH_SIZE;
 
     Builder builder;
@@ -777,7 +777,7 @@ TEST_F(BigfieldGateCountTest, VerticalBatching)
 TEST_F(BigfieldGateCountTest, VerticalBatchingOptimized)
 {
     constexpr size_t NUM_ROWS = 4096;
-    constexpr size_t BATCH_SIZE = 16;
+    constexpr size_t BATCH_SIZE = 1024; // Maximum batch size
     constexpr size_t NUM_BATCHES = NUM_ROWS / BATCH_SIZE;
 
     Builder builder;
@@ -834,7 +834,7 @@ TEST_F(BigfieldGateCountTest, VerticalBatchingOptimized)
     // Compute B = sum_i (r^i * x^{i+1}) for i = 0 to N-2
     // Using batched mult_madd
 
-    constexpr size_t VERIFY_BATCH = 16;
+    constexpr size_t VERIFY_BATCH = 1024; // Maximum batch size
     size_t num_verify_batches = (NUM_ROWS - 1) / VERIFY_BATCH;
 
     fq_ct A = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0));

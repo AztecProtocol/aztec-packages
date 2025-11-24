@@ -328,8 +328,8 @@ template <typename Builder, typename T> class bigfield {
     static constexpr uint64_t LOG2_BINARY_MODULUS = NUM_LIMB_BITS * NUM_LIMBS;
     static constexpr bool is_composite = true; // false only when fr is native
 
-    // This limits the size of all vectors that are being used to 16 (we don't really need more)
-    static constexpr size_t MAXIMUM_SUMMAND_COUNT_LOG = 4;
+    // This limits the size of all vectors that are being used (increased to 1024 for wider batching)
+    static constexpr size_t MAXIMUM_SUMMAND_COUNT_LOG = 10;
     static constexpr size_t MAXIMUM_SUMMAND_COUNT = 1 << MAXIMUM_SUMMAND_COUNT_LOG;
 
     static constexpr Basis prime_basis{ uint512_t(bb::fr::modulus), bb::fr::modulus.get_msb() + 1 };

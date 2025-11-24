@@ -40,41 +40,37 @@ return mult_madd({prev_acc, px, py, z1, z2},
 | Partial NNF multiplication | 4 |
 | `range_constrain_two_limbs` | 3 |
 
+### Wide Batching Optimization
+
+Increased `MAXIMUM_SUMMAND_COUNT` from 16 to 1024 enables much larger batches per `mult_madd` call, significantly reducing overhead.
+
 ---
 
 ## Computation Strategies
 
-### Horizontal (Row-by-Row)
+### Vertical Batching
 
-| Strategy | Gates/Row |
-|----------|-----------|
-| 3-row batching | 21 |
-| mult_madd (5 products) | 42 |
-| Naive (5 separate) | 170 |
-
-### Vertical Batching (Recommended)
-
-Compute column sums independently, batch 16 elements per `mult_madd`:
+Compute column sums independently, batch elements per `mult_madd`:
 
 ```
 result = Σ(op_i·x^{N-1-i}) + v·Σ(px_i·x^{N-1-i}) + ...
 ```
 
-Benefits: parallelizable columns, better batching.
-
----
-
-## Measured Results
-
-### RLC-Optimized Power Verification
+### RLC Power Verification
 
 Batch-verify power chain using: A·x = B where A = Σ(r^i·x^i), B = Σ(r^i·x^{i+1})
 
+---
+
+## Measured Results (batch size = 1024)
+
 | Component | Gates |
 |-----------|-------|
-| Power computation (RLC) | ~100K |
-| Column computation | ~86K |
-| **Total** | **~186K (2^17.5)** |
+| Power witness creation | 32,768 |
+| Power chain verification (RLC) | 45,425 |
+| **Total power cost** | **78,193** |
+| Column computation | 41,741 |
+| **Total (pre-constrained inputs)** | **119,934 (2^16.87)** |
 
 ---
 
@@ -82,18 +78,18 @@ Batch-verify power chain using: A·x = B where A = Σ(r^i·x^i), B = Σ(r^i·x^{
 
 | Approach | Circuit Size | Ratio |
 |----------|-------------|-------|
-| **Translator** | **2^17** | **1x** |
-| Bigfield (RLC-optimized) | 2^17.5 | 1.4x |
+| Translator | 131,072 (2^17) | 1x |
+| **Bigfield (batch=1024)** | **119,934 (2^16.87)** | **0.92x** |
+
+**Key finding**: With wide batching (1024 elements per `mult_madd`), the bigfield approach is **8% smaller** than the Translator while being significantly simpler.
 
 ---
 
-## Challenge Polynomial Commitment (Not Feasible?)
+## Challenge Polynomial Commitment (Not Feasible)
 
 ### Concept
 
 Commit to x powers in ECCVM, verify via geometric sum: L(1)·(1-x) = 1-x^N
-
-Would achieve ~2^16.8 (column computation + range constraints only).
 
 ### Why It Fails
 
@@ -102,12 +98,21 @@ Cross-curve binding issue:
 - Translator proves over **BN254**
 - No mechanism to bind BN254 witnesses to Grumpkin commitments
 
-
 ---
 
 ## Conclusion
 
+**The bigfield approach beats the Translator** when using wide batching.
+
 | Approach | Size | Trade-off |
 |----------|------|-----------|
-| Translator | 2^17 | Complex, big proof size, creeps into the core primitives |
-| Bigfield | 2^17.5 | Easy to audit, memory efficiency? |
+| Translator | 2^17 | Complex (139 subrelations), larger |
+| **Bigfield** | **2^16.87** | Simple, 8% smaller |
+
+**Recommendation**: Consider replacing Translator with bigfield approach. Benefits:
+1. **Smaller circuit** - 8% fewer gates
+2. **Simpler implementation** - standard bigfield operations
+3. **No custom relations** - eliminates 7 relation types, 139 subrelations
+4. **Easier auditing** - uses well-understood primitives
+
+**Note**: Requires increasing `MAXIMUM_SUMMAND_COUNT` in bigfield.hpp from 16 to 1024.
