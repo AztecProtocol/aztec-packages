@@ -132,6 +132,16 @@ class ShmServer : public IpcServer {
         }
     }
 
+    void debug_dump() const
+    {
+        if (request_ring_.has_value()) {
+            request_ring_->debug_dump("Server REQ");
+        }
+        if (response_ring_.has_value()) {
+            response_ring_->debug_dump("Server RESP");
+        }
+    }
+
   private:
     std::string base_name_;
     size_t request_ring_size_;

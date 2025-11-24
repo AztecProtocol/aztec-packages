@@ -1,6 +1,8 @@
 #include "barretenberg/ipc/ipc_client.hpp"
 #include "barretenberg/ipc/ipc_server.hpp"
 #include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include "barretenberg/ipc/shm_client.hpp"
+#include "barretenberg/ipc/shm_server.hpp"
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -25,10 +27,10 @@ namespace {
  */
 TEST(ShmTest, SingleClientSmallRingHighVolume)
 {
-    constexpr size_t RING_SIZE = 8UL * 1024;
-    constexpr size_t NUM_ITERATIONS = 300000;
+    constexpr size_t RING_SIZE = 1UL * 1024;
+    constexpr size_t NUM_ITERATIONS = 10000000;
     // Sizing ensures that no matter that state of the internal ring buffer, we can't deadlock.
-    constexpr size_t MAX_MSG_SIZE = RING_SIZE / 2 - 4;
+    constexpr size_t MAX_MSG_SIZE = (RING_SIZE / 2) - 4;
 
     // Use short name for macOS compatibility (31-char limit)
     std::string wrap_test_shm = "shm_wrap_" + std::to_string(getpid());
@@ -77,7 +79,8 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
             // Retry send until success.
             while (!server->send(client_id, request.data(), request.size())) {
                 // Timeout - retry (response ring might be full)
-                std::cerr << "Server send timeout, retrying..." << '\n';
+                std::cerr << "Server send size " << request.size() << " timeout, retrying..." << '\n';
+                dynamic_cast<ShmServer*>(server.get())->debug_dump();
             }
             // std::cerr << "Server sent response of " << request.size() << " bytes" << '\n';
         }
@@ -88,7 +91,7 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
     auto client = IpcClient::create_shm(wrap_test_shm);
     ASSERT_TRUE(client->connect());
 
-    // Random message sizes between 1 byte and 8KB
+    // Random message sizes.
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<size_t> size_dist(1, MAX_MSG_SIZE);
@@ -97,7 +100,7 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
     std::vector<size_t> iteration_sizes(NUM_ITERATIONS);
     for (size_t i = 0; i < NUM_ITERATIONS; i++) {
         iteration_sizes[i] = size_dist(gen);
-        // iteration_sizes[i] = MAX_MSG_SIZE;
+        // iteration_sizes[i] = MAX_MSG_SIZE - 1;
     }
 
     // Sender thread: continuously send requests
@@ -118,7 +121,8 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
             // Retry send until success - timeouts are expected under extreme load
             while (!client->send(send_buffer.data(), size, 100000000)) {
                 // Timeout - retry (ring might be full, server might be slow)
-                std::cerr << "Client send timeout, retrying..." << '\n';
+                std::cerr << "Client send size " << size << " timeout, retrying..." << '\n';
+                dynamic_cast<ShmClient*>(client.get())->debug_dump();
             }
         }
     });
@@ -166,5 +170,46 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
 
     EXPECT_EQ(corruptions.load(), 0) << "Corruptions detected in single-threaded wrap test";
 }
+
+/**
+ * Test to reproduce deadlock with specific message size sequence
+ * This test uses a single-threaded, deterministic approach to control
+ * the exact ordering of client and server operations.
+ */
+// TEST(ShmTest, DeadlockReproduction)
+// {
+//     constexpr size_t RING_SIZE = 8UL * 1024; // 8KB rings
+//     // Max message size is half capacity minus 4 bytes (length prefix)
+//     constexpr size_t MAX_MSG_SIZE = RING_SIZE / 2 - 4;
+
+//     std::string test_shm = "shm_deadlock_" + std::to_string(getpid());
+//     auto server = IpcServer::create_shm(test_shm, RING_SIZE, RING_SIZE);
+//     ASSERT_TRUE(server->listen()) << "Deadlock test server failed to listen";
+
+//     auto client = IpcClient::create_shm(test_shm);
+//     ASSERT_TRUE(client->connect());
+
+// #define snd(s)                                                                                                         \
+//     {                                                                                                                  \
+//         ASSERT_TRUE(client->send(std::vector<uint8_t>(s, 0).data(), s, 0));                                            \
+//         dynamic_cast<ShmClient*>(client.get())->debug_dump();                                                          \
+//     }
+// #define rcv()                                                                                                          \
+//     {                                                                                                                  \
+//         auto request = server->receive(0);                                                                             \
+//         ASSERT_FALSE(request.empty());                                                                                 \
+//         server->release(0, request.size());                                                                            \
+//         dynamic_cast<ShmServer*>(server.get())->debug_dump();                                                          \
+//     }
+
+//     snd(MAX_MSG_SIZE - 1);
+//     snd(MAX_MSG_SIZE);
+//     rcv();
+//     rcv();
+//     snd(MAX_MSG_SIZE);
+
+//     client->close();
+//     server->close();
+// } // namespace
 
 } // namespace

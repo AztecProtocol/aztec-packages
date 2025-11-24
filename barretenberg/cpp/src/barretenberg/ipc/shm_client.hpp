@@ -89,6 +89,16 @@ class ShmClient : public IpcClient {
         response_ring_.reset();
     }
 
+    void debug_dump() const
+    {
+        if (request_ring_.has_value()) {
+            request_ring_->debug_dump("Client REQ");
+        }
+        if (response_ring_.has_value()) {
+            response_ring_->debug_dump("Client RESP");
+        }
+    }
+
   private:
     std::string base_name_;
     std::optional<SpscShm> request_ring_;  // Client writes to this

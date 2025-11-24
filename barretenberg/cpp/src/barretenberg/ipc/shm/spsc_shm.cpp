@@ -500,4 +500,22 @@ void SpscShm::wakeup_all()
     futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), INT_MAX);
 }
 
+void SpscShm::debug_dump(const char* prefix) const
+{
+    uint64_t head = ctrl_->head.load(std::memory_order_acquire);
+    uint64_t tail = ctrl_->tail.load(std::memory_order_acquire);
+    uint64_t cap = ctrl_->capacity;
+    uint64_t mask = ctrl_->mask;
+    uint64_t wrap_head = ctrl_->wrap_head;
+
+    uint64_t head_pos = head & mask;
+    uint64_t tail_pos = tail & mask;
+    uint64_t used = head - tail;
+    uint64_t free = cap - used;
+
+    std::cerr << "[" << prefix << "] head=" << head << " tail=" << tail << " | head_pos=" << head_pos
+              << " tail_pos=" << tail_pos << " | used=" << used << " free=" << free << " cap=" << cap
+              << " | wrap_head=" << (wrap_head == UINT64_MAX ? "NONE" : std::to_string(wrap_head)) << '\n';
+}
+
 } // namespace bb::ipc

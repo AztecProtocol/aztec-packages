@@ -159,6 +159,12 @@ class SpscShm {
     bool wait_for_data(size_t need, uint32_t spin_ns);
     bool wait_for_space(size_t need, uint32_t spin_ns);
 
+    /**
+     * @brief Dump internal ring buffer state for debugging
+     * @param prefix Prefix string for the debug output (e.g., "Client REQ" or "Server RESP")
+     */
+    void debug_dump(const char* prefix) const;
+
   private:
     // Private constructor for create/connect factories
     SpscShm(int fd, size_t map_len, SpscCtrl* ctrl, uint8_t* buf);

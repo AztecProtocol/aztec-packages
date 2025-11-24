@@ -7,8 +7,11 @@ function clean {
   rm -f /dev/shm/shm_wrap_*
 }
 
-clean
+jobs=${1:-128}
+shift
 
+clean
+cp ../../../build/bin/ipc_tests ../../../build/bin/ipc_tests_live
 while true; do
-  echo 'dump_fail "timeout 20s ../../../build/bin/ipc_tests --gtest_filter=ShmTest.SingleClientSmallRingHighVolume" >/dev/null'
-done | parallel -j${1:-128} --halt now,fail=1
+  echo "dump_fail '$@ timeout 20s ../../../build/bin/ipc_tests_live --gtest_filter=ShmTest.SingleClientSmallRingHighVolume' >/dev/null"
+done | parallel -j$jobs --halt now,fail=1
