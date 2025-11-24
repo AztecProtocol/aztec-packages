@@ -46,7 +46,8 @@ include "ff_gt.pil";
  * from the public inputs (#[READ_PHASE_LENGTH]) and is used to setup a decreasing counter (`remaining_phase_counter`).
  * The phase is completed when the counter reaches 1 (which toggles `end_phase` selector).
  * If the phase is empty, i.e., `remaining_phase_counter == 0`, we set `is_padded` selector to 1 and
- * we create a "dummy" row for the phase called "padded" row.
+ * we create a "dummy" row for the phase called "padded" row. For non-empty phases, the number of rows
+ * is exactly the phase length.
  *
  * The control flow in the happy path consists in simply traversing the phases in increasing order and executing the events
  * in each phase. If an error occurs during a phase, we set the `reverted` selector to 1 and we jump to a phase which is specified
@@ -54,7 +55,44 @@ include "ff_gt.pil";
  * When a revert is encountered, we neet to restore the side effect and tree states to their values at the end of the setup phase.
  * We note that not all phases are allowed to revert (specified by the `is_revertible` selector in #[READ_PHASE_SPEC] lookup).
  * A revert condition within a non-revertible phase is not provable.
-*/
+ *
+ * tx.pil and its vitrual traces have interactions with the following components:
+ * - execution.pil: for enqueued calls execution.
+ * - public_inputs.pil: for reading the phase lengths, write side-effects, counters, etc,...
+ * - precomputed.pil: for reading the phase specifications.
+ * - trees/note_hash_tree_check.pil: for handling note hashes emission.
+ * - trees/nullifier_check.pil: for handling nullifiers emission.
+ * - trees/public_data_check.pil: for handling public data reads/writes (fee-related).
+ * - poseidon2_hash.pil: for deriving fee balance slot.
+ * - calldata_hashing.pil: for hashing the calldata.
+ * - ff_gt.pil: for field comparison (enforcing fee <= fee balance).
+ *
+ *
+ * Trace Shape Example:
+ *
+ *
+ * | sel | start_tx | phase_value | counter | is_padded | start_phase | end_phase | pre.first_row |    PHASE NAME
+ * |-----|----------|-------------|---------|-----------|-------------|-----------|---------------|
+ * |  0  |    0     |      0      |    0    |    0      |      0      |     0     |       1       |
+ * |  1  |    1     |      0      |    2    |    0      |      1      |     0     |       0       | - NR_NULLIFIER_INSERTION
+ * |  1  |    0     |      0      |    1    |    0      |      0      |     1     |       0       | - NR_NULLIFIER_INSERTION
+ * |  1  |    0     |      1      |    0    |    1      |      1      |     1     |       0       | - NR_NOTE_HASH_INSERTION (empty)
+ * |  1  |    0     |      2      |    1    |    0      |      1      |     1     |       0       | - NR_L2_TO_L1_MESSAGE_INSERTION
+ * |  1  |    0     |      3      |    1    |    0      |      1      |     1     |       0       | - SETUP
+ * |  1  |    0     |      4      |    7    |    0      |      1      |     0     |       0       | - R_NULLIFIER_INSERTION
+ * |  1  |    0     |      4      |    6    |    0      |      0      |     0     |       0       | - R_NULLIFIER_INSERTION
+ * |  1  |    0     |      4      |    5    |    0      |      0      |     0     |       0       | - R_NULLIFIER_INSERTION
+ *  ...............................................................................................   .................
+ * |  1  |    0     |      4      |    1    |    0      |      0      |     1     |       0       | - R_NULLIFIER_INSERTION
+ * |  1  |    0     |      5      |    1    |    0      |      1      |     1     |       0       | - R_NOTE_HASH_INSERTION
+ *  ...............................................................................................   .................
+ * |  1  |    0     |     10      |    1    |    0      |      1      |     1     |       0       | - TREE_PADDING
+ * |  1  |    0     |     11      |    1    |    0      |      1      |     1     |       0       | - CLEANUP
+ * |  0  |    0     |      0      |    0    |    0      |      0      |     0     |       0       | Inactive rows from here
+ *  ...............................................................................................   .................
+ *
+ * Note: For brevity, `remaining_phase_counter` named `counter` in the table above.
+ */
 
 namespace tx;
 
