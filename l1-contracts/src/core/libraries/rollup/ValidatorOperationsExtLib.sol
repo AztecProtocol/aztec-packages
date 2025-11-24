@@ -22,7 +22,7 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *      external functions primarily focused on:
  *      - Validator staking operations (deposit, withdraw, queue management)
  *      - Validator selection and committee setup
- *      - Block attestation invalidation
+ *      - Checkpoint attestation invalidation
  *      - Slashing mechanism integration
  *      - Epoch and proposer management
  */
@@ -85,20 +85,20 @@ library ValidatorOperationsExtLib {
   }
 
   function invalidateBadAttestation(
-    uint256 _blockNumber,
+    uint256 _checkpointNumber,
     CommitteeAttestations memory _attestations,
     address[] memory _committee,
     uint256 _invalidIndex
   ) external {
-    InvalidateLib.invalidateBadAttestation(_blockNumber, _attestations, _committee, _invalidIndex);
+    InvalidateLib.invalidateBadAttestation(_checkpointNumber, _attestations, _committee, _invalidIndex);
   }
 
   function invalidateInsufficientAttestations(
-    uint256 _blockNumber,
+    uint256 _checkpointNumber,
     CommitteeAttestations memory _attestations,
     address[] memory _committee
   ) external {
-    InvalidateLib.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
+    InvalidateLib.invalidateInsufficientAttestations(_checkpointNumber, _attestations, _committee);
   }
 
   function slash(address _attester, uint256 _amount) external returns (bool) {

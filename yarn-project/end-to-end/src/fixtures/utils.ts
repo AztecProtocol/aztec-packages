@@ -499,7 +499,7 @@ export async function setup(
         deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       );
 
-      const blockReward = await rollup.getBlockReward();
+      const blockReward = await rollup.getCheckpointReward();
       const mintAmount = 10_000n * (blockReward as bigint);
 
       const feeJuice = getContract({

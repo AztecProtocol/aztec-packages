@@ -194,7 +194,7 @@ describe('sequencer', () => {
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.canProposeAtNextEthBlock.mockResolvedValue({
       slot: BigInt(newSlotNumber),
-      blockNumber: BigInt(newBlockNumber),
+      checkpointNumber: BigInt(newBlockNumber),
       timeOfNextL1Slot: 1000n,
     });
 
@@ -376,7 +376,7 @@ describe('sequencer', () => {
       // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
       publisher.canProposeAtNextEthBlock.mockResolvedValue({
         slot: block.header.globalVariables.slotNumber.toBigInt(),
-        blockNumber: BigInt(block.header.globalVariables.blockNumber),
+        checkpointNumber: BigInt(block.header.globalVariables.blockNumber),
         timeOfNextL1Slot: 1000n,
       });
 
@@ -564,7 +564,7 @@ describe('sequencer', () => {
         publisher.enqueueSlashingActions.mockResolvedValue(true);
         publisher.canProposeAtNextEthBlock.mockResolvedValue({
           slot: BigInt(newSlotNumber),
-          blockNumber: BigInt(newBlockNumber),
+          checkpointNumber: BigInt(newBlockNumber),
           timeOfNextL1Slot: 1000n,
         });
         return publisher;

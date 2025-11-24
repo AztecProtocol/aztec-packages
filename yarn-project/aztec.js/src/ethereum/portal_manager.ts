@@ -429,7 +429,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
     );
 
     const messageLeafId = getL2ToL1MessageLeafId({ leafIndex: messageIndex, siblingPath });
-    const isConsumedBefore = await this.outbox.read.hasMessageBeenConsumedAtBlock([blockNumber, messageLeafId]);
+    const isConsumedBefore = await this.outbox.read.hasMessageBeenConsumedAtCheckpoint([blockNumber, messageLeafId]);
     if (isConsumedBefore) {
       throw new Error(
         `L1 to L2 message at block ${blockNumber} index ${messageIndex} height ${siblingPath.pathSize} has already been consumed`,
@@ -450,7 +450,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       hash: await this.extendedClient.writeContract(withdrawRequest),
     });
 
-    const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtBlock([blockNumber, messageLeafId]);
+    const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtCheckpoint([blockNumber, messageLeafId]);
     if (!isConsumedAfter) {
       throw new Error(
         `L1 to L2 message at block ${blockNumber} index ${messageIndex} height ${siblingPath.pathSize} not consumed after withdrawal`,

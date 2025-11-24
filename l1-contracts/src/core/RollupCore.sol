@@ -48,7 +48,7 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
  * @notice Core Aztec rollup contract that manages the L2 blockchain state, validator selection, and proof verification.
  *
  * @dev This is the main contract in the Aztec system that handles:
- *      - Block proposals from sequencers/proposers
+ *      - Checkpoint proposals from sequencers/proposers
  *      - Epoch proof submission and verification
  *      - Chain pruning and invalidation mechanisms
  *      - Validator and committee management
@@ -58,93 +58,94 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
  *      - Time is divided into slots (configurable duration, e.g., 12 seconds)
  *      - Slots are grouped into epochs (configurable size, e.g., 32 slots)
  *      - Each slot has one designated proposer from the validator set
- *      - Each block is expected to include attestations from committee members
+ *      - Each checkpoint is expected to include attestations from committee members
  *      - There is one committee per epoch
  *
  *      Key invariants:
  *      - The L2 chain is linear (no forks) but can be rolled back
- *        - New blocks must build on the state of the current pending block
- *      - Blocks with invalid attestations can be removed via the invalidation mechanism
- *      - Unproven blocks are pruned if no proof is submitted in time
+ *        - New checkpoints must build on the state of the current pending checkpoint
+ *      - Checkpoints with invalid attestations can be removed via the invalidation mechanism
+ *      - Unproven checkpoints are pruned if no proof is submitted in time
  *
  * @dev Due to contract size limitations, not all functionality can be implemented in a single contract, so features
  *      are split across multiple ExtRollup external libraries.
  *
  * @dev System Roles
  *
- *      1) Validators: Node operators who have staked the staking asset and actively participate in block building.
+ *      1) Validators: Node operators who have staked the staking asset and actively participate in checkpoint building.
  *         They form the pool from which committee members and proposers are selected.
  *
  *      2) Committee Members: Drafted from the validator set and remain stable throughout an epoch.
- *         A block requires >2/3rds of the committee for the epoch to be considered valid. These attestations serve two
- *         purposes:
+ *         A checkpoint requires >2/3rds of the committee for the epoch to be considered valid. These attestations serve
+ *         two purposes:
  *         - Attest to data availability for transaction data not posted on L1, which is required by provers to generate
  *           epoch proofs
  *         - Re-execute everything and attest to the resulting state root, acting as training wheels for the public
  *           part of the system (proving systems used in public and AVM)
  *
  *      3) Proposers: Drafted from the validator set (currently proposers are part of the committee for the epoch,
- *         though this may change). They have exclusive rights to propose a block at a given slot, ensuring orderly
- *         block production without competition.
+ *         though this may change). They have exclusive rights to propose a checkpoint at a given slot, ensuring orderly
+ *         checkpoint production without competition.
  *
- *      4) Provers: Generate validity proofs for the state transitions of blocks in an epoch. No need to stake to be a
- *         prover. They have access to large amounts of compute.
+ *      4) Provers: Generate validity proofs for the state transitions of checkpoints in an epoch. No need to stake to
+ *         be a prover. They have access to large amounts of compute.
  *
- * @dev Block Building Flow
+ * @dev Checkpoint Building Flow
  *
  *      Relevant functions:
- *      - `propose`: Called by the proposer to submit a new block
+ *      - `propose`: Called by the proposer to submit a new checkpoint
  *      - `submitEpochRootProof`: Called by the prover to submit a proof of the epoch's state transitions
- *      - `invalidateBadAttestation`: Called to remove blocks with invalid attestations
- *      - `invalidateInsufficientAttestations`: Called to remove blocks with insufficient valid attestations
- *      - `prune`: Called to remove unproven blocks after the proof submission window has expired
+ *      - `invalidateBadAttestation`: Called to remove checkpoints with invalid attestations
+ *      - `invalidateInsufficientAttestations`: Called to remove checkpoints with insufficient valid attestations
+ *      - `prune`: Called to remove unproven checkpoints after the proof submission window has expired
  *      - `setupEpoch`: Called to initialize the validator selection for the next epoch
  *
- *      The block building flow is as follows:
+ *      The checkpoint building flow is as follows:
  *
- *      - At each L2 slot a single proposer is chosen from the validator set who assembles a block that:
- *         - Builds on top of the last pending block (tips.pending) in the rollup
+ *      - At each L2 slot a single proposer is chosen from the validator set who assembles a checkpoint that:
+ *         - Builds on top of the last pending checkpoint (tips.pending) in the rollup
  *         - Includes state transitions, messages, and fee calculations
  *         - Is attested by >2/3 of the committee members
- *      - The L2 block is posted to L1 via the `propose` function
- *         - The pending chain tip advances to the new block
+ *      - The checkpoint is posted to L1 via the `propose` function
+ *         - The pending chain tip advances to the new checkpoint
  *         - State is updated (message trees, archives, etc.)
- *      - After the epoch has ended, a prover generates a proof of the valid state transition for a prefix of blocks in
- *        the epoch
- *         - Most often the prefix will be all the blocks, but "partial epochs" can also be proven for faster message
- *           transmission
+ *      - After the epoch has ended, a prover generates a proof of the valid state transition for a prefix of
+ *        checkpoints in the epoch
+ *         - Most often the prefix will be all the checkpoints, but "partial epochs" can also be proven for faster
+ *           message transmission
  *         - The proof is submitted via `submitEpochRootProof` and must be submitted within the configured proof
  *           submission window
- *         - Upon successful proof submission the proven chain tip advances to the last block in the proven prefix if it
- *           is past the current proven tip, otherwise the tip remain unchanged
+ *         - Upon successful proof submission the proven chain tip advances to the last checkpoint in the proven prefix
+ *           if it is past the current proven tip, otherwise the tip remain unchanged
  *         - It is possible to submit multiple proofs for the same epoch (or prefixes of it)
  *         - Provers of longest prefix shares the proving rewards
- *      - Proving a block makes it finalized from the perspective of L1
+ *      - Proving a checkpoint makes it finalized from the perspective of L1
  *         - This triggers reward and fee accounting for the sequencers and provers of the epoch
  *         - And pushes messages to the outbox for L1 processing
  *
  *      Unhappy path for invalid attestations:
- *      - Attestations in blocks are not validated onchain to save gas. Since attestations are still posted to L1,
- *        nodes are expected to verify them offchain, and skip a block if its attestations are invalid.
- *      - If a block has invalid attestation signatures, anyone can call `invalidateBadAttestation()`
- *      - If a block has insufficient valid attestations (<= 2/3 of committee), anyone can call
+ *      - Attestations in checkpoints are not validated onchain to save gas. Since attestations are still posted to L1,
+ *        nodes are expected to verify them offchain, and skip a checkpoint if its attestations are invalid.
+ *      - If a checkpoint has invalid attestation signatures, anyone can call `invalidateBadAttestation()`
+ *      - If a checkpoint has insufficient valid attestations (<= 2/3 of committee), anyone can call
  *        `invalidateInsufficientAttestations()`
  *      - While anyone can call invalidation functions, it is expected that the next proposer will do so, and if they
  *        fail to do so, then other committee members do, and if they fail to do so, then any validator will do so.
- *      - Upon invalidation, the invalid block and all subsequent blocks are removed from the chain, so the pending
- *        chain tip reverts to the block immediately before the invalid one.
- *       - Note that only unproven blocks can be invalidated, as proven blocks are final and cannot be reverted.
+ *      - Upon invalidation, the invalid checkpoint and all subsequent checkpoints are removed from the chain, so the
+ *        pending chain tip reverts to the checkpoint immediately before the invalid one.
+ *      - Note that only unproven checkpoints can be invalidated, as proven checkpoints are final and cannot be
+ *        reverted.
  *
  *      Unhappy path for missing proofs:
  *      - Each epoch has a proof submission window (configured via aztecProofSubmissionEpochs).
  *      - If no proof is submitted within the window, it is assumed that the epoch cannot be proven due to missing data,
- *        so the entire pending chain all the way back to the last proven block is pruned. This is done by calling
+ *        so the entire pending chain all the way back to the last proven checkpoint is pruned. This is done by calling
  *        `prune()` manually, or automatically on the next proposal.
  *      - The committee for the epoch is expected to disseminate transaction data to allow proving, so a prune is
  *        considered a slashable offense, that causes validators to vote for slashing the committee of the unproven
  *        epoch.
- *      - When the pending chain is pruned, all unproven blocks are removed from the pending chain, and the chain
- *        resumes from the last proven block.
+ *      - When the pending chain is pruned, all unproven checkpoints are removed from the pending chain, and the chain
+ *        resumes from the last proven checkpoint.
  *
  * @dev Slashing Mechanism
  *
@@ -154,7 +155,7 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
  *
  *      - When nodes detect validator misbehavior, they create a payload for slashing the offending validators
  *      - The payload is submitted to the SlashingProposer contract, which keeps track of signalling rounds
- *      - Each block proposer signals on a slashing payload during their assigned slot
+ *      - Each checkpoint proposer signals on a slashing payload during their assigned slot
  *      - If the payload receives sufficient signals (reaches the configured quorum) within a round, it may be submitted
  *        for execution by the Slasher after a configured delay.
  *      - The Slasher has a Vetoer specified in the constructor, which can veto the payload if it is deemed to be
@@ -166,15 +167,15 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
  *
  *      Conditions that cause nodes to vote for slashing a validator:
  *      1. Validators that fail to fulfill their duties:
- *         - Committee members who fail to attest to blocks when required
+ *         - Committee members who fail to attest to checkpoints when required
  *      2. Committee members of an unproven epoch where either:
  *         - The data for the epoch is not available
- *         - The the epoch was provable but no proof was submitted
- *      3. Proposers of invalid blocks or committee members who attest to blocks built on top of invalid ones:
- *         - Proposing blocks with invalid state transitions
- *         - Proposing blocks with invalid attestations
- *         - Attesting to blocks that build upon known invalid blocks (e.g. invalid attestations)
- *         - This ensures the integrity of the chain by penalizing those who contribute to invalid blocks
+ *         - The epoch was provable but no proof was submitted
+ *      3. Proposers of invalid checkpoints or committee members who attest to checkpoints built on top of invalid ones:
+ *         - Proposing checkpoints with invalid state transitions
+ *         - Proposing checkpoints with invalid attestations
+ *         - Attesting to checkpoints that build upon known invalid checkpoints (e.g. invalid attestations)
+ *         - This ensures the integrity of the chain by penalizing those who contribute to invalid checkpoints
  */
 contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IValidatorSelectionCore, IRollupCore {
   using TimeLib for Timestamp;
@@ -330,7 +331,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     // If we are going from 0 to non-zero mana limits, we need to catch up the inbox
     if (currentManaTarget == 0 && _manaTarget > 0) {
       RollupStore storage rollupStore = STFLib.getStorage();
-      rollupStore.config.inbox.catchUp(rollupStore.tips.getPendingBlockNumber());
+      rollupStore.config.inbox.catchUp(rollupStore.tips.getPending());
     }
 
     emit IRollupCore.ManaTargetUpdated(_manaTarget);
@@ -385,7 +386,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Claims accumulated rewards for a sequencer (block proposer)
+   * @notice Claims accumulated rewards for a sequencer (checkpoint proposer)
    * @dev Rewards must be enabled via isRewardsClaimable. Transfers all accumulated rewards to the recipient.
    * @param _coinbase The address that has accumulated the rewards - rewards are sent to this address
    * @return The amount of rewards claimed
@@ -490,10 +491,10 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Removes unproven blocks from the pending chain
+   * @notice Removes unproven checkpoints from the pending chain
    * @dev Can only be called after the proof submission window has expired for an epoch.
-   *      This maintains liveness by preventing the chain from being stuck on unproven blocks.
-   *      Pruning occurs at epoch boundaries and removes all blocks in unproven epochs.
+   *      This maintains liveness by preventing the chain from being stuck on unproven checkpoints.
+   *      Pruning occurs at epoch boundaries and removes all checkpoints in unproven epochs.
    */
   function prune() external override(IRollupCore) {
     RollupOperationsExtLib.prune();
@@ -501,7 +502,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Submits a zero-knowledge proof for an epoch's state transition
-   * @dev Proves the validity of a prefix of the blocks in an epoch. Once proven, blocks become final
+   * @dev Proves the validity of a prefix of the checkpoints in an epoch. Once proven, checkpoints become final
    *      and cannot be pruned. The proof must be submitted within the submission window.
    *      Successful submission triggers prover rewards.
    * @param _args Contains the epoch range, public inputs, fees, attestations, and the ZK proof
@@ -511,14 +512,14 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Proposes a new L2 block to extend the chain
-   * @dev Core function for block production.
+   * @notice Proposes a new checkpoint to extend the chain
+   * @dev Core function for checkpoint production.
    *      The attestations must include a signature from designated proposer to be accepted.
-   *      The block must build on the previous block and include valid attestations from committee members.
-   *      Failed proposals revert; successful ones emit L2BlockProposed and advance the chain state.
+   *      The checkpoint must build on the previous checkpoint and include valid attestations from committee members.
+   *      Failed proposals revert; successful ones emit CheckpointProposed and advance the chain state.
    *      See ProposeLib#propose for more details.
-   * @param _args Block data including header, state updates, oracle inputs, and archive
-   * @param _attestations Aggregated signatures from committee members attesting to block validity
+   * @param _args checkpoint data including header, state updates, oracle inputs, and archive
+   * @param _attestations Aggregated signatures from committee members attesting to checkpoint validity
    * @param _signers Addresses of committee members who signed (must match attestations)
    * @param _blobInput Blob commitment data for data availability (format: [numBlobs][48-byte commitments...])
    */
@@ -535,37 +536,37 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Invalidates a block due to a bad attestation signature
-   * @dev Anyone can call this if they detect an invalid signature. This removes the block
-   *      and all subsequent blocks from the pending chain. Used to maintain pending chain integrity.
-   * @param _blockNumber The L2 block number to invalidate
-   * @param _attestations The attestations that were submitted with the block
-   * @param _committee The committee members for the block's epoch
+   * @notice Invalidates a checkpoint due to a bad attestation signature
+   * @dev Anyone can call this if they detect an invalid signature. This removes the checkpoint
+   *      and all subsequent checkpoints from the pending chain. Used to maintain pending chain integrity.
+   * @param _checkpointNumber The checkpoint number to invalidate
+   * @param _attestations The attestations that were submitted with the checkpoint
+   * @param _committee The committee members for the checkpoint's epoch
    * @param _invalidIndex The index of the invalid signature in the attestations
    */
   function invalidateBadAttestation(
-    uint256 _blockNumber,
+    uint256 _checkpointNumber,
     CommitteeAttestations memory _attestations,
     address[] memory _committee,
     uint256 _invalidIndex
   ) external override(IRollupCore) {
-    ValidatorOperationsExtLib.invalidateBadAttestation(_blockNumber, _attestations, _committee, _invalidIndex);
+    ValidatorOperationsExtLib.invalidateBadAttestation(_checkpointNumber, _attestations, _committee, _invalidIndex);
   }
 
   /**
-   * @notice Invalidates a block due to insufficient valid attestations (>2/3 of committee required)
-   * @dev Anyone can call this if a block doesn't meet the required attestation threshold.
-   *      Even if all signatures are valid, blocks need a minimum number of attestations.
-   * @param _blockNumber The L2 block number to invalidate
-   * @param _attestations The attestations that were submitted with the block
-   * @param _committee The committee members for the block's epoch
+   * @notice Invalidates a checkpoint due to insufficient valid attestations (>2/3 of committee required)
+   * @dev Anyone can call this if a checkpoint doesn't meet the required attestation threshold.
+   *      Even if all signatures are valid, checkpoints need a minimum number of attestations.
+   * @param _checkpointNumber The checkpoint number to invalidate
+   * @param _attestations The attestations that were submitted with the checkpoint
+   * @param _committee The committee members for the checkpoint's epoch
    */
   function invalidateInsufficientAttestations(
-    uint256 _blockNumber,
+    uint256 _checkpointNumber,
     CommitteeAttestations memory _attestations,
     address[] memory _committee
   ) external override(IRollupCore) {
-    ValidatorOperationsExtLib.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
+    ValidatorOperationsExtLib.invalidateInsufficientAttestations(_checkpointNumber, _attestations, _committee);
   }
 
   /**
@@ -602,7 +603,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Updates the L1 gas fee oracle with current gas prices
-   * @dev Automatically called during block proposal but can be called manually.
+   * @dev Automatically called during checkpoint proposal but can be called manually.
    *      Updates the fee model's view of L1 costs to ensure accurate L2 fee pricing.
    *      Uses current L1 gas price and blob gas price for calculations.
    */
@@ -621,7 +622,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Returns the current number of active validators
-   * @dev Active validators can propose blocks and participate in committees
+   * @dev Active validators can propose checkpoints and participate in committees
    * @return The count of validators in the active set
    */
   function getActiveAttesterCount() public view override(IStakingCore) returns (uint256) {

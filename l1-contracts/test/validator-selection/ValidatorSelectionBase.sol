@@ -35,7 +35,7 @@ import {Math} from "@oz/utils/math/Math.sol";
 // solhint-disable comprehensive-interface
 
 /**
- * We are using the same blocks as from Rollup.t.sol.
+ * We are using the same checkpoints as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
  */
 contract ValidatorSelectionTestBase is DecoderBase {
@@ -75,12 +75,12 @@ contract ValidatorSelectionTestBase is DecoderBase {
    * @notice Setup contracts needed for the tests with the a given number of validators
    */
   modifier setup(uint256 _validatorCount, uint256 _targetCommitteeSize) {
-    string memory _name = "mixed_block_1";
+    string memory _name = "mixed_checkpoint_1";
     {
       DecoderBase.Full memory full = load(_name);
-      Slot slotNumber = full.block.header.slotNumber;
+      Slot slotNumber = full.checkpoint.header.slotNumber;
       uint256 initialTime =
-        Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * TestConstants.AZTEC_SLOT_DURATION;
+        Timestamp.unwrap(full.checkpoint.header.timestamp) - Slot.unwrap(slotNumber) * TestConstants.AZTEC_SLOT_DURATION;
 
       timeCheater = new TimeCheater(
         address(rollup),

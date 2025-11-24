@@ -77,6 +77,7 @@ export const PARITY_BASE_VK_INDEX = 22;
 export const PARITY_ROOT_VK_INDEX = 23;
 export const PRIVATE_KERNEL_RESET_INDEX = 24;
 export const FUNCTION_SELECTOR_NUM_BYTES = 4;
+export const INITIAL_CHECKPOINT_NUMBER = 1;
 export const INITIAL_L2_BLOCK_NUM = 1;
 export const FIELDS_PER_BLOB = 4096;
 export const BLOBS_PER_CHECKPOINT = 6;

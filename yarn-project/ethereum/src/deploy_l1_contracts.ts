@@ -487,9 +487,9 @@ export const deploySharedContracts = async (
   const rewardDistributorAddress = await registry.getRewardDistributor();
 
   if (!args.existingTokenAddress) {
-    const blockReward = getRewardConfig(networkName).blockReward;
+    const checkpointReward = getRewardConfig(networkName).checkpointReward;
 
-    const funding = blockReward * 200000n;
+    const funding = checkpointReward * 200000n;
     const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
       to: feeAssetAddress.toString(),
       data: encodeFunctionData({
