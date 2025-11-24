@@ -456,3 +456,232 @@ TEST(SumcheckRound, ExtendEdges)
              Flavor::MAX_PARTIAL_RELATION_LENGTH);
     }
 }
+
+/**
+ * @brief Test accumulate_relation_univariates for UltraFlavor
+ * @details Tests that:
+ * 1. Arithmetic relation contributions are correctly accumulated
+ * 2. Scaling factors are properly applied
+ * 3. Multiple calls correctly accumulate (add) contributions
+ */
+TEST(SumcheckRound, AccumulateRelationUnivariatesUltra)
+{
+    using Flavor = UltraFlavor;
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using SumcheckRound = SumcheckProverRound<Flavor>;
+
+    const size_t multivariate_d = 2; // log2(circuit_size) = 2 → 4 rows
+    const size_t multivariate_n = 1 << multivariate_d;
+
+    // Test 1: Arithmetic relation with simple values
+    // Simple circuit: w_l + w_r = w_o (using q_l=1, q_r=1, q_o=-1)
+    {
+        info("Test 1: Arithmetic relation accumulation");
+
+        // Create polynomial arrays
+        std::array<FF, multivariate_n> w_l = { FF(1), FF(2), FF(3), FF(4) };
+        std::array<FF, multivariate_n> w_r = { FF(5), FF(6), FF(7), FF(8) };
+        std::array<FF, multivariate_n> w_o = { FF(6), FF(8), FF(10), FF(12) }; // w_l + w_r
+        std::array<FF, multivariate_n> w_4 = { FF(0), FF(0), FF(0), FF(0) };
+        std::array<FF, multivariate_n> q_m = { FF(0), FF(0), FF(0), FF(0) };
+        std::array<FF, multivariate_n> q_l = { FF(1), FF(1), FF(1), FF(1) };
+        std::array<FF, multivariate_n> q_r = { FF(1), FF(1), FF(1), FF(1) };
+        std::array<FF, multivariate_n> q_o = { FF(-1), FF(-1), FF(-1), FF(-1) };
+        std::array<FF, multivariate_n> q_c = { FF(0), FF(0), FF(0), FF(0) };
+        std::array<FF, multivariate_n> q_arith = { FF(1), FF(1), FF(1), FF(1) }; // Enable arithmetic
+
+        // Create ProverPolynomials
+        ProverPolynomials prover_polynomials;
+        prover_polynomials.q_m = bb::Polynomial<FF>(q_m);
+        prover_polynomials.q_c = bb::Polynomial<FF>(q_c);
+        prover_polynomials.q_l = bb::Polynomial<FF>(q_l);
+        prover_polynomials.q_r = bb::Polynomial<FF>(q_r);
+        prover_polynomials.q_o = bb::Polynomial<FF>(q_o);
+        prover_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
+        prover_polynomials.w_l = bb::Polynomial<FF>(w_l);
+        prover_polynomials.w_r = bb::Polynomial<FF>(w_r);
+        prover_polynomials.w_o = bb::Polynomial<FF>(w_o);
+        prover_polynomials.w_4 = bb::Polynomial<FF>(w_4);
+
+        // Initialize other required polynomials to zero
+        for (auto& poly : prover_polynomials.get_all()) {
+            if (poly.size() == 0) {
+                poly = bb::Polynomial<FF>(multivariate_n);
+            }
+        }
+
+        // Extend edges from the first edge (index 0)
+        SumcheckRound round(multivariate_n);
+        typename SumcheckRound::ExtendedEdges extended_edges;
+        round.extend_edges(extended_edges, prover_polynomials, 0);
+
+        // Accumulate relation
+        typename SumcheckRound::SumcheckTupleOfTuplesOfUnivariates accumulator{};
+        RelationUtils<Flavor>::zero_univariates(accumulator);
+        RelationParameters<FF> relation_parameters{};
+
+        // Scaling factor is set to 1
+        round.accumulate_relation_univariates_public(accumulator, extended_edges, relation_parameters, FF(1));
+
+        // Get arithmetic relation univariate
+        auto& arith_univariate = std::get<0>(std::get<0>(accumulator));
+
+        // For edge 0->1: relation should be q_arith * (q_l * w_l + q_r * w_r + q_o * w_o + q_c)
+        // At edge 0: 1 * (1*1 + 1*5 + (-1)*6 + 0) = 1 + 5 - 6 = 0 (satisfied)
+        // At edge 1: 1 * (1*2 + 1*6 + (-1)*8 + 0) = 2 + 6 - 8 = 0 (satisfied)
+        EXPECT_EQ(arith_univariate.value_at(0), FF(0)) << "Relation should be satisfied at edge 0";
+        EXPECT_EQ(arith_univariate.value_at(1), FF(0)) << "Relation should be satisfied at edge 1";
+
+        info("Arithmetic relation: verified relation is satisfied for valid circuit");
+    }
+
+    // Test 2: Scaling factor
+    {
+        info("Test 2: Scaling factor application");
+
+        // Create a simple non-zero contribution circuit
+        std::array<FF, multivariate_n> w_l = { FF(2), FF(2), FF(2), FF(2) };
+        std::array<FF, multivariate_n> q_l = { FF(3), FF(3), FF(3), FF(3) };
+        std::array<FF, multivariate_n> q_arith = { FF(1), FF(1), FF(1), FF(1) };
+
+        ProverPolynomials prover_polynomials;
+        prover_polynomials.w_l = bb::Polynomial<FF>(w_l);
+        prover_polynomials.q_l = bb::Polynomial<FF>(q_l);
+        prover_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
+
+        for (auto& poly : prover_polynomials.get_all()) {
+            if (poly.size() == 0) {
+                poly = bb::Polynomial<FF>(multivariate_n);
+            }
+        }
+
+        SumcheckRound round(multivariate_n);
+        typename SumcheckRound::ExtendedEdges extended_edges;
+        round.extend_edges(extended_edges, prover_polynomials, 0);
+
+        typename SumcheckRound::SumcheckTupleOfTuplesOfUnivariates acc1{}, acc2{};
+        RelationUtils<Flavor>::zero_univariates(acc1);
+        RelationUtils<Flavor>::zero_univariates(acc2);
+        RelationParameters<FF> relation_parameters{};
+
+        round.accumulate_relation_univariates_public(acc1, extended_edges, relation_parameters, FF(1));
+        round.accumulate_relation_univariates_public(acc2, extended_edges, relation_parameters, FF(2));
+
+        auto& arith1 = std::get<0>(std::get<0>(acc1));
+        auto& arith2 = std::get<0>(std::get<0>(acc2));
+
+        // With scale=2, result should be exactly double
+        EXPECT_EQ(arith2.value_at(0), arith1.value_at(0) * FF(2)) << "Scaling should multiply contribution";
+        EXPECT_EQ(arith2.value_at(1), arith1.value_at(1) * FF(2)) << "Scaling should multiply contribution";
+
+        info("Scaling factor: verified 2x scaling produces 2x contribution");
+    }
+
+    // Test 3: Multiple accumulations
+    {
+        info("Test 3: Multiple accumulation calls");
+
+        std::array<FF, multivariate_n> w_l = { FF(1), FF(1), FF(1), FF(1) };
+        std::array<FF, multivariate_n> q_l = { FF(5), FF(5), FF(5), FF(5) };
+        std::array<FF, multivariate_n> q_arith = { FF(1), FF(1), FF(1), FF(1) };
+
+        ProverPolynomials prover_polynomials;
+        prover_polynomials.w_l = bb::Polynomial<FF>(w_l);
+        prover_polynomials.q_l = bb::Polynomial<FF>(q_l);
+        prover_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
+
+        for (auto& poly : prover_polynomials.get_all()) {
+            if (poly.size() == 0) {
+                poly = bb::Polynomial<FF>(multivariate_n);
+            }
+        }
+
+        SumcheckRound round(multivariate_n);
+        typename SumcheckRound::ExtendedEdges extended_edges;
+        round.extend_edges(extended_edges, prover_polynomials, 0);
+
+        typename SumcheckRound::SumcheckTupleOfTuplesOfUnivariates accumulator{};
+        RelationUtils<Flavor>::zero_univariates(accumulator);
+        RelationParameters<FF> relation_parameters{};
+
+        // First accumulation
+        round.accumulate_relation_univariates_public(accumulator, extended_edges, relation_parameters, FF(1));
+        auto& arith = std::get<0>(std::get<0>(accumulator));
+        FF value_after_first = arith.value_at(0);
+
+        // Second accumulation (should add to first)
+        round.accumulate_relation_univariates_public(accumulator, extended_edges, relation_parameters, FF(1));
+        FF value_after_second = arith.value_at(0);
+
+        // Second value should be double the first (since we accumulated the same contribution twice)
+        EXPECT_EQ(value_after_second, value_after_first * FF(2)) << "Second accumulation should add to first";
+
+        info("Multiple accumulations: verified contributions are summed");
+    }
+    // Test 4: Linearly dependent subrelation should NOT be scaled
+    {
+        info("Test 4: LogDerivLookupRelation linearly dependent subrelation is not scaled");
+
+        // Create a circuit with lookup-related polynomials
+        std::array<FF, multivariate_n> lookup_read_counts = { FF(1), FF(2), FF(1), FF(0) };
+        std::array<FF, multivariate_n> lookup_inverses = { FF(1), FF(1), FF(1), FF(1) };
+        std::array<FF, multivariate_n> q_lookup = { FF(1), FF(1), FF(1), FF(0) };
+
+        ProverPolynomials prover_polynomials;
+        prover_polynomials.lookup_read_counts = bb::Polynomial<FF>(lookup_read_counts);
+        prover_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
+        prover_polynomials.q_lookup = bb::Polynomial<FF>(q_lookup);
+
+        for (auto& poly : prover_polynomials.get_all()) {
+            if (poly.size() == 0) {
+                poly = bb::Polynomial<FF>(multivariate_n);
+            }
+        }
+
+        SumcheckRound round(multivariate_n);
+        typename SumcheckRound::ExtendedEdges extended_edges;
+        round.extend_edges(extended_edges, prover_polynomials, 0);
+
+        typename SumcheckRound::SumcheckTupleOfTuplesOfUnivariates acc1{}, acc2{};
+        RelationUtils<Flavor>::zero_univariates(acc1);
+        RelationUtils<Flavor>::zero_univariates(acc2);
+
+        RelationParameters<FF> relation_parameters{
+            .beta = FF::random_element(),
+            .gamma = FF::random_element(),
+            .public_input_delta = FF::one(),
+        };
+
+        // Accumulate with scale=1 and scale=2
+        round.accumulate_relation_univariates_public(acc1, extended_edges, relation_parameters, FF(1));
+        round.accumulate_relation_univariates_public(acc2, extended_edges, relation_parameters, FF(2));
+
+        // LogDerivLookupRelation is at index 2 in UltraFlavor::Relations
+        // It has 3 subrelations: [0] inverse correctness (scaled), [1] lookup sum (NOT scaled), [2] read_tag boolean
+        // (scaled)
+
+        // Check subrelation 0 (inverse correctness) - SHOULD be scaled
+        auto& logderiv_sub0_acc1 = std::get<0>(std::get<2>(acc1));
+        auto& logderiv_sub0_acc2 = std::get<0>(std::get<2>(acc2));
+        EXPECT_EQ(logderiv_sub0_acc2.value_at(0), logderiv_sub0_acc1.value_at(0) * FF(2))
+            << "LogDerivLookup subrelation 0 (inverse correctness) SHOULD be scaled";
+
+        // Check subrelation 1 (lookup sum) - should NOT be scaled (linearly dependent)
+        auto& logderiv_sub1_acc1 = std::get<1>(std::get<2>(acc1));
+        auto& logderiv_sub1_acc2 = std::get<1>(std::get<2>(acc2));
+        EXPECT_EQ(logderiv_sub1_acc2.value_at(0), logderiv_sub1_acc1.value_at(0))
+            << "LogDerivLookup subrelation 1 (linearly dependent lookup sum) should NOT be scaled";
+        EXPECT_EQ(logderiv_sub1_acc2.value_at(1), logderiv_sub1_acc1.value_at(1))
+            << "LogDerivLookup subrelation 1 (linearly dependent lookup sum) should NOT be scaled";
+
+        // Check subrelation 2 (read_tag boolean) - SHOULD be scaled
+        auto& logderiv_sub2_acc1 = std::get<2>(std::get<2>(acc1));
+        auto& logderiv_sub2_acc2 = std::get<2>(std::get<2>(acc2));
+        EXPECT_EQ(logderiv_sub2_acc2.value_at(0), logderiv_sub2_acc1.value_at(0) * FF(2))
+            << "LogDerivLookup subrelation 2 (read_tag boolean) SHOULD be scaled";
+
+        info("LogDerivLookupRelation: verified that linearly dependent subrelation (index 1) is NOT scaled, while "
+             "others ARE scaled");
+    }
+}
