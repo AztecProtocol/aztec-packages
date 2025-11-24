@@ -5,7 +5,7 @@ import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { GlobalVariables } from '@aztec/aztec.js/tx';
-import { BatchedBlob, getBlobsPerL1Block } from '@aztec/blob-lib';
+import { getBlobsPerL1Block } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -297,8 +297,8 @@ describe('L1Publisher integration', () => {
         '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
       );
 
-      let currentL1ToL2Messages: Fr[] = [];
-      let nextL1ToL2Messages: Fr[] = [];
+      const currentL1ToL2Messages: Fr[] = [];
+      const nextL1ToL2Messages: Fr[] = [];
       const blobFieldsPerCheckpoint: Fr[][] = [];
 
       // With just one l1 client (serial sending) this takes too much time to send NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP
@@ -320,8 +320,6 @@ describe('L1Publisher integration', () => {
       const ts = (await l1Client.getBlock()).timestamp;
       const slot = await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration));
       const timestamp = await rollup.getTimestampForSlot(slot);
-
-      console.log(`Building block ${l2BlockNumber} at time ${timestamp} (slot ${slot}) with ${txs.length} txs`);
 
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
@@ -360,7 +358,6 @@ describe('L1Publisher integration', () => {
     };
 
     const isFusakaTransaction = (tx: TransactionSerializableEIP4844) => {
-      console.log('Checking tx blob version:', tx);
       if (tx.blobVersion === '4844') {
         return false;
       } else if (tx.blobVersion === '7594') {
