@@ -3,7 +3,6 @@ import { spawn, ChildProcess } from 'child_process';
 import { openSync, closeSync } from 'fs';
 import { IMsgpackBackendSync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
-import readline from 'readline';
 
 // Import the NAPI module
 // The addon is built to the nodejs_module directory
@@ -19,6 +18,8 @@ try {
   // Addon not built yet or not available
   addon = null;
 }
+
+let instanceCounter = 0;
 
 /**
  * Synchronous shared memory backend that communicates with bb binary via shared memory.
@@ -46,12 +47,10 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
    * Create and initialize a shared memory backend.
    * @param bbBinaryPath Path to bb binary
    * @param threads Optional number of threads
-   * @param maxClients Optional maximum concurrent clients (default: 1)
    */
   static async new(
     bbBinaryPath: string,
     threads?: number,
-    maxClients?: number,
     logger?: (msg: string) => void,
   ): Promise<BarretenbergNativeShmSyncBackend> {
     if (!addon || !addon.MsgpackClient) {
@@ -59,14 +58,11 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     }
 
     // Create a unique shared memory name
-    const shmName = `bb-${process.pid}`;
-
-    // Default maxClients to 1 if not specified
-    const clientCount = maxClients ?? 1;
+    const shmName = `bb-sync-${process.pid}-${instanceCounter++}`;
 
     // If threads not set use 1 thread. We're not expected to do long lived work on sync backends.
     const hwc = threads ? threads.toString() : '1';
-    const env = { ...process.env, HARDWARE_CONCURRENCY: '1' };
+    const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
 
     // Set up file logging if logger is provided.
     // Direct file redirection bypasses Node event loop - logs are written even if process hangs.
@@ -78,17 +74,8 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
       logger(`BB process logs redirected to: ${logPath}`);
     }
 
-    // Spawn bb process with shared memory mode
-    const args = [
-      'msgpack',
-      'run',
-      '--input',
-      `${shmName}.shm`,
-      '--max-clients',
-      clientCount.toString(),
-      '--request-ring-size',
-      `${1024 * 1024 * 2}`,
-    ];
+    // Spawn bb process with shared memory mode (SPSC-only, no max-clients needed)
+    const args = ['msgpack', 'run', '--input', `${shmName}.shm`, '--request-ring-size', `${1024 * 1024 * 4}`];
     const bbProcess = spawn(bbBinaryPath, args, {
       stdio: ['ignore', logFd ?? 'ignore', logFd ?? 'ignore'],
       env,
@@ -137,8 +124,8 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
         }
 
         try {
-          // Create NAPI client with matching max_clients value
-          client = new addon.MsgpackClient(shmName, clientCount);
+          // Create NAPI client (SPSC-only, no max_clients needed)
+          client = new addon.MsgpackClient(shmName);
           break; // Success!
         } catch (err: any) {
           // Connection failed, will retry
