@@ -344,7 +344,9 @@ export class SequencerPublisher {
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), this.ethereumSlotDuration, opts)
+      .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), this.ethereumSlotDuration, {
+        forcePendingCheckpointNumber: opts.forcePendingBlockNumber,
+      })
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
           this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
@@ -376,7 +378,7 @@ export class SequencerPublisher {
     ] as const;
 
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
-    const stateOverrides = await this.rollupContract.makePendingBlockNumberOverride(opts?.forcePendingBlockNumber);
+    const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(opts?.forcePendingBlockNumber);
     let balance = 0n;
     if (this.config.fishermanMode) {
       // In fisherman mode, we can't know where the proposer is publishing from
@@ -417,7 +419,7 @@ export class SequencerPublisher {
     const blockNumber = block.blockNumber;
     const logData = { ...block, reason };
 
-    const currentBlockNumber = await this.rollupContract.getBlockNumber();
+    const currentBlockNumber = await this.rollupContract.getCheckpointNumber();
     if (currentBlockNumber < validationResult.block.blockNumber) {
       this.log.verbose(
         `Skipping block ${blockNumber} invalidation since it has already been removed from the pending chain`,
@@ -444,7 +446,7 @@ export class SequencerPublisher {
           `Simulation for invalidate block ${blockNumber} failed due to block not being in pending chain`,
           { ...logData, request, error: viemError.message },
         );
-        const latestPendingBlockNumber = await this.rollupContract.getBlockNumber();
+        const latestPendingBlockNumber = await this.rollupContract.getCheckpointNumber();
         if (latestPendingBlockNumber < blockNumber) {
           this.log.verbose(`Block number ${blockNumber} has already been invalidated`, { ...logData });
           return undefined;
@@ -856,7 +858,7 @@ export class SequencerPublisher {
           result &&
           result.receipt &&
           result.receipt.status === 'success' &&
-          tryExtractEvent(result.receipt.logs, this.rollupContract.address, RollupAbi, 'BlockInvalidated');
+          tryExtractEvent(result.receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointInvalidated');
         if (!success) {
           this.log.warn(`Invalidate block ${request.blockNumber} failed`, { ...result, ...logData });
         } else {
@@ -1033,7 +1035,7 @@ export class SequencerPublisher {
     // override the pending block number if requested
     const forcePendingBlockNumberStateDiff = (
       options.forcePendingBlockNumber !== undefined
-        ? await this.rollupContract.makePendingBlockNumberOverride(options.forcePendingBlockNumber)
+        ? await this.rollupContract.makePendingCheckpointNumberOverride(options.forcePendingBlockNumber)
         : []
     ).flatMap(override => override.stateDiff ?? []);
 
@@ -1140,7 +1142,7 @@ export class SequencerPublisher {
         const success =
           receipt &&
           receipt.status === 'success' &&
-          tryExtractEvent(receipt.logs, this.rollupContract.address, RollupAbi, 'L2BlockProposed');
+          tryExtractEvent(receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointProposed');
         if (success) {
           const endBlock = receipt.blockNumber;
           const inclusionBlocks = Number(endBlock - startBlock);

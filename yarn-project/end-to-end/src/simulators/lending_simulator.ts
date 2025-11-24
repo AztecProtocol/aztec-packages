@@ -112,7 +112,7 @@ export class LendingSimulator {
     if (dateProvider) {
       dateProvider.setTime(this.time * 1000);
     }
-    await this.cc.rollup.markAsProven(await this.rollup.getBlockNumber());
+    await this.cc.rollup.markAsProven(await this.rollup.getCheckpointNumber());
     this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(timeDiff)), BASE);
   }
 

@@ -65,10 +65,10 @@ interface MockInboxContractRead {
 }
 
 interface MockRollupContractEvents {
-  L2BlockProposed: (
+  CheckpointProposed: (
     filter: any,
     range: { fromBlock: bigint; toBlock: bigint },
-  ) => Promise<Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProposed'>[]>;
+  ) => Promise<Log<bigint, number, false, undefined, true, typeof RollupAbi, 'CheckpointProposed'>[]>;
 }
 
 interface MockInboxContractEvents {
@@ -140,7 +140,7 @@ describe('Archiver', () => {
   let messagesRollingHash: Buffer16;
   let totalMessagesInserted: number;
 
-  let l2BlockProposedLogs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProposed'>[];
+  let l2BlockProposedLogs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'CheckpointProposed'>[];
   let l2MessageSentLogs: Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageSent'>[];
 
   // Maps from block archive to the corresponding txs, versioned blob hashes, and blobs
@@ -220,7 +220,7 @@ describe('Archiver', () => {
     );
     mockRollupRead.getVersion.mockImplementation(() => Promise.resolve(1n));
     mockRollupEvents = mock<MockRollupContractEvents>();
-    mockRollupEvents.L2BlockProposed.mockImplementation((_filter: any, { fromBlock, toBlock }) =>
+    mockRollupEvents.CheckpointProposed.mockImplementation((_filter: any, { fromBlock, toBlock }) =>
       Promise.resolve(l2BlockProposedLogs.filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock)),
     );
     mockRollup = {
@@ -1042,15 +1042,15 @@ describe('Archiver', () => {
    */
   const makeL2BlockProposedEvent = (
     l1BlockNum: bigint,
-    l2BlockNum: bigint,
+    checkpointNumber: bigint,
     archive: `0x${string}`,
     versionedBlobHashes: `0x${string}`[],
   ) => {
     const log = {
       blockNumber: l1BlockNum,
-      args: { blockNumber: l2BlockNum, archive, versionedBlobHashes },
+      args: { checkpointNumber, archive, versionedBlobHashes },
       transactionHash: archive,
-    } as unknown as Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProposed'>;
+    } as unknown as Log<bigint, number, false, undefined, true, typeof RollupAbi, 'CheckpointProposed'>;
     l2BlockProposedLogs.push(log);
   };
 
@@ -1070,7 +1070,7 @@ describe('Archiver', () => {
       blockNumber: l1BlockNum,
       blockHash: Buffer32.fromBigInt(l1BlockNum).toString(),
       args: {
-        l2BlockNumber: BigInt(l2BlockNumber),
+        checkpointNumber: BigInt(l2BlockNumber),
         index,
         hash: leaf.toString(),
         rollingHash: messagesRollingHash.toString(),

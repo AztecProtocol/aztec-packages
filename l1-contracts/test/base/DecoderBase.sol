@@ -18,13 +18,13 @@ contract DecoderBase is TestBase {
   // When I had data and messages as one combined struct it failed, but I can have this top-layer and it works :shrug:
   // Note: Members of the struct (and substructs) have to be in ALPHABETICAL order!
   struct Full {
-    Data block;
+    Data checkpoint;
     Messages messages;
     Populate populate;
   }
 
   struct AlphabeticalFull {
-    AlphabeticalData block;
+    AlphabeticalData checkpoint;
     Messages messages;
     Populate populate;
   }
@@ -59,15 +59,14 @@ contract DecoderBase is TestBase {
 
   struct Data {
     bytes32 archive;
-    // Note: batchedBlobInputs is usually per epoch, rather than per block. For testing, these batchedBlobInputs assume
-    // that
-    // an epoch contains blobs including and up to the 'current' block.
-    // e.g. mixed_block_2's batchedBlobInputs assumes that the epoch consists of 2 blocks, mixed_block_1 and
-    // mixed_block_2, and their blobs.
-    // e.g. mixed_block_1's batchedBlobInputs assumes the epoch contains only mixed_block_1 and its blob(s).
+    // Note: batchedBlobInputs is usually per epoch, rather than per checkpoint. For testing, these batchedBlobInputs
+    // assume that an epoch contains blobs including and up to the 'current' checkpoint.
+    // e.g. mixed_checkpoint_2's batchedBlobInputs assumes that the epoch consists of 2 checkpoints, mixed_checkpoint_1
+    // and mixed_checkpoint_2, and their blobs.
+    // e.g. mixed_checkpoint_1's batchedBlobInputs assumes the epoch contains only mixed_checkpoint_1 and its blob(s).
     bytes batchedBlobInputs; // EVM point evaluation precompile inputs for verifying an epoch's batch of blobs
-    bytes blobCommitments; // [numBlobs, ...blobCommitments], used in proposing blocks
-    uint256 blockNumber;
+    bytes blobCommitments; // [numBlobs, ...blobCommitments], used in proposing checkpoints
+    uint256 checkpointNumber;
     bytes body;
     ProposedHeader header;
     bytes32 headerHash;
@@ -78,8 +77,8 @@ contract DecoderBase is TestBase {
     bytes32 archive;
     bytes batchedBlobInputs;
     bytes blobCommitments;
-    uint256 blockNumber;
     bytes body;
+    uint256 checkpointNumber;
     AlphabeticalHeader header;
     bytes32 headerHash;
     uint32 numTxs;
@@ -97,35 +96,35 @@ contract DecoderBase is TestBase {
   // Decode does not support the custom types
   function fromAlphabeticalToNormal(AlphabeticalFull memory full) internal pure returns (Full memory) {
     Full memory result = Full({
-      block: Data({
-        archive: full.block.archive,
-        blobCommitments: full.block.blobCommitments,
-        batchedBlobInputs: full.block.batchedBlobInputs,
-        blockNumber: full.block.blockNumber,
-        body: full.block.body,
+      checkpoint: Data({
+        archive: full.checkpoint.archive,
+        blobCommitments: full.checkpoint.blobCommitments,
+        batchedBlobInputs: full.checkpoint.batchedBlobInputs,
+        checkpointNumber: full.checkpoint.checkpointNumber,
+        body: full.checkpoint.body,
         header: ProposedHeader({
-          lastArchiveRoot: full.block.header.lastArchiveRoot,
-          blockHeadersHash: full.block.header.blockHeadersHash,
+          lastArchiveRoot: full.checkpoint.header.lastArchiveRoot,
+          blockHeadersHash: full.checkpoint.header.blockHeadersHash,
           contentCommitment: ContentCommitment({
-            blobsHash: full.block.header.contentCommitment.blobsHash,
-            inHash: full.block.header.contentCommitment.inHash,
-            outHash: full.block.header.contentCommitment.outHash
+            blobsHash: full.checkpoint.header.contentCommitment.blobsHash,
+            inHash: full.checkpoint.header.contentCommitment.inHash,
+            outHash: full.checkpoint.header.contentCommitment.outHash
           }),
-          slotNumber: Slot.wrap(full.block.header.slotNumber),
-          timestamp: Timestamp.wrap(full.block.header.timestamp),
-          coinbase: full.block.header.coinbase,
-          feeRecipient: full.block.header.feeRecipient,
-          gasFees: full.block.header.gasFees,
-          totalManaUsed: full.block.header.totalManaUsed
+          slotNumber: Slot.wrap(full.checkpoint.header.slotNumber),
+          timestamp: Timestamp.wrap(full.checkpoint.header.timestamp),
+          coinbase: full.checkpoint.header.coinbase,
+          feeRecipient: full.checkpoint.header.feeRecipient,
+          gasFees: full.checkpoint.header.gasFees,
+          totalManaUsed: full.checkpoint.header.totalManaUsed
         }),
-        headerHash: full.block.headerHash,
-        numTxs: full.block.numTxs
+        headerHash: full.checkpoint.headerHash,
+        numTxs: full.checkpoint.numTxs
       }),
       messages: full.messages,
       populate: full.populate
     });
 
-    assertEq(result.block.headerHash, result.block.header.hash(), "headerHash mismatch when loading");
+    assertEq(result.checkpoint.headerHash, result.checkpoint.header.hash(), "headerHash mismatch when loading");
 
     return result;
   }

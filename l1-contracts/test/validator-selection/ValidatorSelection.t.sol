@@ -37,17 +37,17 @@ import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
 import {
-  BlockLog,
+  CheckpointLog,
   PublicInputArgs,
   SubmitEpochRootProofArgs,
-  BlockHeaderValidationFlags
+  CheckpointHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
 
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 // solhint-disable comprehensive-interface
 
-// Test Block Flags
+// Test Checkpoint Flags
 struct TestFlags {
   bool senderIsNotProposer;
   bool proposerAttestationNotProvided;
@@ -115,7 +115,7 @@ library TestFlagsLib {
 }
 
 /**
- * We are using the same blocks as from Rollup.t.sol.
+ * We are using the same checkpoints as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
  */
 contract ValidatorSelectionTest is ValidatorSelectionTestBase {
@@ -243,47 +243,51 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertGt(rollup.getActiveAttesterCount(), committeeSize, "Not enough validators");
 
     ProposeTestData memory ree =
-      _testBlock("mixed_block_1", NO_REVERT, signatureCount, committeeSize, TestFlagsLib.empty());
+      _testCheckpoint("mixed_checkpoint_1", NO_REVERT, signatureCount, committeeSize, TestFlagsLib.empty());
 
     assertEq(ree.committee.length, rollup.getTargetCommitteeSize(), "Invalid committee size");
 
-    // Test we can invalidate the block by insufficient attestations if sigs were insufficient
+    // Test we can invalidate the checkpoint by insufficient attestations if sigs were insufficient
     _invalidateByAttestationCount(
       ree, _insufficientSigs ? NO_REVERT : Errors.ValidatorSelection__InsufficientAttestations.selector
     );
   }
 
   function testHappyPath() public setup(4, 4) progressEpochs(2) {
-    _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
-    _testBlock("mixed_block_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    _testCheckpoint("mixed_checkpoint_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
   }
 
   function testProveWithAttestations() public setup(4, 4) progressEpochs(2) {
-    _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
-    ProposeTestData memory ree2 = _testBlock("mixed_block_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
-    uint256 blockNumber = rollup.getPendingBlockNumber();
+    _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    ProposeTestData memory ree2 = _testCheckpoint("mixed_checkpoint_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    uint256 checkpointNumber = rollup.getPendingCheckpointNumber();
 
-    _proveBlocks(
-      "mixed_block_", blockNumber - 1, blockNumber, AttestationLibHelper.packAttestations(ree2.attestations), NO_REVERT
+    _proveCheckpoints(
+      "mixed_checkpoint_",
+      checkpointNumber - 1,
+      checkpointNumber,
+      AttestationLibHelper.packAttestations(ree2.attestations),
+      NO_REVERT
     );
   }
 
   function testProveFailWithoutCorrectAttestations() public setup(4, 4) progressEpochs(2) {
-    ProposeTestData memory ree1 = _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
-    _testBlock("mixed_block_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
-    uint256 blockNumber = rollup.getPendingBlockNumber();
+    ProposeTestData memory ree1 = _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    _testCheckpoint("mixed_checkpoint_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    uint256 checkpointNumber = rollup.getPendingCheckpointNumber();
 
-    _proveBlocks(
-      "mixed_block_",
-      blockNumber - 1,
-      blockNumber,
+    _proveCheckpoints(
+      "mixed_checkpoint_",
+      checkpointNumber - 1,
+      checkpointNumber,
       AttestationLibHelper.packAttestations(ree1.attestations),
       Errors.Rollup__InvalidAttestations.selector
     );
   }
 
   function testCannotInvalidateProperProposal() public setup(4, 4) progressEpochs(2) {
-    ProposeTestData memory ree = _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    ProposeTestData memory ree = _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
     _invalidateByAttestationCount(ree, Errors.ValidatorSelection__InsufficientAttestations.selector);
 
     for (uint256 i = 0; i < ree.attestations.length; i++) {
@@ -292,13 +296,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testNukeFromOrbit() public setup(4, 4) progressEpochs(2) {
-    // We propose some blocks, and have a bunch of validators attest to them.
+    // We propose some checkpoints, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
     // got finalized.
     // This is LIKELY, not the action you really want to take, you want to slash
     // the people actually attesting, etc, but for simplicity we can do this as showcase.
-    _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
-    _testBlock("mixed_block_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    _testCheckpoint("mixed_checkpoint_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
 
     address[] memory attesters = getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
@@ -331,12 +335,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
   function testProposerAttested() public setup(4, 4) progressEpochs(2) {
     // Having someone that is not the proposer submit it, but with all signatures (so there is signature from proposer)
-    _testBlock("mixed_block_1", NO_REVERT, 4, 4, TestFlagsLib.empty().invalidateProposer());
+    _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 4, 4, TestFlagsLib.empty().invalidateProposer());
   }
 
   function testProposerAttestationNotProvided() public setup(4, 4) progressEpochs(2) {
-    _testBlock(
-      "mixed_block_1",
+    _testCheckpoint(
+      "mixed_checkpoint_1",
       Errors.ValidatorSelection__MissingProposerSignature.selector,
       3,
       4,
@@ -345,8 +349,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testInvalidSigners() public setup(4, 4) progressEpochs(2) {
-    _testBlock(
-      "mixed_block_1",
+    _testCheckpoint(
+      "mixed_checkpoint_1",
       Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
       3,
       4,
@@ -355,8 +359,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testInvalidAttestationAndSignersSignature() public setup(4, 4) progressEpochs(2) {
-    _testBlock(
-      "mixed_block_1",
+    _testCheckpoint(
+      "mixed_checkpoint_1",
       Errors.SignatureLib__InvalidSignature.selector,
       3,
       4,
@@ -365,14 +369,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testInvalidAttestationIndex(uint256 _invalidIndex) public setup(4, 4) progressEpochs(2) {
-    ProposeTestData memory ree = _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    ProposeTestData memory ree = _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
     uint256 invalidIndex = bound(_invalidIndex, ree.committee.length, type(uint256).max);
     _invalidateByAttestationSig(ree, invalidIndex, Errors.Rollup__InvalidAttestationIndex.selector);
   }
 
   function testInvalidAttestationSigner() public setup(4, 4) progressEpochs(2) {
     ProposeTestData memory ree =
-      _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
+      _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
 
     // the invalid attestation is the first one
     _invalidateByAttestationSig(ree, 1, Errors.Rollup__AttestationsAreValid.selector);
@@ -380,8 +384,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testInvalidAddressAttestation() public setup(4, 4) progressEpochs(2) {
-    _testBlock(
-      "mixed_block_1",
+    _testCheckpoint(
+      "mixed_checkpoint_1",
       Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
       3,
       4,
@@ -393,18 +397,18 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // Update one of the signatures such that the S value will make the signature validation fail
 
     ProposeTestData memory ree =
-      _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateSignatureSValue());
+      _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateSignatureSValue());
 
     // Now we need to invalidate the invalid signature
     _invalidateByAttestationSig(ree, ree.invalidSignatureIndex, NO_REVERT);
 
     // The proof should fail because we just invalidated!
-    _proveBlocks(
-      "mixed_block_",
+    _proveCheckpoints(
+      "mixed_checkpoint_",
       1,
       1,
       AttestationLibHelper.packAttestations(ree.attestations),
-      Errors.Rollup__InvalidBlockNumber.selector
+      Errors.Rollup__InvalidCheckpointNumber.selector
     );
   }
 
@@ -412,44 +416,46 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // Update one of the signatures such that the recovered address will be 0 and signature validations fails
 
     ProposeTestData memory ree =
-      _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateSignatureAddress0());
+      _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateSignatureAddress0());
 
     // Now we need to invalidate the invalid signature
     _invalidateByAttestationSig(ree, ree.invalidSignatureIndex, NO_REVERT);
 
     // The proof should fail because we just invalidated!
-    _proveBlocks(
-      "mixed_block_",
+    _proveCheckpoints(
+      "mixed_checkpoint_",
       1,
       1,
       AttestationLibHelper.packAttestations(ree.attestations),
-      Errors.Rollup__InvalidBlockNumber.selector
+      Errors.Rollup__InvalidCheckpointNumber.selector
     );
   }
 
   function testInsufficientSignatures() public setup(4, 4) progressEpochs(2) {
-    ProposeTestData memory ree = _testBlock("mixed_block_1", NO_REVERT, 2, 4, TestFlagsLib.empty());
+    ProposeTestData memory ree = _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 2, 4, TestFlagsLib.empty());
 
     _invalidateByAttestationCount(ree, NO_REVERT);
   }
 
-  function testInvalidateMultipleBlocks() public setup(4, 4) progressEpochs(2) {
-    uint256 initialBlockNumber = rollup.getPendingBlockNumber();
+  function testInvalidateMultipleCheckpoints() public setup(4, 4) progressEpochs(2) {
+    uint256 initialCheckpointNumber = rollup.getPendingCheckpointNumber();
     ProposeTestData memory ree =
-      _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
-    _testBlock("mixed_block_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
+      _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
+    _testCheckpoint("mixed_checkpoint_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
 
-    _invalidateByAttestationSig(ree, 0, NO_REVERT, initialBlockNumber + 1);
+    _invalidateByAttestationSig(ree, 0, NO_REVERT, initialCheckpointNumber + 1);
   }
 
-  function testProposeBlockAfterInvalidate() public setup(4, 4) progressEpochs(2) {
-    uint256 initialBlockNumber = rollup.getPendingBlockNumber();
+  function testProposeCheckpointAfterInvalidate() public setup(4, 4) progressEpochs(2) {
+    uint256 initialCheckpointNumber = rollup.getPendingCheckpointNumber();
     ProposeTestData memory ree =
-      _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
+      _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
     _invalidateByAttestationSig(ree, 0, NO_REVERT);
 
-    _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
-    assertEq(rollup.getPendingBlockNumber(), initialBlockNumber + 1, "Failed to propose block after invalidate");
+    _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    assertEq(
+      rollup.getPendingCheckpointNumber(), initialCheckpointNumber + 1, "Failed to propose checkpoint after invalidate"
+    );
   }
 
   function testCannotProposeIfAllValidatorsHaveMoved() public setup(4, 4) progressEpochs(2) {
@@ -461,55 +467,55 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // So when we add a new 0xdead rollup, all the validators we added get moved over to that one,
     // and our original rollup has no validators.
     // So this is showing that in that case, even if all your validators move over, you still cannot build
-    // a block if you submit one with no signatures. This was a change from prior behavior where we had had
-    // that if there were zero validators in a rollup, anyone could build a block
+    // a checkpoint if you submit one with no signatures. This was a change from prior behavior where we had had
+    // that if there were zero validators in a rollup, anyone could build a checkpoint
 
     GSE gse = rollup.getGSE();
     address caller = gse.owner();
     vm.prank(caller);
     gse.addRollup(address(0xdead));
     assertEq(rollup.getCurrentEpochCommittee().length, 4);
-    _testBlock("mixed_block_1", ANY_REVERT, 0, 0, TestFlagsLib.empty());
+    _testCheckpoint("mixed_checkpoint_1", ANY_REVERT, 0, 0, TestFlagsLib.empty());
   }
 
   function _invalidateByAttestationCount(ProposeTestData memory ree, bytes4 _revertData) internal {
-    uint256 blockNumber = rollup.getPendingBlockNumber();
+    uint256 checkpointNumber = rollup.getPendingCheckpointNumber();
     CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(ree.attestations);
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
     }
-    rollup.invalidateInsufficientAttestations(blockNumber, attestations, ree.committee);
+    rollup.invalidateInsufficientAttestations(checkpointNumber, attestations, ree.committee);
     assertEq(
-      rollup.getPendingBlockNumber(),
-      _revertData == NO_REVERT ? blockNumber - 1 : blockNumber,
-      "Block was not invalidated"
+      rollup.getPendingCheckpointNumber(),
+      _revertData == NO_REVERT ? checkpointNumber - 1 : checkpointNumber,
+      "Checkpoint was not invalidated"
     );
   }
 
   function _invalidateByAttestationSig(ProposeTestData memory ree, uint256 _index, bytes4 _revertData) internal {
-    _invalidateByAttestationSig(ree, _index, _revertData, rollup.getPendingBlockNumber());
+    _invalidateByAttestationSig(ree, _index, _revertData, rollup.getPendingCheckpointNumber());
   }
 
   function _invalidateByAttestationSig(
     ProposeTestData memory ree,
     uint256 _index,
     bytes4 _revertData,
-    uint256 _blockToInvalidate
+    uint256 _checkpointToInvalidate
   ) internal {
-    uint256 blockNumber = rollup.getPendingBlockNumber();
+    uint256 checkpointNumber = rollup.getPendingCheckpointNumber();
     CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(ree.attestations);
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
     }
-    rollup.invalidateBadAttestation(_blockToInvalidate, attestations, ree.committee, _index);
+    rollup.invalidateBadAttestation(_checkpointToInvalidate, attestations, ree.committee, _index);
     assertEq(
-      rollup.getPendingBlockNumber(),
-      _revertData == NO_REVERT ? _blockToInvalidate - 1 : blockNumber,
-      "Block was not invalidated"
+      rollup.getPendingCheckpointNumber(),
+      _revertData == NO_REVERT ? _checkpointToInvalidate - 1 : checkpointNumber,
+      "Checkpoint was not invalidated"
     );
   }
 
-  function _testBlock(
+  function _testCheckpoint(
     string memory _name,
     bytes4 _revertData,
     uint256 _signatureCount,
@@ -517,10 +523,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     TestFlags memory _flags
   ) internal returns (ProposeTestData memory ree) {
     DecoderBase.Full memory full = load(_name);
-    ProposedHeader memory header = full.block.header;
+    ProposedHeader memory header = full.checkpoint.header;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, Timestamp.unwrap(full.block.header.timestamp)));
+    vm.warp(max(block.timestamp, Timestamp.unwrap(full.checkpoint.header.timestamp)));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
@@ -532,13 +538,16 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     {
       uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
-      bytes32 inHash = inbox.getRoot(full.block.blockNumber);
+      bytes32 inHash = inbox.getRoot(full.checkpoint.checkpointNumber);
       header.contentCommitment.inHash = inHash;
       header.gasFees.feePerL2Gas = manaBaseFee;
     }
 
     ree.proposeArgs = ProposeArgs({
-      header: header, archive: full.block.archive, stateReference: EMPTY_STATE_REFERENCE, oracleInput: OracleInput(0)
+      header: header,
+      archive: full.checkpoint.archive,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0)
     });
 
     skipBlobCheck(address(rollup));
@@ -697,7 +706,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       AttestationLibHelper.packAttestations(ree.attestations),
       ree.signers,
       ree.attestationsAndSignersSignature,
-      full.block.blobCommitments
+      full.checkpoint.blobCommitments
     );
 
     if (_revertData != NO_REVERT) {
@@ -706,8 +715,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     bytes32 l2ToL1MessageTreeRoot;
     {
-      uint32 numTxs = full.block.numTxs;
-      // NB: The below works with full blocks because we require the largest possible subtrees
+      uint32 numTxs = full.checkpoint.numTxs;
+      // NB: The below works with full checkpoints because we require the largest possible subtrees
       // for L2 to L1 messages - usually we make variable height subtrees, the roots of which
       // form a balanced tree
 
@@ -733,10 +742,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    bytes32 root = outbox.getRootData(full.block.blockNumber);
+    bytes32 root = outbox.getRootData(full.checkpoint.checkpointNumber);
 
-    // If we are trying to read a block beyond the proven chain, we should see "nothing".
-    if (rollup.getProvenBlockNumber() >= full.block.blockNumber) {
+    // If we are trying to read a checkpoint beyond the proven chain, we should see "nothing".
+    if (rollup.getProvenCheckpointNumber() >= full.checkpoint.checkpointNumber) {
       assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");
@@ -753,28 +762,29 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function _proveBlocks(
+  function _proveCheckpoints(
     string memory _name,
     uint256 _start,
     uint256 _end,
     CommitteeAttestations memory _attestations,
     bytes4 _revertData
   ) internal {
-    // Logic is mostly duplicated from RollupBase._proveBlocks
+    // Logic is mostly duplicated from RollupBase._proveCheckpoints
     DecoderBase.Full memory startFull = load(string.concat(_name, Strings.toString(_start)));
     DecoderBase.Full memory endFull = load(string.concat(_name, Strings.toString(_end)));
 
-    uint256 startBlockNumber = uint256(startFull.block.blockNumber);
-    uint256 endBlockNumber = uint256(endFull.block.blockNumber);
+    uint256 startCheckpointNumber = uint256(startFull.checkpoint.checkpointNumber);
+    uint256 endCheckpointNumber = uint256(endFull.checkpoint.checkpointNumber);
 
-    assertEq(startBlockNumber, _start, "Invalid start block number");
-    assertEq(endBlockNumber, _end, "Invalid end block number");
+    assertEq(startCheckpointNumber, _start, "Invalid start checkpoint number");
+    assertEq(endCheckpointNumber, _end, "Invalid end checkpoint number");
 
-    BlockLog memory parentBlockLog = rollup.getBlock(startBlockNumber - 1);
+    CheckpointLog memory parentCheckpointLog = rollup.getCheckpoint(startCheckpointNumber - 1);
     address prover = address(0xcafe);
 
-    PublicInputArgs memory args =
-      PublicInputArgs({previousArchive: parentBlockLog.archive, endArchive: endFull.block.archive, proverId: prover});
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: parentCheckpointLog.archive, endArchive: endFull.checkpoint.archive, proverId: prover
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
 
@@ -784,12 +794,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     rollup.submitEpochRootProof(
       SubmitEpochRootProofArgs({
-        start: startBlockNumber,
-        end: endBlockNumber,
+        start: startCheckpointNumber,
+        end: endCheckpointNumber,
         args: args,
         fees: fees,
         attestations: _attestations,
-        blobInputs: endFull.block.batchedBlobInputs,
+        blobInputs: endFull.checkpoint.batchedBlobInputs,
         proof: ""
       })
     );

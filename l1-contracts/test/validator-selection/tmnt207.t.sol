@@ -47,7 +47,7 @@ import {
 import {Signature, SignatureLib__InvalidSignature} from "@aztec/shared/libraries/SignatureLib.sol";
 // solhint-disable comprehensive-interface
 
-struct Block {
+struct Checkpoint {
   ProposeArgs proposeArgs;
   bytes blobInputs;
   CommitteeAttestation[] attestations;
@@ -82,13 +82,13 @@ contract Tmnt207Test is RollupBase {
   DecoderBase.Full internal full;
 
   /**
-   * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
+   * @notice  Set up the contracts needed for the tests with time aligned to the provided checkpoint name
    */
   modifier setUpFor(string memory _name) {
     {
       full = load(_name);
-      Slot slotNumber = full.block.header.slotNumber;
-      uint256 initialTime = Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * SLOT_DURATION;
+      Slot slotNumber = full.checkpoint.header.slotNumber;
+      uint256 initialTime = Timestamp.unwrap(full.checkpoint.header.timestamp) - Slot.unwrap(slotNumber) * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
@@ -137,61 +137,64 @@ contract Tmnt207Test is RollupBase {
     _;
   }
 
-  function test_livelock() public setUpFor("empty_block_1") {
+  function test_livelock() public setUpFor("empty_checkpoint_1") {
     // The attacker will frontrun the transaction to submit invalid attestation/signers inputs
-    // Thereby blocking the real block submission, but also make it impossible to prove
+    // Thereby blocking the real checkpoint submission, but also make it impossible to prove
     // so it needs to be invalidated. A DOS vector.
 
     skipBlobCheck(address(rollup));
     timeCheater.cheat__progressEpoch();
     timeCheater.cheat__progressEpoch();
 
-    // Say that someone builds a perfectly nice block
-    Block memory l2BlockReal = getBlock();
-    Block memory l2Block = getBlock();
+    // Say that someone builds a perfectly nice checkpoint
+    Checkpoint memory l2CheckpointReal = getCheckpoint();
+    Checkpoint memory l2Checkpoint = getCheckpoint();
     address proposer = rollup.getCurrentProposer();
 
-    // But a malicious man steps in. Take that block, and messes up some of the `attestations` values
+    // But a malicious man steps in. Take that checkpoint, and messes up some of the `attestations` values
     address attacker = address(0xdeadbeefbedead);
 
     // Then, MESS the signatures that is not the proposer up!
     // This way we can still rebuild the same committee, during propose, but impossible to make it pass during proving
     {
-      for (uint256 i = 0; i < l2Block.attestations.length; i++) {
-        if (l2Block.attestations[i].addr != proposer && l2Block.attestations[i].signature.v != 0) {
-          l2Block.attestations[i].signature.v = 1;
-          l2Block.attestations[i].signature.r = bytes32(uint256(1));
-          l2Block.attestations[i].signature.s = bytes32(uint256(1));
+      for (uint256 i = 0; i < l2Checkpoint.attestations.length; i++) {
+        if (l2Checkpoint.attestations[i].addr != proposer && l2Checkpoint.attestations[i].signature.v != 0) {
+          l2Checkpoint.attestations[i].signature.v = 1;
+          l2Checkpoint.attestations[i].signature.r = bytes32(uint256(1));
+          l2Checkpoint.attestations[i].signature.s = bytes32(uint256(1));
         }
       }
 
       vm.prank(attacker);
       vm.expectRevert(); // SignatureLib__InvalidSignature.selector
       rollup.propose(
-        l2Block.proposeArgs,
-        AttestationLibHelper.packAttestations(l2Block.attestations),
-        l2Block.signers,
-        l2Block.attestationsAndSignersSignature,
-        l2Block.blobInputs
+        l2Checkpoint.proposeArgs,
+        AttestationLibHelper.packAttestations(l2Checkpoint.attestations),
+        l2Checkpoint.signers,
+        l2Checkpoint.attestationsAndSignersSignature,
+        l2Checkpoint.blobInputs
       );
     }
 
     // It is also possible to alter the signers if needed. Find someone that is not a signer! And add a signature
     // When we change the `signers` we need also change the attestations to recreate the correct committee.
     {
-      address[] memory signers = new address[](l2Block.signers.length + 1);
+      address[] memory signers = new address[](l2Checkpoint.signers.length + 1);
       uint256 signersIndex = 0;
       bool haveAddedSigner = false;
-      for (uint256 i = 0; i < l2Block.attestations.length; i++) {
-        if (!haveAddedSigner && l2Block.attestations[i].addr != proposer && l2Block.attestations[i].signature.v == 0) {
-          l2Block.attestations[i].signature.v = 1;
-          l2Block.attestations[i].signature.r = bytes32(uint256(1));
-          l2Block.attestations[i].signature.s = bytes32(uint256(1));
+      for (uint256 i = 0; i < l2Checkpoint.attestations.length; i++) {
+        if (
+          !haveAddedSigner && l2Checkpoint.attestations[i].addr != proposer
+            && l2Checkpoint.attestations[i].signature.v == 0
+        ) {
+          l2Checkpoint.attestations[i].signature.v = 1;
+          l2Checkpoint.attestations[i].signature.r = bytes32(uint256(1));
+          l2Checkpoint.attestations[i].signature.s = bytes32(uint256(1));
           haveAddedSigner = true;
         }
 
-        if (l2Block.attestations[i].signature.v != 0) {
-          signers[signersIndex] = l2Block.attestations[i].addr;
+        if (l2Checkpoint.attestations[i].signature.v != 0) {
+          signers[signersIndex] = l2Checkpoint.attestations[i].addr;
           signersIndex++;
         }
       }
@@ -199,11 +202,11 @@ contract Tmnt207Test is RollupBase {
       vm.prank(attacker);
       vm.expectRevert(); // SignatureLib__InvalidSignature.selector
       rollup.propose(
-        l2Block.proposeArgs,
-        AttestationLibHelper.packAttestations(l2Block.attestations),
+        l2Checkpoint.proposeArgs,
+        AttestationLibHelper.packAttestations(l2Checkpoint.attestations),
         signers,
-        l2Block.attestationsAndSignersSignature,
-        l2Block.blobInputs
+        l2Checkpoint.attestationsAndSignersSignature,
+        l2Checkpoint.blobInputs
       );
     }
 
@@ -211,11 +214,11 @@ contract Tmnt207Test is RollupBase {
     {
       vm.prank(proposer);
       rollup.propose(
-        l2BlockReal.proposeArgs,
-        AttestationLibHelper.packAttestations(l2BlockReal.attestations),
-        l2BlockReal.signers,
-        l2BlockReal.attestationsAndSignersSignature,
-        l2BlockReal.blobInputs
+        l2CheckpointReal.proposeArgs,
+        AttestationLibHelper.packAttestations(l2CheckpointReal.attestations),
+        l2CheckpointReal.signers,
+        l2CheckpointReal.attestationsAndSignersSignature,
+        l2CheckpointReal.blobInputs
       );
     }
 
@@ -224,22 +227,24 @@ contract Tmnt207Test is RollupBase {
         start: 1,
         end: 1,
         args: PublicInputArgs({
-          previousArchive: rollup.getBlock(0).archive, endArchive: rollup.getBlock(1).archive, proverId: address(0)
+          previousArchive: rollup.getCheckpoint(0).archive,
+          endArchive: rollup.getCheckpoint(1).archive,
+          proverId: address(0)
         }),
         fees: new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2),
-        attestations: AttestationLibHelper.packAttestations(l2BlockReal.attestations),
-        blobInputs: full.block.batchedBlobInputs,
+        attestations: AttestationLibHelper.packAttestations(l2CheckpointReal.attestations),
+        blobInputs: full.checkpoint.batchedBlobInputs,
         proof: ""
       })
     );
   }
 
-  function getBlock() internal returns (Block memory) {
+  function getCheckpoint() internal returns (Checkpoint memory) {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
-    ProposedHeader memory header = full.block.header;
+    ProposedHeader memory header = full.checkpoint.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
@@ -320,9 +325,9 @@ contract Tmnt207Test is RollupBase {
       ).signature;
     }
 
-    return Block({
+    return Checkpoint({
       proposeArgs: proposeArgs,
-      blobInputs: full.block.blobCommitments,
+      blobInputs: full.checkpoint.blobCommitments,
       attestations: attestations,
       signers: signers,
       attestationsAndSignersSignature: attestationsAndSignersSignature

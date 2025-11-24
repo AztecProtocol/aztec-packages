@@ -50,7 +50,7 @@ struct ProposedHeader {
 /**
  * @title ProposedHeader Library
  * @author Aztec Labs
- * @notice Decoding and validating a proposed L2 block header
+ * @notice Decoding and validating a proposed checkpoint header
  */
 library ProposedHeaderLib {
   using SafeCast for uint256;
@@ -58,7 +58,7 @@ library ProposedHeaderLib {
   /**
    * @notice  Hash the proposed header
    *
-   * @dev     The hashing here MUST match what is in the proposed_block_header.ts
+   * @dev     The hashing here MUST match what is in the checkpoint_header.nr
    *
    * @param _header The header to hash
    *

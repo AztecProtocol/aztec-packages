@@ -7,7 +7,7 @@ import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {BlockLog, CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {CheckpointLog, CompressedTempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
@@ -34,16 +34,16 @@ struct SubmitEpochRootProofArgs {
   uint256 end; // inclusive
   PublicInputArgs args;
   bytes32[] fees;
-  CommitteeAttestations attestations; // attestations for the last block in epoch
+  CommitteeAttestations attestations; // attestations for the last checkpoint in epoch
   bytes blobInputs;
   bytes proof;
 }
 
 /**
- * @notice Struct for storing flags for block header validation
+ * @notice Struct for storing flags for checkpoint header validation
  * @param ignoreDA - True will ignore DA check, otherwise checks
  */
-struct BlockHeaderValidationFlags {
+struct CheckpointHeaderValidationFlags {
   bool ignoreDA;
 }
 
@@ -92,19 +92,19 @@ struct RollupConfig {
 
 struct RollupStore {
   CompressedChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
-  mapping(uint256 blockNumber => bytes32 archive) archives;
-  // The following represents a circular buffer. Key is `blockNumber % size`.
-  mapping(uint256 circularIndex => CompressedTempBlockLog temp) tempBlockLogs;
+  mapping(uint256 checkpointNumber => bytes32 archive) archives;
+  // The following represents a circular buffer. Key is `checkpointNumber % size`.
+  mapping(uint256 circularIndex => CompressedTempCheckpointLog temp) tempCheckpointLogs;
   RollupConfig config;
 }
 
 interface IRollupCore {
-  event L2BlockProposed(uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes);
-  event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
-  event BlockInvalidated(uint256 indexed blockNumber);
+  event CheckpointProposed(uint256 indexed checkpointNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes);
+  event L2ProofVerified(uint256 indexed checkpointNumber, address indexed proverId);
+  event CheckpointInvalidated(uint256 indexed checkpointNumber);
   event RewardConfigUpdated(RewardConfig rewardConfig);
   event ManaTargetUpdated(uint256 indexed manaTarget);
-  event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
+  event PrunedPending(uint256 provenCheckpointNumber, uint256 pendingCheckpointNumber);
   event RewardsClaimableUpdated(bool isRewardsClaimable);
 
   function setRewardsClaimable(bool _isRewardsClaimable) external;
@@ -127,14 +127,14 @@ interface IRollupCore {
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
 
   function invalidateBadAttestation(
-    uint256 _blockNumber,
+    uint256 _checkpointNumber,
     CommitteeAttestations memory _attestations,
     address[] memory _committee,
     uint256 _invalidIndex
   ) external;
 
   function invalidateInsufficientAttestations(
-    uint256 _blockNumber,
+    uint256 _checkpointNumber,
     CommitteeAttestations memory _attestations,
     address[] memory _committee
   ) external;
@@ -154,22 +154,22 @@ interface IRollup is IRollupCore, IHaveVersion {
     Signature memory _attestationsAndSignersSignature,
     bytes32 _digest,
     bytes32 _blobsHash,
-    BlockHeaderValidationFlags memory _flags
+    CheckpointHeaderValidationFlags memory _flags
   ) external;
 
   function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) external returns (Slot, uint256);
 
   function getTips() external view returns (ChainTips memory);
 
-  function status(uint256 _myHeaderBlockNumber)
+  function status(uint256 _myHeaderCheckpointNumber)
     external
     view
     returns (
-      uint256 provenBlockNumber,
+      uint256 provenCheckpointNumber,
       bytes32 provenArchive,
-      uint256 pendingBlockNumber,
+      uint256 pendingCheckpointNumber,
       bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock,
+      bytes32 archiveOfMyCheckpoint,
       Epoch provenEpochNumber
     );
 
@@ -191,16 +191,16 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
   function getFeeAssetPerEth() external view returns (FeeAssetPerEthE9);
 
-  function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
+  function getEpochForCheckpoint(uint256 _checkpointNumber) external view returns (Epoch);
   function canPruneAtTime(Timestamp _ts) external view returns (bool);
 
   function archive() external view returns (bytes32);
-  function archiveAt(uint256 _blockNumber) external view returns (bytes32);
-  function getProvenBlockNumber() external view returns (uint256);
-  function getPendingBlockNumber() external view returns (uint256);
-  function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
-  function getFeeHeader(uint256 _blockNumber) external view returns (FeeHeader memory);
-  function getBlobCommitmentsHash(uint256 _blockNumber) external view returns (bytes32);
+  function archiveAt(uint256 _checkpointNumber) external view returns (bytes32);
+  function getProvenCheckpointNumber() external view returns (uint256);
+  function getPendingCheckpointNumber() external view returns (uint256);
+  function getCheckpoint(uint256 _checkpointNumber) external view returns (CheckpointLog memory);
+  function getFeeHeader(uint256 _checkpointNumber) external view returns (FeeHeader memory);
+  function getBlobCommitmentsHash(uint256 _checkpointNumber) external view returns (bytes32);
   function getCurrentBlobCommitmentsHash() external view returns (bytes32);
 
   function getSharesFor(address _prover) external view returns (uint256);
@@ -226,7 +226,7 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getOutbox() external view returns (IOutbox);
 
   function getRewardConfig() external view returns (RewardConfig memory);
-  function getBlockReward() external view returns (uint256);
+  function getCheckpointReward() external view returns (uint256);
   function getEarliestRewardsClaimableTimestamp() external view returns (Timestamp);
   function isRewardsClaimable() external view returns (bool);
 }
