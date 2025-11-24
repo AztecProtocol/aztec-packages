@@ -128,8 +128,8 @@ contract RollupTest is RollupBase {
     setUpFor("mixed_block_1")
   {
     // we can increase the mana target
-    uint256 initialManaTarget = bound(_initialManaTarget, 0, type(uint64).max);
-    uint256 newManaTarget = bound(_newManaTarget, initialManaTarget, type(uint64).max);
+    uint256 initialManaTarget = bound(_initialManaTarget, 0, type(uint32).max / 2);
+    uint256 newManaTarget = bound(_newManaTarget, initialManaTarget, type(uint32).max / 2);
 
     RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
 
@@ -150,7 +150,7 @@ contract RollupTest is RollupBase {
     setUpFor("mixed_block_1")
   {
     // we cannot decrease the mana target
-    uint256 initialManaTarget = bound(_initialManaTarget, 1, type(uint64).max);
+    uint256 initialManaTarget = bound(_initialManaTarget, 1, type(uint32).max / 2);
     uint256 newManaTarget = bound(_newManaTarget, 0, initialManaTarget - 1);
 
     RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();

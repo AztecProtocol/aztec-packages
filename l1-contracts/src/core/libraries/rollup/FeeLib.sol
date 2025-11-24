@@ -92,6 +92,9 @@ library FeeLib {
   function initialize(uint256 _manaTarget, EthValue _provingCostPerMana) internal {
     FeeStore storage feeStore = getStorage();
 
+    // Computes and ensures that limit is within sane bounds
+    computeManaLimit(_manaTarget);
+
     feeStore.config = FeeConfig({
         manaTarget: _manaTarget,
         congestionUpdateFraction: _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR,
@@ -106,6 +109,9 @@ library FeeLib {
   }
 
   function updateManaTarget(uint256 _manaTarget) internal {
+    // Computes and ensures that limit is within sane bounds
+    computeManaLimit(_manaTarget);
+
     FeeStore storage feeStore = getStorage();
 
     FeeConfig memory config = feeStore.config.decompress();
@@ -245,7 +251,7 @@ library FeeLib {
 
   function getManaLimit() internal view returns (uint256) {
     FeeStore storage feeStore = getStorage();
-    return feeStore.config.getManaTarget() * 2;
+    return computeManaLimit(feeStore.config.getManaTarget());
   }
 
   function getProvingCostPerMana() internal view returns (EthValue) {
@@ -264,6 +270,15 @@ library FeeLib {
   function congestionMultiplier(uint256 _numerator) internal view returns (uint256) {
     FeeStore storage feeStore = getStorage();
     return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, _numerator, feeStore.config.getCongestionUpdateFraction());
+  }
+
+  function computeManaLimit(uint256 _manaTarget) internal pure returns (uint256) {
+    uint256 manaLimit = _manaTarget * 2;
+
+    // Ensure that the maximum spent mana can fit in the fee header
+    require(manaLimit <= type(uint32).max, Errors.FeeLib__InvalidManaLimit(type(uint32).max, manaLimit));
+
+    return manaLimit;
   }
 
   function getFeeAssetPerEth(uint256 _numerator) internal pure returns (FeeAssetPerEthE9) {
