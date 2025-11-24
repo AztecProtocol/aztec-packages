@@ -28,7 +28,7 @@ namespace tx; // virtual to tx.pil
     discard * (1 - is_revertible) = 0;
 
     // `reverted == 1 ==> discard == 1`
-    #[FAILURE_MUST_DISCARD]
+    #[REVERTED_MUST_DISCARD]
     reverted * (1 - discard) = 0;
 
     // By default, discard's value is propagated to the next row.
@@ -49,9 +49,10 @@ namespace tx; // virtual to tx.pil
     #[DISCARD_PROPAGATION]
     sel * PROPAGATE_DISCARD * (discard' - discard) = 0;
 
-    // Prevention to maliciously toggle discard to 1 when no revert happens.
-    // If a malicious prover toggles 'discard ==1' and `reverted == 0`, then
-    // `discard == 1` propagates to the next row as long as there is no revert.
-    // While reaching the teardown row, `reverted == 1` must be 1 otherwise
-    // on the row of `collect_gas_fees`, `discard == 1` which contradicts that
-    // `is_revertible == 0`.
+    /** Prevention against toggling discard when no revert happens:
+     *  ======================================================================
+     *  If a malicious prover toggles `discard == 1` and `reverted == 0`, then
+     *  `discard == 1` propagates to the next row as long as there is no revert.
+     *  Then, it will reach the `collect_gas_fees` row, where `discard == 1` contradicts that
+     *  `is_revertible == 0`.
+     */
