@@ -124,13 +124,6 @@ FISHERMAN_LOG_LEVEL=${FISHERMAN_LOG_LEVEL:-${LOG_LEVEL}}
 
 BLOB_ALLOW_EMPTY_SOURCES=${BLOB_ALLOW_EMPTY_SOURCES:-false}
 
-########################
-# CHAOS MESH VARIABLES
-########################
-DESTROY_CHAOS_MESH=${DESTROY_CHAOS_MESH:-false}
-CREATE_CHAOS_MESH=${CREATE_CHAOS_MESH:-false}
-
-
 # Compute validator addresses (skip if no validators)
 if [[ $VALIDATOR_REPLICAS -gt 0 ]]; then
   VALIDATOR_ADDRESSES=$(echo "$VALIDATOR_INDICES" | tr ',' '\n' | xargs -I{} cast wallet address --mnemonic "$LABS_INFRA_MNEMONIC" --mnemonic-index {} | tr '\n' ',' | sed 's/,$//')
@@ -430,23 +423,3 @@ EOF
 tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}"
 log "Deployed aztec infra"
 
-
-
-########################################
-# Optionally deploy Chaos Mesh via Helm
-########################################
-if [[ "${CREATE_CHAOS_MESH}" == "true" ]]; then
-  log "CREATE_CHAOS_MESH=true - deploying Chaos Mesh"
-  DEPLOY_CHAOS_MESH_DIR="${SCRIPT_DIR}/../terraform/deploy-chaos-mesh"
-  cat > "${DEPLOY_CHAOS_MESH_DIR}/terraform.tfvars" << EOF
-K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
-RELEASE_NAME = "chaos"
-CHAOS_MESH_NAMESPACE = "chaos-mesh"
-EOF
-
-  "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_CHAOS_MESH_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-chaos-mesh/${SALT}"
-  tf_run "${DEPLOY_CHAOS_MESH_DIR}" "${DESTROY_CHAOS_MESH}" "${CREATE_CHAOS_MESH}"
-  log "Chaos Mesh installed"
-else
-  log "CREATE_CHAOS_MESH=false - skipping Chaos Mesh installation"
-fi
