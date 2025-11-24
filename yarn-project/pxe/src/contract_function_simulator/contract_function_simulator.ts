@@ -129,7 +129,7 @@ export class ContractFunctionSimulator {
     }
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
-    const startSideEffectCounter = 1;
+    const startSideEffectCounter = 2;
 
     const callContext = new CallContext(
       msgSender,
