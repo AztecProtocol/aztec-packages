@@ -425,4 +425,130 @@ TYPED_TEST(SumcheckTests, ProverAndVerifierSimpleFailure)
 {
     this->test_failure_prover_verifier_flow();
 }
+
+/**
+ * @brief Test full sumcheck with intentionally wrong polynomial evaluations
+ * @details Runs a valid sumcheck prover, tampers with the claimed polynomial evaluations,
+ * and verifies that the verifier detects the fraud in the final check.
+ */
+TEST(SumcheckTests, TamperedEvaluations)
+{
+    using Flavor = UltraFlavor;
+    using FF = typename Flavor::FF;
+    using Polynomial = bb::Polynomial<FF>;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
+
+    const size_t multivariate_d = 3;
+    const size_t multivariate_n = 1 << multivariate_d;
+
+    // Helper to create a valid circuit
+    auto create_valid_circuit = [&]() {
+        std::vector<Polynomial> polynomials(NUM_POLYNOMIALS);
+        for (auto& poly : polynomials) {
+            poly = Polynomial(multivariate_n);
+        }
+
+        // Valid arithmetic circuit: w_l + w_r = w_o (rows 1 and 2)
+        std::array<FF, multivariate_n> w_l = { FF(0), FF(1), FF(2), FF(0), FF(0), FF(0), FF(0), FF(0) };
+        std::array<FF, multivariate_n> w_r = { FF(0), FF(1), FF(2), FF(0), FF(0), FF(0), FF(0), FF(0) };
+        std::array<FF, multivariate_n> w_o = { FF(0), FF(2), FF(4), FF(0), FF(0), FF(0), FF(0), FF(0) };
+        std::array<FF, multivariate_n> q_l = { FF(0), FF(1), FF(0), FF(0), FF(0), FF(0), FF(0), FF(0) };
+        std::array<FF, multivariate_n> q_r = { FF(0), FF(1), FF(0), FF(0), FF(0), FF(0), FF(0), FF(0) };
+        std::array<FF, multivariate_n> q_o = { FF(0), FF(-1), FF(-1), FF(0), FF(0), FF(0), FF(0), FF(0) };
+        std::array<FF, multivariate_n> q_arith = { FF(0), FF(1), FF(1), FF(0), FF(0), FF(0), FF(0), FF(0) };
+
+        ProverPolynomials prover_polynomials;
+        prover_polynomials.w_l = Polynomial(w_l);
+        prover_polynomials.w_r = Polynomial(w_r);
+        prover_polynomials.w_o = Polynomial(w_o);
+        prover_polynomials.q_l = Polynomial(q_l);
+        prover_polynomials.q_r = Polynomial(q_r);
+        prover_polynomials.q_o = Polynomial(q_o);
+        prover_polynomials.q_arith = Polynomial(q_arith);
+
+        for (auto& poly : prover_polynomials.get_all()) {
+            if (poly.size() == 0) {
+                poly = Polynomial(multivariate_n);
+            }
+        }
+
+        return prover_polynomials;
+    };
+
+    // Test 1: Valid circuit but tampered evaluations
+    {
+        info("Test 1: Valid circuit, tampered evaluations - should FAIL");
+
+        auto prover_polynomials = create_valid_circuit();
+
+        RelationParameters<FF> relation_parameters{
+            .beta = FF::random_element(),
+            .gamma = FF::random_element(),
+            .public_input_delta = FF::one(),
+        };
+
+        // Run the prover with valid circuit
+        auto prover_transcript = Flavor::Transcript::prover_init_empty();
+        FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
+
+        std::vector<FF> prover_gate_challenges(multivariate_d);
+        for (size_t idx = 0; idx < multivariate_d; idx++) {
+            prover_gate_challenges[idx] =
+                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+        }
+
+        SumcheckProver<Flavor> sumcheck_prover(multivariate_n,
+                                               prover_polynomials,
+                                               prover_transcript,
+                                               prover_alpha,
+                                               prover_gate_challenges,
+                                               relation_parameters,
+                                               multivariate_d);
+
+        auto prover_output = sumcheck_prover.prove();
+
+        // Get the sumcheck challenges from the prover transcript
+        std::vector<FF> sumcheck_challenges(multivariate_d);
+        for (size_t idx = 0; idx < multivariate_d; idx++) {
+            sumcheck_challenges[idx] = prover_output.challenge[idx];
+        }
+
+        // TAMPER: Manually create wrong claimed evaluations (add 1 to make them wrong)
+        typename Flavor::AllValues wrong_evaluations;
+        for (auto [wrong_eval, poly] : zip_view(wrong_evaluations.get_all(), prover_polynomials.get_all())) {
+            wrong_eval = poly.evaluate_mle(sumcheck_challenges) + FF(1); // Intentionally wrong
+        }
+
+        // Manually send the wrong evaluations to the prover transcript
+        // This simulates a dishonest prover sending wrong claimed evaluations
+        std::array<FF, NUM_POLYNOMIALS> wrong_evals_array;
+        for (size_t i = 0; i < NUM_POLYNOMIALS; ++i) {
+            wrong_evals_array[i] = wrong_evaluations.get_all()[i];
+        }
+        prover_transcript->send_to_verifier("Sumcheck:evaluations", wrong_evals_array);
+
+        // Now create verifier transcript with the tampered proof
+        auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
+
+        FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
+        SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alpha, multivariate_d);
+
+        std::vector<FF> verifier_gate_challenges(multivariate_d);
+        for (size_t idx = 0; idx < multivariate_d; idx++) {
+            verifier_gate_challenges[idx] =
+                verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+        }
+
+        std::vector<FF> padding_indicator_array(multivariate_d, FF(1));
+        auto verifier_output =
+            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
+
+        // Verification should FAIL
+        EXPECT_FALSE(verifier_output.verified) << "Sumcheck should fail when polynomial evaluations are tampered with";
+
+        info("Tampered evaluations: Verifier correctly rejects wrong polynomial evaluations");
+    }
+}
+
 } // namespace
