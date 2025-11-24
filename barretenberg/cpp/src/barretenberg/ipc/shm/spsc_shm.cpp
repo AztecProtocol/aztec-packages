@@ -360,6 +360,9 @@ bool SpscShm::wait_for_data(size_t need, uint32_t timeout_ns)
     // Spin phase (only if previous call found data)
     if (spin_duration > 0) {
         uint64_t start = mono_ns_now();
+        constexpr uint32_t TIME_CHECK_INTERVAL = 256; // Check time every 256 iterations
+        uint32_t iterations = 0;
+
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
             if (check_available()) {
@@ -367,7 +370,16 @@ bool SpscShm::wait_for_data(size_t need, uint32_t timeout_ns)
                 return true;
             }
             IPC_PAUSE();
-        } while ((mono_ns_now() - start) < spin_duration);
+
+            // Only check time periodically to avoid syscall overhead
+            iterations++;
+            if (iterations >= TIME_CHECK_INTERVAL) {
+                if ((mono_ns_now() - start) >= spin_duration) {
+                    break;
+                }
+                iterations = 0;
+            }
+        } while (true);
 
         // Check after spin
         if (check_available()) {
@@ -452,6 +464,9 @@ bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
     // Spin phase (only if previous call found space)
     if (spin_duration > 0) {
         uint64_t start = mono_ns_now();
+        constexpr uint32_t TIME_CHECK_INTERVAL = 256; // Check time every 256 iterations
+        uint32_t iterations = 0;
+
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
             if (check_space()) {
@@ -459,7 +474,16 @@ bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
                 return true;
             }
             IPC_PAUSE();
-        } while ((mono_ns_now() - start) < spin_duration);
+
+            // Only check time periodically to avoid syscall overhead
+            iterations++;
+            if (iterations >= TIME_CHECK_INTERVAL) {
+                if ((mono_ns_now() - start) >= spin_duration) {
+                    break;
+                }
+                iterations = 0;
+            }
+        } while (true);
 
         // Check after spin
         if (check_space()) {

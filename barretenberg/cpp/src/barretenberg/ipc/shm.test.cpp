@@ -27,7 +27,7 @@ namespace {
  */
 TEST(ShmTest, SingleClientSmallRingHighVolume)
 {
-    constexpr size_t RING_SIZE = 1UL * 1024;
+    constexpr size_t RING_SIZE = 2UL * 1024;
     constexpr size_t NUM_ITERATIONS = 10000000;
     // Sizing ensures that no matter that state of the internal ring buffer, we can't deadlock.
     constexpr size_t MAX_MSG_SIZE = (RING_SIZE / 2) - 4;
