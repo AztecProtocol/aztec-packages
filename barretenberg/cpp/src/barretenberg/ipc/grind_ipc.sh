@@ -13,5 +13,5 @@ shift
 clean
 cp ../../../build/bin/ipc_tests ../../../build/bin/ipc_tests_live
 while true; do
-  echo "dump_fail '$@ timeout 20s ../../../build/bin/ipc_tests_live --gtest_filter=ShmTest.SingleClientSmallRingHighVolume' >/dev/null"
+  echo "dump_fail '$@ timeout 30s ../../../build/bin/ipc_tests_live --gtest_filter=ShmTest.SingleClientSmallRingHighVolume &> >(add_timestamps && date)' >/dev/null"
 done | parallel -j$jobs --halt now,fail=1
