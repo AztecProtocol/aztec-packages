@@ -140,7 +140,9 @@ export class ArchiverInstrumentation {
   }
 
   public processNewBlocks(syncTimePerBlock: number, blocks: L2Block[]) {
-    this.syncDurationPerBlock.record(Math.ceil(syncTimePerBlock));
+    // Ensure we only record valid numeric values, avoiding Infinity/NaN
+    const validDuration = isFinite(syncTimePerBlock) ? Math.ceil(syncTimePerBlock) : 0;
+    this.syncDurationPerBlock.record(validDuration);
     this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
     this.syncBlockCount.add(blocks.length);
 
@@ -156,12 +158,16 @@ export class ArchiverInstrumentation {
       return;
     }
     this.syncMessageCount.add(count);
-    this.syncDurationPerMessage.record(Math.ceil(syncPerMessageMs));
+    // Ensure we only record valid numeric values, avoiding Infinity/NaN
+    const validDuration = isFinite(syncPerMessageMs) ? Math.ceil(syncPerMessageMs) : 0;
+    this.syncDurationPerMessage.record(validDuration);
   }
 
   public processPrune(duration: number) {
     this.pruneCount.add(1);
-    this.pruneDuration.record(Math.ceil(duration));
+    // Ensure we only record valid numeric values, avoiding Infinity/NaN
+    const validDuration = isFinite(duration) ? Math.ceil(duration) : 0;
+    this.pruneDuration.record(validDuration);
   }
 
   public updateLastProvenBlock(blockNumber: number) {

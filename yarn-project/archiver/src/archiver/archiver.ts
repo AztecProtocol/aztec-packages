@@ -575,7 +575,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       );
       const timer = new Timer();
       await this.store.addL1ToL2Messages(messages);
-      const perMsg = timer.ms() / messages.length;
+      const perMsg = messages.length > 0 ? timer.ms() / messages.length : 0;
       this.instrumentation.processNewMessages(messages.length, perMsg);
       for (const msg of messages) {
         this.log.debug(`Downloaded L1 to L2 message`, { ...msg, leaf: msg.leaf.toString() });
