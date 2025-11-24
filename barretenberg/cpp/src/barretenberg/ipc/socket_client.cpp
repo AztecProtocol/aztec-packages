@@ -70,7 +70,7 @@ bool SocketClient::send(const void* data, size_t len, uint64_t /*timeout_ns*/)
     return bytes_sent == len;
 }
 
-std::span<const uint8_t> SocketClient::recv(uint64_t /*timeout_ns*/)
+std::span<const uint8_t> SocketClient::receive(uint64_t /*timeout_ns*/)
 {
     if (fd_ < 0) {
         return {};
