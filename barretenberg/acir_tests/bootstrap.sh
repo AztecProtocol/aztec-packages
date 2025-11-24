@@ -5,7 +5,7 @@ export CRS_PATH=$HOME/.bb-crs
 export RAYON_NUM_THREADS=1
 
 tests_tar=barretenberg-acir-tests-$(hash_str \
-  $(../../noir/bootstrap.sh tests) \
+  $(../../noir/bootstrap.sh hash) \
   $(cache_content_hash \
     ./.rebuild_patterns \
     ../cpp/.rebuild_patterns \
@@ -13,7 +13,7 @@ tests_tar=barretenberg-acir-tests-$(hash_str \
     )).tar.gz
 
 tests_hash=$(hash_str \
-  $(../../noir/bootstrap.sh tests) \
+  $(../../noir/bootstrap.sh hash) \
   $(../cpp/bootstrap.sh hash) \
   $(cache_content_hash \
     ^barretenberg/acir_tests/ \
