@@ -29,17 +29,6 @@ using namespace bb;
 
 /// ========= HELPERS ========= ///
 
-uint256_t from_big_endian_bytes(std::vector<uint8_t> const& bytes)
-{
-    BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
-    uint256_t result = 0;
-    for (uint8_t byte : bytes) {
-        result <<= 8;
-        result |= byte;
-    }
-    return result;
-}
-
 WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
 {
     WitnessOrConstant<bb::fr> result = std::visit(
@@ -827,7 +816,6 @@ std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr)
     std::map<uint32_t, bb::fr> linear_terms;
     for (const auto& linear_term : expr.linear_combinations) {
         fr selector_value = fr::serialize_from_buffer(&(std::get<0>(linear_term)[0]));
-        BB_ASSERT_EQ(selector_value, from_big_endian_bytes(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
         if (linear_terms.contains(witness_idx)) {
             linear_terms[witness_idx] += selector_value; // Accumulate coefficients for duplicate witnesses
