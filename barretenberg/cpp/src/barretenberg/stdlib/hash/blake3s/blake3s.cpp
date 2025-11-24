@@ -19,7 +19,7 @@ using namespace blake_util;
  */
 template <typename Builder>
 void Blake3s<Builder>::compress_pre(field_ct state[BLAKE3_STATE_SIZE],
-                                    const field_ct cv[8],
+                                    const field_ct cv[BLAKE3_CV_WORDS],
                                     const byte_array_ct& block,
                                     uint8_t block_len,
                                     uint8_t flags)
@@ -52,7 +52,10 @@ void Blake3s<Builder>::compress_pre(field_ct state[BLAKE3_STATE_SIZE],
 }
 
 template <typename Builder>
-void Blake3s<Builder>::compress_in_place(field_ct cv[8], const byte_array_ct& block, uint8_t block_len, uint8_t flags)
+void Blake3s<Builder>::compress_in_place(field_ct cv[BLAKE3_CV_WORDS],
+                                         const byte_array_ct& block,
+                                         uint8_t block_len,
+                                         uint8_t flags)
 {
     field_ct state[BLAKE3_STATE_SIZE];
     compress_pre(state, cv, block, block_len, flags);
@@ -71,8 +74,11 @@ void Blake3s<Builder>::compress_in_place(field_ct cv[8], const byte_array_ct& bl
 }
 
 template <typename Builder>
-void Blake3s<Builder>::compress_xof(
-    const field_ct cv[8], const byte_array_ct& block, uint8_t block_len, uint8_t flags, byte_array_ct& out)
+void Blake3s<Builder>::compress_xof(const field_ct cv[BLAKE3_CV_WORDS],
+                                    const byte_array_ct& block,
+                                    uint8_t block_len,
+                                    uint8_t flags,
+                                    byte_array_ct& out)
 {
     field_ct state[BLAKE3_STATE_SIZE];
 
@@ -98,7 +104,7 @@ void Blake3s<Builder>::compress_xof(
 }
 
 template <typename Builder>
-Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const field_ct input_cv[8],
+Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const field_ct input_cv[BLAKE3_CV_WORDS],
                                                          const byte_array_ct& block,
                                                          uint8_t block_len,
                                                          uint8_t flags)
