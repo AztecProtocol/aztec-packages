@@ -347,7 +347,7 @@ contract TallySlashingProposer is EIP712 {
       ROUND_SIZE_IN_EPOCHS > 0,
       Errors.TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(ROUND_SIZE_IN_EPOCHS)
     );
-    require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
+    require(ROUND_SIZE <= MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
     require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
 
     // Validate that vote size doesn't exceed our fixed 4 bytes32 allocation
