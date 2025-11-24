@@ -1,13 +1,12 @@
-use crate::accumulated_data::{assert_dense_trimmed_array, assert_trimmed_array};
+use crate::accumulated_data::{
+    assert_dense_trimmed_array::{self, assert_dense_array},
+    assert_trimmed_array,
+};
 use types::{abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, traits::Empty};
 
 /// Validate that the arrays in the accumulated data are dense trimmed:
-/// - Items within `original_array.length` are not nullish.
-/// - Items beyond `original_array.length` are nullish.
-///
-/// "Nullish" here does not necessarily mean the item is entirely empty; rather, one or more of its fields are empty.
-/// This makes the validation cheaper and ensures that even if these partially empty items are exposed to the AVM or
-/// rollup circuits, they will not be used or included in the blob data.
+/// - Items within `original_array.length` are not empty.
+/// - Items beyond `original_array.length` are empty.
 ///
 /// Note: The counters of trimmed items are not checked, since the functions validating these arrays against their
 /// outputs do not require non-zero counters. Counters within the claimed length, however, must be non-zero, which is
@@ -24,28 +23,26 @@ pub fn validate_accumulated_items(
     let public_call_requests = previous_kernel_public_inputs.end.public_call_requests;
 
     // For `note_hashes` and `nullifiers`, we only need to check their innermost values to determine whether they are
-    // nullish. These are the final siloed values that are exposed to the AVM and rollup circuits
+    // empty or not, since these are the final siloed values that are exposed to the AVM and rollup circuits
     assert_dense_trimmed_array(note_hashes, |note_hash| note_hash.innermost().is_empty());
     assert_dense_trimmed_array(
         nullifiers,
         |nullifier| nullifier.innermost().value.is_empty(),
     );
 
-    // For `l2_to_l1_msgs`, only the recipient address needs to be checked to determine nullish-ness. Although the
-    // `out_hash` will remain non-zero if other fields are not empty, such a hash can only be consumed on L1 by the
-    // contract at the zero address, making it effectively useless.
-    // Note: If the recipient address is non-zero, the `out_hash` will also be non-zero. Therefore, allowing non-zero
-    // `out_hash` values in the trimmed part of the array does not allow the tx base rollup to skip (via `array_length`)
-    // including these messages in the dense portion, since all of them would be non-zero.
-    // See `private_tx_effect_builder.nr` and `public_tx_effect_builder.nr` for details.
-    assert_dense_trimmed_array(l2_to_l1_msgs, |msg| msg.innermost().recipient.is_empty());
+    // L2 to L1 messages within the claimed length are guaranteed to have non empty contract address, which will be exposed to public.
+    assert_trimmed_array(l2_to_l1_msgs, |msg| msg.expose_to_public().is_empty());
 
-    // For `private_logs` and `contract_class_logs_hashes`, we check the length to determine nullish-ness. The tx base
-    // rollup uses these lengths to decide how many log fields are included in the blob data.
-    assert_dense_trimmed_array(private_logs, |log| log.innermost().log.length == 0);
-    assert_dense_trimmed_array(
+    assert_dense_array(private_logs, |log| log.innermost().log.length != 0);
+    assert_trimmed_array(private_logs, |log| log.innermost().log.is_empty());
+
+    assert_dense_array(
         contract_class_logs_hashes,
-        |log_hash| log_hash.innermost().length == 0,
+        |log_hash| log_hash.innermost().length != 0,
+    );
+    assert_trimmed_array(
+        contract_class_logs_hashes,
+        |log_hash| log_hash.innermost().is_empty(),
     );
 
     // For `public_call_requests`, we only need to ensure that the trimmed items are nullish. Items emitted from private
@@ -59,12 +56,8 @@ pub fn validate_accumulated_items(
         );
     } else {
         assert(
-            public_call_requests.array[0].inner.msg_sender.is_zero(),
+            public_call_requests.length == 0,
             "Public call stack must be empty when executing the tail circuit",
         );
     }
-
-    // TODO: Consider checking the contract address to determine whether a call request is nullish.
-    // i.e., the AVM will skip processing a call request if the contract address is zero but other fields are not.
-    // It may be useful to also check the contract address for the "dense" items here.
 }
