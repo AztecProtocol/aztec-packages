@@ -118,7 +118,8 @@ contract ValidatorSelectionTestBase is DecoderBase {
     _;
   }
 
-  modifier progressEpochs(uint256 _epochCount) {
+  modifier progressEpochsToInclusion() {
+    uint256 _epochCount = rollup.getLagInEpochsForValidatorSet();
     // Progress into the next epoch for changes to take effect
     for (uint256 i = 0; i < _epochCount; i++) {
       timeCheater.cheat__progressEpoch();

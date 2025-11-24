@@ -92,8 +92,8 @@ contract Tmnt456Test is TestBase {
       TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
 
-    // Jump forward 2 epochs for sampling delay
-    timeCheater.cheat__jumpForwardEpochs(2);
+    // Jump forward for sampling delay
+    timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
 
     assertEq(rollup.getActiveAttesterCount(), validatorCount, "Invalid attester count");
 
