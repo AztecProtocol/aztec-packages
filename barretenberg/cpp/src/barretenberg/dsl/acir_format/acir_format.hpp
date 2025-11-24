@@ -67,8 +67,8 @@ struct AcirFormatOriginalOpcodeIndices {
 };
 
 struct AcirFormat {
-    // The number of witnesses in the circuit
-    uint32_t varnum;
+    // Number of witnesses known at the time of ACIR generation
+    uint32_t num_acir_witnesses;
     uint32_t num_acir_opcodes;
 
     using ArithTripleConstraint = bb::arithmetic_triple_<bb::curve::BN254::ScalarField>;
@@ -112,8 +112,7 @@ struct AcirFormat {
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
 
     // For serialization, update with any new fields
-    MSGPACK_FIELDS(varnum,
-                   public_inputs,
+    MSGPACK_FIELDS(public_inputs,
                    logic_constraints,
                    range_constraints,
                    aes128_constraints,

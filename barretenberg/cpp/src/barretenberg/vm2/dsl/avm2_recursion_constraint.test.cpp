@@ -92,7 +92,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         std::iota(avm_recursion_opcode_indices.begin(), avm_recursion_opcode_indices.end(), 0);
 
         AcirFormat& constraint_system = program.constraints;
-        constraint_system.varnum = static_cast<uint32_t>(witness.size());
+        constraint_system.num_acir_witnesses = static_cast<uint32_t>(witness.size());
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(avm_recursion_constraints.size());
         constraint_system.avm_recursion_constraints = avm_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();

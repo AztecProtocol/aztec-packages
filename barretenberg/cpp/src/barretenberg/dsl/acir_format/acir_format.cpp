@@ -643,7 +643,7 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
-    Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.varnum };
+    Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.num_acir_witnesses };
 
     build_constraints(builder, program, metadata);
 
@@ -667,7 +667,7 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->get_goblin().op_queue;
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum };
+    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.num_acir_witnesses };
 
     // Populate constraints in the builder via the data in constraint_system
     build_constraints(builder, program, metadata);

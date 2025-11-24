@@ -225,7 +225,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         }
 
         // Construct a constraint system containing the business logic and ivc recursion constraints
-        program.constraints.varnum = static_cast<uint32_t>(program.witness.size());
+        program.constraints.num_acir_witnesses = static_cast<uint32_t>(program.witness.size());
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(hn_recursion_constraints.size());
         program.constraints.hn_recursion_constraints = hn_recursion_constraints;
         program.constraints.original_opcode_indices = create_empty_original_opcode_indices();

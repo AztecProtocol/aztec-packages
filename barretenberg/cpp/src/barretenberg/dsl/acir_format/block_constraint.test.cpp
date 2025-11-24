@@ -459,7 +459,7 @@ TEST_F(MegaHonk, Databus)
     block.type = BlockType::CallData;
 
     program.constraints = {
-        .varnum = static_cast<uint32_t>(num_variables),
+        .num_acir_witnesses = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .block_constraints = { block },
@@ -541,7 +541,7 @@ TEST_F(MegaHonk, DatabusReturn)
     };
 
     program.constraints = {
-        .varnum = static_cast<uint32_t>(num_variables),
+        .num_acir_witnesses = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 2,
         .public_inputs = {},
         .arithmetic_triple_constraints = { assert_equal },
@@ -574,7 +574,7 @@ TEST_F(MegaHonk, EmptyBlockConstraints)
 
         AcirProgram program;
         program.constraints = {
-            .varnum = 0, // No variables needed for empty block constraints
+            .num_acir_witnesses = 0, // No variables needed for empty block constraints
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .block_constraints = { block },

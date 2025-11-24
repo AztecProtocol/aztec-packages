@@ -75,7 +75,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
                                                .proof_type = PROOF_TYPE::CHONK };
 
         // Construct a constraint system
-        program.constraints.varnum = static_cast<uint32_t>(program.witness.size());
+        program.constraints.num_acir_witnesses = static_cast<uint32_t>(program.witness.size());
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(1);
         program.constraints.chonk_recursion_constraints = { constraint };
         program.constraints.original_opcode_indices = create_empty_original_opcode_indices();

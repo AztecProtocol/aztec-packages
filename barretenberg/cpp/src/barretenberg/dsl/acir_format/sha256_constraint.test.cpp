@@ -34,7 +34,7 @@ TEST_F(Sha256Tests, TestSha256Compression)
     };
 
     AcirFormat constraint_system{
-        .varnum = 34,
+        .num_acir_witnesses = 33,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .sha256_compression = { sha256_compression },

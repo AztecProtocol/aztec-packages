@@ -150,7 +150,7 @@ template <TestBase Base> class TestClass {
         auto [constraint, witness_values] = generate_constraints(invalid_witness_target);
 
         AcirFormat constraint_system = {
-            .varnum = static_cast<uint32_t>(witness_values.size()),
+            .num_acir_witnesses = static_cast<uint32_t>(witness_values.size()),
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),
@@ -182,7 +182,7 @@ template <TestBase Base> class TestClass {
         auto [constraint, witness_values] = generate_constraints();
 
         AcirFormat constraint_system = {
-            .varnum = static_cast<uint32_t>(witness_values.size()),
+            .num_acir_witnesses = static_cast<uint32_t>(witness_values.size()),
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),

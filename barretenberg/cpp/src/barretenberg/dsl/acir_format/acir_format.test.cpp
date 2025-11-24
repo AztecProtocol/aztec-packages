@@ -34,7 +34,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
     };
 
     AcirFormat constraint_system{
-        .varnum = 4,
+        .num_acir_witnesses = 3,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .arithmetic_triple_constraints = { constraint },
@@ -125,7 +125,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
     // EXPR [ (-1, _6) 1 ]
 
     AcirFormat constraint_system{
-        .varnum = 6,
+        .num_acir_witnesses = 6,
         .num_acir_opcodes = 7,
         .public_inputs = { 1 },
         .logic_constraints = { logic_constraint },
@@ -150,6 +150,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
     Keccakf1600
         keccak_permutation{
              .state = {
+                WitnessOrConstant<bb::fr>::from_index(0),
                 WitnessOrConstant<bb::fr>::from_index(1),
                 WitnessOrConstant<bb::fr>::from_index(2),
                 WitnessOrConstant<bb::fr>::from_index(3),
@@ -174,14 +175,13 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                 WitnessOrConstant<bb::fr>::from_index(22),
                 WitnessOrConstant<bb::fr>::from_index(23),
                 WitnessOrConstant<bb::fr>::from_index(24),
-                WitnessOrConstant<bb::fr>::from_index(25),
  },
-            .result = { 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38,
-                        39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50 },
+            .result = { 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38,
+                        39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49 },
         };
 
     AcirFormat constraint_system{
-        .varnum = 51,
+        .num_acir_witnesses = 50,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .keccak_permutations = { keccak_permutation },
@@ -197,6 +197,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
     auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+    info(builder.failed());
 }
 
 TEST_F(AcirFormatTests, TestCollectsGateCounts)
@@ -227,7 +228,7 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
     };
 
     AcirFormat constraint_system{
-        .varnum = 4,
+        .num_acir_witnesses = 3,
         .num_acir_opcodes = 2,
         .public_inputs = {},
         .arithmetic_triple_constraints = { first_gate, second_gate },
@@ -329,7 +330,7 @@ TEST_F(AcirFormatTests, TestBigAdd)
     auto quad_constraint = { quad1, quad2, quad3, quad4, quad5 };
     size_t num_variables = witness_values.size();
     AcirFormat constraint_system{
-        .varnum = static_cast<uint32_t>(num_variables + 1),
+        .num_acir_witnesses = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .arithmetic_triple_constraints = { assert_equal },
@@ -462,7 +463,7 @@ TYPED_TEST(OpcodeGateCountTests, ArithmeticTriple)
     };
 
     AcirFormat constraint_system{
-        .varnum = 4,
+        .num_acir_witnesses = 3,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .arithmetic_triple_constraints = { constraint },
@@ -495,7 +496,7 @@ TYPED_TEST(OpcodeGateCountTests, Quad)
     WitnessVector witness{ 2, 3, 6, 6 };
 
     AcirFormat constraint_system{
-        .varnum = 4,
+        .num_acir_witnesses = 4,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .quad_constraints = { quad },
@@ -525,7 +526,7 @@ TYPED_TEST(OpcodeGateCountTests, BigQuad)
 
     // Create an ACIR circuit with this opcode
     Acir::Circuit circuit{
-        .current_witness_index = 5,
+        .current_witness_index = 4,
         .opcodes = { Acir::Opcode{ .value = assert_zero } },
         .return_values = {},
     };
@@ -556,7 +557,7 @@ TYPED_TEST(OpcodeGateCountTests, LogicXor32)
     };
 
     AcirFormat constraint_system{
-        .varnum = 3,
+        .num_acir_witnesses = 3,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = { logic_constraint },
@@ -580,7 +581,7 @@ TYPED_TEST(OpcodeGateCountTests, Range32)
     };
 
     AcirFormat constraint_system{
-        .varnum = 1,
+        .num_acir_witnesses = 1,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .range_constraints = { range_constraint },
@@ -631,7 +632,7 @@ TYPED_TEST(OpcodeGateCountTests, KeccakPermutation)
     };
 
     AcirFormat constraint_system{
-        .varnum = 51,
+        .num_acir_witnesses = 50,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .keccak_permutations = { keccak_permutation },
@@ -664,7 +665,7 @@ TYPED_TEST(OpcodeGateCountTests, Poseidon2Permutation)
         };
 
     AcirFormat constraint_system{
-        .varnum = 9,
+        .num_acir_witnesses = 9,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .poseidon2_constraints = { poseidon2_constraint },
@@ -708,7 +709,7 @@ TYPED_TEST(OpcodeGateCountTests, Sha256Compression)
     };
 
     AcirFormat constraint_system{
-        .varnum = 34,
+        .num_acir_witnesses = 33,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .sha256_compression = { sha256_compression },
@@ -788,7 +789,7 @@ TYPED_TEST(OpcodeGateCountTests, Aes128Encryption)
     };
 
     AcirFormat constraint_system{
-        .varnum = 65,
+        .num_acir_witnesses = 65,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .aes128_constraints = { aes128_constraint },
@@ -846,7 +847,7 @@ TYPED_TEST(OpcodeGateCountTests, EcdsaSecp256k1)
     };
 
     AcirFormat constraint_system{
-        .varnum = 163,
+        .num_acir_witnesses = 163,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .ecdsa_k1_constraints = { ecdsa_constraint },
@@ -899,7 +900,7 @@ TYPED_TEST(OpcodeGateCountTests, EcdsaSecp256r1)
     };
 
     AcirFormat constraint_system{
-        .varnum = 163,
+        .num_acir_witnesses = 163,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .ecdsa_r1_constraints = { ecdsa_constraint },
@@ -939,7 +940,7 @@ TYPED_TEST(OpcodeGateCountTests, Blake2s)
     };
 
     AcirFormat constraint_system{
-        .varnum = 34,
+        .num_acir_witnesses = 34,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .blake2s_constraints = { blake2s_constraint },
@@ -977,7 +978,7 @@ TYPED_TEST(OpcodeGateCountTests, Blake3)
     };
 
     AcirFormat constraint_system{
-        .varnum = 34,
+        .num_acir_witnesses = 34,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .blake3_constraints = { blake3_constraint },
@@ -1022,7 +1023,7 @@ TYPED_TEST(OpcodeGateCountTests, MultiScalarMul)
     };
 
     AcirFormat constraint_system{
-        .varnum = 10,
+        .num_acir_witnesses = 10,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .multi_scalar_mul_constraints = { msm_constraint },
@@ -1075,7 +1076,7 @@ TYPED_TEST(OpcodeGateCountTests, EcAdd)
     };
 
     AcirFormat constraint_system{
-        .varnum = 11,
+        .num_acir_witnesses = 11,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .ec_add_constraints = { ec_add_constraint },
@@ -1165,7 +1166,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
     };
 
     AcirFormat constraint_system{
-        .varnum = 5,
+        .num_acir_witnesses = 5,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .block_constraints = { block_constraint },

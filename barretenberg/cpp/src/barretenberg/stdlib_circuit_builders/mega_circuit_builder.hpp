@@ -73,23 +73,25 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @param op_queue_in Op queue to which goblinized group ops will be added
      * @param witness_values witnesses values known to acir
      * @param public_inputs indices of public inputs in witness array
-     * @param varnum number of known witness
+     * @param num_acir_witnesses the number of witnesses known at the time of ACIR generation
      *
      * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
-     * witness values which are interleaved with zeros when witnesses are optimized away. Not all witness values are
-     * known at the time of acir generation. The number of values that are not known is given by varnum -
-     * witness_values.size(). For each of these witnesses with unknown value, we add to the builder a variable with
-     * value equal to zero.
+     * witness values which are interleaved with zeros when witnesses are optimized away. When the circuit is
+     * constructed with a valid witness vector, the vector of witness values has always size equal to
+     * num_acir_witnesses. However, when we want to generate the VK for a circuit, we are given an empty witness vector,
+     * and we need to add to the builder as many dummy variables as the number of acir witnesses to prevent the code
+     * from misbehaving.
      *
-     * @note varnum is in general less than total number of variables/witnesses that might be present for a circuit
-     * generated from acir, since many gates will depend on the details of the bberg implementation (or more generally
-     * on the backend used to process acir).
+     * @note num_acir_witnesses is in general less than total number of variables/witnesses that might be present for a
+     * circuit generated from acir, since many gates will depend on the details of the bberg implementation (or more
+     * generally on the backend used to process acir).
      */
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
                         const std::vector<FF>& witness_values,
                         const std::vector<uint32_t>& public_inputs,
-                        size_t varnum)
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
+                        size_t num_acir_witnesses)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(
+              /*size_hint=*/0, witness_values, public_inputs, num_acir_witnesses)
         , op_queue(std::move(op_queue_in))
     {
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate

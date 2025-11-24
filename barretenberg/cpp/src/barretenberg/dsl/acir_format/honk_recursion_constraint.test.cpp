@@ -105,7 +105,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         };
 
         AcirFormat constraint_system{
-            .varnum = 6,
+            .num_acir_witnesses = 6,
             .num_acir_opcodes = 7,
             .public_inputs = { 1, 2 },
             .logic_constraints = { logic_constraint },
@@ -188,7 +188,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         }
 
         AcirFormat constraint_system{};
-        constraint_system.varnum = static_cast<uint32_t>(witness.size());
+        constraint_system.num_acir_witnesses = static_cast<uint32_t>(witness.size());
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size());
         constraint_system.honk_recursion_constraints = honk_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
@@ -474,7 +474,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)
     honk_recursion_constraints.push_back(honk_recursion_constraint);
 
     AcirFormat constraint_system{};
-    constraint_system.varnum = static_cast<uint32_t>(witness.size());
+    constraint_system.num_acir_witnesses = static_cast<uint32_t>(witness.size());
     constraint_system.num_acir_opcodes = 1;
     constraint_system.honk_recursion_constraints = honk_recursion_constraints;
     constraint_system.original_opcode_indices = create_empty_original_opcode_indices();

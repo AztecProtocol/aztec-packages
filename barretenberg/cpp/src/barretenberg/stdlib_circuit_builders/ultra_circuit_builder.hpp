@@ -224,35 +224,37 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * @param size_hint
      * @param witness_values witnesses values known to acir
      * @param public_inputs indices of public inputs in witness array
-     * @param varnum number of known witness
+     * @param num_acir_witnesses the number of witnesses known at the time of ACIR generation
      *
      * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
-     * witness values which are interleaved with zeros when witnesses are optimized away. Not all witness values are
-     * known at the time of acir generation. The number of values that are not known is given by varnum -
-     * witness_values.size(). For each of these witnesses with unknown value, we add to the builder a variable with
-     * value equal to zero.
+     * witness values which are interleaved with zeros when witnesses are optimized away. When the circuit is
+     * constructed with a valid witness vector, the vector of witness values has always size equal to
+     * num_acir_witnesses. However, when we want to generate the VK for a circuit, we are given an empty witness vector,
+     * and we need to add to the builder as many dummy variables as the number of acir witnesses to prevent the code
+     * from misbehaving.
      *
-     * @note varnum is in general less than total number of variables/witnesses that might be present for a circuit
-     * generated from acir, since many gates will depend on the details of the bberg implementation (or more generally
-     * on the backend used to process acir).
+     * @note num_acir_witnesses is in general less than total number of variables/witnesses that might be present for a
+     * circuit generated from acir, since many gates will depend on the details of the bberg implementation (or more
+     * generally on the backend used to process acir).
      *
      */
     UltraCircuitBuilder_(const size_t size_hint,
                          const std::vector<FF>& witness_values,
                          const std::vector<uint32_t>& public_inputs,
-                         size_t varnum)
+                         size_t num_acir_witnesses)
         : CircuitBuilderBase<FF>(size_hint, witness_values.empty())
     {
-        BB_ASSERT_LTE(
-            witness_values.size(),
-            varnum,
-            "UltraCircuitBuilder_: varnum should be bigger or equal than the size of the witness_values vector");
-        for (const auto value : witness_values) {
-            this->add_variable(value);
-        }
-        for (size_t idx = witness_values.size(); idx < varnum; ++idx) {
-            // Add dummy variables for the witnesses with unknown value at acir generation time
-            this->add_variable(FF::zero());
+        info("NUM WITNESS VALUES: ", witness_values.size());
+        info("NUM ACIR WITNESSES: ", num_acir_witnesses);
+        BB_ASSERT((witness_values.size() == num_acir_witnesses) || witness_values.empty());
+        if (!witness_values.empty()) {
+            for (const auto value : witness_values) {
+                this->add_variable(value);
+            }
+        } else {
+            for (size_t idx = 0; idx < num_acir_witnesses; idx++) {
+                this->add_variable(FF::zero());
+            }
         }
 
         // Initialize the builder public_inputs directly from the acir public inputs.

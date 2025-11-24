@@ -115,8 +115,9 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
 AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
 {
     AcirFormat af;
-    // `varnum` is the true number of variables, thus we add one to the index which starts at zero
-    af.varnum = circuit.current_witness_index + 1;
+    // This is the number of witnesses (counting from 0) known at the time of ACIR generation, we need to keep track of
+    // it for when we want to generate the VK of a circuit
+    af.num_acir_witnesses = circuit.current_witness_index + 1;
     af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
     af.public_inputs = join({ transform::map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               transform::map(circuit.return_values.value, [](auto e) { return e.value; }) });
