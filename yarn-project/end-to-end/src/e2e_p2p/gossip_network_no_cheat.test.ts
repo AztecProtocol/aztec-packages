@@ -158,7 +158,9 @@ describe('e2e_p2p_network', () => {
     }
 
     // Wait for the validators to be added to the rollup
-    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(BigInt(t.ctx.aztecNodeConfig.lagInEpochs + 1));
+    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(
+      BigInt(t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet + 1),
+    );
 
     // Changes have now taken effect
     const attesters = await rollupWrapper.getAttesters();

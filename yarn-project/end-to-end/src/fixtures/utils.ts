@@ -646,7 +646,9 @@ export async function setup(
       (opts.initialValidators && opts.initialValidators.length > 0)
     ) {
       // We need to advance such that the committee is set up.
-      await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1));
+      await cheatCodes.rollup.advanceToEpoch(
+        (await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochsForValidatorSet + 1),
+      );
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
