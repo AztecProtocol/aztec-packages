@@ -1,8 +1,9 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
-
+#include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 
@@ -744,9 +745,15 @@ void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction
     if (!leaf_index.has_value()) {
         return;
     }
+    auto contract_address = CONTRACT_ADDRESS;
+    auto note_hash_counter = static_cast<uint64_t>(*leaf_index);
+    auto siloed_note_computed_hash = bb::avm2::simulation::unconstrained_silo_note_hash(contract_address, *note_hash);
+    auto unique_note_computed_hash = bb::avm2::simulation::unconstrained_make_unique_note_hash(
+        siloed_note_computed_hash, NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS[0], note_hash_counter);
+
     auto set_note_hash_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
                                                          .offset = instruction.notehash_offset,
-                                                         .value = *note_hash };
+                                                         .value = unique_note_computed_hash };
     this->process_set_ff_instruction(set_note_hash_instruction);
     auto set_leaf_index_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
                                                           .offset = instruction.leaf_index_offset,

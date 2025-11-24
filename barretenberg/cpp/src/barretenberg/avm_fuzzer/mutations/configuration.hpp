@@ -285,8 +285,8 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::GETENVVAR, 1 },
     { InstructionGenerationOptions::EMITNULLIFIER, 1 },
     { InstructionGenerationOptions::NULLIFIEREXISTS, 1 },
-    { InstructionGenerationOptions::EMITNOTEHASH, 0 },
-    { InstructionGenerationOptions::NOTEHASHEXISTS, 0 },
+    { InstructionGenerationOptions::EMITNOTEHASH, 1 },
+    { InstructionGenerationOptions::NOTEHASHEXISTS, 1 },
 });
 
 enum class SStoreMutationOptions { src_offset_index, slot_offset, slot };

@@ -929,6 +929,6 @@ TEST(fuzz, EmitNoteHashThenNoteHashExists)
     auto result = cpp_simulator.simulate(bytecode, {});
     EXPECT_FALSE(result.reverted);
     // TODO(sn):fix notes
-    // EXPECT_EQ(result.output.at(0), 1);
+    EXPECT_EQ(result.output.at(0), 1);
 }
 } // namespace notes_and_nullifiers
