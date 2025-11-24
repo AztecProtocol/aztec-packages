@@ -5,7 +5,7 @@
 // solhint-disable func-name-mixedcase
 pragma solidity >=0.8.27;
 
-import {IRollupCore, BlockLog} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollupCore, CheckpointLog} from "@aztec/core/interfaces/IRollup.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
@@ -274,7 +274,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     address proposer = rollup.getCurrentProposer();
 
-    BlockLog memory log = rollup.getBlock(rollup.getPendingBlockNumber());
+    CheckpointLog memory log = rollup.getCheckpoint(rollup.getPendingCheckpointNumber());
 
     vm.record();
 
@@ -293,13 +293,13 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
       sequencerBps: Bps.wrap(1),
       rewardDistributor: IRewardDistributor(address(2)),
       booster: IBoosterCore(address(3)),
-      blockReward: 100e18
+      checkpointReward: 100e18
     });
 
     assertNotEq(address(config.rewardDistributor), address(updated.rewardDistributor), "invalid reward distributor");
     assertNotEq(address(config.booster), address(updated.booster), "invalid booster");
     assertEq(Bps.unwrap(config.sequencerBps), Bps.unwrap(defaultConfig.sequencerBps), "invalid sequencerBps");
-    assertEq(config.blockReward, defaultConfig.blockReward, "invalid initial blockReward");
+    assertEq(config.checkpointReward, defaultConfig.checkpointReward, "invalid initial checkpointReward");
 
     address owner = rollup.owner();
 
@@ -312,6 +312,6 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     assertEq(Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps");
     assertEq(address(config.rewardDistributor), address(updated.rewardDistributor), "invalid reward distributor");
     assertEq(address(config.booster), address(updated.booster), "invalid booster");
-    assertEq(config.blockReward, updated.blockReward, "invalid blockReward");
+    assertEq(config.checkpointReward, updated.checkpointReward, "invalid checkpointReward");
   }
 }

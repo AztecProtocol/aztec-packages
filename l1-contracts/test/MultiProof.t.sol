@@ -26,7 +26,7 @@ import {BoostedHelper} from "./boosted_rewards/BoostRewardHelper.sol";
 // solhint-disable comprehensive-interface
 
 /**
- * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
+ * Checkpoints are generated using the `integration_l1_publisher.test.ts` tests.
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
 contract MultiProofTest is RollupBase {
@@ -59,13 +59,13 @@ contract MultiProofTest is RollupBase {
   }
 
   /**
-   * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
+   * @notice  Set up the contracts needed for the tests with time aligned to the provided checkpoint name
    */
   modifier setUpFor(string memory _name) {
     {
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = Slot.unwrap(full.block.header.slotNumber);
-      uint256 initialTime = Timestamp.unwrap(full.block.header.timestamp) - slotNumber * SLOT_DURATION;
+      uint256 slotNumber = Slot.unwrap(full.checkpoint.header.slotNumber);
+      uint256 initialTime = Timestamp.unwrap(full.checkpoint.header.timestamp) - slotNumber * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
@@ -91,10 +91,10 @@ contract MultiProofTest is RollupBase {
   }
 
   function logStatus() public {
-    uint256 provenBlockNumber = rollup.getProvenBlockNumber();
-    uint256 pendingBlockNumber = rollup.getPendingBlockNumber();
-    emit log_named_uint("proven block number", provenBlockNumber);
-    emit log_named_uint("pending block number", pendingBlockNumber);
+    uint256 provenCheckpointNumber = rollup.getProvenCheckpointNumber();
+    uint256 pendingCheckpointNumber = rollup.getPendingCheckpointNumber();
+    emit log_named_uint("proven checkpoint number", provenCheckpointNumber);
+    emit log_named_uint("pending checkpoint number", pendingCheckpointNumber);
 
     address[2] memory provers = [address(bytes20("alice")), address(bytes20("bob"))];
 
@@ -102,11 +102,11 @@ contract MultiProofTest is RollupBase {
     emit log_named_decimal_uint("prover rewards", rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)), 18);
 
     for (uint256 i = 0; i < provers.length; i++) {
-      for (uint256 j = 1; j <= provenBlockNumber; j++) {
+      for (uint256 j = 1; j <= provenCheckpointNumber; j++) {
         bool hasSubmitted = rollup.getHasSubmitted(Epoch.wrap(0), j, provers[i]);
         if (hasSubmitted) {
           emit log_named_string(
-            string.concat("prover has submitted proof up till block ", Strings.toString(j)),
+            string.concat("prover has submitted proof up till checkpoint ", Strings.toString(j)),
             string(abi.encode(provers[i]))
           );
         }
@@ -119,22 +119,22 @@ contract MultiProofTest is RollupBase {
     }
   }
 
-  function testMultipleProvers() public setUpFor("mixed_block_1") {
+  function testMultipleProvers() public setUpFor("mixed_checkpoint_1") {
     address alice = address(bytes20("alice"));
     address bob = address(bytes20("bob"));
 
     // We need to mint some fee asset to the portal to cover the 30M mana spent.
     deal(address(testERC20), address(feeJuicePortal), 30e6 * 1e18);
 
-    _proposeBlock("mixed_block_1", 1, 15e6);
-    _proposeBlock("mixed_block_2", 2, 15e6);
+    _proposeCheckpoint("mixed_checkpoint_1", 1, 15e6);
+    _proposeCheckpoint("mixed_checkpoint_2", 2, 15e6);
 
-    assertEq(rollup.getProvenBlockNumber(), 0, "Block already proven");
+    assertEq(rollup.getProvenCheckpointNumber(), 0, "Checkpoint already proven");
 
-    string memory name = "mixed_block_";
-    _proveBlocks(name, 1, 1, alice);
-    _proveBlocks(name, 1, 1, bob);
-    _proveBlocks(name, 1, 2, bob);
+    string memory name = "mixed_checkpoint_";
+    _proveCheckpoints(name, 1, 1, alice);
+    _proveCheckpoints(name, 1, 1, bob);
+    _proveCheckpoints(name, 1, 2, bob);
 
     logStatus();
 
@@ -143,7 +143,7 @@ contract MultiProofTest is RollupBase {
     assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 1, bob));
     assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 2, bob));
 
-    assertEq(rollup.getProvenBlockNumber(), 2, "Block not proven");
+    assertEq(rollup.getProvenCheckpointNumber(), 2, "Checkpoint not proven");
 
     {
       // Ensure that we cannot claim rewards when not toggled yet
@@ -198,17 +198,17 @@ contract MultiProofTest is RollupBase {
     }
   }
 
-  function testMultipleProversBoostedRewards() public setUpFor("mixed_block_1") {
+  function testMultipleProversBoostedRewards() public setUpFor("mixed_checkpoint_1") {
     address alice = address(bytes20("alice"));
     address bob = address(bytes20("bob"));
 
     // We need to mint some fee asset to the portal to cover the 30M mana spent.
     deal(address(testERC20), address(feeJuicePortal), 30e6 * 1e18);
 
-    _proposeBlock("mixed_block_1", 1, 15e6);
-    _proposeBlock("mixed_block_2", 2, 15e6);
+    _proposeCheckpoint("mixed_checkpoint_1", 1, 15e6);
+    _proposeCheckpoint("mixed_checkpoint_2", 2, 15e6);
 
-    assertEq(rollup.getProvenBlockNumber(), 0, "Block already proven");
+    assertEq(rollup.getProvenCheckpointNumber(), 0, "Checkpoint already proven");
 
     ActivityScore memory activityScore = rewardBooster.getActivityScore(alice);
 
@@ -228,15 +228,15 @@ contract MultiProofTest is RollupBase {
     assertEq(rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), alice), 0, "Alice rewards not zeroed");
     assertEq(rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), bob), 0, "Bob rewards not zeroed");
 
-    string memory name = "mixed_block_";
-    _proveBlocks(name, 1, 1, alice);
-    _proveBlocks(name, 1, 1, bob);
+    string memory name = "mixed_checkpoint_";
+    _proveCheckpoints(name, 1, 1, alice);
+    _proveCheckpoints(name, 1, 1, bob);
 
     logStatus();
 
     assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 1, alice));
     assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 1, bob));
-    assertEq(rollup.getProvenBlockNumber(), 1, "Block not proven");
+    assertEq(rollup.getProvenCheckpointNumber(), 1, "Checkpoint not proven");
 
     uint256 totalRewards = rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0));
     uint256 totalShares = (rollup.getSharesFor(bob) + rollup.getSharesFor(alice));
@@ -251,22 +251,22 @@ contract MultiProofTest is RollupBase {
     }
   }
 
-  function testNoHolesInProvenBlocks() public setUpFor("mixed_block_1") {
-    _proposeBlock("mixed_block_1", 1, 15e6);
-    _proposeBlock("mixed_block_2", TestConstants.AZTEC_EPOCH_DURATION + 1, 15e6);
+  function testNoHolesInProvenCheckpoints() public setUpFor("mixed_checkpoint_1") {
+    _proposeCheckpoint("mixed_checkpoint_1", 1, 15e6);
+    _proposeCheckpoint("mixed_checkpoint_2", TestConstants.AZTEC_EPOCH_DURATION + 1, 15e6);
 
-    string memory name = "mixed_block_";
-    _proveBlocksFail(
+    string memory name = "mixed_checkpoint_";
+    _proveCheckpointsFail(
       name, 2, 2, address(bytes20("alice")), abi.encodeWithSelector(Errors.Rollup__StartIsNotBuildingOnProven.selector)
     );
   }
 
-  function testProofsAreInOneEpoch() public setUpFor("mixed_block_1") {
-    _proposeBlock("mixed_block_1", 1, 15e6);
-    _proposeBlock("mixed_block_2", TestConstants.AZTEC_EPOCH_DURATION + 1, 15e6);
+  function testProofsAreInOneEpoch() public setUpFor("mixed_checkpoint_1") {
+    _proposeCheckpoint("mixed_checkpoint_1", 1, 15e6);
+    _proposeCheckpoint("mixed_checkpoint_2", TestConstants.AZTEC_EPOCH_DURATION + 1, 15e6);
 
-    string memory name = "mixed_block_";
-    _proveBlocksFail(
+    string memory name = "mixed_checkpoint_";
+    _proveCheckpointsFail(
       name,
       1,
       2,

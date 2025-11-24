@@ -68,14 +68,14 @@ describe('invalidate blocks test', () => {
     forwardProcesses.forEach(p => p.kill());
   });
 
-  /** Waits for a BlockInvalidated event */
-  const waitForBlockInvalidated = (timeoutSeconds: number) => {
-    logger.warn(`Waiting until a block is invalidated`);
-    const promise = promiseWithResolvers<{ blockNumber: bigint }>();
-    const unsubscribe = rollup.listenToBlockInvalidated(data => {
-      logger.warn(`Block ${data.blockNumber} has been invalidated`, data);
+  /** Waits for a CheckpointProposed event */
+  const waitForCheckpointInvalidated = (timeoutSeconds: number) => {
+    logger.warn(`Waiting until a checkpoint is invalidated`);
+    const promise = promiseWithResolvers<{ checkpointNumber: bigint }>();
+    const unsubscribe = rollup.listenToCheckpointInvalidated(data => {
+      logger.warn(`Checkpoint ${data.checkpointNumber} has been invalidated`, data);
       unsubscribe();
-      promise.resolve(data);
+      promise.resolve({ checkpointNumber: data.checkpointNumber });
     });
 
     return Promise.race([promise.promise, timeoutPromise(timeoutSeconds * 1000)]);
@@ -89,7 +89,7 @@ describe('invalidate blocks test', () => {
     origSlashProposeInvalidAttestationsPenalty = first?.slashProposeInvalidAttestationsPenalty;
     origSlashAttestDescendantOfInvalidPenalty = first?.slashAttestDescendantOfInvalidPenalty;
 
-    const initialBlockNumber = (await monitor.run()).l2BlockNumber;
+    const initialBlockNumber = (await monitor.run()).checkpointNumber;
 
     // Update configs so next block is posted with invalid attestations, and we avoid slashing so we do not kick
     // people of the validator set with this test.
@@ -101,7 +101,7 @@ describe('invalidate blocks test', () => {
     });
 
     // Wait for the invalidation to happen (should not take more than 2 slots, but we wait for 4 just in case)
-    await waitForBlockInvalidated(constants.slotDuration * 4);
+    await waitForCheckpointInvalidated(constants.slotDuration * 4);
 
     // Restore sequencer configs to normal
     await updateSequencersConfig(config, { skipCollectingAttestations: false });
@@ -111,7 +111,7 @@ describe('invalidate blocks test', () => {
     const targetBlockNumber = initialBlockNumber + 4;
     logger.warn(`Waiting until block ${targetBlockNumber} has been mined to ensure the chain can progress`);
     await Promise.race([
-      monitor.waitUntilL2Block(targetBlockNumber),
+      monitor.waitUntilCheckpoint(targetBlockNumber),
       timeoutPromise(constants.slotDuration * 8 * 1000, `Timeout waiting for ${targetBlockNumber} L2 block`),
     ]);
 

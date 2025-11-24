@@ -87,8 +87,10 @@ describe('e2e_snapshot_sync', () => {
 
   it('waits until a few L2 blocks have been mined and purges blobs', async () => {
     log.warn(`Waiting for L2 blocks to be mined`);
-    await retryUntil(() => monitor.l2BlockNumber > L2_TARGET_BLOCK_NUM, 'l2-blocks-mined', 90, 1);
-    log.warn(`L2 block height is now ${monitor.l2BlockNumber}. Purging all blobs from sink so snapshot is required.`);
+    await retryUntil(() => monitor.checkpointNumber > L2_TARGET_BLOCK_NUM, 'l2-blocks-mined', 90, 1);
+    log.warn(
+      `L2 block height is now ${monitor.checkpointNumber}. Purging all blobs from sink so snapshot is required.`,
+    );
     await context.blobSink!.clear();
   });
 

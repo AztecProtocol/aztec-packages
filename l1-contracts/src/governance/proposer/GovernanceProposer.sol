@@ -65,7 +65,7 @@ contract GovernanceProposer is IGovernanceProposer, EmpireBase {
   }
 
   /**
-   * @dev A hook used by the EmpireBase to determine who is the current block builder (block "proposer"),
+   * @dev A hook used by the EmpireBase to determine who is the current checkpoint builder (checkpoint "proposer"),
    * and thus may signal.
    *
    * This contract only respects the canonical rollup.
