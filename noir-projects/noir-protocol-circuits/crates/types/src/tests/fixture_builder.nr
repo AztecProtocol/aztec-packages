@@ -216,7 +216,7 @@ pub struct FixtureBuilder {
 
 impl FixtureBuilder {
     pub fn new() -> Self {
-        FixtureBuilder::new_from_counter(0)
+        FixtureBuilder::new_from_counter(2)
     }
 
     pub fn new_from_counter(counter_start: u32) -> Self {
