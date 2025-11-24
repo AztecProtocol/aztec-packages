@@ -62,6 +62,13 @@ impl PrivateCallDataValidator {
             "Users cannot set msg_sender in first call",
         );
 
+        // Side effect counter 1 is reserved for the protocol nullifier.
+        // Any subsequent call must start with a side effect counter > than the init one
+        assert(
+            public_inputs.start_side_effect_counter > 1,
+            "start_side_effect_counter must be greater than 1",
+        );
+
         self.validate_expected_counters(claimed_revertible_counter);
     }
 
