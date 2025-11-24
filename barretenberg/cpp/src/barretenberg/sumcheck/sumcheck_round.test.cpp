@@ -1,7 +1,9 @@
 #include "sumcheck_round.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/tuple.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/relations/utils.hpp"
 
@@ -683,5 +685,372 @@ TEST(SumcheckRound, AccumulateRelationUnivariatesUltra)
 
         info("LogDerivLookupRelation: verified that linearly dependent subrelation (index 1) is NOT scaled, while "
              "others ARE scaled");
+    }
+}
+
+/**
+ * @brief Test check_sum with field arithmetic edge cases
+ * @details Verifies that check_sum works correctly with large field elements near the modulus
+ */
+TEST(SumcheckRound, CheckSumFieldArithmetic)
+{
+    using Flavor = UltraFlavor;
+    using FF = typename Flavor::FF;
+    using SumcheckVerifierRound = bb::SumcheckVerifierRound<Flavor>;
+    constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+    info("Test: Field arithmetic edge cases for check_sum");
+
+    // Test 1: Large field elements near modulus
+    {
+        // Create large values near the field modulus
+        FF large_val_1 = FF(-1);               // p - 1 (maximum field element)
+        FF large_val_2 = FF(-2);               // p - 2
+        FF target = large_val_1 + large_val_2; // Should wrap around: (p-1) + (p-2) = 2p - 3 ≡ -3 (mod p)
+
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate;
+        univariate.value_at(0) = large_val_1;
+        univariate.value_at(1) = large_val_2;
+
+        SumcheckVerifierRound verifier_round(target);
+        bool result = verifier_round.check_sum(univariate, FF(1));
+
+        EXPECT_TRUE(result) << "check_sum should handle large field elements correctly with wraparound";
+        info("Large field elements: check_sum correctly handles values near modulus");
+    }
+
+    // Test 2: Zero elements (edge case)
+    {
+        FF zero = FF(0);
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate;
+        univariate.value_at(0) = zero;
+        univariate.value_at(1) = zero;
+
+        SumcheckVerifierRound verifier_round(zero);
+        bool result = verifier_round.check_sum(univariate, FF(1));
+
+        EXPECT_TRUE(result) << "check_sum should handle zero case correctly";
+        info("Zero case: check_sum correctly handles all-zero values");
+    }
+
+    // Test 3: Mixed signs (positive and negative)
+    {
+        FF positive = FF(12345);
+        FF negative = FF(-12345);
+        FF target = positive + negative; // Should be 0
+
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate;
+        univariate.value_at(0) = positive;
+        univariate.value_at(1) = negative;
+
+        SumcheckVerifierRound verifier_round(target);
+        bool result = verifier_round.check_sum(univariate, FF(1));
+
+        EXPECT_TRUE(result) << "check_sum should handle mixed signs correctly";
+        EXPECT_EQ(target, FF(0)) << "Positive + negative should equal zero";
+        info("Mixed signs: check_sum correctly handles positive + negative = 0");
+    }
+}
+
+/**
+ * @brief Test check_sum with padding indicator
+ * @details Verifies that padding rounds (indicator=0) bypass the check, while non-padding rounds (indicator=1) perform
+ * the check
+ */
+TEST(SumcheckRound, CheckSumPaddingIndicator)
+{
+    using Flavor = UltraZKFlavor;
+    using FF = typename Flavor::FF;
+    using SumcheckVerifierRound = bb::SumcheckVerifierRound<Flavor>;
+    constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+    info("Test: Padding indicator behavior in check_sum");
+
+    // Create a univariate with mismatched sum (should fail in normal round)
+    FF val_0 = FF(10);
+    FF val_1 = FF(20);
+    FF correct_sum = val_0 + val_1; // 30
+    FF wrong_target = FF(100);      // Intentionally wrong
+
+    bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate;
+    univariate.value_at(0) = val_0;
+    univariate.value_at(1) = val_1;
+
+    // Test 1: Non-padding round (indicator = 1) - should enforce the check
+    {
+        info("Test 1: Non-padding round (indicator=1) with wrong target - should FAIL");
+
+        SumcheckVerifierRound verifier_round(wrong_target);
+        bool result = verifier_round.check_sum(univariate, FF(1)); // indicator = 1
+
+        EXPECT_FALSE(result) << "With indicator=1, check_sum should fail when target is wrong";
+        EXPECT_TRUE(verifier_round.round_failed) << "round_failed flag should be set";
+        info("Non-padding round: check_sum correctly enforces check and fails with wrong target");
+    }
+
+    // Test 2: Padding round (indicator = 0) - should bypass check even with wrong target
+    {
+        info("Test 3: Padding round (indicator=0) with wrong target - should PASS (bypassed)");
+
+        SumcheckVerifierRound verifier_round(wrong_target);
+        bool result = verifier_round.check_sum(univariate, FF(0)); // indicator = 0
+
+        EXPECT_TRUE(result) << "With indicator=0, check_sum should pass even when target is wrong (padding round)";
+        EXPECT_FALSE(verifier_round.round_failed) << "round_failed flag should not be set in padding round";
+        info("Padding round: check_sum correctly bypasses verification");
+    }
+
+    // Test 5: Transition from padding to non-padding
+    {
+        info("Test 4: Multiple rounds with mixed padding/non-padding");
+
+        SumcheckVerifierRound verifier_round(wrong_target);
+
+        // First round: padding (indicator = 0) - should pass
+        bool result1 = verifier_round.check_sum(univariate, FF(0));
+        EXPECT_TRUE(result1) << "First padding round should pass";
+        EXPECT_FALSE(verifier_round.round_failed) << "round_failed should still be false after padding round";
+
+        // Update target to correct value for next check
+        verifier_round.target_total_sum = correct_sum;
+
+        // Second round: non-padding (indicator = 1) with correct target - should pass
+        bool result2 = verifier_round.check_sum(univariate, FF(1));
+        EXPECT_TRUE(result2) << "Non-padding round with correct target should pass";
+        EXPECT_FALSE(verifier_round.round_failed) << "round_failed should remain false";
+
+        info("Mixed rounds: check_sum correctly handles transition from padding to non-padding");
+    }
+}
+
+/**
+ * @brief Test round_failed flag persistence in check_sum
+ * @details Verifies that once a check fails, the round_failed flag persists across subsequent checks
+ */
+TEST(SumcheckRound, CheckSumRoundFailurePersistence)
+{
+    using Flavor = UltraFlavor;
+    using FF = typename Flavor::FF;
+    using SumcheckVerifierRound = bb::SumcheckVerifierRound<Flavor>;
+    constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+    info("Test: round_failed flag persistence across multiple checks");
+
+    // Test 1: Single failed check sets flag
+    {
+        info("Test 1: Single failed check sets round_failed flag");
+
+        FF wrong_target = FF(999);
+        SumcheckVerifierRound verifier_round(wrong_target);
+
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate;
+        univariate.value_at(0) = FF(10);
+        univariate.value_at(1) = FF(20);
+
+        EXPECT_FALSE(verifier_round.round_failed) << "round_failed should initially be false";
+
+        bool result = verifier_round.check_sum(univariate, FF(1));
+
+        EXPECT_FALSE(result) << "check_sum should return false for wrong target";
+        EXPECT_TRUE(verifier_round.round_failed) << "round_failed flag should be set after failed check";
+
+        info("Single failure: round_failed flag correctly set");
+    }
+
+    // Test 2: Multiple passing checks keep flag false
+    {
+        info("Test 2: Multiple passing checks keep round_failed false");
+
+        SumcheckVerifierRound verifier_round(FF(30)); // Start with correct target
+
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate1;
+        univariate1.value_at(0) = FF(10);
+        univariate1.value_at(1) = FF(20);
+
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate2;
+        univariate2.value_at(0) = FF(5);
+        univariate2.value_at(1) = FF(15);
+
+        bool result1 = verifier_round.check_sum(univariate1, FF(1));
+        EXPECT_TRUE(result1) << "First check should pass";
+        EXPECT_FALSE(verifier_round.round_failed) << "round_failed should be false after first pass";
+
+        verifier_round.target_total_sum = FF(20); // Update target for second check
+        bool result2 = verifier_round.check_sum(univariate2, FF(1));
+        EXPECT_TRUE(result2) << "Second check should pass";
+        EXPECT_FALSE(verifier_round.round_failed) << "round_failed should remain false after second pass";
+
+        info("Multiple passes: round_failed correctly remains false");
+    }
+}
+
+/**
+ * @brief Test check_sum in a recursive circuit with unsatisfiable witness
+ * @details Creates a recursive circuit where check_sum is called with witnesses that don't satisfy the constraint,
+ * verifying that the circuit correctly detects the failure.
+ */
+TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
+{
+    using InnerBuilder = bb::UltraCircuitBuilder;
+    using RecursiveFlavor = bb::UltraRecursiveFlavor_<InnerBuilder>;
+    using FF = typename RecursiveFlavor::FF; // This is field_t<InnerBuilder> (stdlib field)
+    using SumcheckVerifierRound = bb::SumcheckVerifierRound<RecursiveFlavor>;
+    constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = RecursiveFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+    info("Test: Recursive check_sum with unsatisfiable witness");
+
+    // Test 1: Unsatisfiable witness - sum doesn't match target
+    {
+        info("Test 1: Unsatisfiable witness where target != S(0) + S(1)");
+
+        InnerBuilder builder;
+
+        // Create witness values that intentionally don't satisfy the check
+        auto native_val_0 = bb::fr(10);
+        auto native_val_1 = bb::fr(20);
+        auto native_wrong_target = bb::fr(100); // Intentionally wrong (correct would be 30)
+
+        // Create stdlib field elements (circuit variables)
+        FF val_0 = FF::from_witness(&builder, native_val_0);
+        FF val_1 = FF::from_witness(&builder, native_val_1);
+        FF wrong_target = FF::from_witness(&builder, native_wrong_target);
+
+        // Create univariate with these values
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate;
+        univariate.value_at(0) = val_0;
+        univariate.value_at(1) = val_1;
+
+        // Create verifier round with wrong target
+        SumcheckVerifierRound verifier_round(wrong_target);
+
+        // Call check_sum - this adds constraints to the circuit
+        // In recursive flavor, assert_equal is called which adds a constraint
+        FF indicator = FF(1); // Non-padding round
+        bool check_result = verifier_round.check_sum(univariate, indicator);
+
+        // The check_sum itself should return false (based on witness values)
+        EXPECT_FALSE(check_result) << "check_sum should return false for mismatched values";
+
+        // The circuit should have failed (constraint violation detected)
+        EXPECT_TRUE(builder.failed()) << "Builder should detect constraint violation (unsatisfiable witness)";
+
+        info("Unsatisfiable witness: Builder correctly detects constraint violation");
+    }
+
+    // Test 2: Satisfiable witness - sum matches target
+    {
+        info("Test 2: Satisfiable witness where target == S(0) + S(1)");
+
+        InnerBuilder builder;
+
+        // Create witness values that DO satisfy the check
+        auto native_val_0 = bb::fr(10);
+        auto native_val_1 = bb::fr(20);
+        auto native_correct_target = native_val_0 + native_val_1; // 30 (correct)
+
+        // Create stdlib field elements
+        FF val_0 = FF::from_witness(&builder, native_val_0);
+        FF val_1 = FF::from_witness(&builder, native_val_1);
+        FF correct_target = FF::from_witness(&builder, native_correct_target);
+
+        // Create univariate
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate;
+        univariate.value_at(0) = val_0;
+        univariate.value_at(1) = val_1;
+
+        // Create verifier round with correct target
+        SumcheckVerifierRound verifier_round(correct_target);
+
+        // Call check_sum
+        FF indicator = FF(1);
+        bool check_result = verifier_round.check_sum(univariate, indicator);
+
+        // Check should pass
+        EXPECT_TRUE(check_result) << "check_sum should return true for matching values";
+
+        // The circuit should NOT have failed
+        EXPECT_FALSE(builder.failed()) << "Builder should not fail for satisfiable witness";
+
+        // Verify the circuit is correct
+        EXPECT_TRUE(CircuitChecker::check(builder)) << "Circuit with satisfiable witness should pass CircuitChecker";
+
+        info("Satisfiable witness: Builder correctly validates constraint satisfaction");
+    }
+
+    // Test 3: Padding round with wrong values - should still pass (bypassed)
+    {
+        info("Test 3: Padding round (indicator=0) with wrong values - should not fail");
+
+        InnerBuilder builder;
+
+        // Create mismatched values
+        auto native_val_0 = bb::fr(10);
+        auto native_val_1 = bb::fr(20);
+        auto native_wrong_target = bb::fr(999); // Wrong
+
+        FF val_0 = FF::from_witness(&builder, native_val_0);
+        FF val_1 = FF::from_witness(&builder, native_val_1);
+        FF wrong_target = FF::from_witness(&builder, native_wrong_target);
+
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate;
+        univariate.value_at(0) = val_0;
+        univariate.value_at(1) = val_1;
+
+        SumcheckVerifierRound verifier_round(wrong_target);
+
+        // Padding round - indicator = 0
+        FF indicator = FF(0);
+        bool check_result = verifier_round.check_sum(univariate, indicator);
+
+        // Should pass because check is bypassed
+        EXPECT_TRUE(check_result) << "check_sum should return true for padding round";
+
+        // Builder should NOT fail (no constraint violation in padding round)
+        EXPECT_FALSE(builder.failed()) << "Builder should not fail for padding round (check bypassed)";
+
+        // Circuit should be valid
+        EXPECT_TRUE(CircuitChecker::check(builder)) << "Padding round circuit should pass CircuitChecker";
+
+        info("Padding round: Builder correctly bypasses check (no constraint added)");
+    }
+
+    // Test 4: Multiple rounds with one failure
+    {
+        info("Test 4: Multiple rounds where one has unsatisfiable witness");
+
+        InnerBuilder builder;
+
+        // First round: correct
+        auto val_0_round1 = FF::from_witness(&builder, bb::fr(10));
+        auto val_1_round1 = FF::from_witness(&builder, bb::fr(20));
+        auto target_round1 = FF::from_witness(&builder, bb::fr(30));
+
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate_1;
+        univariate_1.value_at(0) = val_0_round1;
+        univariate_1.value_at(1) = val_1_round1;
+
+        SumcheckVerifierRound verifier_round(target_round1);
+        FF indicator = FF(1);
+
+        bool result_1 = verifier_round.check_sum(univariate_1, indicator);
+        EXPECT_TRUE(result_1);
+        EXPECT_FALSE(builder.failed()) << "First round should not fail";
+
+        // Second round: WRONG
+        verifier_round.target_total_sum = FF::from_witness(&builder, bb::fr(999)); // Wrong target
+        auto val_0_round2 = FF::from_witness(&builder, bb::fr(5));
+        auto val_1_round2 = FF::from_witness(&builder, bb::fr(15));
+
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate_2;
+        univariate_2.value_at(0) = val_0_round2;
+        univariate_2.value_at(1) = val_1_round2;
+
+        bool result_2 = verifier_round.check_sum(univariate_2, indicator);
+        EXPECT_FALSE(result_2) << "Second round should fail";
+
+        // Builder should now have failed
+        EXPECT_TRUE(builder.failed()) << "Builder should detect failure in second round";
+
+        info("Multiple rounds: Builder correctly detects failure in one of multiple rounds");
     }
 }
