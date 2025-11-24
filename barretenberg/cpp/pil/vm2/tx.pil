@@ -393,6 +393,12 @@ namespace tx;
     // We retrieve the return values at the end of an enqueued call in the execution trace
     // Key: In execution, `context_id` and `enqueued_call_end == 1` are unique.
     // Outputs: All other columns are outputs of the enqueued call.
+    // Note that returning `execution.next_context_id` serves to constrain that no re-ordering of enqueued calls
+    // can occur. It guarantees that tx trace glue the tree state and side effect states according to the
+    // ordering of the public call requests prescribed by the public inputs. Note that a re-ordering of
+    // enqueued calls in execution trace would be possible though, but it would not affect the security.
+    // Such a re-ordering would consist in changing the row positions (clk) but not the temporal ordering
+    // determined by the context_id's.
     #[DISPATCH_EXEC_END]
     should_process_call_request {
        next_context_id,
