@@ -117,7 +117,7 @@ namespace tx;
     pol commit phase_value; // Number of the phase (starting from 0)
     pol commit remaining_phase_counter; // Number of events remaining in the phase
 
-    // If is_padded = 1, this is a padded row
+    // If is_padded = 1, this is a padded row.
     // A padded row exists for a phase (refer to a to f above for the phases) that is unused for this transaction
     // This means that the length of values to read for it is 0. We still need to perform some check to prevent
     // malicious skipping of valid phases.

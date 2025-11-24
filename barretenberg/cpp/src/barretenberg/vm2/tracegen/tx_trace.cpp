@@ -694,6 +694,9 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             // Populate all phase_spec related columns
             trace.set(row, handle_phase_spec(phase));
 
+            // Read PI offset and remaining phase counter related columns.
+            trace.set(row, handle_pi_read(phase, phase_length, phase_counter));
+
             // We always set the tree state and side effect states
             trace.set(row, insert_tree_state(tx_phase_event->state_before, tx_phase_event->state_after));
             trace.set(row, insert_side_effect_states(tx_phase_event->state_before, tx_phase_event->state_after));
@@ -702,35 +705,25 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             // Pattern match on the variant event type and call the appropriate handler
             std::visit(overloaded{ [&](const EnqueuedCallEvent& event) {
                                       trace.set(row, handle_enqueued_call_event(event));
-                                      // No explicit write counter for this phase
-                                      trace.set(row, handle_pi_read(phase, phase_length, phase_counter));
-
                                       gas_used = tx_phase_event->state_after.gas_used;
                                   },
                                    [&](const PrivateAppendTreeEvent& event) {
                                        trace.set(row,
                                                  handle_append_tree_event(event, phase, tx_phase_event->state_before));
-                                       trace.set(row, handle_pi_read(phase, phase_length, phase_counter));
                                    },
                                    [&](const PrivateEmitL2L1MessageEvent& event) {
                                        trace.set(row, handle_l2_l1_msg_event(event, tx_phase_event->state_before));
-                                       trace.set(row, handle_pi_read(phase, phase_length, phase_counter));
                                    },
                                    [&](const CollectGasFeeEvent& event) {
                                        trace.set(row, handle_collect_gas_fee_event(event));
-                                       trace.set(row, handle_pi_read(phase, 1, 0));
                                    },
-                                   [&](const PadTreesEvent&) { trace.set(row, handle_pi_read(phase, 1, 0)); },
-                                   [&](const CleanupEvent&) {
-                                       trace.set(row, handle_cleanup());
-                                       trace.set(row, handle_pi_read(phase, 1, 0));
-                                   },
+                                   [&](const PadTreesEvent&) {},
+                                   [&](const CleanupEvent&) { trace.set(row, handle_cleanup()); },
                                    [&](const EmptyPhaseEvent&) {
                                        // EmptyPhaseEvent represents a phase that is not explicitly skipped because of a
                                        // revert, but just has no contents to process, like when app logic starts but
                                        // has no enqueued calls.
                                        trace.set(row, handle_padded_row(phase, gas_used));
-                                       trace.set(row, handle_pi_read(phase, 0, 0));
                                    } },
                        tx_phase_event->event);
 
