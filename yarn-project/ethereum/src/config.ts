@@ -90,7 +90,7 @@ export const DefaultL1ContractsConfig = {
   slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1
   slashingVetoer: EthAddress.ZERO,
   governanceProposerRoundSize: 300,
-  manaTarget: BigInt(1e10),
+  manaTarget: BigInt(100e6),
   provingCostPerMana: BigInt(100),
   exitDelaySeconds: 2 * 24 * 60 * 60,
   slasherFlavor: 'tally' as const,

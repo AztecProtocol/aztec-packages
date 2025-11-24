@@ -29,7 +29,7 @@ describe('e2e_sequencer_config', () => {
 
   describe('Sequencer config', () => {
     // Sane targets < 64 bits.
-    const manaTarget = 21e10;
+    const manaTarget = 200e6;
     beforeAll(async () => {
       const initialFundedAccounts = await getInitialTestAccountsData();
       ({ teardown, sequencer, aztecNode, logger, wallet } = await setup(1, {
