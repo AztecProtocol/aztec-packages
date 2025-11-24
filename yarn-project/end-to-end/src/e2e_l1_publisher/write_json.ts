@@ -41,13 +41,13 @@ export async function writeJson(
     messages: {
       l2ToL1Messages: block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs).map(value => asHex(value)),
     },
-    block: {
+    checkpoint: {
       // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
       // This should not be a problem for testing as long as the values are not larger than u32.
       archive: asHex(block.archive.root),
       blobCommitments: getPrefixedEthBlobCommitments(blobs),
       batchedBlobInputs: batchedBlob.getEthBlobEvaluationInputs(),
-      blockNumber: block.number,
+      checkpointNumber: block.number,
       body: `0x${block.body.toBuffer().toString('hex')}`,
       header: {
         lastArchiveRoot: asHex(block.header.lastArchive.root),

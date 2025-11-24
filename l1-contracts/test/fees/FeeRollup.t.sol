@@ -21,7 +21,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup, BlockLog} from "@aztec/core/Rollup.sol";
+import {Rollup, CheckpointLog} from "@aztec/core/Rollup.sol";
 import {
   IRollup,
   SubmitEpochRootProofArgs,
@@ -69,10 +69,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
   using FeeLib for uint256;
   using FeeLib for ManaBaseFeeComponents;
-  // We need to build a block that we can submit. We will be using some values from
-  // the empty blocks, but otherwise populate using the fee model test points.
+  // We need to build a checkpoint that we can submit. We will be using some values from
+  // the empty checkpoints, but otherwise populate using the fee model test points.
 
-  struct Block {
+  struct Checkpoint {
     bytes32 archive;
     ProposedHeader header;
     bytes body;
@@ -82,7 +82,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     Signature attestationsAndSignersSignature;
   }
 
-  DecoderBase.Full full = load("empty_block_1");
+  DecoderBase.Full full = load("empty_checkpoint_1");
 
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
@@ -129,9 +129,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   /**
-   * @notice Constructs a fake block that is not possible to prove, but passes the L1 checks.
+   * @notice Constructs a fake checkpoint that is not possible to prove, but passes the L1 checks.
    */
-  function getBlock() internal view returns (Block memory) {
+  function getCheckpoint() internal view returns (Checkpoint memory) {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
@@ -139,8 +139,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
     address[] memory signers = new address[](0);
 
-    bytes memory body = full.block.body;
-    ProposedHeader memory header = full.block.header;
+    bytes memory body = full.checkpoint.body;
+    ProposedHeader memory header = full.checkpoint.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
     TestPoint memory point = points[Slot.unwrap(slotNumber) - 1];
@@ -155,7 +155,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     assertEq(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true), manaBaseFee, "mana base fee mismatch");
 
-    uint256 manaSpent = point.block_header.mana_spent;
+    uint256 manaSpent = point.checkpoint_header.mana_spent;
 
     // Put coinbase onto the stack
     address cb = coinbase;
@@ -169,11 +169,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     header.gasFees.feePerL2Gas = manaBaseFee;
     header.totalManaUsed = manaSpent;
 
-    return Block({
+    return Checkpoint({
       archive: archiveRoot,
       header: header,
       body: body,
-      blobInputs: full.block.blobCommitments,
+      blobInputs: full.checkpoint.blobCommitments,
       attestations: attestations,
       signers: signers,
       attestationsAndSignersSignature: Signature({v: 0, r: 0, s: 0})
@@ -181,7 +181,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   function test__FeeModelPrune() public {
-    // Submit a few blocks, then compute what the fees would be with/without a potential prune
+    // Submit a few checkpoints, then compute what the fees would be with/without a potential prune
     // and ensure that they match what happens.
     Slot nextSlot = Slot.wrap(1);
     for (uint256 i = 0; i < SLOT_DURATION / 12 * 5; i++) {
@@ -189,7 +189,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
-        Block memory b = getBlock();
+        Checkpoint memory b = getCheckpoint();
         skipBlobCheck(address(rollup));
         rollup.propose(
           ProposeArgs({
@@ -207,11 +207,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       }
     }
 
-    FeeHeader memory parentFeeHeaderNoPrune = rollup.getFeeHeader(rollup.getPendingBlockNumber());
+    FeeHeader memory parentFeeHeaderNoPrune = rollup.getFeeHeader(rollup.getPendingCheckpointNumber());
     uint256 excessManaNoPrune =
       (parentFeeHeaderNoPrune.excessMana + parentFeeHeaderNoPrune.manaUsed).clampedAdd(-int256(MANA_TARGET));
 
-    FeeHeader memory parentFeeHeaderPrune = rollup.getFeeHeader(rollup.getProvenBlockNumber());
+    FeeHeader memory parentFeeHeaderPrune = rollup.getFeeHeader(rollup.getProvenCheckpointNumber());
     uint256 excessManaPrune =
       (parentFeeHeaderPrune.excessMana + parentFeeHeaderPrune.manaUsed).clampedAdd(-int256(MANA_TARGET));
 
@@ -227,8 +227,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     ManaBaseFeeComponents memory componentsPrune = rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
-      .checked_write(rollup.getPendingBlockNumber());
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenCheckpointNumber()")
+      .checked_write(rollup.getPendingCheckpointNumber());
 
     ManaBaseFeeComponents memory componentsNoPrune =
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
@@ -264,9 +264,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
       _loadL1Metadata(i);
 
-      // For every "new" slot we encounter, we construct a block using current L1 Data
-      // and part of the `empty_block_1.json` file. The block cannot be proven, but it
-      // will be accepted as a proposal so very useful for testing a long range of blocks.
+      // For every "new" slot we encounter, we construct a checkpoint using current L1 Data
+      // and part of the `empty_checkpoint_1.json` file. The checkpoint cannot be proven, but it
+      // will be accepted as a proposal so very useful for testing a long range of checkpoints.
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
 
@@ -279,7 +279,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
         FeeHeader memory parentFeeHeader = rollup.getFeeHeader(Slot.unwrap(nextSlot) - 1);
 
-        Block memory b = getBlock();
+        Checkpoint memory b = getCheckpoint();
 
         skipBlobCheck(address(rollup));
         rollup.propose(
@@ -302,10 +302,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         assertEq(componentsFeeAsset.congestionCost, feeHeader.congestionCost, "congestion cost mismatch");
         // Want to check the fee header to see if they are as we want them.
 
-        assertEq(point.block_header.block_number, nextSlot, "invalid l2 block number");
-        assertEq(point.block_header.l1_block_number, block.number, "invalid l1 block number");
-        assertEq(point.block_header.slot_number, nextSlot, "invalid l2 slot number");
-        assertEq(point.block_header.timestamp, block.timestamp, "invalid timestamp");
+        assertEq(point.checkpoint_header.checkpoint_number, nextSlot, "invalid checkpoint number");
+        assertEq(point.checkpoint_header.l1_block_number, block.number, "invalid l1 block number");
+        assertEq(point.checkpoint_header.slot_number, nextSlot, "invalid l2 slot number");
+        assertEq(point.checkpoint_header.timestamp, block.timestamp, "invalid timestamp");
 
         assertEq(point.fee_header, feeHeader);
 
@@ -325,12 +325,12 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       // Ensure that the fees are split correctly between sequencers and burns etc.
       if (rollup.getCurrentEpoch() == nextEpoch) {
         nextEpoch = nextEpoch + Epoch.wrap(1);
-        uint256 pendingBlockNumber = rollup.getPendingBlockNumber();
-        uint256 start = rollup.getProvenBlockNumber() + 1;
+        uint256 pendingCheckpointNumber = rollup.getPendingCheckpointNumber();
+        uint256 start = rollup.getProvenCheckpointNumber() + 1;
         uint256 epochSize = 0;
         while (
-          start + epochSize <= pendingBlockNumber
-            && rollup.getEpochForBlock(start) == rollup.getEpochForBlock(start + epochSize)
+          start + epochSize <= pendingCheckpointNumber
+            && rollup.getEpochForCheckpoint(start) == rollup.getEpochForCheckpoint(start + epochSize)
         ) {
           epochSize++;
         }
@@ -368,8 +368,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         uint256 sequencerRewardsBefore = rollup.getSequencerRewards(coinbase);
 
         PublicInputArgs memory args = PublicInputArgs({
-          previousArchive: rollup.getBlock(start).archive,
-          endArchive: rollup.getBlock(start + epochSize - 1).archive,
+          previousArchive: rollup.getCheckpoint(start).archive,
+          endArchive: rollup.getCheckpoint(start + epochSize - 1).archive,
           proverId: address(0)
         });
 
@@ -381,7 +381,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
               args: args,
               fees: fees,
               attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
-              blobInputs: full.block.batchedBlobInputs,
+              blobInputs: full.checkpoint.batchedBlobInputs,
               proof: ""
             })
           );
@@ -392,13 +392,13 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         // The reward is not yet distributed, but only accumulated.
         {
-          uint256 newFees = rollup.getBlockReward() * epochSize / 2 + sequencerFees;
+          uint256 newFees = rollup.getCheckpointReward() * epochSize / 2 + sequencerFees;
           assertEq(rollup.getSequencerRewards(coinbase), sequencerRewardsBefore + newFees, "sequencer rewards");
         }
         {
           assertEq(
-            rollup.getCollectiveProverRewardsForEpoch(rollup.getEpochForBlock(start)),
-            rollup.getBlockReward() * epochSize / 2 + proverFees,
+            rollup.getCollectiveProverRewardsForEpoch(rollup.getEpochForCheckpoint(start)),
+            rollup.getCheckpointReward() * epochSize / 2 + proverFees,
             "prover rewards"
           );
         }

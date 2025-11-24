@@ -9,6 +9,67 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [L1 Contracts] `Block` is now `Checkpoint`
+
+A `checkpoint` is now the primary unit handled by the L1 contracts.
+
+A checkpoint may contain one or more L2 blocks. The protocol circuits already support producing multiple blocks per checkpoint. Updating the L1 contracts to operate on checkpoints allow L2 blockchain to advance faster.
+
+Below are the API and event renames reflecting this change:
+
+```diff
+- event L2BlockProposed
++ event CheckpointProposed
+```
+
+```diff
+- event BlockInvalidated
++ event CheckpointInvalidated
+```
+
+```diff
+- function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
++ function getEpochForCheckpoint(uint256 _checkpointNumber) external view returns (Epoch);
+```
+
+```diff
+- function getProvenBlockNumber() external view returns (uint256);
++ function getProvenCheckpointNumber() external view returns (uint256);
+```
+
+```diff
+- function getPendingBlockNumber() external view returns (uint256);
++ function getPendingCheckpointNumber() external view returns (uint256);
+```
+
+```diff
+- function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
++ function getCheckpoint(uint256 _checkpointNumber) external view returns (CheckpointLog memory);
+```
+
+```diff
+- function getBlockReward() external view returns (uint256);
++ function getCheckpointReward() external view returns (uint256);
+```
+
+Additionally, any function or struct that previously referenced an L2 block number now uses a checkpoint number instead:
+
+```diff
+- function status(uint256 _blockNumber) external view returns (
++ function status(uint256 _checkpointNumber) external view returns (
+-    uint256 provenBlockNumber,
++    uint256 provenCheckpointNumber,
+     bytes32 provenArchive,
+-    uint256 pendingBlockNumber,
++    uint256 pendingCheckpointNumber,
+     bytes32 pendingArchive,
+     bytes32 archiveOfMyBlock,
+     Epoch provenEpochNumber
+);
+```
+
+Note: current node softwares still produce exactly one L2 block per checkpoint, so for now checkpoint numbers and L2 block numbers remain equal. This may change once multi-block checkpoints are enabled.
+
 ### [Aztec.js] Wallet interface changes
 
 #### `simulateTx` is now batchable

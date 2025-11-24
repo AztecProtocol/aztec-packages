@@ -36,11 +36,11 @@ describe('e2e_epochs/epochs_empty_blocks_proof', () => {
 
     // Sleep to make sure any pending blocks are published
     await sleep(L1_BLOCK_TIME_IN_S * 1000);
-    const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
+    const blockNumberAtEndOfEpoch0 = Number(await rollup.getCheckpointNumber());
     logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
 
     await test.waitUntilProvenL2BlockNumber(blockNumberAtEndOfEpoch0, 240);
-    expect(monitor.l2BlockNumber).toEqual(blockNumberAtEndOfEpoch0);
+    expect(monitor.checkpointNumber).toEqual(blockNumberAtEndOfEpoch0);
     logger.info(`Test succeeded`);
   });
 });
