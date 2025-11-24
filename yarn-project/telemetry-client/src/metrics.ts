@@ -124,6 +124,13 @@ export const P2P_REQ_RESP_SENT_REQUESTS = 'aztec.p2p.req_resp.sent_requests';
 export const P2P_REQ_RESP_RECEIVED_REQUESTS = 'aztec.p2p.req_resp.received_requests';
 export const P2P_REQ_RESP_FAILED_OUTBOUND_REQUESTS = 'aztec.p2p.req_resp.failed_outbound_requests';
 export const P2P_REQ_RESP_FAILED_INBOUND_REQUESTS = 'aztec.p2p.req_resp.failed_inbound_requests';
+export const P2P_REQ_RESP_OUTBOUND_DURATION = 'aztec.p2p.req_resp.outbound_duration';
+export const P2P_REQ_RESP_INBOUND_HANDLER_DURATION = 'aztec.p2p.req_resp.inbound_handler_duration';
+export const P2P_REQ_RESP_RESPONSE_VALIDATION_DURATION = 'aztec.p2p.req_resp.response_validation_duration';
+export const P2P_REQ_RESP_REQUEST_SIZE = 'aztec.p2p.req_resp.request_size';
+export const P2P_REQ_RESP_RESPONSE_SIZE = 'aztec.p2p.req_resp.response_size';
+export const P2P_REQ_RESP_RESPONSE_COMPRESSED_SIZE = 'aztec.p2p.req_resp.response_compressed_size';
+export const P2P_REQ_RESP_RATE_LIMITED_COUNT = 'aztec.p2p.req_resp.rate_limited_count';
 
 export const P2P_GOSSIP_MESSAGE_VALIDATION_DURATION = 'aztec.p2p.gossip.message_validation_duration';
 export const P2P_GOSSIP_MESSAGE_PREVALIDATION_COUNT = 'aztec.p2p.gossip.message_validation_count';

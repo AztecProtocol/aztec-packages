@@ -2,7 +2,7 @@
 import { compactArray } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
-import { executeTimeout } from '@aztec/foundation/timer';
+import { Timer, executeTimeout } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -303,9 +303,11 @@ export class ReqResp implements ReqRespInterface {
 
                 if (response && response.data.length > 0) {
                   const object = responseFromBuffer(subProtocol, response.data);
+                  const validationTimer = new Timer();
                   const isValid = await responseValidator(requests[index], object, peer);
 
                   if (isValid) {
+                    this.metrics.recordResponseValidationDuration(subProtocol, validationTimer.ms());
                     peerResults.push({ index, response: object });
                   }
                 }
@@ -390,6 +392,8 @@ export class ReqResp implements ReqRespInterface {
     let stream: Stream | undefined;
     try {
       this.metrics.recordRequestSent(subProtocol);
+      this.metrics.recordRequestSize(subProtocol, payload.length);
+      const rttTimer = new Timer();
 
       this.logger.trace(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
@@ -407,6 +411,12 @@ export class ReqResp implements ReqRespInterface {
         this.individualRequestTimeoutMs,
         () => timeoutErr,
       );
+      if (resp.status === ReqRespStatus.SUCCESS) {
+        this.metrics.recordOutboundDuration(subProtocol, rttTimer.ms());
+        if (resp.data) {
+          this.metrics.recordResponseSize(subProtocol, resp.data.length);
+        }
+      }
       return resp;
     } catch (e: any) {
       // On error we immediately abort the stream, this is preferred way,
@@ -536,6 +546,7 @@ export class ReqResp implements ReqRespInterface {
       this.metrics.recordRequestReceived(protocol);
       const rateLimitStatus = this.rateLimiter.allow(protocol, connection.remotePeer);
       if (rateLimitStatus !== RateLimitStatus.Allowed) {
+        this.metrics.recordRateLimited(protocol);
         this.logger.verbose(
           `Rate limit exceeded ${prettyPrintRateLimitStatus(rateLimitStatus)} for ${protocol} from ${
             connection.remotePeer
@@ -600,13 +611,20 @@ export class ReqResp implements ReqRespInterface {
     }
 
     const snappy = this.snappyTransform;
+    const metrics = this.metrics;
     const SUCCESS = Uint8Array.of(ReqRespStatus.SUCCESS);
 
     await pipeline(
       stream.source,
       async function* (source: any) {
         for await (const chunk of source) {
-          const response = await handler(connection.remotePeer, chunk.subarray());
+          const requestData = chunk.subarray();
+          // record request size per message
+          // Note: this refers to the raw inbound request size for this message
+          metrics.recordRequestSize(protocol, requestData.length);
+
+          const handlerTimer = new Timer();
+          const response = await handler(connection.remotePeer, requestData);
 
           if (protocol === ReqRespSubProtocol.GOODBYE) {
             // NOTE: The stream was already closed by Goodbye handler
@@ -617,8 +635,14 @@ export class ReqResp implements ReqRespInterface {
 
           stream.metadata.written = true; // Mark the stream as written to;
 
+          // record inbound handler duration and sizes
+          metrics.recordInboundHandlerDuration(protocol, handlerTimer.ms());
+          metrics.recordResponseSize(protocol, response.length);
+          const compressed = snappy.outboundTransformData(response);
+          metrics.recordResponseCompressedSize(protocol, compressed.length);
+
           yield SUCCESS;
-          yield snappy.outboundTransformData(response);
+          yield compressed;
         }
       },
       stream.sink,
