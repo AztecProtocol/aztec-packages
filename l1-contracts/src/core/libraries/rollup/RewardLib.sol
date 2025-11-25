@@ -206,7 +206,11 @@ library RewardLib {
         uint256 sequenceCheckpointRewards = BpsLib.mul(checkpointRewardsAvailable, rewardStorage.config.sequencerBps);
         v.sequencerCheckpointReward = sequenceCheckpointRewards / added;
 
-        $er.rewards += (checkpointRewardsAvailable - sequenceCheckpointRewards).toUint128();
+        uint256 dust = sequenceCheckpointRewards - (v.sequencerCheckpointReward * added);
+        uint256 proverCheckpointRewards = checkpointRewardsAvailable - sequenceCheckpointRewards + dust;
+        if (proverCheckpointRewards > 0) {
+          $er.rewards += proverCheckpointRewards.toUint128();
+        }
       }
 
       bool isTxsEnabled = FeeLib.isTxsEnabled();
@@ -235,7 +239,10 @@ library RewardLib {
 
         {
           v.sequencer = fieldToAddress(_args.fees[i * 2]);
-          rewardStorage.sequencerRewards[v.sequencer] += (v.sequencerCheckpointReward + v.sequencerFee);
+          uint256 toSequencer = v.sequencerCheckpointReward + v.sequencerFee;
+          if (toSequencer > 0) {
+            rewardStorage.sequencerRewards[v.sequencer] += toSequencer;
+          }
         }
       }
 
