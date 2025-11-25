@@ -643,13 +643,13 @@ namespace tx;
 
     pol commit fee_juice_contract_address;
     is_collect_fee * (constants.FEE_JUICE_ADDRESS - fee_juice_contract_address) = 0;
-    pol commit fee_juice_balances_slot;
-    is_collect_fee * (constants.FEE_JUICE_BALANCES_SLOT - fee_juice_balances_slot) = 0;
+    pol commit fee_juice_balances_slot_constant;
+    is_collect_fee * (constants.FEE_JUICE_BALANCES_SLOT - fee_juice_balances_slot_constant) = 0;
 
     pol commit fee_juice_balance_slot;
 
     #[BALANCE_SLOT_POSEIDON2]
-    is_collect_fee { is_collect_fee, fee_juice_balances_slot, fee_payer, precomputed.zero, fee_juice_balance_slot }
+    is_collect_fee { is_collect_fee, fee_juice_balances_slot_constant, fee_payer, precomputed.zero, fee_juice_balance_slot }
     in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     pol commit fee_payer_balance;

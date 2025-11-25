@@ -300,7 +300,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX },
                       { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX },
                       { C::tx_fee_juice_contract_address, FEE_JUICE_ADDRESS },
-                      { C::tx_fee_juice_balances_slot, FEE_JUICE_BALANCES_SLOT },
+                      { C::tx_fee_juice_balances_slot_constant, FEE_JUICE_BALANCES_SLOT },
                       { C::tx_fee_payer_pi_offset, AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX },
                       { C::tx_start_phase, 1 },
                       { C::tx_end_phase, 1 },

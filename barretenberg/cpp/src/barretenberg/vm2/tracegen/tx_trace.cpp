@@ -439,7 +439,7 @@ std::vector<std::pair<C, FF>> handle_collect_gas_fee_event(const CollectGasFeeEv
         { C::tx_fee_payer_pi_offset, AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX },
         { C::tx_fee, event.fee },
         { C::tx_fee_juice_contract_address, FEE_JUICE_ADDRESS },
-        { C::tx_fee_juice_balances_slot, FEE_JUICE_BALANCES_SLOT },
+        { C::tx_fee_juice_balances_slot_constant, FEE_JUICE_BALANCES_SLOT },
         { C::tx_fee_juice_balance_slot, event.fee_juice_balance_slot },
         { C::tx_fee_payer_balance, event.fee_payer_balance },
         { C::tx_fee_payer_new_balance, event.fee_payer_balance - event.fee },

@@ -423,9 +423,9 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<53, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::tx_is_collect_fee)) *
-            (CView(constants_FEE_JUICE_BALANCES_SLOT) - static_cast<View>(in.get(C::tx_fee_juice_balances_slot)));
+        auto tmp = static_cast<View>(in.get(C::tx_is_collect_fee)) *
+                   (CView(constants_FEE_JUICE_BALANCES_SLOT) -
+                    static_cast<View>(in.get(C::tx_fee_juice_balances_slot_constant)));
         std::get<53>(evals) += (tmp * scaling_factor);
     }
     {
