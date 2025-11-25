@@ -12,6 +12,7 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "big_quad_constraints.hpp"
+#include "blake2b_constraint.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
@@ -46,6 +47,7 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> sha256_compression;
     std::vector<size_t> ecdsa_k1_constraints;
     std::vector<size_t> ecdsa_r1_constraints;
+    std::vector<size_t> blake2b_constraints;
     std::vector<size_t> blake2s_constraints;
     std::vector<size_t> blake3_constraints;
     std::vector<size_t> keccak_permutations;
@@ -80,6 +82,7 @@ struct AcirFormat {
     std::vector<Sha256Compression> sha256_compression;
     std::vector<EcdsaConstraint> ecdsa_k1_constraints;
     std::vector<EcdsaConstraint> ecdsa_r1_constraints;
+    std::vector<Blake2bConstraint> blake2b_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<Blake3Constraint> blake3_constraints;
     std::vector<Keccakf1600> keccak_permutations;
@@ -125,6 +128,7 @@ struct AcirFormat {
                    sha256_compression,
                    ecdsa_k1_constraints,
                    ecdsa_r1_constraints,
+                   blake2b_constraints,
                    blake2s_constraints,
                    blake3_constraints,
                    keccak_permutations,

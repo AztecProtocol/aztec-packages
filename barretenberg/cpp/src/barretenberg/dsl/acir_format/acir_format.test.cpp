@@ -957,6 +957,44 @@ TYPED_TEST(OpcodeGateCountTests, Blake2s)
     EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLAKE2S<TypeParam> }));
 }
 
+TYPED_TEST(OpcodeGateCountTests, Blake2b)
+{
+    std::vector<Blake2bInput> inputs;
+    // Add one input of 64 bits (rounded to one byte_array chunk)
+    inputs.push_back(Blake2bInput{
+        .blackbox_input = WitnessOrConstant<bb::fr>::from_index(1),
+        .num_bits = 64,
+    });
+
+    std::array<uint32_t, 64> result;
+    for (size_t i = 0; i < 64; ++i) {
+        result[i] = static_cast<uint32_t>(i + 2);
+    }
+
+    Blake2bConstraint blake2b_constraint{
+        .inputs = inputs,
+        .result = result,
+    };
+
+    AcirFormat constraint_system{
+        .varnum = 66,
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .blake2b_constraints = { blake2b_constraint },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    WitnessVector witness(66, fr(0));
+    witness[1] = fr(12345);
+
+    AcirProgram program{ constraint_system, witness };
+    const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
+    auto builder = create_circuit<TypeParam>(program, metadata);
+
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLAKE2B<TypeParam> }));
+}
+
 TYPED_TEST(OpcodeGateCountTests, Blake3)
 {
     std::vector<Blake3Input> inputs;

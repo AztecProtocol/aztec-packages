@@ -7,6 +7,7 @@
 #include "plookup_tables.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/aes128.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/blake2b.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/blake2s.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/dummy.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -77,6 +78,7 @@ std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES>& get_multi_tables()
             blake2s_tables::get_blake2s_xor_rotate_8_table(MultiTableId::BLAKE_XOR_ROTATE_8);
         tables[MultiTableId::BLAKE_XOR_ROTATE_7] =
             blake2s_tables::get_blake2s_xor_rotate_7_table(MultiTableId::BLAKE_XOR_ROTATE_7);
+        tables[MultiTableId::BLAKE2B_XOR] = blake2b_tables::get_blake2b_xor_table(MultiTableId::BLAKE2B_XOR);
         tables[MultiTableId::KECCAK_FORMAT_INPUT] =
             keccak_tables::KeccakInput::get_keccak_input_table(MultiTableId::KECCAK_FORMAT_INPUT);
         tables[MultiTableId::KECCAK_THETA_OUTPUT] =
@@ -352,6 +354,25 @@ BasicTable create_basic_table(const BasicTableId id, const size_t index)
     }
     case BLAKE_XOR_ROTATE4: {
         return blake2s_tables::generate_xor_rotate_table<6, 4>(BLAKE_XOR_ROTATE4, index);
+    }
+    case BLAKE2B_XOR_ROTATE0: {
+        return blake2b_tables::generate_xor_table<6>(BLAKE2B_XOR_ROTATE0, index);
+    }
+    case BLAKE2B_XOR_ROTATE0_SLICE10_MOD16: {
+        // Use 8 bits to allow for 4 bits of overflow
+        return blake2b_tables::generate_xor_table<8, true>(BLAKE2B_XOR_ROTATE0_SLICE10_MOD16, index);
+    }
+    case BLAKE2B_XOR_ROTATE1: {
+        return blake2b_tables::generate_xor_table<6>(BLAKE2B_XOR_ROTATE1, index);
+    }
+    case BLAKE2B_XOR_ROTATE2: {
+        return blake2b_tables::generate_xor_table<6>(BLAKE2B_XOR_ROTATE2, index);
+    }
+    case BLAKE2B_XOR_ROTATE4: {
+        return blake2b_tables::generate_xor_table<6>(BLAKE2B_XOR_ROTATE4, index);
+    }
+    case BLAKE2B_XOR_ROTATE5: {
+        return blake2b_tables::generate_xor_table<6>(BLAKE2B_XOR_ROTATE5, index);
     }
     case HONK_DUMMY_BASIC1: {
         return dummy_tables::generate_honk_dummy_table<HONK_DUMMY_BASIC1>(HONK_DUMMY_BASIC1, index);

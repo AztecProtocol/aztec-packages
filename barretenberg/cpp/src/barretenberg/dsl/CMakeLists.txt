@@ -4,6 +4,7 @@ set(DSL_DEPENDENCIES
     stdlib_sha256
     stdlib_aes128
     stdlib_blake2s
+    stdlib_blake2b
     stdlib_blake3s
     stdlib_keccak
     stdlib_poseidon2

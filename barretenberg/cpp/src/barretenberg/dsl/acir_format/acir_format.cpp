@@ -193,6 +193,13 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
+    // Add blake2b constraints
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraint_system.blake2b_constraints, constraint_system.original_opcode_indices.blake2b_constraints)) {
+        create_blake2b_constraints(builder, constraint);
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+    }
+
     // Add blake2s constraints
     for (const auto& [constraint, opcode_idx] : zip_view(
              constraint_system.blake2s_constraints, constraint_system.original_opcode_indices.blake2s_constraints)) {

@@ -1,0 +1,52 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
+#include "blake2b_constraint.hpp"
+#include "barretenberg/stdlib/hash/blake2b/blake2b.hpp"
+#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
+#include "round.hpp"
+
+namespace acir_format {
+
+using namespace bb;
+
+template <typename Builder> void create_blake2b_constraints(Builder& builder, const Blake2bConstraint& constraint)
+{
+    using byte_array_ct = stdlib::byte_array<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
+
+    // Build input byte array by appending constrained byte_arrays
+    byte_array_ct arr = byte_array_ct::constant_padding(&builder, 0); // Start with empty array
+
+    for (const auto& witness_index_num_bits : constraint.inputs) {
+        auto witness_index = witness_index_num_bits.blackbox_input;
+        auto num_bits = witness_index_num_bits.num_bits;
+
+        // XXX: The implementation requires us to truncate the element to the nearest byte and not bit
+        auto num_bytes = round_to_nearest_byte(num_bits);
+
+        field_ct element = to_field_ct(witness_index, builder);
+
+        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
+        byte_array_ct element_bytes(element, num_bytes);
+
+        // Safe write: both arr and element_bytes are constrained
+        arr.write(element_bytes);
+    }
+
+    byte_array_ct output_bytes = stdlib::Blake2b<Builder>::hash(arr);
+
+    for (size_t i = 0; i < output_bytes.size(); ++i) {
+        output_bytes[i].assert_equal(field_ct::from_witness_index(&builder, constraint.result[i]));
+    }
+}
+
+template void create_blake2b_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
+                                                              const Blake2bConstraint& constraint);
+template void create_blake2b_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
+                                                             const Blake2bConstraint& constraint);
+
+} // namespace acir_format

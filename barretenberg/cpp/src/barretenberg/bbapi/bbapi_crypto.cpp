@@ -5,6 +5,7 @@
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
+#include "barretenberg/crypto/blake2b/blake2b.hpp"
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
@@ -69,6 +70,18 @@ Blake2s::Response Blake2s::execute(BB_UNUSED BBApiRequest& request) &&
 Blake2sToField::Response Blake2sToField::execute(BB_UNUSED BBApiRequest& request) &&
 {
     auto hash_result = crypto::blake2s(data);
+    return { fr::serialize_from_buffer(hash_result.data()) };
+}
+
+Blake2b::Response Blake2b::execute(BB_UNUSED BBApiRequest& request) &&
+{
+    return { crypto::blake2b(data) };
+}
+
+Blake2bToField::Response Blake2bToField::execute(BB_UNUSED BBApiRequest& request) &&
+{
+    auto hash_result = crypto::blake2b(data);
+    // Take first 32 bytes and convert to field element
     return { fr::serialize_from_buffer(hash_result.data()) };
 }
 

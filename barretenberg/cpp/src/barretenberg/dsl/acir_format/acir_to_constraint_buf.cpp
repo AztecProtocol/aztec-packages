@@ -551,6 +551,18 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
                 af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
+            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake2b>) {
+                af.blake2b_constraints.push_back(Blake2bConstraint{
+                    .inputs = transform::map(arg.inputs,
+                                             [](auto& e) {
+                                                 return Blake2bInput{
+                                                     .blackbox_input = parse_input(e),
+                                                     .num_bits = 8,
+                                                 };
+                                             }),
+                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
+                });
+                af.original_opcode_indices.blake2b_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake3>) {
                 af.blake3_constraints.push_back(Blake3Constraint{
                     .inputs = transform::map(

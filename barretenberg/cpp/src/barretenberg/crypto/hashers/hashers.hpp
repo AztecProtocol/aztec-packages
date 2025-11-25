@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "../blake2b/blake2b.hpp"
 #include "../blake2s/blake2s.hpp"
 #include "../keccak/keccak.hpp"
 #include "../sha256/sha256.hpp"
@@ -40,5 +41,11 @@ struct Blake2sHasher {
     static constexpr size_t BLOCK_SIZE = 64;
     static constexpr size_t OUTPUT_SIZE = 32;
     static auto hash(const std::vector<uint8_t>& message) { return blake2s(message); }
+};
+
+struct Blake2bHasher {
+    static constexpr size_t BLOCK_SIZE = 128;
+    static constexpr size_t OUTPUT_SIZE = 64;
+    static auto hash(const std::vector<uint8_t>& message) { return blake2b(message); }
 };
 } // namespace bb::crypto

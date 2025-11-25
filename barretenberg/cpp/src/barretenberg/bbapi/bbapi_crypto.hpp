@@ -181,6 +181,46 @@ struct Blake2sToField {
 };
 
 /**
+ * @struct Blake2b
+ * @brief Compute Blake2b hash (64-byte output)
+ */
+struct Blake2b {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Blake2b";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Blake2bResponse";
+        std::array<uint8_t, 64> hash;
+        MSGPACK_FIELDS(hash);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<uint8_t> data;
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(data);
+    bool operator==(const Blake2b&) const = default;
+};
+
+/**
+ * @struct Blake2bToField
+ * @brief Compute Blake2b hash and convert to field element
+ */
+struct Blake2bToField {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Blake2bToField";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Blake2bToFieldResponse";
+        fr field;
+        MSGPACK_FIELDS(field);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<uint8_t> data;
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(data);
+    bool operator==(const Blake2bToField&) const = default;
+};
+
+/**
  * @struct AesEncrypt
  * @brief AES-128 CBC encryption
  */

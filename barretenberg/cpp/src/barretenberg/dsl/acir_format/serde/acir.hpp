@@ -2885,6 +2885,30 @@ struct BlackBoxFuncCall {
         }
     };
 
+    struct Blake2b {
+        std::vector<Acir::FunctionInput> inputs;
+        std::shared_ptr<std::array<Acir::Witness, 64>> outputs;
+
+        friend bool operator==(const Blake2b&, const Blake2b&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static Blake2b bincodeDeserialize(std::vector<uint8_t>);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Blake2b";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs, false);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs, false);
+        }
+    };
+
     struct Blake3 {
         std::vector<Acir::FunctionInput> inputs;
         std::shared_ptr<std::array<Acir::Witness, 32>> outputs;
@@ -3157,6 +3181,7 @@ struct BlackBoxFuncCall {
                  XOR,
                  RANGE,
                  Blake2s,
+                 Blake2b,
                  Blake3,
                  EcdsaSecp256k1,
                  EcdsaSecp256r1,
@@ -3318,6 +3343,16 @@ struct BlackBoxFuncCall {
             } catch (const msgpack::type_error&) {
                 std::cerr << o << std::endl;
                 throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Blake2s'");
+            }
+
+            value = v;
+        } else if (tag == "Blake2b") {
+            Blake2b v;
+            try {
+                o.via.map.ptr[0].val.convert(v);
+            } catch (const msgpack::type_error&) {
+                std::cerr << o << std::endl;
+                throw_or_abort("error converting into enum variant 'BlackBoxFuncCall::Blake2b'");
             }
 
             value = v;
@@ -6130,6 +6165,58 @@ Acir::BlackBoxFuncCall::Blake2s serde::Deserializable<Acir::BlackBoxFuncCall::Bl
     Deserializer& deserializer)
 {
     Acir::BlackBoxFuncCall::Blake2s obj;
+    obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
+    obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Acir {
+
+inline bool operator==(const BlackBoxFuncCall::Blake2b& lhs, const BlackBoxFuncCall::Blake2b& rhs)
+{
+    if (!(lhs.inputs == rhs.inputs)) {
+        return false;
+    }
+    if (!(lhs.outputs == rhs.outputs)) {
+        return false;
+    }
+    return true;
+}
+
+inline std::vector<uint8_t> BlackBoxFuncCall::Blake2b::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<BlackBoxFuncCall::Blake2b>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline BlackBoxFuncCall::Blake2b BlackBoxFuncCall::Blake2b::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<BlackBoxFuncCall::Blake2b>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Acir
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Acir::BlackBoxFuncCall::Blake2b>::serialize(const Acir::BlackBoxFuncCall::Blake2b& obj,
+                                                                     Serializer& serializer)
+{
+    serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
+    serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Acir::BlackBoxFuncCall::Blake2b serde::Deserializable<Acir::BlackBoxFuncCall::Blake2b>::deserialize(
+    Deserializer& deserializer)
+{
+    Acir::BlackBoxFuncCall::Blake2b obj;
     obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
     return obj;
