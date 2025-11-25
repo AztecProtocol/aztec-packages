@@ -31,8 +31,8 @@
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include <atomic>
 #include "barretenberg/vm2/api_avm.hpp"
+#include <atomic>
 #include <fstream>
 #include <iostream>
 #include <mutex>
