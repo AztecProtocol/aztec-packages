@@ -1,0 +1,18 @@
+HandleRewards
+├── given prover has already submitted
+│   └── it reverts with {Rollup__ProverHaveAlreadySubmitted}
+└── given prover has not submitted
+    ├── when length LE longest proven
+    │   ├── it store the prover shares
+    │   └── it store summed shares
+    └── when length GT longest proven
+        ├── given caller NEQ canonical rollup
+        │   ├── it store the prover shares
+        │   ├── it store summed shares
+        │   └── it store longestProvenLength
+        └── given caller EQ canonical rollup
+            ├── it store the prover shares
+            ├── it store summed shares
+            ├── it store updated prover rewards
+            ├── it store updated sequencer reward balance
+            └── it store longestProvenLength
