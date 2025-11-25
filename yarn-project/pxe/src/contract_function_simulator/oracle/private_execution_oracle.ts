@@ -15,7 +15,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import type { ContractClassLog, DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
-import { Note, type NoteStatus } from '@aztec/stdlib/note';
+import { Note, type NoteStatusFilter } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
   CallContext,
@@ -308,7 +308,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     sortOrder: number[],
     limit: number,
     offset: number,
-    status: NoteStatus,
+    status: NoteStatusFilter,
   ): Promise<NoteData[]> {
     // Nullified pending notes are already removed from the list.
     const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, storageSlot);

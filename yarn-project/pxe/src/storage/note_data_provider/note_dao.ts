@@ -63,6 +63,22 @@ export class NoteDao implements NoteData {
     public recipient: AztecAddress,
   ) {}
 
+  public equals(other: NoteDao): boolean {
+    return (
+      this.note.equals(other.note) &&
+      this.contractAddress.equals(other.contractAddress) &&
+      this.storageSlot.equals(other.storageSlot) &&
+      this.noteNonce.equals(other.noteNonce) &&
+      this.noteHash.equals(other.noteHash) &&
+      this.siloedNullifier.equals(other.siloedNullifier) &&
+      this.txHash.equals(other.txHash) &&
+      this.l2BlockNumber === other.l2BlockNumber &&
+      this.l2BlockHash === other.l2BlockHash &&
+      this.index === other.index
+      // this.recipient.equals(other.recipient) // F-92: this is going to be removed so don't compare it
+    );
+  }
+
   toBuffer(): Buffer {
     return serializeToBuffer([
       this.note,

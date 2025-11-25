@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
-import { NoteStatus } from '@aztec/stdlib/note';
+import type { NotesFilter } from '@aztec/stdlib/note';
 
 import { NoteDao } from './note_dao.js';
 import { NoteDataProvider } from './note_data_provider.js';
@@ -52,10 +52,7 @@ describe('NoteDataProvider', () => {
   // Sets up a fresh NoteDataProvider with two scopes and three notes.
   async function setupProviderWithNotes(storeName: string) {
     const store = await openTmpStore(storeName);
-    const provider = await NoteDataProvider.create(store);
-
-    await provider.addScope(SCOPE_1);
-    await provider.addScope(SCOPE_2);
+    const provider = NoteDataProvider.create(store);
 
     const note1 = await mkNote({
       contractAddress: CONTRACT_A,
@@ -103,7 +100,7 @@ describe('NoteDataProvider', () => {
   describe('NoteDataProvider.create', () => {
     it('creates provider on an empty store and confirms getNotes returns an empty array', async () => {
       const store = await openTmpStore('note_data_provider_fresh_store');
-      const provider = await NoteDataProvider.create(store);
+      const provider = NoteDataProvider.create(store);
 
       const res = await provider.getNotes({ contractAddress: CONTRACT_A });
       expect(Array.isArray(res)).toBe(true);
@@ -116,16 +113,13 @@ describe('NoteDataProvider', () => {
       const store = await openTmpStore('note_data_provider_re-init_test');
 
       // First provider populates the store; second reopens it to verify persistence
-      const provider1 = await NoteDataProvider.create(store);
-
-      await provider1.addScope(SCOPE_1);
-      await provider1.addScope(SCOPE_2);
+      const provider1 = NoteDataProvider.create(store);
 
       const noteA = await mkNote({ contractAddress: CONTRACT_A, recipient: SCOPE_1, index: 1n });
       const noteB = await mkNote({ contractAddress: CONTRACT_B, recipient: SCOPE_2, index: 2n });
       await provider1.addNotes([noteA, noteB], FAKE_ADDRESS);
 
-      const provider2 = await NoteDataProvider.create(store);
+      const provider2 = NoteDataProvider.create(store);
 
       const notesA = await provider2.getNotes({ contractAddress: CONTRACT_A });
       const notesB = await provider2.getNotes({ contractAddress: CONTRACT_B });
@@ -134,6 +128,27 @@ describe('NoteDataProvider', () => {
       expect(new Set(getIndexes(notesB))).toEqual(new Set([2n]));
 
       await store.close();
+    });
+  });
+
+  // TODO: Complete these tests
+  describe('NoteDataProvider.addNotes same note twice!!! NEW TEST TO COMPLETE', () => {
+    it('adds notes under different scopes and retrieves them correctly', () => {
+      expect(true);
+    });
+
+    it('not happy path placeholder', () => {
+      //       it('rolls back entire batch on duplicate conflict', async () => {
+      //   const provider = await NoteDataProvider.create(store);
+
+      //   const notes = [noteA, noteB, conflictingNote];
+      //   await expect(provider.addNotes(notes, scope)).rejects.toThrow();
+
+      //   for (const note of notes) {
+      //     expect(await provider.#notes.has(toNoteId(note.index))).toBe(false);
+      //   }
+      // });
+      expect(true);
     });
   });
 
@@ -195,7 +210,7 @@ describe('NoteDataProvider', () => {
 
       const resAll = await provider.getNotes({
         contractAddress: CONTRACT_A,
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        status: 'ALL',
       });
       expect(new Set(getIndexes(resAll))).toEqual(new Set([1n, 2n]));
     });
@@ -218,7 +233,7 @@ describe('NoteDataProvider', () => {
       const res = await provider.getNotes({
         contractAddress: CONTRACT_B,
         scopes: [SCOPE_1],
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        status: 'ALL',
       });
 
       expect(res).toHaveLength(0);
@@ -227,7 +242,7 @@ describe('NoteDataProvider', () => {
       const res2 = await provider.getNotes({
         contractAddress: CONTRACT_B,
         scopes: [SCOPE_2],
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        status: 'ALL',
       });
 
       expect(new Set(getIndexes(res2))).toEqual(new Set([3n]));
@@ -285,10 +300,16 @@ describe('NoteDataProvider', () => {
       );
     });
 
+    // TODO: Linear Issue: F-XX - Remove this test once scopes are mandatory in the filter.
     it('throws when called with an empty scopes array', async () => {
       await expect(provider.getNotes({ contractAddress: CONTRACT_A, scopes: [] })).rejects.toThrow(
         'Trying to get notes with an empty scopes array',
       );
+    });
+
+    // TODO: What happens if there's nothing in the scopes set?
+    it('nothing in scopes set and do getNotes', () => {
+      expect(true);
     });
 
     it('returns no notes when filtering by a non-existent siloedNullifier', async () => {
@@ -341,7 +362,7 @@ describe('NoteDataProvider', () => {
       const active = await provider.getNotes({ contractAddress: CONTRACT_A });
       const all = await provider.getNotes({
         contractAddress: CONTRACT_A,
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        status: 'ALL',
       });
 
       expect(new Set(getIndexes(active))).toEqual(new Set([2n]));
@@ -363,10 +384,10 @@ describe('NoteDataProvider', () => {
     it('retrieves a nullified note by its siloedNullifier when status is ACTIVE_OR_NULLIFIED', async () => {
       await provider.applyNullifiers([mkNullifier(note2)]);
 
-      const filter = {
+      const filter: NotesFilter = {
         contractAddress: CONTRACT_A,
         siloedNullifier: note2.siloedNullifier,
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        status: 'ALL',
       };
 
       const res = await provider.getNotes(filter);
@@ -395,7 +416,7 @@ describe('NoteDataProvider', () => {
         l2BlockHash: L2BlockHash.random(),
       };
 
-      await expect(provider.applyNullifiers([fakeNullifier])).rejects.toThrow('Nullifier not found in applyNullifiers');
+      await expect(provider.applyNullifiers([fakeNullifier])).rejects.toThrow(/Nullifier not found in applyNullifiers/);
     });
 
     it('preserves scope information when nullifying notes', async () => {
@@ -406,14 +427,14 @@ describe('NoteDataProvider', () => {
       const wrongScopeNotes = await provider.getNotes({
         contractAddress: CONTRACT_A,
         scopes: [SCOPE_2],
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        status: 'ALL',
       });
       expect(getIndexes(wrongScopeNotes)).not.toContain(1n);
 
       const correctScopeNotes = await provider.getNotes({
         contractAddress: CONTRACT_A,
         scopes: [SCOPE_1],
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        status: 'ALL',
       });
       expect(getIndexes(correctScopeNotes)).toContain(1n);
     });
@@ -443,21 +464,21 @@ describe('NoteDataProvider', () => {
       // Test various filter combinations still work
       const byContract = await provider.getNotes({
         contractAddress: CONTRACT_A,
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        status: 'ALL',
       });
       expect(new Set(getIndexes(byContract))).toEqual(new Set([1n, 2n]));
 
       const bySlot = await provider.getNotes({
         contractAddress: CONTRACT_A,
         storageSlot: note1.storageSlot,
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        status: 'ALL',
       });
       expect(new Set(getIndexes(bySlot))).toEqual(new Set([1n]));
 
       const byScope = await provider.getNotes({
         contractAddress: CONTRACT_A,
         scopes: [note1.recipient],
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        status: 'ALL',
       });
       expect(new Set(getIndexes(byScope))).toEqual(new Set([1n, 2n]));
     });
@@ -487,9 +508,7 @@ describe('NoteDataProvider', () => {
 
     beforeEach(async () => {
       store = await openTmpStore('note_data_provider_rollback_test');
-      provider = await NoteDataProvider.create(store);
-      await provider.addScope(SCOPE_1);
-      await provider.addScope(SCOPE_2);
+      provider = NoteDataProvider.create(store);
     });
 
     afterEach(async () => {
@@ -510,7 +529,7 @@ describe('NoteDataProvider', () => {
         // Apply nullifiers and rollback to block 3
         // - should restore noteBlock3 (nullified at block 4) and preserve noteBlock1 (nullified at block 2)
         await provider.applyNullifiers(nullifiers);
-        await provider.rollbackNotesAndNullifiers(3, 6);
+        await provider.rollbackNotesAndNullifiers(3);
       }
 
       beforeEach(async () => {
@@ -526,7 +545,7 @@ describe('NoteDataProvider', () => {
       it('preserves nullification of notes nullified at or before the rollback block', async () => {
         const allNotes = await provider.getNotes({
           contractAddress: CONTRACT_A,
-          status: NoteStatus.ACTIVE_OR_NULLIFIED,
+          status: 'ALL',
         });
 
         // Should contain noteBlock1 (nullified), noteBlock2 (active), and noteBlock3 (restored)
@@ -547,7 +566,7 @@ describe('NoteDataProvider', () => {
       it('deletes notes created after the rollback block', async () => {
         const allNotes = await provider.getNotes({
           contractAddress: CONTRACT_A,
-          status: NoteStatus.ACTIVE_OR_NULLIFIED,
+          status: 'ALL',
         });
 
         // noteBlock5 was created at block 5, which is after rollback block 3, should be deleted
@@ -573,42 +592,16 @@ describe('NoteDataProvider', () => {
 
         // Since nullification happened at block 5 (not after), it should stay nullified
         // The rewind loop processes blocks (blockNumber+1) to synchedBlockNumber = 6 to 5 = no iterations
-        await provider.rollbackNotesAndNullifiers(5, 5);
+        await provider.rollbackNotesAndNullifiers(5);
 
         const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
         expect(activeNotes).toHaveLength(0);
 
         const allNotes = await provider.getNotes({
           contractAddress: CONTRACT_A,
-          status: NoteStatus.ACTIVE_OR_NULLIFIED,
+          status: 'ALL',
         });
         expect(new Set(getIndexes(allNotes))).toEqual(new Set([10n]));
-      });
-
-      it('handles rollback when synchedBlockNumber < blockNumber', async () => {
-        const note = await mkNote({ index: 20n, l2BlockNumber: 3 });
-        await provider.addNotes([note], SCOPE_1);
-
-        const nullifiers = [
-          {
-            data: note.siloedNullifier,
-            l2BlockNumber: 4,
-            l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
-          },
-        ];
-        await provider.applyNullifiers(nullifiers);
-
-        // blockNumber=6, synchedBlockNumber=4 therefore no nullifications to rewind
-        await provider.rollbackNotesAndNullifiers(6, 4);
-
-        const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
-        expect(activeNotes).toHaveLength(0);
-
-        const allNotes = await provider.getNotes({
-          contractAddress: CONTRACT_A,
-          status: NoteStatus.ACTIVE_OR_NULLIFIED,
-        });
-        expect(new Set(getIndexes(allNotes))).toEqual(new Set([20n]));
       });
 
       it('handles rollback with a large block gap', async () => {
@@ -624,7 +617,7 @@ describe('NoteDataProvider', () => {
           },
         ];
         await provider.applyNullifiers(nullifiers);
-        await provider.rollbackNotesAndNullifiers(5, 100);
+        await provider.rollbackNotesAndNullifiers(5);
 
         // note1 should be restored (nullified at block 7 > rollback block 5)
         // note2 should be deleted (created at block 10 > rollback block 5)
@@ -633,10 +626,13 @@ describe('NoteDataProvider', () => {
       });
 
       it('handles rollback on empty PXE database gracefully', async () => {
-        await expect(provider.rollbackNotesAndNullifiers(10, 20)).resolves.not.toThrow();
+        await expect(provider.rollbackNotesAndNullifiers(10)).resolves.not.toThrow();
         const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
         expect(notes).toHaveLength(0);
       });
     });
   });
 });
+
+// TODO:
+// haven't tests explicitly setting notesFilter to 'ACTIVE' or 'NULLIFIED'

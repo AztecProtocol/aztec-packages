@@ -88,7 +88,7 @@ describe('PXEOracleInterface', () => {
 
     addressDataProvider = new AddressDataProvider(store);
     privateEventDataProvider = new PrivateEventDataProvider(store);
-    noteDataProvider = await NoteDataProvider.create(store);
+    noteDataProvider = NoteDataProvider.create(store);
     syncDataProvider = new SyncDataProvider(store);
     taggingDataProvider = new TaggingDataProvider(store);
     capsuleDataProvider = new CapsuleDataProvider(store);

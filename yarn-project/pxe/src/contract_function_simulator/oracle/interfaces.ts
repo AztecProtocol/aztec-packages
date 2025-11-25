@@ -5,7 +5,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
-import type { Note, NoteStatus } from '@aztec/stdlib/note';
+import type { Note, NoteStatusFilter } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
@@ -89,7 +89,7 @@ export interface IUtilityExecutionOracle {
     sortOrder: number[],
     limit: number,
     offset: number,
-    status: NoteStatus,
+    status: NoteStatusFilter,
   ): Promise<NoteData[]>;
   utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean>;
   utilityGetL1ToL2MembershipWitness(
