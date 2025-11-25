@@ -1,5 +1,29 @@
 namespace tx;
 
+   /**
+    * This file manages the tree states and side effect states initialization and propagation/continuity.
+    * It also enforces immutability for all the phases which do not mutate the tree states and side effect states.
+    * It also reads the start and end state of the tree states and side effect states from the public inputs.
+    *
+    * Example for Note Hash Tree Root:
+    * - Initialization: We read the start state of the note hash tree root from the public inputs in #[PUBLIC_INPUTS_NOTE_HASH_TREE].
+    * - End state PI write: We write the end state of the note hash tree root to the public inputs in #[PUBLIC_INPUTS_NOTE_HASH_TREE].
+    * - Continuity (next_note_hash_tree_root -> prev_note_hash_tree_root'): We constrain the continuity of the note hash tree root across
+    *   active rows in #[NOTE_HASH_ROOT_CONTINUITY] except when `reverted` is 1.
+    *   If `reverted` is 1, we restore the note hash tree to its value at the end of the setup phase in #[RESTORE_STATE_ON_REVERT].
+    * - Immutability (prev_note_hash_tree_root -> next_note_hash_tree_root):
+    *   A) Phase non-emitting note hashes: We constrain the immutability of the note hash tree across phases in #[NOTE_HASH_ROOT_IMMUTABILITY].
+    *   B) Phase emitting note hashes but padded: We constrain the immutability of the note hash tree across phases in #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY].
+    * - Mutability (prev_note_hash_tree_root -> next_note_hash_tree_root) happens in tx.pil:
+    *   C) Public call request, non-padded: Mutation happens in #[DISPATCH_EXEC_START] and #[DISPATCH_EXEC_END].
+    *   D) (Non-)Revertible append note hash: Mutation happens in #[NOTE_HASH_APPEND] for non-padded and non-reverted rows.
+    *
+    * - Revert: On a reverted row, next_note_hash_tree_root is under-constrained. It is fine, because we restore the note hash tree root
+    *           in #[RESTORE_STATE_ON_REVERT] which correctly constrains prev_note_hash_tree_root' (next row).
+    *
+    * Similar mechanisms apply for other tree states and side effect states.
+    */
+
     // This the same sel as in tx
     #[skippable_if]
     sel = 0;
@@ -297,42 +321,50 @@ namespace tx;
     NOT_LAST_ROW * (1 - is_teardown') * (da_gas_limit - da_gas_limit') = 0;
 
     // Selectors to allow prev => next state changes on the different phases
-    pol commit sel_can_emit_note_hash; // @boolean
-    pol commit sel_can_emit_nullifier; // @boolean
-    pol commit sel_can_write_public_data; // @boolean
-    pol commit sel_can_emit_unencrypted_log; // @boolean
-    pol commit sel_can_emit_l2_l1_msg; // @boolean
-    // The 5 above selectors are booleans on active rows due to #[READ_PHASE_SPEC].
+    pol SEL_CAN_EMIT_NOTE_HASH = is_public_call_request + sel_non_revertible_append_note_hash + sel_revertible_append_note_hash;
+    pol SEL_CAN_EMIT_NULLIFIER = is_public_call_request + sel_non_revertible_append_nullifier + sel_revertible_append_nullifier;
+    pol SEL_CAN_WRITE_PUBLIC_DATA = is_public_call_request + is_collect_fee;
+    pol SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS = is_public_call_request;
+    pol SEL_CAN_EMIT_UNENCRYPTED_LOG = is_public_call_request;
+    pol SEL_CAN_EMIT_L2_L1_MSG = is_public_call_request + sel_non_revertible_append_l2_l1_msg + sel_revertible_append_l2_l1_msg;
+    // The 6 above selectors are booleans on active rows due to #[READ_PHASE_SPEC] and
+    // mutual exclusivity of the selectors on right hand side.
 
 
     #[NOTE_HASH_ROOT_IMMUTABILITY]
-    (1 - sel_can_emit_note_hash) * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
+    (1 - SEL_CAN_EMIT_NOTE_HASH) * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
+
+    // In tree padding phase, we mutate the size of the note hash tree.
+    // Note that `is_tree_padding` is mutually exclusive with SEL_CAN_EMIT_NOTE_HASH on active rows.
     #[NOTE_HASH_SIZE_IMMUTABILITY]
-    (1 - sel_can_emit_note_hash) * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
+    (1 - SEL_CAN_EMIT_NOTE_HASH - is_tree_padding) * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
     #[NOTE_HASH_COUNT_IMMUTABILITY]
-    (1 - sel_can_emit_note_hash) * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
+    (1 - SEL_CAN_EMIT_NOTE_HASH) * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
 
     #[NULLIFIER_ROOT_IMMUTABILITY]
-    (1 - sel_can_emit_nullifier) * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
+    (1 - SEL_CAN_EMIT_NULLIFIER) * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
+
+    // In tree padding phase, we mutate the size of the nullifier tree.
+    // Note that `is_tree_padding` is mutually exclusive with SEL_CAN_EMIT_NULLIFIER on active rows.
     #[NULLIFIER_SIZE_IMMUTABILITY]
-    (1 - sel_can_emit_nullifier) * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
+    (1 - SEL_CAN_EMIT_NULLIFIER - is_tree_padding) * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
     #[NULLIFIER_COUNT_IMMUTABILITY]
-    (1 - sel_can_emit_nullifier) * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
+    (1 - SEL_CAN_EMIT_NULLIFIER) * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
 
     #[PUBLIC_DATA_ROOT_IMMUTABILITY]
-    (1 - sel_can_write_public_data) * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
+    (1 - SEL_CAN_WRITE_PUBLIC_DATA) * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
     #[PUBLIC_DATA_SIZE_IMMUTABILITY]
-    (1 - sel_can_write_public_data) * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
+    (1 - SEL_CAN_WRITE_PUBLIC_DATA) * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY]
-    (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
+    (1 - SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS) * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY]
-    (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
+    (1 - SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS) * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
 
     #[UNENCRYPTED_LOG_COUNT_IMMUTABILITY]
-    (1 - sel_can_emit_unencrypted_log) * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
+    (1 - SEL_CAN_EMIT_UNENCRYPTED_LOG) * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
 
     #[L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY]
-    (1 - sel_can_emit_l2_l1_msg) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
+    (1 - SEL_CAN_EMIT_L2_L1_MSG) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY]
     (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;

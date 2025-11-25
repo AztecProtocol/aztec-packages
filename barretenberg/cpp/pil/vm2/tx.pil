@@ -201,11 +201,6 @@ namespace tx;
         sel_revertible_append_note_hash,
         sel_revertible_append_nullifier,
         sel_revertible_append_l2_l1_msg,
-        sel_can_emit_note_hash,
-        sel_can_emit_nullifier,
-        sel_can_write_public_data,
-        sel_can_emit_unencrypted_log,
-        sel_can_emit_l2_l1_msg,
         next_phase_on_revert
     }
     in
@@ -225,11 +220,6 @@ namespace tx;
         precomputed.sel_revertible_append_note_hash,
         precomputed.sel_revertible_append_nullifier,
         precomputed.sel_revertible_append_l2_l1_msg,
-        precomputed.sel_can_emit_note_hash,
-        precomputed.sel_can_emit_nullifier,
-        precomputed.sel_can_write_public_data,
-        precomputed.sel_can_emit_unencrypted_log,
-        precomputed.sel_can_emit_l2_l1_msg,
         precomputed.next_phase_on_revert
     };
 
@@ -717,30 +707,16 @@ namespace tx;
     is_collect_fee { write_pi_offset, fee }
     in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
-    // This phase is allowed to write public data (sel_can_write_public_data == 1), so the transition from
-    // `prev_written_public_data_slots_tree_root/size` to `next_written_public_data_slots_tree_root/size` is not constrained.
-    // It is fine because, this tree is transient, will be discarded at the end of the tx (no write happens at the end), and
-    // the subsequent phases (paddding, cleanup) do not use this tree. We only pass it around through the public call requests.
-
    /***************************************************************************
     * Tree Padding Phase
     **************************************************************************/
     pol commit is_tree_padding; // @boolean (on active rows follows from #[READ_PHASE_SPEC])
 
     // Roots and num emitted don't change, only size changes.
-    // Necessary since we are allowed in this phase to change tree roots, sizes and emitted counts.
-    #[NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING]
-    is_tree_padding * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
     #[PAD_NOTE_HASH_TREE]
     is_tree_padding * ((prev_note_hash_tree_size + constants.MAX_NOTE_HASHES_PER_TX - prev_num_note_hashes_emitted) - next_note_hash_tree_size) = 0;
-    #[NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING]
-    is_tree_padding * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
-    #[NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING]
-    is_tree_padding * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
     #[PAD_NULLIFIER_TREE]
     is_tree_padding * ((prev_nullifier_tree_size + constants.MAX_NULLIFIERS_PER_TX - prev_num_nullifiers_emitted) - next_nullifier_tree_size) = 0;
-    #[NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING]
-    is_tree_padding * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
 
    /***************************************************************************
     * Cleanup Phase

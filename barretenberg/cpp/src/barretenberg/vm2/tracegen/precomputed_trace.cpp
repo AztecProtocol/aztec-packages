@@ -363,11 +363,6 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
             { C::precomputed_sel_revertible_append_note_hash, spec.revertible_append_note_hash ? 1 : 0 },
             { C::precomputed_sel_revertible_append_nullifier, spec.revertible_append_nullifier ? 1 : 0 },
             { C::precomputed_sel_revertible_append_l2_l1_msg, spec.revertible_append_l2_l1_msg ? 1 : 0 },
-            { C::precomputed_sel_can_emit_note_hash, spec.can_emit_note_hash ? 1 : 0 },
-            { C::precomputed_sel_can_emit_nullifier, spec.can_emit_nullifier ? 1 : 0 },
-            { C::precomputed_sel_can_write_public_data, spec.can_write_public_data ? 1 : 0 },
-            { C::precomputed_sel_can_emit_unencrypted_log, spec.can_emit_unencrypted_log ? 1 : 0 },
-            { C::precomputed_sel_can_emit_l2_l1_msg, spec.can_emit_l2_l1_msg ? 1 : 0 },
             { C::precomputed_next_phase_on_revert, spec.next_phase_on_revert },
         };
 

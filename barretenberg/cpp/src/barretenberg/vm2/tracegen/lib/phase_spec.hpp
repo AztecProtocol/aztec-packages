@@ -23,11 +23,6 @@ struct TxPhaseSpec {
     bool revertible_append_note_hash = false;
     bool revertible_append_nullifier = false;
     bool revertible_append_l2_l1_msg = false;
-    bool can_emit_note_hash = false;
-    bool can_emit_nullifier = false;
-    bool can_write_public_data = false;
-    bool can_emit_unencrypted_log = false;
-    bool can_emit_l2_l1_msg = false;
     uint8_t next_phase_on_revert = 0;
 };
 

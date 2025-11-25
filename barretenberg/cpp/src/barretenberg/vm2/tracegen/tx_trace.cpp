@@ -253,11 +253,6 @@ std::vector<std::pair<C, FF>> handle_phase_spec(TransactionPhase phase)
         { C::tx_sel_revertible_append_note_hash, phase_spec.revertible_append_note_hash ? 1 : 0 },
         { C::tx_sel_revertible_append_nullifier, phase_spec.revertible_append_nullifier ? 1 : 0 },
         { C::tx_sel_revertible_append_l2_l1_msg, phase_spec.revertible_append_l2_l1_msg ? 1 : 0 },
-        { C::tx_sel_can_emit_note_hash, phase_spec.can_emit_note_hash ? 1 : 0 },
-        { C::tx_sel_can_emit_nullifier, phase_spec.can_emit_nullifier ? 1 : 0 },
-        { C::tx_sel_can_write_public_data, phase_spec.can_write_public_data ? 1 : 0 },
-        { C::tx_sel_can_emit_unencrypted_log, phase_spec.can_emit_unencrypted_log ? 1 : 0 },
-        { C::tx_sel_can_emit_l2_l1_msg, phase_spec.can_emit_l2_l1_msg ? 1 : 0 },
         { C::tx_next_phase_on_revert, phase_spec.next_phase_on_revert },
 
         // Directly derived from phase spec but not part of the phase spec struct.
