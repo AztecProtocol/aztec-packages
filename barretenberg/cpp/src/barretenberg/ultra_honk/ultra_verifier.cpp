@@ -97,7 +97,7 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     // Reconstruct the public inputs
     IO inputs;
     inputs.reconstruct_from_public(verifier_instance->public_inputs);
-    constexpr size_t nnn = MegaFlavor::FINAL_PCS_MSM_SIZE();
+
     // Aggregate new pairing points with those reconstructed from the public inputs
     pairing_points.aggregate(inputs.pairing_inputs);
 

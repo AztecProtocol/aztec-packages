@@ -1,6 +1,35 @@
-# Chonk: Client Honk
+# Chonk: Client-side Highly Optimized ploNK
 
-Chonk ("Client Honk") implements Repeated Computation with Global state (RCG) as defined in the [Stackproofs paper](https://eprint.iacr.org/2024/1281) by Eagen, Gabizon, Sefranek, Towa, and Williamson. It is used by the Aztec client for private function execution, combining HyperNova folding with Goblin to produce a single succinct proof.
+![chonk](https://hackmd.io/_uploads/BkpsblXEgg.jpg)
+
+Aztec's goal is to enable private verifiable execution of smart contracts. This motivates a proving system design where:
+
+- **Low memory proving**: Proofs can be generated on a phone or browser
+- **Efficient recursion**: Proofs can incorporate many layers of recursion, as contract execution naturally involves function calls to other functions
+
+Efficient recursion supports low memory proving - statements can be decomposed via recursion into smaller statements that require less prover memory.
+
+## Design Principles
+
+CHONK builds on [PlonK](https://eprint.iacr.org/2019/953), sharing its foundation:
+- Elliptic curves and pairings
+- Circuit constraints via selector polynomials and copy constraints
+
+Its deviations from PlonK are motivated by the goals above:
+
+1. **Proving sequences of circuits**: Contract execution translates to multiple circuits (different contract functions), with Aztec's *Kernel circuits* handling bookkeeping between them. See the [Aztec documentation](https://docs.aztec.network) and [Stackproofs paper](https://eprint.iacr.org/2024/1281).
+
+2. **Sumcheck instead of univariate quotienting**: Eliminates FFTs, reducing prover time and memory at the expense of proof length. This approach follows [HyperPlonk](https://eprint.iacr.org/2022/1355).
+
+3. **Folding schemes**: Enable cheaper recursion than standard recursive proofs. We use sumcheck-based folding similar to [HyperNova](https://eprint.iacr.org/2023/573), well-suited for folding non-uniform PlonK circuits.
+
+4. **Goblin Plonk**: Though folding reduces recursion cost, in-circuit non-native EC scalar multiplications remain expensive. [Goblin Plonk](https://hackmd.io/@aztec-network/BkGNaHUJn/%2FdUsu57SOTBiQ4tS9KJMkMQ) (see also [this paper](https://eprint.iacr.org/2024/1651)) defers these operations to a queue, then proves them on the Grumpkin curve where they're native. This curve-switch approach was initiated by [BCTV](https://eprint.iacr.org/2014/595.pdf); a modern comparison is [CycleFold](https://eprint.iacr.org/2023/1192).
+
+*For a video presentation, see [this talk](https://www.youtube.com/watch?v=j6wlamEPKlE).*
+
+---
+
+Chonk implements Repeated Computation with Global state (RCG) as defined in the [Stackproofs paper](https://eprint.iacr.org/2024/1281). It combines HyperNova folding with Goblin to produce a single succinct proof.
 
 ## Motivation: From Naive Recursion to Chonk
 
