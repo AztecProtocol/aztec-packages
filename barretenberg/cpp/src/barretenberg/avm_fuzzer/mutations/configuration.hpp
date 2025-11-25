@@ -378,7 +378,7 @@ constexpr FuzzerDataMutationConfig BASIC_FUZZER_DATA_MUTATION_CONFIGURATION = Fu
     { FuzzerDataMutationOptions::InstructionMutation, 20 },
     { FuzzerDataMutationOptions::ControlFlowCommandMutation, 1 },
     { FuzzerDataMutationOptions::ReturnOptionsMutation, 1 },
-    { FuzzerDataMutationOptions::CalldataMutation, 0 },
+    { FuzzerDataMutationOptions::CalldataMutation, 5 },
 });
 
 enum class JumpIfMutationOptions {
