@@ -172,6 +172,14 @@ template <typename Curve> class MergeTests : public testing::Test {
             native_T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
         }
 
+        // Compute expected merged table commitments independently
+        // After merge, the full table is T_merged = T_prev || t_current (PREPEND) or t_current || T_prev (APPEND)
+        auto T_merged = op_queue->construct_ultra_ops_table_columns();
+        std::array<curve::BN254::AffineElement, NUM_WIRES> expected_merged_commitments;
+        for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+            expected_merged_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_merged[idx]);
+        }
+
         // Create builder (only used in recursive context)
         BuilderType builder;
 
@@ -195,6 +203,14 @@ template <typename Curve> class MergeTests : public testing::Test {
             pcs_verification_key.pairing_check(to_native(pairing_points.P0), to_native(pairing_points.P1));
         bool verified = pairing_verified && degree_check_passed && concatenation_check_passed;
         EXPECT_EQ(verified, expected);
+
+        // If verification is expected to succeed, also check that the merged table commitments match
+        if (expected) {
+            for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+                EXPECT_EQ(to_native(merged_table_commitments[idx]), expected_merged_commitments[idx])
+                    << "Merged table commitment mismatch at index " << idx;
+            }
+        }
 
         // Check circuit validity (only relevant in recursive context)
         if constexpr (IsRecursive) {
@@ -292,7 +308,7 @@ template <typename Curve> class MergeTests : public testing::Test {
     /**
      * @brief Test failure when degree(l) > shift_size (as read from the proof)
      */
-    static void test_degree_check_failure()
+    static void test_degree_check_failure(const MergeSettings settings = MergeSettings::PREPEND)
     {
         using InnerFlavor = MegaFlavor;
         using InnerBuilder = typename InnerFlavor::CircuitBuilder;
@@ -301,13 +317,13 @@ template <typename Curve> class MergeTests : public testing::Test {
         InnerBuilder circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
 
-        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, TamperProofMode::Shift, false);
+        prove_and_verify_merge(op_queue, settings, TamperProofMode::Shift, false);
     }
 
     /**
      * @brief Test failure when m ≠ l + X^k r
      */
-    static void test_merge_failure()
+    static void test_merge_failure(const MergeSettings settings = MergeSettings::PREPEND)
     {
         using InnerFlavor = MegaFlavor;
         using InnerBuilder = typename InnerFlavor::CircuitBuilder;
@@ -316,13 +332,13 @@ template <typename Curve> class MergeTests : public testing::Test {
         InnerBuilder circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
 
-        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, TamperProofMode::MCommitment, false);
+        prove_and_verify_merge(op_queue, settings, TamperProofMode::MCommitment, false);
     }
 
     /**
      * @brief Test failure when g_j(kappa) ≠ kappa^{k-1} * l_j(1/kappa)
      */
-    static void test_eval_failure()
+    static void test_eval_failure(const MergeSettings settings = MergeSettings::PREPEND)
     {
         using InnerFlavor = MegaFlavor;
         using InnerBuilder = typename InnerFlavor::CircuitBuilder;
@@ -331,7 +347,7 @@ template <typename Curve> class MergeTests : public testing::Test {
         InnerBuilder circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
 
-        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, TamperProofMode::LEval, false);
+        prove_and_verify_merge(op_queue, settings, TamperProofMode::LEval, false);
     }
 };
 
@@ -362,19 +378,34 @@ TYPED_TEST(MergeTests, MergePrependThenAppend)
     TestFixture::test_merge_prepend_then_append();
 }
 
-TYPED_TEST(MergeTests, DegreeCheckFailure)
+TYPED_TEST(MergeTests, DegreeCheckFailurePrepend)
 {
-    TestFixture::test_degree_check_failure();
+    TestFixture::test_degree_check_failure(MergeSettings::PREPEND);
 }
 
-TYPED_TEST(MergeTests, MergeFailure)
+TYPED_TEST(MergeTests, DegreeCheckFailureAppend)
 {
-    TestFixture::test_merge_failure();
+    TestFixture::test_degree_check_failure(MergeSettings::APPEND);
 }
 
-TYPED_TEST(MergeTests, EvalFailure)
+TYPED_TEST(MergeTests, MergeFailurePrepend)
 {
-    TestFixture::test_eval_failure();
+    TestFixture::test_merge_failure(MergeSettings::PREPEND);
+}
+
+TYPED_TEST(MergeTests, MergeFailureAppend)
+{
+    TestFixture::test_merge_failure(MergeSettings::APPEND);
+}
+
+TYPED_TEST(MergeTests, EvalFailurePrepend)
+{
+    TestFixture::test_eval_failure(MergeSettings::PREPEND);
+}
+
+TYPED_TEST(MergeTests, EvalFailureAppend)
+{
+    TestFixture::test_eval_failure(MergeSettings::APPEND);
 }
 
 /**
