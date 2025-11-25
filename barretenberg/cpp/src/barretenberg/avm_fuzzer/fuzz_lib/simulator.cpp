@@ -216,7 +216,7 @@ void JsSimulator::restart_simulator()
             throw std::runtime_error("Restart failed: " + error);
         }
     } catch (const std::exception& e) {
-        std::cout << "Error processing restart response: " << e.what() << "Response: " << response  << "Response size" << response.size() << std::endl;
+        std::cout << "Error processing restart response: " << e.what() << "Response: " << response << std::endl;
         throw std::runtime_error("Failed to restart simulator: " + std::string(e.what()));
     }
 }
