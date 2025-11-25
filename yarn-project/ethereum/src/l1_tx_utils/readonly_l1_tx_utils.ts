@@ -248,8 +248,7 @@ export class ReadOnlyL1TxUtils {
       this.logger?.debug('Using fixed priority fee per L1 gas', {
         fixedPriorityFeePerGas: gasConfig.fixedPriorityFeePerGas,
       });
-      // try to maintain precision up to 1000000 wei
-      priorityFee = BigInt(gasConfig.fixedPriorityFeePerGas * 1_000_000) * (WEI_CONST / 1_000_000n);
+      priorityFee = BigInt(Math.trunc(gasConfig.fixedPriorityFeePerGas * Number(WEI_CONST)));
     } else {
       // Get competitive priority fee (includes network estimate + analysis)
       priorityFee = this.getCompetitivePriorityFee(networkEstimateResult, pendingBlockResult, feeHistoryResult);
