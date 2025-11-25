@@ -125,7 +125,6 @@ function inspectNote(note: UniqueNote, artifactMap: ArtifactMap, log: LogFn, tex
   const artifact = artifactMap[note.contractAddress.toString()];
   const contract = artifact?.name ?? note.contractAddress.toString();
   log(`  ${text} at ${contract}`);
-  log(`    Recipient: ${toFriendlyAddress(note.recipient, artifactMap)}`);
   for (const field of note.note.items) {
     log(`    ${field.toString()}`);
   }
