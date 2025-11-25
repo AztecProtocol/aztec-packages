@@ -9,6 +9,10 @@ Aztec's goal is to enable private verifiable execution of smart contracts. This 
 
 Efficient recursion supports low memory proving - statements can be decomposed via recursion into smaller statements that require less prover memory.
 
+**Memory bound**: The prover's peak memory occurs during the first Sumcheck round and is bounded by $1.5 \times \max_i |\text{ProverPolynomials}_i|$, where the max is over all input circuits. Crucially, this bound is independent of the number of circuits being folded.
+
+*Example*: 55 dense polynomials of size $2^{18}$ consume $1.5 \times 55 \times 2^{18} \times 32\text{ bytes} \approx 660\text{ MB}$ (shifted polynomials share memory with unshifted), which can be used as a rough upper bound for a Mega Circuit RAM footprint during Chonk.
+
 ## Design Principles
 
 CHONK builds on [PlonK](https://eprint.iacr.org/2019/953), sharing its foundation:
@@ -68,12 +72,11 @@ Goblin improves this by delegating non-native EC operations to a separate ECCVM 
 
 - **55 + 5 short scalar muls** for commitment batching (using ~127-bit challenges) - `NUM_UNSHIFTED_ENTITIES` + `NUM_SHIFTED_ENTITIES` for MegaFlavor
 - **21 full scalar muls** for Shplemini's Gemini fold commitments ($\log N$), which amounts to **42** short scalar muls in ECCVM
-
-The total final MSM size is
-- For MegaFlavor: $55 + 5 + 21 + 1 = 82$ points
-- For MegaZKFlavor: $55 + 1 + 5 + 21 + 1 + 3 = 86$ points (includes masking poly and Libra commitments)
+- **Merge protocol ops**: Each circuit's op queue subtable must be merged into the global table, requiring additional EC operations (see [Merge Protocol](#merge-protocol))
 
 In ECCVM terms, full scalar muls cost ~2× the rows of short scalar muls. So each recursive verification effectively adds **~100+ ECCVM ops**.
+
+Note: The Merge protocol's ECCVM cost is present in both the naive Goblin approach and in Chonk - it's inherent to maintaining the op queue across circuits.
 
 For a chain of $k$ circuits, ECCVM must handle $O(k \cdot (\text{NUM_UNSHIFTED_ENTITIES} + \text{NUM_SHIFTED_ENTITIES}  + 2\log N))$ short scalar operations.
 
@@ -111,7 +114,7 @@ In `MultilinearBatchingVerifier::compute_new_claim`:
 | Approach | EC Ops per Circuit | Final MSM Size | Notes |
 |----------|-------------------|----------------|-------|
 | Naive Recursive | 55 + 21 full scalar muls | 78 | Circuit > 512K gates |
-| Goblin (no folding) | 60 short + 21 full (op queue) | 142+ short | ~100 ECCVM rows/circuit |
+| Goblin (no folding) | 60 short + 21 full (op queue) | >102 short | ~100 ECCVM rows/circuit |
 | **Chonk (HyperNova + Goblin)** | 62 short scalar muls (op queue) | N/A (deferred) | Shplemini deferred to decider |
 
 Chonk combines the benefits:
@@ -168,14 +171,6 @@ A Chonk proof (`Chonk::Proof`) consists of:
    - **IPA proof**: Inner product argument for ECCVM
    - **Translator proof**: Converts between BN254 and Grumpkin curves
 
-### Verification Keys
-
-The `Chonk::VerificationKey` bundles three component keys:
-
-- `mega`: Verification key for the hiding kernel (MegaZK flavor)
-- `eccvm`: Verification key for ECCVM
-- `translator`: Verification key for the Translator
-
 ## Key Data Structures
 
 ### QUEUE_TYPE
@@ -208,7 +203,7 @@ Each entry contains:
 ### 1. Initialization
 
 ```cpp
-Chonk ivc(num_circuits);  // num_circuits must be even
+Chonk ivc(num_circuits);
 ```
 
 ### 2. Circuit Accumulation
@@ -324,9 +319,23 @@ When no previous commitment exists (e.g., first kernel has no previous kernel), 
 
 ## Zero-Knowledge Handling
 
+A Chonk proof must reveal nothing about the private execution. The ZK property is achieved through multiple layers:
+
+### Proof-Level ZK
+
+1. **Hiding kernel proof** (verified server-side): Uses MegaZKFlavor with:
+   - ZK Sumcheck (Libra masking polynomials)
+   - ZK Shplemini (gemini masking polynomial)
+
+2. **ECCVM proof**: Also ZK via:
+   - ZK Sumcheck
+   - ZK Shplemini
+
+3. **Translator proof**: ZK via the same mechanisms
+
 ### Op Queue Hiding
 
-Three methods ensure the op queue (EC operations) doesn't leak information:
+The op queue contains EC operations from all circuits and must be hidden. Three methods ensure this:
 
 1. **`hide_op_queue_accumulation_result`**: Hides the final accumulator point
 2. **`hide_op_queue_content_in_tail`**: Protects tail kernel op queue data
@@ -336,8 +345,12 @@ Three methods ensure the op queue (EC operations) doesn't leak information:
 
 The hiding kernel:
 - Recursively verifies the final folding and decider proofs
-- Applies ZK protections to all sensitive data
+- Masks sensitive `op_queue` data
 - Is then proven using MegaZK to produce the final Chonk proof
+
+### Known Limitation
+
+The `accumulated_result` (Translator's accumulated EC operation result) is masked but currently uses only 128 bits of randomness. This provides computational hiding but not statistical hiding. A future improvement may increase this to full field element randomness.
 
 ## Integration with Goblin
 
@@ -367,26 +380,6 @@ where:
 It also proves the degree bound $\deg(L_j) < k$.
 
 Note: Commitments to $L_j$ (current subtable) and $R_j$ (previous table) are reused from the HyperNova transcript, avoiding redundant work.
-
-## Debugging
-
-In debug builds (`NDEBUG` not defined):
-- Native verifier accumulator is maintained alongside prover accumulator
-- `update_native_verifier_accumulator` tracks verification state
-- `debug_incoming_circuit` validates circuits before accumulation
-
-## Type Aliases
-
-Key types used throughout:
-
-| Alias | Description |
-|-------|-------------|
-| `Flavor` | `MegaFlavor` - the underlying Honk flavor |
-| `ClientCircuit` | `MegaCircuitBuilder` - circuit builder type |
-| `ProverAccumulator` | HyperNova prover accumulator |
-| `VerifierAccumulator` | HyperNova verifier accumulator |
-| `RecursiveFlavor` | `MegaRecursiveFlavor_<MegaCircuitBuilder>` |
-| `PairingPoints` | Accumulated pairing check points |
 
 ## HyperNova Folding
 
@@ -583,6 +576,26 @@ Components:
 - ECCVM proof
 - IPA proof
 - Translator proof
+
+## Debugging
+
+In debug builds (`NDEBUG` not defined):
+- Native verifier accumulator is maintained alongside prover accumulator
+- `update_native_verifier_accumulator` tracks verification state
+- `debug_incoming_circuit` validates circuits before accumulation
+
+## Type Aliases
+
+Key types used throughout:
+
+| Alias | Description |
+|-------|-------------|
+| `Flavor` | `MegaFlavor` - the underlying Honk flavor |
+| `ClientCircuit` | `MegaCircuitBuilder` - circuit builder type |
+| `ProverAccumulator` | HyperNova prover accumulator |
+| `VerifierAccumulator` | HyperNova verifier accumulator |
+| `RecursiveFlavor` | `MegaRecursiveFlavor_<MegaCircuitBuilder>` |
+| `PairingPoints` | Accumulated pairing check points |
 
 ## Serialization
 
