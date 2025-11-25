@@ -26,7 +26,7 @@ import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  */
 contract RollupShouldBeGetters is ValidatorSelectionTestBase {
   function test_getEpochCommittee(uint16 _epochToGet, bool _setup) external setup(4, 4) {
-    vm.assume(_epochToGet >= 2);
+    vm.assume(_epochToGet >= TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET);
     uint256 expectedSize = 4;
     Epoch e = Epoch.wrap(_epochToGet);
     Timestamp t = timeCheater.epochToTimestamp(e);
@@ -55,7 +55,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
   }
 
   function test_getBigEpochCommittee(uint16 _epochToGet, bool _setup) external setup(49, 48) {
-    vm.assume(_epochToGet >= 2);
+    vm.assume(_epochToGet >= TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET);
     uint256 expectedSize = 48;
     Epoch e = Epoch.wrap(_epochToGet);
     Timestamp t = timeCheater.epochToTimestamp(e);
@@ -88,7 +88,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     // which alter the size checkpoints but also the index checkpoints do not
     // impact the gas costs unexpectedly.
 
-    timeCheater.cheat__jumpForwardEpochs(2);
+    timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
 
     uint256 activationThreshold = rollup.getGSE().ACTIVATION_THRESHOLD();
 
@@ -101,7 +101,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     for (uint256 i = 0; i < 50; i++) {
       rollup.deposit(vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
       rollup.flushEntryQueue();
-      timeCheater.cheat__jumpForwardEpochs(2);
+      timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
     }
 
     uint256 gasSmall = gasleft();
@@ -115,7 +115,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
       for (uint256 j = 0; j < toRemove; j++) {
         rollup.initiateWithdraw(vm.addr(offset + j + 1), address(this));
-        timeCheater.cheat__jumpForwardEpochs(2);
+        timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
       }
 
       offset += toRemove;
@@ -125,7 +125,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
           vm.addr(offset + j + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true
         );
         rollup.flushEntryQueue();
-        timeCheater.cheat__jumpForwardEpochs(2);
+        timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
       }
     }
 
@@ -150,7 +150,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
   function test_getCurrentEpochCommittee() external setup(0, 48) {
     // This test ensures that the addition of a lot of new validators
     // altering the size checkpoints do not heavily impact the gas costs.
-    timeCheater.cheat__jumpForwardEpochs(2);
+    timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
 
     uint256 activationThreshold = rollup.getGSE().ACTIVATION_THRESHOLD();
 
@@ -162,7 +162,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     for (uint256 i = 0; i < 200; i++) {
       rollup.deposit(vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
       rollup.flushEntryQueue();
-      timeCheater.cheat__jumpForwardEpochs(2);
+      timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
     }
 
     uint256 gasSmall = 0;
@@ -184,7 +184,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     for (uint256 i = 0; i < 800; i++) {
       rollup.deposit(vm.addr(i + 200), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
       rollup.flushEntryQueue();
-      timeCheater.cheat__jumpForwardEpochs(2);
+      timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
     }
 
     timeCheater.cheat__jumpForwardEpochs(10);
@@ -208,7 +208,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
   }
 
   function test_getProposerAt(uint16 _slot, bool _setup) external setup(4, 4) {
-    timeCheater.cheat__jumpForwardEpochs(2);
+    timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
     Slot s = Slot.wrap(timeCheater.currentSlot()) + Slot.wrap(_slot);
     Timestamp t = timeCheater.slotToTimestamp(s);
 
@@ -232,7 +232,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
   // Checks that getProposerAt yields the same result as sampling the entire committee
   // and then fetching the proposer from it given the proposer index.
   function test_getProposerFromCommittee(uint16 _slot, bool _setup) external setup(4, 4) {
-    timeCheater.cheat__jumpForwardEpochs(2);
+    timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
     Slot s = Slot.wrap(timeCheater.currentSlot()) + Slot.wrap(_slot);
     Timestamp t = timeCheater.slotToTimestamp(s);
 
@@ -262,7 +262,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
   }
 
   function test_canProposeAtTime(uint16 _timestamp, bool _setup) external setup(1, 1) {
-    timeCheater.cheat__jumpForwardEpochs(2);
+    timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
 
     Timestamp t = Timestamp.wrap(block.timestamp + _timestamp);
 
