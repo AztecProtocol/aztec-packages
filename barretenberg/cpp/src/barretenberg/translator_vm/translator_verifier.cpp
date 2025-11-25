@@ -143,18 +143,17 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
         .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
-    const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
-                                               sumcheck_output.challenge,
-                                               Commitment::one(),
-                                               transcript,
-                                               Flavor::REPEATED_COMMITMENTS,
-                                               Flavor::HasZK,
-                                               &consistency_checked,
-                                               libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation);
-    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    auto opening_claim = Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                                claim_batcher,
+                                                                sumcheck_output.challenge,
+                                                                Commitment::one(),
+                                                                transcript,
+                                                                Flavor::REPEATED_COMMITMENTS,
+                                                                Flavor::HasZK,
+                                                                &consistency_checked,
+                                                                libra_commitments,
+                                                                sumcheck_output.claimed_libra_evaluation);
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);

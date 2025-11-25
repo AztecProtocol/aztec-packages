@@ -81,23 +81,23 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
 
-    const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
-                                               sumcheck_output.challenge,
-                                               Commitment::one(),
-                                               transcript,
-                                               Flavor::REPEATED_COMMITMENTS,
-                                               Flavor::HasZK,
-                                               &consistency_checked,
-                                               libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation);
+    auto opening_claim = Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                                claim_batcher,
+                                                                sumcheck_output.challenge,
+                                                                Commitment::one(),
+                                                                transcript,
+                                                                Flavor::REPEATED_COMMITMENTS,
+                                                                Flavor::HasZK,
+                                                                &consistency_checked,
+                                                                libra_commitments,
+                                                                sumcheck_output.claimed_libra_evaluation);
 
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    auto pairing_points =
+        PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
     // Reconstruct the public inputs
     IO inputs;
     inputs.reconstruct_from_public(verifier_instance->public_inputs);
-
+    constexpr size_t nnn = MegaFlavor::FINAL_PCS_MSM_SIZE();
     // Aggregate new pairing points with those reconstructed from the public inputs
     pairing_points.aggregate(inputs.pairing_inputs);
 

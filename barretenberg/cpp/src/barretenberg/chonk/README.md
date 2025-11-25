@@ -2,6 +2,94 @@
 
 Chonk ("Client Honk") implements Repeated Computation with Global state (RCG) as defined in the [Stackproofs paper](https://eprint.iacr.org/2024/1281) by Eagen, Gabizon, Sefranek, Towa, and Williamson. It is used by the Aztec client for private function execution, combining HyperNova folding with Goblin to produce a single succinct proof.
 
+## Motivation: From Naive Recursion to Chonk
+
+To understand why Chonk exists, consider the evolution from naive recursive verification to the optimized approach.
+
+**Assumption**: All circuits have fixed size $N = 2^{21}$ from the verifier's perspective. This simplifies verification key handling and matches Chonk's design.
+
+### Naive Recursive UltraHonk Verification
+
+In a standard recursive verification setup, each circuit must verify the previous circuit's proof. A Honk verifier performs:
+
+1. **Sumcheck verification**: 21 rounds, each receiving univariate polynomials and computing challenges. Relatively cheap in-circuit.
+
+2. **PCS (Polynomial Commitment Scheme) verification via Shplemini**: This is where the cost explodes. The verifier must:
+   - Batch all polynomial commitments into opening claims
+   - Run Shplemini to reduce multivariate claims to univariate
+   - Perform KZG verification
+
+The commitment batching *can* use short scalars (Fiat-Shamir challenges are ~127 bits). However, Shplemini adds $2 \cdot \log N = 42$ **full scalar multiplications** for the Gemini fold commitments $[A_i]$.
+
+**Two approaches exist**, both problematic:
+1. Batch into separate unshifted/shifted commitments, then run Shplemini with two inputs
+2. Batch unshifted only, run Shplemini with one input + handle shifted individually
+
+Either way: **recursive verifier circuit size exceeds 512K gates** - too large for practical use.
+
+### Adding Goblin: EC Operation Delegation
+
+Goblin improves this by delegating non-native EC operations to a separate ECCVM circuit. Instead of performing scalar muls directly in-circuit (expensive), we:
+
+1. Record EC operations in an **op queue**
+2. Prove correct execution via ECCVM (native Grumpkin operations)
+3. Use Translator to bridge BN254 ↔ Grumpkin
+
+**Cost reduction**: EC operations become "free" in the main circuit - just op queue entries. However, each recursive verification still adds significant work to the op queue:
+
+- **55 + 5 short scalar muls** for commitment batching (using ~127-bit challenges) - `NUM_UNSHIFTED_ENTITIES` + `NUM_SHIFTED_ENTITIES` for MegaFlavor
+- **21 full scalar muls** for Shplemini's Gemini fold commitments ($\log N$), which amounts to **42** short scalar muls in ECCVM
+
+The total final MSM size is
+- For MegaFlavor: $55 + 5 + 21 + 1 = 82$ points
+- For MegaZKFlavor: $55 + 1 + 5 + 21 + 1 + 3 = 86$ points (includes masking poly and Libra commitments)
+
+In ECCVM terms, full scalar muls cost ~2× the rows of short scalar muls. So each recursive verification effectively adds **~100+ ECCVM ops**.
+
+For a chain of $k$ circuits, ECCVM must handle $O(k \cdot (\text{NUM_UNSHIFTED_ENTITIES} + \text{NUM_SHIFTED_ENTITIES}  + 2\log N))$ short scalar operations.
+
+### HyperNova Folding: Deferring PCS Verification
+
+The key insight of HyperNova folding is: **we don't need to complete PCS verification at each step**. Instead:
+
+1. **Run Sumcheck** → produces claimed evaluations at a random point $r$
+2. **Batch the claims** → combine all evaluation claims into a single "accumulator"
+3. **Defer opening proof** → only verify the final accumulated claim at the end
+
+After Sumcheck, the verifier has `NUM_ALL_ENTITIES` evaluation claims (commitment + claimed value at point $r$). These are batched using random challenges $\rho_i, \sigma_j$ into just **two claims**:
+- Non-shifted: $([p_{\text{unshifted}}], v_{\text{unshifted}}, r)$
+- Shifted: $([p_{\text{shifted}}], v_{\text{shifted}}, r)$
+
+#### The Challenge: Different Evaluation Points
+
+Each circuit's Sumcheck produces claims at a **different random point** $r_i$. We cannot simply batch claims at different points.
+
+The solution is `MultilinearBatchingSumcheck`: a small Sumcheck (only 6 witness columns) that reduces two claims at different points $(r_{\text{acc}}, r_{\text{inst}})$ to a single claim at a **common point** $r_{\text{new}}$. See [HyperNova Folding](#hypernova-folding) for details.
+
+#### EC Operations per Fold
+
+In `MultilinearBatchingVerifier::compute_new_claim`:
+- `NUM_UNSHIFTED_ENTITIES + 1` short scalar muls (55 + 1 for MegaFlavor) - batching instance commitments + accumulator
+- `NUM_SHIFTED_ENTITIES + 1` short scalar muls (5 + 1 for MegaFlavor) - same for shifted
+- A few point additions for evaluation updates
+
+**Total: 62 short scalar multiplications per circuit**, versus 55 short + 21 full in naive/Goblin approaches. Crucially:
+- **All operations are short scalar** (challenges are ~127 bits, not 254 bits)
+- The **Shplemini MSM is deferred** to the final decider proof - eliminating the $\log N$ full scalar muls per circuit
+
+### Summary: Cost Comparison
+
+| Approach | EC Ops per Circuit | Final MSM Size | Notes |
+|----------|-------------------|----------------|-------|
+| Naive Recursive | 55 + 21 full scalar muls | 78 | Circuit > 512K gates |
+| Goblin (no folding) | 60 short + 21 full (op queue) | 142+ short | ~100 ECCVM rows/circuit |
+| **Chonk (HyperNova + Goblin)** | 62 short scalar muls (op queue) | N/A (deferred) | Shplemini deferred to decider |
+
+Chonk combines the benefits:
+- **HyperNova folding** reduces per-circuit work to batching claims
+- **Goblin** delegates even the batching MSMs to ECCVM
+- **Single decider proof** at the end verifies the accumulated claim
+
 ## RCG vs IVC
 
 Unlike Incrementally Verifiable Computation (IVC), RCG:
@@ -41,7 +129,7 @@ App₀ → Kernel₀ → App₁ → Kernel₁ → ... → Appₙ → Reset → T
 
 A Chonk proof (`Chonk::Proof`) consists of:
 
-1. **Mega proof**: ZK proof of the hiding circuit which recursively verified:
+1. **Mega proof**: ZK proof of the hiding circuit which recursively verifies:
    - The final HyperNova folding proof
    - The decider proof
 
