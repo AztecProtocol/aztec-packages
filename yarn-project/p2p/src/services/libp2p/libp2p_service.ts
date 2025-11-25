@@ -2,7 +2,6 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
-import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -121,7 +120,6 @@ type ReceivedMessageValidationResult<T> =
  * Lib P2P implementation of the P2PService interface.
  */
 export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends WithTracer implements P2PService {
-  private jobQueue: SerialQueue = new SerialQueue();
   private discoveryRunningPromise?: RunningPromise;
   private msgIdSeenValidators: Record<TopicType, MessageSeenValidator> = {} as Record<TopicType, MessageSeenValidator>;
 
@@ -408,7 +406,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       logger: createLibp2pComponentLogger(logger.module),
     });
 
-    const peerScoring = new PeerScoring(config);
+    const peerScoring = new PeerScoring(config, telemetry);
     const reqresp = new ReqResp(config, node, peerScoring, createLogger(`${logger.module}:reqresp`));
 
     const peerManager = new PeerManager(
@@ -463,9 +461,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
     const announceTcpMultiaddr = convertToMultiaddr(p2pIp, p2pPort, 'tcp');
 
-    // Start job queue, peer discovery service and libp2p node
-    this.jobQueue.start();
-
     await this.peerManager.initializePeers();
     if (!this.config.p2pDiscoveryDisabled) {
       await this.peerDiscoveryService.start();
@@ -503,9 +498,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // add GossipSub listener
     this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
 
-    // Start running promise for peer discovery
+    // Start running promise for peer discovery and metrics collection
     this.discoveryRunningPromise = new RunningPromise(
-      () => this.peerManager.heartbeat(),
+      async () => {
+        await this.peerManager.heartbeat();
+      },
       this.logger,
       this.config.peerCheckIntervalMS,
     );
@@ -538,9 +535,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // Stop peer manager
     this.logger.debug('Stopping peer manager...');
     await this.peerManager.stop();
-
-    this.logger.debug('Stopping job queue...');
-    await this.jobQueue.end();
     this.logger.debug('Stopping running promise...');
     await this.discoveryRunningPromise?.stop();
     this.logger.debug('Stopping peer discovery service...');
@@ -628,7 +622,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!this.node.services.pubsub) {
       throw new Error('Pubsub service not available.');
     }
-    const p2pMessage = P2PMessage.fromGossipable(message);
+    const p2pMessage = P2PMessage.fromGossipable(message, this.config.debugP2PInstrumentMessages);
     const result = await this.node.services.pubsub.publish(topic, p2pMessage.toMessageData());
     return result.recipients.length;
   }
@@ -682,7 +676,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    */
   private safelyDeserializeP2PMessage(msgId: string, source: PeerId, data: Uint8Array): P2PMessage | undefined {
     try {
-      return P2PMessage.fromMessageData(Buffer.from(data));
+      return P2PMessage.fromMessageData(Buffer.from(data), this.config.debugP2PInstrumentMessages);
     } catch (err) {
       this.logger.error(`Error deserializing P2PMessage`, err, {
         msgId,
@@ -700,6 +694,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param data - The message data
    */
   protected async handleNewGossipMessage(msg: Message, msgId: string, source: PeerId) {
+    const msgReceivedTime = Date.now();
+    let topicType: TopicType | undefined;
     const p2pMessage = this.safelyDeserializeP2PMessage(msgId, source, msg.data);
     if (!p2pMessage) {
       return;
@@ -712,13 +708,23 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     if (msg.topic === this.topicStrings[TopicType.tx]) {
+      topicType = TopicType.tx;
       await this.handleGossipedTx(p2pMessage.payload, msgId, source);
     }
-    if (msg.topic === this.topicStrings[TopicType.block_attestation] && this.clientType === P2PClientType.Full) {
-      await this.processAttestationFromPeer(p2pMessage.payload, msgId, source);
+    if (msg.topic === this.topicStrings[TopicType.block_attestation]) {
+      topicType = TopicType.block_attestation;
+      if (this.clientType === P2PClientType.Full) {
+        await this.processAttestationFromPeer(p2pMessage.payload, msgId, source);
+      }
     }
     if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
+      topicType = TopicType.block_proposal;
       await this.processBlockFromPeer(p2pMessage.payload, msgId, source);
+    }
+
+    if (p2pMessage.timestamp !== undefined && topicType !== undefined) {
+      const latency = msgReceivedTime - p2pMessage.timestamp.getTime();
+      this.instrumentation.recordMessageLatency(topicType, latency);
     }
 
     return;
@@ -789,6 +795,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return;
     }
 
+    this.instrumentation.incrementTxReceived(1);
     await this.mempools.txPool.addTxs([tx]);
   }
 
@@ -983,13 +990,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   public async propagate<T extends Gossipable>(message: T) {
     const p2pMessageIdentifier = await message.p2pMessageLoggingIdentifier();
     this.logger.trace(`Message ${p2pMessageIdentifier} queued`, { p2pMessageIdentifier });
-    void this.jobQueue
-      .put(async () => {
-        await this.sendToPeers(message);
-      })
-      .catch(error => {
-        this.logger.error(`Error propagating message ${p2pMessageIdentifier}`, { error });
-      });
+    void this.sendToPeers(message).catch(error => {
+      this.logger.error(`Error propagating message ${p2pMessageIdentifier}`, { error });
+    });
   }
 
   /**

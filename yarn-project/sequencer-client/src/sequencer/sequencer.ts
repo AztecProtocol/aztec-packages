@@ -411,6 +411,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Actual block building
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
+    this.metrics.incOpenSlot(slot, proposer?.toString() ?? 'unknown');
     const block: L2Block | undefined = await this.tryBuildBlockAndEnqueuePublish(
       slot,
       proposer,
