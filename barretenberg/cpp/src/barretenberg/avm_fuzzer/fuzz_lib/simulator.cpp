@@ -180,15 +180,12 @@ void JsSimulator::restart_simulator()
     instance->process.write_line("{\"restart\":1}");
 
     std::string response = instance->process.read_line();
-    if (logging_enabled) {
-        std::cout << "Raw restart response length: " << response.length() << std::endl;
-        std::cout << "Raw restart response (first 200 chars): " << response.substr(0, 200) << std::endl;
+    while (response.empty()) {
+        std::cout << "Empty response, reading again" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        response = instance->process.read_line();
     }
     response.erase(response.find_last_not_of('\n') + 1);
-    if (response.empty()) {
-        std::cout << "Received empty response from simulator after restart command" << std::endl;
-        return;
-    }
 
     try {
         std::vector<uint8_t> decoded_response = decode_bytecode(response);
@@ -219,7 +216,7 @@ void JsSimulator::restart_simulator()
             throw std::runtime_error("Restart failed: " + error);
         }
     } catch (const std::exception& e) {
-        std::cout << "Error processing restart response: " << e.what() << std::endl;
+        std::cout << "Error processing restart response: " << e.what() << "Response: " << response  << "Response size" << response.size() << std::endl;
         throw std::runtime_error("Failed to restart simulator: " + std::string(e.what()));
     }
 }

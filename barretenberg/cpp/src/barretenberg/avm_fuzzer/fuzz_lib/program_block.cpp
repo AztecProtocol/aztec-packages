@@ -749,7 +749,7 @@ void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction
     auto note_hash_counter = static_cast<uint64_t>(*leaf_index);
     auto siloed_note_computed_hash = bb::avm2::simulation::unconstrained_silo_note_hash(contract_address, *note_hash);
     auto unique_note_computed_hash = bb::avm2::simulation::unconstrained_make_unique_note_hash(
-        siloed_note_computed_hash, NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS[0], note_hash_counter);
+        siloed_note_computed_hash, FIRST_NULLIFIER, note_hash_counter);
 
     auto set_note_hash_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
                                                          .offset = instruction.notehash_offset,
@@ -767,6 +767,29 @@ void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction
                                           .build();
     instructions.push_back(notehashexists_instruction);
     memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, instruction.result_offset);
+}
+
+void ProgramBlock::process_calldatacopy_instruction(CALLDATACOPY_Instruction instruction)
+{
+    auto copy_size_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                         .offset = instruction.copy_size_offset,
+                                                         .value = instruction.copy_size };
+    this->process_set_32_instruction(copy_size_set_instruction);
+    auto cd_start_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                        .offset = instruction.cd_start_offset,
+                                                        .value = instruction.cd_start };
+    this->process_set_32_instruction(cd_start_set_instruction);
+    auto calldatacopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALLDATACOPY)
+                                        .operand(instruction.copy_size_offset)
+                                        .operand(instruction.cd_start_offset)
+                                        .operand(instruction.dst_offset)
+                                        .build();
+    instructions.push_back(calldatacopy_instruction);
+    for (uint16_t calldata_addr = instruction.dst_offset;
+         calldata_addr < instruction.dst_offset + instruction.copy_size;
+         calldata_addr++) {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, calldata_addr);
+    }
 }
 
 void ProgramBlock::finalize_with_return(uint8_t return_size,
@@ -893,6 +916,9 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             },
             [this](NOTEHASHEXISTS_Instruction instruction) {
                 return this->process_notehashexists_instruction(instruction);
+            },
+            [this](CALLDATACOPY_Instruction instruction) {
+                return this->process_calldatacopy_instruction(instruction);
             },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
