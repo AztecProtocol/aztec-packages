@@ -120,6 +120,7 @@ library Errors {
   error ValidatorSelection__InsufficientValidatorSetSize(uint256 actual, uint256 expected); // 0xf4f28e99
   error ValidatorSelection__ProposerIndexTooLarge(uint256 index);
   error ValidatorSelection__EpochNotStable(uint256 queriedEpoch, uint32 currentTimestamp);
+  error ValidatorSelection__InvalidLagInEpochs(uint256 lagInEpochsForValidatorSet, uint256 lagInEpochsForRandao);
 
   // Staking
   error Staking__AlreadyQueued(address _attester);

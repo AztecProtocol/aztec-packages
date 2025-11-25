@@ -29,7 +29,9 @@ export type L1ContractsConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: number;
+  lagInEpochsForValidatorSet: number;
+  /** The number of epochs to lag behind the current epoch for randao selection. */
+  lagInEpochsForRandao: number;
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
@@ -77,7 +79,8 @@ export const DefaultL1ContractsConfig = {
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
-  lagInEpochs: 2,
+  lagInEpochsForValidatorSet: 2,
+  lagInEpochsForRandao: 2, // For PROD, this value should be > lagInEpochsForValidatorSet
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   activationThreshold: 100n * 10n ** 18n,
   ejectionThreshold: 50n * 10n ** 18n,
@@ -321,10 +324,15 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
-  lagInEpochs: {
-    env: 'AZTEC_LAG_IN_EPOCHS',
+  lagInEpochsForValidatorSet: {
+    env: 'AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET',
     description: 'The number of epochs to lag behind the current epoch for validator selection.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochs),
+    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochsForValidatorSet),
+  },
+  lagInEpochsForRandao: {
+    env: 'AZTEC_LAG_IN_EPOCHS_FOR_RANDAO',
+    description: 'The number of epochs to lag behind the current epoch for randao selection.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochsForRandao),
   },
   aztecProofSubmissionEpochs: {
     env: 'AZTEC_PROOF_SUBMISSION_EPOCHS',
