@@ -196,15 +196,16 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
                         let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 
-                        let note_hash = $compute_note_hash(note, storage_slot);
+                        let note_hash = $compute_note_hash(note, storage_slot, randomness);
     
                         // The message discovery process finds settled notes, that is, notes that were created in prior
                         // transactions and are therefore already part of the note hash tree. We therefore compute the
                         // nullification note hash by treating the note as a settled note with the provided note nonce.
                         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
                             aztec::note::retrieved_note::RetrievedNote{ 
-                                note, 
-                                contract_address, 
+                                note,
+                                contract_address,
+                                randomness,
                                 metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into()
                             }, 
                             storage_slot,
@@ -240,6 +241,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 storage_slot: Field,
                 note_type_id: Field,
                 contract_address: aztec::protocol_types::address::AztecAddress,
+                randomness: Field,
                 note_nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 $if_note_type_id_match_statements
@@ -262,6 +264,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 _storage_slot: Field,
                 _note_type_id: Field,
                 _contract_address: aztec::protocol_types::address::AztecAddress,
+                _randomness: Field,
                 _nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 panic(f"This contract does not use private notes")

@@ -406,18 +406,20 @@ export class RPCTranslator {
 
   privateNotifyCreatedNote(
     foreignStorageSlot: ForeignCallSingle,
+    foreignRandomness: ForeignCallSingle,
     foreignNoteTypeId: ForeignCallSingle,
     foreignNote: ForeignCallArray,
     foreignNoteHash: ForeignCallSingle,
     foreignCounter: ForeignCallSingle,
   ) {
     const storageSlot = fromSingle(foreignStorageSlot);
+    const randomness = fromSingle(foreignRandomness);
     const noteTypeId = NoteSelector.fromField(fromSingle(foreignNoteTypeId));
     const note = fromArray(foreignNote);
     const noteHash = fromSingle(foreignNoteHash);
     const counter = fromSingle(foreignCounter).toNumber();
 
-    this.handlerAsPrivate().privateNotifyCreatedNote(storageSlot, noteTypeId, note, noteHash, counter);
+    this.handlerAsPrivate().privateNotifyCreatedNote(storageSlot, randomness, noteTypeId, note, noteHash, counter);
 
     return toForeignCallResult([]);
   }
