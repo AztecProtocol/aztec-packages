@@ -691,9 +691,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
       uniqueNoteHashTreeIndexInBlock?.l2BlockHash.toString(),
       uniqueNoteHashTreeIndexInBlock?.data,
-      recipient,
     );
 
+    // The note was found by `recipient`, so we use that as the scope when storing the note.
     await this.noteDataProvider.addNotes([noteDao], recipient);
     this.log.verbose('Added note', {
       index: noteDao.index,
