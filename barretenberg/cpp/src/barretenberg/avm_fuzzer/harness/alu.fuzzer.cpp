@@ -217,13 +217,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     GreaterThan greater_than(field_gt, range_check, greater_than_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
 
-    // info("Fuzzing ALU with op_id =", input.op_id, ", a_tag =", input.a.to_string(), ", b_tag =",
-    // input.b.to_string());
+    // info("Fuzzing ALU with op_id =", input.op_id, ", a_tag =", input.a.to_string(), ", b_tag =",input.b.to_string());
+
     // Pick and execute operation
     try {
-        // clang coverage build says these are unused if used below for LT, eq, etc:
-        // const MemoryValue mem_true = MemoryValue::from_tag(MemoryTag::U1, 1);
-        // const MemoryValue mem_false = MemoryValue::from_tag(MemoryTag::U1, 0);
         switch (input.op_id) {
         case AVM_EXEC_OP_ID_ALU_ADD: {
             input.c = alu.add(input.a, input.b);
