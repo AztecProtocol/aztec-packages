@@ -25,7 +25,7 @@ import { Body, CommitteeAttestation, L2Block, L2BlockHeader, PublishedL2Block } 
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 
 import {
   type GetContractEventsReturnType,
@@ -63,7 +63,7 @@ export async function retrievedBlockToPublishedL2Block({
   version,
   attestations,
 }: RetrievedL2Block): Promise<PublishedL2Block> {
-  const { totalNumBlobFields, blocks: blocksBlobData } = checkpointBlobData;
+  const { blocks: blocksBlobData } = checkpointBlobData;
 
   // The lastArchiveRoot of a block is the new archive for the previous block.
   const newArchiveRoots = blocksBlobData
@@ -75,7 +75,7 @@ export async function retrievedBlockToPublishedL2Block({
   // field for the `l1ToL2MessageRoot` of the first block. So below we can safely assume it exists:
   const l1toL2MessageTreeRoot = blocksBlobData[0].l1ToL2MessageRoot!;
 
-  const spongeBlob = await SpongeBlob.init(totalNumBlobFields);
+  const spongeBlob = SpongeBlob.init();
   const l2Blocks: L2Block[] = [];
   for (let i = 0; i < blocksBlobData.length; i++) {
     const blockBlobData = blocksBlobData[i];
@@ -115,14 +115,19 @@ export async function retrievedBlockToPublishedL2Block({
     const clonedSpongeBlob = spongeBlob.clone();
     const spongeBlobHash = await clonedSpongeBlob.squeeze();
 
-    const header = L2BlockHeader.from({
+    const blockHeader = BlockHeader.from({
       lastArchive: new AppendOnlyTreeSnapshot(lastArchiveRoot, l2BlockNumber),
-      contentCommitment: checkpointHeader.contentCommitment,
       state,
+      spongeBlobHash,
       globalVariables,
       totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
       totalManaUsed: new Fr(blockEndStateField.totalManaUsed),
-      spongeBlobHash,
+    });
+
+    const header = L2BlockHeader.from({
+      ...blockHeader,
+      blockHeadersHash: checkpointHeader.blockHeadersHash,
+      contentCommitment: checkpointHeader.contentCommitment,
     });
 
     const newArchive = new AppendOnlyTreeSnapshot(newArchiveRoots[i], l2BlockNumber + 1);
@@ -168,7 +173,7 @@ export async function retrieveBlocksFromRollup(
       break;
     }
     const l2BlockProposedLogs = (
-      await rollup.getEvents.L2BlockProposed(
+      await rollup.getEvents.CheckpointProposed(
         {},
         {
           fromBlock: searchStartBlock,
@@ -183,7 +188,7 @@ export async function retrieveBlocksFromRollup(
 
     const lastLog = l2BlockProposedLogs[l2BlockProposedLogs.length - 1];
     logger.debug(
-      `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.blockNumber}-${lastLog.args.blockNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
+      `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.checkpointNumber}-${lastLog.args.checkpointNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
     if (rollupConstants === undefined) {
@@ -226,13 +231,13 @@ async function processL2BlockProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
-  logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
+  logs: GetContractEventsReturnType<typeof RollupAbi, 'CheckpointProposed'>,
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
   logger: Logger,
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
   await asyncPool(10, logs, async log => {
-    const l2BlockNumber = Number(log.args.blockNumber!);
+    const l2BlockNumber = Number(log.args.checkpointNumber!);
     const archive = log.args.archive!;
     const archiveFromChain = await rollup.read.archiveAt([BigInt(l2BlockNumber)]);
     const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
@@ -469,13 +474,13 @@ export async function retrieveL1ToL2Messages(
 
 function mapLogsInboxMessage(logs: GetContractEventsReturnType<typeof InboxAbi, 'MessageSent'>): InboxMessage[] {
   return logs.map(log => {
-    const { index, hash, l2BlockNumber, rollingHash } = log.args;
+    const { index, hash, checkpointNumber, rollingHash } = log.args;
     return {
       index: index!,
       leaf: Fr.fromHexString(hash!),
       l1BlockNumber: log.blockNumber,
       l1BlockHash: Buffer32.fromString(log.blockHash),
-      l2BlockNumber: Number(l2BlockNumber!),
+      l2BlockNumber: Number(checkpointNumber!),
       rollingHash: Buffer16.fromString(rollingHash!),
     };
   });
@@ -498,7 +503,7 @@ export async function retrieveL2ProofVerifiedEvents(
 
   return logs.map(log => ({
     l1BlockNumber: log.blockNumber,
-    l2BlockNumber: Number(log.args.blockNumber),
+    l2BlockNumber: Number(log.args.checkpointNumber),
     proverId: Fr.fromHexString(log.args.proverId),
     txHash: log.transactionHash,
   }));

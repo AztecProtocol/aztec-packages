@@ -22,9 +22,10 @@ use dep::types::{
         gas::Gas, gas_fees::GasFees,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
         nullifier_leaf_preimage::NullifierLeafPreimage,
-        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
+        partial_state_reference::PartialStateReference,
     },
     address::AztecAddress,
+    blob_data::SpongeBlob,
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,

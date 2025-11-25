@@ -85,26 +85,8 @@ const sidebar = {
       ]
     },
     {
-      "type": "category",
-      "label": "Running a Prover",
-      "link": {
-        "type": "doc",
-        "id": "the_aztec_network/setup/running_a_prover"
-      },
-      "items": [
-        {
-          "type": "doc",
-          "id": "the_aztec_network/setup/prover_single_machine"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/setup/prover_distributed"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/setup/prover_verification_troubleshooting"
-        }
-      ]
+      "type": "doc",
+      "id": "the_aztec_network/setup/running_a_prover"
     },
     {
       "type": "doc",

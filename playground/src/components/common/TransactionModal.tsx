@@ -1,4 +1,5 @@
 import { useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { css } from '@emotion/react';
 import { AztecContext } from '../../aztecContext';
 import Typography from '@mui/material/Typography';
@@ -13,6 +14,8 @@ import { dialogBody, loader } from '../../styles/common';
 import type { UserTx } from '../../utils/txs';
 import ReactConfetti from 'react-confetti';
 import { trackButtonClick } from '../../utils/matomo';
+import { useWindowSize } from '@uidotdev/usehooks';
+import { colors, commonStyles } from '../../global.styles';
 
 const TX_ERRORS = [
   'error',
@@ -62,9 +65,11 @@ const content = css({
 
   code: {
     display: 'block',
-    backgroundColor: 'var(--mui-palette-grey-100)',
+    backgroundColor: commonStyles.glassDark,
+    border: commonStyles.borderNormal,
+    color: colors.text.primary,
     padding: '1rem',
-    borderRadius: '6px',
+    borderRadius: commonStyles.borderRadius,
     marginTop: '1rem',
     fontSize: '14px',
     fontFamily: 'monospace',
@@ -83,7 +88,8 @@ const content = css({
 const subtitleText = css({
   width: '100%',
   fontSize: '16px',
-  color: 'rgba(0, 0, 0, 0.6)',
+  color: colors.text.primary,
+  opacity: 0.9,
 });
 
 const buttonContainer = css({
@@ -94,7 +100,7 @@ const buttonContainer = css({
   marginTop: '1rem',
 
   'button, a': {
-    borderRadius: '5px',
+    borderRadius: commonStyles.borderRadius,
     maxWidth: '300px',
   },
 });
@@ -102,6 +108,7 @@ const buttonContainer = css({
 export function TransactionModal(props: { transaction: UserTx; isOpen: boolean; onClose: () => void }) {
   const { isOpen, onClose } = props;
   const { currentTx, setCurrentTx, logs } = useContext(AztecContext);
+  const { width, height } = useWindowSize();
 
   const transaction = props.transaction || currentTx;
 
@@ -198,21 +205,12 @@ export function TransactionModal(props: { transaction: UserTx; isOpen: boolean; 
         {transaction?.txHash?.toString()}
         <br />
         <a
-          href={`https://aztecscan.xyz/tx-effects/${transaction?.txHash}`}
+          href={`https://devnet.aztecscan.xyz/tx-effects/${transaction?.txHash}`}
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => trackButtonClick('View on Aztec Scan', 'Transaction Modal')}
         >
           View on Aztec Scan
-        </a>
-        <a
-          href={`https://aztecexplorer.xyz/tx/${transaction?.txHash}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => trackButtonClick('View on Aztec Explorer', 'Transaction Modal')}
-          style={{ marginLeft: '1rem' }}
-        >
-          View on Aztec Explorer
         </a>
       </code>
     );
@@ -245,7 +243,7 @@ export function TransactionModal(props: { transaction: UserTx; isOpen: boolean; 
   function renderSuccessState() {
     return (
       <>
-        <Typography css={titleText}>Congratulations! You created a transaction on Aztec testnet</Typography>
+        <Typography css={titleText}>Congratulations! You created a transaction on Aztec</Typography>
 
         <div css={content}>
           <div css={subtitleText} style={{ textAlign: 'left' }}>
@@ -263,10 +261,12 @@ export function TransactionModal(props: { transaction: UserTx; isOpen: boolean; 
 
         <span
           style={{
-            backgroundColor: 'var(--mui-palette-grey-300)',
+            backgroundColor: commonStyles.glassDark,
+            border: commonStyles.borderMedium,
+            color: colors.text.primary,
             textAlign: 'center',
             padding: '0.75rem',
-            borderRadius: '6px',
+            borderRadius: commonStyles.borderRadius,
             marginTop: '2rem',
           }}
         >
@@ -348,13 +348,26 @@ export function TransactionModal(props: { transaction: UserTx; isOpen: boolean; 
 
   return (
     <>
-      {isSuccess && (
+      {isSuccess && width && height && createPortal(
         <ReactConfetti
-          style={{ zIndex: 10000, position: 'fixed', top: 0, left: 0, width: '100%', height: '100%' }}
+          width={width}
+          height={height}
+          style={{
+            zIndex: 999999999,
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none'
+          }}
           recycle={false}
           numberOfPieces={500}
           gravity={0.3}
-        />
+        />,
+        document.body
       )}
 
       <Dialog open={isOpen} onClose={onClose}>

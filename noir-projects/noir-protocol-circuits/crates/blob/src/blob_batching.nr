@@ -9,10 +9,7 @@ use crate::{
 use bigcurve::BigCurve;
 use bignum::BLS12_381_Fr;
 use types::{
-    constants::FIELDS_PER_BLOB,
-    hash::{poseidon2_hash, poseidon2_hash_subarray},
-    traits::Empty,
-    utils::arrays::{assert_trailing_zeros, subarray},
+    constants::FIELDS_PER_BLOB, hash::poseidon2_hash, traits::Empty, utils::arrays::subarray,
 };
 
 // Evaluates a single blob:
@@ -21,14 +18,14 @@ use types::{
 fn evaluate_blob_for_batching(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
     kzg_commitment: BatchingBlobCommitment,
-    hashed_blobs_fields: Field,
+    blob_fields_hash: Field,
     challenge_z: Field,
 ) -> (Field, BLS12_381_Fr) {
     let challenge_z_as_bignum = BLS12_381_Fr::from(challenge_z);
     let blob = blob_as_fields.map(|b| BLS12_381_Fr::from(b));
 
     let y_i = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
-    let z_i = compute_blob_challenge(hashed_blobs_fields, kzg_commitment);
+    let z_i = compute_blob_challenge(blob_fields_hash, kzg_commitment);
 
     (z_i, y_i)
 }
@@ -36,28 +33,27 @@ fn evaluate_blob_for_batching(
 // Computes challenge for a single blob:
 // - z_i (= H(H(blob_i), C_i)), where C_i = kzg_commitment, and blob_i = blob_as_fields[i].
 fn compute_blob_challenge(
-    hashed_blobs_fields: Field,
+    blob_fields_hash: Field,
     kzg_commitment: BatchingBlobCommitment,
 ) -> Field {
     let compressed_fields = kzg_commitment.to_compressed_fields();
-    let preimage = [hashed_blobs_fields, compressed_fields[0], compressed_fields[1]];
+    let preimage = [blob_fields_hash, compressed_fields[0], compressed_fields[1]];
     let challenge = poseidon2_hash(preimage);
     challenge
 }
 
 /// Evaluates each blob required for an L1 block:
-/// - Hashes the first `num_fields` fields in `blobs_as_fields` (to use for the challenges `z_i`).
-/// - Checks that all fields above `num_fields` are zero.
 /// - Compresses each of the blob's injected commitments.
 /// - Evaluates each blob individually to find its challenge `z_i` and evaluation `y_i`.
 /// - Updates the batched blob accumulator.
 pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
     num_fields: u32,
+    blob_fields_hash: Field,
     kzg_commitments_points: [BLSPoint; NumBlobs],
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulator,
-) -> (BlobAccumulator, Field) {
+) -> BlobAccumulator {
     // The rationale behind this is that the start accumulator is hinted, and in merge we just assert that left.end.eq(right.start)
     // And on root we check that left.start.eq(empty()).
     // However, currently the equals method of big curve points doesn't check for equality of the limbs on infinity points.
@@ -65,14 +61,6 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     // I don't think there is a way to take advantage of that, since we should never have infinity points in c_acc,
     // but as good measure we'll validate that it's canonical here.
     validate_canonical_point_at_infinity(start_accumulator.c_acc);
-    // Note that with multiple blobs per block, each blob uses the same hashed_blobs_fields in:
-    // z_i = H(hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1])
-    // This is ok, because each commitment is unique to the blob, and we need hashed_blobs_fields to encompass
-    // all fields in the blob, which it does.
-    let hashed_blobs_fields = poseidon2_hash_subarray(blobs_as_fields, num_fields);
-
-    // The actual content to commit to is the first `num_fields` fields. All fields after `num_fields` must be zero.
-    assert_trailing_zeros(blobs_as_fields, num_fields);
 
     let mut end_accumulator = start_accumulator;
     for i in 0..NumBlobs {
@@ -82,10 +70,14 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
         commitment_point.validate_on_curve();
         validate_canonical_point_at_infinity(commitment_point);
         let c_i = compress_to_blob_commitment(commitment_point);
+
+        // Note that with multiple blobs per block, each blob uses the same blob_fields_hash in z_i.
+        // This is ok, because each commitment is unique to the blob, and we need `blob_fields_hash` to encompass all
+        // fields in the blob, which it does.
         let (z_i, y_i) = evaluate_blob_for_batching(
             single_blob_fields,
             c_i,
-            hashed_blobs_fields,
+            blob_fields_hash,
             final_blob_challenges.z,
         );
 
@@ -98,7 +90,7 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
         //   - If we remove the zeros entirely, it will be difficult to reconstruct the tx effects correctly.
         // - We can't use `c_i` because it's injected as a hint. Its value should match what's computed from the blobs
         //   submitted to L1, so it cannot be used here to decide whether to accumulate/submit a blob or not.
-        // - We can't use `z_i` either, because `z_i` relies on the `hashed_blobs_fields`, which is the hash of the
+        // - We can't use `z_i` either, because `z_i` relies on the `blob_fields_hash`, which is the hash of the
         //   items in ALL blobs, not just blob `i`.
         let should_accumulate = i * FIELDS_PER_BLOB < num_fields;
         if should_accumulate {
@@ -123,7 +115,7 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
         }
     }
 
-    (end_accumulator, hashed_blobs_fields)
+    end_accumulator
 }
 
 mod tests {
@@ -136,8 +128,7 @@ mod tests {
     use bignum::{BigNum, BLS12_381_Fr};
     use bignum::fields::bls12_381Fq::BLS12_381_Fq;
     use types::{
-        abis::sponge_blob::SpongeBlob,
-        constants::{BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB},
+        constants::FIELDS_PER_BLOB,
         hash::sha256_to_field,
         tests::utils::{pad_end, pad_end_with},
         traits::Empty,
@@ -149,31 +140,30 @@ mod tests {
         // This ensures a block with a single blob will work:
         let num_fields = 400;
         let mut blob_fields: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        blob_fields[0] = num_fields as Field;
-        for i in 1..num_fields {
+        for i in 0..num_fields {
             blob_fields[i] = 123 + i as Field;
         }
-        let mut sponge_blob = SpongeBlob::new(num_fields);
-        sponge_blob.absorb(blob_fields, num_fields);
 
         // The following hardcoded values are generated from yarn-project/blob-lib/src/blob_batching.test.ts
+        let blob_fields_hash_blob_400_from_ts =
+            0x10e7a5250a2eed72979690733b80804798338de751531bc3401be72c94d17fe6;
         let kzg_commitment_x_limbs_blob_400_from_ts = [
-            0x8b9c1e9dea782e77a94559570d726b,
-            0x6510d305e77c55eafa3df793f3e54b,
-            0x9bbd0431a12abb16dec8ff3f9f7924,
-            0x01244f,
+            0xcea8dc690c5b8ae96f9754900da08b,
+            0xa4c96dfd4e5ca8fb6bfe4b4c5a14c3,
+            0x9855cd30030b14f21ede36c07632d0,
+            0x13fb86,
         ];
         let kzg_commitment_y_limbs_blob_400_from_ts = [
-            0x66f9b580f1b358314be2e2d470c8d1,
-            0x065991b6d22c7001c84c0f8aaa55e9,
-            0x1cb30e23e49b86d077261e9adcdadf,
-            0x0ecea4,
+            0x63a5a3323551d4b4f6f037721df397,
+            0x01c207e252b48e344836feca21738d,
+            0x3faea573187a84ffda9855c15596b8,
+            0x1962ca,
         ];
-        let z_blob_400_from_ts = 0x1ccc6dbe74f3b2c36d52e71f3126367fd3dddfb69b61ed0107a067788ae333db;
+        let z_blob_400_from_ts = 0x2386cdc1cd34e082e14fa1410694c58b99c7c9b93b8effd9ae3a6b2d819854f7;
         let gamma_limbs_blob_400_from_ts =
-            [0xdf44cb57082cdb564b5697237de17e, 0x4c3ce597a602a46166a14caa772b70, 0x23d7];
+            [0x0f8e4bdfc88b8bad985c43ef399030, 0xa6111cf46305c115d0c5d3ac38c51a, 0x262d];
         let y_limbs_blob_400_from_ts =
-            [0x33c2aa0a43e57d5d1423a076506f74, 0x68bfe6ec3340004b378b92c9e39d05, 0x0c11];
+            [0xfc33eee32e4cfe0cb39ef7578a85c6, 0x2c004486b1796de6f1403c71acdba4, 0x2784];
 
         let kzg_commitment = BatchingBlobCommitment::from_limbs(
             kzg_commitment_x_limbs_blob_400_from_ts,
@@ -189,15 +179,14 @@ mod tests {
         };
 
         // Evaluation: Can evaluate up to 3 blobs, but only 1 is needed and will be accumulated.
-        let (res, hashed_blobs_fields) = evaluate_blobs_and_batch::<3>(
+        let res = evaluate_blobs_and_batch::<3>(
             pad_end(blob_fields),
             num_fields,
+            blob_fields_hash_blob_400_from_ts,
             pad_end_with([kzg_commitment], BLSPoint::point_at_infinity()),
             final_challenges,
             BlobAccumulator::empty(),
         );
-
-        assert_eq(hashed_blobs_fields, sponge_blob.squeeze());
 
         validate_final_blob_batching_challenges(res, final_challenges);
 
@@ -220,32 +209,30 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_max_blobs_batched() {
-        // Create BLOBS_PER_CHECKPOINT-1 full blobs and 1 blob with 123 fields.
-        let num_fields = FIELDS_PER_BLOB * (BLOBS_PER_CHECKPOINT - 1) + 123;
+    unconstrained fn test_3_blobs_batched() {
+        let num_blobs = 3;
+        // Create 2 full blobs and 1 blob with 123 fields.
+        let num_fields = FIELDS_PER_BLOB * 2 + 123;
         // Fill the blobs completely with different values (to avoid a constant polynomial)
-        let mut blob_fields = [0; FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT];
-        blob_fields[0] = num_fields as Field;
-        for i in 1..num_fields {
+        let mut blob_fields = [0; FIELDS_PER_BLOB * 3];
+        for i in 0..num_fields {
             blob_fields[i] = 456 + i as Field;
         }
 
-        // Absorb the values into a sponge
-        let mut sponge_blob = SpongeBlob::new(num_fields);
-        sponge_blob.absorb(blob_fields, num_fields);
-
         // The following hardcoded values are generated from yarn-project/blob-lib/src/blob_batching.test.ts
+        let blob_fields_hash_3_blobs_from_ts =
+            0x1c501e5d16d469f6b3e06418af17686f4d34f69fa4ed5d9690850a3e88f30810;
         let kzg_commitment_x_limbs_blob_0_from_ts = [
-            0xd98821307463f0f2453a6596b611d7,
-            0x3553efff4ebfa752f0c2a7e37ae201,
-            0x5656fb0ec77fc885c126e2d7222567,
-            0x0ada2f,
+            0xc1c8bbec58d7e25cc840d31e1a0361,
+            0xdfebfabcadc58a67da75e8c3ee4a09,
+            0x5504cd781b65efd4f539e321e4d17a,
+            0x171570,
         ];
         let kzg_commitment_y_limbs_blob_0_from_ts = [
-            0x4b40f6074b53e460406a04e2897cf4,
-            0xb6354d81981823c4620865243f3a07,
-            0x3fe19618b6a81b4dbe28782c7ff05f,
-            0x0e99c2,
+            0x96af7267d106a96b4353b5ed0bf0a6,
+            0xb785a85e0f1404abe16503604906e6,
+            0x471e2147e13fe3eaa97ada6f828112,
+            0x15e24d,
         ];
         let kzg_commitment_x_limbs_blob_1_from_ts = [
             0xab3ed5948aa3d00fe77b1b2876ecd7,
@@ -260,72 +247,36 @@ mod tests {
             0x13ed3a,
         ];
         let kzg_commitment_x_limbs_blob_2_from_ts = [
-            0x95ff2f2e3fbbdd8f3c5cbaf7041f86,
-            0x73dd9cb0866ddc65ad243d800de218,
-            0xeb16d48b698a6f46d9b30ff5aa9235,
-            0x0af690,
+            0x2d936449435dd85db10daa4a93572a,
+            0xba75b7a0c3065ee47dd17fa801cbcb,
+            0x308ba7a7145cd3d90a7801a23f0f6b,
+            0x0d4847,
         ];
         let kzg_commitment_y_limbs_blob_2_from_ts = [
-            0x15d6a22755e87c70bb17c376d284a1,
-            0x08973528e0edd0d9d9abc33df1409a,
-            0x465d9a4c63043f1610de902590fc05,
-            0x179a7d,
+            0x5a51aa53fad565ecb91d04288a3a1b,
+            0xbd1bfcd6b075c4749ddf4251b4028c,
+            0x59dcc1d2a509604b557950b349a9f5,
+            0x0c6b4d,
         ];
-        let kzg_commitment_x_limbs_blob_3_from_ts = [
-            0x8abcc04672921555d249013c6a2dff,
-            0xe6f4bdf1519b96a9587ef925a61c3f,
-            0x1eefebbf752d447ca03143ce29c14c,
-            0x01f9a4,
+        let z_3_blobs_from_ts = 0x1d6f81c9ee5724f7e9d8eea03ba0c9e29e53913151a395a301e17b0901bfa68e;
+        let gamma_limbs_3_blobs_from_ts =
+            [0xcaac06f034aff18046f72a833b5e56, 0x14d28092a1b7b9b3a7f541251733c2, 0x1863];
+        let y_limbs_3_blobs_from_ts =
+            [0xdd96a38e51f8550be2a4c5ad587664, 0xa65e19e250e80342e1b1c9ea3a5a7e, 0x0338];
+        let batched_c_x_limbs_3_blobs_from_ts = [
+            0xba3b9220d2b505a37963a53b388fbb,
+            0x105b5d6a410c8e44a923538967bcf8,
+            0x415f4e2efbad9d9a9f461bddcc5863,
+            0x11c03e,
         ];
-        let kzg_commitment_y_limbs_blob_3_from_ts = [
-            0xe815f4764674c8cefb92fc66427c4e,
-            0x5bb9509e9456bfa6b96d181e98790f,
-            0xa4c15ad388331ecaf1db719518d990,
-            0x096fca,
+        let batched_c_y_limbs_3_blobs_from_ts = [
+            0x2f053c58fd82b21f0203ed94078699,
+            0x8c9d5eeaf252eed94085bd7897c3c2,
+            0x91605fcb7bb8f16d6f01a33c0fc9d4,
+            0x0c1b2f,
         ];
-        let kzg_commitment_x_limbs_blob_4_from_ts = [
-            0x2e538340c1895070cd8c48ee520eea,
-            0xe676c25dc822620f0d717f5271350c,
-            0x7e4fc5215cac39163be65ecb56b08c,
-            0x046ebd,
-        ];
-        let kzg_commitment_y_limbs_blob_4_from_ts = [
-            0x6dbae28f6da17be4e2b4ae84b9a004,
-            0x4962c2dd58e9b267461571cb9df1d8,
-            0x4ac580cc6619ab9c5cacef1d2e45e4,
-            0x080795,
-        ];
-        let kzg_commitment_x_limbs_blob_5_from_ts = [
-            0x4180193fcc19faef8b549feed11bd9,
-            0xfea2e4d547d062520dc1f07c46ec36,
-            0x6759dee549e2cac51898e1015dab52,
-            0x02c558,
-        ];
-        let kzg_commitment_y_limbs_blob_5_from_ts = [
-            0x915c85bd0a86e17554a61e2a78ab90,
-            0xb8d17f1a895b20bed80d82831829b6,
-            0xa2ed663b09d9b137725c89ceb05570,
-            0x12faab,
-        ];
-        let z_6_blobs_from_ts = 0x290028c04e1c668964107b6c7bd0d788e34ba66774e19d535d4e0001ad50425f;
-        let gamma_limbs_6_blobs_from_ts =
-            [0x9727d3cd1ba9a0c112cf261ab67d8a, 0xf275e92ed252cb59189a91bdb04851, 0x2c0d];
-        let y_limbs_6_blobs_from_ts =
-            [0x0b6956714bd922f3f75bb37bc1ad7b, 0x3d3ed3ccecbc6dbf093e8e7dabcc5a, 0x1116];
-        let batched_c_x_limbs_6_blobs_from_ts = [
-            0x5590379c09358bc9d4cfaacce118bf,
-            0x576ec13daa7bcd9002dbc0e7a1bb20,
-            0x2911a2aad64c7b41120f18efd47dfe,
-            0x04ac80,
-        ];
-        let batched_c_y_limbs_6_blobs_from_ts = [
-            0x0cc496dec19c9b69212cb819d6f409,
-            0x15243e2ecd073f6075e047365309d8,
-            0x65b1a913e7af6c2b9520c957c3a21e,
-            0x0f974a,
-        ];
-        let blob_commitments_hash_6_blobs_from_ts =
-            0x00b474d73f8677cb2eb1b2e5278ee12e8611c35bf86326db8b2cd5c6e102e482;
+        let blob_commitments_hash_3_blobs_from_ts =
+            0x00993920f366febbb5cd05c6436eda28a447447f58a1b7d713c21423790c395b;
 
         // Init. injected values:
         // - Commitments are injected and checked for correctness on L1 via acc.v
@@ -345,41 +296,25 @@ mod tests {
                 kzg_commitment_y_limbs_blob_2_from_ts,
             )
                 .point,
-            BatchingBlobCommitment::from_limbs(
-                kzg_commitment_x_limbs_blob_3_from_ts,
-                kzg_commitment_y_limbs_blob_3_from_ts,
-            )
-                .point,
-            BatchingBlobCommitment::from_limbs(
-                kzg_commitment_x_limbs_blob_4_from_ts,
-                kzg_commitment_y_limbs_blob_4_from_ts,
-            )
-                .point,
-            BatchingBlobCommitment::from_limbs(
-                kzg_commitment_x_limbs_blob_5_from_ts,
-                kzg_commitment_y_limbs_blob_5_from_ts,
-            )
-                .point,
         ];
 
         let final_challenges = FinalBlobBatchingChallenges {
             // - The final z value is injected and checked for correctness in root (see below final_acc)
-            z: z_6_blobs_from_ts,
+            z: z_3_blobs_from_ts,
             // - The final gamma value is injected and checked for correctness in root (see below final_acc)
-            gamma: BLS12_381_Fr::from_limbs(gamma_limbs_6_blobs_from_ts),
+            gamma: BLS12_381_Fr::from_limbs(gamma_limbs_3_blobs_from_ts),
         };
         // Init. the accumulator
         let start_acc = BlobAccumulator::empty();
-        // Evaluate all BLOBS_PER_CHECKPOINT blobs and iteratively accumulate the results
-        let (output, hashed_blobs_fields) = evaluate_blobs_and_batch(
+        // Evaluate all blobs and iteratively accumulate the results
+        let output = evaluate_blobs_and_batch(
             blob_fields,
             num_fields,
+            blob_fields_hash_3_blobs_from_ts,
             kzg_commitments_in,
             final_challenges,
             start_acc,
         );
-
-        assert_eq(hashed_blobs_fields, sponge_blob.squeeze());
 
         validate_final_blob_batching_challenges(output, final_challenges);
 
@@ -389,40 +324,20 @@ mod tests {
         assert_eq(final_acc.z, final_challenges.z);
         assert_eq(
             output.gamma_pow_acc,
-            final_challenges.gamma.__pow(BLS12_381_Fr::from(BLOBS_PER_CHECKPOINT as Field)),
+            final_challenges.gamma.__pow(BLS12_381_Fr::from(num_blobs as Field)),
         );
 
-        let expected_y = BLS12_381_Fr::from_limbs(y_limbs_6_blobs_from_ts);
+        let expected_y = BLS12_381_Fr::from_limbs(y_limbs_3_blobs_from_ts);
 
         let expected_c = BatchingBlobCommitment::from_limbs(
-            batched_c_x_limbs_6_blobs_from_ts,
-            batched_c_y_limbs_6_blobs_from_ts,
+            batched_c_x_limbs_3_blobs_from_ts,
+            batched_c_y_limbs_3_blobs_from_ts,
         )
             .to_compressed_fields();
 
         assert_eq(final_acc.y, expected_y);
         assert_eq(final_acc.c, expected_c);
-        assert_eq(final_acc.blob_commitments_hash, blob_commitments_hash_6_blobs_from_ts);
-    }
-
-    #[test(should_fail_with = "Found non-zero field after breakpoint")]
-    unconstrained fn test_no_extra_blob_fields() {
-        let mut blob = [0; FIELDS_PER_BLOB];
-        // Fill fields with 50 inputs...
-        for i in 0..50 {
-            blob[i] = 3;
-        }
-        // ...but the rollup's sponge is only expecting 45...
-        let num_fields = 45;
-
-        // ...so the below should fail as it detects we are adding effects which did not come from the rollup.
-        let _ = evaluate_blobs_and_batch(
-            blob,
-            num_fields,
-            [BLSPoint::point_at_infinity()],
-            FinalBlobBatchingChallenges::empty(),
-            BlobAccumulator::empty(),
-        );
+        assert_eq(final_acc.blob_commitments_hash, blob_commitments_hash_3_blobs_from_ts);
     }
 
     #[test]
@@ -431,7 +346,8 @@ mod tests {
         // The below should not throw
         let _ = evaluate_blobs_and_batch(
             blob,
-            0,
+            0, // num_fields
+            123, // Arbitrary blob fields hash.
             [BLSPoint::point_at_infinity()],
             FinalBlobBatchingChallenges::empty(),
             BlobAccumulator::empty(),
@@ -446,6 +362,7 @@ mod tests {
         let _ = evaluate_blobs_and_batch(
             blob,
             FIELDS_PER_BLOB,
+            123, // Arbitrary blob fields hash.
             [point],
             FinalBlobBatchingChallenges::empty(),
             BlobAccumulator::empty(),
@@ -464,6 +381,7 @@ mod tests {
         let _ = evaluate_blobs_and_batch(
             blob,
             FIELDS_PER_BLOB,
+            123, // Arbitrary blob fields hash.
             [point],
             FinalBlobBatchingChallenges::empty(),
             BlobAccumulator::empty(),

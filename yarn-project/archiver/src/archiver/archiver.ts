@@ -885,7 +885,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
             validationResult,
           });
 
-          // We keep consuming blocks if we find an invalid one, since we do not listen for BlockInvalidated events
+          // We keep consuming blocks if we find an invalid one, since we do not listen for CheckpointInvalidated events
           // We just pretend the invalid ones are not there and keep consuming the next blocks
           // Note that this breaks if the committee ever attests to a descendant of an invalid block
           continue;

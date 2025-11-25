@@ -21,7 +21,6 @@ describe('prover/orchestrator/blocks', () => {
       const {
         constants,
         blocks: [emptyBlock],
-        totalNumBlobFields,
         previousBlockHeader,
       } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
 
@@ -33,7 +32,6 @@ describe('prover/orchestrator/blocks', () => {
         constants,
         [],
         1, // numBlocks
-        totalNumBlobFields,
         previousBlockHeader,
       );
 
@@ -49,7 +47,6 @@ describe('prover/orchestrator/blocks', () => {
       const {
         constants,
         blocks: [block],
-        totalNumBlobFields,
         previousBlockHeader,
       } = await context.makeCheckpoint(1, { numTxsPerBlock: 1 });
 
@@ -61,7 +58,6 @@ describe('prover/orchestrator/blocks', () => {
         constants,
         [],
         1, // numBlocks
-        totalNumBlobFields,
         previousBlockHeader,
       );
 
@@ -79,7 +75,6 @@ describe('prover/orchestrator/blocks', () => {
         constants,
         blocks: [block],
         l1ToL2Messages,
-        totalNumBlobFields,
         previousBlockHeader,
       } = await context.makeCheckpoint(1, {
         numTxsPerBlock: 4,
@@ -95,7 +90,6 @@ describe('prover/orchestrator/blocks', () => {
         constants,
         l1ToL2Messages,
         1, // numBlocks
-        totalNumBlobFields,
         previousBlockHeader,
       );
 

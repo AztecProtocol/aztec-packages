@@ -79,6 +79,7 @@
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@aztec/pxe": "workspace:^",
     "@aztec/stdlib": "workspace:^",
+    "@aztec/wallet-sdk": "workspace:^",
     "commander": "^12.1.0",
     "inquirer": "^10.1.8",
     "source-map-support": "^0.5.21",

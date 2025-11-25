@@ -10,7 +10,7 @@ import {
 } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { UniqueNote } from '@aztec/aztec.js/note';
-import { AccountManager, type Aliased, BaseWallet, type SimulateOptions } from '@aztec/aztec.js/wallet';
+import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
@@ -22,6 +22,7 @@ import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NotesFilter } from '@aztec/stdlib/note';
 import type { TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 
 import type { WalletDB } from '../storage/wallet_db.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';

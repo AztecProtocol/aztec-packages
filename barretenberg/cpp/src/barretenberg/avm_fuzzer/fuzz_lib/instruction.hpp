@@ -386,6 +386,72 @@ struct CAST_16_Instruction {
     MSGPACK_FIELDS(src_tag, src_offset_index, dst_offset, target_tag);
 };
 
+/// @brief SSTORE: M[slot_offset_index] = slot; S[M[slotOffset]] = M[srcOffset]
+struct SSTORE_Instruction {
+    uint16_t src_offset_index;
+    uint16_t slot_offset;
+    bb::avm2::FF slot;
+    MSGPACK_FIELDS(src_offset_index, slot_offset, slot);
+};
+
+/// @brief SLOAD: M[slot_offset] = slot; M[result_offset] = S[M[slotOffset]]
+struct SLOAD_Instruction {
+    uint16_t slot_index;  // index of the slot in memory_manager.storage_addresses
+    uint16_t slot_offset; // address where we set slot value
+    uint16_t result_offset;
+    MSGPACK_FIELDS(slot_index, slot_offset, result_offset);
+};
+
+/// @brief GETENVVAR: M[result_offset] = getenvvar(type)
+struct GETENVVAR_Instruction {
+    uint16_t result_offset;
+    // msgpack cannot pack enum classes, so we pack that as a uint8_t
+    // 0 -> ADDRESS, 1 -> SENDER, 2 -> TRANSACTIONFEE, 3 -> CHAINID, 4 -> VERSION, 5 -> BLOCKNUMBER, 6 -> TIMESTAMP,
+    // 7 -> BASEFEEPERDAGAS, 8 -> BASEFEEPERL2GAS, 9 -> ISSTATICCALL, 10 -> L2GASLEFT, 11 -> DAGASLEFT
+    uint8_t type;
+    MSGPACK_FIELDS(result_offset, type);
+};
+
+/// @brief EMITNULIFIER: inserts new nullifier to the nullifier tree
+struct EMITNULLIFIER_Instruction {
+    uint16_t nullifier_offset_index;
+    MSGPACK_FIELDS(nullifier_offset_index);
+};
+
+/// @brief NULLIFIEREXISTS: checks if nullifier exists in the nullifier tree
+/// Gets contract's address by GETENVVAR(0)
+/// M[result_offset] = NULLIFIEREXISTS(M[nullifier_offset_index], GETENVVAR(0))
+struct NULLIFIEREXISTS_Instruction {
+    uint16_t nullifier_offset_index;
+    uint16_t contract_address_offset; // absolute address where the contract address will be stored
+    uint16_t result_offset;
+    MSGPACK_FIELDS(nullifier_offset_index, contract_address_offset, result_offset);
+};
+
+/// @brief EMITNOTEHASH: M[note_hash_offset] = note_hash; emit note hash to the note hash tree
+struct EMITNOTEHASH_Instruction {
+    uint16_t note_hash_offset; // absolute address where the note hash will be stored
+    bb::avm2::FF note_hash;
+    MSGPACK_FIELDS(note_hash_offset, note_hash);
+};
+
+/// @brief NOTEHASHEXISTS:  M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset])
+/// len = length(memory_manager.emitted_note_hashes);
+/// M[notehash_offset] = memory_manager.emitted_note_hashes[notehash_index % len];
+/// M[leaf_index_offset] = notehash_index % len;
+/// M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset]);
+struct NOTEHASHEXISTS_Instruction {
+    // index of the note hash in the memory_manager.emitted_note_hashes
+    uint16_t notehash_index;
+    // absolute address where the note hash will be stored
+    uint16_t notehash_offset;
+    // absolute address where the leaf index will be stored
+    uint16_t leaf_index_offset;
+    // absolute address where the result will be stored
+    uint16_t result_offset;
+    MSGPACK_FIELDS(notehash_index, notehash_offset, leaf_index_offset, result_offset);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -423,7 +489,14 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      SHL_16_Instruction,
                                      SHR_16_Instruction,
                                      CAST_8_Instruction,
-                                     CAST_16_Instruction>;
+                                     CAST_16_Instruction,
+                                     SSTORE_Instruction,
+                                     SLOAD_Instruction,
+                                     GETENVVAR_Instruction,
+                                     EMITNULLIFIER_Instruction,
+                                     NULLIFIEREXISTS_Instruction,
+                                     EMITNOTEHASH_Instruction,
+                                     NOTEHASHEXISTS_Instruction>;
 
 template <class... Ts> struct overloaded_instruction : Ts... {
     using Ts::operator()...;
@@ -438,157 +511,178 @@ inline std::ostream& operator<<(std::ostream& os, const MemoryTag& tag)
 
 inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruction)
 {
-    std::visit(overloaded_instruction{
-                   [&](ADD_8_Instruction arg) {
-                       os << "ADD_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](SET_8_Instruction arg) {
-                       os << "SET_8_Instruction " << arg.value_tag << " " << static_cast<int>(arg.offset) << " "
-                          << static_cast<int>(arg.value);
-                   },
-                   [&](SET_16_Instruction arg) {
-                       os << "SET_16_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
-                   },
-                   [&](SET_32_Instruction arg) {
-                       os << "SET_32_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
-                   },
-                   [&](SET_64_Instruction arg) {
-                       os << "SET_64_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
-                   },
-                   [&](SET_128_Instruction arg) {
-                       os << "SET_128_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value_high
-                          << " " << arg.value_low;
-                   },
-                   [&](SET_FF_Instruction arg) {
-                       os << "SET_FF_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
-                   },
-                   [&](SUB_8_Instruction arg) {
-                       os << "SUB_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](MUL_8_Instruction arg) {
-                       os << "MUL_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](DIV_8_Instruction arg) {
-                       os << "DIV_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](FDIV_8_Instruction arg) {
-                       os << "FDIV_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](EQ_8_Instruction arg) {
-                       os << "EQ_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](LT_8_Instruction arg) {
-                       os << "LT_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](LTE_8_Instruction arg) {
-                       os << "LTE_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](AND_8_Instruction arg) {
-                       os << "AND_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](OR_8_Instruction arg) {
-                       os << "OR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](XOR_8_Instruction arg) {
-                       os << "XOR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](SHL_8_Instruction arg) {
-                       os << "SHL_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](SHR_8_Instruction arg) {
-                       os << "SHR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](NOT_8_Instruction arg) {
-                       os << "NOT_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << static_cast<uint16_t>(arg.result_offset);
-                   },
-                   [&](ADD_16_Instruction arg) {
-                       os << "ADD_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](SUB_16_Instruction arg) {
-                       os << "SUB_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](MUL_16_Instruction arg) {
-                       os << "MUL_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](DIV_16_Instruction arg) {
-                       os << "DIV_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](FDIV_16_Instruction arg) {
-                       os << "FDIV_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](EQ_16_Instruction arg) {
-                       os << "EQ_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](LT_16_Instruction arg) {
-                       os << "LT_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](LTE_16_Instruction arg) {
-                       os << "LTE_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](AND_16_Instruction arg) {
-                       os << "AND_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](OR_16_Instruction arg) {
-                       os << "OR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](XOR_16_Instruction arg) {
-                       os << "XOR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](NOT_16_Instruction arg) {
-                       os << "NOT_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.result_offset;
-                   },
-                   [&](SHL_16_Instruction arg) {
-                       os << "SHL_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](SHR_16_Instruction arg) {
-                       os << "SHR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                          << arg.b_offset_index << " " << arg.result_offset;
-                   },
-                   [&](CAST_8_Instruction arg) {
-                       os << "CAST_8_Instruction " << arg.src_tag << " " << arg.src_offset_index << " "
-                          << static_cast<int>(arg.dst_offset) << " " << arg.target_tag;
-                   },
-                   [&](CAST_16_Instruction arg) {
-                       os << "CAST_16_Instruction " << arg.src_tag << " " << arg.src_offset_index << " "
-                          << arg.dst_offset << " " << arg.target_tag;
-                   },
-                   [&](MOV_8_Instruction arg) {
-                       os << "MOV_8_Instruction " << arg.value_tag << " " << arg.src_offset_index << " "
-                          << static_cast<int>(arg.dst_offset);
-                   },
-                   [&](MOV_16_Instruction arg) {
-                       os << "MOV_16_Instruction " << arg.value_tag << " " << arg.src_offset_index << " "
-                          << arg.dst_offset;
-                   },
-                   [&](auto) { os << "Unknown instruction"; },
-               },
-               instruction);
+    std::visit(
+        overloaded_instruction{
+            [&](ADD_8_Instruction arg) {
+                os << "ADD_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](SET_8_Instruction arg) {
+                os << "SET_8_Instruction " << arg.value_tag << " " << static_cast<int>(arg.offset) << " "
+                   << static_cast<int>(arg.value);
+            },
+            [&](SET_16_Instruction arg) {
+                os << "SET_16_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+            },
+            [&](SET_32_Instruction arg) {
+                os << "SET_32_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+            },
+            [&](SET_64_Instruction arg) {
+                os << "SET_64_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+            },
+            [&](SET_128_Instruction arg) {
+                os << "SET_128_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value_high << " "
+                   << arg.value_low;
+            },
+            [&](SET_FF_Instruction arg) {
+                os << "SET_FF_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+            },
+            [&](SUB_8_Instruction arg) {
+                os << "SUB_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](MUL_8_Instruction arg) {
+                os << "MUL_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](DIV_8_Instruction arg) {
+                os << "DIV_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](FDIV_8_Instruction arg) {
+                os << "FDIV_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](EQ_8_Instruction arg) {
+                os << "EQ_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](LT_8_Instruction arg) {
+                os << "LT_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](LTE_8_Instruction arg) {
+                os << "LTE_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](AND_8_Instruction arg) {
+                os << "AND_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](OR_8_Instruction arg) {
+                os << "OR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](XOR_8_Instruction arg) {
+                os << "XOR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](SHL_8_Instruction arg) {
+                os << "SHL_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](SHR_8_Instruction arg) {
+                os << "SHR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](NOT_8_Instruction arg) {
+                os << "NOT_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << static_cast<uint16_t>(arg.result_offset);
+            },
+            [&](ADD_16_Instruction arg) {
+                os << "ADD_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << arg.result_offset;
+            },
+            [&](SUB_16_Instruction arg) {
+                os << "SUB_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << arg.result_offset;
+            },
+            [&](MUL_16_Instruction arg) {
+                os << "MUL_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << arg.result_offset;
+            },
+            [&](DIV_16_Instruction arg) {
+                os << "DIV_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << arg.result_offset;
+            },
+            [&](FDIV_16_Instruction arg) {
+                os << "FDIV_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << arg.result_offset;
+            },
+            [&](EQ_16_Instruction arg) {
+                os << "EQ_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << arg.result_offset;
+            },
+            [&](LT_16_Instruction arg) {
+                os << "LT_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << arg.result_offset;
+            },
+            [&](LTE_16_Instruction arg) {
+                os << "LTE_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << arg.result_offset;
+            },
+            [&](AND_16_Instruction arg) {
+                os << "AND_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << arg.result_offset;
+            },
+            [&](OR_16_Instruction arg) {
+                os << "OR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
+                   << " " << arg.result_offset;
+            },
+            [&](XOR_16_Instruction arg) {
+                os << "XOR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << arg.result_offset;
+            },
+            [&](NOT_16_Instruction arg) {
+                os << "NOT_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.result_offset;
+            },
+            [&](SHL_16_Instruction arg) {
+                os << "SHL_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << arg.result_offset;
+            },
+            [&](SHR_16_Instruction arg) {
+                os << "SHR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                   << arg.b_offset_index << " " << arg.result_offset;
+            },
+            [&](CAST_8_Instruction arg) {
+                os << "CAST_8_Instruction " << arg.src_tag << " " << arg.src_offset_index << " "
+                   << static_cast<int>(arg.dst_offset) << " " << arg.target_tag;
+            },
+            [&](CAST_16_Instruction arg) {
+                os << "CAST_16_Instruction " << arg.src_tag << " " << arg.src_offset_index << " " << arg.dst_offset
+                   << " " << arg.target_tag;
+            },
+            [&](MOV_8_Instruction arg) {
+                os << "MOV_8_Instruction " << arg.value_tag << " " << arg.src_offset_index << " "
+                   << static_cast<int>(arg.dst_offset);
+            },
+            [&](MOV_16_Instruction arg) {
+                os << "MOV_16_Instruction " << arg.value_tag << " " << arg.src_offset_index << " " << arg.dst_offset;
+            },
+            [&](SSTORE_Instruction arg) {
+                os << "SSTORE_Instruction " << arg.src_offset_index << " " << arg.slot_offset << " " << arg.slot;
+            },
+            [&](SLOAD_Instruction arg) {
+                os << "SLOAD_Instruction " << arg.slot_index << " " << arg.slot_offset << " " << arg.result_offset;
+            },
+            [&](GETENVVAR_Instruction arg) {
+                os << "GETENVVAR_Instruction " << arg.result_offset << " " << static_cast<int>(arg.type);
+            },
+            [&](EMITNULLIFIER_Instruction arg) { os << "EMITNULIFIER_Instruction " << arg.nullifier_offset_index; },
+            [&](NULLIFIEREXISTS_Instruction arg) {
+                os << "NULLIFIEREXISTS_Instruction " << arg.nullifier_offset_index << " " << arg.contract_address_offset
+                   << " " << arg.result_offset;
+            },
+            [&](EMITNOTEHASH_Instruction arg) {
+                os << "EMITNOTEHASH_Instruction " << arg.note_hash_offset << " " << arg.note_hash;
+            },
+            [&](NOTEHASHEXISTS_Instruction arg) {
+                os << "NOTEHASHEXISTS_Instruction " << arg.notehash_index << " " << arg.notehash_offset << " "
+                   << arg.leaf_index_offset << " " << arg.result_offset;
+            },
+            [&](auto) { os << "Unknown instruction"; },
+        },
+        instruction);
     return os;
 }

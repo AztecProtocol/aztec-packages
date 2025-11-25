@@ -499,7 +499,7 @@ export async function setup(
         deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       );
 
-      const blockReward = await rollup.getBlockReward();
+      const blockReward = await rollup.getCheckpointReward();
       const mintAmount = 10_000n * (blockReward as bigint);
 
       const feeJuice = getContract({
@@ -646,7 +646,9 @@ export async function setup(
       (opts.initialValidators && opts.initialValidators.length > 0)
     ) {
       // We need to advance such that the committee is set up.
-      await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1));
+      await cheatCodes.rollup.advanceToEpoch(
+        (await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochsForValidatorSet + 1),
+      );
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }

@@ -265,10 +265,6 @@ export class TxEffect {
     };
   }
 
-  /**
-   * Returns a flat packed array of fields of all tx effects, to be appended to blobs.
-   * Must match the implementation in noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/tx_blob_data.nr
-   */
   toTxBlobData(): TxBlobData {
     return {
       txStartMarker: this.getTxStartMarker(),

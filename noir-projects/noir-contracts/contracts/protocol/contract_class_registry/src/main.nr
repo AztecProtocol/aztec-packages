@@ -168,8 +168,4 @@ pub contract ContractClassRegistry {
         self.context.emit_contract_class_log(event.serialize_non_standard());
     }
 
-    #[external("private")]
-    fn assert_class_id_is_published(contract_class_id: ContractClassId) {
-        self.context.push_nullifier_read_request(contract_class_id.to_field());
-    }
 }

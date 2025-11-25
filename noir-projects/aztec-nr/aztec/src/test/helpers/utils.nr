@@ -9,13 +9,13 @@ use protocol_types::{
 };
 use std::meta::derive;
 
-pub struct ContractDeployment<let N: u32> {
+pub struct ContractDeployment<let O: u32> {
     pub env: TestEnvironment,
-    pub path: str<N>,
+    pub path: str<O>,
     pub secret: Field,
 }
 
-impl<let N: u32> ContractDeployment<N> {
+impl<let O: u32> ContractDeployment<O> {
     /// Finalizes a contract deployment prepared via `TestEnvironment::deploy` by calling a private initializer function
     /// from the `from` account.
     ///
@@ -34,10 +34,10 @@ impl<let N: u32> ContractDeployment<N> {
     ///     MyContract::interface().init_fn(owner)
     ///   );
     /// }
-    pub unconstrained fn with_private_initializer<T, let P: u32>(
+    pub unconstrained fn with_private_initializer<let M: u32, let N: u32, T>(
         self,
         from: AztecAddress,
-        initializer_call: PrivateCall<P, T>,
+        initializer_call: PrivateCall<M, N, T>,
     ) -> AztecAddress
     where
         T: Deserialize,
@@ -52,7 +52,7 @@ impl<let N: u32> ContractDeployment<N> {
         // a contract at an unknown address. Now that we've deployed the contract We can crate a new call interface with
         // the address and perform the call.
         // We probably want to introduce an intermediate struct to represent this, if we're going to keep this API.
-        let _ = self.env.call_private::<T, _>(
+        let _ = self.env.call_private::<_, _, T>(
             from,
             PrivateCall::new(instance.to_address(), selector, name, args),
         );
@@ -78,10 +78,10 @@ impl<let N: u32> ContractDeployment<N> {
     ///     MyContract::interface().init_fn(owner)
     ///   );
     /// }
-    pub unconstrained fn with_public_initializer<let P: u32, T>(
+    pub unconstrained fn with_public_initializer<let M: u32, let N: u32, T>(
         self,
         from: AztecAddress,
-        initializer_call: PublicCall<P, T>,
+        initializer_call: PublicCall<M, N, T>,
     ) -> AztecAddress
     where
         T: Deserialize,
@@ -96,7 +96,7 @@ impl<let N: u32> ContractDeployment<N> {
         // a contract at an unknown address. Now that we've deployed the contract We can crate a new call interface with
         // the address and perform the call.
         // We probably want to introduce an intermediate struct to represent this, if we're going to keep this API.
-        let _ = self.env.call_public::<T, _>(
+        let _ = self.env.call_public::<_, _, T>(
             from,
             PublicCall::new(instance.to_address(), selector, name, args),
         );
@@ -110,7 +110,7 @@ impl<let N: u32> ContractDeployment<N> {
     /// contains a commitment to the lack of initialization arguments as per the protocol rules. Initializers can only
     /// be invoked by using the `with_private_initializer` or `with_public_initializer` functions.
     pub unconstrained fn without_initializer(self) -> AztecAddress {
-        txe_oracles::deploy(self.path, "", &[], self.secret).to_address()
+        txe_oracles::deploy(self.path, "", [], self.secret).to_address()
     }
 }
 

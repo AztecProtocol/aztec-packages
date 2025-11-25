@@ -812,3 +812,123 @@ TEST(fuzz, JumpIfToNewBlockWithReturn)
     EXPECT_EQ(result_false.output.at(0), expected_u128_value);
 }
 } // namespace control_flow
+
+namespace public_storage {
+TEST(fuzz, SstoreThenSload)
+{
+    // M[10] = 10
+    auto set_value_instruction = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 10, .value = 10 };
+    // S[10] = M[10]
+    auto sstore_instruction = SSTORE_Instruction{ .src_offset_index = 0, .slot_offset = 0, .slot = 10 };
+    // M[2] = S[10], FF tag
+    auto sload_instruction = SLOAD_Instruction{ .slot_index = 0, .slot_offset = 0, .result_offset = 2 };
+    // M[10] = 11
+    auto set_value_instruction2 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 10, .value = 11 };
+
+    auto set_sstore_sload_block = std::vector<FuzzInstruction>{
+        set_value_instruction, sstore_instruction, sload_instruction, set_value_instruction2
+    };
+
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ set_sstore_sload_block };
+    // FF should be set via sload instruction
+    auto return_options = ReturnOptions{ .return_size = 1,
+                                         .return_value_tag = bb::avm2::MemoryTag::FF,
+                                         .return_value_offset_index = 1 /* after sload instruction */ };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 10);
+}
+} // namespace public_storage
+
+namespace execution_environment {
+FF getenvvar_helper(uint8_t type, bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::FF)
+{
+    auto getenvvar_instruction = GETENVVAR_Instruction{ .result_offset = 0, .type = type };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { getenvvar_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto return_options =
+        ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 0 };
+    auto bytecode = control_flow.build_bytecode(return_options);
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    return result.output.at(0);
+}
+
+TEST(fuzz, GetEnvVarSmoke)
+{
+    EXPECT_EQ(getenvvar_helper(0), 42);                                // address, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(1), 100);                               // sender, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(2), 0);                                 // transaction fee, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(3), 1);                                 // chain id, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(4), 1);                                 // version, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(5), 1);                                 // block number, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(6, bb::avm2::MemoryTag::U64), 1000000); // timestamp, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(7), 1);                                 // FEEPERL2GAS = 1, see simulator.cpp gas_fees
+    EXPECT_EQ(getenvvar_helper(8), 1);                                 // FEEPERDAGAS = 1, see simulator.cpp gas_fees
+    EXPECT_EQ(getenvvar_helper(9), 0);                                 // is static call is always false
+    EXPECT_EQ(getenvvar_helper(10), 1000000 - 2 * 6);                  // L2GASLEFT, gas spent on getenvvar + return
+    EXPECT_EQ(getenvvar_helper(11), 1000000);                          // DAGASLEFT, see simulator.cpp
+}
+} // namespace execution_environment
+
+namespace notes_and_nullifiers {
+TEST(fuzz, EmitNullifierThenNullifierExists)
+{
+    auto set_field_instruction = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1 };
+    auto emit_nullifier_instruction = EMITNULLIFIER_Instruction{ .nullifier_offset_index = 0 };
+    auto nullifier_exists_instruction =
+        NULLIFIEREXISTS_Instruction{ .nullifier_offset_index = 0, .contract_address_offset = 10, .result_offset = 20 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{
+        { set_field_instruction, emit_nullifier_instruction, nullifier_exists_instruction }
+    };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(ReturnOptions{
+        .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 20 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 1);
+}
+
+TEST(fuzz, EmitNullifierThenNullifierExistsOverwritingPreviousNullifier)
+{
+    auto set_field_instruction = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1 };
+    auto emit_nullifier_instruction = EMITNULLIFIER_Instruction{ .nullifier_offset_index = 0 };
+    auto nullifier_exists_instruction = NULLIFIEREXISTS_Instruction{
+        .nullifier_offset_index = 0, .contract_address_offset = 0, .result_offset = 1
+    }; // GETENVVAR overwrites previous nullifier
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{
+        { set_field_instruction, emit_nullifier_instruction, nullifier_exists_instruction }
+    };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 0);
+}
+
+TEST(fuzz, EmitNoteHashThenNoteHashExists)
+{
+    auto emit_note_hash_instruction = EMITNOTEHASH_Instruction{ .note_hash_offset = 0, .note_hash = 1 };
+    auto note_hash_exists_instruction = NOTEHASHEXISTS_Instruction{
+        .notehash_index = 0, .notehash_offset = 0, .leaf_index_offset = 1, .result_offset = 2
+    };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { emit_note_hash_instruction, note_hash_exists_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_FALSE(result.reverted);
+    // TODO(sn):fix notes
+    // EXPECT_EQ(result.output.at(0), 1);
+}
+} // namespace notes_and_nullifiers

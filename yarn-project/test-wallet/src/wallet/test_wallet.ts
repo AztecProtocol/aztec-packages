@@ -9,8 +9,7 @@ import {
   getMessageHashFromIntent,
   lookupValidity,
 } from '@aztec/aztec.js/authorization';
-import { BaseWallet, type SendOptions, type SimulateOptions } from '@aztec/aztec.js/wallet';
-import { AccountManager } from '@aztec/aztec.js/wallet';
+import { AccountManager, type SendOptions, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -19,6 +18,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 
 import { ProvenTx } from '../utils.js';
 

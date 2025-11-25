@@ -1107,6 +1107,7 @@ __metadata:
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@aztec/pxe": "workspace:^"
     "@aztec/stdlib": "workspace:^"
+    "@aztec/wallet-sdk": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
@@ -1309,6 +1310,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
+    zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
 
@@ -2158,6 +2160,7 @@ __metadata:
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/stdlib": "workspace:^"
+    "@aztec/wallet-sdk": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
@@ -2228,6 +2231,30 @@ __metadata:
     viem: "npm:@spalladino/viem@2.38.2-eip7594.0"
   bin:
     validator-client: ./dest/bin/index.js
+  languageName: unknown
+  linkType: soft
+
+"@aztec/wallet-sdk@workspace:^, @aztec/wallet-sdk@workspace:wallet-sdk":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wallet-sdk@workspace:wallet-sdk"
+  dependencies:
+    "@aztec/aztec.js": "workspace:^"
+    "@aztec/constants": "workspace:^"
+    "@aztec/entrypoints": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/pxe": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
+    "@jest/globals": "npm:^30.0.0"
+    "@types/jest": "npm:^30.0.0"
+    "@types/node": "npm:^22.15.17"
+    jest: "npm:^30.0.0"
+    jest-mock-extended: "npm:^4.0.0"
+    resolve-typescript-plugin: "npm:^2.0.1"
+    ts-loader: "npm:^9.5.4"
+    ts-node: "npm:^10.9.1"
+    typescript: "npm:^5.3.3"
+    util: "npm:^0.12.5"
   languageName: unknown
   linkType: soft
 

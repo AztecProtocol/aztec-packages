@@ -71,6 +71,13 @@ class ProgramBlock {
     void process_shr_16_instruction(SHR_16_Instruction instruction);
     void process_cast_8_instruction(CAST_8_Instruction instruction);
     void process_cast_16_instruction(CAST_16_Instruction instruction);
+    void process_sstore_instruction(SSTORE_Instruction instruction);
+    void process_sload_instruction(SLOAD_Instruction instruction);
+    void process_getenvvar_instruction(GETENVVAR_Instruction instruction);
+    void process_emitnulifier_instruction(EMITNULLIFIER_Instruction instruction);
+    void process_nullifierexists_instruction(NULLIFIEREXISTS_Instruction instruction);
+    void process_emitnotehash_instruction(EMITNOTEHASH_Instruction instruction);
+    void process_notehashexists_instruction(NOTEHASHEXISTS_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;

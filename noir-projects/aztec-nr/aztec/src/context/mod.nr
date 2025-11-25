@@ -8,6 +8,7 @@ pub mod utility_context;
 
 pub mod calls;
 pub mod gas;
+pub mod note_hash_read;
 
 pub use calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall, UtilityCall};
 pub use private_context::PrivateContext;

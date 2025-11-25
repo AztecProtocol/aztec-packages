@@ -288,17 +288,15 @@ impl PrivateKernelCircuitOutputValidator {
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
     ) {
         let contract_address = private_call.public_inputs.call_context.contract_address;
-        assert_array_appended_and_scoped(
+        assert_array_appended(
             self.output.validation_requests.note_hash_read_requests,
             private_call.public_inputs.note_hash_read_requests,
             previous_kernel_public_inputs.validation_requests.note_hash_read_requests.length,
-            contract_address,
         );
-        assert_array_appended_and_scoped(
+        assert_array_appended(
             self.output.validation_requests.nullifier_read_requests,
             private_call.public_inputs.nullifier_read_requests,
             previous_kernel_public_inputs.validation_requests.nullifier_read_requests.length,
-            contract_address,
         );
         assert_array_appended_and_scoped(
             self.output.validation_requests.scoped_key_validation_requests_and_generators,
@@ -359,15 +357,13 @@ impl PrivateKernelCircuitOutputValidator {
     ) {
         // TODO: iterate over all the dest arrays and assert that they are empty, but use assert_empty and not is_empty.
         let contract_address = private_call.public_inputs.call_context.contract_address;
-        assert_array_appended_to_empty_dest_and_scoped(
+        assert_array_appended_to_empty_dest(
             self.output.validation_requests.note_hash_read_requests,
             private_call.public_inputs.note_hash_read_requests,
-            contract_address,
         );
-        assert_array_appended_to_empty_dest_and_scoped(
+        assert_array_appended_to_empty_dest(
             self.output.validation_requests.nullifier_read_requests,
             private_call.public_inputs.nullifier_read_requests,
-            contract_address,
         );
         assert_array_appended_to_empty_dest_and_scoped(
             self.output.validation_requests.scoped_key_validation_requests_and_generators,

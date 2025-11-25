@@ -52,9 +52,9 @@ struct ManaBaseFeeComponentsModel {
   uint256 sequencer_cost;
 }
 
-struct BlockHeaderModel {
+struct CheckpointHeaderModel {
   uint256 blobs_needed;
-  uint256 block_number;
+  uint256 checkpoint_number;
   uint256 l1_block_number;
   uint256 mana_spent;
   uint256 size_in_fields;
@@ -71,7 +71,7 @@ struct TestPointOutputs {
 }
 
 struct TestPoint {
-  BlockHeaderModel block_header;
+  CheckpointHeaderModel checkpoint_header;
   FeeHeaderModel fee_header;
   OracleInputModel oracle_input;
   TestPointOutputs outputs;

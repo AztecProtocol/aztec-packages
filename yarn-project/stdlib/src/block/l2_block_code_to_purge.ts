@@ -27,6 +27,7 @@ export function makeL2BlockHeader(
       ...(blockNumber ? { blockNumber } : {}),
       ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
     }),
+    new Fr(seed + 0x300),
     new Fr(seed + 0x800),
     new Fr(seed + 0x900),
     new Fr(seed + 0xa00),

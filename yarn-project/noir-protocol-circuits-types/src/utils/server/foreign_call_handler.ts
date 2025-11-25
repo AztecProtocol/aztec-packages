@@ -85,15 +85,15 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
     const startBlobAccumulatorFields = flattenedArgs.slice(offset, (offset += BLOB_ACCUMULATOR_LENGTH));
     const startBlobAccumulator = BlobAccumulator.fromFields(startBlobAccumulatorFields.map(Fr.fromString));
 
-    const blobsAsFr = paddedBlobsAsFr.slice(0, numBlobFields);
-    const blobFieldsHash = await computeBlobFieldsHash(blobsAsFr);
+    const blobFields = paddedBlobsAsFr.slice(0, numBlobFields);
+    const blobFieldsHash = await computeBlobFieldsHash(blobFields);
     if (!expectedBlobFieldsHash.equals(blobFieldsHash)) {
       throw new Error(
         `Injected blob fields do not match rolled up fields. Computed hash: ${blobFieldsHash}. Hash used in circuits: ${expectedBlobFieldsHash}.`,
       );
     }
 
-    const blobs = getBlobsPerL1Block(blobsAsFr);
+    const blobs = getBlobsPerL1Block(blobFields);
     blobs.forEach((blob, i) => {
       const injected = kzgCommitments[i];
       const calculated = BLS12Point.decompress(blob.commitment);
@@ -112,7 +112,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
       startBlobAccumulator.gammaPowAcc,
       finalBlobChallenges,
     );
-    const endBatchedBlobAccumulator = await batchedBlobAccumulator.accumulateBlobs(blobs);
+    const endBatchedBlobAccumulator = await batchedBlobAccumulator.accumulateFields(blobFields);
     const endBlobAccumulator = endBatchedBlobAccumulator.toBlobAccumulator();
     return Promise.resolve([endBlobAccumulator.toFields().map(field => field.toString())]);
   } else if (name === 'noOp') {

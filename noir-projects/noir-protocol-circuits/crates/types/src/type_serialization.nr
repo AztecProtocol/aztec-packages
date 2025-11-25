@@ -239,9 +239,8 @@ where
         let mut result: [Field; _] = std::mem::zeroed();
         for i in 0..M {
             let serialized_t = self[i].serialize();
-            let T_N = serialized_t.len();
-            for j in 0..T_N {
-                result[i * T_N + j] = serialized_t[j];
+            for j in 0..<T as Serialize>::N {
+                result[i * <T as Serialize>::N + j] = serialized_t[j];
             }
         }
         result

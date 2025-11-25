@@ -376,9 +376,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch' });
       this.metrics.recordBlockProposalPrecheckFailed('slot_mismatch');
       return;
-    } else if (canProposeCheck.blockNumber !== BigInt(newBlockNumber)) {
+    } else if (canProposeCheck.checkpointNumber !== BigInt(newBlockNumber)) {
       this.log.warn(
-        `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${canProposeCheck.blockNumber}.`,
+        `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${canProposeCheck.checkpointNumber}.`,
         { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch' });
@@ -485,6 +485,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       ...newGlobalVariables,
       timestamp: newGlobalVariables.timestamp,
       lastArchiveRoot: chainTipArchive,
+      blockHeadersHash: Fr.ZERO,
       contentCommitment: ContentCommitment.empty(),
       totalManaUsed: Fr.ZERO,
     });

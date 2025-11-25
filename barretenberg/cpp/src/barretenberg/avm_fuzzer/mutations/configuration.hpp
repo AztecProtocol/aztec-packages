@@ -234,30 +234,113 @@ enum class InstructionGenerationOptions {
     SHR_16,
     CAST_8,
     CAST_16,
+    SSTORE,
+    SLOAD,
+    GETENVVAR,
+    EMITNULLIFIER,
+    NULLIFIEREXISTS,
+    EMITNOTEHASH,
+    NOTEHASHEXISTS,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 34>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 41>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
-    { InstructionGenerationOptions::ADD_8, 1 },   { InstructionGenerationOptions::SUB_8, 1 },
-    { InstructionGenerationOptions::MUL_8, 1 },   { InstructionGenerationOptions::DIV_8, 1 },
-    { InstructionGenerationOptions::EQ_8, 1 },    { InstructionGenerationOptions::LT_8, 1 },
-    { InstructionGenerationOptions::LTE_8, 1 },   { InstructionGenerationOptions::AND_8, 1 },
-    { InstructionGenerationOptions::OR_8, 1 },    { InstructionGenerationOptions::XOR_8, 1 },
-    { InstructionGenerationOptions::SHL_8, 1 },   { InstructionGenerationOptions::SHR_8, 1 },
-    { InstructionGenerationOptions::SET_8, 1 },   { InstructionGenerationOptions::SET_16, 1 },
-    { InstructionGenerationOptions::SET_32, 1 },  { InstructionGenerationOptions::SET_64, 1 },
-    { InstructionGenerationOptions::SET_128, 1 }, { InstructionGenerationOptions::SET_FF, 1 },
-    { InstructionGenerationOptions::ADD_16, 1 },  { InstructionGenerationOptions::SUB_16, 1 },
-    { InstructionGenerationOptions::MUL_16, 1 },  { InstructionGenerationOptions::DIV_16, 1 },
-    { InstructionGenerationOptions::FDIV_16, 1 }, { InstructionGenerationOptions::EQ_16, 1 },
-    { InstructionGenerationOptions::LT_16, 1 },   { InstructionGenerationOptions::LTE_16, 1 },
-    { InstructionGenerationOptions::AND_16, 1 },  { InstructionGenerationOptions::OR_16, 1 },
-    { InstructionGenerationOptions::XOR_16, 1 },  { InstructionGenerationOptions::NOT_16, 1 },
-    { InstructionGenerationOptions::SHL_16, 1 },  { InstructionGenerationOptions::SHR_16, 1 },
-    { InstructionGenerationOptions::CAST_8, 1 },  { InstructionGenerationOptions::CAST_16, 1 },
+    { InstructionGenerationOptions::ADD_8, 1 },
+    { InstructionGenerationOptions::SUB_8, 1 },
+    { InstructionGenerationOptions::MUL_8, 1 },
+    { InstructionGenerationOptions::DIV_8, 1 },
+    { InstructionGenerationOptions::EQ_8, 1 },
+    { InstructionGenerationOptions::LT_8, 1 },
+    { InstructionGenerationOptions::LTE_8, 1 },
+    { InstructionGenerationOptions::AND_8, 1 },
+    { InstructionGenerationOptions::OR_8, 1 },
+    { InstructionGenerationOptions::XOR_8, 1 },
+    { InstructionGenerationOptions::SHL_8, 1 },
+    { InstructionGenerationOptions::SHR_8, 1 },
+    { InstructionGenerationOptions::SET_8, 1 },
+    { InstructionGenerationOptions::SET_16, 1 },
+    { InstructionGenerationOptions::SET_32, 1 },
+    { InstructionGenerationOptions::SET_64, 1 },
+    { InstructionGenerationOptions::SET_128, 1 },
+    { InstructionGenerationOptions::SET_FF, 1 },
+    { InstructionGenerationOptions::ADD_16, 1 },
+    { InstructionGenerationOptions::SUB_16, 1 },
+    { InstructionGenerationOptions::MUL_16, 1 },
+    { InstructionGenerationOptions::DIV_16, 1 },
+    { InstructionGenerationOptions::FDIV_16, 1 },
+    { InstructionGenerationOptions::EQ_16, 1 },
+    { InstructionGenerationOptions::LT_16, 1 },
+    { InstructionGenerationOptions::LTE_16, 1 },
+    { InstructionGenerationOptions::AND_16, 1 },
+    { InstructionGenerationOptions::OR_16, 1 },
+    { InstructionGenerationOptions::XOR_16, 1 },
+    { InstructionGenerationOptions::NOT_16, 1 },
+    { InstructionGenerationOptions::SHL_16, 1 },
+    { InstructionGenerationOptions::SHR_16, 1 },
+    { InstructionGenerationOptions::CAST_8, 1 },
+    { InstructionGenerationOptions::CAST_16, 1 },
+    { InstructionGenerationOptions::SSTORE, 1 },
+    { InstructionGenerationOptions::SLOAD, 1 },
+    { InstructionGenerationOptions::GETENVVAR, 1 },
+    { InstructionGenerationOptions::EMITNULLIFIER, 1 },
+    { InstructionGenerationOptions::NULLIFIEREXISTS, 1 },
+    { InstructionGenerationOptions::EMITNOTEHASH, 0 },
+    { InstructionGenerationOptions::NOTEHASHEXISTS, 0 },
 });
 
+enum class SStoreMutationOptions { src_offset_index, slot_offset, slot };
+using SStoreMutationConfig = WeightedSelectionConfig<SStoreMutationOptions, 3>;
+
+constexpr SStoreMutationConfig BASIC_SSTORE_MUTATION_CONFIGURATION = SStoreMutationConfig({
+    { SStoreMutationOptions::src_offset_index, 1 },
+    { SStoreMutationOptions::slot_offset, 1 },
+    { SStoreMutationOptions::slot, 1 },
+});
+
+enum class SLoadMutationOptions { slot_index, slot_offset, result_offset };
+using SLoadMutationConfig = WeightedSelectionConfig<SLoadMutationOptions, 3>;
+
+constexpr SLoadMutationConfig BASIC_SLOAD_MUTATION_CONFIGURATION = SLoadMutationConfig({
+    { SLoadMutationOptions::slot_index, 1 },
+    { SLoadMutationOptions::slot_offset, 1 },
+    { SLoadMutationOptions::result_offset, 1 },
+});
+
+enum class GetEnvVarMutationOptions { result_offset, type };
+using GetEnvVarMutationConfig = WeightedSelectionConfig<GetEnvVarMutationOptions, 2>;
+
+constexpr GetEnvVarMutationConfig BASIC_GETENVVAR_MUTATION_CONFIGURATION = GetEnvVarMutationConfig({
+    { GetEnvVarMutationOptions::result_offset, 1 },
+    { GetEnvVarMutationOptions::type, 1 },
+});
+
+enum class NullifierExistsMutationOptions { nullifier_offset_index, contract_address_offset, result_offset };
+using NullifierExistsMutationConfig = WeightedSelectionConfig<NullifierExistsMutationOptions, 3>;
+
+constexpr NullifierExistsMutationConfig BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGURATION = NullifierExistsMutationConfig({
+    { NullifierExistsMutationOptions::nullifier_offset_index, 1 },
+    { NullifierExistsMutationOptions::contract_address_offset, 1 },
+    { NullifierExistsMutationOptions::result_offset, 1 },
+});
+
+enum class EmitNoteHashMutationOptions { note_hash_offset, note_hash };
+using EmitNoteHashMutationConfig = WeightedSelectionConfig<EmitNoteHashMutationOptions, 2>;
+
+constexpr EmitNoteHashMutationConfig BASIC_EMITNOTEHASH_MUTATION_CONFIGURATION = EmitNoteHashMutationConfig({
+    { EmitNoteHashMutationOptions::note_hash_offset, 1 },
+    { EmitNoteHashMutationOptions::note_hash, 1 },
+});
+
+enum class NoteHashExistsMutationOptions { notehash_index, notehash_offset, leaf_index_offset, result_offset };
+using NoteHashExistsMutationConfig = WeightedSelectionConfig<NoteHashExistsMutationOptions, 4>;
+
+constexpr NoteHashExistsMutationConfig BASIC_NOTEHASHEXISTS_MUTATION_CONFIGURATION = NoteHashExistsMutationConfig({
+    { NoteHashExistsMutationOptions::notehash_index, 1 },
+    { NoteHashExistsMutationOptions::notehash_offset, 1 },
+    { NoteHashExistsMutationOptions::leaf_index_offset, 1 },
+    { NoteHashExistsMutationOptions::result_offset, 1 },
+});
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };
 
 using ReturnOptionsMutationConfig = WeightedSelectionConfig<ReturnOptionsMutationOptions, 3>;

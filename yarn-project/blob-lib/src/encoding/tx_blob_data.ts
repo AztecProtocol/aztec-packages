@@ -5,7 +5,7 @@ import { FieldReader } from '@aztec/foundation/serialize';
 import { BlobDeserializationError } from '../errors.js';
 import { type TxStartMarker, decodeTxStartMarker, encodeTxStartMarker } from './tx_start_marker.js';
 
-// Must match the implementation in noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/tx_blob_data.nr.
+// Must match the implementation in noir-protocol-circuits/crates/types/src/blob_data/tx_blob_data.nr.
 
 export interface TxBlobData {
   txStartMarker: TxStartMarker;
