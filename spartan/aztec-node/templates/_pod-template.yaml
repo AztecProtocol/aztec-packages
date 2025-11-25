@@ -171,6 +171,8 @@ spec:
           value: "{{ .Values.service.p2p.enabled }}"
         - name: P2P_PORT
           value: "{{ .Values.service.p2p.port }}"
+        - name: P2P_BROADCAST_PORT
+          value: "{{ .Values.service.p2p.announcePort }}"
         - name: PROVER_REAL_PROOFS
           value: "{{ .Values.node.proverRealProofs }}"
         - name: SENTINEL_ENABLED
@@ -294,10 +296,17 @@ spec:
         {{- end }}
         {{- if .Values.service.p2p.enabled }}
         - containerPort: {{ .Values.service.p2p.port }}
+          protocol: TCP
           name: p2p-tcp
+          {{- if and (not .Values.hostNetwork) (not .Values.service.p2p.nodePortEnabled) }}
+          hostPort: {{ .Values.service.p2p.announcePort }}
+          {{- end }}
         - containerPort: {{ .Values.service.p2p.port }}
           protocol: UDP
           name: p2p-udp
+          {{- if and (not .Values.hostNetwork) (not .Values.service.p2p.nodePortEnabled) }}
+          hostPort: {{ .Values.service.p2p.announcePort }}
+          {{- end }}
         {{- end }}
       resources:
         {{- toYaml .Values.node.resources | nindent 8 }}

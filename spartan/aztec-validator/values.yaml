@@ -41,8 +41,6 @@ validator:
       - --archiver
       - --sequencer
 
-    hostNetwork: true
-
   web3signerUrl: ""
 
   service:
