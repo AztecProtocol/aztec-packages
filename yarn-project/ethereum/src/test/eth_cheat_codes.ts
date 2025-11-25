@@ -6,7 +6,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { pluralize } from '@aztec/foundation/string';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 
-import { type Hex, type Transaction, createPublicClient, fallback, hexToNumber, http } from 'viem';
+import { type Chain, type Hex, type Transaction, createPublicClient, fallback, hexToNumber, http } from 'viem';
+import { foundry } from 'viem/chains';
 
 import type { ViemPublicClient } from '../types.js';
 
@@ -24,9 +25,14 @@ export class EthCheatCodes {
      * The logger to use for the eth cheatcodes
      */
     public logger = createLogger('ethereum:cheat_codes'),
+    /**
+     * The chain configuration provided to Anvil
+     */
+    public chain: Chain = foundry,
   ) {
     this.publicClient = createPublicClient({
       transport: fallback(this.rpcUrls.map(url => http(url))),
+      chain: chain,
     });
   }
 

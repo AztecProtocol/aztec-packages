@@ -99,7 +99,7 @@
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3",
-    "viem": "npm:@spalladino/viem@2.38.2-eip7594.2"
+    "viem": "npm:@aztec/viem@2.38.2"
   },
   "files": [
     "dest",

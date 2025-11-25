@@ -93,7 +93,7 @@
     "semver": "^7.5.4",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "viem": "npm:@spalladino/viem@2.38.2-eip7594.2"
+    "viem": "npm:@aztec/viem@2.38.2"
   },
   "devDependencies": {
     "@aztec/accounts": "workspace:^",
