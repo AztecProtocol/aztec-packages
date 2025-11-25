@@ -313,9 +313,9 @@ spec:
         name: {{ include "chart.fullname" . }}-extra-scripts
     {{- end }}
     {{- if .Values.node.secret.filesEnabled }}
-    - name: config
+    - name: secrets
       secret:
-        secretName: name: {{ include "chart.fullname" . }}-files
+        secretName: {{ include "chart.fullname" . }}-files
     {{- end }}
     {{- if .Values.persistence.enabled }}
     {{- if .Values.persistence.existingClaim }}
