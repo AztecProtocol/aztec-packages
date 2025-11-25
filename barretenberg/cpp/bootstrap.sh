@@ -89,7 +89,7 @@ function build_cross {
     build_preset zig-$target --target bb --target nodejs_module
     inject_version build-zig-$target/bin/bb
     if [ "$is_macos" == "true" ]; then
-      ldid -S build-zig-$target/bin
+      ldid -S build-zig-$target/bin/bb
     fi
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
   fi
