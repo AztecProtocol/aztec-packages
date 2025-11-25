@@ -816,32 +816,30 @@ function generateOpcodeMDX(doc: OpcodeDocumentation): string {
 /**
  * Generate quick reference markdown page.
  */
-function generateQuickReference(docs: Record<string, OpcodeDocumentation>, fullDocFilename: string): string {
+function generateQuickReference(docs: Record<string, OpcodeDocumentation>, opcodesDir: string): string {
   const lines: string[] = [];
 
   // Title and introduction
-  lines.push('# Instruction Set Quick Reference');
+  lines.push('# Instruction Set: Quick Reference');
   lines.push('');
   lines.push(
     'Quick reference for all Aztec Virtual Machine (AVM) instructions. The AVM is the virtual machine used for **public execution** in the Aztec protocol.',
   );
   lines.push('');
-  lines.push(`For detailed documentation of each instruction, see [Instruction Set Details](${fullDocFilename}).`);
-  lines.push('');
   lines.push('## Understanding the AVM');
   lines.push('');
   lines.push('Before diving into the instruction set, familiarize yourself with these core concepts:');
   lines.push('');
-  lines.push('- **[Introduction](./)**: What is the AVM and why do we need it?');
-  lines.push('- **[Memory Model](memory)**: Memory notation and tagged memory (`M[x]` and `T[x]`)');
+  lines.push('- **[Introduction](index.md)**: What is the AVM and why do we need it?');
+  lines.push('- **[Memory Model](memory.md)**: Memory notation and tagged memory (`M[x]` and `T[x]`)');
   lines.push(
-    '- **[Addressing Modes](addressing)**: Direct, indirect, and relative addressing along with their gas implications',
+    '- **[Addressing Modes](addressing.md)**: Direct, indirect, and relative addressing along with their gas implications',
   );
   lines.push(
-    '- **[Gas Metering](gas)**: How L2 and DA gas costs are calculated and charged during instruction execution',
+    '- **[Gas Metering](gas.md)**: How L2 and DA gas costs are calculated and charged during instruction execution',
   );
   lines.push(
-    '- **[Wire Formats](wire-format)**: How instructions are encoded in bytecode and why opcodes have variants like `ADD_8` and `ADD_16`',
+    '- **[Wire Formats](wire-format.md)**: How instructions are encoded in bytecode and why opcodes have variants like `ADD_8` and `ADD_16`',
   );
   lines.push('');
 
@@ -858,7 +856,8 @@ function generateQuickReference(docs: Record<string, OpcodeDocumentation>, fullD
   lines.push('Click on an opcode name to view its detailed documentation.');
   lines.push('');
   for (const doc of allOpcodeDocInfos) {
-    const nameLink = `[${doc.name}](${fullDocFilename}#${doc.name.toLowerCase()})`;
+    const opcodeFilename = `${opcodesDir}/${doc.name.toLowerCase()}.md`;
+    const nameLink = `[\u{1F517}${doc.name}](${opcodeFilename})`;
     const opcodes = getOpcodeRangeString(doc.wireFormats);
     const summary = doc.summary || '';
     const wireFormatCount = doc.wireFormats.length;
@@ -878,13 +877,209 @@ function generateQuickReference(docs: Record<string, OpcodeDocumentation>, fullD
 }
 
 /**
+ * Generate markdown content for a single opcode.
+ * This is used both for individual opcode files and the full reference.
+ * When standalone=true, generates a complete file with frontmatter.
+ * When standalone=false, generates just the opcode section for the full reference.
+ */
+function generateSingleOpcodeMarkdown(doc: OpcodeDocumentation, standalone: boolean = false): string {
+  const lines: string[] = [];
+
+  if (standalone) {
+    // Add link back to quick reference at the top
+    lines.push('[&larr; Back to Instruction Set: Quick Reference](../avm-isa-quick-reference.md)');
+    lines.push('');
+    lines.push(`# ${doc.name}`);
+  } else {
+    lines.push(`### ${doc.name}`);
+  }
+  lines.push('');
+
+  // Summary
+  lines.push(doc.summary);
+  lines.push('');
+
+  const opcodes = getOpcodeRangeString(doc.wireFormats);
+  const wireFormatCount = doc.wireFormats.length;
+  const opcodesText =
+    wireFormatCount === 1 ? `Opcode ${opcodes}` : `Opcodes ${opcodes} (${wireFormatCount} wire formats)`;
+  // Opcodes range
+  lines.push(opcodesText);
+  lines.push('');
+
+  // Expression (no heading, just code block)
+  if (doc.expression) {
+    lines.push('```javascript');
+    lines.push(doc.expression);
+    lines.push('```');
+    lines.push('');
+  }
+
+  // Details
+  if (doc.details) {
+    lines.push(standalone ? '## Details' : '#### Details');
+    lines.push('');
+    lines.push(doc.details);
+    lines.push('');
+  }
+
+  // Gas Costs (complete)
+  lines.push(standalone ? '## Gas Costs' : '#### Gas Costs');
+  lines.push('');
+
+  // Helper function to wrap M[...] in backticks
+  const wrapMemoryRefs = (str: string): string => {
+    return str.replace(/M\[[^\]]+\]/g, match => `\`${match}\``);
+  };
+
+  // Determine if we need the "Scales with" column
+  const hasDynamicGas = doc.gasCosts.l2Dynamic !== undefined || doc.gasCosts.daDynamic !== undefined;
+  const hasAddressingModes = doc.addressingModes.supported;
+  const needsScalesWithColumn = hasDynamicGas || hasAddressingModes;
+
+  if (needsScalesWithColumn) {
+    lines.push('| Component | Value | Scales with |');
+    lines.push('|-----------|-------|-------------|');
+    if (doc.gasCosts.l2Base !== undefined) {
+      lines.push(`| L2 Base | ${doc.gasCosts.l2Base} | - |`);
+    }
+    if (doc.gasCosts.daBase !== undefined) {
+      lines.push(`| DA Base | ${doc.gasCosts.daBase} | - |`);
+    }
+    // Add L2 Addressing row for instructions with memory offset operands
+    if (hasAddressingModes) {
+      lines.push(`| L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |`);
+    }
+    if (doc.gasCosts.l2Dynamic !== undefined) {
+      const scalesWith = doc.gasScaling?.l2Gas ? wrapMemoryRefs(doc.gasScaling.l2Gas) : '-';
+      lines.push(`| L2 Dynamic | ${doc.gasCosts.l2Dynamic} | ${scalesWith} |`);
+    }
+    if (doc.gasCosts.daDynamic !== undefined) {
+      const scalesWith = doc.gasScaling?.daGas ? wrapMemoryRefs(doc.gasScaling.daGas) : '-';
+      lines.push(`| DA Dynamic | ${doc.gasCosts.daDynamic} | ${scalesWith} |`);
+    }
+  } else {
+    lines.push('| Component | Value |');
+    lines.push('|-----------|-------|');
+    if (doc.gasCosts.l2Base !== undefined) {
+      lines.push(`| L2 Base | ${doc.gasCosts.l2Base} |`);
+    }
+    if (doc.gasCosts.daBase !== undefined) {
+      lines.push(`| DA Base | ${doc.gasCosts.daBase} |`);
+    }
+  }
+  lines.push('');
+
+  // Add instruction-specific gas note if present
+  if (doc.gasScaling?.note) {
+    lines.push(doc.gasScaling.note);
+    lines.push('');
+  }
+
+  // Add link to gas metering page
+  lines.push('*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.');
+  lines.push('');
+
+  // Operands (complete with addressing mode bits)
+  if (doc.operands && doc.operands.length > 0) {
+    lines.push(standalone ? '## Operands' : '#### Operands');
+    lines.push('');
+    lines.push('| Name | Type | Description |');
+    lines.push('|------|------|-------------|');
+    for (const op of doc.operands) {
+      lines.push(`| \`${op.name}\` | ${generateOperandDescription(op)} | ${op.description} |`);
+    }
+    lines.push('');
+  }
+
+  // Wire formats (complete with Mermaid)
+  if (doc.wireFormats && doc.wireFormats.length > 0) {
+    lines.push(standalone ? '## Wire Formats' : '#### Wire Formats');
+    lines.push(
+      'See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).',
+    );
+    lines.push('');
+    for (const wf of doc.wireFormats) {
+      lines.push(`**${wf.name}** (Opcode ${formatOpcodeHex(wf.opcode)}):`);
+      lines.push('');
+      if (wf.mermaidDiagram) {
+        lines.push(wf.mermaidDiagram);
+        lines.push('');
+      }
+    }
+  }
+
+  // Addressing Modes
+  if (doc.addressingModes?.supported) {
+    lines.push(standalone ? '## Addressing Modes' : '#### Addressing Modes');
+    lines.push('See [Addressing](addressing.md) page for a detailed explanation.');
+    lines.push('');
+    lines.push(`${doc.addressingModes.encoding}`);
+    lines.push('');
+    lines.push(
+      `Memory offset operands (${doc.addressingModes.operands.map(o => `\`${o}\``).join(', ')}) are encoded as follows:`,
+    );
+    lines.push('');
+
+    // Add mermaid diagram
+    const mermaidDiagram = generateAddressingModeMermaid(doc);
+    if (mermaidDiagram) {
+      lines.push(mermaidDiagram);
+      lines.push('');
+    }
+  }
+
+  // Tag Checks (if present)
+  if (doc.tagChecks && doc.tagChecks.length > 0) {
+    lines.push(standalone ? '## Tag Checks' : '#### Tag Checks');
+    lines.push('');
+    for (const check of doc.tagChecks) {
+      lines.push(`- ${check}`);
+    }
+    lines.push('');
+  }
+
+  // Tag Updates (if present)
+  if (doc.tagUpdates && doc.tagUpdates.length > 0) {
+    lines.push(standalone ? '## Tag Updates' : '#### Tag Updates');
+    lines.push('');
+    for (const update of doc.tagUpdates) {
+      lines.push(`- ${update}`);
+    }
+    lines.push('');
+  }
+
+  // Errors
+  if (doc.errors && doc.errors.length > 0) {
+    lines.push(standalone ? '## Error Conditions' : '#### Error Conditions');
+    lines.push('');
+    for (const err of doc.errors) {
+      lines.push(`- **${err.condition}**: ${err.description}`);
+    }
+    lines.push('');
+  }
+
+  if (standalone) {
+    // Add link back to quick reference at the bottom
+    lines.push('---');
+    lines.push('');
+    lines.push('[&larr; Back to Instruction Set: Quick Reference](../avm-isa-quick-reference.md)');
+  } else {
+    lines.push('---');
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+/**
  * Generate full instruction set details markdown page.
  */
 function generateFullInstructionSet(docs: Record<string, OpcodeDocumentation>, quickRefFilename: string): string {
   const lines: string[] = [];
 
   // Title and introduction
-  lines.push('# Instruction Set Details');
+  lines.push('# Instruction Set: Full Reference');
   lines.push('');
   lines.push(
     'Comprehensive reference for all Aztec Virtual Machine (AVM) instructions. The AVM is the virtual machine used for **public execution** in the Aztec protocol. This is _not_ a specification of the ACIR instruction set used for private execution.',
@@ -930,179 +1125,9 @@ function generateFullInstructionSet(docs: Record<string, OpcodeDocumentation>, q
   lines.push('## Instructions');
   lines.push('');
 
-  // Generate documentation for each opcode
+  // Generate documentation for each opcode using the shared function
   for (const doc of allOpcodeDocInfos) {
-    lines.push(`### ${doc.name}`);
-    lines.push('');
-
-    // Summary
-    lines.push(doc.summary);
-    lines.push('');
-
-    const opcodes = getOpcodeRangeString(doc.wireFormats);
-    const wireFormatCount = doc.wireFormats.length;
-    const opcodesText =
-      wireFormatCount === 1 ? `Opcode ${opcodes}` : `Opcodes ${opcodes} (${wireFormatCount} wire formats)`;
-    // Opcodes range
-    lines.push(opcodesText);
-    lines.push('');
-
-    // Expression (no heading, just code block)
-    if (doc.expression) {
-      lines.push('```javascript');
-      lines.push(doc.expression);
-      lines.push('```');
-      lines.push('');
-    }
-
-    // Details
-    if (doc.details) {
-      lines.push('#### Details');
-      lines.push('');
-      lines.push(doc.details);
-      lines.push('');
-    }
-
-    // Gas Costs (complete)
-    lines.push('#### Gas Costs');
-    lines.push('');
-
-    // Helper function to wrap M[...] in backticks
-    const wrapMemoryRefs = (str: string): string => {
-      return str.replace(/M\[[^\]]+\]/g, match => `\`${match}\``);
-    };
-
-    // Determine if we need the "Scales with" column
-    const hasDynamicGas = doc.gasCosts.l2Dynamic !== undefined || doc.gasCosts.daDynamic !== undefined;
-    const hasAddressingModes = doc.addressingModes.supported;
-    const needsScalesWithColumn = hasDynamicGas || hasAddressingModes;
-
-    if (needsScalesWithColumn) {
-      lines.push('| Component | Value | Scales with |');
-      lines.push('|-----------|-------|-------------|');
-      if (doc.gasCosts.l2Base !== undefined) {
-        lines.push(`| L2 Base | ${doc.gasCosts.l2Base} | - |`);
-      }
-      if (doc.gasCosts.daBase !== undefined) {
-        lines.push(`| DA Base | ${doc.gasCosts.daBase} | - |`);
-      }
-      // Add L2 Addressing row for instructions with memory offset operands
-      if (hasAddressingModes) {
-        lines.push(
-          `| L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |`,
-        );
-      }
-      if (doc.gasCosts.l2Dynamic !== undefined) {
-        const scalesWith = doc.gasScaling?.l2Gas ? wrapMemoryRefs(doc.gasScaling.l2Gas) : '-';
-        lines.push(`| L2 Dynamic | ${doc.gasCosts.l2Dynamic} | ${scalesWith} |`);
-      }
-      if (doc.gasCosts.daDynamic !== undefined) {
-        const scalesWith = doc.gasScaling?.daGas ? wrapMemoryRefs(doc.gasScaling.daGas) : '-';
-        lines.push(`| DA Dynamic | ${doc.gasCosts.daDynamic} | ${scalesWith} |`);
-      }
-    } else {
-      lines.push('| Component | Value |');
-      lines.push('|-----------|-------|');
-      if (doc.gasCosts.l2Base !== undefined) {
-        lines.push(`| L2 Base | ${doc.gasCosts.l2Base} |`);
-      }
-      if (doc.gasCosts.daBase !== undefined) {
-        lines.push(`| DA Base | ${doc.gasCosts.daBase} |`);
-      }
-    }
-    lines.push('');
-
-    // Add instruction-specific gas note if present
-    if (doc.gasScaling?.note) {
-      lines.push(doc.gasScaling.note);
-      lines.push('');
-    }
-
-    // Add link to gas metering page
-    lines.push('*See [Gas Metering](gas) for details on how gas costs are computed and applied.');
-    lines.push('');
-
-    // Operands (complete with addressing mode bits)
-    if (doc.operands && doc.operands.length > 0) {
-      lines.push('#### Operands');
-      lines.push('');
-      lines.push('| Name | Type | Description |');
-      lines.push('|------|------|-------------|');
-      for (const op of doc.operands) {
-        lines.push(`| \`${op.name}\` | ${generateOperandDescription(op)} | ${op.description} |`);
-      }
-      lines.push('');
-    }
-
-    // Wire formats (complete with Mermaid)
-    if (doc.wireFormats && doc.wireFormats.length > 0) {
-      lines.push('#### Wire Formats');
-      lines.push(
-        'See [Wire Format](wire-format) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).',
-      );
-      lines.push('');
-      for (const wf of doc.wireFormats) {
-        lines.push(`**${wf.name}** (Opcode ${formatOpcodeHex(wf.opcode)}):`);
-        lines.push('');
-        if (wf.mermaidDiagram) {
-          lines.push(wf.mermaidDiagram);
-          lines.push('');
-        }
-      }
-    }
-
-    // Addressing Modes
-    if (doc.addressingModes?.supported) {
-      lines.push('#### Addressing Modes');
-      lines.push('See [Addressing](addressing) page for a detailed explanation.');
-      lines.push('');
-      lines.push(`${doc.addressingModes.encoding}`);
-      lines.push('');
-      lines.push(
-        `Memory offset operands (${doc.addressingModes.operands.map(o => `\`${o}\``).join(', ')}) are encoded as follows:`,
-      );
-      lines.push('');
-
-      // Add mermaid diagram
-      const mermaidDiagram = generateAddressingModeMermaid(doc);
-      if (mermaidDiagram) {
-        lines.push(mermaidDiagram);
-        lines.push('');
-      }
-    }
-
-    // Tag Checks (if present)
-    if (doc.tagChecks && doc.tagChecks.length > 0) {
-      lines.push('#### Tag Checks');
-      lines.push('');
-      for (const check of doc.tagChecks) {
-        lines.push(`- ${check}`);
-      }
-      lines.push('');
-    }
-
-    // Tag Updates (if present)
-    if (doc.tagUpdates && doc.tagUpdates.length > 0) {
-      lines.push('#### Tag Updates');
-      lines.push('');
-      for (const update of doc.tagUpdates) {
-        lines.push(`- ${update}`);
-      }
-      lines.push('');
-    }
-
-    // Errors
-    if (doc.errors && doc.errors.length > 0) {
-      lines.push('#### Error Conditions');
-      lines.push('');
-      for (const err of doc.errors) {
-        lines.push(`- **${err.condition}**: ${err.description}`);
-      }
-      lines.push('');
-    }
-
-    lines.push('---');
-    lines.push('');
+    lines.push(generateSingleOpcodeMarkdown(doc, false));
   }
 
   return lines.join('\n');
@@ -1147,16 +1172,31 @@ function main() {
       const quickRefFile = outputFile.replace(/\.json$/, '-quick-reference.md');
       const fullFile = outputFile.replace(/\.json$/, '-full.md');
 
+      // Compute output directory from the output file path
+      const outputDir = path.dirname(outputFile);
+      const opcodesDir = path.join(outputDir, 'opcodes');
+
+      // Create opcodes directory if it doesn't exist
+      if (!fs.existsSync(opcodesDir)) {
+        fs.mkdirSync(opcodesDir, { recursive: true });
+      }
+
       // Extract basenames for links
       const quickRefBasename = quickRefFile.split('/').pop()!;
-      const fullBasename = fullFile.split('/').pop()!;
 
-      // Generate quick reference
-      const quickRefOutput = generateQuickReference(docs, fullBasename);
+      // Generate individual opcode files
+      for (const doc of Object.values(docs)) {
+        const opcodeFile = path.join(opcodesDir, `${doc.name.toLowerCase()}.md`);
+        const opcodeContent = generateSingleOpcodeMarkdown(doc, true);
+        fs.writeFileSync(opcodeFile, opcodeContent, 'utf-8');
+      }
+
+      // Generate quick reference with links to individual opcode files
+      const quickRefOutput = generateQuickReference(docs, 'opcodes');
       fs.writeFileSync(quickRefFile, quickRefOutput, 'utf-8');
       //console.log(`✓ Quick reference: ${quickRefFile}`);
 
-      // Generate full instruction set
+      // Generate full instruction set (for reference/backwards compatibility)
       const fullOutput = generateFullInstructionSet(docs, quickRefBasename);
       fs.writeFileSync(fullFile, fullOutput, 'utf-8');
       //console.log(`✓ Full instruction set: ${fullFile}`);

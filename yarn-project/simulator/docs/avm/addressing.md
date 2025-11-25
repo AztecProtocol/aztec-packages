@@ -1,9 +1,3 @@
----
-title: Addressing
-description: Understanding addressing modes and address resolution in the Aztec Virtual Machine
-sidebar_position: 2
----
-
 # Addressing
 
 ## Addressing Modes

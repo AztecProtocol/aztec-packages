@@ -50,9 +50,9 @@ single AVM proof.
 
 ## Sections
 
-- **[Memory Model](./memory)**: Learn about memory, storage, and type tags
-- **[Addressing Modes](./addressing)**: Understand direct, indirect, and relative addressing
-- **[Wire Formats](./wire-format)**: How instructions are encoded in bytecode
-- **[Gas Metering](./gas)**: Explore how gas costs are calculated and charged
-- **[Instruction Set: Quick Reference](./avm-isa-quick-reference)**: A quick reference of all AVM instructions
-- **[Instruction Set: Full Reference](./avm-isa-full)**: Complete reference for all AVM instructions
+- **[Memory Model](./memory.md)**: Learn about memory, storage, and type tags
+- **[Addressing Modes](./addressing.md)**: Understand direct, indirect, and relative addressing
+- **[Wire Formats](./wire-format.md)**: How instructions are encoded in bytecode
+- **[Gas Metering](./gas.md)**: Explore how gas costs are calculated and charged
+- **[Instruction Set: Quick Reference](./avm-isa-quick-reference.md)**: A quick reference of all AVM instructions
+- **[Instruction Set: Full Reference](./avm-isa-full.md)**: Complete reference for all AVM instructions

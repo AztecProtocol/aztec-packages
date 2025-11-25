@@ -9,7 +9,7 @@ The AVM uses a **tagged memory model** where each memory cell contains a value (
 
 Cells in memory are "type-tagged" when they are written. Cells that have never been written before have value 0 and tag `FIELD`.
 
-Some AVM opcodes (see the [Instruction Set](avm-isa-quick-reference)) write to memory. Any opcode that writes to memory is responsible for properly tagging written cells and ensuring that written values fit in the associated range.
+Some AVM opcodes (see the [Instruction Set](avm-isa-quick-reference.md)) write to memory. Any opcode that writes to memory is responsible for properly tagging written cells and ensuring that written values fit in the associated range.
 
 In other words, values are range-checked when _written_ to memory. This means that when _reading_ a value from memory, it can be safely assumed that the value is within the range specified by its tag.
 
@@ -43,7 +43,7 @@ p = 2188824287183927522224640574525727508854836440041603434369820418657580849561
 
 `M[x]` denotes the value stored in memory at offset `x`. Memory is organized as a linear array of field elements, with each cell capable of holding a value from the BN254 field.
 
-Note that `M[x]` is often used as shorthand for "the memory value accessed after operand `x` is fully resolved", where the instruction's [addressing mode bitmask](addressing#addressing-mode-bitmask) indicates whether or not this operand actually uses indirect and/or relative addressing (_e.g._ `M[M[x]]` and/or `M[x + M[0]]`).
+Note that `M[x]` is often used as shorthand for "the memory value accessed after operand `x` is fully resolved", where the instruction's [addressing mode bitmask](addressing.md#addressing-mode-bitmask) indicates whether or not this operand actually uses indirect and/or relative addressing (_e.g._ `M[M[x]]` and/or `M[x + M[0]]`).
 
 ### Type Tags
 
@@ -130,7 +130,7 @@ M[dstOffset] = M[M[srcOffset]]    # Perform move from indirect source
 ## Memory Bounds
 
 An out-of-bounds memory access can be encountered when:
-- An instruction operand uses relative addressing which derives a memory offset from the addition of two values (see [Addressing](addressing)).
-- An instruction operates on a _range_ of data (see [EMITUNENCRYPTEDLOG](avm-isa-quick-reference#EMITUNENCRYPTEDLOG))
+- An instruction operand uses relative addressing which derives a memory offset from the addition of two values (see [Addressing](addressing.md)).
+- An instruction operates on a _range_ of data (see [EMITUNENCRYPTEDLOG](opcodes/emitunencryptedlog.md))
 
 When this happens, the instruction will throw an error **MEMORY_ACCESS_OUT_OF_RANGE**.

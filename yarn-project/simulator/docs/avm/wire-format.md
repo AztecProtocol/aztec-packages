@@ -1,9 +1,3 @@
----
-title: Wire Formats
-description: Understanding bytecode representation and opcode variants in the Aztec Virtual Machine
-sidebar_position: 3
----
-
 # Wire Formats
 
 The AVM bytecode uses a compact binary encoding where each instruction is serialized as a sequence of bytes according to its **wire format**.
@@ -24,9 +18,9 @@ Both execute the same ADD operation and work with any supported type (FIELD, UIN
 The numeric suffixes in these opcode names (`_8` or `_16`) indicate the **size of memory offset operands
  in the bytecode**, not the type of data being operated on.
 
-The actual operation type is determined by the [type tags](memory#type-tags) of the resolved memory
+The actual operation type is determined by the [type tags](memory.md#type-tags) of the resolved memory
 locations. For example, `ADD_8` encodes its `aOffset` and `bOffset` operands as 8-bit values in the
-bytecode. However, if these offsets (after [addressing mode](addressing) resolution) point to memory
+bytecode. However, if these offsets (after [addressing mode](addressing.md) resolution) point to memory
 cells tagged as UINT128, the instruction performs 128-bit addition. For `ADD`s (and for many other operations),
 the AVM enforces that the inputs have matching tags (`T[aOffset] == T[bOffset]`) and then tags the result with that same tag.
 

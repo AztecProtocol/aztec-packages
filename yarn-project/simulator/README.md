@@ -28,7 +28,7 @@ They are run with the assistance of an oracle that provides any value read from 
 
 Public functions can call other public function, but no private functions.
 
-See the specifications of the [Aztec Virtual Machine (AVM) for public execution](./docs/index.md).
+See the specifications of the [Aztec Virtual Machine (AVM) for public execution](./docs/avm/index.md).
 
 ### Unconstrained Functions
 

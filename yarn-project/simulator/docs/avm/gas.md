@@ -32,7 +32,7 @@ Base costs are charged at the start of an instruction's execution.
 
 ### Addressing Costs
 
-**Addressing costs** are L2 costs charged for non-direct memory addressing modes (see [Addressing Modes](addressing)):
+**Addressing costs** are L2 costs charged for non-direct memory addressing modes (see [Addressing Modes](addressing.md)):
 - **3 L2 gas** per indirect memory offset
 - **3 L2 gas** per relative memory offset
 
@@ -59,7 +59,7 @@ Some instructions have gas costs that scale with runtime values (e.g., data size
 
 ## Gas Cost Tables
 
-Each instruction in the [Instruction Set](avm-isa-quick-reference) includes a Gas Costs table with these columns:
+Each instruction in the [Instruction Set](avm-isa-quick-reference.md) includes a Gas Costs table with these columns:
 
 - **Component**: The type of gas cost (L2 Base, DA Base, L2 Addressing, L2 Dynamic, DA Dynamic)
 - **Value**: The amount of gas charged per unit
