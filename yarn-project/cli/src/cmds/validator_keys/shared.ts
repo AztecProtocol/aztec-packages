@@ -29,7 +29,6 @@ export type BuildValidatorsInput = {
   feeRecipient: AztecAddress;
   coinbase?: EthAddress;
   remoteSigner?: string;
-  fundingAccount?: EthAddress;
 };
 
 export function withValidatorIndex(path: string, accountIndex: number = 0, addressIndex: number = 0) {
@@ -89,7 +88,6 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
     feeRecipient,
     coinbase,
     remoteSigner,
-    fundingAccount,
   } = input;
 
   const summaries: ValidatorSummary[] = [];
@@ -143,7 +141,6 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
         ...(publisherField !== undefined ? { publisher: publisherField } : {}),
         feeRecipient,
         coinbase: coinbase ?? attesterEthAddress,
-        fundingAccount,
       } as ValidatorKeyStore;
     }),
   );
@@ -323,11 +320,6 @@ export async function writeEthJsonV3ToFile(
       } else if (pub !== undefined) {
         (v as any).publisher = await maybeEncryptEth(pub, `publisher_${i + 1}`);
       }
-    }
-
-    // Optional fundingAccount within validator
-    if ('fundingAccount' in v) {
-      (v as any).fundingAccount = await maybeEncryptEth((v as any).fundingAccount, `funding_${i + 1}`);
     }
   }
 }

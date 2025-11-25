@@ -212,6 +212,12 @@ case ${1:-} in
       -v $(realpath $(dirname $2))/:/tmp \
       $DOCKER_REPO:$VERSION /tmp/$(basename $2) $3
     ;;
+  valkeys|valKeys|validator-keys)
+    # Special case for validator keys command to inject LEGACY_BLS_CLI environment variable
+    export ENV_VARS_TO_INJECT="LEGACY_BLS_CLI"
+    exec $(dirname $0)/.aztec-run aztec \
+      node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
+    ;;
   *)
     export ENV_VARS_TO_INJECT="SECRET_KEY"
     exec $(dirname $0)/.aztec-run aztec \
