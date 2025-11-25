@@ -495,35 +495,6 @@ std::vector<std::pair<C, FF>> handle_first_active_row()
     return columns;
 }
 
-/**
- * @brief Populate some specific columns for a padded row. This is a row that is not explicitly skipped because of a
- *        revert, but just has no contents to process, like when app logic starts but has no enqueued calls.
- *        This cannot happen for COLLECT_GAS_FEES, CLEANUP or TREE_PADDING phases.
- *
- * @param phase The transaction phase.
- * @param gas_used The gas used.
- * @return The relevant populated columns.
- */
-std::vector<std::pair<C, FF>> handle_padded_row(TransactionPhase phase, const Gas& gas_used)
-{
-    std::vector<std::pair<C, FF>> columns = {
-        { C::tx_is_padded, 1 },
-    };
-
-    // Gas used does not change in padding rows
-    if (get_tx_phase_spec_map().at(phase).is_public_call_request && !is_teardown(phase)) {
-        columns.insert(columns.end(),
-                       {
-                           { C::tx_prev_da_gas_used_sent_to_enqueued_call, gas_used.da_gas },
-                           { C::tx_prev_l2_gas_used_sent_to_enqueued_call, gas_used.l2_gas },
-                           { C::tx_next_da_gas_used_sent_to_enqueued_call, gas_used.da_gas },
-                           { C::tx_next_l2_gas_used_sent_to_enqueued_call, gas_used.l2_gas },
-                       });
-    }
-
-    return columns;
-}
-
 } // namespace
 
 /**
@@ -718,7 +689,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                                        // EmptyPhaseEvent represents a phase that is not explicitly skipped because of a
                                        // revert, but just has no contents to process, like when app logic starts but
                                        // has no enqueued calls.
-                                       trace.set(row, handle_padded_row(phase, gas_used));
+                                       trace.set(C::tx_is_padded, row, 1);
                                    } },
                        tx_phase_event->event);
 
