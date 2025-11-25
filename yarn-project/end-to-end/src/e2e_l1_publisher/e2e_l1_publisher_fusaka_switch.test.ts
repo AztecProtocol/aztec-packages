@@ -1,11 +1,7 @@
 import type { ArchiveSource } from '@aztec/archiver';
 import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { L2Block } from '@aztec/aztec.js/block';
-import { Fr } from '@aztec/aztec.js/fields';
-import { createLogger } from '@aztec/aztec.js/log';
-import { GlobalVariables } from '@aztec/aztec.js/tx';
-import { getBlobsPerL1Block } from '@aztec/blob-lib';
+import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
+import { Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -29,13 +25,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { ProtocolContractsList } from '@aztec/protocol-contracts';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import { CommitteeAttestationsAndSigners, type L2Tips, PublishedL2Block, Signature } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { fr, mockProcessedTx } from '@aztec/stdlib/testing';
+import { fr, makeBloatedProcessedTx } from '@aztec/stdlib/testing';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
 import {
   type MerkleTreeAdminDatabase,
@@ -139,7 +135,7 @@ describe('L1Publisher integration', () => {
     ));
 
     dateProvider = new TestDateProvider();
-    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider, logger, chain);
+    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, logger, chain);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
@@ -263,13 +259,13 @@ describe('L1Publisher integration', () => {
   });
 
   const makeProcessedTx = (seed = 0x1): Promise<ProcessedTx> =>
-    mockProcessedTx({
-      anchorBlockHeader: prevHeader,
+    makeBloatedProcessedTx({
+      header: prevHeader,
       chainId: fr(chainId),
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
       gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
-      protocolContracts: ProtocolContractsList,
+      protocolContractTreeRoot,
       seed,
     });
 
@@ -336,7 +332,7 @@ describe('L1Publisher integration', () => {
       const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
       expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
 
-      prevHeader = block.getBlockHeader();
+      prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
 
       const emptyRoot = await outbox.read.getRootData([BigInt(block.header.globalVariables.blockNumber)]);
@@ -344,14 +340,14 @@ describe('L1Publisher integration', () => {
       // Check that we have not yet written a root to this blocknumber
       expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-      const checkpointBlobFields = block.getCheckpointBlobFields();
-      const blockBlobs = getBlobsPerL1Block(checkpointBlobFields);
+      const blobFields = block.body.toBlobFields();
+      const blockBlobs = await Blob.getBlobsPerBlock(blobFields);
       expect(block.header.contentCommitment.blobsHash).toEqual(
-        sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
+        sha256ToField(blockBlobs.map((b: Blob) => b.getEthVersionedBlobHash())),
       );
 
       blocks.push(block);
-      blobFieldsPerCheckpoint.push(checkpointBlobFields);
+      blobFieldsPerCheckpoint.push(blobFields);
 
       await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
       await publisher.sendRequests();
