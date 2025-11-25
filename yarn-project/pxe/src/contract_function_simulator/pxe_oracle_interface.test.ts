@@ -620,6 +620,7 @@ describe('PXEOracleInterface', () => {
     let nullifier: Fr;
     let txHash: TxHash;
     let storageSlot: Fr;
+    let randomness: Fr;
     let noteNonce: Fr;
     let content: Fr[];
 
@@ -628,6 +629,7 @@ describe('PXEOracleInterface', () => {
       nullifier = Fr.random();
       txHash = TxHash.random();
       storageSlot = Fr.random();
+      randomness = Fr.random();
       noteNonce = Fr.random();
       content = [Fr.random(), Fr.random()];
     });
@@ -645,6 +647,7 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.deliverNote(
         contractAddress,
         storageSlot,
+        randomness,
         noteNonce,
         content,
         noteHash,
@@ -669,6 +672,7 @@ describe('PXEOracleInterface', () => {
         pxeOracleInterface.deliverNote(
           contractAddress,
           storageSlot,
+          randomness,
           noteNonce,
           content,
           noteHash,
@@ -697,6 +701,7 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.deliverNote(
         contractAddress,
         storageSlot,
+        randomness,
         noteNonce,
         content,
         noteHash,
@@ -732,6 +737,7 @@ describe('PXEOracleInterface', () => {
       await expect(
         pxeOracleInterface.deliverNote(
           contractAddress,
+          randomness,
           storageSlot,
           noteNonce,
           content,
@@ -767,6 +773,7 @@ describe('PXEOracleInterface', () => {
 
       await pxeOracleInterface.deliverNote(
         contractAddress,
+        randomness,
         storageSlot,
         noteNonce,
         content,

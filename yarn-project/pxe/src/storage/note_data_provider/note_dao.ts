@@ -24,6 +24,10 @@ export class NoteDao implements NoteData {
      * since contracts typically make queries based on it.
      */
     public storageSlot: Fr,
+    /**
+     * The randomness injected to the note.
+     */
+    public randomness: Fr,
     /** The nonce that was injected into the note hash preimage in order to guarantee uniqueness. */
     public noteNonce: Fr,
 
@@ -64,6 +68,7 @@ export class NoteDao implements NoteData {
       this.note,
       this.contractAddress,
       this.storageSlot,
+      this.randomness,
       this.noteNonce,
       this.noteHash,
       this.siloedNullifier,
@@ -81,6 +86,7 @@ export class NoteDao implements NoteData {
     const note = Note.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
     const storageSlot = Fr.fromBuffer(reader);
+    const randomness = Fr.fromBuffer(reader);
     const noteNonce = Fr.fromBuffer(reader);
     const noteHash = Fr.fromBuffer(reader);
     const siloedNullifier = Fr.fromBuffer(reader);
@@ -94,6 +100,7 @@ export class NoteDao implements NoteData {
       note,
       contractAddress,
       storageSlot,
+      randomness,
       noteNonce,
       noteHash,
       siloedNullifier,
@@ -128,6 +135,7 @@ export class NoteDao implements NoteData {
     note = Note.random(),
     contractAddress = undefined,
     storageSlot = Fr.random(),
+    randomness = Fr.random(),
     noteNonce = Fr.random(),
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
@@ -141,6 +149,7 @@ export class NoteDao implements NoteData {
       note,
       contractAddress ?? (await AztecAddress.random()),
       storageSlot,
+      randomness,
       noteNonce,
       noteHash,
       siloedNullifier,
