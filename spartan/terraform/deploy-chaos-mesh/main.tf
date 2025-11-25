@@ -26,14 +26,14 @@ provider "helm" {
   }
 }
 
-# Install Chaos Mesh via the local helm chart wrapper in spartan/chaos-mesh
 resource "helm_release" "chaos_mesh" {
   provider          = helm.gke-cluster
   name              = var.RELEASE_NAME
   namespace         = var.CHAOS_MESH_NAMESPACE
   create_namespace  = true
-  repository        = "../../"
+  repository        = "https://charts.chaos-mesh.org"
   chart             = "chaos-mesh"
+  version           = "2.8.0"
   dependency_update = true
   upgrade_install   = true
   force_update      = true
@@ -42,6 +42,28 @@ resource "helm_release" "chaos_mesh" {
   wait              = true
   wait_for_jobs     = true
   timeout           = 600
+
+  values = [
+    yamlencode({
+      dashboard = {
+        persistentVolume = {
+          enabled          = true
+          size             = "8Gi"
+          storageClassName = "standard"
+          mountPath        = "/data"
+          subPath          = ""
+
+          securityMode = var.ENABLE_SAFE_MODE
+
+          chaosDaemon = {
+            privileged = true
+            runtime    = "containerd"
+            socketPath = "/run/containerd/containerd.sock"
+          }
+        }
+      }
+    })
+  ]
 }
 
 
