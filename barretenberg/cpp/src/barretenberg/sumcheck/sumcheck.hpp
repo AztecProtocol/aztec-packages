@@ -33,7 +33,8 @@ template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> struct Ro
         : transcript(transcript)
     {}
 
-    void process_univariate(size_t round_idx, bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate)
+    void process_round_univariate(size_t round_idx,
+                                  bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate)
     {
         transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
     }
@@ -73,7 +74,8 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
         }
     }
 
-    void process_univariate(size_t round_idx, bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate)
+    void process_round_univariate(size_t round_idx,
+                                  bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate)
     {
         const std::string idx = std::to_string(round_idx);
 
@@ -283,18 +285,6 @@ template <typename Flavor, bool HasZK = Flavor::HasZK> struct VerifierZKCorrecti
                               const std::vector<FF>& /*padding_indicator_array*/)
     {}
 
-    void apply_zk_corrections(FF& /*full_honk_purported_value*/,
-                              const std::vector<FF>& /*multivariate_challenge*/,
-                              size_t /*virtual_log_n*/)
-    {}
-
-    // Unified interface: accepts both parameters, non-ZK flavors don't use them
-    void apply_zk_corrections(FF& /*full_honk_purported_value*/,
-                              const std::vector<FF>& /*multivariate_challenge*/,
-                              const std::vector<FF>& /*padding_indicator_array*/,
-                              size_t /*virtual_log_n*/)
-    {}
-
     FF get_libra_evaluation() const { return libra_evaluation; }
 };
 
@@ -326,7 +316,7 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     }
 
     void apply_zk_corrections(FF& full_honk_purported_value,
-                              std::span<FF> multivariate_challenge,
+                              std::vector<FF>& multivariate_challenge,
                               const std::vector<FF>& padding_indicator_array)
     {
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
@@ -340,39 +330,6 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
         // Get the claimed evaluation of the Libra multivariate evaluated at the sumcheck challenge
         libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
         full_honk_purported_value += libra_evaluation * libra_challenge;
-    }
-
-    void apply_zk_corrections(FF& full_honk_purported_value,
-                              const std::vector<FF>& multivariate_challenge,
-                              size_t virtual_log_n)
-    {
-        if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
-            // rows where all sumcheck relations are disabled
-            // i.e. compute the term $1 - \prod_{i=2}^{d-1} u_i$
-            full_honk_purported_value *=
-                RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, virtual_log_n);
-        }
-
-        // Get the claimed evaluation of the Libra multivariate evaluated at the sumcheck challenge
-        libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
-        full_honk_purported_value += libra_evaluation * libra_challenge;
-    }
-
-    // Unified interface: dispatches to appropriate overload based on flavor
-    void apply_zk_corrections(FF& full_honk_purported_value,
-                              std::vector<FF>& multivariate_challenge,
-                              const std::vector<FF>& padding_indicator_array,
-                              size_t virtual_log_n)
-    {
-        if constexpr (IsGrumpkinFlavor<Flavor>) {
-            // For Grumpkin: use virtual_log_n (avoids creating array of field elements in circuit)
-            apply_zk_corrections(full_honk_purported_value, multivariate_challenge, virtual_log_n);
-        } else {
-            // For non-Grumpkin: use padding_indicator_array (converting to span)
-            apply_zk_corrections(
-                full_honk_purported_value, std::span<FF>(multivariate_challenge), padding_indicator_array);
-        }
     }
 
     FF get_libra_evaluation() const { return libra_evaluation; }
@@ -755,7 +712,7 @@ template <typename Flavor> class SumcheckProver {
         {
             BB_BENCH_NAME("rest of sumcheck round 1");
 
-            handler.process_univariate(round_idx, round_univariate);
+            handler.process_round_univariate(round_idx, round_univariate);
 
             const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
 
@@ -792,7 +749,7 @@ template <typename Flavor> class SumcheckProver {
                                                                         row_disabling_polynomial);
             }
 
-            handler.process_univariate(round_idx, round_univariate);
+            handler.process_round_univariate(round_idx, round_univariate);
 
             const FF round_challenge =
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
@@ -1029,7 +986,7 @@ template <typename Flavor> class SumcheckVerifier {
         , virtual_log_n(virtual_log_n)
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha)) {};
     /**
-     * @brief The Sumcheck verification method. First it extracts round univariate, check sum (the sumcheck univariate
+     * @brief The Sumcheck verification method. First it extracts round univariate, checks sum (the sumcheck univariate
      * consistency check), generate challenge, compute next target sum..., repeat until final round, then use purported
      * evaluations to generate purported full Honk relation value and check against final target sum.
      *
@@ -1056,13 +1013,8 @@ template <typename Flavor> class SumcheckVerifier {
         multivariate_challenge.reserve(virtual_log_n);
 
         // Initialize padding indicator to all 1s if not provided
-        // For Grumpkin: create empty vector (will be ignored); This is ugly but otherwise we'd be wasting gates for
-        // useless field elements in the recursive flavors
-        std::vector<FF> padding_indicator_array;
-        if constexpr (!IsGrumpkinFlavor<Flavor>) {
-            padding_indicator_array =
-                padding_indicator.empty() ? std::vector<FF>(virtual_log_n, FF(1)) : padding_indicator;
-        }
+        std::vector<FF> padding_indicator_array =
+            padding_indicator.empty() ? std::vector<FF>(virtual_log_n, FF(1)) : padding_indicator;
 
         // Process all rounds
         bool verified = round_handler.process_rounds(
@@ -1084,7 +1036,7 @@ template <typename Flavor> class SumcheckVerifier {
         // For ZK Flavors: compute the evaluation of the Row Disabling Polynomial at the sumcheck challenge and of the
         // libra univariate used to hide the contribution from the actual Honk relation
         zk_correction_handler.apply_zk_corrections(
-            full_honk_purported_value, multivariate_challenge, padding_indicator_array, virtual_log_n);
+            full_honk_purported_value, multivariate_challenge, padding_indicator_array);
 
         //! [Final Verification Step]
         verified = round_handler.perform_final_verification(full_honk_purported_value) && verified;

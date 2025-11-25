@@ -182,10 +182,11 @@ template <typename FF> struct RowDisablingPolynomial {
     }
 
     /**
-     * @brief A variant of the above that uses `padding_indicator_array`.
+     * @brief Compute the evaluation of \f$ 1 - L \f$ at the sumcheck challenge
      *
      * @param multivariate_challenge Sumcheck evaluation challenge
      * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
+     * @return FF
      */
     static FF evaluate_at_challenge(std::span<FF> multivariate_challenge,
                                     const std::vector<FF>& padding_indicator_array)

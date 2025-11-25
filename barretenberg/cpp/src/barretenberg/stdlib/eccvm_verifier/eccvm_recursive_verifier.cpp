@@ -106,7 +106,9 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
+    std::vector<FF> padding_indicator_array(CONST_ECCVM_LOG_N, FF(1));
+
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -121,9 +123,6 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
 
     FF one{ 1 };
     one.convert_constant_to_fixed_witness(builder);
-
-    std::array<FF, CONST_ECCVM_LOG_N> padding_indicator_array;
-    std::ranges::fill(padding_indicator_array, one);
 
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
