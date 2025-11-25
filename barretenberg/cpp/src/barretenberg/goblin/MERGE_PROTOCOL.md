@@ -337,7 +337,7 @@ The simulator proceeds as follows.
 
     - Build simulated polynomials $L_j^{\mathrm{sim}}, R_j^{\mathrm{sim}}$ whose coefficients match $r_{\mathrm{sim}}$ in positions corresponding to random non-ops and the dummy op-queue elsewhere.
     - Build the polynomial $M_j^{\mathrm{sim}}(X) = L_j^{\mathrm{sim}}(X) + X^{\ell}R_j^{\mathrm{sim}}(X)$.
-    - Build the degree check polynomial as $G^{\mathrm{sim}}(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i L_i^{\mathrm{sim}}(X)$.
+    - Build the degree check polynomial as $G^{\mathrm{sim}}(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i L_i^{\mathrm{sim}}(X^{-1})$.
     - Build the Shplonk quotient polynomial $Q^{\mathrm{sim}}$ as per the honest protocol using the simulated openings.
     - In this way,
         $L_j^{\mathrm{sim}}(\kappa),
