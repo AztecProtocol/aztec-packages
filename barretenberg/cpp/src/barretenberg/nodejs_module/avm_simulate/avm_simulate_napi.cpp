@@ -101,7 +101,7 @@ struct ContractCallbacks {
 Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
 {
     // TODO(dbanks12): configurable verbosity (maybe based on TS log level)
-    verbose_logging = true;
+    // verbose_logging = true;
     // debug_logging = true;
 
     Napi::Env env = cb_info.Env();

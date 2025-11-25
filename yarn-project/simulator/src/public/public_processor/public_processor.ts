@@ -12,7 +12,6 @@ import {
   AvmCircuitPublicInputs,
   AvmExecutionHints,
   type AvmProvingRequest,
-  CallStackMetadata,
   PublicDataWrite,
   PublicSimulatorConfig,
 } from '@aztec/stdlib/avm';
@@ -35,7 +34,6 @@ import {
   type ProcessedTx,
   StateReference,
   Tx,
-  TxExecutionPhase,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/stdlib/tx';
@@ -524,7 +522,7 @@ export class PublicProcessor implements Traceable {
     const timer = new Timer();
 
     const result = await this.publicTxSimulator.simulate(tx);
-    const { hints, publicInputs, gasUsed, revertCode, callStackMetadata } = result;
+    const { hints, publicInputs, gasUsed, revertCode /*callStackMetadata*/ } = result;
 
     if (!hints) {
       this.metrics.recordFailedTx();

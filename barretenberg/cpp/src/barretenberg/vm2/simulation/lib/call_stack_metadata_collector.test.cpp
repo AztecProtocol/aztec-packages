@@ -422,15 +422,22 @@ TEST_F(MakeProviderTest, MakeReturnDataProviderSuccess)
         MemoryValue::from<FF>(FF(0x2222)),
         MemoryValue::from<FF>(FF(0x3333)),
     };
+    auto zero = MemoryValue::from<FF>(FF(0));
 
     auto provider = make_return_data_provider(mock_context, rd_addr, rd_size);
 
     // This is called when invoking the provider
     StrictMock<MockMemory> memory;
     EXPECT_CALL(::testing::Const(mock_context), get_memory()).WillOnce(ReturnRef(memory));
-    ON_CALL(memory, get).WillByDefault([&return_data_values](uint32_t i) -> const MemoryValue& {
-        return return_data_values[i];
-    });
+    ON_CALL(memory, get)
+        .WillByDefault([&return_data_values, rd_addr, rd_size, &zero](uint32_t i) -> const MemoryValue& {
+            // if offset is not in range [rd_addr, rd_addr + rd_size], return 0
+            if (i < rd_addr || i >= rd_addr + rd_size) {
+                return zero;
+            }
+            const auto offset_into_rd = i - rd_addr;
+            return return_data_values[offset_into_rd];
+        });
     EXPECT_CALL(memory, get).Times(static_cast<int>(rd_size));
 
     auto result = provider(1024);

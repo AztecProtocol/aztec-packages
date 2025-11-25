@@ -177,7 +177,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
 
         if (machineState.pc >= bytecode.length) {
           this.log.warn('Passed end of program');
-          throw new InvalidProgramCounterError(machineState.pc, /*max=*/ bytecode.length);
+          throw new InvalidProgramCounterError(machineState.pc, /*max=*/ bytecode.length - 1);
         }
       }
 
@@ -235,12 +235,15 @@ export class AvmSimulator implements AvmSimulatorInterface {
 
   private async handleFailureToRetrieveBytecode(message: string): Promise<AvmContractCallResult> {
     // revert, consuming all gas
-    const fnName = await this.context.persistableState.getPublicFunctionDebugName(this.context.environment);
+    const { functionSelector, functionName } = await this.context.persistableState.getPublicFunctionSelectorAndName(
+      this.context.environment,
+    );
     const revertReason = new AvmRevertReason(
       message,
       /*failingFunction=*/ {
         contractAddress: this.context.environment.address,
-        functionName: fnName,
+        functionSelector,
+        functionName,
       },
       /*noirCallStack=*/ [],
     );

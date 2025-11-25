@@ -112,23 +112,24 @@ ReturnDataProvider make_return_data_provider(const ContextInterface& context, ui
         try {
             const auto& memory = context.get_memory();
             std::vector<FF> data;
+            info("Collecting returndata rd_offset:", rd_offset, " rd_size:", rd_size, " max_size:", max_size, ")");
             data.reserve(std::min(max_size, rd_size));
             for (uint32_t i = 0; i < std::min(max_size, rd_size); i++) {
                 data.push_back(memory.get(rd_offset + i).as_ff());
             }
             return data;
         } catch (...) {
-            vinfo("Failed to collect returndata (to:",
-                  context.get_address(),
-                  " pc:",
-                  context.get_pc(),
-                  " rd_offset:",
-                  rd_offset,
-                  " rd_size:",
-                  rd_size,
-                  " max_size:",
-                  max_size,
-                  ")");
+            info("Failed to collect returndata (to:",
+                 context.get_address(),
+                 " pc:",
+                 context.get_pc(),
+                 " rd_offset:",
+                 rd_offset,
+                 " rd_size:",
+                 rd_size,
+                 " max_size:",
+                 max_size,
+                 ")");
             return {};
         }
     };

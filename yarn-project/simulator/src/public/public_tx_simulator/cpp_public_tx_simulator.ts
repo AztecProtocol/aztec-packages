@@ -147,22 +147,53 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     assert(cppResult.gasUsed.teardownGas.equals(tsResult.gasUsed.teardownGas));
     assert(cppResult.gasUsed.billedGas.equals(tsResult.gasUsed.billedGas));
     assert(cppResult.publicInputs.toBuffer().equals(tsResult.publicInputs.toBuffer()));
-    // FIXME(https://github.com/AztecProtocol/aztec-packages/issues/18441): a few but not all keccaks fail!
-    // assert(cppResult.getAppLogicReturnValues().length === tsResult.getAppLogicReturnValues().length);
-    // for (let i = 0; i < cppResult.getAppLogicReturnValues().length; i++) {
-    //   assert(cppResult.getAppLogicReturnValues()[i].equals(tsResult.getAppLogicReturnValues()[i]));
-    // }
+    if (this.config?.collectCallMetadata) {
+      assert(cppResult.getAppLogicReturnValues().length === tsResult.getAppLogicReturnValues().length);
+      for (let i = 0; i < cppResult.getAppLogicReturnValues().length; i++) {
+        assert(cppResult.getAppLogicReturnValues()[i].equals(tsResult.getAppLogicReturnValues()[i]));
+      }
+    }
     // Messages are still not ok for exceptional halts (they are not plumbed in C++).
     const cppRevertReason = cppResult.findRevertReason() || {};
     const tsRevertReason = tsResult.findRevertReason() || {};
     const cppRevertReasonAsObject = JSON.parse(JSON.stringify(cppRevertReason));
     const tsRevertReasonAsObject = JSON.parse(JSON.stringify(tsRevertReason));
     if (JSON.stringify(cppRevertReasonAsObject) !== JSON.stringify(tsRevertReasonAsObject)) {
-      console.log('cppResult.findRevertReason()', cppRevertReasonAsObject);
-      console.log('tsResult.findRevertReason()', tsRevertReasonAsObject);
+      this.log.debug('cppResult.findRevertReason()', cppRevertReasonAsObject);
+      this.log.debug('tsResult.findRevertReason()', tsRevertReasonAsObject);
     }
     // TODO: dont compare the strings since this is not deterministic.
-    assert(JSON.stringify(cppRevertReasonAsObject) === JSON.stringify(tsRevertReasonAsObject));
+
+    // Sometimes error messages are different between C++ and TS, so we omit in the default comparison
+    const cppRevertReasonWithoutMessage = { ...cppRevertReasonAsObject, originalMessage: undefined };
+    const tsRevertReasonWithoutMessage = { ...tsRevertReasonAsObject, originalMessage: undefined };
+    assert(JSON.stringify(cppRevertReasonWithoutMessage) === JSON.stringify(tsRevertReasonWithoutMessage));
+
+    const cppHasRevertMessage =
+      cppRevertReasonAsObject.originalMessage && cppRevertReasonAsObject.originalMessage.length > 0;
+    const tsHasRevertMessage =
+      tsRevertReasonAsObject.originalMessage && tsRevertReasonAsObject.originalMessage.length > 0;
+    // assert that if one of the error messages is non-empty, the other is
+    assert(
+      cppHasRevertMessage === tsHasRevertMessage,
+      'One of the AVM simulators (C++ or TS) produced a revert message, but the other did not',
+    );
+    // Ideally, we'd love to be able to compare full error messages, but without a lot of work
+    // the two simulators will always be able to produce some differing errors.
+    // Commenting out the code below will enforce that the error messages are at least
+    // similar (one contains the other). Even this is not something we can guarantee.
+    //if (cppHasRevertMessage) {
+    //  const cppRevertMessageContainsTs = cppRevertReasonAsObject.originalMessage.includes(
+    //    tsRevertReasonAsObject.originalMessage,
+    //  );
+    //  const tsRevertMessageContainsCpp = tsRevertReasonAsObject.originalMessage.includes(
+    //    cppRevertReasonAsObject.originalMessage,
+    //  );
+    //  assert(
+    //    cppRevertMessageContainsTs || tsRevertMessageContainsCpp,
+    //    'The AVM simulators (C++ and TS) produced different revert messages (neither was a substring of the other)',
+    //  );
+    //}
 
     // Confirm that tree roots match
     const cppStateRef = await this.merkleTree.getStateReference();
@@ -178,7 +209,6 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
       cppGasUsed: tsResult.gasUsed.totalGas.l2Gas,
     });
 
-    // TODO(dbanks12): C++ should return PublicTxResult (or something similar)
     return tsResult;
   }
 }
@@ -293,7 +323,8 @@ export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements 
  */
 export class MeasuredCppPublicTxSimulatorHintedDbs
   extends CppPublicTxSimulatorHintedDbs
-  implements MeasuredPublicTxSimulatorInterface {
+  implements MeasuredPublicTxSimulatorInterface
+{
   constructor(
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
