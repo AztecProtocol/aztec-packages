@@ -33,13 +33,55 @@ Its deviations from PlonK are motivated by the goals above:
 
 ---
 
+## Overview
+
 Chonk implements Repeated Computation with Global state (RCG) as defined in the [Stackproofs paper](https://eprint.iacr.org/2024/1281). It combines HyperNova folding with Goblin to produce a single succinct proof.
 
-## Motivation: From Naive Recursion to Chonk
+### RCG vs IVC
 
-To understand why Chonk exists, consider the evolution from naive recursive verification to the optimized approach.
+Unlike Incrementally Verifiable Computation (IVC), RCG:
 
-**Assumption**: All circuits have fixed size $N = 2^{21}$ from the verifier's perspective. This simplifies verification key handling and matches Chonk's design.
+- **Deferred proving**: Witness generation for all circuits completes before proving starts
+- **Global consistency**: Supports global consistency checks across the whole computation (not just local state transitions)
+- **Space efficient**: Maintains prover space efficiency comparable to IVC despite proving global properties
+
+This makes RCG well-suited for private smart contract execution where global constraints (like databus consistency) must be verified across all circuits.
+
+### Circuit Structure
+
+Circuits are accumulated in alternating pairs:
+
+```
+App₀ → Kernel₀ → App₁ → Kernel₁ → ... → Appₙ → Reset → Tail → Hiding
+```
+
+- **App circuits**: User-defined private functions
+- **Kernel circuits**: Contain recursive verification logic for previous app and kernel
+- **Reset kernel**: First of three trailing kernels
+- **Tail kernel**: Adds ZK protections for op queue beginning
+- **Hiding kernel**: Final kernel with full ZK protections, proven using MegaZK
+
+### Proof Structure
+
+A Chonk proof (`Chonk::Proof`) consists of:
+
+1. **Mega proof**: ZK proof of the hiding circuit which recursively verifies:
+   - The final HyperNova folding proof
+   - The decider proof
+
+2. **Goblin proof**: Contains sub-proofs for efficient EC operations:
+   - **Merge proof**: Proves correct merging of op queue tables
+   - **ECCVM proof**: Proves correctness of EC operations (see [ECCVM README](../eccvm/README.md))
+   - **IPA proof**: Inner product argument for ECCVM
+   - **Translator proof**: Converts between BN254 and Grumpkin curves
+
+---
+
+## Background: From Naive Recursion to Chonk
+
+*This section explains the motivation behind Chonk's design. Skip if you're familiar with the problem.*
+
+**Assumption**: All circuits have fixed size $N = 2^{21}$ from the verifier's perspective.
 
 ### Naive Recursive UltraHonk Verification
 
@@ -72,7 +114,7 @@ Goblin improves this by delegating non-native EC operations to a separate ECCVM 
 
 - **55 + 5 short scalar muls** for commitment batching (using ~127-bit challenges) - `NUM_UNSHIFTED_ENTITIES` + `NUM_SHIFTED_ENTITIES` for MegaFlavor
 - **21 full scalar muls** for Shplemini's Gemini fold commitments ($\log N$), which amounts to **42** short scalar muls in ECCVM
-- **Merge protocol ops**: Each circuit's op queue subtable must be merged into the global table, requiring additional EC operations (see [Merge Protocol](#merge-protocol))
+- **Merge protocol ops**: Each circuit's op queue subtable must be merged into the global table, requiring additional EC operations
 
 In ECCVM terms, full scalar muls cost ~2× the rows of short scalar muls. So each recursive verification effectively adds **~100+ ECCVM ops**.
 
@@ -96,7 +138,7 @@ After Sumcheck, the verifier has `NUM_ALL_ENTITIES` evaluation claims (commitmen
 
 Each circuit's Sumcheck produces claims at a **different random point** $r_i$. We cannot simply batch claims at different points.
 
-The solution is `MultilinearBatchingSumcheck`: a small Sumcheck (only 6 witness columns) that reduces two claims at different points $(r_{\text{acc}}, r_{\text{inst}})$ to a single claim at a **common point** $r_{\text{new}}$. See [HyperNova Folding](#hypernova-folding) for details.
+The solution is `MultilinearBatchingSumcheck`: a small Sumcheck (only 6 witness columns) that reduces two claims at different points $(r_{\text{acc}}, r_{\text{inst}})$ to a single claim at a **common point** $r_{\text{new}}$. See [HyperNova Folding Details](#hypernova-folding-details) for the full protocol.
 
 #### EC Operations per Fold
 
@@ -122,91 +164,114 @@ Chonk combines the benefits:
 - **Goblin** delegates even the batching MSMs to ECCVM
 - **Single decider proof** at the end verifies the accumulated claim
 
-## RCG vs IVC
+---
 
-Unlike Incrementally Verifiable Computation (IVC), RCG:
+## Components
 
-- **Deferred proving**: Witness generation for all circuits completes before proving starts
-- **Global consistency**: Supports global consistency checks across the whole computation (not just local state transitions)
-- **Space efficient**: Maintains prover space efficiency comparable to IVC despite proving global properties
+### HyperNova Folding
 
-This makes RCG well-suited for private smart contract execution where global constraints (like databus consistency) must be verified across all circuits.
+Chonk uses [HyperNova](https://eprint.iacr.org/2023/573) for folding circuits into accumulators. Each circuit goes through Sumcheck to produce evaluation claims, which are batched into an accumulator. The `MultilinearBatchingSumcheck` protocol combines accumulators at different evaluation points into a single accumulator at a common point.
 
-## Overview
+See [HyperNova Folding Details](#hypernova-folding-details) for the full protocol specification.
 
-Chonk enables proving the correct execution of a chain of circuits (apps and kernels) with a single final proof. Key features:
+### Goblin (ECCVM + Translator)
 
-- **Folding-based accumulation**: Circuits are folded using HyperNova
-- **Efficient EC operations**: Goblin handles non-native elliptic curve arithmetic
-- **Zero-knowledge**: The final proof reveals nothing about intermediate computations
-- **Bounded verification**: ECCVM/Translator are sized for a fixed op queue capacity (`OP_QUEUE_SIZE`), giving constant verification cost
+Goblin handles non-native EC operations by deferring them to an op queue, then proving correct execution via:
+- **ECCVM**: Proves EC operations on the Grumpkin curve (see [ECCVM README](../eccvm/README.md))
+- **Translator**: Bridges BN254 ↔ Grumpkin field elements
 
-## Architecture
+### Merge Protocol
 
-### Circuit Structure
+Each circuit produces a subtable of ECC operations that must be merged into the global op queue. The Merge protocol proves this was done correctly.
 
-Circuits are accumulated in alternating pairs:
+**What it proves:** For each of 4 wire columns $j$:
 
+$$M_j(X) = L_j(X) + X^k \cdot R_j(X)$$
+
+where $M_j$ = merged table, $L_j$ = new subtable, $R_j$ = existing table, $k$ = shift.
+
+Commitments to $L_j$ and $R_j$ are reused from the HyperNova transcript, avoiding redundant work.
+
+### Databus
+
+The databus enables data passing between circuits through commitment equality checks.
+
+| Column | Purpose |
+|--------|---------|
+| `calldata` | Input from previous kernel's return data |
+| `secondary_calldata` | Input from previous app's return data |
+| `return_data` | Output to be consumed by next circuit |
+
+**Data flow:**
 ```
-App₀ → Kernel₀ → App₁ → Kernel₁ → ... → Appₙ → Reset → Tail → Hiding
+App₀ ──return_data──┐
+                    ↓
+              Kernel₀ ←─calldata─── (empty for first kernel)
+                │
+          return_data
+                ↓
+App₁ ──return_data──┐
+                    ↓
+              Kernel₁ ←─calldata─── Kernel₀.return_data
+                      ←─secondary_calldata─── App₁.return_data
 ```
 
-- **App circuits**: User-defined private functions
-- **Kernel circuits**: Contain recursive verification logic for previous app and kernel
-- **Reset kernel**: First of three trailing kernels
-- **Tail kernel**: Adds ZK protections for op queue beginning
-- **Hiding kernel**: Final kernel with full ZK protections, proven using MegaZK
+**Consistency Checks:** The databus ensures data integrity through commitment equality checks. For circuit $i$ verified in circuit $i+1$:
 
-### Proof Components
+$$[R_{i-1}] = [C_i]$$
 
-A Chonk proof (`Chonk::Proof`) consists of:
+where $R$ = return data commitment, $C$ = calldata commitment.
 
-1. **Mega proof**: ZK proof of the hiding circuit which recursively verifies:
-   - The final HyperNova folding proof
-   - The decider proof
+In practice, circuit $i+1$ checks:
+- `π_i.public_inputs.[kernel_return_data] == π_i.[calldata]`
+- `π_i.public_inputs.[app_return_data] == π_i.[secondary_calldata]`
 
-2. **Goblin proof**: Contains three sub-proofs for efficient EC operations:
-   - **Merge proof**: Batches EC operation commitments
-   - **ECCVM proof**: Proves correctness of EC operations
-   - **IPA proof**: Inner product argument for ECCVM
-   - **Translator proof**: Converts between BN254 and Grumpkin curves
+---
 
-## Key Data Structures
+## Zero-Knowledge
 
-### QUEUE_TYPE
+A Chonk proof must reveal nothing about the private execution. ZK is achieved through multiple layers:
 
-Specifies the type of proof in the verification queue:
+### Proof-Level ZK
 
-| Type | Description |
-|------|-------------|
-| `OINK` | Witness commitments only (no sumcheck) - used for first circuit |
-| `HN` | HyperNova folding proof - standard accumulation |
-| `HN_FINAL` | Final HN verification in hiding kernel |
-| `HN_TAIL` | Tail kernel proof with special ZK handling |
-| `MEGA` | Full Mega/Honk proof |
+1. **Hiding kernel proof** (verified server-side): Uses MegaZKFlavor with:
+   - ZK Sumcheck (Libra masking polynomials)
+   - ZK Shplemini (gemini masking polynomial)
 
-### Verification Queues
+2. **ECCVM proof**: Also ZK via ZK Sumcheck and ZK Shplemini
 
-Two parallel queues track proofs to be verified:
+3. **Translator proof**: ZK via the same mechanisms
 
-- **VerificationQueue** (`std::deque<VerifierInputs>`): Native proofs and VKs
-- **StdlibVerificationQueue** (`std::deque<StdlibVerifierInputs>`): In-circuit (stdlib) versions
+### Op Queue Hiding
 
-Each entry contains:
-- The proof data
-- Verification key (and hash for stdlib)
-- Queue type
-- Flag indicating if from a kernel
+The op queue contains EC operations from all circuits and must be hidden:
 
-## Accumulation Flow
+1. **`hide_op_queue_accumulation_result`**: Hides the final accumulator point
+2. **`hide_op_queue_content_in_tail`**: Protects tail kernel op queue data
+3. **`hide_op_queue_content_in_hiding`**: Final ZK protection in hiding circuit
 
-### 1. Initialization
+### Hiding Kernel
+
+The hiding kernel:
+- Recursively verifies the final folding and decider proofs
+- Masks sensitive `op_queue` data
+- Is then proven using MegaZK to produce the final Chonk proof
+
+### Known Limitation
+
+The `accumulated_result` (Translator's accumulated EC operation result) is masked but currently uses only 128 bits of randomness. This provides computational hiding but not statistical hiding. A future improvement may increase this to full field element randomness.
+
+---
+
+## Usage
+
+### Initialization
 
 ```cpp
-Chonk ivc(num_circuits);
+Chonk ivc(num_circuits);  // num_circuits must be even
 ```
 
-### 2. Circuit Accumulation
+### Circuit Accumulation
 
 For each circuit (alternating app/kernel):
 
@@ -223,11 +288,11 @@ ivc.accumulate(circuit, vk);
 ```
 
 During accumulation:
-1. Circuit is folded into the prover accumulator using HyperNova (see [HyperNova Folding](#hypernova-folding))
+1. Circuit is folded into the prover accumulator using HyperNova
 2. A folding proof is generated and added to the verification queue
-3. Goblin processes any EC operations via the op queue (see [Merge Protocol](#merge-protocol))
+3. Goblin processes any EC operations via the op queue
 
-### 3. Kernel Circuit Completion
+### Kernel Circuit Completion
 
 Kernels must call `complete_kernel_circuit_logic` after adding user logic:
 
@@ -246,7 +311,7 @@ This adds:
 - Databus consistency checks between circuits
 - Merge proof verification
 
-### 4. Stdlib Queue Instantiation
+### Stdlib Queue Instantiation
 
 Before kernel logic, convert native queue to stdlib:
 
@@ -254,136 +319,9 @@ Before kernel logic, convert native queue to stdlib:
 ivc.instantiate_stdlib_verification_queue(kernel);
 ```
 
-This creates circuit witnesses for:
-- Proofs in the verification queue
-- Verification keys and their hashes
+---
 
-## Databus
-
-The databus enables data passing between circuits in the IVC chain through commitment equality checks.
-
-### Databus Columns
-
-Each circuit has three databus columns:
-
-| Column | Purpose |
-|--------|---------|
-| `calldata` | Input from previous kernel's return data |
-| `secondary_calldata` | Input from previous app's return data |
-| `return_data` | Output to be consumed by next circuit |
-
-### Data Flow
-
-```
-App₀ ──return_data──┐
-                    ↓
-              Kernel₀ ←─calldata─── (empty for first kernel)
-                │
-          return_data
-                ↓
-App₁ ──return_data──┐
-                    ↓
-              Kernel₁ ←─calldata─── Kernel₀.return_data
-                      ←─secondary_calldata─── App₁.return_data
-```
-
-### Consistency Checks
-
-The databus ensures data integrity through commitment equality checks. For circuit $i$ verified in circuit $i+1$:
-
-$$[R_{i-1}] = [C_i]$$
-
-where $R$ = return data commitment, $C$ = calldata commitment.
-
-In practice, circuit $i+1$ checks:
-- `π_i.public_inputs.[kernel_return_data] == π_i.[calldata]`
-- `π_i.public_inputs.[app_return_data] == π_i.[secondary_calldata]`
-
-### DataBusDepot
-
-Manages propagation of return data commitments between circuits:
-
-```cpp
-DataBusDepot bus_depot;
-
-// Set commitments from previous circuits
-bus_depot.set_app_return_data_commitment(app_commitment);
-bus_depot.set_kernel_return_data_commitment(kernel_commitment);
-
-// Retrieve for consistency checks (or get default if none exists)
-auto kernel_return = bus_depot.get_kernel_return_data_commitment(builder);
-auto app_return = bus_depot.get_app_return_data_commitment(builder);
-```
-
-When no previous commitment exists (e.g., first kernel has no previous kernel), a default commitment is used that satisfies the consistency check with empty calldata.
-
-## Zero-Knowledge Handling
-
-A Chonk proof must reveal nothing about the private execution. The ZK property is achieved through multiple layers:
-
-### Proof-Level ZK
-
-1. **Hiding kernel proof** (verified server-side): Uses MegaZKFlavor with:
-   - ZK Sumcheck (Libra masking polynomials)
-   - ZK Shplemini (gemini masking polynomial)
-
-2. **ECCVM proof**: Also ZK via:
-   - ZK Sumcheck
-   - ZK Shplemini
-
-3. **Translator proof**: ZK via the same mechanisms
-
-### Op Queue Hiding
-
-The op queue contains EC operations from all circuits and must be hidden. Three methods ensure this:
-
-1. **`hide_op_queue_accumulation_result`**: Hides the final accumulator point
-2. **`hide_op_queue_content_in_tail`**: Protects tail kernel op queue data
-3. **`hide_op_queue_content_in_hiding`**: Final ZK protection in hiding circuit
-
-### Hiding Kernel
-
-The hiding kernel:
-- Recursively verifies the final folding and decider proofs
-- Masks sensitive `op_queue` data
-- Is then proven using MegaZK to produce the final Chonk proof
-
-### Known Limitation
-
-The `accumulated_result` (Translator's accumulated EC operation result) is masked but currently uses only 128 bits of randomness. This provides computational hiding but not statistical hiding. A future improvement may increase this to full field element randomness.
-
-## Integration with Goblin
-
-Chonk uses Goblin for efficient non-native EC operations:
-
-```cpp
-// Access the Goblin instance
-Goblin& goblin = ivc.get_goblin();
-```
-
-The op queue accumulates EC operations from all circuits, which are then proven by ECCVM and Translator.
-
-### Merge Protocol
-
-Each circuit produces a subtable of ECC operations that must be merged into the global op queue. The **Merge protocol** proves this merge was done correctly.
-
-**What it proves:** For each of 4 wire columns $j$:
-
-$$M_j(X) = L_j(X) + X^k \cdot R_j(X)$$
-
-where:
-- $M_j$ = merged table (result)
-- $L_j$ = left table (prepended data)
-- $R_j$ = right table (existing data)
-- $k$ = shift size (degree of $L_j$)
-
-It also proves the degree bound $\deg(L_j) < k$.
-
-Note: Commitments to $L_j$ (current subtable) and $R_j$ (previous table) are reused from the HyperNova transcript, avoiding redundant work.
-
-## HyperNova Folding
-
-Chonk uses [HyperNova](https://eprint.iacr.org/2023/573) (Kothapalli, Setty, Tzialla) for folding circuits into accumulators. HyperNova extends Nova's folding scheme to support high-degree custom gates.
+## HyperNova Folding Details
 
 ### Core Classes
 
@@ -394,20 +332,18 @@ Chonk uses [HyperNova](https://eprint.iacr.org/2023/573) (Kothapalli, Setty, Tzi
 
 ### Sumcheck to Claim
 
-Each circuit is converted to **claims** via Sumcheck. Sumcheck reduces proving a multivariate polynomial identity to proving evaluations at a random point:
+Each circuit is converted to **claims** via Sumcheck:
 
 1. Prover commits to all polynomials (witnesses + precomputed selectors)
 2. Sumcheck protocol produces a random challenge point `r = (r₀, r₁, ..., rₙ₋₁)`
-3. Prover evaluates all `NUM_ALL_ENTITIES` entities at `r`:
-   - Unshifted evaluations: `pᵢ(r)`
-   - Shifted evaluations: `pⱼ_shifted(r)` for shiftable polynomials
-4. Result is `NUM_ALL_ENTITIES` evaluation claims, where shifted polynomials share commitments with their unshifted counterparts
+3. Prover evaluates all `NUM_ALL_ENTITIES` entities at `r`
+4. Result is `NUM_ALL_ENTITIES` evaluation claims
 
 For MegaFlavor: `NUM_ALL_ENTITIES = 60` evaluations (55 unshifted + 5 shifted).
 
 ### Batching Claims into Accumulator
 
-The individual evaluation claims are batched into a single accumulator using random linear combinations:
+The individual evaluation claims are batched using random linear combinations:
 
 **1. Generate batching challenges:**
 - Unshifted: $\rho_0, \rho_1, \ldots, \rho_{N_u-1}$ where $N_u$ = `NUM_UNSHIFTED_ENTITIES`
@@ -435,8 +371,6 @@ The resulting accumulator contains $(r, v_{\text{unshifted}}, v_{\text{shifted}}
 
 ### Accumulator Structure
 
-The accumulator stores a claim (commitment + evaluation at a point) that represents all previously folded circuits:
-
 **Prover Accumulator** (`MultilinearBatchingProverClaim`):
 ```cpp
 struct MultilinearBatchingProverClaim {
@@ -462,8 +396,6 @@ struct MultilinearBatchingVerifierClaim {
 };
 ```
 
-The verifier accumulator contains only commitments (no full polynomials), making it suitable for in-circuit verification.
-
 ### Folding Operations
 
 **1. Instance to Accumulator** - Convert a circuit instance into an initial accumulator:
@@ -472,11 +404,6 @@ The verifier accumulator contains only commitments (no full polynomials), making
 HypernovaFoldingProver prover(transcript);
 auto accumulator = prover.instance_to_accumulator(instance, honk_vk);
 ```
-
-This runs Sumcheck on the circuit to produce:
-- Batched polynomial commitment
-- Evaluation point and claimed values
-- Gate challenges for custom gate folding
 
 **2. Fold** - Combine an accumulator with a new instance:
 
@@ -532,61 +459,25 @@ auto [sumcheck1_valid, sumcheck2_valid, folded_accumulator] =
 
 ### Final Decider
 
-After all folding, the `HypernovaDeciderProver` produces a final proof that the accumulated claim is valid:
+After all folding, the `HypernovaDeciderProver` produces a final proof:
 
 ```cpp
 HypernovaDeciderProver decider_prover(transcript);
 HonkProof decider_proof = decider_prover.construct_proof(commitment_key, accumulator);
 ```
 
-The decider proves that the batched polynomials in the accumulator actually evaluate to the claimed values at the challenge point. It consists of:
+The decider consists of:
 
-1. **Shplemini**: Multivariate-to-univariate reduction
-   - Reduces opening claims at multivariate point $r = (r_0, \ldots, r_{n-1})$ to a univariate claim
-   - Uses Gemini folding to iteratively reduce dimension
-   - Produces batched quotient commitments
-
+1. **Shplemini**: Multivariate-to-univariate reduction using Gemini folding
 2. **KZG opening proof**: Proves the final univariate evaluation claim
-   - Opens the reduced polynomial at the Shplemini challenge point
 
-The decider proof is verified recursively in the hiding kernel, which then gets proven with MegaZK to produce the final Chonk proof.
+The decider proof is verified recursively in the hiding kernel.
 
-## Related Components
+---
 
-- **HyperNova**: Folding scheme for incremental verification
-- **Goblin**: Non-native EC arithmetic (ECCVM + Translator)
-- **MegaFlavor/MegaZKFlavor**: The underlying Honk proof system
-- **DataBusDepot**: Databus commitment management
+## Reference
 
-## Proof Size
-
-The proof length can be computed statically:
-
-```cpp
-// Without public inputs
-size_t len = Chonk::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS();
-
-// With HidingKernelIO public inputs
-size_t len = Chonk::Proof::PROOF_LENGTH();
-```
-
-Components:
-- Mega proof (MegaZK flavor)
-- Merge proof
-- ECCVM proof
-- IPA proof
-- Translator proof
-
-## Debugging
-
-In debug builds (`NDEBUG` not defined):
-- Native verifier accumulator is maintained alongside prover accumulator
-- `update_native_verifier_accumulator` tracks verification state
-- `debug_incoming_circuit` validates circuits before accumulation
-
-## Type Aliases
-
-Key types used throughout:
+### Type Aliases
 
 | Alias | Description |
 |-------|-------------|
@@ -597,32 +488,49 @@ Key types used throughout:
 | `RecursiveFlavor` | `MegaRecursiveFlavor_<MegaCircuitBuilder>` |
 | `PairingPoints` | Accumulated pairing check points |
 
-## Serialization
+### QUEUE_TYPE
 
-### Proof Serialization
+| Type | Description |
+|------|-------------|
+| `OINK` | Witness commitments only (no sumcheck) - used for first circuit |
+| `HN` | HyperNova folding proof - standard accumulation |
+| `HN_FINAL` | Final HN verification in hiding kernel |
+| `HN_TAIL` | Tail kernel proof with special ZK handling |
+| `MEGA` | Full Mega/Honk proof |
+
+### Proof Size
 
 ```cpp
-// To field elements
-std::vector<FF> fields = proof.to_field_elements();
+// Without public inputs
+size_t len = Chonk::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS();
 
-// From field elements
+// With HidingKernelIO public inputs
+size_t len = Chonk::Proof::PROOF_LENGTH();
+```
+
+### Serialization
+
+```cpp
+// Proof to/from field elements
+std::vector<FF> fields = proof.to_field_elements();
 Chonk::Proof proof = Chonk::Proof::from_field_elements(fields);
 
-// To/from msgpack
+// Proof to/from msgpack
 msgpack::sbuffer buf = proof.to_msgpack_buffer();
 Chonk::Proof proof = Chonk::Proof::from_msgpack_buffer(buf);
 
-// To/from file
+// Proof to/from file
 proof.to_file_msgpack("proof.bin");
 Chonk::Proof proof = Chonk::Proof::from_file_msgpack("proof.bin");
-```
 
-### VK Serialization
-
-```cpp
-// To field elements
+// VK serialization
 std::vector<bb::fr> fields = vk.to_field_elements();
-
-// From field elements
 vk.from_field_elements(fields);
 ```
+
+### Debugging
+
+In debug builds (`NDEBUG` not defined):
+- Native verifier accumulator is maintained alongside prover accumulator
+- `update_native_verifier_accumulator` tracks verification state
+- `debug_incoming_circuit` validates circuits before accumulation
