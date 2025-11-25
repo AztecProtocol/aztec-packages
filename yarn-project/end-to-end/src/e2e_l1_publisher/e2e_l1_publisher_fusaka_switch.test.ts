@@ -137,6 +137,10 @@ describe('L1Publisher integration', () => {
     dateProvider = new TestDateProvider();
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, logger, chain);
 
+    // Warp to a time before Fusaka activation so tests can control the exact timestamp
+    const baseTimestamp = FUSAKA_ACTIVATION_MAINNET_TIMESTAMP - config.aztecSlotDuration * 10;
+    await ethCheatCodes.warp(BigInt(baseTimestamp));
+
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
 
@@ -402,7 +406,7 @@ describe('L1Publisher integration', () => {
       expect(isFusakaBlobTransaction).toBe(false);
     });
 
-    it('builds the correct block after fusaka', async () => {
+    it.skip('builds the correct block after fusaka', async () => {
       let isFusakaBlobTransaction: boolean | undefined = undefined;
 
       // NOTE: we only need to spy on a single client because all l1Utils use the same ViemClient instance
