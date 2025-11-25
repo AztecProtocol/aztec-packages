@@ -39,10 +39,33 @@ class ArithmeticConstraintsTestingFunctions {
     using Builder = Builder_;
     using AcirConstraint = AcirConstraint_;
 
-    static constexpr size_t NUM_OVERLAP_MUL_AND_LINEAR = 3;
-    static constexpr size_t NUM_OVERLAP_LINEAR = 1;
-    static constexpr size_t LINEAR_OFFSET = overlap_mul_and_linear ? NUM_OVERLAP_MUL_AND_LINEAR : 0;
     static constexpr bool IS_BIG_QUAD = std::is_same_v<AcirConstraint, std::vector<mul_quad_<typename Builder::FF>>>;
+
+    /**
+     * @brief Compute the number of elements to overlap between multiplication and linear terms
+     */
+    static constexpr size_t num_overlap_mul_and_linear()
+    {
+        size_t result = 0;
+
+        if constexpr (overlap_mul_and_linear) {
+            result++;
+        }
+
+        if constexpr (overlap_mul_and_linear && num_multiplication_terms > 1) {
+            result++;
+        }
+
+        if constexpr (overlap_mul_and_linear && num_multiplication_terms > 2) {
+            result++;
+        }
+
+        return result;
+    }
+
+    static constexpr size_t NUM_OVERLAP_MUL_AND_LINEAR = num_overlap_mul_and_linear();
+    static constexpr size_t NUM_OVERLAP_LINEAR = 1;
+    static constexpr size_t LINEAR_OFFSET = overlap_mul_and_linear ? NUM_OVERLAP_MUL_AND_LINEAR : 0U;
 
     static size_t expected_num_gates()
     {
@@ -141,25 +164,32 @@ class ArithmeticConstraintsTestingFunctions {
             linear_terms.push_back(std::make_pair(scalar, std::make_pair(index, value)));
         }
 
+        // Expressions that would lead to these cases are:
+        // 1. w1 * w2 + w1
+        // 2. w1 * w2 + w3 * w4 + w1 + w4
+        // 3. w1 * w1 + w3 * w4 + w5 * w5 + w1 + w4 + w5
         if constexpr (overlap_mul_and_linear) {
-            BB_ASSERT_GTE(num_linear_terms,
-                          NUM_OVERLAP_MUL_AND_LINEAR,
-                          "We need at least 3 linear terms when overlapping is turned on.");
-            BB_ASSERT_GTE(num_multiplication_terms,
-                          NUM_OVERLAP_MUL_AND_LINEAR,
-                          "We need at least 3 multiplication terms when overlapping is turned on.");
+            BB_ASSERT_GTE(num_linear_terms, 1U, "We need at least 1 linear terms when overlapping is turned on.");
+            BB_ASSERT_GTE(
+                num_multiplication_terms, 1U, "We need at least 1 multiplication terms when overlapping is turned on.");
 
             // Overlap lhs of multiplication term with linear term
             std::get<1>(mul_terms[0]).first = linear_terms[0].second.first;
 
-            // Overlap rhs of multiplication term with linear term
-            std::get<2>(mul_terms[1]).first = linear_terms[1].second.first;
+            if constexpr (num_multiplication_terms > 1 && num_linear_terms > 1) {
+                // Overlap rhs of multiplication term with linear term
+                std::get<2>(mul_terms[1]).first = linear_terms[1].second.first;
+            }
 
-            // Overlap both terms in the multiplication term with linear term
-            std::get<1>(mul_terms[2]).first = linear_terms[0].second.first;
-            std::get<2>(mul_terms[2]).first = linear_terms[2].second.first;
-        };
+            if constexpr (num_multiplication_terms > 2 && num_linear_terms > 2) {
+                // Overlap both terms in the multiplication term with linear term
+                std::get<1>(mul_terms[2]).first = linear_terms[2].second.first;
+                std::get<2>(mul_terms[2]).first = linear_terms[2].second.first;
+            }
+        }
 
+        // Expression that would lead to this case is:
+        // w1 + w1
         if constexpr (overlap_linear) {
             BB_ASSERT_GT(num_linear_terms,
                          NUM_OVERLAP_LINEAR + LINEAR_OFFSET,
@@ -168,10 +198,9 @@ class ArithmeticConstraintsTestingFunctions {
 
             // Overlap two linear terms
             linear_terms[LINEAR_OFFSET].second.first = linear_terms[LINEAR_OFFSET + 1].second.first;
-        };
+        }
 
-        bb::fr result = evaluate_expression_result(mul_terms, linear_terms, witness_values);
-        result = -result;
+        bb::fr result = -evaluate_expression_result(mul_terms, linear_terms, witness_values);
 
         // Build the Acir::Expression
         Acir::Expression expression;
@@ -211,7 +240,7 @@ class ArithmeticConstraintsTestingFunctions {
 
     void invalidate_witness(AcirConstraint& constraint,
                             WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+                            const typename InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -229,8 +258,9 @@ class ArithmeticConstraintsTestingFunctions {
             // Invalidate the equation by changing one of the witness values
             if constexpr (IS_BIG_QUAD) {
                 witness_values[constraint[0].a] += bb::fr::one();
-            } else
+            } else {
                 witness_values[constraint.a] += bb::fr::one();
+            }
             break;
         }
         };
@@ -252,8 +282,8 @@ class BigQuadConstraintTest
 
 using BigQuadConstraint = std::vector<mul_quad_<bb::fr>>;
 using BigQuadConstraintConfigs = testing::Types<
-    ArithmeticConstraintParams<UltraCircuitBuilder, BigQuadConstraint, 1, 3, false, false>, // Minimal cases requiring 2
-                                                                                            // gates
+    ArithmeticConstraintParams<UltraCircuitBuilder, BigQuadConstraint, 1, 3, false, false>, // Minimal cases
+                                                                                            // requiring 2 gates
     ArithmeticConstraintParams<UltraCircuitBuilder, BigQuadConstraint, 0, 5, false, false>,
     ArithmeticConstraintParams<UltraCircuitBuilder, BigQuadConstraint, 2, 0, false, false>,
     ArithmeticConstraintParams<UltraCircuitBuilder, BigQuadConstraint, 3, 3, true, false>, // Overlapping
@@ -262,8 +292,8 @@ using BigQuadConstraintConfigs = testing::Types<
     ArithmeticConstraintParams<UltraCircuitBuilder, BigQuadConstraint, 5, 5, true, true>,
     ArithmeticConstraintParams<UltraCircuitBuilder, BigQuadConstraint, 0, 6, false, true>, // Overlapping & minimal
                                                                                            // requiring 2 gates
-    ArithmeticConstraintParams<MegaCircuitBuilder, BigQuadConstraint, 1, 3, false, false>, // Minimal cases requiring 2
-                                                                                           // gates
+    ArithmeticConstraintParams<MegaCircuitBuilder, BigQuadConstraint, 1, 3, false, false>, // Minimal cases
+                                                                                           // requiring 2 gates
     ArithmeticConstraintParams<MegaCircuitBuilder, BigQuadConstraint, 0, 5, false, false>,
     ArithmeticConstraintParams<MegaCircuitBuilder, BigQuadConstraint, 2, 0, false, false>,
     ArithmeticConstraintParams<MegaCircuitBuilder, BigQuadConstraint, 3, 3, true, false>, // Overlapping
@@ -306,12 +336,14 @@ using QuadConstraintConfigs = testing::Types<
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 1, 1, false, false>,
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 1, 2, false, false>,
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 1, 3, false, true>, // Maximal case in one gate
+    ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 1, 4, true, true>,  // Maximal case in one gate
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 0, 4, false, false>,
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 0, 4, false, true>, // Maximal case in one gate
     ArithmeticConstraintParams<MegaCircuitBuilder, QuadConstraint, 1, 0, false, false>,
     ArithmeticConstraintParams<MegaCircuitBuilder, QuadConstraint, 1, 1, false, false>,
     ArithmeticConstraintParams<MegaCircuitBuilder, QuadConstraint, 1, 2, false, false>,
     ArithmeticConstraintParams<MegaCircuitBuilder, QuadConstraint, 1, 3, false, true>, // Maximal case in one gate
+    ArithmeticConstraintParams<MegaCircuitBuilder, QuadConstraint, 1, 4, true, true>,  // Maximal case in one gate
     ArithmeticConstraintParams<MegaCircuitBuilder, QuadConstraint, 0, 4, false, false>,
     ArithmeticConstraintParams<MegaCircuitBuilder, QuadConstraint, 0, 5, false, true>>; // Maximal case in one gate
 
