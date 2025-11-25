@@ -11,6 +11,8 @@ namespace bb::avm2::tracegen {
 // Each value of the map is a TxPhaseSpec struct that contains static attributes for the given transaction phase.
 // For readability, we only include the fields that are non-zero for the given phase. The default values are 0
 // or false (boolean) as per the TxPhaseSpec struct definition, so that each struct is fully initialized.
+// Warning: Modify this map with caution. It will likely require changes in the constraints in tx.pil
+// and/or tx_context.pil. Our constraint system is relying on several internal properties of this map.
 const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
 {
     static const std::unordered_map<TransactionPhase, TxPhaseSpec> TX_PHASE_SPEC_MAP = { {

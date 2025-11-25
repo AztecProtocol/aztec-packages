@@ -512,7 +512,8 @@ namespace tx;
         note_hash_tree_check.next_root
     };
 
-    // If reverted, next state is unconstrained. This should be ok since we are going to restore the end of setup or fail proving.
+    // If reverted, next state is unconstrained. This is ok since we are going to restore the end of setup or fail proving.
+    // Namely, #[RESTORE_STATE_ON_REVERT] restores the tree state to its value at the end of setup.
     should_note_hash_append * (prev_note_hash_tree_size + 1 - next_note_hash_tree_size) = 0;
     should_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
 
@@ -558,7 +559,8 @@ namespace tx;
         nullifier_check.should_silo
     };
 
-    // If reverted, next state is unconstrained. This should be ok since we are going to restore the end of setup or fail proving.
+    // If reverted, next state is unconstrained. This is ok since we are going to restore the end of setup.
+    // Namely, #[RESTORE_STATE_ON_REVERT] restores the tree state to its value at the end of setup.
     should_nullifier_append * (1 - reverted) * (prev_nullifier_tree_size + 1 - next_nullifier_tree_size) = 0;
     should_nullifier_append * (1 - reverted) * (prev_num_nullifiers_emitted + 1 - next_num_nullifiers_emitted) = 0;
 
@@ -591,7 +593,8 @@ namespace tx;
     should_l2_l1_msg_append { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
-    // If reverted, next count is unconstrained. This should be ok since we are going to restore the end of setup or fail proving.
+    // If reverted, next count is unconstrained. This is ok since we are going to restore the end of setup or fail proving.
+    // Namely, #[RESTORE_STATE_ON_REVERT] restores the num l2 to l1 messages to its value at the end of setup.
     #[UPDATE_NUM_L2_TO_L1_MSGS]
     should_try_l2_l1_msg_append * (1 - reverted) * (prev_num_l2_to_l1_messages + 1 - next_num_l2_to_l1_messages) = 0;
 
@@ -713,6 +716,11 @@ namespace tx;
     #[WRITE_FEE_PUBLIC_INPUTS]
     is_collect_fee { write_pi_offset, fee }
     in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+
+    // This phase is allowed to write public data (sel_can_write_public_data == 1), so the transition from
+    // `prev_written_public_data_slots_tree_root/size` to `next_written_public_data_slots_tree_root/size` is not constrained.
+    // It is fine because, this tree is transient, will be discarded at the end of the tx (no write happens at the end), and
+    // the subsequent phases (paddding, cleanup) do not use this tree. We only pass it around through the public call requests.
 
    /***************************************************************************
     * Tree Padding Phase

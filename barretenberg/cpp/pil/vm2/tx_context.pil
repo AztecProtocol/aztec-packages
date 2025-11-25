@@ -25,7 +25,6 @@ namespace tx;
     pol commit prev_retrieved_bytecodes_tree_root;
     pol commit prev_retrieved_bytecodes_tree_size;
 
-    // TODO: Constrain first row read from PI
     pol commit prev_l2_gas_used;
     pol commit prev_da_gas_used;
 
@@ -38,8 +37,6 @@ namespace tx;
     pol commit prev_num_l2_to_l1_messages;
 
     // ==== READ START/END STATE FROM PI ====
-    // TODO: Consider making this mechanism generic - might not be worth it in a short trace like the tx one.
-
     // Selector used to read trees and gas used from PI.
     pol commit sel_read_trees_and_gas_used; // @boolean Because start_tx and is_cleanup are disjoint and booleans.
     sel_read_trees_and_gas_used = start_tx + is_cleanup;
@@ -97,6 +94,7 @@ namespace tx;
     };
 
     // Ensure the written public data slots tree starts with the expected state on every tx execution.
+    // This is a transient tree, so we do not write the output at the end of the tx.
     start_tx * (constants.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT - prev_written_public_data_slots_tree_root) = 0;
     start_tx * (constants.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE - prev_written_public_data_slots_tree_size) = 0;
 
@@ -210,7 +208,6 @@ namespace tx;
     pol commit next_num_unencrypted_log_fields;
     pol commit next_num_l2_to_l1_messages;
 
-    // Could probably use a different condition (i.e. COLLECT_GAS is last row - save this for optimisation)
     pol NOT_LAST_ROW = sel * sel';
 
     // Base continuity constraints
