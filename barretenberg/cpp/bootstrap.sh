@@ -84,11 +84,11 @@ function build_cross_objects {
 function build_cross {
   set -eu
   target=$1
-  macos_sign=${2:-false}
+  is_macos=${2:-false}
   if ! cache_download barretenberg-$target-$hash.zst; then
     build_preset zig-$target --target bb --target nodejs_module
     inject_version build-zig-$target/bin/bb
-    if [ "$macos_sign" == "true" ]; then
+    if [ "$is_macos" == "true" ]; then
       ldid -S build-zig-$target/bin
     fi
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
