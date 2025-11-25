@@ -49,6 +49,25 @@ template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<
 }
 
 template <typename Builder>
+void check_mul_add_gate(Builder& builder,
+                        const mul_quad_<typename Builder::FF>& mul_quad,
+                        const typename Builder::FF next_wire_w4)
+{
+    using FF = Builder::FF;
+
+    FF result = mul_quad.const_scaling + next_wire_w4;
+    result += builder.get_variable(mul_quad.a) * builder.get_variable(mul_quad.b) * mul_quad.mul_scaling;
+    result += builder.get_variable(mul_quad.a) * mul_quad.a_scaling;
+    result += builder.get_variable(mul_quad.b) * mul_quad.b_scaling;
+    result += builder.get_variable(mul_quad.c) * mul_quad.c_scaling;
+    result += builder.get_variable(mul_quad.d) * mul_quad.d_scaling;
+
+    if (result != FF::zero() && !builder.failed()) {
+        builder.failure("mul_add_gate");
+    }
+}
+
+template <typename Builder>
 void perform_full_IPA_verification(Builder& builder,
                                    const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
                                    const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs);
@@ -122,6 +141,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     for (auto [constraint, opcode_idx] :
          zip_view(constraint_system.quad_constraints, constraint_system.original_opcode_indices.quad_constraints)) {
         set_zero_idx(builder, constraint);
+        check_mul_add_gate(builder, constraint);
         builder.create_big_mul_add_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
@@ -675,5 +695,13 @@ template void set_zero_idx<UltraCircuitBuilder>(const UltraCircuitBuilder&,
                                                 mul_quad_<typename UltraCircuitBuilder::FF>&);
 
 template void set_zero_idx<MegaCircuitBuilder>(const MegaCircuitBuilder&, mul_quad_<typename MegaCircuitBuilder::FF>&);
+
+template void check_mul_add_gate<UltraCircuitBuilder>(UltraCircuitBuilder&,
+                                                      const mul_quad_<typename UltraCircuitBuilder::FF>&,
+                                                      const typename UltraCircuitBuilder::FF);
+
+template void check_mul_add_gate<MegaCircuitBuilder>(MegaCircuitBuilder&,
+                                                     const mul_quad_<typename MegaCircuitBuilder::FF>&,
+                                                     const typename MegaCircuitBuilder::FF);
 
 } // namespace acir_format

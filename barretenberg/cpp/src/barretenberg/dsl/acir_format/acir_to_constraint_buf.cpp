@@ -29,17 +29,6 @@ using namespace bb;
 
 /// ========= HELPERS ========= ///
 
-uint256_t from_big_endian_bytes(std::vector<uint8_t> const& bytes)
-{
-    BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
-    uint256_t result = 0;
-    for (uint8_t byte : bytes) {
-        result <<= 8;
-        result |= byte;
-    }
-    return result;
-}
-
 WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
 {
     WitnessOrConstant<bb::fr> result = std::visit(
@@ -54,7 +43,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
             } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
                 return WitnessOrConstant<bb::fr>{
                     .index = bb::stdlib::IS_CONSTANT,
-                    .value = from_big_endian_bytes(e.value),
+                    .value = fr::serialize_from_buffer(&e.value[0]),
                     .is_constant = true,
                 };
             } else {
@@ -135,7 +124,6 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
     // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
     std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
 
-    bool has_brillig = false;
     for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
         const auto& gate = circuit.opcodes[i];
         std::visit(
@@ -157,7 +145,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
                     handle_memory_op(arg, af, block->second.first);
                     block->second.second.push_back(i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
-                    has_brillig = true;
+                    // This is a no-op in Barretenberg
                 } else {
                     bb::assert_failure("circuit_serde_to_acir_format: Unrecognized Acir Opcode.");
                 }
@@ -173,10 +161,6 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
         }
     }
 
-    if (has_brillig) {
-        vinfo("acir_format:circuit_serde_to_acir_format: Encountered unhadled BrilligCall during circuit "
-              "deserialization. Barretenberg treats this as a no-op.");
-    }
     return af;
 }
 
@@ -241,7 +225,7 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
             witness_vector.emplace_back(0);
             index++;
         }
-        witness_vector.emplace_back(from_big_endian_bytes(e.second));
+        witness_vector.emplace_back(fr::serialize_from_buffer(&e.second[0]));
         index++;
     }
 
@@ -281,7 +265,7 @@ arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
-        pt.q_m = from_big_endian_bytes(std::get<0>(mul_term));
+        pt.q_m = fr::serialize_from_buffer(&(std::get<0>(mul_term)[0]));
         pt.a = std::get<1>(mul_term).value;
         pt.b = std::get<2>(mul_term).value;
         a_set = true;
@@ -291,7 +275,7 @@ arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
     BB_ASSERT_LTE(arg.linear_combinations.size(), 3U, "We can only accommodate 3 linear terms");
     for (const auto& linear_term : arg.linear_combinations) {
-        fr selector_value(from_big_endian_bytes(std::get<0>(linear_term)));
+        fr selector_value = fr::serialize_from_buffer(&(std::get<0>(linear_term)[0]));
         uint32_t witness_idx = std::get<1>(linear_term).value;
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
@@ -323,7 +307,7 @@ arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     }
 
     // Set constant value q_c
-    pt.q_c = from_big_endian_bytes(arg.q_c);
+    pt.q_c = fr::serialize_from_buffer(&arg.q_c[0]);
     return pt;
 }
 
@@ -352,7 +336,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
             .b = std::get<2>(mul_term).value,
             .c = bb::stdlib::IS_CONSTANT,
             .d = bb::stdlib::IS_CONSTANT,
-            .mul_scaling = fr(from_big_endian_bytes(std::get<0>(mul_term))),
+            .mul_scaling = fr::serialize_from_buffer(&(std::get<0>(mul_term)[0])),
             .a_scaling = fr::zero(),
             .b_scaling = fr::zero(),
             .c_scaling = fr::zero(),
@@ -382,7 +366,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
 
         if (is_first_gate) {
             // First gate contains the constant term and uses all four wires
-            mul_quad.const_scaling = fr(from_big_endian_bytes(arg.q_c));
+            mul_quad.const_scaling = fr::serialize_from_buffer(&arg.q_c[0]);
             if (!linear_terms.empty()) {
                 add_linear_term_and_erase(mul_quad.d, mul_quad.d_scaling, linear_terms);
             }
@@ -416,7 +400,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         }
         if (is_first_gate) {
             // First gate contains the constant term and uses all four wires
-            mul_quad.const_scaling = fr(from_big_endian_bytes(arg.q_c));
+            mul_quad.const_scaling = fr::serialize_from_buffer(&arg.q_c[0]);
             if (!linear_terms.empty()) {
                 add_linear_term_and_erase(mul_quad.d, mul_quad.d_scaling, linear_terms);
             }
@@ -425,6 +409,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         result.emplace_back(mul_quad);
     }
 
+    result.shrink_to_fit();
     return result;
 }
 
@@ -723,7 +708,7 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
 bool is_rom(Acir::MemOp const& mem_op)
 {
     return mem_op.operation.mul_terms.empty() && mem_op.operation.linear_combinations.empty() &&
-           from_big_endian_bytes(mem_op.operation.q_c) == 0;
+           fr::serialize_from_buffer(&mem_op.operation.q_c[0]) == fr::zero();
 }
 
 uint32_t poly_to_witness(const arithmetic_triple poly)
@@ -830,7 +815,7 @@ std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr)
 {
     std::map<uint32_t, bb::fr> linear_terms;
     for (const auto& linear_term : expr.linear_combinations) {
-        fr selector_value = from_big_endian_bytes(std::get<0>(linear_term));
+        fr selector_value = fr::serialize_from_buffer(&(std::get<0>(linear_term)[0]));
         uint32_t witness_idx = std::get<1>(linear_term).value;
         if (linear_terms.contains(witness_idx)) {
             linear_terms[witness_idx] += selector_value; // Accumulate coefficients for duplicate witnesses
