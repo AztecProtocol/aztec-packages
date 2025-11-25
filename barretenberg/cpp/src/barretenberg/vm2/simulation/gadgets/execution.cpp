@@ -293,31 +293,31 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
         result = TaggedValue::from<FF>(context.get_transaction_fee());
         break;
     case EnvironmentVariable::CHAINID:
-        result = TaggedValue::from<FF>(context.get_globals().chainId);
+        result = TaggedValue::from<FF>(context.get_globals().chain_id);
         break;
     case EnvironmentVariable::VERSION:
         result = TaggedValue::from<FF>(context.get_globals().version);
         break;
     case EnvironmentVariable::BLOCKNUMBER:
-        result = TaggedValue::from<uint32_t>(context.get_globals().blockNumber);
+        result = TaggedValue::from<uint32_t>(context.get_globals().block_number);
         break;
     case EnvironmentVariable::TIMESTAMP:
         result = TaggedValue::from<uint64_t>(context.get_globals().timestamp);
         break;
     case EnvironmentVariable::BASEFEEPERL2GAS:
-        result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerL2Gas);
+        result = TaggedValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_l2_gas);
         break;
     case EnvironmentVariable::BASEFEEPERDAGAS:
-        result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerDaGas);
+        result = TaggedValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_da_gas);
         break;
     case EnvironmentVariable::ISSTATICCALL:
         result = TaggedValue::from<uint1_t>(context.get_is_static() ? 1 : 0);
         break;
     case EnvironmentVariable::L2GASLEFT:
-        result = TaggedValue::from<uint32_t>(context.gas_left().l2Gas);
+        result = TaggedValue::from<uint32_t>(context.gas_left().l2_gas);
         break;
     case EnvironmentVariable::DAGASLEFT:
-        result = TaggedValue::from<uint32_t>(context.gas_left().daGas);
+        result = TaggedValue::from<uint32_t>(context.gas_left().da_gas);
         break;
     default:
         throw OpcodeExecutionException("Invalid environment variable enum value");
@@ -386,7 +386,6 @@ void Execution::call(ContextInterface& context,
                                                                /*cd_size=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/context.get_is_static(),
                                                                /*gas_limit=*/gas_limit,
-                                                               /*side_effect_states=*/context.get_side_effect_states(),
                                                                /*phase=*/context.get_phase());
 
     // We do not recurse. This context will be use on the next cycle of execution.
@@ -426,7 +425,6 @@ void Execution::static_call(ContextInterface& context,
                                                                /*cd_size=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/true,
                                                                /*gas_limit=*/gas_limit,
-                                                               /*side_effect_states=*/context.get_side_effect_states(),
                                                                /*phase=*/context.get_phase());
 
     // We do not recurse. This context will be use on the next cycle of execution.
@@ -445,7 +443,7 @@ void Execution::cd_copy(ContextInterface& context,
     auto cd_offset_read = memory.get(cd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { cd_copy_size, cd_offset_read });
 
-    get_gas_tracker().consume_gas({ .l2Gas = cd_copy_size.as<uint32_t>(), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2_gas = cd_copy_size.as<uint32_t>(), .da_gas = 0 });
 
     try {
         data_copy.cd_copy(context, cd_copy_size.as<uint32_t>(), cd_offset_read.as<uint32_t>(), dst_addr);
@@ -466,7 +464,7 @@ void Execution::rd_copy(ContextInterface& context,
     auto rd_offset_read = memory.get(rd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { rd_copy_size, rd_offset_read });
 
-    get_gas_tracker().consume_gas({ .l2Gas = rd_copy_size.as<uint32_t>(), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2_gas = rd_copy_size.as<uint32_t>(), .da_gas = 0 });
 
     try {
         data_copy.rd_copy(context, rd_copy_size.as<uint32_t>(), rd_offset_read.as<uint32_t>(), dst_addr);
@@ -502,7 +500,6 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     set_execution_result({ .rd_offset = ret_offset,
                            .rd_size = rd_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
-                           .side_effect_states = context.get_side_effect_states(),
                            .success = true });
 
     context.halt();
@@ -521,7 +518,6 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     set_execution_result({ .rd_offset = rev_offset,
                            .rd_size = rev_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
-                           .side_effect_states = context.get_side_effect_states(),
                            .success = false });
 
     context.halt();
@@ -632,7 +628,7 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
     // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
 
     try {
         MemoryValue c = bitwise.and_op(a, b);
@@ -654,7 +650,7 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
     // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
 
     try {
         MemoryValue c = bitwise.or_op(a, b);
@@ -676,7 +672,7 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
     // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
 
     try {
         MemoryValue c = bitwise.xor_op(a, b);
@@ -718,14 +714,14 @@ void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, Memory
 
     bool was_slot_written_before = merkle_db.was_storage_written(context.get_address(), slot.as_ff());
     uint32_t da_gas_factor = static_cast<uint32_t>(!was_slot_written_before);
-    get_gas_tracker().consume_gas({ .l2Gas = 0, .daGas = da_gas_factor });
+    get_gas_tracker().consume_gas({ .l2_gas = 0, .da_gas = da_gas_factor });
 
     if (context.get_is_static()) {
         throw OpcodeExecutionException("SSTORE: Cannot write to storage in static context");
     }
 
     if (!was_slot_written_before &&
-        merkle_db.get_tree_state().publicDataTree.counter == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        merkle_db.get_tree_state().public_data_tree.counter == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
         throw OpcodeExecutionException("SSTORE: Maximum number of data writes reached");
     }
 
@@ -804,7 +800,7 @@ void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifie
         throw OpcodeExecutionException("EMITNULLIFIER: Cannot emit nullifier in static context");
     }
 
-    if (merkle_db.get_tree_state().nullifierTree.counter == MAX_NULLIFIERS_PER_TX) {
+    if (merkle_db.get_tree_state().nullifier_tree.counter == MAX_NULLIFIERS_PER_TX) {
         throw OpcodeExecutionException("EMITNULLIFIER: Maximum number of nullifiers reached");
     }
 
@@ -858,7 +854,7 @@ void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_has
         throw OpcodeExecutionException("EMITNOTEHASH: Cannot emit note hash in static context");
     }
 
-    if (merkle_db.get_tree_state().noteHashTree.counter == MAX_NOTE_HASHES_PER_TX) {
+    if (merkle_db.get_tree_state().note_hash_tree.counter == MAX_NOTE_HASHES_PER_TX) {
         throw OpcodeExecutionException("EMITNOTEHASH: Maximum number of note hashes reached");
     }
 
@@ -985,9 +981,9 @@ void Execution::to_radix_be(ContextInterface& context,
 
     // Compute the dynamic gas factor - done this way to trigger relevant circuit interactions
     if (greater_than.gt(num_limbs.as<uint32_t>(), num_p_limbs)) {
-        get_gas_tracker().consume_gas({ .l2Gas = num_limbs.as<uint32_t>(), .daGas = 0 });
+        get_gas_tracker().consume_gas({ .l2_gas = num_limbs.as<uint32_t>(), .da_gas = 0 });
     } else {
-        get_gas_tracker().consume_gas({ .l2Gas = num_p_limbs, .daGas = 0 });
+        get_gas_tracker().consume_gas({ .l2_gas = num_p_limbs, .da_gas = 0 });
     }
 
     try {
@@ -1013,7 +1009,7 @@ void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress lo
     set_and_validate_inputs(opcode, { log_size });
     uint32_t log_size_int = log_size.as<uint32_t>();
 
-    get_gas_tracker().consume_gas({ .l2Gas = log_size_int, .daGas = log_size_int });
+    get_gas_tracker().consume_gas({ .l2_gas = log_size_int, .da_gas = log_size_int });
 
     // Call the dedicated opcode component to emit the log
     try {
@@ -1036,21 +1032,18 @@ void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recip
 
     get_gas_tracker().consume_gas();
 
-    auto side_effects_states_before = context.get_side_effect_states();
-
     if (context.get_is_static()) {
         throw OpcodeExecutionException("SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
     }
 
-    if (side_effects_states_before.numL2ToL1Messages == MAX_L2_TO_L1_MSGS_PER_TX) {
+    auto& side_effect_tracker = context.get_side_effect_tracker();
+    const auto& side_effects = side_effect_tracker.get_side_effects();
+
+    if (side_effects.l2_to_l1_messages.size() == MAX_L2_TO_L1_MSGS_PER_TX) {
         throw OpcodeExecutionException("SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");
     }
 
-    // TODO: We don't store the l2 to l1 message in the context since it's not needed until cpp has to generate
-    // public inputs.
-
-    side_effects_states_before.numL2ToL1Messages++;
-    context.set_side_effect_states(side_effects_states_before);
+    side_effect_tracker.add_l2_to_l1_message(context.get_address(), EthAddress(recipient.as_ff()), content.as_ff());
 }
 
 void Execution::sha256_compression(ContextInterface& context,
@@ -1070,7 +1063,7 @@ void Execution::sha256_compression(ContextInterface& context,
 
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
-ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
+EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
 {
     BB_BENCH_NAME("Execution::execute");
     external_call_stack.push(std::move(enqueued_call_context));
@@ -1172,29 +1165,39 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         }
     }
 
-    return get_execution_result();
+    const ExecutionResult& result = get_execution_result();
+    return {
+        .success = result.success,
+        .gas_used = result.gas_used,
+        .output = std::nullopt, // The gadgets do not need to return data.
+    };
 }
 
 void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
 {
-    ctx_stack_events.emit(
-        { .id = parent_context.get_context_id(),
-          .parent_id = parent_context.get_parent_id(),
-          .entered_context_id = child_context->get_context_id(), // gets the context id of the child!
-          .next_pc = parent_context.get_next_pc(),
-          .msg_sender = parent_context.get_msg_sender(),
-          .contract_addr = parent_context.get_address(),
-          .bytecode_id = parent_context.get_bytecode_manager()
-                             .get_retrieved_bytecode_id()
-                             .value(), // Bytecode should have been retrieved in the parent context if it issued a call.
-          .is_static = parent_context.get_is_static(),
-          .parent_cd_addr = parent_context.get_parent_cd_addr(),
-          .parent_cd_size = parent_context.get_parent_cd_size(),
-          .parent_gas_used = parent_context.get_parent_gas_used(),
-          .parent_gas_limit = parent_context.get_parent_gas_limit(),
-          .tree_states = merkle_db.get_tree_state(),
-          .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
-          .side_effect_states = parent_context.get_side_effect_states() });
+    const auto& side_effects = parent_context.get_side_effect_tracker().get_side_effects();
+
+    ctx_stack_events.emit({
+        .id = parent_context.get_context_id(),
+        .parent_id = parent_context.get_parent_id(),
+        .entered_context_id = child_context->get_context_id(), // gets the context id of the child!
+        .next_pc = parent_context.get_next_pc(),
+        .msg_sender = parent_context.get_msg_sender(),
+        .contract_addr = parent_context.get_address(),
+        .bytecode_id = parent_context.get_bytecode_manager()
+                           .get_retrieved_bytecode_id()
+                           .value(), // Bytecode should have been retrieved in the parent context if it issued a call.
+        .is_static = parent_context.get_is_static(),
+        .parent_cd_addr = parent_context.get_parent_cd_addr(),
+        .parent_cd_size = parent_context.get_parent_cd_size(),
+        .parent_gas_used = parent_context.get_parent_gas_used(),
+        .parent_gas_limit = parent_context.get_parent_gas_limit(),
+        .tree_states = merkle_db.get_tree_state(),
+        .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
+        // Non-tree-tracked side effects
+        .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
+        .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
+    });
 
     external_call_stack.push(std::move(child_context));
 }
@@ -1206,7 +1209,7 @@ void Execution::handle_exit_call()
     // NOTE: the current (child) context should not be modified here, since it was already emitted.
     std::unique_ptr<ContextInterface> child_context = std::move(external_call_stack.top());
     external_call_stack.pop();
-    ExecutionResult result = get_execution_result();
+    const ExecutionResult& result = get_execution_result();
 
     // We only handle reverting/committing of nested calls. Enqueued calls are handled by TX execution.
     if (!external_call_stack.empty()) {
@@ -1226,9 +1229,6 @@ void Execution::handle_exit_call()
         parent_context.set_last_success(result.success);
         // Safe since the nested context gas limit should be clamped to the available gas.
         parent_context.set_gas_used(result.gas_used + parent_context.get_gas_used());
-        if (result.success) {
-            parent_context.set_side_effect_states(result.side_effect_states);
-        }
         parent_context.set_child_context(std::move(child_context));
 
         // TODO(fcarreiro): move somewhere else.
@@ -1251,7 +1251,6 @@ void Execution::handle_exceptional_halt(ContextInterface& context)
         .rd_offset = 0,
         .rd_size = 0,
         .gas_used = context.get_gas_used(),
-        .side_effect_states = context.get_side_effect_states(),
         .success = false,
     });
 }

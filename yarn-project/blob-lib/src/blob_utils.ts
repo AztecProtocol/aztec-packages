@@ -2,8 +2,8 @@ import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 
 import { Blob } from './blob.js';
-import { deserializeEncodedBlobToFields } from './deserialize.js';
-import { computeBlobFieldsHash, computeBlobsHash } from './hash.js';
+import { type CheckpointBlobData, decodeCheckpointBlobDataFromBuffer } from './encoding/index.js';
+import { computeBlobsHash } from './hash.js';
 
 /**
  * @param blobs - The blobs to emit.
@@ -40,26 +40,13 @@ export function getBlobsPerL1Block(fields: Fr[]): Blob[] {
 }
 
 /**
- * Get the fields from all blobs in the checkpoint. Ignoring the fields beyond the length specified by the
- * checkpoint prefix (the first field).
- *
- * @param blobs - The blobs to read fields from. Should be all the blobs in the L1 block proposing the checkpoint.
- * @param checkEncoding - Whether to check if the entire encoded blob fields are valid. If false, it will still check
- * the checkpoint prefix and throw if there's not enough fields.
- * @returns The fields added throughout the checkpoint.
+ * Get the encoded data from all blobs in the checkpoint.
+ * @param blobs - The blobs to read data from. Should be all the blobs for the L1 block proposing the checkpoint.
+ * @returns The encoded data of the checkpoint.
  */
-export function getBlobFieldsInCheckpoint(blobs: Blob[], checkEncoding = false): Fr[] {
-  return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)), checkEncoding);
-}
-
-export async function computeBlobFieldsHashFromBlobs(blobs: Blob[]): Promise<Fr> {
-  const fields = blobs.map(b => b.toFields()).flat();
-  const numBlobFields = fields[0].toNumber();
-  if (numBlobFields > fields.length) {
-    throw new Error(`The prefix indicates ${numBlobFields} fields. Got ${fields.length}.`);
-  }
-
-  return await computeBlobFieldsHash(fields.slice(0, numBlobFields));
+export function decodeCheckpointBlobDataFromBlobs(blobs: Blob[]): CheckpointBlobData {
+  const buf = Buffer.concat(blobs.map(b => b.data));
+  return decodeCheckpointBlobDataFromBuffer(buf);
 }
 
 export function computeBlobsHashFromBlobs(blobs: Blob[]): Fr {

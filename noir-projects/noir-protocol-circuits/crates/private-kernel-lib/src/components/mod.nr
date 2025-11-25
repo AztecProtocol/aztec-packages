@@ -1,9 +1,10 @@
-pub(crate) mod previous_kernel_validator;
+pub(crate) mod previous_kernel_for_tail_validator;
 pub(crate) mod private_call_data_validator;
 pub(crate) mod private_kernel_circuit_output_validator;
 pub(crate) mod private_kernel_circuit_public_inputs_composer;
 pub(crate) mod reset_output_composer;
 pub(crate) mod reset_output_validator;
+pub(crate) mod gas_meter;
 pub(crate) mod tail_output_composer;
 pub(crate) mod tail_output_validator;
 pub(crate) mod tail_to_public_output_composer;

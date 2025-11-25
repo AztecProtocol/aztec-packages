@@ -95,11 +95,14 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         modded_base_point = cycle_group<Builder>::from_constant_witness(_context, modded_base_point.get_value());
         point_table[0] = cycle_group<Builder>::from_constant_witness(_context, offset_generator.get_value());
         for (size_t i = 1; i < table_size; ++i) {
+            // Safe to use unconditional_add without collision checking due to constant points and inclusion of offset
+            // generator in table entries
             point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, get_hint(i - 1));
         }
     } else {
-        // Case 2: Point is non-constant so the table is derived via unconditional additions. We check the x_coordinates
-        // of all summand pairs are distinct via a batched product check to avoid individual modular inversions.
+        // Case 2: Point is non-constant witness so the table is derived via unconditional additions. We check the
+        // x_coordinates of all summand pairs are distinct via a batched product check to avoid individual modular
+        // inversions.
         field_t coordinate_check_product = 1;
         point_table[0] = offset_generator;
         for (size_t i = 1; i < table_size; ++i) {

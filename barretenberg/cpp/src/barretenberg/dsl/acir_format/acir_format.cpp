@@ -11,10 +11,6 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
-#include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
-#include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
-#include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
@@ -36,6 +32,41 @@ namespace acir_format {
 
 using namespace bb;
 
+template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad)
+{
+    using FF = Builder::FF;
+
+    auto replace_and_check_zero_scaling = [&](uint32_t& index, const FF& scaling) {
+        if (index == bb::stdlib::IS_CONSTANT) {
+            index = builder.zero_idx();
+            BB_ASSERT_EQ(scaling, FF(0), "mul_quad_ gate with IS_CONSTANT witness index has non-zero scaling");
+        }
+    };
+
+    replace_and_check_zero_scaling(mul_quad.b, mul_quad.b_scaling);
+    replace_and_check_zero_scaling(mul_quad.c, mul_quad.c_scaling);
+    replace_and_check_zero_scaling(mul_quad.d, mul_quad.d_scaling);
+}
+
+template <typename Builder>
+void check_mul_add_gate(Builder& builder,
+                        const mul_quad_<typename Builder::FF>& mul_quad,
+                        const typename Builder::FF next_wire_w4)
+{
+    using FF = Builder::FF;
+
+    FF result = mul_quad.const_scaling + next_wire_w4;
+    result += builder.get_variable(mul_quad.a) * builder.get_variable(mul_quad.b) * mul_quad.mul_scaling;
+    result += builder.get_variable(mul_quad.a) * mul_quad.a_scaling;
+    result += builder.get_variable(mul_quad.b) * mul_quad.b_scaling;
+    result += builder.get_variable(mul_quad.c) * mul_quad.c_scaling;
+    result += builder.get_variable(mul_quad.d) * mul_quad.d_scaling;
+
+    if (result != FF::zero() && !builder.failed()) {
+        builder.failure("mul_add_gate");
+    }
+}
+
 template <typename Builder>
 void perform_full_IPA_verification(Builder& builder,
                                    const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
@@ -48,7 +79,7 @@ std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumul
     const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs);
 
 template <typename Builder> struct HonkRecursionConstraintsOutput {
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>;
     PairingPoints points_accumulator;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
     std::vector<stdlib::Proof<Builder>> nested_ipa_proofs;
@@ -85,7 +116,7 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
 {
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>;
     bool has_valid_witness_assignments = !program.witness.empty();
     bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
     AcirFormat& constraint_system = program.constraints;
@@ -97,174 +128,144 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     GateCounter gate_counter{ &builder, collect_gates_per_opcode };
 
     // Add arithmetic gates
-    for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.poly_triple_constraints.at(i);
-        builder.create_poly_gate(constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.poly_triple_constraints.at(i));
+
+    // AUDITTODO(federico): remove poly_triple_constraints
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.arithmetic_triple_constraints,
+                  constraint_system.original_opcode_indices.arithmetic_triple_constraints)) {
+        builder.create_arithmetic_gate(constraint);
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
-    for (size_t i = 0; i < constraint_system.quad_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.quad_constraints.at(i);
-        builder.create_big_mul_gate(constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.quad_constraints.at(i));
+    // Add standard width-4 Ultra arithmetic gates
+    for (auto [constraint, opcode_idx] :
+         zip_view(constraint_system.quad_constraints, constraint_system.original_opcode_indices.quad_constraints)) {
+        set_zero_idx(builder, constraint);
+        check_mul_add_gate(builder, constraint);
+        builder.create_big_mul_add_gate(constraint);
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
-    // Oversize gates are a vector of mul_quad gates.
-    for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); ++i) {
-        auto& big_constraint = constraint_system.big_quad_constraints.at(i);
-        fr next_w4_wire_value = fr(0);
-        // Define the 4th wire of these mul_quad gates, which is implicitly used by the previous gate.
-        for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
-            if (j == 0) {
-                next_w4_wire_value = builder.get_variable(big_constraint[0].d);
-            } else {
-                uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
-                big_constraint[j].d = next_w4_wire;
-                big_constraint[j].d_scaling = fr(-1);
-            }
-            builder.create_big_mul_add_gate(big_constraint[j], true);
-            next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
-                                     big_constraint[j].mul_scaling +
-                                 builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
-                                 builder.get_variable(big_constraint[j].b) * big_constraint[j].b_scaling +
-                                 builder.get_variable(big_constraint[j].c) * big_constraint[j].c_scaling +
-                                 next_w4_wire_value * big_constraint[j].d_scaling + big_constraint[j].const_scaling;
-            next_w4_wire_value = -next_w4_wire_value;
-        }
-        uint32_t next_w4_wire = builder.add_variable(next_w4_wire_value);
-        big_constraint.back().d = next_w4_wire;
-        big_constraint.back().d_scaling = fr(-1);
-        builder.create_big_mul_add_gate(big_constraint.back(), false);
+
+    // When an expression doesn't fit into a single width-4 gate, we split it across multiple gates and we leverage
+    // w4_shift to use the least possible number of intermediate witnesses. See the documentation of
+    // split_into_mul_quad_gates for more information.
+    for (auto [big_constraint, opcode_idx] : zip_view(constraint_system.big_quad_constraints,
+                                                      constraint_system.original_opcode_indices.big_quad_constraints)) {
+        create_big_quad_constraint(builder, big_constraint);
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add logic constraint
-    for (size_t i = 0; i < constraint_system.logic_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.logic_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.logic_constraints, constraint_system.original_opcode_indices.logic_constraints)) {
         create_logic_gate(
             builder, constraint.a, constraint.b, constraint.result, constraint.num_bits, constraint.is_xor_gate);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.logic_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add range constraint
+
+    // AUDITTODO(federico): evaluate the minimal range optimization
+
     // preprocessing: remove range constraints if they are implied by memory operations
     for (auto const& index_range : constraint_system.index_range) {
         if (constraint_system.minimal_range[index_range.first] == index_range.second) {
             constraint_system.minimal_range.erase(index_range.first);
         }
     }
-    for (size_t i = 0; i < constraint_system.range_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.range_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.range_constraints, constraint_system.original_opcode_indices.range_constraints)) {
         uint32_t range = constraint.num_bits;
         if (constraint_system.minimal_range.contains(constraint.witness)) {
             range = constraint_system.minimal_range[constraint.witness];
-            builder.create_range_constraint(constraint.witness, range, "");
-            gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                    constraint_system.original_opcode_indices.range_constraints.at(i));
-            // no need to add more range constraints for this witness.
+            // no need to add more range constraints for this witness later.
             constraint_system.minimal_range.erase(constraint.witness);
         }
+        builder.create_range_constraint(constraint.witness, range, "");
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add aes128 constraints
-    for (size_t i = 0; i < constraint_system.aes128_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.aes128_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.aes128_constraints, constraint_system.original_opcode_indices.aes128_constraints)) {
         create_aes128_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.aes128_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add sha256 constraints
-    for (size_t i = 0; i < constraint_system.sha256_compression.size(); ++i) {
-        const auto& constraint = constraint_system.sha256_compression[i];
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.sha256_compression, constraint_system.original_opcode_indices.sha256_compression)) {
         create_sha256_compression_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.sha256_compression[i]);
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add ECDSA k1 constraints
-    for (size_t i = 0; i < constraint_system.ecdsa_k1_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.ecdsa_k1_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraint_system.ecdsa_k1_constraints, constraint_system.original_opcode_indices.ecdsa_k1_constraints)) {
         create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.ecdsa_k1_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add ECDSA r1 constraints
-    for (size_t i = 0; i < constraint_system.ecdsa_r1_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.ecdsa_r1_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraint_system.ecdsa_r1_constraints, constraint_system.original_opcode_indices.ecdsa_r1_constraints)) {
         create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.ecdsa_r1_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add blake2s constraints
-    for (size_t i = 0; i < constraint_system.blake2s_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.blake2s_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraint_system.blake2s_constraints, constraint_system.original_opcode_indices.blake2s_constraints)) {
         create_blake2s_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.blake2s_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add blake3 constraints
-    for (size_t i = 0; i < constraint_system.blake3_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.blake3_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.blake3_constraints, constraint_system.original_opcode_indices.blake3_constraints)) {
         create_blake3_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.blake3_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add keccak permutations
-    for (size_t i = 0; i < constraint_system.keccak_permutations.size(); ++i) {
-        const auto& constraint = constraint_system.keccak_permutations[i];
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraint_system.keccak_permutations, constraint_system.original_opcode_indices.keccak_permutations)) {
         create_keccak_permutations(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.keccak_permutations[i]);
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
-    for (size_t i = 0; i < constraint_system.poseidon2_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.poseidon2_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.poseidon2_constraints,
+                  constraint_system.original_opcode_indices.poseidon2_constraints)) {
         create_poseidon2_permutations(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.poseidon2_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add multi scalar mul constraints
-    for (size_t i = 0; i < constraint_system.multi_scalar_mul_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.multi_scalar_mul_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.multi_scalar_mul_constraints,
+                  constraint_system.original_opcode_indices.multi_scalar_mul_constraints)) {
         create_multi_scalar_mul_constraint(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.multi_scalar_mul_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add ec add constraints
-    for (size_t i = 0; i < constraint_system.ec_add_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.ec_add_constraints.at(i);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.ec_add_constraints, constraint_system.original_opcode_indices.ec_add_constraints)) {
         create_ec_add_constraint(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.ec_add_constraints.at(i));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     // Add block constraints
-    for (size_t i = 0; i < constraint_system.block_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.block_constraints.at(i);
+    for (const auto& [constraint, opcode_indices] :
+         zip_view(constraint_system.block_constraints, constraint_system.original_opcode_indices.block_constraints)) {
         create_block_constraints(builder, constraint, has_valid_witness_assignments);
         if (collect_gates_per_opcode) {
-            size_t avg_gates_per_opcode =
-                gate_counter.compute_diff() / constraint_system.original_opcode_indices.block_constraints.at(i).size();
-            for (size_t opcode_index : constraint_system.original_opcode_indices.block_constraints.at(i)) {
+            size_t avg_gates_per_opcode = gate_counter.compute_diff() / opcode_indices.size();
+            for (size_t opcode_index : opcode_indices) {
                 constraint_system.gates_per_opcode[opcode_index] = avg_gates_per_opcode;
             }
         }
-    }
-
-    // assert equals
-    for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
-        const auto& constraint = constraint_system.assert_equalities.at(i);
-        builder.assert_equal(constraint.a, constraint.b);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.assert_equalities.at(i));
     }
 
     // RecursionConstraints
@@ -274,7 +275,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     bool has_chonk_recursion_constraints = !constraint_system.chonk_recursion_constraints.empty();
 
     if constexpr (IsMegaBuilder<Builder>) {
-        // We shouldn't have both honk recursion constraints and pg recursion constraints.
+        // We shouldn't have both honk recursion constraints and HN recursion constraints.
         BB_ASSERT_EQ(!has_honk_recursion_constraints || !has_hn_recursion_constraints,
                      true,
                      "Invalid circuit: both honk and ivc recursion constraints present.");
@@ -312,7 +313,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // we return a vinfo for the case of Chonk + AVM
         BB_ASSERT_EQ(has_hn_recursion_constraints,
                      false,
-                     "Invalid circuit: pg recursion constraints are present with UltraBuilder.");
+                     "Invalid circuit: HN recursion constraints are present with UltraBuilder.");
         BB_ASSERT_EQ(!(has_chonk_recursion_constraints && has_honk_recursion_constraints),
                      true,
                      "Invalid circuit: both honk and chonk recursion constraints are present.");
@@ -411,8 +412,7 @@ void perform_full_IPA_verification(Builder& builder,
     VerifierCommitmentKey<stdlib::grumpkin<Builder>> verifier_commitment_key(
         &builder, 1 << CONST_ECCVM_LOG_N, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
 
-    auto accumulated_ipa_transcript = std::make_shared<StdlibTranscript>();
-    accumulated_ipa_transcript->load_proof(stdlib::Proof<Builder>(builder, ipa_proof));
+    auto accumulated_ipa_transcript = std::make_shared<StdlibTranscript>(stdlib::Proof<Builder>(builder, ipa_proof));
     IPA<stdlib::grumpkin<Builder>>::full_verify_recursive(
         verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
 }
@@ -442,10 +442,8 @@ std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumul
         CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
         using StdlibTranscript = UltraStdlibTranscript;
 
-        auto ipa_transcript_1 = std::make_shared<StdlibTranscript>();
-        ipa_transcript_1->load_proof(nested_ipa_proofs[0]);
-        auto ipa_transcript_2 = std::make_shared<StdlibTranscript>();
-        ipa_transcript_2->load_proof(nested_ipa_proofs[1]);
+        auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);
+        auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
         auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<Builder>>::accumulate(
             commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
 
@@ -486,8 +484,9 @@ process_honk_recursion_constraints(Builder& builder,
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
-    size_t idx = 0;
-    for (auto& constraint : constraint_system.honk_recursion_constraints) {
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.honk_recursion_constraints,
+                  constraint_system.original_opcode_indices.honk_recursion_constraints)) {
         HonkRecursionConstraintOutput<Builder> honk_recursion_constraint;
 
         if (constraint.proof_type == HONK_ZK) {
@@ -513,8 +512,7 @@ process_honk_recursion_constraints(Builder& builder,
                           constraint.proof_type == ROOT_ROLLUP_HONK);
         output.is_root_rollup = constraint.proof_type == ROOT_ROLLUP_HONK;
 
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
     BB_ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
               "Root rollup must accumulate two IPA proofs.");
@@ -584,7 +582,7 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
         // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
         ivc->complete_kernel_circuit_logic(builder);
 
-        // Note: we can't easily track the gate contribution from each individual pg_recursion_constraint since they
+        // Note: we can't easily track the gate contribution from each individual hn_recursion_constraint since they
         // are handled simultaneously in the above function call; instead we track the total contribution
         gate_counter.track_diff(constraints.gates_per_opcode,
                                 constraints.original_opcode_indices.hn_recursion_constraints.at(0));
@@ -610,16 +608,16 @@ process_chonk_recursion_constraints(Builder& builder,
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
-    size_t idx = 0;
-    for (auto& constraint : constraint_system.chonk_recursion_constraints) {
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.chonk_recursion_constraints,
+                  constraint_system.original_opcode_indices.chonk_recursion_constraints)) {
         HonkRecursionConstraintOutput<Builder> honk_output =
             create_chonk_recursion_constraints(builder, constraint, has_valid_witness_assignments);
 
         // Update the output
         output.update(honk_output, /*update_ipa_data=*/true);
 
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.chonk_recursion_constraints.at(idx++));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     return output;
@@ -633,16 +631,16 @@ process_avm_recursion_constraints(Builder& builder,
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
-    size_t idx = 0;
-    for (auto& constraint : constraint_system.avm_recursion_constraints) {
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraint_system.avm_recursion_constraints,
+                  constraint_system.original_opcode_indices.avm_recursion_constraints)) {
         HonkRecursionConstraintOutput<Builder> avm2_recursion_output =
             create_avm2_recursion_constraints_goblin(builder, constraint, has_valid_witness_assignments);
 
         // Update the output
         output.update(avm2_recursion_output, /*update_ipa_data=*/true);
 
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.avm_recursion_constraints.at(idx++));
+        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
     return output;
 }
@@ -692,5 +690,18 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 };
 
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirProgram&, const ProgramMetadata&);
+
+template void set_zero_idx<UltraCircuitBuilder>(const UltraCircuitBuilder&,
+                                                mul_quad_<typename UltraCircuitBuilder::FF>&);
+
+template void set_zero_idx<MegaCircuitBuilder>(const MegaCircuitBuilder&, mul_quad_<typename MegaCircuitBuilder::FF>&);
+
+template void check_mul_add_gate<UltraCircuitBuilder>(UltraCircuitBuilder&,
+                                                      const mul_quad_<typename UltraCircuitBuilder::FF>&,
+                                                      const typename UltraCircuitBuilder::FF);
+
+template void check_mul_add_gate<MegaCircuitBuilder>(MegaCircuitBuilder&,
+                                                     const mul_quad_<typename MegaCircuitBuilder::FF>&,
+                                                     const typename MegaCircuitBuilder::FF);
 
 } // namespace acir_format

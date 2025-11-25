@@ -1,7 +1,7 @@
 import { FunctionType, emptyContractArtifact, emptyFunctionArtifact } from '@aztec/stdlib/abi';
+import type { PublicTxResult } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
 /**

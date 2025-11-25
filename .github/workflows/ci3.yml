@@ -48,6 +48,10 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: echo "CI_FULL=1" >> $GITHUB_ENV
 
+      - name: CI Full No Test Cache Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-full-no-test-cache')
+        run: echo "CI_FULL_NO_TEST_CACHE=1" >> $GITHUB_ENV
+
       - name: Cache Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
         run: echo "NO_CACHE=1" >> $GITHUB_ENV
@@ -78,6 +82,10 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'barretenberg-ci') || (github.event.pull_request.base.ref == 'merge-train/barretenberg')
         run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
 
+      - name: CI Release PR Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-release-pr')
+        run: echo "CI_RELEASE_PR=1" >> $GITHUB_ENV
+
       # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
       - name: Set Instance Postfix for merge-train
         if: startsWith(github.event.pull_request.head.ref, 'merge-train/')
@@ -107,7 +115,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ci-success.txt
-          key: ci-${{ github.event_name == 'merge_group' && 'merge-queue' || env.CI_FULL == '1' && 'full' || env.CI_DOCS == '1' && 'docs' || env.CI_BARRETENBERG == '1' && 'barretenberg' || 'fast' }}-${{ env.TREE_HASH }}
+          key: ci-${{ github.event_name == 'merge_group' && 'merge-queue' || env.CI_FULL == '1' && 'full' || env.CI_FULL_NO_TEST_CACHE == '1' && 'full-no-test-cache' || env.CI_DOCS == '1' && 'docs' || env.CI_BARRETENBERG == '1' && 'barretenberg' || 'fast' }}-${{ env.TREE_HASH }}
 
       - name: CI Cached
         if: steps.ci_cache.outputs.cache-hit == 'true'
@@ -139,17 +147,23 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
             exec ./ci.sh merge-queue
+          elif [ "${CI_RELEASE_PR:-0}" -eq 1 ]; then
+            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
+            tag_name="v0.0.1-commit.$(git rev-parse --short HEAD)"
+            git tag ${tag_name}
+            git push origin ${tag_name}
           elif [ "${CI_FULL:-0}" -eq 1 ]; then
             exec ./ci.sh full
+          elif [ "${CI_FULL_NO_TEST_CACHE:-0}" -eq 1 ]; then
+            exec ./ci.sh full-no-test-cache
           elif [ "${CI_DOCS:-0}" -eq 1 ]; then
             exec ./ci.sh docs
           elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
             exec ./ci.sh barretenberg
-          elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ] || [ "${{ contains(github.ref, '-rc.') }}" == "true" ]; then
-            exec ./ci.sh nightly
           elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
             exec ./ci.sh release
           else
@@ -179,11 +193,14 @@ jobs:
           gh pr merge "${{ github.event.pull_request.number }}" --auto -m || true
 
       - name: Download benchmarks
-        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
-        run: ./ci.sh gh-bench
+        if: github.event_name == 'merge_group' || env.CI_FULL == '1' || env.CI_FULL_NO_TEST_CACHE == '1'
+        run: |
+          if ./ci.sh gh-bench && [ "$(cat ./bench-out/bench.json)" != "[]" ]; then
+            echo "ENABLE_BENCH=1" >> $GITHUB_ENV
+          fi
 
       - name: Upload benchmarks
-        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
+        if: env.ENABLE_BENCH == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks

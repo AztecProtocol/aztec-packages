@@ -44,7 +44,7 @@ __metadata:
     typescript: "npm:^5.3.3"
     typescript-eslint: "npm:^8.32.1"
   bin:
-    bb.js: dest/node/main.js
+    bb: dest/node/bin/index.js
   languageName: unknown
   linkType: soft
 

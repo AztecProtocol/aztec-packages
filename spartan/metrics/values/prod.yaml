@@ -59,6 +59,10 @@ opentelemetry-collector:
         metric_expiration: 5m
         resource_to_telemetry_conversion:
           enabled: false
+      otlp/tempo:
+        endpoint: http://metrics-tempo.metrics:4317
+        tls:
+          insecure: true
     service:
       pipelines:
         metrics:
@@ -73,6 +77,14 @@ opentelemetry-collector:
           exporters:
             - prometheus
             # - debug
+        traces:
+          receivers:
+            - otlp
+          processors:
+            - memory_limiter
+            - batch
+          exporters:
+            - otlp/tempo
 
 prometheus:
   server:
@@ -109,7 +121,28 @@ loki:
   enabled: false
 
 tempo:
-  enabled: false
+  enabled: true
+  tempo:
+    resources:
+      requests:
+        memory: 4Gi
+        cpu: "2"
+      limits:
+        memory: 8Gi
+        cpu: "4"
+    retention: 120h
+    ingester:
+      max_block_bytes: 524288000  # 500MB
+      max_block_duration: 30m
+    distributor:
+      log_received_spans:
+        enabled: false
+  persistence:
+    enabled: true
+    size: 256Gi
+    storageClassName: standard-rwo
+  nodeSelector:
+    node-type: infra
 
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
@@ -135,3 +168,6 @@ grafana:
           uid: spartan-metrics-prometheus
           isDefault: true
           url: http://metrics-prometheus-server.metrics:80
+        - name: Tempo
+          type: tempo
+          url: http://metrics-tempo.metrics:3100

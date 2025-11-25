@@ -234,7 +234,6 @@ where
     T: Serialize,
 {
     let N: u32 = <T as Serialize>::N * M;
-
     #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         let mut result: [Field; _] = std::mem::zeroed();
@@ -344,6 +343,25 @@ mod test {
 
         let opt_none = Option::none();
         assert_eq(Option::<Field>::deserialize(opt_none.serialize()), opt_none);
+    }
+
+    #[test]
+    fn array_serialization() {
+        let array = [1, 2, 3, 4];
+
+        let serialized: [Field; 4] = array.serialize();
+        let deserialized: [Field; 4] = Deserialize::deserialize(serialized);
+        assert_eq(deserialized, array);
+    }
+
+    #[test]
+    fn nested_array_serialization() {
+        let nested_array = [[1, 2, 3, 4], [5, 6, 7, 8]];
+
+        let serialized: [Field; 8] = nested_array.serialize();
+        let deserialized: [[Field; 4]; 2] = Deserialize::deserialize(serialized);
+
+        assert_eq(deserialized, nested_array);
     }
 
     #[test]

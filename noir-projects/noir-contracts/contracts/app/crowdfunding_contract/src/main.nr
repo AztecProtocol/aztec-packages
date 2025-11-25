@@ -80,11 +80,9 @@ pub contract Crowdfunding {
         assert(self.msg_sender().unwrap() == operator_address, "Not an operator");
 
         // 2) Transfer the donation tokens from this contract to the operator
-        Token::at(config.donation_token).transfer(operator_address, amount).call(self.context);
+        self.call(Token::at(config.donation_token).transfer(operator_address, amount));
         // 3) Emit a public event so that anyone can audit how much the operator has withdrawn
-        Crowdfunding::at(self.address)._publish_donation_receipts(amount, operator_address).enqueue(
-            self.context,
-        );
+        self.enqueue_self._publish_donation_receipts(amount, operator_address);
     }
 
     #[external("public")]

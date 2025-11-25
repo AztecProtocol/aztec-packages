@@ -151,6 +151,11 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
     return Promise.resolve(txHashes.map(txHash => this.txs.has(txHash.toBigInt())));
   }
 
+  async hasTx(txHash: TxHash): Promise<boolean> {
+    const result = await this.hasTxs([txHash]);
+    return result[0];
+  }
+
   public getArchivedTxByHash(): Promise<Tx | undefined> {
     return Promise.resolve(undefined);
   }

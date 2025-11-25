@@ -95,30 +95,32 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
         // We work with MemoryValue as this type is required for bitwise operations handled
         // by the bitwise sub-trace simulator. We continue by operating over Memory values and convert
         // them back only at the end (event emission).
-        KeccakF1600StateMemValues src_mem_values;
-        src_mem_values.fill(std::array<MemoryValue, 5>{ MemoryValue::from<uint64_t>(0) });
+        std::array<MemoryValue, AVM_KECCAKF1600_STATE_SIZE> src_mem_values{ MemoryValue::from<uint64_t>(0) };
 
         // Slice read and tag check
-        for (size_t i = 0; i < 5; i++) {
-            for (size_t j = 0; j < 5; j++) {
-                const auto addr = src_addr + static_cast<MemoryAddress>((i * 5) + j);
-                const MemoryValue& mem_val = memory.get(addr);
-                const MemoryTag tag = mem_val.get_tag();
-                src_mem_values[i][j] = mem_val;
+        for (size_t k = 0; k < AVM_KECCAKF1600_STATE_SIZE; k++) {
+            const auto addr = src_addr + static_cast<MemoryAddress>(k);
+            const MemoryValue& mem_val = memory.get(addr);
+            const MemoryTag tag = mem_val.get_tag();
+            src_mem_values[k] = mem_val;
 
-                if (tag != MemoryTag::U64) {
-                    keccakf1600_event.tag_error = true;
-                    keccakf1600_event.src_mem_values = src_mem_values;
+            if (tag != MemoryTag::U64) {
+                keccakf1600_event.tag_error = true;
+                keccakf1600_event.src_mem_values = src_mem_values;
 
-                    throw KeccakF1600Exception(
-                        format("Read slice tag invalid - addr: ", addr, " tag: ", static_cast<uint32_t>(tag)));
-                }
+                throw KeccakF1600Exception(
+                    format("Read slice tag invalid - addr: ", addr, " tag: ", static_cast<uint32_t>(tag)));
             }
         }
 
-        // Initialize state input values with values read from memory.
-        KeccakF1600StateMemValues state_input_values = src_mem_values;
         keccakf1600_event.src_mem_values = src_mem_values;
+
+        // Initialize state input values with values read from memory.
+        // Standard Keccak layout: memory[(y * 5) + x] = A[x][y], so linear index k maps to (x=k%5, y=k/5)
+        KeccakF1600StateMemValues state_input_values;
+        for (size_t k = 0; k < AVM_KECCAKF1600_STATE_SIZE; k++) {
+            state_input_values[k % 5][k / 5] = src_mem_values[k];
+        }
 
         std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds_data;
 
@@ -225,7 +227,7 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
         // Slice write
         for (size_t i = 0; i < 5; i++) {
             for (size_t j = 0; j < 5; j++) {
-                memory.set(dst_addr + static_cast<MemoryAddress>((i * 5) + j), state_input_values[i][j]);
+                memory.set(dst_addr + static_cast<MemoryAddress>((j * 5) + i), state_input_values[i][j]);
             }
         }
 

@@ -15,12 +15,12 @@ pub contract OnlySelf {
 
     #[external("private")]
     fn call_only_self_private() {
-        OnlySelf::at(self.address).only_self_private().call(self.context);
+        self.call_self.only_self_private();
     }
 
     #[external("public")]
     fn call_only_self_public() {
-        OnlySelf::at(self.address).only_self_public().call(self.context);
+        self.call_self.only_self_public();
     }
 }
 

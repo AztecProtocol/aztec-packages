@@ -15,7 +15,7 @@ export class Schnorr {
    * @returns A grumpkin public key.
    */
   public async computePublicKey(privateKey: GrumpkinScalar): Promise<Point> {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.schnorrComputePublicKey({ privateKey: privateKey.toBuffer() });
     return Point.fromBuffer(Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]));
@@ -28,7 +28,7 @@ export class Schnorr {
    * @returns A Schnorr signature of the form (s, e).
    */
   public async constructSignature(msg: Uint8Array, privateKey: GrumpkinScalar) {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.schnorrConstructSignature({
       message: msg,
@@ -45,7 +45,7 @@ export class Schnorr {
    * @returns True or false.
    */
   public async verifySignature(msg: Uint8Array, pubKey: Point, sig: SchnorrSignature) {
-    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.schnorrVerifySignature({
       message: msg,

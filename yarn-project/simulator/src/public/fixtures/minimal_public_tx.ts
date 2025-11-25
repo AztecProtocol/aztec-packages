@@ -1,4 +1,4 @@
-import { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, type PublicTxResult } from '@aztec/stdlib/avm';
 import { ProtocolContracts } from '@aztec/stdlib/tx';
 
 import avmMinimalCircuitInputsJson from '../../../artifacts/avm_minimal_inputs.json' with { type: 'json' };
@@ -6,7 +6,6 @@ import { TypeTag } from '../avm/avm_memory_types.js';
 import { Add, Return, Set } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import { Opcode } from '../avm/serialization/instruction_serialization.js';
-import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
 import { testCustomBytecode } from './custom_bytecode_tester.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
@@ -21,8 +20,8 @@ export async function executeAvmMinimalPublicTx(tester: PublicTxSimulationTester
   const result = await testCustomBytecode(minimalBytecode, tester, 'MinimalTx', 'AvmMinimalContract');
 
   // Modify the protocol contracts to be all zeros
-  result.avmProvingRequest.inputs.hints.protocolContracts = ProtocolContracts.empty();
-  result.avmProvingRequest.inputs.publicInputs.protocolContracts = ProtocolContracts.empty();
+  result.hints!.protocolContracts = ProtocolContracts.empty();
+  result.publicInputs.protocolContracts = ProtocolContracts.empty();
 
   return result;
 }

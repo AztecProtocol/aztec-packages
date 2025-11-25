@@ -5,10 +5,11 @@
 // =====================
 
 #pragma once
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion {
 
@@ -30,9 +31,8 @@ static constexpr bb::fq DEFAULT_PAIRING_POINTS_P1_Y(
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1571): Implement tagging mechanism
  * @tparam Builder_
  */
-template <typename Builder_> struct PairingPoints {
-    using Builder = Builder_;
-    using Curve = bn254<Builder>;
+template <typename Curve> struct PairingPoints {
+    using Builder = typename Curve::Builder;
     using Group = Curve::Group;
     using Fq = Curve::BaseField;
     using Fr = Curve::ScalarField;
@@ -40,6 +40,7 @@ template <typename Builder_> struct PairingPoints {
     Group P1;
 
     bool has_data = false;
+    uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
@@ -50,11 +51,34 @@ template <typename Builder_> struct PairingPoints {
         : P0(P0)
         , P1(P1)
         , has_data(true)
-    {}
+    {
+        // Get the builder from the group elements and assign a new tag
+        Builder* builder = P0.get_context();
+        if (builder != nullptr) {
+            tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
+        }
+
+#ifndef NDEBUG
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
+        info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+#endif
+    }
 
     PairingPoints(std::array<Group, 2> const& points)
         : PairingPoints(points[0], points[1])
     {}
+
+    Group& operator[](size_t idx)
+    {
+        BB_ASSERT(idx < 2, "Index out of bounds");
+        return idx == 0 ? P0 : P1;
+    }
+
+    const Group& operator[](size_t idx) const
+    {
+        BB_ASSERT(idx < 2, "Index out of bounds");
+        return idx == 0 ? P0 : P1;
+    }
 
     typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
 
@@ -95,7 +119,17 @@ template <typename Builder_> struct PairingPoints {
         auto P0 = Group::batch_mul(first_components, challenges);
         auto P1 = Group::batch_mul(second_components, challenges);
 
-        return { P0, P1 };
+        PairingPoints aggregated_points(P0, P1);
+
+        // Merge tags
+        Builder* builder = P0.get_context();
+        if (builder != nullptr) {
+            for (const auto& points : pairing_points) {
+                builder->pairing_points_tagging.merge_pairing_point_tags(aggregated_points.tag_index, points.tag_index);
+            }
+        }
+
+        return aggregated_points;
     }
 
     /**
@@ -135,6 +169,17 @@ template <typename Builder_> struct PairingPoints {
             point_to_aggregate = other.P1.scalar_mul(recursion_separator, 128);
             P1 += point_to_aggregate;
         }
+
+        // Merge the tags in the builder
+        Builder* builder = P0.get_context();
+        if (builder != nullptr) {
+            builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
+        }
+
+#ifndef NDEBUG
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
+        info("Aggregated Pairing Points with tag ", tag_index, ": valid: ", native_pp.check() ? "true" : "false");
+#endif
     }
 
     /**
@@ -177,9 +222,9 @@ template <typename Builder_> struct PairingPoints {
      * @brief Reconstruct an PairingPoints from its representation as limbs (generally stored in the public inputs)
      *
      * @param limbs The limbs of the pairing points
-     * @return PairingPoints<Builder>
+     * @return PairingPoints<Curve>
      */
-    static PairingPoints<Builder> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
+    static PairingPoints<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
     {
         const size_t FRS_PER_POINT = Group::PUBLIC_INPUTS_SIZE;
         std::span<const Fr, FRS_PER_POINT> P0_limbs{ limbs.data(), FRS_PER_POINT };
@@ -187,25 +232,6 @@ template <typename Builder_> struct PairingPoints {
         Group P0 = Group::reconstruct_from_public(P0_limbs);
         Group P1 = Group::reconstruct_from_public(P1_limbs);
         return { P0, P1 };
-    }
-
-    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
-    {
-        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
-        // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
-        // them back to biggroup elements anyway to add them to the public inputs...
-        using BigGroup = element_default::
-            element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
-        std::array<fr, PUBLIC_INPUTS_SIZE> dummy_pairing_points_values;
-        size_t idx = 0;
-        for (size_t i = 0; i < 2; i++) {
-            std::array<fr, BigGroup::PUBLIC_INPUTS_SIZE> element_vals = BigGroup::construct_dummy();
-            for (auto& val : element_vals) {
-                dummy_pairing_points_values[idx++] = val;
-            }
-        }
-
-        return dummy_pairing_points_values;
     }
 
     /**
@@ -222,36 +248,20 @@ template <typename Builder_> struct PairingPoints {
         Fq x1(DEFAULT_PAIRING_POINTS_P1_X);
         Fq y1(DEFAULT_PAIRING_POINTS_P1_Y);
 
-        Group P0(x0, y0);
-        Group P1(x1, y1);
+        // These are known, valid points, so we can skip the curve checks.
+        Group P0(x0, y0, /*assert_on_curve=*/false);
+        Group P1(x1, y1, /*assert_on_curve=*/false);
 
         return { P0, P1 };
     }
-};
-
-template <typename Builder> void read(uint8_t const*& it, PairingPoints<Builder>& as)
-{
-    using serialize::read;
-
-    read(it, as.P0);
-    read(it, as.P1);
-    read(it, as.has_data);
-};
-
-template <typename Builder> void write(std::vector<uint8_t>& buf, PairingPoints<Builder> const& as)
-{
-    using serialize::write;
-
-    write(buf, as.P0);
-    write(buf, as.P1);
-    write(buf, as.has_data);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PairingPoints<NCT> const& as)
 {
     return os << "P0: " << as.P0 << "\n"
               << "P1: " << as.P1 << "\n"
-              << "has_data: " << as.has_data << "\n";
+              << "has_data: " << as.has_data << "\n"
+              << "tag_index: " << as.tag_index << "\n";
 }
 
 } // namespace bb::stdlib::recursion

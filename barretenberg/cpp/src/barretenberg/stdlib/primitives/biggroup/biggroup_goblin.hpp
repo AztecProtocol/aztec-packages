@@ -51,16 +51,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         , _y(input.y)
         , _is_infinity(input.is_point_at_infinity())
     {}
-    goblin_element(const Fq& x, const Fq& y)
+
+    // Construct a goblin biggroup element from its coordinates
+    // The on-curve check is skipped as it is performed in ECCVM (assert_on_curve is unused)
+    goblin_element(const Fq& x, const Fq& y, [[maybe_unused]] bool assert_on_curve = true)
         : _x(x)
         , _y(y)
         , _is_infinity(false)
     {}
-    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity)
+
+    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity, [[maybe_unused]] bool assert_on_curve = true)
         : _x(x)
         , _y(y)
         , _is_infinity(is_infinity)
     {}
+
     goblin_element(const goblin_element& other) = default;
     goblin_element(goblin_element&& other) noexcept = default;
     goblin_element& operator=(const goblin_element& other) = default;
@@ -153,18 +158,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return result;
     }
 
-    goblin_element checked_unconditional_add(const goblin_element& other) const
-    {
-        return goblin_element::operator+(*this, other);
-    }
-    goblin_element checked_unconditional_subtract(const goblin_element& other) const
-    {
-        return goblin_element::operator-(*this, other);
-    }
+    goblin_element checked_unconditional_add(const goblin_element& other) const { return operator+(other); }
+    goblin_element checked_unconditional_subtract(const goblin_element& other) const { return operator-(other); }
 
     goblin_element operator+(const goblin_element& other) const
     {
-        return batch_mul({ *this, other }, { Fr(1), Fr(1) });
+        auto builder = get_context(other);
+        return batch_mul({ *this, other }, { Fr(builder, 1), Fr(builder, 1) });
     }
 
     goblin_element operator-(const goblin_element& other) const
@@ -231,7 +231,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return result;
     }
 
-    goblin_element operator-() const { return point_at_infinity(get_context()) - *this; }
+    goblin_element operator-() const
+    {
+        auto builder = get_context();
+        return point_at_infinity(builder) - *this;
+    }
 
     goblin_element operator+=(const goblin_element& other)
     {
@@ -287,7 +291,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return *this;
     }
 
-    goblin_element dbl() const { return batch_mul({ *this }, { 2 }); }
+    goblin_element dbl() const
+    {
+        auto builder = get_context();
+        return batch_mul({ *this }, { Fr(builder, 2) });
+    }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1291) max_num_bits is unused; could implement and
     // use this to optimize other operations. interface compatible with biggroup.hpp, the final parameter
@@ -295,7 +303,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     static goblin_element batch_mul(const std::vector<goblin_element>& points,
                                     const std::vector<Fr>& scalars,
                                     const size_t max_num_bits = 0,
-                                    const bool handle_edge_cases = false);
+                                    const bool handle_edge_cases = false,
+                                    const Fr& masking_scalar = Fr(1));
 
     // we use this data structure to add together a sequence of points.
     // By tracking the previous values of x_1, y_1, \lambda, we can avoid
@@ -444,7 +453,7 @@ using BiggroupGoblin = goblin_element<bb::MegaCircuitBuilder,
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, goblin_element<C, Fq, Fr, G> const& v)
 {
-    return os << "{ " << v._x << " , " << v._y << " }";
+    return os << "{ " << v.x() << " , " << v.y() << " }";
 }
 } // namespace bb::stdlib::element_goblin
 

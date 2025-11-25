@@ -1,11 +1,13 @@
-mod meter_gas_used;
-
-pub(crate) use meter_gas_used::meter_gas_used;
-
-use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
+use crate::components::{
+    gas_meter::meter_gas_used,
+    private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
+};
 use dep::types::{
     abis::{
-        accumulated_data::private_to_rollup_accumulated_data::PrivateToRollupAccumulatedData,
+        accumulated_data::{
+            private_accumulated_data::PrivateAccumulatedData,
+            private_to_rollup_accumulated_data::PrivateToRollupAccumulatedData,
+        },
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
         },
@@ -14,7 +16,7 @@ use dep::types::{
 };
 
 pub struct TailOutputComposer {
-    output_composer: PrivateKernelCircuitPublicInputsComposer,
+    previous_kernel: PrivateKernelCircuitPublicInputs,
     include_by_timestamp_upper_bound: u64,
 }
 
@@ -23,20 +25,19 @@ impl TailOutputComposer {
         previous_kernel: PrivateKernelCircuitPublicInputs,
         include_by_timestamp_upper_bound: u64,
     ) -> Self {
-        let mut output_composer =
-            PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
-        // Q: Why are we sorting in the tail, if sorting has already happened in the Reset?
-        output_composer.sort_ordered_values();
-
-        TailOutputComposer { output_composer, include_by_timestamp_upper_bound }
+        TailOutputComposer { previous_kernel, include_by_timestamp_upper_bound }
     }
 
     pub unconstrained fn finish(self) -> PrivateToRollupKernelCircuitPublicInputs {
-        let source = self.output_composer.finish();
+        let mut output_composer = PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(
+            self.previous_kernel,
+        );
+        output_composer.sort_ordered_values();
+        let source = output_composer.finish();
 
-        let end = self.build_private_to_rollup_accumulated_data();
+        let end = self.build_private_to_rollup_accumulated_data(source.end);
 
-        let gas_used = meter_gas_used(end);
+        let gas_used = meter_gas_used(self.previous_kernel, false /* is_for_public */);
 
         let include_by_timestamp = std::cmp::min(
             source.include_by_timestamp,
@@ -53,9 +54,9 @@ impl TailOutputComposer {
     }
 
     unconstrained fn build_private_to_rollup_accumulated_data(
-        self,
+        _self: Self,
+        source: PrivateAccumulatedData,
     ) -> PrivateToRollupAccumulatedData {
-        let source = self.output_composer.public_inputs_builder.end;
         let mut data = PrivateToRollupAccumulatedData::empty();
         data.note_hashes = source.note_hashes.array.map(|n| n.expose_to_public());
         data.nullifiers = source.nullifiers.array.map(|n| n.expose_to_public());

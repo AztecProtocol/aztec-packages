@@ -8,8 +8,9 @@ use dep::types::{
     abis::{
         block_constant_data::BlockConstantData,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
-        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
+        partial_state_reference::PartialStateReference,
     },
+    blob_data::SpongeBlob,
     constants::{ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     proof::proof_data::ChonkProofData,

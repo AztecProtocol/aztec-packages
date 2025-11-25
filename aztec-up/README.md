@@ -9,13 +9,9 @@ That is all.
 This will install into `~/.aztec/bin` a collection of scripts to help with running aztec containers, and will update
 the user's `PATH` variable in their shell startup script so they can be found.
 
-- `aztec` - The infrastructure container.
-- `aztec-cli` - A command-line tool for interacting with infrastructure.
-- `aztec-nargo` - A build of `nargo` from `noir` that is guaranteed to be version-aligned. Provides compiler, lsp and more.
-- `aztec-postprocess-contract` - Postprocessing tool for Aztec contracts that transpiles artifacts using `avm-transpiler` and generates verification keys using `bb`.
-- `aztec-sandbox` - A wrapper around docker-compose that launches services needed for sandbox testing.
-- `aztec-up` - A tool to upgrade the aztec toolchain to the latest, or specific versions.
-- `aztec-builder` - A useful tool for projects to generate ABIs and update their dependencies.
+- `aztec` - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
+- `aztec-up` - a tool to upgrade the aztec toolchain to the latest, or specific versions."
+- `aztec-wallet` - our minimalistic CLI wallet"
 
 After installed, you can use `aztec-up` to upgrade or install specific versions.
 

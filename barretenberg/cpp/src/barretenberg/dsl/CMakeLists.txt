@@ -3,10 +3,10 @@ set(DSL_DEPENDENCIES
     ultra_honk
     stdlib_sha256
     stdlib_aes128
+    stdlib_blake2s
     stdlib_blake3s
     stdlib_keccak
     stdlib_poseidon2
-    stdlib_schnorr
     stdlib_honk_verifier
     stdlib_chonk_verifier)
 
@@ -20,4 +20,7 @@ barretenberg_module(
 # Binaries (bb, bb-avm) explicitly link their choice. Tests link vm2_stub for AVM functionality.
 if(NOT WASM AND NOT FUZZING)
     target_link_libraries(dsl_tests PRIVATE vm2_stub)
+endif()
+if(FUZZING)
+    target_link_libraries(dsl_acir_dsl_fuzzer PRIVATE vm2_stub)
 endif()

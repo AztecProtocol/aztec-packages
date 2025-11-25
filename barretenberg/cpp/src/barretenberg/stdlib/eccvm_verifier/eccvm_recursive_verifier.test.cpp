@@ -96,7 +96,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
-        info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
+        info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
@@ -140,7 +140,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         }
 
         // Check that the size of the recursive verifier is consistent with historical expectation
-        uint32_t NUM_GATES_EXPECTED = 216315;
+        uint32_t NUM_GATES_EXPECTED = 213303;
         ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()), NUM_GATES_EXPECTED)
             << "Ultra-arithmetized ECCVM Recursive verifier gate count changed! Update this value if you are sure this "
                "is expected.";
@@ -162,7 +162,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
         RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
         [[maybe_unused]] auto output = verifier.verify_proof(proof);
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
-        info("Recursive Verifier: estimated num finalized gates = ", outer_circuit.get_estimated_num_finalized_gates());
+        info("Recursive Verifier: estimated num finalized gates = ",
+             outer_circuit.get_num_finalized_gates_inefficient());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_FALSE(CircuitChecker::check(outer_circuit));
@@ -201,8 +202,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
                     &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
 
                 // Construct ipa_transcript from proof
-                std::shared_ptr<StdlibTranscript> ipa_transcript = std::make_shared<StdlibTranscript>();
-                ipa_transcript->load_proof(ipa_proof);
+                std::shared_ptr<StdlibTranscript> ipa_transcript = std::make_shared<StdlibTranscript>(ipa_proof);
                 EXPECT_FALSE(
                     IPA<RecursiveFlavor::Curve>::full_verify_recursive(stdlib_pcs_vkey, opening_claim, ipa_transcript));
             }

@@ -30,6 +30,13 @@ export interface AztecAsyncMultiMap<K extends Key, V extends Value> extends Azte
   getValuesAsync(key: K): AsyncIterableIterator<V>;
 
   /**
+   * Gets the number of values at the given key.
+   * @param key - The key to get the number of values from
+   * @returns The number of values at the given key
+   */
+  getValueCountAsync(key: K): Promise<number>;
+
+  /**
    * Deletes a specific value at the given key.
    * @param key - The key to delete the value at
    * @param val - The value to delete

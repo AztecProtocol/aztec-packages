@@ -54,7 +54,7 @@ pol commit current_class_id;
 // contract class members.
 // See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
 pol commit artifact_hash;
-pol commit private_function_root;
+pol commit private_functions_root;
 // Note that bytecode_id is used as public_bytecode_commitment!
 
 // current state
@@ -128,12 +128,12 @@ should_retrieve = sel * (1 - error);
 should_retrieve {
   current_class_id,
   artifact_hash,
-  private_function_root,
+  private_functions_root,
   /*public_bytecode_commitment=*/ bytecode_id
 } in class_id_derivation.sel {
   class_id_derivation.class_id,
   class_id_derivation.artifact_hash,
-  class_id_derivation.private_function_root,
+  class_id_derivation.private_functions_root,
   class_id_derivation.public_bytecode_commitment
 };
 
@@ -161,7 +161,7 @@ sel * (1 - instance_exists) * (current_class_id - 0) = 0;
 #[ARTIFACT_HASH_IS_ZERO_IF_ERROR]
 error * (artifact_hash - 0) = 0;
 #[PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR]
-error * (private_function_root - 0) = 0;
+error * (private_functions_root - 0) = 0;
 #[BYTECODE_ID_IS_ZERO_IF_ERROR]
 error * (bytecode_id - 0) = 0;
 

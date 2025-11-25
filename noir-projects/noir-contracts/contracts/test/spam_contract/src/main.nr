@@ -49,15 +49,11 @@ pub contract Spam {
         }
 
         if (call_public) {
-            Spam::at(self.address).public_spam(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX).enqueue(
-                self.context,
+            self.enqueue_self.public_spam(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+            self.enqueue_self.public_spam(
+                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
             );
-            Spam::at(self.address)
-                .public_spam(
-                    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-                    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-                )
-                .enqueue(self.context);
         }
     }
 

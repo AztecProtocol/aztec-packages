@@ -47,7 +47,7 @@ pub contract Benchmarking {
     fn increment_balance(owner: AztecAddress, value: Field) {
         let current = self.storage.balances.at(owner).read();
         self.storage.balances.at(owner).write(current + value);
-        Benchmarking::at(self.address).broadcast(owner).call(self.context);
+        self.call_self.broadcast(owner);
     }
 
     // Emits a public log.

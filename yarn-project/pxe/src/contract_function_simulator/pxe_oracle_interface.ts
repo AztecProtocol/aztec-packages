@@ -3,12 +3,7 @@ import { timesParallel } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
-import {
-  EventSelector,
-  type FunctionArtifactWithContractName,
-  FunctionSelector,
-  getFunctionArtifact,
-} from '@aztec/stdlib/abi';
+import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -102,16 +97,19 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       status,
       scopes,
     });
-    return noteDaos.map(({ contractAddress, storageSlot, noteNonce, note, noteHash, siloedNullifier, index }) => ({
-      contractAddress,
-      storageSlot,
-      noteNonce,
-      note,
-      noteHash,
-      siloedNullifier,
-      // PXE can use this index to get full MembershipWitness
-      index,
-    }));
+    return noteDaos.map(
+      ({ contractAddress, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
+        contractAddress,
+        storageSlot,
+        randomness,
+        noteNonce,
+        note,
+        noteHash,
+        siloedNullifier,
+        // PXE can use this index to get full MembershipWitness
+        index,
+      }),
+    );
   }
 
   async getFunctionArtifact(
@@ -127,18 +125,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       ...artifact,
       debug,
     };
-  }
-
-  async getFunctionArtifactByName(
-    contractAddress: AztecAddress,
-    functionName: string,
-  ): Promise<FunctionArtifactWithContractName | undefined> {
-    const instance = await this.contractDataProvider.getContractInstance(contractAddress);
-    if (!instance) {
-      return;
-    }
-    const artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
-    return artifact && getFunctionArtifact(artifact, functionName);
   }
 
   /**
@@ -614,6 +600,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       this.deliverNote(
         request.contractAddress,
         request.storageSlot,
+        request.randomness,
         request.noteNonce,
         request.content,
         request.noteHash,
@@ -644,6 +631,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async deliverNote(
     contractAddress: AztecAddress,
     storageSlot: Fr,
+    randomness: Fr,
     noteNonce: Fr,
     content: Fr[],
     noteHash: Fr,
@@ -695,6 +683,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       new Note(content),
       contractAddress,
       storageSlot,
+      randomness,
       noteNonce,
       noteHash,
       siloedNullifier,
@@ -795,9 +784,26 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
     // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
     // since `fetchTaggedLogs` only processes logs up to the synced block.
-    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
+    const [syncedBlockNumber, siloedEventCommitment, txEffect] = await Promise.all([
+      this.syncDataProvider.getBlockNumber(),
+      siloNullifier(contractAddress, eventCommitment),
+      this.aztecNode.getTxEffect(txHash),
+    ]);
 
-    const siloedEventCommitment = await siloNullifier(contractAddress, eventCommitment);
+    if (!txEffect) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash}`);
+    }
+
+    if (txEffect.l2BlockNumber > syncedBlockNumber) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
+    }
+
+    const eventInTx = txEffect.data.nullifiers.some(nullifier => nullifier.equals(siloedEventCommitment));
+    if (!eventInTx) {
+      throw new Error(
+        `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present in tx ${txHash}`,
+      );
+    }
 
     const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
       siloedEventCommitment,
@@ -816,7 +822,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       content,
       txHash,
       Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
-      nullifierIndex.l2BlockNumber, // Block in which the event was emitted
+      nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
+      nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
     );
   }
 

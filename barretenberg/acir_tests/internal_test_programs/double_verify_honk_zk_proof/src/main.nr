@@ -1,5 +1,5 @@
 // This circuit aggregates two ZK-Honk proofs from `assert_statement`.
-use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkZKProof, verify_ultrahonkzk_proof};
+use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkZKProof, verify_honk_proof};
 
 fn main(
     verification_key: UltraHonkVerificationKey,
@@ -11,13 +11,13 @@ fn main(
     // The second proof, currently set to be identical
     proof_b: UltraHonkZKProof,
 ) {
-    verify_ultrahonkzk_proof(
+    verify_honk_proof(
         verification_key,
         proof,
         public_inputs,
         key_hash,
     );
-    verify_ultrahonkzk_proof(
+    verify_honk_proof(
         verification_key,
         proof_b,
         public_inputs,

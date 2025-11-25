@@ -17,6 +17,9 @@ NETWORK=${NETWORK:-}
 
 L1_NETWORK=${L1_NETWORK:-sepolia}
 
+# Read optional custom secret name for LABS_INFRA_MNEMONIC
+LABS_INFRA_MNEMONIC_SECRET_NAME=${LABS_INFRA_MNEMONIC_SECRET_NAME:-}
+
 echo "Setting up GCP secrets for network: $NETWORK"
 
 # Create secure temporary directory for secrets
@@ -67,6 +70,13 @@ mask_secret_value() {
     fi
 }
 
+# Determine the mnemonic secret name: use custom if provided, otherwise use default pattern
+if [[ -n "$LABS_INFRA_MNEMONIC_SECRET_NAME" ]]; then
+    MNEMONIC_SECRET="${LABS_INFRA_MNEMONIC_SECRET_NAME}"
+else
+    MNEMONIC_SECRET="${L1_NETWORK}-labs-${NETWORK}-mnemonic"
+fi
+
 # Map of environment variables to GCP secret names
 # Generic mappings - network-specific secrets use ${NETWORK} in the name
 declare -A SECRET_MAPPINGS=(
@@ -78,7 +88,7 @@ declare -A SECRET_MAPPINGS=(
     ["ROLLUP_DEPLOYMENT_PRIVATE_KEY"]="${L1_NETWORK}-labs-rollup-private-key"
     ["OTEL_COLLECTOR_ENDPOINT"]="otel-collector-url"
     ["ETHERSCAN_API_KEY"]="etherscan-api-key"
-    ["LABS_INFRA_MNEMONIC"]="${L1_NETWORK}-labs-${NETWORK}-mnemonic"
+    ["LABS_INFRA_MNEMONIC"]="${MNEMONIC_SECRET}"
     ["STORE_SNAPSHOT_URL"]="r2-account-id"
     ["R2_ACCESS_KEY_ID"]="r2-access-key-id"
     ["R2_SECRET_ACCESS_KEY"]="r2-secret-access-key"
@@ -95,6 +105,13 @@ JSON_SECRETS=(
 # Replace placeholders with actual secrets
 for env_var in "${!SECRET_MAPPINGS[@]}"; do
     secret_name="${SECRET_MAPPINGS[$env_var]}"
+
+    # Skip if the variable doesn't contain REPLACE_WITH_GCP_SECRET at all
+    if ! grep -q "^${env_var}=.*REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then
+        echo "Skipping $env_var (no placeholder value)"
+        continue
+    fi
+
     echo "Fetching secret: $secret_name for $env_var"
 
     if grep -q "^${env_var}=REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then

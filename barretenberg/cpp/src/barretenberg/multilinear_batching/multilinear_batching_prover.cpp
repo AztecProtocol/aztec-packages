@@ -10,6 +10,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -57,8 +58,6 @@ void MultilinearBatchingProver::execute_commitments_round()
     BB_BENCH();
     transcript->send_to_verifier("non_shifted_accumulator_commitment", key->non_shifted_accumulator_commitment);
     transcript->send_to_verifier("shifted_accumulator_commitment", key->shifted_accumulator_commitment);
-    transcript->send_to_verifier("non_shifted_instance_commitment", key->non_shifted_instance_commitment);
-    transcript->send_to_verifier("shifted_instance_commitment", key->shifted_instance_commitment);
 }
 void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
 {
@@ -66,14 +65,10 @@ void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
     for (size_t i = 0; i < Flavor::VIRTUAL_LOG_N; i++) {
         transcript->send_to_verifier("accumulator_challenge_" + std::to_string(i),
                                      key->proving_key->accumulator_challenge[i]);
-        transcript->send_to_verifier("instance_challenge_" + std::to_string(i),
-                                     key->proving_key->instance_challenge[i]);
     }
     for (size_t i = 0; i < 2; i++) {
         transcript->send_to_verifier("accumulator_evaluation_" + std::to_string(i),
                                      key->proving_key->accumulator_evaluations[i]);
-        transcript->send_to_verifier("instance_evaluation_" + std::to_string(i),
-                                     key->proving_key->instance_evaluations[i]);
     }
 }
 
@@ -103,32 +98,46 @@ void MultilinearBatchingProver::execute_relation_check_rounds()
     sumcheck_output = sumcheck.prove();
 }
 
-void MultilinearBatchingProver::compute_new_claim()
+MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
 {
     BB_BENCH();
+
+    // Batching challenge: the new claim is computed as instance + challenge * accumulator
     auto claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
+
+    // New polynomials
     auto new_non_shifted_polynomial = Polynomial(key->proving_key->circuit_size);
-    new_non_shifted_polynomial += key->proving_key->polynomials.w_non_shifted_accumulator;
-    new_non_shifted_polynomial.add_scaled(key->proving_key->polynomials.w_non_shifted_instance,
+    new_non_shifted_polynomial += key->proving_key->polynomials.w_non_shifted_instance;
+    new_non_shifted_polynomial.add_scaled(key->proving_key->polynomials.w_non_shifted_accumulator,
                                           claim_batching_challenge);
+
     auto new_shifted_polynomial = Polynomial::shiftable(key->proving_key->circuit_size);
-    new_shifted_polynomial += key->preshifted_accumulator;
-    new_shifted_polynomial.add_scaled(key->preshifted_instance, claim_batching_challenge);
+    new_shifted_polynomial += key->preshifted_instance;
+    new_shifted_polynomial.add_scaled(key->preshifted_accumulator, claim_batching_challenge);
+
+    // New commitments
     auto new_non_shifted_commitment =
-        key->non_shifted_accumulator_commitment + key->non_shifted_instance_commitment * claim_batching_challenge;
+        key->non_shifted_instance_commitment + key->non_shifted_accumulator_commitment * claim_batching_challenge;
     auto new_shifted_commitment =
-        key->shifted_accumulator_commitment + key->shifted_instance_commitment * claim_batching_challenge;
-    new_claim.challenge = sumcheck_output.challenge;
-    new_claim.non_shifted_polynomial = new_non_shifted_polynomial;
-    new_claim.shifted_polynomial = new_shifted_polynomial;
-    new_claim.non_shifted_commitment = new_non_shifted_commitment;
-    new_claim.shifted_commitment = new_shifted_commitment;
-    new_claim.non_shifted_evaluation =
-        sumcheck_output.claimed_evaluations.w_non_shifted_accumulator +
-        sumcheck_output.claimed_evaluations.w_non_shifted_instance * claim_batching_challenge;
-    new_claim.shifted_evaluation = sumcheck_output.claimed_evaluations.w_shifted_accumulator +
-                                   sumcheck_output.claimed_evaluations.w_shifted_instance * claim_batching_challenge;
-    new_claim.dyadic_size = key->proving_key->circuit_size;
+        key->shifted_instance_commitment + key->shifted_accumulator_commitment * claim_batching_challenge;
+
+    // New evaluations
+    FF new_non_shifted_evaluation =
+        sumcheck_output.claimed_evaluations.w_non_shifted_instance +
+        sumcheck_output.claimed_evaluations.w_non_shifted_accumulator * claim_batching_challenge;
+    FF new_shifted_evaluation = sumcheck_output.claimed_evaluations.w_shifted_instance +
+                                sumcheck_output.claimed_evaluations.w_shifted_accumulator * claim_batching_challenge;
+
+    return MultilinearBatchingProverClaim{ .challenge = sumcheck_output.challenge,
+                                           .non_shifted_evaluation = new_non_shifted_evaluation,
+                                           .shifted_evaluation = new_shifted_evaluation,
+                                           .non_shifted_polynomial = new_non_shifted_polynomial,
+                                           .shifted_polynomial = new_shifted_polynomial,
+                                           .non_shifted_commitment = new_non_shifted_commitment,
+                                           .shifted_commitment = new_shifted_commitment,
+                                           .dyadic_size = key->proving_key->circuit_size
+
+    };
 }
 
 HonkProof MultilinearBatchingProver::export_proof()
@@ -149,7 +158,7 @@ HonkProof MultilinearBatchingProver::construct_proof()
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();
 
-    vinfo("computed opening proof");
+    vinfo("MultilinearBatchingProver:: Computed batching proof");
     return export_proof();
 }
 

@@ -75,14 +75,18 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @param public_inputs indices of public inputs in witness array
      * @param varnum number of known witness
      *
-     * @note The size of witness_values may be less than varnum. The former is the set of actual witness values known at
-     * the time of acir generation. The former may be larger and essentially acounts for placeholders for witnesses that
-     * we know will exist but whose values are not known during acir generation. Both are in general less than the total
-     * number of variables/witnesses that might be present for a circuit generated from acir, since many gates will
-     * depend on the details of the bberg implementation (or more generally on the backend used to process acir).
+     * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
+     * witness values which are interleaved with zeros when witnesses are optimized away. Not all witness values are
+     * known at the time of acir generation. The number of values that are not known is given by varnum -
+     * witness_values.size(). For each of these witnesses with unknown value, we add to the builder a variable with
+     * value equal to zero.
+     *
+     * @note varnum is in general less than total number of variables/witnesses that might be present for a circuit
+     * generated from acir, since many gates will depend on the details of the bberg implementation (or more generally
+     * on the backend used to process acir).
      */
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
-                        auto& witness_values,
+                        const std::vector<FF>& witness_values,
                         const std::vector<uint32_t>& public_inputs,
                         size_t varnum)
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
@@ -126,44 +130,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     void add_mega_gates_to_ensure_all_polys_are_non_zero();
 
     size_t get_num_constant_gates() const override { return 0; }
-
-    /**
-     * @brief Get the final number of gates in a circuit, which consists of the sum of:
-     * 1) Current number number of actual gates
-     * 2) Number of public inputs, as we'll need to add a gate for each of them
-     * 3) Number of Rom array-associated gates
-     * 4) Number of range-list associated gates
-     * 5) Number of non-native field multiplication gates.
-     *
-     * @return size_t
-     */
-    size_t get_estimated_num_finalized_gates() const override
-    {
-        auto num_ultra_gates = UltraCircuitBuilder_<MegaExecutionTraceBlocks>::get_estimated_num_finalized_gates();
-        auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
-        return num_ultra_gates + num_goblin_ecc_op_gates;
-    }
-
-    /**x
-     * @brief Print the number and composition of gates in the circuit
-     *
-     */
-    void print_num_estimated_finalized_gates() const override
-    {
-        size_t count = 0;
-        size_t rangecount = 0;
-        size_t romcount = 0;
-        size_t ramcount = 0;
-        size_t nnfcount = 0;
-        UltraCircuitBuilder_<MegaExecutionTraceBlocks>::get_num_estimated_gates_split_into_components(
-            count, rangecount, romcount, ramcount, nnfcount);
-        auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
-
-        size_t total = count + romcount + ramcount + rangecount + num_goblin_ecc_op_gates;
-        std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
-                  << ", range " << rangecount << ", non native field gates " << nnfcount << ", goblin ecc op gates "
-                  << num_goblin_ecc_op_gates << "), pubinp = " << this->num_public_inputs() << std::endl;
-    }
 
     /**
      * @brief Add a witness variable to the public calldata.

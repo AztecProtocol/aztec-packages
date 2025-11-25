@@ -93,6 +93,8 @@ export const VALIDATOR_STATUS = 'aztec.validator_status';
 export const P2P_ID = 'aztec.p2p.id';
 export const P2P_REQ_RESP_PROTOCOL = 'aztec.p2p.req_resp.protocol';
 export const P2P_REQ_RESP_BATCH_REQUESTS_COUNT = 'aztec.p2p.req_resp.batch_requests_count';
+/** The state of a peer (Healthy, Disconnect, Banned) */
+export const P2P_PEER_SCORE_STATE = 'aztec.p2p.peer_score_state';
 export const POOL_NAME = 'aztec.pool.name';
 
 export const SEQUENCER_STATE = 'aztec.sequencer.state';
@@ -126,3 +128,6 @@ export const TX_COLLECTION_METHOD = 'aztec.tx_collection.method';
 
 /** Scope of L1 transaction (sequencer, prover, or other) */
 export const L1_TX_SCOPE = 'aztec.l1_tx.scope';
+
+/** Generic error type attribute */
+export const IS_COMMITTEE_MEMBER = 'aztec.is_committee_member';

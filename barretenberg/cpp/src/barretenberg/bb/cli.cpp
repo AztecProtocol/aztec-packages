@@ -32,6 +32,7 @@
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <atomic>
+#include "barretenberg/vm2/api_avm.hpp"
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -281,18 +282,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                       "back to RAM (requires --slow_low_memory).");
     };
 
-    const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
-    };
-
     const auto add_vk_policy_option = [&](CLI::App* subcommand) {
         return subcommand
             ->add_option("--vk_policy",
                          flags.vk_policy,
-                         "Policy for handling verification keys during IVC accumulation. 'default' uses the provided "
-                         "VK as-is, 'check' verifies the provided VK matches the computed VK (throws error on "
-                         "mismatch), 'recompute' always ignores the provided VK and treats it as nullptr.")
-            ->check(CLI::IsMember({ "default", "check", "recompute" }).name("is_member"));
+                         "Policy for handling verification keys. 'default' uses the provided VK as-is, 'check' "
+                         "verifies the provided VK matches the computed VK (throws error on mismatch), 'recompute' "
+                         "always ignores the provided VK and treats it as nullptr, 'rewrite' checks the VK and "
+                         "rewrites the input file with the correct VK if there's a mismatch (for check command).")
+            ->check(CLI::IsMember({ "default", "check", "recompute", "rewrite" }).name("is_member"));
     };
 
     const auto add_optimized_solidity_verifier_flag = [&](CLI::App* subcommand) {
@@ -343,7 +341,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(check);
     add_witness_path_option(check);
     add_ivc_inputs_path_options(check);
-    add_update_inputs_flag(check);
+    add_vk_policy_option(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -474,6 +472,17 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_avm_inputs_option(avm_prove_command);
 
     /***************************************************************************************************************
+     * Subcommand: avm_write_vk
+     ***************************************************************************************************************/
+    CLI::App* avm_write_vk_command = app.add_subcommand("avm_write_vk", "");
+    avm_write_vk_command->group(""); // hide from list of subcommands
+    add_verbose_flag(avm_write_vk_command);
+    add_debug_flag(avm_write_vk_command);
+    add_crs_path_option(avm_write_vk_command);
+    std::filesystem::path avm_write_vk_output_path{ "./keys" };
+    add_output_path_option(avm_write_vk_command, avm_write_vk_output_path);
+
+    /***************************************************************************************************************
      * Subcommand: avm_check_circuit
      ***************************************************************************************************************/
     CLI::App* avm_check_circuit_command = app.add_subcommand("avm_check_circuit", "");
@@ -556,10 +565,22 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string msgpack_input_file;
     msgpack_run_command->add_option(
         "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
-    int max_clients = 1;
+    size_t request_ring_size = 1024 * 1024; // 1MB default
     msgpack_run_command
         ->add_option(
-            "--max-clients", max_clients, "Maximum concurrent clients for shared memory IPC server (default: 1)")
+            "--request-ring-size", request_ring_size, "Request ring buffer size for shared memory IPC (default: 1MB)")
+        ->check(CLI::PositiveNumber);
+    size_t response_ring_size = 1024 * 1024; // 1MB default
+    msgpack_run_command
+        ->add_option("--response-ring-size",
+                     response_ring_size,
+                     "Response ring buffer size for shared memory IPC (default: 1MB)")
+        ->check(CLI::PositiveNumber);
+    int max_clients = 1;
+    msgpack_run_command
+        ->add_option("--max-clients",
+                     max_clients,
+                     "Maximum concurrent clients for socket IPC servers (default: 1, only used for .sock files)")
         ->check(CLI::PositiveNumber);
 
     /***************************************************************************************************************
@@ -634,7 +655,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return 0;
         }
         if (msgpack_run_command->parsed()) {
-            return execute_msgpack_run(msgpack_input_file, max_clients);
+            return execute_msgpack_run(msgpack_input_file, max_clients, request_ring_size, response_ring_size);
         }
         if (aztec_process->parsed()) {
 #ifdef __wasm__
@@ -715,6 +736,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
         } else if (avm_simulate_command->parsed()) {
             avm_simulate(avm_inputs_path);
+        } else if (avm_write_vk_command->parsed()) {
+            avm_write_verification_key(avm_write_vk_output_path);
         } else if (flags.scheme == "chonk") {
             ChonkAPI api;
             if (prove->parsed()) {

@@ -56,12 +56,6 @@ locals {
       }
     }
 
-    persistence = {
-      enabled          = true
-      size             = "2Ti"
-      storageClassName = "premium-rwo"
-    }
-
     nodeSelector = {
       "node-type" = "infra"
     }
@@ -87,8 +81,13 @@ locals {
           }
           extraArgs = [
             "--chain=${var.chain}",
-            "--full"
           ]
+
+          persistence = {
+            enabled          = true
+            size             = var.reth_storage
+            storageClassName = "premium-rwo"
+          }
         })
       ]
     }
@@ -119,6 +118,12 @@ locals {
             "--supernode",
             "--network=${var.chain}"
           ]
+
+          persistence = {
+            enabled          = true
+            size             = var.lighthouse_storage
+            storageClassName = "premium-rwo"
+          }
         })
       ]
     }

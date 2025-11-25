@@ -18,7 +18,7 @@ import {
 import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { createAztecNode } from '../../sandbox/index.js';
+import { createAztecNode } from '../../local-network/index.js';
 import {
   extractNamespacedOptions,
   extractRelevantOptions,
@@ -93,7 +93,7 @@ export async function startNode(
     ...config,
   };
 
-  if (!options.sequencer) {
+  if (!options.sequencer && !nodeConfig.fishermanMode) {
     nodeConfig.disableValidator = true;
   } else {
     const sequencerConfig = {

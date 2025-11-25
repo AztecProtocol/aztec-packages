@@ -148,7 +148,9 @@ export async function createProverNode(
 
   const proofVerifier = new QueuedIVCVerifier(
     config,
-    config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier(),
+    config.realProofs
+      ? await BBCircuitVerifier.new(config)
+      : new TestCircuitVerifier(config.proverTestVerificationDelayMs),
   );
 
   const p2pClient = await createP2PClient(
@@ -181,6 +183,7 @@ export async function createProverNode(
       'txGatheringIntervalMs',
       'txGatheringTimeoutMs',
       'proverNodeFailedEpochStore',
+      'proverNodeDisableProofPublish',
       'dataDirectory',
       'l1ChainId',
       'rollupVersion',

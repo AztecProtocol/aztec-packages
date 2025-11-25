@@ -127,8 +127,10 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
         return result;
     }();
 
-    verifier_output.points_accumulator.set_public();
-    verifier_output.ipa_claim.set_public();
+    stdlib::recursion::honk::RollupIO inputs;
+    inputs.pairing_inputs = verifier_output.points_accumulator;
+    inputs.ipa_claim = verifier_output.ipa_claim;
+    inputs.set_public();
     outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
@@ -226,8 +228,10 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
         return result;
     }();
 
-    verifier_output.points_accumulator.set_public();
-    verifier_output.ipa_claim.set_public();
+    stdlib::recursion::honk::RollupIO inputs;
+    inputs.pairing_inputs = verifier_output.points_accumulator;
+    inputs.ipa_claim = verifier_output.ipa_claim;
+    inputs.set_public();
     outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier

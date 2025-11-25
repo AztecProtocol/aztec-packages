@@ -1,7 +1,7 @@
 ---
 title: Debugging Aztec Code
 sidebar_position: 4
-tags: [debugging, errors, logging, sandbox, aztec.nr]
+tags: [debugging, errors, logging, local_network, aztec.nr]
 description: This guide shows you how to debug issues in your Aztec contracts.
 ---
 
@@ -11,20 +11,20 @@ This guide shows you how to debug issues in your Aztec development environment.
 
 ## Prerequisites
 
-- Running Aztec sandbox
+- Running Aztec local network
 - Aztec.nr contract or aztec.js application
 - Basic understanding of Aztec architecture
 
 ## Enable logging
 
-Enable different levels of logging on the sandbox or local node by setting `LOG_LEVEL`:
+Enable different levels of logging on the local network or node by setting `LOG_LEVEL`:
 
 ```bash
 # Set log level (options: fatal, error, warn, info, verbose, debug, trace)
-LOG_LEVEL=debug aztec start --sandbox
+LOG_LEVEL=debug aztec start --local-network
 
 # Different levels for different services
-LOG_LEVEL="verbose;info:sequencer" aztec start --sandbox
+LOG_LEVEL="verbose;info:sequencer" aztec start --local-network
 ```
 
 ## Logging in Aztec.nr contracts
@@ -81,6 +81,7 @@ LOG_LEVEL="info;debug:simulator;debug:execution"
 # Default level + specific submodule overrides
 LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context"
 ```
+
 :::
 
 ## Debugging common errors
@@ -91,8 +92,8 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Aztec dependency not found`                             | Add to Nargo.toml: `aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }` |
 | `Public state writes only supported in public functions` | Move state writes to public functions                                                                                                                           |
-| `Unknown contract 0x0`                                   | Call `pxe.addContracts(...)` to register contract                                                                                                               |
-| `No public key registered for address`                   | Call `pxe.registerRecipient(...)` or `pxe.registerAccount(...)`                                                                                                 |
+| `Unknown contract 0x0`                                   | Call `wallet.registerContract(...)` to register contract                                                                                                        |
+| `No public key registered for address`                   | Call `wallet.registerSender(...)`                                                                                                                               |
 | `Failed to solve brillig function`                       | Check function parameters and note validity                                                                                                                     |
 
 ### Circuit Errors
@@ -180,7 +181,7 @@ Current limits that trigger `7009 - ARRAY_OVERFLOW`:
 
 | Error                                | Cause                 | Solution                                   |
 | ------------------------------------ | --------------------- | ------------------------------------------ |
-| `tree root mismatch`                 | State inconsistency   | Restart sandbox or check state transitions |
+| `tree root mismatch`                 | State inconsistency   | Restart local network or check state transitions |
 | `next available leaf index mismatch` | Tree corruption       | Verify tree updates are sequential         |
 | `Public call stack size exceeded`    | Too many public calls | Reduce public function calls               |
 | `Failed to publish block`            | L1 submission failed  | Check L1 connection and gas                |
@@ -199,7 +200,7 @@ When debugging fails:
 ### Enable verbose logging
 
 ```bash
-LOG_LEVEL=verbose aztec start --sandbox
+LOG_LEVEL=verbose aztec start --local-network
 ```
 
 ### Common debug imports
@@ -211,8 +212,7 @@ use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
 ### Check contract registration
 
 ```javascript
-await pxe.getContracts();
-await pxe.getRegisteredAccounts();
+await wallet.getContractMetadata(myContractInstance.address);
 ```
 
 ### Decode L1 errors

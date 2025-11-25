@@ -11,14 +11,16 @@
       "gasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" }
     },
     "tx": {
-      "hash": "0x118a601c5af4c2498882e5ba578588e5376a2bc9c6034c9b7174903f4990c57d",
+      "hash": "0x02440a894870f8078ce6065f76c2f598e2f3df9719f1a78038057c20eb096516",
       "gasSettings": {
-        "gasLimits": { "daGas": 6291456, "l2Gas": 6000000 },
+        "gasLimits": { "daGas": 12582912, "l2Gas": 6000000 },
         "teardownGasLimits": { "daGas": 0, "l2Gas": 0 },
         "maxFeesPerGas": { "feePerDaGas": "10", "feePerL2Gas": "10" },
         "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }
       },
       "effectiveGasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" },
+      "nonRevertibleContractDeploymentData": { "contractClassLogs": [], "privateLogs": [] },
+      "revertibleContractDeploymentData": { "contractClassLogs": [], "privateLogs": [] },
       "nonRevertibleAccumulatedData": {
         "noteHashes": [],
         "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"],
@@ -58,6 +60,7 @@
     },
     "contractInstances": [
       {
+        "hintKey": 1,
         "address": "0x03deefb26b3b88ef515e0ce5bd1402ea3a7c12569597cddb19ce6260444d625f",
         "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "deployer": "0x000000000000000000000000000000000000000000000000000000000000002a",
@@ -74,6 +77,7 @@
     ],
     "contractClasses": [
       {
+        "hintKey": 1,
         "classId": "0x296f245361997268ff14bfab8664aee8768ddddcad0e25ab13b2d79426a039d9",
         "artifactHash": "0x0000000000000000000000000000000000000000000000000000000000000001",
         "privateFunctionsRoot": "0x0000000000000000000000000000000000000000000000000000000000000003",
@@ -82,10 +86,21 @@
     ],
     "bytecodeCommitments": [
       {
+        "hintKey": 1,
         "classId": "0x296f245361997268ff14bfab8664aee8768ddddcad0e25ab13b2d79426a039d9",
         "commitment": "0x253955340ab6819b564797927db2433e18decc4b3f37cbd27dcf3b4d6222a694"
       }
     ],
+    "debugFunctionNames": [
+      {
+        "address": "0x03deefb26b3b88ef515e0ce5bd1402ea3a7c12569597cddb19ce6260444d625f",
+        "selector": "0x000000000000000000000000000000000000000000000000000000000d6ab3ae",
+        "name": "0x0d6ab3ae"
+      }
+    ],
+    "contractDbCreateCheckpointHints": [{ "actionCounter": 0, "oldCheckpointId": 0, "newCheckpointId": 1 }],
+    "contractDbCommitCheckpointHints": [{ "actionCounter": 1, "oldCheckpointId": 1, "newCheckpointId": 0 }],
+    "contractDbRevertCheckpointHints": [],
     "startingTreeRoots": {
       "l1ToL2MessageTree": {
         "root": "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5",
@@ -928,7 +943,7 @@
     },
     "startGasUsed": { "daGas": 0, "l2Gas": 0 },
     "gasSettings": {
-      "gasLimits": { "daGas": 6291456, "l2Gas": 6000000 },
+      "gasLimits": { "daGas": 12582912, "l2Gas": 6000000 },
       "teardownGasLimits": { "daGas": 0, "l2Gas": 0 },
       "maxFeesPerGas": { "feePerDaGas": "10", "feePerL2Gas": "10" },
       "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }

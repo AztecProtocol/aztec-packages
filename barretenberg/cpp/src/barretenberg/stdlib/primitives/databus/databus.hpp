@@ -48,6 +48,7 @@ template <typename Builder> class databus {
 
         size_t size() const { return length; }
         Builder* get_context() const { return context; }
+        void set_context(Builder* builder_context) { context = builder_context; }
 
       private:
         mutable std::vector<field_pt> entries; // bus vector entries

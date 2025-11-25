@@ -6,9 +6,8 @@ use protocol_types::{
 
 use crate::{
     context::{
-        call_interfaces::CallInterface, PrivateCallInterface, PrivateContext,
-        PrivateStaticCallInterface, PublicCallInterface, PublicContext, PublicStaticCallInterface,
-        UtilityCallInterface, UtilityContext,
+        PrivateCall, PrivateContext, PrivateStaticCall, PublicCall, PublicContext, PublicStaticCall,
+        UtilityCall, UtilityContext,
     },
     hash::hash_args,
     messages::{
@@ -386,7 +385,7 @@ impl TestEnvironment {
     ///
     /// The returned account has a full set of privacy keys, so it can nullify notes, receive messages, etc. It also has
     /// an associated `SchnorrAccount` contract that can process authwit requests - the authwits can be added via the
-    /// `add_private_authwit_from_call_interface` and `add_public_authwit_from_call_interface` helper functions. If
+    /// `add_private_authwit_from_call` and `add_public_authwit_from_call` helper functions. If
     /// authwits are not required, consider using `create_light_account` instead, which is a faster variant of this
     /// function.
     ///
@@ -399,12 +398,11 @@ impl TestEnvironment {
 
         let _ = self.call_private(
             AztecAddress::zero(),
-            PrivateCallInterface::<_, ()>::new(
+            PrivateCall::<_, _, ()>::new(
                 address,
                 comptime { FunctionSelector::from_signature("constructor(Field,Field)") },
                 "constructor",
                 [test_account.keys.ivpk_m.inner.x, test_account.keys.ivpk_m.inner.y],
-                false,
             ),
         );
 
@@ -489,31 +487,28 @@ impl TestEnvironment {
     /// mined by the time `call_private` returns. It is therefore possible to chain multiple private or public function
     /// calls that operate on the result of prior calls.
     ///
-    /// The `call_interface` value can be obtained by calling the appropriate method on a contract type. E.g.:
+    /// The `call` value can be obtained by calling the appropriate method on a contract type. E.g.:
     ///
     /// ```noir
     /// let caller = env.create_light_account();
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.call_private(caller, SampleContract::at(contract_addr).sample_private_function());
     /// ```
-    pub unconstrained fn call_private<T, let M: u32>(
+    pub unconstrained fn call_private<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PrivateCallInterface<M, T>,
+        call: PrivateCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
     {
-        let args = call_interface.get_args();
-        let args_hash = hash_args(args);
-
         let serialized_return_values = txe_oracles::private_call_new_flow(
             from,
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            args,
-            args_hash,
-            call_interface.get_is_static(),
+            call.target_contract,
+            call.selector,
+            call.args,
+            hash_args(call.args),
+            /*is_static=*/ false,
         );
 
         T::deserialize(serialized_return_values)
@@ -523,23 +518,20 @@ impl TestEnvironment {
     ///
     /// Unlike `call_private`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_private<T, let M: u32>(
+    pub unconstrained fn view_private<let M: u32, let N: u32, T>(
         _self: Self,
-        call_interface: PrivateStaticCallInterface<M, T>,
+        call: PrivateStaticCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
     {
-        let args = call_interface.get_args();
-        let args_hash = hash_args(args);
-
         let serialized_return_values = txe_oracles::private_call_new_flow(
             std::mem::zeroed(), // The 'from' address is currently not manually set
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            args,
-            args_hash,
-            call_interface.get_is_static(),
+            call.target_contract,
+            call.selector,
+            call.args,
+            hash_args(call.args),
+            /*is_static=*/ true,
         );
 
         T::deserialize(serialized_return_values)
@@ -547,25 +539,22 @@ impl TestEnvironment {
 
     /// Performs a utility contract function call and returns the result of the called function.
     ///
-    /// The `call_interface` value can be obtained by calling the appropriate method on a contract type. E.g.:
+    /// The `call` value can be obtained by calling the appropriate method on a contract type. E.g.:
     ///
     /// ```noir
     /// let caller = env.create_light_account();
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.simulate_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
-    pub unconstrained fn simulate_utility<T, let M: u32>(
+    pub unconstrained fn simulate_utility<let M: u32, let N: u32, T>(
         _self: Self,
-        call_interface: UtilityCallInterface<M, T>,
+        call: UtilityCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
     {
-        let serialized_return_values = txe_oracles::simulate_utility_function(
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            call_interface.get_args(),
-        );
+        let serialized_return_values =
+            txe_oracles::simulate_utility_function(call.target_contract, call.selector, call.args);
 
         T::deserialize(serialized_return_values)
     }
@@ -581,26 +570,26 @@ impl TestEnvironment {
     /// mined by the time `call_public` returns. It is therefore possible to chain multiple private or public function
     /// calls that operate on the result of prior calls.
     ///
-    /// The `call_interface` value can be obtained by calling the appropriate method on a contract type. E.g.:
+    /// The `call` value can be obtained by calling the appropriate method on a contract type. E.g.:
     ///
     /// ```noir
     /// let caller = env.create_light_account();
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.call_public(caller, SampleContract::at(contract_addr).sample_public_function());
     /// ```
-    pub unconstrained fn call_public<T, let M: u32>(
+    pub unconstrained fn call_public<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PublicCallInterface<M, T>,
+        call: PublicCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::public_call_new_flow(
             Option::some(from),
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            call_interface.get_args(),
+            call.target_contract,
+            call.selector,
+            call.args,
             false,
         );
         T::deserialize(serialized_return_values)
@@ -609,19 +598,19 @@ impl TestEnvironment {
     /// Performs a public contract function call, including the processing of any nested public calls. Returns the
     /// result of the called function.
     /// Variant of `call_public`, but the `from` address (`msg_sender`) is set to "null".
-    pub unconstrained fn call_public_incognito<T, let M: u32>(
+    pub unconstrained fn call_public_incognito<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PublicCallInterface<M, T>,
+        call: PublicCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::public_call_new_flow(
             Option::some(from),
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            call_interface.get_args(),
+            call.target_contract,
+            call.selector,
+            call.args,
             false,
         );
 
@@ -632,18 +621,18 @@ impl TestEnvironment {
     ///
     /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_public<T, let M: u32>(
+    pub unconstrained fn view_public<let M: u32, let N: u32, T>(
         _self: Self,
-        call_interface: PublicStaticCallInterface<M, T>,
+        call: PublicStaticCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::public_call_new_flow(
             Option::some(AztecAddress::zero()),
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            call_interface.get_args(),
+            call.target_contract,
+            call.selector,
+            call.args,
             true,
         );
 
@@ -654,18 +643,18 @@ impl TestEnvironment {
     ///
     /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_public_incognito<T, let M: u32>(
+    pub unconstrained fn view_public_incognito<let M: u32, let N: u32, T>(
         _self: Self,
-        call_interface: PublicStaticCallInterface<M, T>,
+        call: PublicStaticCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::public_call_new_flow(
             Option::none(),
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            call_interface.get_args(),
+            call.target_contract,
+            call.selector,
+            call.args,
             true,
         );
 
@@ -748,6 +737,7 @@ impl TestEnvironment {
         let message_plaintext = BoundedVec::from_array(private_note_to_message_plaintext(
             emission.content.note,
             emission.content.storage_slot,
+            emission.content.randomness,
         ));
 
         // Then we fetch the transaction effects from the latest transaction, in which the note from the emission is
@@ -771,17 +761,18 @@ impl TestEnvironment {
         // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
         // typically be created by the macros for the different notes in a given contract. Here we build one specialized
         // for `Note`.
-        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, storage_slot, note_type_id, contract_address, note_nonce| {
+        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
             assert_eq(note_type_id, Note::get_id());
             assert_eq(packed_note.len(), <Note as Packable>::N);
 
             let note = Note::unpack(subarray(packed_note.storage(), 0));
 
-            let note_hash = note.compute_note_hash(storage_slot);
+            let note_hash = note.compute_note_hash(storage_slot, randomness);
             let note_hash_for_nullification = compute_note_hash_for_nullification(
                 RetrievedNote {
                     note,
                     contract_address,
+                    randomness,
                     metadata: SettledNoteMetadata::new(note_nonce).into(),
                 },
                 storage_slot,

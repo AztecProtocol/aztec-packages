@@ -64,6 +64,9 @@ std::vector<MemoryValue> EnqueuedCallContext::get_calldata(uint32_t cd_offset, u
 
 ContextEvent EnqueuedCallContext::serialize_context_event()
 {
+    auto& call_stack = get_internal_call_stack_manager();
+    auto& side_effects = get_side_effect_tracker().get_side_effects();
+
     return {
         .id = get_context_id(),
         .parent_id = 0,
@@ -84,15 +87,16 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .parent_gas_used = get_parent_gas_used(),
         .parent_gas_limit = get_parent_gas_limit(),
         // internal call stack
-        .internal_call_id = get_internal_call_stack_manager().get_call_id(),
-        .internal_call_return_id = get_internal_call_stack_manager().get_return_call_id(),
-        .next_internal_call_id = get_internal_call_stack_manager().get_next_call_id(),
+        .internal_call_id = call_stack.get_call_id(),
+        .internal_call_return_id = call_stack.get_return_call_id(),
+        .next_internal_call_id = call_stack.get_next_call_id(),
         // Tree States
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.get_snapshot(),
         .retrieved_bytecodes_tree_snapshot = retrieved_bytecodes_tree.get_snapshot(),
-        // Side Effects
-        .side_effect_states = get_side_effect_states(),
+        // Non-tree-tracked side effects
+        .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
+        .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
         // Phase
         .phase = get_phase(),
     };
@@ -126,6 +130,9 @@ std::vector<MemoryValue> NestedContext::get_calldata(uint32_t cd_offset, uint32_
 
 ContextEvent NestedContext::serialize_context_event()
 {
+    auto& call_stack = get_internal_call_stack_manager();
+    auto& side_effects = get_side_effect_tracker().get_side_effects();
+
     return {
         .id = get_context_id(),
         .parent_id = get_parent_id(),
@@ -146,15 +153,16 @@ ContextEvent NestedContext::serialize_context_event()
         .parent_gas_used = get_parent_gas_used(),
         .parent_gas_limit = get_parent_gas_limit(),
         // internal call stack
-        .internal_call_id = get_internal_call_stack_manager().get_call_id(),
-        .internal_call_return_id = get_internal_call_stack_manager().get_return_call_id(),
-        .next_internal_call_id = get_internal_call_stack_manager().get_next_call_id(),
+        .internal_call_id = call_stack.get_call_id(),
+        .internal_call_return_id = call_stack.get_return_call_id(),
+        .next_internal_call_id = call_stack.get_next_call_id(),
         // Tree states
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.get_snapshot(),
         .retrieved_bytecodes_tree_snapshot = retrieved_bytecodes_tree.get_snapshot(),
-        // Side Effect
-        .side_effect_states = get_side_effect_states(),
+        // Non-tree-tracked side effects
+        .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
+        .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
         // Phase
         .phase = get_phase(),
     };

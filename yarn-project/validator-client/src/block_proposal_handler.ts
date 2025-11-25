@@ -7,11 +7,10 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { IFullNodeBlockBuilder, ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { BlockHeader, type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import {
@@ -73,6 +72,9 @@ export class BlockProposalHandler {
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('validator:block-proposal-handler'),
   ) {
+    if (config.fishermanMode) {
+      this.log = this.log.createChild('[FISHERMAN]');
+    }
     this.tracer = telemetry.getTracer('BlockProposalHandler');
   }
 
@@ -168,7 +170,7 @@ export class BlockProposalHandler {
 
     // Check that I have the same set of l1ToL2Messages as the proposal
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
-    const computedInHash = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
+    const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
     const proposalInHash = proposal.payload.header.contentCommitment.inHash;
     if (!computedInHash.equals(proposalInHash)) {
       this.log.warn(`L1 to L2 messages in hash mismatch, skipping processing`, {

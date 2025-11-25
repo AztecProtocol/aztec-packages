@@ -1,4 +1,4 @@
-import { sha256Trunc } from '../crypto/index.js';
+import { shaMerkleHash } from './balanced_merkle_tree.js';
 import type { Hasher } from './hasher.js';
 import { SiblingPath } from './sibling_path.js';
 import { type TreeNodeLocation, UnbalancedTreeStore } from './unbalanced_tree_store.js';
@@ -6,9 +6,10 @@ import { type TreeNodeLocation, UnbalancedTreeStore } from './unbalanced_tree_st
 export function computeCompressedUnbalancedMerkleTreeRoot(
   leaves: Buffer[],
   valueToCompress = Buffer.alloc(32),
+  emptyRoot = Buffer.alloc(32),
   hasher?: Hasher['hash'],
 ): Buffer {
-  const calculator = UnbalancedMerkleTreeCalculator.create(leaves, valueToCompress, hasher);
+  const calculator = UnbalancedMerkleTreeCalculator.create(leaves, valueToCompress, emptyRoot, hasher);
   return calculator.getRoot();
 }
 
@@ -32,12 +33,9 @@ export class UnbalancedMerkleTreeCalculator {
   public constructor(
     private readonly leaves: Buffer[],
     private readonly valueToCompress: Buffer,
+    private readonly emptyRoot: Buffer,
     private readonly hasher: Hasher['hash'],
   ) {
-    if (leaves.length === 0) {
-      throw Error('Cannot create a compressed unbalanced tree with 0 leaves.');
-    }
-
     this.store = new UnbalancedTreeStore(leaves.length);
     this.buildTree();
   }
@@ -45,9 +43,10 @@ export class UnbalancedMerkleTreeCalculator {
   static create(
     leaves: Buffer[],
     valueToCompress = Buffer.alloc(0),
-    hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>,
+    emptyRoot = Buffer.alloc(32),
+    hasher = shaMerkleHash,
   ) {
-    return new UnbalancedMerkleTreeCalculator(leaves, valueToCompress, hasher);
+    return new UnbalancedMerkleTreeCalculator(leaves, valueToCompress, emptyRoot, hasher);
   }
 
   /**
@@ -113,8 +112,8 @@ export class UnbalancedMerkleTreeCalculator {
     // Start with the leaves that are not compressed.
     let toProcess = this.leafLocations.filter((_, i) => !this.leaves[i].equals(this.valueToCompress));
     if (!toProcess.length) {
-      // All leaves are compressed. Set 0 to the root.
-      this.store.setNode({ level: 0, index: 0 }, { value: Buffer.alloc(32) });
+      // All leaves are compressed. Set empty root to the root.
+      this.store.setNode({ level: 0, index: 0 }, { value: this.emptyRoot });
       return;
     }
 
@@ -138,10 +137,7 @@ export class UnbalancedMerkleTreeCalculator {
         const shouldShiftUp = !sibling || sibling.value.equals(this.valueToCompress);
         if (shouldShiftUp) {
           // The node becomes the parent if the sibling is a compressed leaf.
-          const isLeaf = this.shiftNodeUp(location, parentLocation);
-          if (!isLeaf) {
-            this.shiftChildrenUp(location);
-          }
+          this.shiftNodeUp(location, parentLocation);
         } else {
           // Hash the value with the (right) sibling and update the parent node.
           const node = this.store.getNode(location)!;
@@ -157,38 +153,35 @@ export class UnbalancedMerkleTreeCalculator {
     }
   }
 
-  private shiftNodeUp(fromLocation: TreeNodeLocation, toLocation: TreeNodeLocation): boolean {
-    const node = this.store.getNode(fromLocation)!;
-
-    this.store.setNode(toLocation, node);
-
-    const isLeaf = node.leafIndex !== undefined;
-    if (isLeaf) {
-      // Update the location if the node is a leaf.
-      this.leafLocations[node.leafIndex!] = toLocation;
+  private shiftNodeUp(from: TreeNodeLocation, to: TreeNodeLocation) {
+    // Collect all nodes that need to shift.
+    const nodesToShift = this.collectNodesToShift(from, to);
+    // Move all nodes to their new locations.
+    for (const { node, newLocation } of nodesToShift) {
+      this.store.setNode(newLocation, node);
+      if (node.leafIndex !== undefined) {
+        this.leafLocations[node.leafIndex] = newLocation;
+      }
     }
-
-    return isLeaf;
   }
 
-  private shiftChildrenUp(parent: TreeNodeLocation) {
-    const [left, right] = this.store.getChildLocations(parent);
-
-    const level = parent.level;
-    const groupSize = 2 ** level;
-    const computeNewLocation = (index: number) => ({
-      level,
-      index: Math.floor(index / (groupSize * 2)) * groupSize + (index % groupSize),
-    });
-
-    const isLeftLeaf = this.shiftNodeUp(left, computeNewLocation(left.index));
-    const isRightLeaf = this.shiftNodeUp(right, computeNewLocation(right.index));
-
-    if (!isLeftLeaf) {
-      this.shiftChildrenUp(left);
+  private collectNodesToShift(from: TreeNodeLocation, to: TreeNodeLocation) {
+    const node = this.store.getNode(from);
+    if (!node) {
+      return [];
     }
-    if (!isRightLeaf) {
-      this.shiftChildrenUp(right);
+
+    let result = [{ node, newLocation: to }];
+
+    // If not a leaf, collect its children.
+    if (node.leafIndex === undefined) {
+      const [leftChild, rightChild] = this.store.getChildLocations(from);
+      const [leftChildNew, rightChildNew] = this.store.getChildLocations(to);
+      result = result
+        .concat(this.collectNodesToShift(leftChild, leftChildNew))
+        .concat(this.collectNodesToShift(rightChild, rightChildNew));
     }
+
+    return result;
   }
 }

@@ -1,247 +1,218 @@
 #include "barretenberg/ipc/ipc_client.hpp"
 #include "barretenberg/ipc/ipc_server.hpp"
+#include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include "barretenberg/ipc/shm_client.hpp"
+#include "barretenberg/ipc/shm_server.hpp"
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <csignal>
 #include <cstddef>
 #include <cstring>
+#include <functional>
 #include <gtest/gtest.h>
+#include <iostream>
+#include <random>
 #include <sstream>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 using namespace bb::ipc;
 
 namespace {
 
-class ShmTest : public ::testing::Test {
-  protected:
-    // NOTE: MAX_CLIENTS must be > number of concurrent test clients
-    // TearDown creates an additional wake_client to unblock the server thread,
-    // so we need at least num_clients + 1 slots available.
-    static constexpr size_t MAX_CLIENTS = 4;
-    std::string shm_name;
-
-    std::unique_ptr<IpcServer> server;
-    std::thread server_thread;
-    std::atomic<bool> server_running{ false };
-    std::atomic<size_t> requests_processed{ 0 };
-
-    void SetUp() override
-    {
-        // Generate unique SHM name based on test name for parallel execution
-        const ::testing::TestInfo* test_info = ::testing::UnitTest::GetInstance()->current_test_info();
-        std::ostringstream oss;
-        oss << "test_shm_" << test_info->test_suite_name() << "_" << test_info->name();
-        shm_name = oss.str();
-
-        // Create server
-        server = IpcServer::create_shm(shm_name, MAX_CLIENTS);
-        ASSERT_TRUE(server->listen()) << "Server failed to listen";
-
-        // Start server thread
-        server_running.store(true, std::memory_order_release);
-        server_thread = std::thread([this]() {
-            // Echo server: receive message and send it back
-            std::vector<uint8_t> buffer(16UL * 1024 * 1024); // 16MB buffer
-
-            while (server_running.load(std::memory_order_acquire)) {
-                // Try to accept connections first (non-blocking)
-                server->accept(0);
-
-                int client_id = server->wait_for_data(100000000); // 100ms timeout
-                if (client_id < 0) {
-                    continue; // Timeout, check running flag
-                }
-
-                ssize_t n = server->recv(client_id, buffer.data(), buffer.size());
-                if (n > 0) {
-                    // Echo the message back
-                    server->send(client_id, buffer.data(), static_cast<size_t>(n));
-                    requests_processed.fetch_add(1, std::memory_order_relaxed);
-                }
-            }
-        });
-
-        // Give server more time to fully initialize all shared memory segments
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-
-    void TearDown() override
-    {
-        // Stop server
-        server_running.store(false, std::memory_order_release);
-
-        // Wake up server thread if it's blocked in wait_for_data by sending a dummy message
-        // This ensures the thread wakes up and checks the server_running flag
-        if (server_thread.joinable()) {
-            // Create a temporary client to wake the server
-            auto wake_client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
-            if (wake_client && wake_client->connect()) {
-                uint8_t dummy = 0;
-                wake_client->send(&dummy, 1, 0);
-                wake_client->close();
-            }
-
-            server_thread.join();
-        }
-        server->close();
-        server.reset();
-    }
-};
-
-// Test basic send/receive with small messages
-TEST_F(ShmTest, BasicEcho)
+/**
+ * You can really stress test this with grind_ipc.sh
+ */
+TEST(ShmTest, SingleClientSmallRingHighVolume)
 {
-    std::cerr << "Creating client..." << '\n';
-    auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
+    constexpr size_t RING_SIZE = 2UL * 1024;
+    constexpr size_t NUM_ITERATIONS = 10000000;
+    // Sizing ensures that no matter that state of the internal ring buffer, we can't deadlock.
+    constexpr size_t MAX_MSG_SIZE = (RING_SIZE / 2) - 4;
 
-    std::cerr << "Connecting client..." << '\n';
-    ASSERT_TRUE(client->connect()) << "Client failed to connect";
-    std::cerr << "Client connected successfully" << '\n';
+    // Use short name for macOS compatibility (31-char limit)
+    std::string wrap_test_shm = "shm_wrap_" + std::to_string(getpid());
+    auto server = IpcServer::create_shm(wrap_test_shm, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen()) << "Wrap test server failed to listen";
 
-    std::vector<uint8_t> send_data = { 1, 2, 3, 4, 5 };
-    std::vector<uint8_t> recv_buffer(1024);
+    std::atomic<bool> server_running{ true };
+    std::atomic<size_t> corruptions{ 0 };
 
-    std::cerr << "Sending data..." << '\n';
-    ASSERT_TRUE(client->send(send_data.data(), send_data.size(), 1000000000)); // 1s timeout
-    std::cerr << "Data sent, receiving..." << '\n';
+    // Echo server with validation
+    std::thread server_thread([&]() {
+        size_t iter = 0;
+        while (server_running.load(std::memory_order_acquire)) {
+            server->accept();
 
-    ssize_t n = client->recv(recv_buffer.data(), recv_buffer.size(), 5000000000); // 5s timeout
-    std::cerr << "Received " << n << " bytes" << '\n';
+            int client_id = server->wait_for_data(10000000); // 10ms
+            if (client_id < 0) {
+                continue;
+            }
 
-    ASSERT_GT(n, 0) << "Failed to receive response";
-    ASSERT_EQ(static_cast<size_t>(n), send_data.size());
-    EXPECT_EQ(std::memcmp(recv_buffer.data(), send_data.data(), send_data.size()), 0);
+            auto request_buf = server->receive(client_id);
+            // std::cerr << "Server received " << request.size() << " bytes" << '\n';
+
+            if (request_buf.empty()) {
+                continue;
+            }
+
+            // Take a copy of the request so we can release.
+            std::vector<uint8_t> request(request_buf.begin(), request_buf.end());
+            server->release(client_id, request.size());
+
+            // Validate pattern: first byte should be XOR with offsets
+            // Check a few bytes to detect corruption without slowing down too much
+            if (request.size() > 0) {
+                uint8_t first = request[0];
+                for (size_t i = 0; i < std::min(request.size(), size_t(16)); i++) {
+                    uint8_t expected = static_cast<uint8_t>((first ^ i) & 0xFF);
+                    if (request[i] != expected) {
+                        corruptions.fetch_add(1);
+                        std::cerr << "Pattern mismatch at offset " << i << ": expected=" << (int)expected
+                                  << " actual=" << (int)request[i] << '\n';
+                        break;
+                    }
+                }
+            }
+
+            // Retry send until success.
+            while (!server->send(client_id, request.data(), request.size())) {
+                // Timeout - retry (response ring might be full)
+                std::cerr << iter << " Server send size " << request.size() << " timeout, retrying..." << '\n';
+                dynamic_cast<ShmServer*>(server.get())->debug_dump();
+            }
+            // std::cerr << "Server sent response of " << request.size() << " bytes" << '\n';
+            iter++;
+        }
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    auto client = IpcClient::create_shm(wrap_test_shm);
+    ASSERT_TRUE(client->connect());
+
+    // Random message sizes.
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<size_t> size_dist(1, MAX_MSG_SIZE);
+
+    // Store sizes for each iteration so receiver knows what to expect
+    std::vector<size_t> iteration_sizes(NUM_ITERATIONS);
+    for (size_t i = 0; i < NUM_ITERATIONS; i++) {
+        iteration_sizes[i] = size_dist(gen);
+        // iteration_sizes[i] = MAX_MSG_SIZE - 1;
+    }
+
+    // Sender thread: continuously send requests
+    std::thread sender_thread([&]() {
+        std::vector<uint8_t> send_buffer(MAX_MSG_SIZE);
+
+        for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
+            size_t size = iteration_sizes[iter];
+            // std::cerr << "Client: Iteration " << iter << ": sending " << size << " bytes" << '\n';
+
+            // Fill buffer with iteration-specific pattern
+            // First byte is iteration number (mod 256), rest is XOR pattern with offset
+            uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
+            for (size_t i = 0; i < size; i++) {
+                send_buffer[i] = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
+            }
+
+            // Retry send until success - timeouts are expected under extreme load
+            while (!client->send(send_buffer.data(), size, 100000000)) {
+                // Timeout - retry (ring might be full, server might be slow)
+                std::cerr << iter << " Client send size " << size << " timeout, retrying..." << '\n';
+                dynamic_cast<ShmClient*>(client.get())->debug_dump();
+            }
+        }
+    });
+
+    // Receiver thread: continuously receive and validate responses
+    std::thread receiver_thread([&]() {
+        for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
+            size_t expected_size = iteration_sizes[iter];
+
+            // Retry recv until success - timeouts are expected under extreme load
+            std::span<const uint8_t> response;
+            while ((response = client->receive(100000000)).empty()) {
+                std::cerr << iter << " Client receive timeout, retrying..." << '\n';
+                // Timeout - retry
+            }
+            // std::cerr << "Client received response of " << response.size() << " bytes" << '\n';
+
+            ASSERT_EQ(response.size(), expected_size) << "Size mismatch at iteration " << iter;
+
+            // Validate entire response - check iteration byte and pattern
+            uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
+            if (response.size() > 0) {
+                ASSERT_EQ(response[0], iter_byte) << "Iteration byte mismatch at iteration " << iter;
+                for (size_t i = 0; i < response.size(); i++) {
+                    uint8_t expected = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
+                    if (response[i] != expected) {
+                        FAIL() << "Data corruption at iteration " << iter << " offset " << i
+                               << ": expected=" << (int)expected << " actual=" << (int)response[i];
+                    }
+                }
+            }
+
+            client->release(response.size());
+        }
+    });
+
+    sender_thread.join();
+    receiver_thread.join();
 
     client->close();
+
+    server_running.store(false);
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+
+    EXPECT_EQ(corruptions.load(), 0) << "Corruptions detected in single-threaded wrap test";
 }
 
-// Test with varying message sizes to trigger ring buffer wrapping
-TEST_F(ShmTest, VaryingMessageSizes)
-{
-    auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
-    ASSERT_TRUE(client->connect()) << "Client failed to connect";
+/**
+ * Test to reproduce deadlock with specific message size sequence
+ * This test uses a single-threaded, deterministic approach to control
+ * the exact ordering of client and server operations.
+ */
+// TEST(ShmTest, DeadlockReproduction)
+// {
+//     constexpr size_t RING_SIZE = 8UL * 1024; // 8KB rings
+//     // Max message size is half capacity minus 4 bytes (length prefix)
+//     constexpr size_t MAX_MSG_SIZE = RING_SIZE / 2 - 4;
 
-    std::vector<uint8_t> recv_buffer(16UL * 1024 * 1024);
+//     std::string test_shm = "shm_deadlock_" + std::to_string(getpid());
+//     auto server = IpcServer::create_shm(test_shm, RING_SIZE, RING_SIZE);
+//     ASSERT_TRUE(server->listen()) << "Deadlock test server failed to listen";
 
-    // Test with different message sizes: 50, 100, 200, 400, 800, 1600 bytes
-    // These sizes will cause the ring buffer head to advance to different positions
-    std::vector<size_t> message_sizes = { 50, 100, 200, 400, 800, 1600 };
+//     auto client = IpcClient::create_shm(test_shm);
+//     ASSERT_TRUE(client->connect());
 
-    for (size_t size : message_sizes) {
-        std::vector<uint8_t> send_data(size);
-        // Fill with recognizable pattern
-        for (size_t i = 0; i < size; i++) {
-            send_data[i] = static_cast<uint8_t>(i & 0xFF);
-        }
+// #define snd(s)                                                                                                         \
+//     {                                                                                                                  \
+//         ASSERT_TRUE(client->send(std::vector<uint8_t>(s, 0).data(), s, 0));                                            \
+//         dynamic_cast<ShmClient*>(client.get())->debug_dump();                                                          \
+//     }
+// #define rcv()                                                                                                          \
+//     {                                                                                                                  \
+//         auto request = server->receive(0);                                                                             \
+//         ASSERT_FALSE(request.empty());                                                                                 \
+//         server->release(0, request.size());                                                                            \
+//         dynamic_cast<ShmServer*>(server.get())->debug_dump();                                                          \
+//     }
 
-        ASSERT_TRUE(client->send(send_data.data(), send_data.size(), 0)) << "Failed to send message of size " << size;
+//     snd(MAX_MSG_SIZE - 1);
+//     snd(MAX_MSG_SIZE);
+//     rcv();
+//     rcv();
+//     snd(MAX_MSG_SIZE);
 
-        ssize_t n = client->recv(recv_buffer.data(), recv_buffer.size(), 0);
-        ASSERT_GT(n, 0) << "Failed to receive response for message size " << size;
-        ASSERT_EQ(static_cast<size_t>(n), size) << "Received size mismatch for message size " << size;
-
-        EXPECT_EQ(std::memcmp(recv_buffer.data(), send_data.data(), size), 0)
-            << "Data mismatch for message size " << size;
-    }
-
-    client->close();
-}
-
-// This test reproduces the ring buffer wrapping issue from the TypeScript benchmark
-// By sending many messages repeatedly, we advance the ring buffer head position
-// Eventually, a message will hit the wrap boundary and fail with the unfixed implementation
-TEST_F(ShmTest, RingBufferWrapStressTest)
-{
-    auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
-    ASSERT_TRUE(client->connect()) << "Client failed to connect";
-
-    std::vector<uint8_t> recv_buffer(16UL * 1024 * 1024);
-
-    // Simulate the benchmark: many iterations with varying message sizes
-    // This will advance the ring head and eventually hit a wrap boundary
-    const size_t num_iterations = 1000; // Reduced from 3000 for test speed
-
-    // Test with message sizes similar to poseidon2 hash with different field counts
-    // 2 fields: ~76 bytes, 4 fields: ~140 bytes, 8 fields: ~268 bytes, 16 fields: ~524 bytes
-    std::vector<size_t> message_sizes = { 76, 140, 268, 524, 1036 };
-
-    for (size_t iter = 0; iter < num_iterations; iter++) {
-        for (size_t size : message_sizes) {
-            std::vector<uint8_t> send_data(size);
-            // Fill with iteration number so we can detect corruption
-            uint32_t pattern = static_cast<uint32_t>(iter);
-            for (size_t i = 0; i < size; i += 4) {
-                std::memcpy(&send_data[i], &pattern, std::min(4UL, size - i));
-            }
-
-            bool send_ok = client->send(send_data.data(), send_data.size(), 100000000); // 100ms timeout
-            ASSERT_TRUE(send_ok) << "Failed to send at iteration " << iter << " size " << size
-                                 << " (requests processed: " << requests_processed.load() << ")";
-
-            ssize_t n = client->recv(recv_buffer.data(), recv_buffer.size(), 100000000); // 100ms timeout
-            ASSERT_GT(n, 0) << "Failed to receive at iteration " << iter << " size " << size
-                            << " (requests processed: " << requests_processed.load() << ")";
-
-            ASSERT_EQ(static_cast<size_t>(n), size) << "Size mismatch at iteration " << iter << " size " << size;
-
-            EXPECT_EQ(std::memcmp(recv_buffer.data(), send_data.data(), size), 0)
-                << "Data corruption at iteration " << iter << " size " << size;
-        }
-    }
-
-    client->close();
-}
-
-// Test multiple concurrent clients to stress MPSC behavior
-TEST_F(ShmTest, ConcurrentClients)
-{
-    constexpr size_t num_clients = 3;
-    std::vector<std::thread> client_threads;
-    std::atomic<size_t> failures{ 0 };
-
-    client_threads.reserve(num_clients);
-    for (size_t client_idx = 0; client_idx < num_clients; client_idx++) {
-        client_threads.emplace_back([client_idx, &failures, shm_name = this->shm_name]() {
-            auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
-            if (!client->connect()) {
-                failures.fetch_add(1);
-                return;
-            }
-
-            std::vector<uint8_t> recv_buffer(1024);
-
-            // Each client sends 100 messages
-            for (size_t i = 0; i < 100; i++) {
-                std::vector<uint8_t> send_data = { static_cast<uint8_t>(client_idx), static_cast<uint8_t>(i & 0xFF) };
-
-                if (!client->send(send_data.data(), send_data.size(), 100000000)) {
-                    failures.fetch_add(1);
-                    break;
-                }
-
-                ssize_t n = client->recv(recv_buffer.data(), recv_buffer.size(), 100000000);
-                if (n < 0 || static_cast<size_t>(n) != send_data.size()) {
-                    failures.fetch_add(1);
-                    break;
-                }
-
-                if (std::memcmp(recv_buffer.data(), send_data.data(), send_data.size()) != 0) {
-                    failures.fetch_add(1);
-                    break;
-                }
-            }
-
-            client->close();
-        });
-    }
-
-    for (auto& t : client_threads) {
-        t.join();
-    }
-
-    EXPECT_EQ(failures.load(), 0) << failures.load() << " failures occurred in concurrent client test";
-}
+//     client->close();
+//     server->close();
+// } // namespace
 
 } // namespace

@@ -1,6 +1,7 @@
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 
@@ -88,8 +89,6 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
         // Build constraints
         Builder builder = create_circuit(program, { .has_ipa_claim = true });
 
-        info("Estimate finalized number of gates: ", builder.get_estimated_num_finalized_gates());
-
         // Construct vk
         auto prover_instance = std::make_shared<ProverInstance>(builder);
 
@@ -138,4 +137,21 @@ TEST_F(ChonkRecursionConstraintTest, GenerateRecursiveChonkVerifierVKFromConstra
     }
 
     EXPECT_EQ(*vk_from_valid_witness, *vk_from_constraints);
+}
+
+TEST_F(ChonkRecursionConstraintTest, GateCountChonkRecursion)
+{
+    using ChonkData = ChonkRecursionConstraintTest::ChonkData;
+
+    ChonkData chonk_data = ChonkRecursionConstraintTest::get_chonk_data();
+
+    AcirProgram program = create_acir_program(chonk_data);
+
+    ProgramMetadata metadata{ .has_ipa_claim = true, .collect_gates_per_opcode = true };
+    Builder builder = create_circuit(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+
+    EXPECT_EQ(program.constraints.gates_per_opcode[0], CHONK_RECURSION_GATES);
 }

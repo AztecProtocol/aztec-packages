@@ -1,7 +1,7 @@
 include "./range_check.pil";
 
 // This module handles field gt
-// GT also enables us to support LT (by swapping the inputs of GT) and LTE (by negating the result of GT)
+// FF_GT also enables us to support LT (by swapping the inputs of FF_GT) and LTE (by negating the result of GT)
 // Lifecycle table:
 // +-----+-----+--------+--------------+--------------+------------+------------+------+------+------------+------------+--------+--------+-------------+-----+--------+---------------+
 // |  a  |  b  | result | a_hi (range) | a_lo (range) | p_sub_a_hi | p_sub_a_lo | b_hi | b_lo | p_sub_b_hi | p_sub_b_lo | res_hi | res_lo | cmp_rng_ctr | sel | sel_gt | sel_shift_rng |
@@ -20,9 +20,9 @@ include "./range_check.pil";
 // This gadget provides a second functionality: Canonical decomposition of a field element into two 128-bit limbs.
 // This consists in proving that a = a_lo + 2^128 * a_hi is a 128-bit decomposition of a which does not overflow p.
 // This corresponds to the first 2 rows of the table above.
-// Note that the first 4 rows of GT computation consists in such a canonical decomposition over a and b.
+// Note that the first 4 rows of FF_GT computation consists in such a canonical decomposition over a and b.
 
-// Usage for GT:
+// Usage for FF_GT:
 //
 // sel_caller { a, b, result }
 // in
@@ -223,7 +223,7 @@ namespace ff_gt;
 
     // sel_shift_rng = 1 when cmp_rng_ctr != 0 and sel_shift_rng = 0 when cmp_rng_ctr = 0;
     #[RNG_CTR_NON_ZERO]
-    cmp_rng_ctr * ((1 - sel_shift_rng) * (1 -  cmp_rng_ctr_inv) +  cmp_rng_ctr_inv) - sel_shift_rng = 0;
+    cmp_rng_ctr * ((1 - sel_shift_rng) * (1 - cmp_rng_ctr_inv) +  cmp_rng_ctr_inv) - sel_shift_rng = 0;
 
     // We shift the stuff that we have to range check to the left, so a_lo and a_hi (which are doing the range checks)
     // receive the shifted values, two on every row.

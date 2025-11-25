@@ -27,16 +27,6 @@ template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_finalized_gates(
     return _num_gates;
 }
 
-template <typename FF_> size_t CircuitBuilderBase<FF_>::get_estimated_num_finalized_gates() const
-{
-    return _num_gates;
-}
-
-template <typename FF_> void CircuitBuilderBase<FF_>::print_num_estimated_finalized_gates() const
-{
-    info(_num_gates);
-}
-
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_variables() const
 {
     return variables.size();

@@ -11,11 +11,7 @@ GrumpkinMul::Response GrumpkinMul::execute(BBApiRequest& request) &&
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
     }
-    auto result = point * scalar;
-    if (!result.on_curve()) {
-        BBAPI_ERROR(request, "Output point must be on the curve");
-    }
-    return { result };
+    return { point * scalar };
 }
 
 GrumpkinAdd::Response GrumpkinAdd::execute(BBApiRequest& request) &&
@@ -26,11 +22,7 @@ GrumpkinAdd::Response GrumpkinAdd::execute(BBApiRequest& request) &&
     if (!point_b.on_curve()) {
         BBAPI_ERROR(request, "Input point_b must be on the curve");
     }
-    auto result = point_a + point_b;
-    if (!result.on_curve()) {
-        BBAPI_ERROR(request, "Output point must be on the curve");
-    }
-    return { result };
+    return { point_a + point_b };
 }
 
 GrumpkinBatchMul::Response GrumpkinBatchMul::execute(BBApiRequest& request) &&
@@ -41,11 +33,6 @@ GrumpkinBatchMul::Response GrumpkinBatchMul::execute(BBApiRequest& request) &&
         }
     }
     auto output = grumpkin::g1::element::batch_mul_with_endomorphism(points, scalar);
-    for (const auto& p : output) {
-        if (!p.on_curve()) {
-            BBAPI_ERROR(request, "Output point must be on the curve");
-        }
-    }
     return { std::move(output) };
 }
 
@@ -67,11 +54,7 @@ Secp256k1Mul::Response Secp256k1Mul::execute(BBApiRequest& request) &&
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
     }
-    auto result = point * scalar;
-    if (!result.on_curve()) {
-        BBAPI_ERROR(request, "Output point must be on the curve");
-    }
-    return { result };
+    return { point * scalar };
 }
 
 Secp256k1GetRandomFr::Response Secp256k1GetRandomFr::execute(BB_UNUSED BBApiRequest& request) &&

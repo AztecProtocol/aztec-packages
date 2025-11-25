@@ -5,7 +5,7 @@ export const Glossary = {
     aztec: () => (
       <p>
         The CLI tool (with an extensive set of parameters) that enables users to
-        perform a wide range of tasks. It can: run a node, run a sandbox,
+        perform a wide range of tasks. It can: run a node, run a local network,
         execute tests, generate contract interfaces for javascript...
       </p>
     ),
@@ -67,7 +67,7 @@ export const Glossary = {
     <p>
       A client-side key manager, private contract storage, and Private eXecution
       Environment for private transactions. A PXE is a core part of an Aztec
-      wallet and Sandbox, but can be decoupled and run independently.
+      wallet.
     </p>
   ),
 
@@ -78,9 +78,9 @@ export const Glossary = {
     </p>
   ),
 
-  AztecSandbox: () => (
+  AztecLocalNetwork: () => (
     <p>
-      The Aztec Sandbox runs a set of Aztec tools for convenient local
+      The Aztec's Local Network runs a set of Aztec tools for convenient local
       development, it includes: an Ethereum node (anvil), an Aztec node, and
       PXE.
     </p>
@@ -97,7 +97,7 @@ export const Glossary = {
   TXE: () => (
     <p>
       TXE stands for Test eXecution Environment. It enables rapid Aztec contract
-      development by using "cheatcodes" in the Aztec Sandbox that manipulate
+      development by using "cheatcodes" in the Aztec local network that manipulate
       state. For convenience, similar "cheatcodes" to manipulate Anvil's EVM
       state are wrapped.
     </p>
@@ -149,7 +149,7 @@ export const Tx_Teardown_Phase = () => (
 
 export const CLI_Add_Test_Accounts = () => (
   <p>
-    For convenience, the sandbox comes with 3 initial accounts that are
+    For convenience, the local network comes with 3 initial accounts that are
     prefunded, helping bootstrap payment of any transaction. To use them, you
     will need to add them to your pxe/wallet.
   </p>

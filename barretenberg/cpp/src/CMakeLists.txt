@@ -17,6 +17,9 @@ add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal
 # Needed until https://github.com/codeinred/tuplet/issues/37 is solved.
 add_compile_options(-Wno-missing-braces)
 
+# For MessagePack.
+add_definitions(-DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR)
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics -fconstexpr-steps=100000000)
 
@@ -110,13 +113,21 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
+add_subdirectory(barretenberg/lmdblib)
 
 if(NOT FUZZING AND NOT WASM)
+    # Fuzzing preset cannot be built with world_state as world_state cannot compile with MULTITHREADING=OFF
+    add_subdirectory(barretenberg/world_state)
+    # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
+    add_subdirectory(barretenberg/vm2)
     add_subdirectory(barretenberg/ipc)
-    add_subdirectory(barretenberg/lmdblib)
     add_subdirectory(barretenberg/nodejs_module)
+endif()
+
+if(FUZZING_AVM)
     add_subdirectory(barretenberg/world_state)
     add_subdirectory(barretenberg/vm2)
+    add_subdirectory(barretenberg/avm_fuzzer)
 endif()
 
 if(SMT)
@@ -170,15 +181,11 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
     $<TARGET_OBJECTS:stdlib_chonk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_eccvm_verifier_objects>
-    $<TARGET_OBJECTS:stdlib_merge_verifier_objects>
     $<TARGET_OBJECTS:stdlib_honk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_goblin_verifier_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
-    $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
-    $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
     $<TARGET_OBJECTS:stdlib_translator_vm_verifier_objects>
     $<TARGET_OBJECTS:sumcheck_objects>

@@ -68,6 +68,9 @@ export class Bn254G1Point {
    * in the most significant bit.
    */
   static async fromCompressed(compressed: Buffer): Promise<Bn254G1Point> {
+    if (compressed.length !== 32) {
+      throw new Error('Invalid compressed point length');
+    }
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
 
@@ -165,3 +168,6 @@ export class Bn254G2Point {
     return `Bn254G2Point(x: (${this.x[0].toString()}, ${this.x[1].toString()}), y: (${this.y[0].toString()}, ${this.y[1].toString()}))`;
   }
 }
+
+// Re-export BN254 point utility functions
+export { computeBn254G1PublicKeyCompressed, computeBn254G1PublicKey, computeBn254G2PublicKey } from './bn254_utils.js';

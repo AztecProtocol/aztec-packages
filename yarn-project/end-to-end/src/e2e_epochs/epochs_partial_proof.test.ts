@@ -29,8 +29,8 @@ describe('e2e_epochs/epochs_partial_proof', () => {
     logger.info(`Kicking off partial proof`);
 
     await test.context.proverNode!.startProof(0);
-    await retryUntil(() => monitor.l2ProvenBlockNumber > 0, 'proof', 120, 1);
+    await retryUntil(() => monitor.provenCheckpointNumber > 0, 'proof', 120, 1);
 
-    logger.info(`Test succeeded with proven block number ${monitor.l2ProvenBlockNumber}`);
+    logger.info(`Test succeeded with proven checkpoint number ${monitor.provenCheckpointNumber}`);
   });
 });

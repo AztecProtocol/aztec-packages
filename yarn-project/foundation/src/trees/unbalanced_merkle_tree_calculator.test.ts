@@ -1,6 +1,6 @@
-import { sha256Trunc } from '@aztec/foundation/crypto';
-import { MerkleTreeCalculator, SiblingPath } from '@aztec/foundation/trees';
-
+import { computeBalancedMerkleTreeRoot, shaMerkleHash } from './balanced_merkle_tree.js';
+import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
+import { SiblingPath } from './sibling_path.js';
 import { UnbalancedMerkleTreeCalculator } from './unbalanced_merkle_tree_calculator.js';
 
 describe('UnbalancedMerkleTreeCalculator', () => {
@@ -21,11 +21,7 @@ describe('UnbalancedMerkleTreeCalculator', () => {
     expect(() => tree.getSiblingPathByLeafIndex(leafIndex)).toThrow(message);
   };
 
-  const hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right]));
-
-  const computeBalancedTreeRoot = (leaves: Buffer[]) => {
-    return MerkleTreeCalculator.computeTreeRootSync(leaves);
-  };
+  const hasher = shaMerkleHash;
 
   const createBalancedTree = async (leaves: Buffer[]) => {
     const tree = await MerkleTreeCalculator.create(
@@ -43,10 +39,9 @@ describe('UnbalancedMerkleTreeCalculator', () => {
       tree = UnbalancedMerkleTreeCalculator.create(leaves);
     };
 
-    it('cannot initialize with no leaves', () => {
-      expect(() => UnbalancedMerkleTreeCalculator.create([])).toThrow(
-        'Cannot create a compressed unbalanced tree with 0 leaves.',
-      );
+    it('0 leaves', () => {
+      createAndFillTree(0);
+      expect(tree.getRoot()).toEqual(Buffer.alloc(32));
     });
 
     it('1 leaf', () => {
@@ -149,9 +144,9 @@ describe('UnbalancedMerkleTreeCalculator', () => {
       const leaves1to16 = leaves.slice(0, 16);
       const leaves17to24 = leaves.slice(16, 24);
       const leaves25to28 = leaves.slice(24, 28);
-      const root1to16 = computeBalancedTreeRoot(leaves1to16);
-      const root17to24 = computeBalancedTreeRoot(leaves17to24);
-      const root25to28 = computeBalancedTreeRoot(leaves25to28);
+      const root1to16 = computeBalancedMerkleTreeRoot(leaves1to16);
+      const root17to24 = computeBalancedMerkleTreeRoot(leaves17to24);
+      const root25to28 = computeBalancedMerkleTreeRoot(leaves25to28);
       const root29to30 = hasher(leaf(29), leaf(30));
       const root29to31 = hasher(root29to30, leaf(31));
       const root25to31 = hasher(root25to28, root29to31);
@@ -177,6 +172,9 @@ describe('UnbalancedMerkleTreeCalculator', () => {
 
   describe('with compressed (zero) leaves', () => {
     const valueToCompress = leaf(0);
+    // Define an empty root that is different from the value to compress, to make sure that the correct value is used
+    // in different code paths.
+    const emptyRoot = leaf(1234567890);
 
     // Fill the tree with leaves containing incrementing values from 1 to `numLeaves`.
     // If a value is not in `keptValues`, it is replaced with `valueToCompress`.
@@ -184,7 +182,7 @@ describe('UnbalancedMerkleTreeCalculator', () => {
       leaves = Array.from({ length: numLeaves }, (_, i) =>
         keptValues.includes(i + 1) ? leaf(i + 1) : valueToCompress,
       );
-      tree = UnbalancedMerkleTreeCalculator.create(leaves, valueToCompress);
+      tree = UnbalancedMerkleTreeCalculator.create(leaves, valueToCompress, emptyRoot);
     };
 
     it('with all zero leaves', () => {
@@ -197,7 +195,7 @@ describe('UnbalancedMerkleTreeCalculator', () => {
       // 0   0 0   0
 
       createAndFillTree(5, []);
-      expect(tree.getRoot()).toEqual(Buffer.alloc(32));
+      expect(tree.getRoot()).toEqual(emptyRoot);
 
       expectSiblingPathToThrow(0, 'Leaf at index 0 has been compressed.');
       expectSiblingPathToThrow(4, 'Leaf at index 4 has been compressed.');
@@ -206,12 +204,12 @@ describe('UnbalancedMerkleTreeCalculator', () => {
     it('with single zero leaf', () => {
       createAndFillTree(1, []);
 
-      expect(tree.getRoot()).toEqual(Buffer.alloc(32));
+      expect(tree.getRoot()).toEqual(emptyRoot);
 
       expectSiblingPathToThrow(0, 'Leaf at index 0 has been compressed.');
     });
 
-    it('with zero leaves on the right branch', () => {
+    it('with all zero leaves on the right branch', () => {
       //        root     --->       root
       //        /  \               /   \
       //       .    0             .     .
@@ -221,7 +219,7 @@ describe('UnbalancedMerkleTreeCalculator', () => {
       // 1   2 3   4
 
       createAndFillTree(5, [1, 2, 3, 4]);
-      const size4TreeRoot = computeBalancedTreeRoot(leaves.slice(0, 4));
+      const size4TreeRoot = computeBalancedMerkleTreeRoot(leaves.slice(0, 4));
       expect(tree.getRoot()).toEqual(size4TreeRoot);
 
       const root12 = hasher(leaf(1), leaf(2));
@@ -230,7 +228,7 @@ describe('UnbalancedMerkleTreeCalculator', () => {
       expectSiblingPathToThrow(4, 'Leaf at index 4 has been compressed.');
     });
 
-    it('with zero leaves on the left branch', () => {
+    it('with all zero leaves on the left branch', () => {
       //           root     --->      root
       //        /      \              /  \
       //       .        .            5   6
@@ -249,6 +247,47 @@ describe('UnbalancedMerkleTreeCalculator', () => {
       expectSiblingPathToThrow(1, 'Leaf at index 1 has been compressed.');
       expectSiblingPathToThrow(2, 'Leaf at index 2 has been compressed.');
       expectSiblingPathToThrow(3, 'Leaf at index 3 has been compressed.');
+    });
+
+    it('with some zero leaves on the left branch, all zero leaves on the right branch', () => {
+      //           root     --->      root
+      //        /      \              /  \
+      //       .        .            3   4
+      //     /   \     / \
+      //    .    .    0  0
+      //  /  \  /  \
+      // 0   0 3   4
+
+      createAndFillTree(6, [3, 4]);
+      expect(tree.getRoot()).toEqual(hasher(leaf(3), leaf(4)));
+
+      expectSiblingPath(leaf(3), [leaf(4)]);
+      expectSiblingPath(leaf(4), [leaf(3)]);
+
+      expectSiblingPathToThrow(0, 'Leaf at index 0 has been compressed.');
+      expectSiblingPathToThrow(1, 'Leaf at index 1 has been compressed.');
+      expectSiblingPathToThrow(4, 'Leaf at index 4 has been compressed.');
+      expectSiblingPathToThrow(5, 'Leaf at index 5 has been compressed.');
+    });
+
+    it('with some zero leaves on the right branch, all zero leaves on the left branch', () => {
+      //           root      --->      root
+      //        /       \              /  \
+      //       .         .            5   6
+      //     /   \      / \
+      //    .    .     .  0
+      //  /  \  /  \  / \
+      // 0   0 0   0 5  6
+
+      createAndFillTree(7, [5, 6]);
+      expect(tree.getRoot()).toEqual(hasher(leaf(5), leaf(6)));
+
+      expectSiblingPath(leaf(5), [leaf(6)]);
+      expectSiblingPath(leaf(6), [leaf(5)]);
+
+      expectSiblingPathToThrow(0, 'Leaf at index 0 has been compressed.');
+      expectSiblingPathToThrow(3, 'Leaf at index 3 has been compressed.');
+      expectSiblingPathToThrow(6, 'Leaf at index 6 has been compressed.');
     });
 
     it('with zero leaves on both branches', () => {
@@ -315,7 +354,7 @@ describe('UnbalancedMerkleTreeCalculator', () => {
       expectSiblingPathToThrow(3, 'Leaf at index 3 has been compressed.');
     });
 
-    it('with large tree most zero leaves', () => {
+    it('with large tree most zero leaves, one leaf from each subtree', () => {
       // 99 = subtrees of sizes 64, 32, 2, 1
       // Final tree:
       //      root
@@ -339,6 +378,31 @@ describe('UnbalancedMerkleTreeCalculator', () => {
 
       expectSiblingPathToThrow(10, 'Leaf at index 10 has been compressed.');
       expectSiblingPathToThrow(96, 'Leaf at index 96 has been compressed.');
+    });
+
+    it('with large tree most zero leaves, one or no leaves from each subtree', () => {
+      //             root             --->        root
+      //        /            \                   /   \
+      //       .              .                 .     .
+      //    /     \          /  \              / \   / \
+      //   .       .        .    0            6  .  45 59
+      //  / \     / \     /   \                 / \
+      // .....   .....   . ... .              28  29
+      // |      / \      |     |
+      // 6 ... 28 29 ... 45...59...
+      createAndFillTree(65, [6, 28, 29, 45, 59]);
+
+      const root2829 = hasher(leaf(28), leaf(29));
+      const root62829 = hasher(leaf(6), root2829);
+      const root4559 = hasher(leaf(45), leaf(59));
+      const expectedRoot = hasher(root62829, root4559);
+      expect(tree.getRoot()).toEqual(expectedRoot);
+
+      expectSiblingPath(leaf(6), [root2829, root4559]);
+      expectSiblingPath(leaf(28), [leaf(29), leaf(6), root4559]);
+      expectSiblingPath(leaf(29), [leaf(28), leaf(6), root4559]);
+      expectSiblingPath(leaf(45), [leaf(59), root62829]);
+      expectSiblingPath(leaf(59), [leaf(45), root62829]);
     });
   });
 });

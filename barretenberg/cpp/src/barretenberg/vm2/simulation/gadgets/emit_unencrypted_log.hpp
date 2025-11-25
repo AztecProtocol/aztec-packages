@@ -26,7 +26,7 @@ class EmitUnencryptedLog : public EmitUnencryptedLogInterface, public Checkpoint
 
     void emit_unencrypted_log(MemoryInterface& memory,
                               ContextInterface& context,
-                              AztecAddress contract_address,
+                              const AztecAddress& contract_address,
                               MemoryAddress log_offset,
                               uint32_t log_size) override;
 

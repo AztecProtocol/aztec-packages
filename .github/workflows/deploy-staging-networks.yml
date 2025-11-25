@@ -75,7 +75,8 @@ jobs:
 
   deploy-staging-public:
     needs: determine-semver
-    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
+    # temporarily disabled
+    if: false # needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
     uses: ./.github/workflows/deploy-staging-network.yml
     with:
       network: staging-public
@@ -86,7 +87,8 @@ jobs:
   deploy-staging-ignition:
     # Depends on staging-public until we are confident in concurrent deployments
     needs: [determine-semver, deploy-staging-public]
-    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
+    # temporarily disabled
+    if: false # needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
     uses: ./.github/workflows/deploy-staging-network.yml
     with:
       network: staging-ignition

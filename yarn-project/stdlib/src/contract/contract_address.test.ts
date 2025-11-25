@@ -36,7 +36,7 @@ describe('ContractAddress', () => {
     const mockInitFn: FunctionAbi = {
       functionType: FunctionType.PRIVATE,
       isInitializer: false,
-      isInternal: false,
+      isOnlySelf: false,
       isStatic: false,
       name: 'fun',
       parameters: [{ name: 'param1', type: { kind: 'boolean' }, visibility: 'private' }],

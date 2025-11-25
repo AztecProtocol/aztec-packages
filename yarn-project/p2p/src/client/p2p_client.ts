@@ -373,11 +373,16 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
     [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
-    [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
+    [Attributes.P2P_ID]: (await proposal.p2pMessageLoggingIdentifier()).toString(),
   }))
   public broadcastProposal(proposal: BlockProposal): Promise<void> {
     this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber.toNumber()} to peers`);
     return this.p2pService.propagate(proposal);
+  }
+
+  public async broadcastAttestations(attestations: BlockAttestation[]): Promise<void> {
+    this.log.verbose(`Broadcasting ${attestations.length} attestations to peers`);
+    await Promise.all(attestations.map(att => this.p2pService.propagate(att)));
   }
 
   public async getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]> {

@@ -14,6 +14,7 @@
 
 #include "circuit_builder_base.hpp"
 #include "rom_ram_logic.hpp"
+#include <deque>
 #include <optional>
 #include <unordered_set>
 
@@ -180,18 +181,19 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         };
     };
 
+  private:
+    // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
+    std::deque<plookup::BasicTable> lookup_tables;
+
+  public:
     // Storage for wires and selectors for all gate types
     ExecutionTrace blocks;
 
-    // These are variables that we have used a gate on, to enforce that they are
-    // equal to a defined value.
-    std::map<FF, uint32_t> constant_variable_indices;
-
-    // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
-    std::vector<plookup::BasicTable> lookup_tables;
+    // The set of variables which have been constrained to a particular value via an arithmetic gate
+    std::unordered_map<FF, uint32_t> constant_variable_indices;
 
     // Rom/Ram logic
-    RomRamLogic rom_ram_logic = RomRamLogic();
+    RomRamLogic rom_ram_logic;
 
     // Stores gate index of ROM/RAM reads (required by proving key)
     std::vector<uint32_t> memory_read_records;
@@ -199,11 +201,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::vector<uint32_t> memory_write_records;
     std::map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
 
-    // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
-    std::vector<uint32_t> used_witnesses; // AUDITTODO: isolate these boomerang details?
-    // Witnesses that appear in finalize method (used in boomerang catcher). Need to check
-    // that all variables from some connected component were created after finalize method was called
-    std::unordered_set<uint32_t> finalize_witnesses;
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
     bool circuit_finalized = false;
@@ -229,23 +226,33 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * @param public_inputs indices of public inputs in witness array
      * @param varnum number of known witness
      *
-     * @note The size of witness_values may be less than varnum. The former is the set of actual witness values known at
-     * the time of acir generation. The latter may be larger and essentially acounts for placeholders for witnesses that
-     * we know will exist but whose values are not known during acir generation. Both are in general less than the total
-     * number of variables/witnesses that might be present for a circuit generated from acir, since many gates will
-     * depend on the details of the bberg implementation (or more generally on the backend used to process acir).
+     * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
+     * witness values which are interleaved with zeros when witnesses are optimized away. Not all witness values are
+     * known at the time of acir generation. The number of values that are not known is given by varnum -
+     * witness_values.size(). For each of these witnesses with unknown value, we add to the builder a variable with
+     * value equal to zero.
+     *
+     * @note varnum is in general less than total number of variables/witnesses that might be present for a circuit
+     * generated from acir, since many gates will depend on the details of the bberg implementation (or more generally
+     * on the backend used to process acir).
+     *
      */
     UltraCircuitBuilder_(const size_t size_hint,
-                         auto& witness_values,
+                         const std::vector<FF>& witness_values,
                          const std::vector<uint32_t>& public_inputs,
                          size_t varnum)
         : CircuitBuilderBase<FF>(size_hint, witness_values.empty())
     {
-        for (size_t idx = 0; idx < varnum; ++idx) {
-            // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
-            // be "set" later on via the assert_equal mechanism.
-            auto value = idx < witness_values.size() ? witness_values[idx] : 0;
+        BB_ASSERT_LTE(
+            witness_values.size(),
+            varnum,
+            "UltraCircuitBuilder_: varnum should be bigger or equal than the size of the witness_values vector");
+        for (const auto value : witness_values) {
             this->add_variable(value);
+        }
+        for (size_t idx = witness_values.size(); idx < varnum; ++idx) {
+            // Add dummy variables for the witnesses with unknown value at acir generation time
+            this->add_variable(FF::zero());
         }
 
         // Initialize the builder public_inputs directly from the acir public inputs.
@@ -289,14 +296,12 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void add_gates_to_ensure_all_polys_are_non_zero();
 
-    void create_add_gate(const add_triple_<FF>& in) override;
+    void create_add_gate(const add_triple_<FF>& in);
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
-    void create_big_mul_gate(const mul_quad_<FF>& in);
 
-    void create_mul_gate(const mul_triple_<FF>& in) override;
-    void create_bool_gate(const uint32_t a) override;
-    void create_poly_gate(const poly_triple_<FF>& in) override;
+    void create_bool_gate(const uint32_t a);
+    void create_arithmetic_gate(const arithmetic_triple_<FF>& in);
     void create_ecc_add_gate(const ecc_add_gate_<FF>& in);
     void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
 
@@ -324,7 +329,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
              *    num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM is correctly enforced in the circuit.
              *    Longer term, as Zac says, we would need to refactor the composer to fix this.
              **/
-            create_poly_gate(poly_triple_<FF>{
+            create_arithmetic_gate(arithmetic_triple_<FF>{
                 .a = variable_index,
                 .b = variable_index,
                 .c = variable_index,
@@ -343,106 +348,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     uint32_t put_constant_variable(const FF& variable);
 
     size_t get_num_constant_gates() const override { return 0; }
-    /**
-     * @brief Get the final number of gates in a circuit, which consists of the sum of:
-     * 1) Current number number of actual gates
-     * 2) Number of public inputs, as we'll need to add a gate for each of them
-     * 3) Number of Rom array-associated gates
-     * 4) Number of range-list associated gates
-     * 5) Number of non-native field multiplication gates.
-     *
-     *
-     * @param count return arument, number of existing gates
-     * @param rangecount return argument, extra gates due to range checks
-     * @param romcount return argument, extra gates due to rom reads
-     * @param ramcount return argument, extra gates due to ram read/writes
-     * @param nnfcount return argument, extra gates due to queued non native field gates
-     */
-    void get_num_estimated_gates_split_into_components(
-        size_t& count, size_t& rangecount, size_t& romcount, size_t& ramcount, size_t& nnfcount) const
-    {
-        static constexpr uint32_t UNINITIALIZED_MEMORY_RECORD = UINT32_MAX;
-        static constexpr size_t NUMBER_OF_GATES_PER_RAM_ACCESS = 2;
-        static constexpr size_t NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY = 1;
-        // number of gates created per non-native field operation in process_non_native_field_multiplications
-        static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
-        count = this->num_gates();
-
-        // each ROM gate adds +1 extra gate due to the rom reads being copied to a sorted list set
-        for (size_t i = 0; i < rom_ram_logic.rom_arrays.size(); ++i) {
-            for (size_t j = 0; j < rom_ram_logic.rom_arrays[i].state.size(); ++j) {
-                if (rom_ram_logic.rom_arrays[i].state[j][0] == UNINITIALIZED_MEMORY_RECORD) {
-                    romcount += 2;
-                }
-            }
-            romcount += (rom_ram_logic.rom_arrays[i].records.size());
-            romcount += 1; // we add an addition gate after procesing a rom array
-        }
-
-        // each RAM gate adds +2 extra gates due to the ram reads being copied to a sorted list set,
-        // as well as an extra gate to validate timestamps
-        std::vector<size_t> ram_timestamps;
-        std::vector<size_t> ram_range_sizes;
-        std::vector<size_t> ram_range_exists;
-        for (size_t i = 0; i < rom_ram_logic.ram_arrays.size(); ++i) {
-            for (size_t j = 0; j < rom_ram_logic.ram_arrays[i].state.size(); ++j) {
-                if (rom_ram_logic.ram_arrays[i].state[j] == UNINITIALIZED_MEMORY_RECORD) {
-                    ramcount += NUMBER_OF_GATES_PER_RAM_ACCESS;
-                }
-            }
-            ramcount += (rom_ram_logic.ram_arrays[i].records.size() * NUMBER_OF_GATES_PER_RAM_ACCESS);
-            ramcount += NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY; // we add an addition gate after procesing a ram array
-
-            // there will be 'max_timestamp' number of range checks, need to calculate.
-            const auto max_timestamp = rom_ram_logic.ram_arrays[i].access_count - 1;
-
-            // if a range check of length `max_timestamp` already exists, we are double counting.
-            // We record `ram_timestamps` to detect and correct for this error when we process range lists.
-
-            ram_timestamps.push_back(max_timestamp);
-            size_t padding = (NUM_WIRES - (max_timestamp % NUM_WIRES)) % NUM_WIRES;
-            if (max_timestamp == NUM_WIRES) {
-                padding += NUM_WIRES;
-            }
-            const size_t ram_range_check_list_size = max_timestamp + padding;
-
-            size_t ram_range_check_gate_count = (ram_range_check_list_size / NUM_WIRES);
-            ram_range_check_gate_count += 1; // we need to add 1 extra addition gates for every distinct range list
-
-            ram_range_sizes.push_back(ram_range_check_gate_count);
-            ram_range_exists.push_back(false);
-        }
-        for (const auto& list : range_lists) {
-            auto list_size = list.second.variable_indices.size();
-            size_t padding = (NUM_WIRES - (list.second.variable_indices.size() % NUM_WIRES)) % NUM_WIRES;
-            if (list.second.variable_indices.size() == NUM_WIRES) {
-                padding += NUM_WIRES;
-            }
-            list_size += padding;
-
-            for (size_t i = 0; i < ram_timestamps.size(); ++i) {
-                if (list.second.target_range == ram_timestamps[i]) {
-                    ram_range_exists[i] = true;
-                }
-            }
-            rangecount += (list_size / NUM_WIRES);
-            rangecount += 1; // we need to add 1 extra addition gates for every distinct range list
-        }
-        // update rangecount to include the ram range checks the composer will eventually be creating
-        for (size_t i = 0; i < ram_range_sizes.size(); ++i) {
-            if (!ram_range_exists[i]) {
-                rangecount += ram_range_sizes[i];
-            }
-        }
-        std::vector<cached_partial_non_native_field_multiplication> nnf_copy(
-            cached_partial_non_native_field_multiplications);
-        // update nnfcount
-        std::sort(nnf_copy.begin(), nnf_copy.end());
-
-        auto last = std::unique(nnf_copy.begin(), nnf_copy.end());
-        const size_t num_nnf_ops = static_cast<size_t>(std::distance(nnf_copy.begin(), last));
-        nnfcount = num_nnf_ops * GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC;
-    }
 
     /**
      * @brief Get the number of gates in a finalized circuit.
@@ -455,33 +360,18 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     }
 
     /**
-     * @brief Get the final number of gates in a circuit, which consists of the sum of:
-     * 1) Current number number of actual gates
-     * 2) Number of public inputs, as we'll need to add a gate for each of them
-     * 3) Number of Rom array-associated gates
-     * 4) Number of range-list associated gates
-     * 5) Number of non-native field multiplication gates.
-     * !!! WARNING: This function is predictive and might report an incorrect number. Make sure to finalize the circuit
-     * and then check the number of gates for a precise result. Kesha: it's basically voodoo
+     * @brief Get the number of gates in the finalized version of the circuit.
+     * @warning This method makes a copy then finalizes it and returns the
+     * number of gates. It is therefore inefficient and should only be used in testing/debugging scenarios.
      *
+     * @param ensure_nonzero Whether or not to add gates to ensure all polynomials are non-zero during finalization.
      * @return size_t
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/875): This method may return an incorrect value before
-     * the circuit is finalized due to a failure to account for "de-duplication" when computing how many
-     * non-native-field gates will be present.
      */
-    size_t get_estimated_num_finalized_gates() const override
+    size_t get_num_finalized_gates_inefficient(bool ensure_nonzero = true) const
     {
-        // if circuit finalized already added extra gates
-        if (circuit_finalized) {
-            return this->num_gates();
-        }
-        size_t count = 0;
-        size_t rangecount = 0;
-        size_t romcount = 0;
-        size_t ramcount = 0;
-        size_t nnfcount = 0;
-        get_num_estimated_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
-        return count + romcount + ramcount + rangecount + nnfcount;
+        UltraCircuitBuilder_ builder_copy = *this;
+        builder_copy.finalize_circuit(ensure_nonzero);
+        return builder_copy.get_num_finalized_gates();
     }
 
     /**
@@ -495,19 +385,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             tables_size += table.size();
         }
         return tables_size;
-    }
-
-    /**
-     * @brief Get total number of lookups used in circuit
-     *
-     */
-    size_t get_lookups_size() const
-    {
-        size_t lookups_size = 0;
-        for (const auto& table : lookup_tables) {
-            lookups_size += table.lookup_gates.size();
-        }
-        return lookups_size;
     }
 
     /**
@@ -526,87 +403,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         return std::max(get_tables_size(), num_filled_gates);
     }
 
-    /**
-     * @brief Get the estimated size of the circuit if it was finalized now
-     *
-     * @details This method estimates the size of the circuit without rounding up to the next power of 2. It takes into
-     * account the possibility that the tables will dominate the size and checks both the estimated plookup argument
-     * size and the general circuit size
-     *
-     * @return size_t
-     */
-    size_t get_estimated_total_circuit_size() const
-    {
-        auto num_filled_gates = get_estimated_num_finalized_gates() + this->num_public_inputs();
-        return std::max(get_tables_size(), num_filled_gates);
-    }
-
-    std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
-
-    /**
-     * @brief Add a witness index to the boomerang exclusion list
-     * @param var_idx Witness index to add to the boomerang exclusion list
-     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
-     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
-     * when we show that x!=0 -> x*(x^-1) = 1).
-     */
-    void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
-
-    /**
-     * @brief Add a list of witness indices to the boomerang exclusion list
-     * @param used_indices List of witness indices to add to the boomerang exclusion list
-     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
-     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
-     * when we show that x!=0 -> x*(x^-1) = 1).
-     */
-    void update_used_witnesses(const std::vector<uint32_t>& used_indices)
-    {
-        used_witnesses.reserve(used_witnesses.size() + used_indices.size());
-        for (const auto& it : used_indices) {
-            used_witnesses.emplace_back(it);
-        }
-    }
-    /**
-     * @brief Add a witness index to the finalize exclusion list
-     * @param var_idx Witness index to add to the finalize exclusion list
-     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
-     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
-     * connected through the set permutation. We want to exclude these variables from this detection.
-     */
-    void update_finalize_witnesses(uint32_t var_idx) { finalize_witnesses.insert(var_idx); }
-    /**
-     * @brief Add a list of witness indices to the finalize exclusion list
-     * @param finalize_indices List of witness indices to add to the finalize exclusion list
-     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
-     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
-     * connected through the set permutation. We want to exclude these variables from this detection.
-     */
-    void update_finalize_witnesses(const std::vector<uint32_t>& finalize_indices)
-    {
-        for (const auto& it : finalize_indices) {
-            finalize_witnesses.insert(it);
-        }
-    }
-
-    /**x
-     * @brief Print the number and composition of gates in the circuit
-     *
-     */
-    void print_num_estimated_finalized_gates() const override
-    {
-        size_t count = 0;
-        size_t rangecount = 0;
-        size_t romcount = 0;
-        size_t ramcount = 0;
-        size_t nnfcount = 0;
-        get_num_estimated_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
-
-        size_t total = count + romcount + ramcount + rangecount;
-        std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
-                  << ", range " << rangecount << ", non native field gates " << nnfcount
-                  << "), pubinp = " << this->num_public_inputs() << std::endl;
-    }
-
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
     {
         if (this->get_variable(a_idx) != b && !this->failed()) {
@@ -619,12 +415,13 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Plookup Methods
      **/
-    void initialize_precomputed_table(const plookup::BasicTableId id,
-                                      bool (*generator)(std::vector<FF>&, std::vector<FF>&, std::vector<FF>&),
-                                      std::array<FF, 2> (*get_values_from_key)(const std::array<uint64_t, 2>));
-
     plookup::BasicTable& get_table(const plookup::BasicTableId id);
     plookup::MultiTable& get_multitable(const plookup::MultiTableId id);
+
+    // Accessors for lookup tables
+    const std::deque<plookup::BasicTable>& get_lookup_tables() const { return lookup_tables; }
+    std::deque<plookup::BasicTable>& get_lookup_tables() { return lookup_tables; }
+    size_t get_num_lookup_tables() const { return lookup_tables.size(); }
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         const plookup::MultiTableId& id,
@@ -749,6 +546,74 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
+
+    // ========================================================================================
+    // TOOLING: Boomerang Detection
+    // ========================================================================================
+    // The boomerang mechanism enables detection of variables used in only one gate, which may
+    // indicate bugs.
+    // Note: some patterns (like x*(x^-1)=1 for non-zero checks) intentionally employ single-use witnesses. These
+    // members and methods allow excluding such witnesses from boomerang detection.
+
+  private:
+    // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
+    std::vector<uint32_t> used_witnesses;
+    // Witnesses that appear in finalize method (used in boomerang catcher). Need to check
+    // that all variables from some connected component were created after finalize method was called
+    std::unordered_set<uint32_t> finalize_witnesses;
+
+  public:
+    const std::vector<uint32_t>& get_used_witnesses() const { return used_witnesses; }
+    const std::unordered_set<uint32_t>& get_finalize_witnesses() const { return finalize_witnesses; }
+
+    /**
+     * @brief Add a witness index to the boomerang exclusion list
+     * @param var_idx Witness index to add to the boomerang exclusion list
+     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
+     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
+     * when we show that x!=0 -> x*(x^-1) = 1).
+     */
+    void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
+
+    /**
+     * @brief Add a list of witness indices to the boomerang exclusion list
+     * @param used_indices List of witness indices to add to the boomerang exclusion list
+     * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one
+     * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
+     * when we show that x!=0 -> x*(x^-1) = 1).
+     */
+    void update_used_witnesses(const std::vector<uint32_t>& used_indices)
+    {
+        used_witnesses.reserve(used_witnesses.size() + used_indices.size());
+        for (const auto& it : used_indices) {
+            used_witnesses.emplace_back(it);
+        }
+    }
+
+    /**
+     * @brief Add a witness index to the finalize exclusion list
+     * @param var_idx Witness index to add to the finalize exclusion list
+     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
+     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
+     * connected through the set permutation. We want to exclude these variables from this detection.
+     */
+    void update_finalize_witnesses(uint32_t var_idx) { finalize_witnesses.insert(var_idx); }
+
+    /**
+     * @brief Add a list of witness indices to the finalize exclusion list
+     * @param finalize_indices List of witness indices to add to the finalize exclusion list
+     * @details Barretenberg has special isolated subcircuit detection logic that ensures that variables in the main
+     * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
+     * connected through the set permutation. We want to exclude these variables from this detection.
+     */
+    void update_finalize_witnesses(const std::vector<uint32_t>& finalize_indices)
+    {
+        for (const auto& it : finalize_indices) {
+            finalize_witnesses.insert(it);
+        }
+    }
+
+    // ========================================================================================
 
     msgpack::sbuffer export_circuit() override;
 };

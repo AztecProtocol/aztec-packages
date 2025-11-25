@@ -19,6 +19,7 @@ import {
   type ViemCommitteeAttestations,
   type ViemHeader,
   type ViemStateReference,
+  WEI_CONST,
   formatViemError,
   tryExtractEvent,
 } from '@aztec/ethereum';
@@ -40,7 +41,7 @@ import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
 import { StateReference } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
+import { type StateOverride, type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -114,6 +115,9 @@ export class SequencerPublisher {
   protected ethereumSlotDuration: bigint;
 
   private blobSinkClient: BlobSinkClientInterface;
+
+  /** Address to use for simulations in fisherman mode (actual proposer's address) */
+  private proposerAddressForSimulation?: EthAddress;
   // @note - with blobs, the below estimate seems too large.
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
@@ -183,12 +187,31 @@ export class SequencerPublisher {
     return this.l1TxUtils.getSenderAddress();
   }
 
+  /**
+   * Sets the proposer address to use for simulations in fisherman mode.
+   * @param proposerAddress - The actual proposer's address to use for balance lookups in simulations
+   */
+  public setProposerAddressForSimulation(proposerAddress: EthAddress | undefined) {
+    this.proposerAddressForSimulation = proposerAddress;
+  }
+
   public addRequest(request: RequestWithExpiry) {
     this.requests.push(request);
   }
 
   public getCurrentL2Slot(): bigint {
     return this.epochCache.getEpochAndSlotNow().slot;
+  }
+
+  /**
+   * Clears all pending requests without sending them.
+   */
+  public clearPendingRequests(): void {
+    const count = this.requests.length;
+    this.requests = [];
+    if (count > 0) {
+      this.log.debug(`Cleared ${count} pending request(s)`);
+    }
   }
 
   /**
@@ -321,7 +344,9 @@ export class SequencerPublisher {
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), this.ethereumSlotDuration, opts)
+      .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), this.ethereumSlotDuration, {
+        forcePendingCheckpointNumber: opts.forcePendingBlockNumber,
+      })
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
           this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
@@ -353,10 +378,20 @@ export class SequencerPublisher {
     ] as const;
 
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+    const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(opts?.forcePendingBlockNumber);
+    let balance = 0n;
+    if (this.config.fishermanMode) {
+      // In fisherman mode, we can't know where the proposer is publishing from
+      // so we just add sufficient balance to the multicall3 address
+      balance = 10n * WEI_CONST * WEI_CONST; // 10 ETH
+    } else {
+      balance = await this.l1TxUtils.getSenderBalance();
+    }
+    stateOverrides.push({
+      address: MULTI_CALL_3_ADDRESS,
+      balance,
+    });
 
-    // use sender balance to simulate
-    const balance = await this.l1TxUtils.getSenderBalance();
-    this.log.debug(`Simulating validateHeader with balance: ${balance}`);
     await this.l1TxUtils.simulate(
       {
         to: this.rollupContract.address,
@@ -364,10 +399,7 @@ export class SequencerPublisher {
         from: MULTI_CALL_3_ADDRESS,
       },
       { time: ts + 1n },
-      [
-        { address: MULTI_CALL_3_ADDRESS, balance },
-        ...(await this.rollupContract.makePendingBlockNumberOverride(opts?.forcePendingBlockNumber)),
-      ],
+      stateOverrides,
     );
     this.log.debug(`Simulated validateHeader`);
   }
@@ -387,7 +419,7 @@ export class SequencerPublisher {
     const blockNumber = block.blockNumber;
     const logData = { ...block, reason };
 
-    const currentBlockNumber = await this.rollupContract.getBlockNumber();
+    const currentBlockNumber = await this.rollupContract.getCheckpointNumber();
     if (currentBlockNumber < validationResult.block.blockNumber) {
       this.log.verbose(
         `Skipping block ${blockNumber} invalidation since it has already been removed from the pending chain`,
@@ -414,7 +446,7 @@ export class SequencerPublisher {
           `Simulation for invalidate block ${blockNumber} failed due to block not being in pending chain`,
           { ...logData, request, error: viemError.message },
         );
-        const latestPendingBlockNumber = await this.rollupContract.getBlockNumber();
+        const latestPendingBlockNumber = await this.rollupContract.getCheckpointNumber();
         if (latestPendingBlockNumber < blockNumber) {
           this.log.verbose(`Block number ${blockNumber} has already been invalidated`, { ...logData });
           return undefined;
@@ -826,7 +858,7 @@ export class SequencerPublisher {
           result &&
           result.receipt &&
           result.receipt.status === 'success' &&
-          tryExtractEvent(result.receipt.logs, this.rollupContract.address, RollupAbi, 'BlockInvalidated');
+          tryExtractEvent(result.receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointInvalidated');
         if (!success) {
           this.log.warn(`Invalidate block ${request.blockNumber} failed`, { ...result, ...logData });
         } else {
@@ -914,29 +946,39 @@ export class SequencerPublisher {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
-    const blobEvaluationGas = await this.l1TxUtils
-      .estimateGas(
-        this.getSenderAddress().toString(),
-        {
-          to: this.rollupContract.address,
-          data: encodeFunctionData({
-            abi: RollupAbi,
-            functionName: 'validateBlobs',
-            args: [blobInput],
-          }),
-        },
-        {},
-        {
-          blobs: encodedData.blobs.map(b => b.data),
-          kzg,
-        },
-      )
-      .catch(err => {
-        const { message, metaMessages } = formatViemError(err);
-        this.log.error(`Failed to validate blobs`, message, { metaMessages });
-        throw new Error('Failed to validate blobs');
-      });
 
+    // Get blob evaluation gas
+    let blobEvaluationGas: bigint;
+    if (this.config.fishermanMode) {
+      // In fisherman mode, we can't estimate blob gas because estimateGas doesn't support state overrides
+      // Use a fixed estimate.
+      blobEvaluationGas = BigInt(encodedData.blobs.length) * 21_000n;
+      this.log.debug(`Using fixed blob evaluation gas estimate in fisherman mode: ${blobEvaluationGas}`);
+    } else {
+      // Normal mode - use estimateGas with blob inputs
+      blobEvaluationGas = await this.l1TxUtils
+        .estimateGas(
+          this.getSenderAddress().toString(),
+          {
+            to: this.rollupContract.address,
+            data: encodeFunctionData({
+              abi: RollupAbi,
+              functionName: 'validateBlobs',
+              args: [blobInput],
+            }),
+          },
+          {},
+          {
+            blobs: encodedData.blobs.map(b => b.data),
+            kzg,
+          },
+        )
+        .catch(err => {
+          const { message, metaMessages } = formatViemError(err);
+          this.log.error(`Failed to validate blobs`, message, { metaMessages });
+          throw new Error('Failed to validate blobs');
+        });
+    }
     const signers = encodedData.attestationsAndSigners.getSigners().map(signer => signer.toString());
 
     const args = [
@@ -993,9 +1035,27 @@ export class SequencerPublisher {
     // override the pending block number if requested
     const forcePendingBlockNumberStateDiff = (
       options.forcePendingBlockNumber !== undefined
-        ? await this.rollupContract.makePendingBlockNumberOverride(options.forcePendingBlockNumber)
+        ? await this.rollupContract.makePendingCheckpointNumberOverride(options.forcePendingBlockNumber)
         : []
     ).flatMap(override => override.stateDiff ?? []);
+
+    const stateOverrides: StateOverride = [
+      {
+        address: this.rollupContract.address,
+        // @note we override checkBlob to false since blobs are not part simulate()
+        stateDiff: [
+          { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
+          ...forcePendingBlockNumberStateDiff,
+        ],
+      },
+    ];
+    // In fisherman mode, simulate as the proposer but with sufficient balance
+    if (this.proposerAddressForSimulation) {
+      stateOverrides.push({
+        address: this.proposerAddressForSimulation.toString(),
+        balance: 10n * WEI_CONST * WEI_CONST, // 10 ETH
+      });
+    }
 
     const simulationResult = await this.l1TxUtils
       .simulate(
@@ -1003,6 +1063,7 @@ export class SequencerPublisher {
           to: this.rollupContract.address,
           data: rollupData,
           gas: SequencerPublisher.PROPOSE_GAS_GUESS,
+          ...(this.proposerAddressForSimulation && { from: this.proposerAddressForSimulation.toString() }),
         },
         {
           // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
@@ -1010,16 +1071,7 @@ export class SequencerPublisher {
           // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit so we increase here
           gasLimit: SequencerPublisher.PROPOSE_GAS_GUESS * 2n,
         },
-        [
-          {
-            address: this.rollupContract.address,
-            // @note we override checkBlob to false since blobs are not part simulate()
-            stateDiff: [
-              { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
-              ...forcePendingBlockNumberStateDiff,
-            ],
-          },
-        ],
+        stateOverrides,
         RollupAbi,
         {
           // @note fallback gas estimate to use if the node doesn't support simulation API
@@ -1027,7 +1079,17 @@ export class SequencerPublisher {
         },
       )
       .catch(err => {
-        this.log.error(`Failed to simulate propose tx`, err);
+        // In fisherman mode, we expect ValidatorSelection__MissingProposerSignature since fisherman doesn't have proposer signature
+        const viemError = formatViemError(err);
+        if (this.config.fishermanMode && viemError.message?.includes('ValidatorSelection__MissingProposerSignature')) {
+          this.log.debug(`Ignoring expected ValidatorSelection__MissingProposerSignature error in fisherman mode`);
+          // Return a minimal simulation result with the fallback gas estimate
+          return {
+            gasUsed: SequencerPublisher.PROPOSE_GAS_GUESS,
+            logs: [],
+          };
+        }
+        this.log.error(`Failed to simulate propose tx`, viemError);
         throw err;
       });
 
@@ -1080,7 +1142,7 @@ export class SequencerPublisher {
         const success =
           receipt &&
           receipt.status === 'success' &&
-          tryExtractEvent(receipt.logs, this.rollupContract.address, RollupAbi, 'L2BlockProposed');
+          tryExtractEvent(receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointProposed');
         if (success) {
           const endBlock = receipt.blockNumber;
           const inclusionBlocks = Number(endBlock - startBlock);

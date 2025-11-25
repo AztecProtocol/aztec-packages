@@ -15,7 +15,7 @@ You should run your own full node if you want to interact with the network in th
 
 ### Minimum Hardware Requirements
 
-- 2 core / 4 vCPU (released in 2015 or later)
+- 8 core / 16 vCPU (released in 2015 or later)
 - 16 GB RAM
 - 1 TB NVMe SSD
 - 25 Mbps network connection
@@ -193,6 +193,7 @@ If all checks pass, your node should be up, running, and connected to the networ
 **Issue**: Your node cannot connect to peers.
 
 **Solutions**:
+
 - Verify your external IP address matches the `P2P_IP` setting
 - Check firewall rules on your router and local machine
 - Test connectivity using: `nc -zv [your-ip] 40400`
@@ -202,6 +203,7 @@ If all checks pass, your node should be up, running, and connected to the networ
 **Issue**: Your node is not synchronizing with the network.
 
 **Solutions**:
+
 - Check L1 endpoint connectivity
 - Verify both execution and consensus clients are fully synced
 - Review logs for specific error messages
@@ -212,6 +214,7 @@ If all checks pass, your node should be up, running, and connected to the networ
 **Issue**: Container won't start or crashes (Docker Compose method only).
 
 **Solutions**:
+
 - Ensure Docker and Docker Compose are up to date
 - Check disk space availability
 - Verify the `.env` file is properly formatted

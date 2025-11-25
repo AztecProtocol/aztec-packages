@@ -45,6 +45,15 @@ policies:
           - - k8s_namespace_name
             - =~
             - $NEXT_NET_REGEX
+        mute_time_intervals:
+          - nightly_deployment
+
+      # Devnet - only alert based on Kubernetes namespace
+      - receiver: "Slack #alerts-devnet by namespace"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $DEVNET_NAMESPACES_REGEX
 
       # Testnet - by namespace
       - receiver: "Slack #alerts-testnet by namespace"
@@ -74,17 +83,3 @@ policies:
             - =~
             - $MAINNET_NAMESPACES_REGEX
 
-      # Production - by namespace
-      - receiver: "Slack #network-alerts channel by namespace"
-        object_matchers:
-          - - k8s_namespace_name
-            - =~
-            - $PRODUCTION_NAMESPACES_REGEX
-      # Nightly - by namespace
-      - receiver: "Slack #network-alerts channel by namespace"
-        object_matchers:
-          - - k8s_namespace_name
-            - =~
-            - $NIGHTLY_NAMESPACES_REGEX
-        mute_time_intervals:
-          - nightly_deployment

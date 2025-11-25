@@ -12,6 +12,7 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { createEthereumChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
 import { DefaultL1ContractsConfig, getEntryQueueConfig } from './config.js';
+import { FeeJuiceContract } from './contracts/fee_juice.js';
 import { GovernanceContract } from './contracts/governance.js';
 import { GSEContract } from './contracts/gse.js';
 import { RegistryContract } from './contracts/registry.js';
@@ -85,11 +86,10 @@ describe('deploy_l1_contracts', () => {
         vkTreeRoot,
         protocolContractsHash,
         genesisArchiveRoot,
-        l1TxConfig: { checkIntervalMs: 100 },
         realVerifier: false,
         ...args,
       },
-      undefined,
+      { checkIntervalMs: 100, priorityFeeBumpPercentage: 0 },
       false,
     );
 
@@ -113,6 +113,8 @@ describe('deploy_l1_contracts', () => {
       'TEST',
       client.account.address,
     ]);
+
+    await new FeeJuiceContract(externalTokenAddress, client).mint(client.account.address, 1n * 10n ** 18n);
 
     const deployed = await deploy({ existingTokenAddress: externalTokenAddress });
 
@@ -296,9 +298,9 @@ describe('deploy_l1_contracts', () => {
         vkTreeRoot,
         protocolContractsHash,
         genesisArchiveRoot,
-        l1TxConfig: { checkIntervalMs: 100 },
         realVerifier: false,
       },
+      { checkIntervalMs: 100, priorityFeeBumpPercentage: 0 },
     );
 
     const governance = new GovernanceContract(deployment.l1ContractAddresses.governanceAddress, client);

@@ -9,6 +9,9 @@
 
 namespace bb::avm2::simulation {
 
+// Forward declarations
+class ContextInterface;
+
 class ContextProviderInterface {
   public:
     virtual ~ContextProviderInterface() = default;
@@ -21,7 +24,6 @@ class ContextProviderInterface {
                                                                   uint32_t cd_size,
                                                                   bool is_static,
                                                                   Gas gas_limit,
-                                                                  SideEffectStates side_effect_states,
                                                                   TransactionPhase phase) = 0;
 
     virtual std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
@@ -31,7 +33,6 @@ class ContextProviderInterface {
                                                                     bool is_static,
                                                                     Gas gas_limit,
                                                                     Gas gas_used,
-                                                                    SideEffectStates side_effect_states,
                                                                     TransactionPhase phase) = 0;
 
     // This can be removed if we use clk for the context id

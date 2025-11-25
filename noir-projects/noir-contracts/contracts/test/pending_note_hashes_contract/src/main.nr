@@ -8,8 +8,7 @@ use aztec::macros::aztec;
 pub contract PendingNoteHashes {
     // Libs
     use aztec::{
-        context::PrivateContext,
-        macros::{functions::external, storage::storage},
+        macros::{functions::{external, internal}, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::{note_emission::NoteEmission, note_getter_options::NoteGetterOptions},
         protocol_types::{
@@ -97,10 +96,9 @@ pub contract PendingNoteHashes {
     fn insert_note_static_randomness(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        let randomness = 2;
         // Note that the following is severely misusing the Packable trait as we should never be messing with internal
         // encoding. This is brittle but I don't care.
-        let note = ValueNote::unpack([amount.to_field(), owner.to_field(), randomness.to_field()]);
+        let note = ValueNote::unpack([amount.to_field(), owner.to_field()]);
 
         // Insert note
         owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -298,11 +296,9 @@ pub contract PendingNoteHashes {
         sender: AztecAddress,
         how_many_recursions: u64,
     ) {
-        create_max_notes(owner, self.storage);
+        self.internal.create_max_notes(owner);
 
-        PendingNoteHashes::at(self.address)
-            .recursively_destroy_and_create_notes(owner, sender, how_many_recursions)
-            .call(self.context);
+        self.call_self.recursively_destroy_and_create_notes(owner, sender, how_many_recursions);
     }
 
     #[external("private")]
@@ -313,15 +309,13 @@ pub contract PendingNoteHashes {
     ) {
         assert(executions_left > 0);
 
-        destroy_max_notes(owner, self.storage);
-        create_max_notes(owner, self.storage);
+        self.internal.destroy_max_notes(owner);
+        self.internal.create_max_notes(owner);
 
         let executions_left = executions_left - 1;
 
         if executions_left > 0 {
-            PendingNoteHashes::at(self.address)
-                .recursively_destroy_and_create_notes(owner, sender, executions_left)
-                .call(self.context);
+            self.call_self.recursively_destroy_and_create_notes(owner, sender, executions_left);
         }
     }
 
@@ -343,6 +337,7 @@ pub contract PendingNoteHashes {
         let bad_note_emission = NoteEmission::new(
             ValueNote::new(5, owner),
             good_note_emission.content.storage_slot,
+            good_note_emission.content.randomness,
             good_note_emission.content.note_hash_counter,
             self.context,
         );
@@ -350,25 +345,25 @@ pub contract PendingNoteHashes {
         bad_note_emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
-    #[contract_library_method]
-    fn create_max_notes(owner: AztecAddress, storage: Storage<&mut PrivateContext>) {
-        let owner_balance = storage.balances.at(owner);
+    #[internal("private")]
+    fn create_max_notes(owner: AztecAddress) {
+        let owner_balance = self.storage.balances.at(owner);
 
-        for i in 0..max_notes_per_call() {
+        for i in 0..self.internal.max_notes_per_call() {
             let note = ValueNote::new(i as Field, owner);
             owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }
 
-    #[contract_library_method]
-    fn destroy_max_notes(owner: AztecAddress, storage: Storage<&mut PrivateContext>) {
-        let owner_balance = storage.balances.at(owner);
+    #[internal("private")]
+    fn destroy_max_notes(owner: AztecAddress) {
+        let owner_balance = self.storage.balances.at(owner);
         // Note that we're relying on PXE actually returning the notes, we're not constraining that any specific
         // number of notes are deleted.
         let _ = owner_balance.pop_notes(NoteGetterOptions::new());
     }
 
-    #[contract_library_method]
+    #[internal("private")]
     fn max_notes_per_call() -> u32 {
         if MAX_NOTE_HASHES_PER_CALL > MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
             MAX_NOTE_HASH_READ_REQUESTS_PER_CALL

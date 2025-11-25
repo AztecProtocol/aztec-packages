@@ -46,7 +46,7 @@ namespace bb {
  * Each column of the DataBus requires its own pair of subrelations. The column being read is selected via a unique
  * product, i.e. a lookup from bus column j is selected via q_busread * q_j (j = 1,2,...).
  *
- * To not compute the inverse terms packed in I_i for indices that not included in the sum we introduce a
+ * To not compute the inverse terms packed in I_i for indices not included in the sum we introduce a
  * witness called inverse_exists, which is zero when either read_count_i is nonzero (a boolean called read_tag) or we
  * have a read gate. This is represented by setting inverse_exists = 1- (1- read_tag)*(1- is_read_gate). Since read_gate
  * is only dependent on selector values, we can assume that the verifier can check that it is boolean. However, if
@@ -207,8 +207,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-        using ParameterCoefficientAccumulator =
-            typename GetParameterView<Parameters, typename Accumulator::View>::CoefficientAccumulator;
+        using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
 
         const auto& id = CoefficientAccumulator(in.databus_id);
         const auto& value = CoefficientAccumulator(BusData<bus_idx, AllEntities>::values(in));
@@ -229,9 +228,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
     {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-        using View = typename Accumulator::View;
-        using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
+        using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
 
         // Bus value stored in w_1, index into bus column stored in w_2
         const auto& w_1 = CoefficientAccumulator(in.w_l);

@@ -36,17 +36,13 @@ class MultilinearBatchingProver {
     BB_PROFILE void execute_commitments_round();
     BB_PROFILE void execute_challenges_and_evaluations_round();
     BB_PROFILE void execute_relation_check_rounds();
-    BB_PROFILE void compute_new_claim();
+    BB_PROFILE MultilinearBatchingProverClaim compute_new_claim();
     HonkProof export_proof();
     HonkProof construct_proof();
-
-    MultilinearBatchingProverClaim get_new_claim() { return new_claim; };
 
     std::shared_ptr<Transcript> transcript;
 
     std::shared_ptr<MultilinearBatchingProvingKey> key;
-
-    MultilinearBatchingProverClaim new_claim;
 
     SumcheckOutput<Flavor> sumcheck_output;
 };

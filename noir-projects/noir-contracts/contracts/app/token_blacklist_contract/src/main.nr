@@ -48,6 +48,11 @@ pub contract TokenBlacklist {
     // Changing an address' roles has a certain delay before it goes into effect. Here set to 1 day.
     global CHANGE_ROLES_DELAY: u64 = 86400;
 
+    // Randomness is unnecessary for transparent notes, as these notes are emitted publicly
+    // during the shielding of tokens, making protection against preimage attacks irrelevant.
+    // However, the API requires a value, so we use 0.
+    global TRANSPARENT_NOTE_RANDOMNESS: Field = 0;
+
     #[storage]
     struct Storage<Context> {
         balances: BalancesMap<TokenNote, Context>,
@@ -120,7 +125,8 @@ pub contract TokenBlacklist {
         // We insert the note hash into the pending_shields. Since the TransparentNote flow is deprecated (use partial
         // notes instead), we no longer have utility a function exposed on the PrivateSet to insert the note hash from
         // public context. Hence we need to manually get the slot and insert the note hash into the context.
-        let note_hash = note.compute_note_hash(pending_shields.storage_slot);
+        let note_hash =
+            note.compute_note_hash(pending_shields.storage_slot, TRANSPARENT_NOTE_RANDOMNESS);
         self.context.push_note_hash(note_hash);
     }
 
@@ -140,7 +146,8 @@ pub contract TokenBlacklist {
         // We insert the note hash into the pending_shields. Since the TransparentNote flow is deprecated (use partial
         // notes instead), we no longer have utility a function exposed on the PrivateSet to insert the note hash from
         // public context. Hence we need to manually get the slot and insert the note hash into the context.
-        let note_hash = note.compute_note_hash(pending_shields.storage_slot);
+        let note_hash =
+            note.compute_note_hash(pending_shields.storage_slot, TRANSPARENT_NOTE_RANDOMNESS);
         self.context.push_note_hash(note_hash);
     }
 
@@ -204,7 +211,7 @@ pub contract TokenBlacklist {
 
         self.storage.balances.sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
 
-        TokenBlacklist::at(self.address)._increase_public_balance(to, amount).enqueue(self.context);
+        self.enqueue_self._increase_public_balance(to, amount);
     }
 
     // docs:start:transfer_private
@@ -228,7 +235,7 @@ pub contract TokenBlacklist {
 
         self.storage.balances.sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
 
-        TokenBlacklist::at(self.address)._reduce_total_supply(amount).enqueue(self.context);
+        self.enqueue_self._reduce_total_supply(amount);
     }
 
     #[external("public")]
@@ -278,6 +285,7 @@ pub contract TokenBlacklist {
             recipient,
             _compute_note_hash_and_nullifier,
             storage_slot,
+            TRANSPARENT_NOTE_RANDOMNESS,
             note_type_id,
             packed_note,
         );

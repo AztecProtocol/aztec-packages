@@ -24,14 +24,15 @@ contract ZKPassportBase is Test {
 
   // Path to the proof file - using files directly in project root
   // Fixtures copied from within the zk passport subrepo
-  bytes32 constant VKEY_HASH = 0x254314c80a8cc3efc785643a0a6aeeba6ae268a45e69a98affd4a4155f01e186;
+  bytes32 constant VKEY_HASH = 0x17407da3db9149eea7c0a22ae09777c7408da8ad31e7aa7e689a224d84c6fbef;
 
   // From fixtures - see lib/circuits/src/solidity/test/SampleContract.t.sol
   string constant CORRECT_DOMAIN = "zkpassport.id";
   string constant CORRECT_SCOPE = "bigproof";
 
-  // Time when the proof was generated - October 19, 2025 7:29:51Z
-  uint256 public PROOF_GENERATION_TIMESTAMP = 1_760_906_062;
+  // Time when (slightly after) the proof was generated - 'Mon Nov 03 2025 10:32:25 GMT+0000 (Coordinated Universal
+  // Time)'
+  uint256 public PROOF_GENERATION_TIMESTAMP = 1_762_167_715;
 
   // Using this base contract will make a zkpassport verifier and proof available for testing purposes
   constructor() {
@@ -66,17 +67,9 @@ contract ZKPassportBase is Test {
     bytes32[] memory publicInputs = loadBytes32FromFile("valid_public_inputs.json");
     bytes memory committedInputs = loadBytesFromFile("valid_committed_inputs.hex");
 
-    // Order of bytes of committed inputs for each disclosure proof
-    uint256[] memory committedInputCounts = new uint256[](5);
-    committedInputCounts[0] = CommittedInputLen.BIND;
-    committedInputCounts[1] = CommittedInputLen.SANCTIONS;
-    committedInputCounts[2] = CommittedInputLen.EXCL_NATIONALITY;
-    committedInputCounts[3] = CommittedInputLen.COMPARE_AGE;
-    committedInputCounts[4] = CommittedInputLen.FACEMATCH;
-
     params = ProofVerificationParams({
       proofVerificationData: ProofVerificationData({vkeyHash: VKEY_HASH, proof: proof, publicInputs: publicInputs}),
-      commitments: Commitments({committedInputs: committedInputs, committedInputCounts: committedInputCounts}),
+      commitments: Commitments({committedInputs: committedInputs}),
       serviceConfig: ServiceConfig({
         validityPeriodInSeconds: 7 days, domain: CORRECT_DOMAIN, scope: CORRECT_SCOPE, devMode: false
       })
@@ -88,20 +81,9 @@ contract ZKPassportBase is Test {
     bytes32[] memory publicInputs = new bytes32[](0);
     bytes memory committedInputs = bytes(string(""));
 
-    // Order of bytes of committed inputs for each disclosure proof
-    uint256[] memory committedInputCounts = new uint256[](8);
-    committedInputCounts[0] = 181;
-    committedInputCounts[1] = 601;
-    committedInputCounts[2] = 601;
-    committedInputCounts[3] = 601;
-    committedInputCounts[4] = 601;
-    committedInputCounts[5] = 11;
-    committedInputCounts[6] = 25;
-    committedInputCounts[7] = 25;
-
     params = ProofVerificationParams({
       proofVerificationData: ProofVerificationData({vkeyHash: VKEY_HASH, proof: proof, publicInputs: publicInputs}),
-      commitments: Commitments({committedInputs: committedInputs, committedInputCounts: committedInputCounts}),
+      commitments: Commitments({committedInputs: committedInputs}),
       serviceConfig: ServiceConfig({
         validityPeriodInSeconds: 7 days, domain: "zkpassport.id", scope: "bigproof", devMode: true
       })

@@ -44,7 +44,7 @@ pub contract AppSubscription {
 
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
-        macros::{functions::{external, initializer}, storage::storage},
+        macros::{functions::{external, initializer, nophasecheck}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
         protocol_types::address::AztecAddress,
@@ -64,6 +64,7 @@ pub contract AppSubscription {
     global SUBSCRIPTION_TXS: u32 = 5;
 
     #[external("private")]
+    #[nophasecheck]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -135,14 +136,12 @@ pub contract AppSubscription {
 
         let config = self.storage.config.read();
 
-        Token::at(config.subscription_token_address)
-            .transfer_in_private(
-                self.msg_sender().unwrap(),
-                config.subscription_recipient_address,
-                config.subscription_price,
-                authwit_nonce,
-            )
-            .call(self.context);
+        self.call(Token::at(config.subscription_token_address).transfer_in_private(
+            self.msg_sender().unwrap(),
+            config.subscription_recipient_address,
+            config.subscription_price,
+            authwit_nonce,
+        ));
 
         // Assert that the `current_block_number > expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS`.
         // --> We do that via the router contract to conceal which contract is performing the check.

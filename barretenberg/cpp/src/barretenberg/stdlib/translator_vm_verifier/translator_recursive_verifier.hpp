@@ -21,13 +21,14 @@ class TranslatorRecursiveVerifier {
     using FF = Flavor::FF;
     using NativeBF = Flavor::Curve::BaseFieldNative;
     using Builder = Flavor::CircuitBuilder;
+    using Curve = Flavor::Curve;
     using BF = Flavor::BF;
     using Commitment = Flavor::Commitment;
     using GroupElement = Flavor::GroupElement;
     using VerificationKey = Flavor::VerificationKey;
     using NativeVerificationKey = Flavor::NativeVerificationKey;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Curve>;
     using TranslationEvaluations = TranslationEvaluations_<BF>;
     using Transcript = Flavor::Transcript;
     using RelationParams = ::bb::RelationParameters<FF>;

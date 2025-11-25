@@ -185,8 +185,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
 
-    Fr running_scalar = Fr(1);
-    Polynomial batched = mock_claims.polynomial_batcher.compute_batched(rho, running_scalar);
+    Polynomial batched = mock_claims.polynomial_batcher.compute_batched(rho);
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1

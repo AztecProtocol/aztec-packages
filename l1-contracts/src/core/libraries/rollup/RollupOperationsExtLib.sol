@@ -7,7 +7,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {BlobLib} from "./BlobLib.sol";
+import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 import {AttestationLib} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {
@@ -28,7 +28,7 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
  * @dev This library serves as an external library for the Rollup contract, splitting off proposal-related
  *      functionality to keep the main contract within the maximum contract size limit. The library contains
  *      external functions primarily focused on:
- *      - Block proposal submission and validation
+ *      - Checkpoint proposal submission and validation
  *      - Epoch proof submission and verification
  *      - Blob validation and commitment management
  *      - Chain pruning operations

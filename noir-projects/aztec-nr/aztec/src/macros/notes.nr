@@ -71,8 +71,8 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
 
     quote {
         impl aztec::note::note_interface::NoteHash for $name {
-            fn compute_note_hash(self, storage_slot: Field) -> Field {
-                let inputs = aztec::protocol_types::traits::Packable::pack(self).concat( [storage_slot]);
+            fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
+                let inputs = aztec::protocol_types::traits::Packable::pack(self).concat( [storage_slot, randomness]);
                 aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
             }
 
@@ -147,6 +147,7 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
     let mut properties_list = &[];
     for i in 0..note_fields.len() {
         let (name, _, _) = note_fields[i];
+        let i = i as u8;
         properties_list = properties_list.push_back(
             quote { $name: aztec::note::note_getter_options::PropertySelector { index: $i, offset: 0, length: 32 } },
         );

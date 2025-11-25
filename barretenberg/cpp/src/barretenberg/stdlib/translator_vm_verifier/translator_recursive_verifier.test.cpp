@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -14,10 +15,6 @@ namespace bb {
  * to recursively verify. `Outer*` describes the arithmetisation of the recursive verifier circuit and the types
  * required to ensure the recursive verifier circuit is correct (i.e. by producing a proof and verifying it).
  */
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/980): Add failing tests after we have a proper shared
-// transcript interface between ECCVM and Translator and we are able to deserialise and serialise the transcript
-// correctly.
 class TranslatorRecursiveTests : public ::testing::Test {
   public:
     using RecursiveFlavor = TranslatorRecursiveFlavor;
@@ -107,22 +104,23 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Mock a previous verifier that would in reality be the ECCVM recursive verifier
         stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, fake_inital_proof);
-        auto transcript = std::make_shared<RecursiveFlavor::Transcript>();
-        transcript->load_proof(stdlib_proof);
+        auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
         [[maybe_unused]] auto _ = transcript->template receive_from_prover<RecursiveFlavor::BF>("init");
 
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->proving_key);
         RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
         typename RecursiveVerifier::PairingPoints pairing_points =
             verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
-        pairing_points.set_public();
+
+        stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
+        inputs.pairing_inputs = pairing_points;
+        inputs.set_public();
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
-        auto native_verifier_transcript = std::make_shared<Transcript>();
-        native_verifier_transcript->load_proof(fake_inital_proof);
+        auto native_verifier_transcript = std::make_shared<Transcript>(fake_inital_proof);
         native_verifier_transcript->template receive_from_prover<InnerBF>("init");
         InnerVerifier native_verifier(verification_key, native_verifier_transcript);
         bool native_result = native_verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
@@ -186,8 +184,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
             // Mock a previous verifier that would in reality be the ECCVM recursive verifier
             stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, fake_inital_proof);
-            auto transcript = std::make_shared<typename RecursiveFlavor::Transcript>();
-            transcript->load_proof(stdlib_proof);
+            auto transcript = std::make_shared<typename RecursiveFlavor::Transcript>(stdlib_proof);
             [[maybe_unused]] auto _ = transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
 
             RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
@@ -196,9 +193,15 @@ class TranslatorRecursiveTests : public ::testing::Test {
             auto stdlib_batching_challenge_v = TranslatorBF::from_witness(&outer_circuit, batching_challenge_v);
             transcript->add_to_hash_buffer("evaluation_challenge_x", stdlib_evaluation_challenge_x);
             transcript->add_to_hash_buffer("batching_challenge_v", stdlib_batching_challenge_v);
+            // Clear child tags from challenges to avoid false positives in IndependentVKHash test
+            stdlib_evaluation_challenge_x.clear_round_provenance();
+            stdlib_batching_challenge_v.clear_round_provenance();
             typename RecursiveVerifier::PairingPoints pairing_points =
                 verifier.verify_proof(inner_proof, stdlib_evaluation_challenge_x, stdlib_batching_challenge_v);
-            pairing_points.set_public();
+
+            stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
+            inputs.pairing_inputs = pairing_points;
+            inputs.set_public();
 
             auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);
             auto outer_verification_key =

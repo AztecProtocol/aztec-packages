@@ -1,4 +1,4 @@
-use crate::{traits::{Deserialize, Empty}, utils::arrays::validate_array};
+use crate::traits::{Deserialize, Empty};
 
 pub fn assert_array_eq<T, let N: u32, let M: u32>(array: [T; N], expected: [T; M])
 where
@@ -9,6 +9,23 @@ where
     for i in 0..M {
         assert_eq(array[i], expected[i], "mismatch array elements");
     }
+}
+
+fn validate_array<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty,
+{
+    let mut seen_empty = false;
+    let mut length = 0;
+    for i in 0..N {
+        if array[i].is_empty() {
+            seen_empty = true;
+        } else {
+            assert_eq(seen_empty, false, "invalid array");
+            length += 1;
+        }
+    }
+    length
 }
 
 // Swap two items in a BoundedVec.

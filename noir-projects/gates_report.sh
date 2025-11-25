@@ -12,7 +12,7 @@ ROLLUP_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' rollup_honk_circuits.json)
 cd noir-protocol-circuits
 PROTOCOL_CIRCUITS_DIR=$PWD
 
-BB_BIN=${BB_BIN:-../../barretenberg/cpp/build/bin/bb}
+BB_BIN=${BB_BIN:-../../barretenberg/cpp/build/bin/bb-avm}
 
 echo "{\"programs\": [" > gates_report.json
 

@@ -6,6 +6,8 @@ use protocol_types::constants::PRIVATE_LOG_CIPHERTEXT_LEN;
 // protocol circuits, we have a concept of a message that can be emitted either as a private log or as an offchain
 // message. Message is a piece of data that is to be eventually delivered to a contract via the `process_message(...)`
 // utility function function that is injected by the #[aztec] macro.
+// Note: PRIVATE_LOG_CIPHERTEXT_LEN is an amount of fields,
+// so MESSAGE_CIPHERTEXT_LEN is the size of the message in fields.
 pub global MESSAGE_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_CIPHERTEXT_LEN;
 
 // TODO(#12750): The global variables below should not be here as they are AES128 specific.
@@ -16,15 +18,18 @@ pub global EPH_PK_X_SIZE_IN_FIELDS: u32 = 1;
 pub global EPH_PK_SIGN_BYTE_SIZE_IN_BYTES: u32 = 1;
 
 // (17 - 1) * 31 - 16 - 1 = 479
+// Note: We multiply by 31 because ciphertext bytes are stored in fields using bytes_to_fields, which packs 31 bytes per
+// field (since a Field is ~254 bits and can safely store 31 whole bytes).
 global MESSAGE_PLAINTEXT_SIZE_IN_BYTES: u32 = (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS)
     * 31
     - HEADER_CIPHERTEXT_SIZE_IN_BYTES
     - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES;
-// Each field of the original note log was serialized to 32 bytes. Below we convert the bytes back to fields.
-// 479 / 32 = 15
+// The plaintext bytes represent Field values that were originally serialized using fields_to_bytes, which converts each
+// Field to 32 bytes. To convert the plaintext bytes back to fields, we divide by 32.
+// 479 / 32 = 14
 pub global MESSAGE_PLAINTEXT_LEN: u32 = MESSAGE_PLAINTEXT_SIZE_IN_BYTES / 32;
 
-global MESSAGE_EXPANDED_METADATA_LEN: u32 = 1;
+pub global MESSAGE_EXPANDED_METADATA_LEN: u32 = 1;
 
 // The standard message layout is composed of:
 //  - an initial field called the 'expanded metadata'

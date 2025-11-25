@@ -24,7 +24,7 @@ struct lookup_class_id_derivation_class_id_poseidon2_0_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::class_id_derivation_gen_index_contract_leaf,
         ColumnAndShifts::class_id_derivation_artifact_hash,
-        ColumnAndShifts::class_id_derivation_private_function_root,
+        ColumnAndShifts::class_id_derivation_private_functions_root,
         ColumnAndShifts::class_id_derivation_class_id,
         ColumnAndShifts::class_id_derivation_const_two
     };

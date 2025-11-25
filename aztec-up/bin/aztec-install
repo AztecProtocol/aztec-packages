@@ -58,9 +58,7 @@ function title() {
     echo -e "${r}"
   fi
   echo -e "This will install the following scripts and update your PATH if necessary:"
-  echo -e "  ${bold}${g}aztec${r}                      - a collection of tools to launch subsystems and interact with the aztec network."
-  echo -e "  ${bold}${g}aztec-nargo${r}                - aztec's build of nargo, the noir compiler toolchain."
-  echo -e "  ${bold}${g}aztec-postprocess-contract${r} - postprocessing tool for Aztec contracts (transpilation and VK generation)."
+  echo -e "  ${bold}${g}aztec${r}                      - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
   echo -e "  ${bold}${g}aztec-up${r}                   - a tool to upgrade the aztec toolchain to the latest, or specific versions."
   echo -e "  ${bold}${g}aztec-wallet${r}               - our minimalistic CLI wallet"
   echo
@@ -161,8 +159,6 @@ rm -rf $BIN_PATH && mkdir -p $BIN_PATH
 install_bin .aztec-run
 install_bin aztec
 install_bin aztec-up
-install_bin aztec-nargo
-install_bin aztec-postprocess-contract
 install_bin aztec-wallet
 mv "$TMP_VERSION_FILE" "$AZTEC_PATH/default_version"
 

@@ -27,7 +27,7 @@ pub contract StatefulTest {
     #[external("private")]
     #[initializer]
     fn constructor(owner: AztecAddress, value: Field) {
-        StatefulTest::at(self.address).create_note_no_init_check(owner, value).call(self.context);
+        self.call_self.create_note_no_init_check(owner, value);
     }
 
     #[external("private")]
@@ -40,9 +40,7 @@ pub contract StatefulTest {
     #[external("public")]
     #[initializer]
     fn public_constructor(owner: AztecAddress, value: Field) {
-        StatefulTest::at(self.address).increment_public_value_no_init_check(owner, value).call(
-            self.context,
-        );
+        self.call_self.increment_public_value_no_init_check(owner, value);
     }
 
     #[external("private")]

@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib::element_goblin {
 
@@ -38,9 +39,13 @@ template <typename C, class Fq, class Fr, class G>
 goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::vector<goblin_element>& points,
                                                                      const std::vector<Fr>& scalars,
                                                                      [[maybe_unused]] const size_t max_num_bits,
-                                                                     [[maybe_unused]] const bool handle_edge_cases)
+                                                                     [[maybe_unused]] const bool handle_edge_cases,
+                                                                     [[maybe_unused]] const Fr& masking_scalar)
 {
-    auto builder = points[0].get_context();
+    auto builder = validate_context<C>(validate_context<C>(points), validate_context<C>(scalars));
+
+    BB_ASSERT(builder != nullptr, "biggroup_goblin: builder context is invalid.");
+    BB_ASSERT(points.size() == scalars.size(), "biggroup_goblin: points and scalars lengths not equal.");
 
     // Check that the internal accumulator is zero?
     BB_ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
@@ -75,8 +80,10 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
         // Note: These constraints do not assume or enforce that the coordinates of the original point have been
         // asserted to be in the field, only that they are less than the smallest power of 2 greater than the field
         // modulus (a la the bigfield(lo, hi) constructor with can_overflow == false).
-        BB_ASSERT_LTE(uint1024_t(point._x.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
-        BB_ASSERT_LTE(uint1024_t(point._y.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
+        if (!point.get_value().is_point_at_infinity()) {
+            BB_ASSERT_LTE(uint1024_t(point._x.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
+            BB_ASSERT_LTE(uint1024_t(point._y.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
+        }
         x_lo.assert_equal(point._x.limbs[0]);
         x_hi.assert_equal(point._x.limbs[1]);
         y_lo.assert_equal(point._y.limbs[0]);

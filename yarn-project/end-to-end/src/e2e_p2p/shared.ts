@@ -80,7 +80,7 @@ export async function prepareTransactions(
     salt: Fr.random(),
   });
   await wallet.registerContract(testContractInstance, TestContractArtifact);
-  const contract = await TestContract.at(testContractInstance.address, wallet);
+  const contract = TestContract.at(testContractInstance.address, wallet);
 
   return timesAsync(numTxs, async () => {
     const tx = await proveInteraction(wallet, contract.methods.emit_nullifier(Fr.random()), {
@@ -213,7 +213,7 @@ export async function awaitCommitteeKicked({
 
   if (slashingProposer.type === 'empire') {
     // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
-    const targetEpoch = (await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n;
+    const targetEpoch = (await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1n;
     logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
     await cheatCodes.advanceToEpoch(targetEpoch);
 
@@ -269,7 +269,7 @@ export async function awaitCommitteeKicked({
 
   logger.info(`Advancing to check current committee`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n);
+  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1n);
   await cheatCodes.debugRollup();
 
   const committeeNextEpoch = await rollup.getCurrentEpochCommittee();

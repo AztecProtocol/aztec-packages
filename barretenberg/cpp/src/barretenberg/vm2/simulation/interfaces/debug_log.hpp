@@ -16,6 +16,8 @@ class DebugLoggerInterface {
                            uint16_t message_size,
                            MemoryAddress fields_offset,
                            MemoryAddress fields_size_offset) = 0;
+
+    virtual std::vector<DebugLog> dump_logs() = 0;
 };
 
 } // namespace bb::avm2::simulation

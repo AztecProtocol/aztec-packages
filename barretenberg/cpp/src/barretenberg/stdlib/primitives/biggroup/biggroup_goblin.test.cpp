@@ -29,7 +29,7 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
     using Builder = typename Curve::Builder;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
-        info("builder gates = ", builder.get_estimated_num_finalized_gates());
+        info("builder gates = ", builder.get_num_finalized_gates_inefficient());
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 

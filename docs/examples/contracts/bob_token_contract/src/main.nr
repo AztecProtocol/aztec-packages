@@ -78,7 +78,7 @@ pub contract BobToken {
     fn public_to_private(amount: u64) {
         let sender = self.msg_sender().unwrap();
         // This will enqueue a public function to deduct from public balance
-        BobToken::at(self.address)._deduct_public_balance(sender, amount).enqueue(self.context);
+        self.enqueue_self._deduct_public_balance(sender, amount);
         // Add to private balance
         self.storage.private_balances.at(sender).add(amount, sender);
     }
@@ -130,9 +130,7 @@ pub contract BobToken {
     #[external("private")]
     fn mint_private(employee: AztecAddress, amount: u64) {
         // Enqueue ownership check (will revert if not Giggle)
-        BobToken::at(self.address)
-            ._assert_is_owner(self.msg_sender().unwrap())
-            .enqueue(self.context);
+        self.enqueue_self._assert_is_owner(self.msg_sender().unwrap());
 
         // If check passes, mint tokens privately
         self.storage.private_balances.at(employee).add(amount, employee);
@@ -147,9 +145,7 @@ pub contract BobToken {
         // Remove from private balance
         self.storage.private_balances.at(sender).sub(amount, sender);
         // Enqueue public credit
-        BobToken::at(self.address)
-            ._credit_public_balance(sender, amount)
-            .enqueue(self.context);
+        self.enqueue_self._credit_public_balance(sender, amount);
     }
 
     #[external("public")]

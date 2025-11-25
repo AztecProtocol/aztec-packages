@@ -48,10 +48,11 @@ void ContractInstanceRetrievalTraceBuilder::process(
 
                 // Contract instance members
                 { C::contract_instance_retrieval_salt, event.contract_instance.salt },
-                { C::contract_instance_retrieval_deployer_addr, event.contract_instance.deployer_addr },
-                { C::contract_instance_retrieval_current_class_id, event.contract_instance.current_class_id },
-                { C::contract_instance_retrieval_original_class_id, event.contract_instance.original_class_id },
-                { C::contract_instance_retrieval_init_hash, event.contract_instance.initialisation_hash },
+                { C::contract_instance_retrieval_deployer_addr, event.contract_instance.deployer },
+                { C::contract_instance_retrieval_current_class_id, event.contract_instance.current_contract_class_id },
+                { C::contract_instance_retrieval_original_class_id,
+                  event.contract_instance.original_contract_class_id },
+                { C::contract_instance_retrieval_init_hash, event.contract_instance.initialization_hash },
 
                 // Public keys (hinted)
                 { C::contract_instance_retrieval_nullifier_key_x, event.contract_instance.public_keys.nullifier_key.x },
