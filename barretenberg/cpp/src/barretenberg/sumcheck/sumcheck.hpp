@@ -122,6 +122,7 @@ template <typename Flavor, bool HasZK = Flavor::HasZK> struct VerifierZKCorrecti
     FF libra_challenge = FF{ 0 };
     FF libra_evaluation = FF{ 0 };
 
+    // Construct a handler which will handle all the evaluations/
     VerifierZKCorrectionHandler(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript))
     {}
@@ -149,19 +150,17 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     FF libra_challenge = FF{ 0 };
     FF libra_evaluation = FF{ 0 };
 
+    // If running zero-knowledge sumcheck the target total sum is corrected by the claimed sum of libra masking
+    // multivariate over the hypercube
     VerifierZKCorrectionHandler(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript))
+        , libra_total_sum(transcript->template receive_from_prover<FF>("Libra:Sum")) /**/
+        , libra_challenge(
+              transcript->template get_challenge<FF>("Libra:Challenge")) /*The random \rho to combine the libra
+                                                                            multivariate and the sumcheck multivariate*/
     {}
 
-    void initialize_target_sum(SumcheckRound& round)
-    {
-        // If running zero-knowledge sumcheck the target total sum is corrected by the claimed sum of libra masking
-        // multivariate over the hypercube
-        libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
-        // The random value \rho to combine the libra multivariate and the sumcheck multivariate.
-        libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
-        round.target_total_sum = libra_total_sum * libra_challenge;
-    }
+    void initialize_target_sum(SumcheckRound& round) { round.target_total_sum = libra_total_sum * libra_challenge; }
 
     void apply_zk_corrections(FF& full_honk_purported_value,
                               std::vector<FF>& multivariate_challenge,
@@ -849,10 +848,10 @@ template <typename Flavor> class SumcheckVerifier {
                                   const std::vector<FF>& padding_indicator = {})
     {
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
-
-        // Initialize the ZK correction handler
+        // Construct a ZKHandler to handle all the libra related information in the transcript
         VerifierZKCorrectionHandler<Flavor> zk_correction_handler(transcript);
 
+        // Correct the target sum in the round in the ZK case
         zk_correction_handler.initialize_target_sum(round);
 
         std::vector<FF> multivariate_challenge;
