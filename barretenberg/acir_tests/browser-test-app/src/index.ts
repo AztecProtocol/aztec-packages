@@ -7,8 +7,14 @@ const logger = pino({
   name: "browser-test-app",
 });
 
-// Create a logger wrapper that uses pino for bb.js internal logging
-const bbLogger = (msg: string) => logger.debug({ source: 'bb.js' }, msg);
+// Create a logger wrapper for bb.js internal logging
+// Note: We log to both pino (for structured logging) and console.log (for CI parsing)
+// because bb.js internal logs include memory stats in the format "(mem: X.XMiB)"
+// that the CI benchmark script needs to parse from plain-text console output
+const bbLogger = (msg: string) => {
+  logger.debug({ source: 'bb.js' }, msg);
+  console.log(msg);
+};
 
 function installUltraHonkGlobals() {
   async function prove(
