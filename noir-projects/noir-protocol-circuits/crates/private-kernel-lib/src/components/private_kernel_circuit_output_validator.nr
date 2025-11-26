@@ -355,7 +355,6 @@ impl PrivateKernelCircuitOutputValidator {
         private_call: PrivateCallData,
         nullifier_offset: u32,
     ) {
-        // TODO: iterate over all the dest arrays and assert that they are empty, but use assert_empty and not is_empty.
         let contract_address = private_call.public_inputs.call_context.contract_address;
         assert_array_appended_to_empty_dest(
             self.output.validation_requests.note_hash_read_requests,
@@ -386,7 +385,6 @@ impl PrivateKernelCircuitOutputValidator {
             private_call.public_inputs.l2_to_l1_msgs,
             contract_address,
         );
-        // Notice!!! This function has `_and_` in the middle and is different from the others:
         assert_array_appended_to_empty_dest_and_scoped(
             self.output.end.private_logs,
             private_call.public_inputs.private_logs,

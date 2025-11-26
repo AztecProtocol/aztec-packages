@@ -34,6 +34,7 @@ export const CIRCUIT_SIZE = 'aztec.circuit.size';
 
 export const MEMPOOL_TX_COUNT = 'aztec.mempool.tx_count';
 export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
+export const MEMPOOL_TX_ADDED_COUNT = 'aztec.mempool.tx_added_count';
 export const DB_NUM_ITEMS = 'aztec.db.num_items';
 export const DB_MAP_SIZE = 'aztec.db.map_size';
 export const DB_PHYSICAL_FILE_SIZE = 'aztec.db.physical_file_size';
@@ -41,6 +42,7 @@ export const DB_USED_SIZE = 'aztec.db.used_size';
 
 export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
 export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
+export const MEMPOOL_ATTESTATIONS_ADDED_COUNT = 'aztec.mempool.attestations_added_count';
 
 export const ARCHIVER_L1_BLOCK_HEIGHT = 'aztec.archiver.l1_block_height';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
@@ -119,6 +121,8 @@ export const L1_TX_BLOB_FEE = 'aztec.l1_tx.blob_fee';
 export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
 export const PEER_MANAGER_PEER_COUNT = 'aztec.peer_manager.peer_count';
+export const PEER_MANAGER_LOW_SCORE_DISCONNECTS = 'aztec.peer_manager.low_score_disconnects';
+export const P2P_PEER_STATE_COUNT = 'aztec.p2p.peer_state_count';
 
 export const P2P_REQ_RESP_SENT_REQUESTS = 'aztec.p2p.req_resp.sent_requests';
 export const P2P_REQ_RESP_RECEIVED_REQUESTS = 'aztec.p2p.req_resp.received_requests';
@@ -128,6 +132,7 @@ export const P2P_REQ_RESP_FAILED_INBOUND_REQUESTS = 'aztec.p2p.req_resp.failed_i
 export const P2P_GOSSIP_MESSAGE_VALIDATION_DURATION = 'aztec.p2p.gossip.message_validation_duration';
 export const P2P_GOSSIP_MESSAGE_PREVALIDATION_COUNT = 'aztec.p2p.gossip.message_validation_count';
 export const P2P_GOSSIP_MESSAGE_LATENCY = 'aztec.p2p.gossip.message_latency';
+export const P2P_GOSSIP_TX_RECEIVED_COUNT = 'aztec.p2p.gossip.tx_received_count';
 
 export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_MIN = 'aztec.p2p.gossip.agg_message_latency_min';
 export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_MAX = 'aztec.p2p.gossip.agg_message_latency_max';

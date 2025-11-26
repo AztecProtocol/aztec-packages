@@ -228,8 +228,13 @@ export class RollupContract {
   }
 
   @memoize
-  getLagInEpochs() {
-    return this.rollup.read.getLagInEpochs();
+  getLagInEpochsForValidatorSet() {
+    return this.rollup.read.getLagInEpochsForValidatorSet();
+  }
+
+  @memoize
+  getLagInEpochsForRandao() {
+    return this.rollup.read.getLagInEpochsForRandao();
   }
 
   @memoize

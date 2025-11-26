@@ -143,8 +143,7 @@ contract Tmnt207Test is RollupBase {
     // so it needs to be invalidated. A DOS vector.
 
     skipBlobCheck(address(rollup));
-    timeCheater.cheat__progressEpoch();
-    timeCheater.cheat__progressEpoch();
+    timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
 
     // Say that someone builds a perfectly nice checkpoint
     Checkpoint memory l2CheckpointReal = getCheckpoint();

@@ -18,9 +18,9 @@ using namespace blake_util;
  *
  */
 template <typename Builder>
-void Blake3s<Builder>::compress_pre(field_t<Builder> state[BLAKE3_STATE_SIZE],
-                                    const field_t<Builder> cv[8],
-                                    const byte_array<Builder>& block,
+void Blake3s<Builder>::compress_pre(field_ct state[BLAKE3_STATE_SIZE],
+                                    const field_ct cv[BLAKE3_CV_WORDS],
+                                    const byte_array_ct& block,
                                     uint8_t block_len,
                                     uint8_t flags)
 {
@@ -52,8 +52,8 @@ void Blake3s<Builder>::compress_pre(field_t<Builder> state[BLAKE3_STATE_SIZE],
 }
 
 template <typename Builder>
-void Blake3s<Builder>::compress_in_place(field_t<Builder> cv[8],
-                                         const byte_array<Builder>& block,
+void Blake3s<Builder>::compress_in_place(field_ct cv[BLAKE3_CV_WORDS],
+                                         const byte_array_ct& block,
                                          uint8_t block_len,
                                          uint8_t flags)
 {
@@ -65,7 +65,7 @@ void Blake3s<Builder>::compress_in_place(field_t<Builder> cv[8],
      * create unexpected overflow in the state matrix. At the end of the `compress_pre()` function, there might be
      * overflows in the elements of the first and third rows of the state matrix. But this wouldn't be a problem because
      * in the below loop, while reading from the lookup table, we ensure that the overflow is ignored and the result is
-     * contrained to 32 bits.
+     * constrained to 32 bits.
      */
     for (size_t i = 0; i < (BLAKE3_STATE_SIZE >> 1); i++) {
         const auto lookup = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR, state[i], state[i + 8], true);
@@ -74,11 +74,11 @@ void Blake3s<Builder>::compress_in_place(field_t<Builder> cv[8],
 }
 
 template <typename Builder>
-void Blake3s<Builder>::compress_xof(const field_t<Builder> cv[8],
-                                    const byte_array<Builder>& block,
+void Blake3s<Builder>::compress_xof(const field_ct cv[BLAKE3_CV_WORDS],
+                                    const byte_array_ct& block,
                                     uint8_t block_len,
                                     uint8_t flags,
-                                    byte_array<Builder>& out)
+                                    byte_array_ct& out)
 {
     field_ct state[BLAKE3_STATE_SIZE];
 
@@ -91,21 +91,21 @@ void Blake3s<Builder>::compress_xof(const field_t<Builder> cv[8],
     for (size_t i = 0; i < (BLAKE3_STATE_SIZE >> 1); i++) {
         const auto lookup_1 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR, state[i], state[i + 8], true);
         // byte_array(field, num_bytes) constructor adds range constraints for each byte
-        byte_array<Builder> out_bytes_1(lookup_1[ColumnIdx::C3][0], 4);
+        byte_array_ct out_bytes_1(lookup_1[ColumnIdx::C3][0], 4);
         // Safe write: both out and out_bytes_1 are constrained
         out.write_at(out_bytes_1.reverse(), i * 4);
 
         const auto lookup_2 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR, state[i + 8], cv[i], true);
         // byte_array(field, num_bytes) constructor adds range constraints for each byte
-        byte_array<Builder> out_bytes_2(lookup_2[ColumnIdx::C3][0], 4);
+        byte_array_ct out_bytes_2(lookup_2[ColumnIdx::C3][0], 4);
         // Safe write: both out and out_bytes_2 are constrained
         out.write_at(out_bytes_2.reverse(), (i + 8) * 4);
     }
 }
 
 template <typename Builder>
-Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const field_t<Builder> input_cv[8],
-                                                         const byte_array<Builder>& block,
+Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const field_ct input_cv[BLAKE3_CV_WORDS],
+                                                         const byte_array_ct& block,
                                                          uint8_t block_len,
                                                          uint8_t flags)
 {
@@ -138,7 +138,7 @@ template <typename Builder> void Blake3s<Builder>::hasher_init(blake3_hasher* se
 }
 
 template <typename Builder>
-void Blake3s<Builder>::hasher_update(blake3_hasher* self, const byte_array<Builder>& input, size_t input_len)
+void Blake3s<Builder>::hasher_update(blake3_hasher* self, const byte_array_ct& input, size_t input_len)
 {
     if (input_len == 0) {
         return;
@@ -160,14 +160,14 @@ void Blake3s<Builder>::hasher_update(blake3_hasher* self, const byte_array<Build
         take = input_len;
     }
     // Copy bytes from input to buf (input is constrained)
-    byte_array<Builder> input_slice = input.slice(start_counter, take);
+    byte_array_ct input_slice = input.slice(start_counter, take);
     self->buf.write_at(input_slice, self->buf_len);
 
     self->buf_len = static_cast<uint8_t>(self->buf_len + (uint8_t)take);
     input_len -= take;
 }
 
-template <typename Builder> void Blake3s<Builder>::hasher_finalize(const blake3_hasher* self, byte_array<Builder>& out)
+template <typename Builder> void Blake3s<Builder>::hasher_finalize(const blake3_hasher* self, byte_array_ct& out)
 {
     uint8_t block_flags = self->flags | maybe_start_flag(self) | CHUNK_END;
     output_t output = make_output(self->cv, self->buf, self->buf_len, block_flags);
@@ -179,7 +179,7 @@ template <typename Builder> void Blake3s<Builder>::hasher_finalize(const blake3_
     out = wide_buf.slice(0, BLAKE3_OUT_LEN);
 }
 
-template <typename Builder> byte_array<Builder> Blake3s<Builder>::hash(const byte_array<Builder>& input)
+template <typename Builder> byte_array<Builder> Blake3s<Builder>::hash(const byte_array_ct& input)
 {
     BB_ASSERT(input.size() <= BLAKE3_CHUNK_LEN,
               "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");

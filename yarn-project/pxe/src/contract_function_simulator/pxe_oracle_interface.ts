@@ -97,16 +97,19 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       status,
       scopes,
     });
-    return noteDaos.map(({ contractAddress, storageSlot, noteNonce, note, noteHash, siloedNullifier, index }) => ({
-      contractAddress,
-      storageSlot,
-      noteNonce,
-      note,
-      noteHash,
-      siloedNullifier,
-      // PXE can use this index to get full MembershipWitness
-      index,
-    }));
+    return noteDaos.map(
+      ({ contractAddress, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
+        contractAddress,
+        storageSlot,
+        randomness,
+        noteNonce,
+        note,
+        noteHash,
+        siloedNullifier,
+        // PXE can use this index to get full MembershipWitness
+        index,
+      }),
+    );
   }
 
   async getFunctionArtifact(
@@ -597,6 +600,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       this.deliverNote(
         request.contractAddress,
         request.storageSlot,
+        request.randomness,
         request.noteNonce,
         request.content,
         request.noteHash,
@@ -627,6 +631,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async deliverNote(
     contractAddress: AztecAddress,
     storageSlot: Fr,
+    randomness: Fr,
     noteNonce: Fr,
     content: Fr[],
     noteHash: Fr,
@@ -678,6 +683,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       new Note(content),
       contractAddress,
       storageSlot,
+      randomness,
       noteNonce,
       noteHash,
       siloedNullifier,
@@ -685,9 +691,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
       uniqueNoteHashTreeIndexInBlock?.l2BlockHash.toString(),
       uniqueNoteHashTreeIndexInBlock?.data,
-      recipient,
     );
 
+    // The note was found by `recipient`, so we use that as the scope when storing the note.
     await this.noteDataProvider.addNotes([noteDao], recipient);
     this.log.verbose('Added note', {
       index: noteDao.index,

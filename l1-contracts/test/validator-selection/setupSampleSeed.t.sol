@@ -14,7 +14,7 @@ contract SetupSampleSeedTest is ValidatorSelectionTestBase {
     _epochToTest = uint16(bound(_epochToTest, 2, 1000));
 
     uint256 epochDuration = TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
-    uint256 lagInEpochs = rollup.getLagInEpochs();
+    uint256 lagInEpochs = rollup.getLagInEpochsForRandao();
 
     // Jump to epoch _epochToTest - this gives us enough time for the lag
     vm.warp(block.timestamp + _epochToTest * epochDuration);
