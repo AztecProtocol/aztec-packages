@@ -170,7 +170,10 @@ impl TestEnvironment {
     ///   state_var.read()
     /// });
     /// ```
-    pub unconstrained fn public_context<Env, T>(self: Self, f: fn[Env](PublicContext) -> T) -> T {
+    pub unconstrained fn public_context<Env, T>(
+        self: Self,
+        f: unconstrained fn[Env](PublicContext) -> T,
+    ) -> T {
         self.public_context_opts(PublicContextOptions { contract_address: Option::none() }, f)
     }
 
@@ -179,7 +182,7 @@ impl TestEnvironment {
     pub unconstrained fn public_context_at<Env, T>(
         self: Self,
         addr: AztecAddress,
-        f: fn[Env](PublicContext) -> T,
+        f: unconstrained fn[Env](PublicContext) -> T,
     ) -> T {
         self.public_context_opts(PublicContextOptions { contract_address: Option::some(addr) }, f)
     }
@@ -187,7 +190,7 @@ impl TestEnvironment {
     unconstrained fn public_context_opts<Env, T>(
         _self: Self,
         opts: PublicContextOptions,
-        f: fn[Env](PublicContext) -> T,
+        f: unconstrained fn[Env](PublicContext) -> T,
     ) -> T {
         txe_oracles::set_public_txe_context(opts.contract_address);
 
@@ -234,7 +237,7 @@ impl TestEnvironment {
     /// ```
     pub unconstrained fn private_context<Env, T>(
         self: Self,
-        f: fn[Env](&mut PrivateContext) -> T,
+        f: unconstrained fn[Env](&mut PrivateContext) -> T,
     ) -> T {
         self.private_context_opts(
             PrivateContextOptions {
@@ -250,7 +253,7 @@ impl TestEnvironment {
     pub unconstrained fn private_context_at<Env, T>(
         self: Self,
         addr: AztecAddress,
-        f: fn[Env](&mut PrivateContext) -> T,
+        f: unconstrained fn[Env](&mut PrivateContext) -> T,
     ) -> T {
         self.private_context_opts(
             PrivateContextOptions {
@@ -265,7 +268,7 @@ impl TestEnvironment {
     pub unconstrained fn private_context_opts<Env, T>(
         _self: Self,
         opts: PrivateContextOptions,
-        f: fn[Env](&mut PrivateContext) -> T,
+        f: unconstrained fn[Env](&mut PrivateContext) -> T,
     ) -> T {
         let mut context = PrivateContext::new(
             txe_oracles::set_private_txe_context(opts.contract_address, opts.anchor_block_number),
@@ -305,7 +308,10 @@ impl TestEnvironment {
     ///   state_var.view_note()
     /// });
     /// ```
-    pub unconstrained fn utility_context<Env, T>(self: Self, f: fn[Env](UtilityContext) -> T) -> T {
+    pub unconstrained fn utility_context<Env, T>(
+        self: Self,
+        f: unconstrained fn[Env](UtilityContext) -> T,
+    ) -> T {
         self.utility_context_opts(UtilityContextOptions { contract_address: Option::none() }, f)
     }
 
@@ -314,7 +320,7 @@ impl TestEnvironment {
     pub unconstrained fn utility_context_at<Env, T>(
         self: Self,
         addr: AztecAddress,
-        f: fn[Env](UtilityContext) -> T,
+        f: unconstrained fn[Env](UtilityContext) -> T,
     ) -> T {
         self.utility_context_opts(UtilityContextOptions { contract_address: Option::some(addr) }, f)
     }
@@ -322,7 +328,7 @@ impl TestEnvironment {
     unconstrained fn utility_context_opts<Env, T>(
         _self: Self,
         opts: UtilityContextOptions,
-        f: fn[Env](UtilityContext) -> T,
+        f: unconstrained fn[Env](UtilityContext) -> T,
     ) -> T {
         txe_oracles::set_utility_txe_context(opts.contract_address);
         let context = UtilityContext::new();
