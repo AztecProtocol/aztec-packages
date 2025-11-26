@@ -743,6 +743,82 @@ template <typename Flavor> class SumcheckProverRound {
     }
 };
 
+/*!\brief Base class for common Sumcheck Verifier Round functionality
+ */
+template <typename Flavor> class SumcheckVerifierRoundBase {
+  protected:
+    using FF = typename Flavor::FF;
+    using Utils = bb::RelationUtils<Flavor>;
+    using Relations = typename Flavor::Relations;
+    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
+    using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
+
+  public:
+    using ClaimedEvaluations = typename Flavor::AllValues;
+    using ClaimedLibraEvaluations = typename std::vector<FF>;
+    using Transcript = typename Flavor::Transcript;
+    using Commitment = typename Flavor::Commitment;
+
+    bool round_failed = false;
+    static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
+
+    FF target_total_sum = 0;
+    TupleOfArraysOfValues relation_evaluations;
+
+    explicit SumcheckVerifierRoundBase(FF target_total_sum = 0)
+        : target_total_sum(target_total_sum)
+    {
+        Utils::zero_elements(relation_evaluations);
+    };
+
+    /**
+     * @brief Check that the round target sum is correct
+     */
+    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
+    {
+        FF total_sum =
+            (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
+        bool sumcheck_round_failed(false);
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            if (indicator.get_value() == FF{ 1 }.get_value()) {
+                sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
+            }
+            target_total_sum.assert_equal(total_sum);
+        } else {
+            sumcheck_round_failed = (target_total_sum != total_sum);
+        }
+        round_failed = round_failed || sumcheck_round_failed;
+        return !sumcheck_round_failed;
+    };
+
+    /**
+     * @brief Compute the next target sum
+     */
+    void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
+                                 FF& round_challenge,
+                                 const FF& indicator)
+    {
+        target_total_sum = (FF(1) - indicator) * target_total_sum + indicator * univariate.evaluate(round_challenge);
+    }
+
+    /**
+     * @brief Compute the full relation purported value
+     */
+    FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
+                                             const bb::RelationParameters<FF>& relation_parameters,
+                                             const bb::GateSeparatorPolynomial<FF>& gate_separators,
+                                             const SubrelationSeparators& alphas)
+    {
+        Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
+                                                                           relation_evaluations,
+                                                                           relation_parameters,
+                                                                           gate_separators.partial_evaluation_result);
+        return Utils::scale_and_batch_elements(relation_evaluations, alphas);
+    }
+};
+
 /*!\brief Implementation of the Sumcheck Verifier Round
  \class SumcheckVerifierRound
  \details  This Flavor contains the methods
@@ -755,102 +831,188 @@ template <typename Flavor> class SumcheckProverRound {
  \left(P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \right) \f$ implemented as
  * - \ref compute_full_relation_purported_value method needed at the last verification step.
  */
-template <typename Flavor> class SumcheckVerifierRound {
+template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>>
+class SumcheckVerifierRound : public SumcheckVerifierRoundBase<Flavor> {
+    using Base = SumcheckVerifierRoundBase<Flavor>;
     using FF = typename Flavor::FF;
-    using Utils = bb::RelationUtils<Flavor>;
-    using Relations = typename Flavor::Relations;
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
-    using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
+    using Base::BATCHED_RELATION_PARTIAL_LENGTH;
 
   public:
-    using ClaimedEvaluations = typename Flavor::AllValues;
-    using ClaimedLibraEvaluations = typename std::vector<FF>;
+    using Base::check_sum;
+    using Base::compute_full_relation_purported_value;
+    using Base::compute_next_target_sum;
+    using Base::target_total_sum;
+    using typename Base::ClaimedEvaluations;
+    using typename Base::Commitment;
+    using typename Base::SumcheckRoundUnivariate;
+    using typename Base::Transcript;
 
-    bool round_failed = false;
-    /**
-     * @brief Number of batched sub-relations in \f$F\f$ specified by Flavor.
-     *
-     */
-    static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
-    /**
-     * @brief The partial algebraic degree of the relation  \f$\tilde F = pow \cdot F \f$, i.e. \ref
-     * MAX_PARTIAL_RELATION_LENGTH "MAX_PARTIAL_RELATION_LENGTH + 1".
-     */
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-    using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
-
-    FF target_total_sum = 0;
-
-    TupleOfArraysOfValues relation_evaluations;
-    // Verifier constructor
     explicit SumcheckVerifierRound(FF target_total_sum = 0)
-        : target_total_sum(target_total_sum)
-    {
-        Utils::zero_elements(relation_evaluations);
-    };
+        : Base(target_total_sum) {};
 
     /**
-     * @brief Check that the round target sum is correct
-     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i
-     * = 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) +
-     * \tilde{S}^i(1) \f$
-     * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
-     *
+     * @brief Process a single sumcheck round: receive univariate from transcript, verify sum, generate challenge.
+     * 1. gets the round univariate and round challenge
+     * 2. checks the consistency of the new round univariate with respect to the one from the previous round
+     * 3. updates the target for the next consistency check
      */
-    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
+    bool process_round(std::shared_ptr<Transcript> transcript,
+                       std::vector<FF>& multivariate_challenge,
+                       bb::GateSeparatorPolynomial<FF>& gate_separators,
+                       const FF& padding_indicator,
+                       size_t round_idx)
     {
-        FF total_sum =
-            (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
-        bool sumcheck_round_failed(false);
-        if constexpr (IsRecursiveFlavor<Flavor>) {
-            // This bool is only needed for debugging
-            if (indicator.get_value() == FF{ 1 }.get_value()) {
-                sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
-            }
+        // Obtain the round univariate from the transcript
+        std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
+        auto round_univariate =
+            transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+                round_univariate_label);
+        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+        multivariate_challenge.emplace_back(round_challenge);
+        // Check that $\tilde{S}^{i-1}(u_{i-1}) == \tilde{S}^{i}(0) + \tilde{S}^{i}(1)$
+        // For i = 0, check that $\tilde{S}^0(u_0) == target_total_sum$
+        const bool checked = check_sum(round_univariate, padding_indicator);
+        // Evaluate $\tilde{S}^{i}(u_i)$
+        compute_next_target_sum(round_univariate, round_challenge, padding_indicator);
+        gate_separators.partially_evaluate(round_challenge, padding_indicator);
 
-            target_total_sum.assert_equal(total_sum);
+        return checked;
+    }
+
+    /**
+     * @brief Perform final verification: check that the computed target sum matches the full relation evaluation. i.e.
+     * the final evaluation check
+     */
+    bool perform_final_verification(const FF& full_honk_purported_value)
+    {
+        bool verified = false;
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            verified = (full_honk_purported_value.get_value() == target_total_sum.get_value());
+            full_honk_purported_value.assert_equal(target_total_sum);
         } else {
-            sumcheck_round_failed = (target_total_sum != total_sum);
+            verified = (full_honk_purported_value == target_total_sum);
+        }
+        return verified;
+    }
+
+    /**
+     * @brief Get round univariate commitments (only used for Grumpkin flavors).
+     */
+    std::vector<Commitment> get_round_univariate_commitments() { return {}; }
+
+    /**
+     * @brief Get round univariate evaluations (only used for Grumpkin flavors).
+     */
+    std::vector<std::array<FF, 3>> get_round_univariate_evaluations() { return {}; }
+};
+
+/**
+ * @brief Specialization for Grumpkin flavors: receive commitments and evaluations,
+ * defer per-round verification to Shplemini.
+ */
+template <typename Flavor> class SumcheckVerifierRound<Flavor, true> : public SumcheckVerifierRoundBase<Flavor> {
+    using Base = SumcheckVerifierRoundBase<Flavor>;
+    using FF = typename Flavor::FF;
+    using Base::BATCHED_RELATION_PARTIAL_LENGTH;
+
+  public:
+    using Base::check_sum;
+    using Base::compute_full_relation_purported_value;
+    using Base::compute_next_target_sum;
+    using Base::target_total_sum;
+    using typename Base::ClaimedEvaluations;
+    using typename Base::Commitment;
+    using typename Base::SumcheckRoundUnivariate;
+    using typename Base::Transcript;
+
+    // Grumpkin-specific state for Shplemini
+    std::vector<Commitment> round_univariate_commitments;
+    std::vector<std::array<FF, 3>> round_univariate_evaluations;
+
+    explicit SumcheckVerifierRound(FF target_total_sum = 0)
+        : Base(target_total_sum) {};
+
+    /**
+     * @brief Process a single sumcheck round for Grumpkin: receive commitment and evaluations,
+     * defer per-round verification to Shplemini.
+     */
+    bool process_round(std::shared_ptr<Transcript> transcript,
+                       std::vector<FF>& multivariate_challenge,
+                       bb::GateSeparatorPolynomial<FF>& gate_separators,
+                       const FF& /*padding_indicator*/,
+                       size_t round_idx)
+    {
+        // For Grumpkin, we don't use padding_indicator
+        const std::string round_univariate_comm_label = "Sumcheck:univariate_comm_" + std::to_string(round_idx);
+        const std::string univariate_eval_label_0 = "Sumcheck:univariate_" + std::to_string(round_idx) + "_eval_0";
+        const std::string univariate_eval_label_1 = "Sumcheck:univariate_" + std::to_string(round_idx) + "_eval_1";
+
+        // Receive the commitment to the round univariate
+        round_univariate_commitments.push_back(
+            transcript->template receive_from_prover<Commitment>(round_univariate_comm_label));
+        // Receive evals at 0 and 1
+        round_univariate_evaluations.push_back(
+            { transcript->template receive_from_prover<FF>(univariate_eval_label_0),
+              transcript->template receive_from_prover<FF>(univariate_eval_label_1),
+              FF(0) }); // Third element will be populated in perform_final_verification
+
+        const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+        multivariate_challenge.emplace_back(round_challenge);
+
+        gate_separators.partially_evaluate(round_challenge);
+
+        // For Grumpkin, we don't perform per-round verification here
+        // It will be deferred to the final check
+        return true;
+    }
+
+    /**
+     * @brief Perform final verification for Grumpkin: check first round sum, populate Shplemini data, and store final
+     * evaluation.
+     */
+    bool perform_final_verification(const FF& full_honk_purported_value)
+    {
+        // Compute the sum of evaluations at 0 and 1 for the first round
+        FF first_sumcheck_round_evaluations_sum =
+            round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
+
+        bool verified = false;
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            first_sumcheck_round_evaluations_sum.self_reduce();
+            target_total_sum.self_reduce();
+            // This bool is only needed for debugging
+            verified = (first_sumcheck_round_evaluations_sum.get_value() == target_total_sum.get_value());
+            // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
+            // target total sum
+            first_sumcheck_round_evaluations_sum.assert_equal(target_total_sum);
+
+            full_honk_purported_value.self_reduce();
+        } else {
+            // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
+            // target total sum
+            verified = (first_sumcheck_round_evaluations_sum == target_total_sum);
         }
 
-        round_failed = round_failed || sumcheck_round_failed;
-        return !sumcheck_round_failed;
-    };
+        // Populate claimed evaluations of Sumcheck Round Univariates at the round challenges.
+        // These will be checked as a part of Shplemini.
+        for (size_t round_idx = 1; round_idx < round_univariate_evaluations.size(); round_idx++) {
+            round_univariate_evaluations[round_idx - 1][2] =
+                round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
+        }
 
-    /**
-     * @brief After checking that the univariate is good for this round, compute the next target sum given by the
-     * evaluation \f$ \tilde{S}^i(u_i) \f$.
-     *
-     * @param univariate \f$ \tilde{S}^i(X) \f$, given by its evaluations over \f$ \{0,1,2,\ldots, D\}\f$.
-     * @param round_challenge \f$ u_i\f$
-     *
-     */
-    void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
-                                 FF& round_challenge,
-                                 const FF& indicator)
-    {
-        // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
-        target_total_sum = (FF(1) - indicator) * target_total_sum + indicator * univariate.evaluate(round_challenge);
+        // Store the final evaluation for Shplemini
+        round_univariate_evaluations[round_univariate_evaluations.size() - 1][2] = full_honk_purported_value;
+        return verified;
     }
 
     /**
-     * @brief Given the evaluations  \f$P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \f$ of the
-     * ProverPolynomials at the challenge point \f$(u_0,\ldots, u_{d-1})\f$ stored in \p purported_evaluations, this
-     * method computes the evaluation of \f$ \tilde{F} \f$ taking these values as arguments.
-     *
+     * @brief Get round univariate commitments for Shplemini.
      */
-    FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
-                                             const bb::RelationParameters<FF>& relation_parameters,
-                                             const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                             const SubrelationSeparators& alphas)
-    {
-        // The verifier should never skip computation of contributions from any relation
-        Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
-                                                                           relation_evaluations,
-                                                                           relation_parameters,
-                                                                           gate_separators.partial_evaluation_result);
+    std::vector<Commitment> get_round_univariate_commitments() { return round_univariate_commitments; }
 
-        return Utils::scale_and_batch_elements(relation_evaluations, alphas);
-    }
+    /**
+     * @brief Get round univariate evaluations for Shplemini.
+     */
+    std::vector<std::array<FF, 3>> get_round_univariate_evaluations() { return round_univariate_evaluations; }
 };
 } // namespace bb

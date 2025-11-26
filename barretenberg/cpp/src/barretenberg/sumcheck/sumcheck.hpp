@@ -30,7 +30,7 @@ template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> struct Ro
     std::shared_ptr<Transcript> transcript;
 
     RoundUnivariateHandler(std::shared_ptr<Transcript> transcript)
-        : transcript(transcript)
+        : transcript(std::move(transcript))
     {}
 
     void process_round_univariate(size_t round_idx,
@@ -64,7 +64,7 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
     std::vector<Polynomial<FF>> round_univariates;
 
     RoundUnivariateHandler(std::shared_ptr<Transcript> transcript)
-        : transcript(transcript)
+        : transcript(std::move(transcript))
         , ck(BATCHED_RELATION_PARTIAL_LENGTH)
     {
         // Compute the vector {0, 1, \ldots, BATCHED_RELATION_PARTIAL_LENGTH-1} needed to transform
@@ -110,158 +110,6 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
 };
 
 /**
- * @brief Handler for receiving and verifying round univariates in sumcheck verification.
- * Default implementation: receive full univariates and perform round-by-round verification.
- */
-template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> struct VerifierRoundHandler {
-    using FF = typename Flavor::FF;
-    using Transcript = typename Flavor::Transcript;
-    using Commitment = typename Flavor::Commitment;
-    using SumcheckRound = SumcheckVerifierRound<Flavor>;
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-
-    std::shared_ptr<Transcript> transcript;
-    SumcheckRound& round;
-
-    VerifierRoundHandler(std::shared_ptr<Transcript> transcript, SumcheckRound& round)
-        : transcript(transcript)
-        , round(round)
-    {}
-
-    bool process_rounds(std::vector<FF>& multivariate_challenge,
-                        bb::GateSeparatorPolynomial<FF>& gate_separators,
-                        const std::vector<FF>& padding_indicator_array,
-                        size_t virtual_log_n)
-    {
-        bool verified = true;
-        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> round_univariate;
-
-        for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
-            // Obtain the round univariate from the transcript
-            std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
-            round_univariate =
-                transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                    round_univariate_label);
-            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-            multivariate_challenge.emplace_back(round_challenge);
-            // Check that $\tilde{S}^{i-1}(u_{i-1}) == \tilde{S}^{i}(0) + \tilde{S}^{i}(1)$
-            // For i = 0, check that $\tilde{S}^0(u_0) == target_total_sum$
-            const bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
-            // Evaluate $\tilde{S}^{i}(u_i)$
-            round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
-            gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
-
-            verified = verified && checked;
-        }
-        return verified;
-    }
-
-    bool perform_final_verification(const FF& full_honk_purported_value)
-    {
-        bool verified = false;
-        if constexpr (IsRecursiveFlavor<Flavor>) {
-            verified = (full_honk_purported_value.get_value() == round.target_total_sum.get_value());
-            full_honk_purported_value.assert_equal(round.target_total_sum);
-        } else {
-            verified = (full_honk_purported_value == round.target_total_sum);
-        }
-        return verified;
-    }
-
-    std::vector<Commitment> get_round_univariate_commitments() { return {}; }
-    std::vector<std::array<FF, 3>> get_round_univariate_evaluations() { return {}; }
-};
-
-/**
- * @brief Specialization for Grumpkin flavors: receive commitments and evaluations,
- * defer per-round verification to Shplemini.
- */
-template <typename Flavor> struct VerifierRoundHandler<Flavor, true> {
-    using FF = typename Flavor::FF;
-    using Transcript = typename Flavor::Transcript;
-    using Commitment = typename Flavor::Commitment;
-    using SumcheckRound = SumcheckVerifierRound<Flavor>;
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-
-    std::shared_ptr<Transcript> transcript;
-    SumcheckRound& round;
-    std::vector<Commitment> round_univariate_commitments;
-    std::vector<std::array<FF, 3>> round_univariate_evaluations;
-    FF first_sumcheck_round_evaluations_sum;
-
-    VerifierRoundHandler(std::shared_ptr<Transcript> transcript, SumcheckRound& round)
-        : transcript(transcript)
-        , round(round)
-    {}
-
-    bool process_rounds(std::vector<FF>& multivariate_challenge,
-                        bb::GateSeparatorPolynomial<FF>& gate_separators,
-                        const std::vector<FF>& /*padding_indicator_array*/,
-                        size_t virtual_log_n)
-    {
-        // For Grumpkin, we don't use padding_indicator_array, so it's marked as unused
-        for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
-            // Obtain the round univariate from the transcript
-            const std::string round_univariate_comm_label = "Sumcheck:univariate_comm_" + std::to_string(round_idx);
-            const std::string univariate_eval_label_0 = "Sumcheck:univariate_" + std::to_string(round_idx) + "_eval_0";
-            const std::string univariate_eval_label_1 = "Sumcheck:univariate_" + std::to_string(round_idx) + "_eval_1";
-
-            // Receive the commitment to the round univariate
-            round_univariate_commitments.push_back(
-                transcript->template receive_from_prover<Commitment>(round_univariate_comm_label));
-            // Receive evals at 0 and 1
-            round_univariate_evaluations.push_back(
-                { transcript->template receive_from_prover<FF>(univariate_eval_label_0),
-                  transcript->template receive_from_prover<FF>(univariate_eval_label_1) });
-
-            const FF round_challenge =
-                transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-            multivariate_challenge.emplace_back(round_challenge);
-
-            gate_separators.partially_evaluate(round_challenge);
-        }
-        first_sumcheck_round_evaluations_sum = round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
-
-        // Populate claimed evaluations of Sumcheck Round Univariates at the round challenges.
-        // These will be checked as a part of Shplemini.
-        for (size_t round_idx = 1; round_idx < virtual_log_n; round_idx++) {
-            round_univariate_evaluations[round_idx - 1][2] =
-                round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
-        }
-
-        // For Grumpkin, we don't perform per-round verification here
-        // It will be deferred to the final check
-        return true; // Will be set properly in perform_final_verification
-    }
-
-    bool perform_final_verification(const FF& full_honk_purported_value)
-    {
-        bool verified = false;
-        if constexpr (IsRecursiveFlavor<Flavor>) {
-            first_sumcheck_round_evaluations_sum.self_reduce();
-            round.target_total_sum.self_reduce();
-            // This bool is only needed for debugging
-            verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
-            // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
-            // target total sum
-            first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
-
-            full_honk_purported_value.self_reduce();
-        } else {
-            // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
-            // target total sum
-            verified = (first_sumcheck_round_evaluations_sum == round.target_total_sum);
-        }
-        // Store the final evaluation for Shplemini
-        round_univariate_evaluations[round_univariate_evaluations.size() - 1][2] = full_honk_purported_value;
-        return verified;
-    }
-
-    std::vector<Commitment> get_round_univariate_commitments() { return round_univariate_commitments; }
-    std::vector<std::array<FF, 3>> get_round_univariate_evaluations() { return round_univariate_evaluations; }
-};
-
-/**
  * @brief Handler for ZK-related verification adjustments in sumcheck.
  * Default implementation: no ZK adjustments needed.
  */
@@ -275,7 +123,7 @@ template <typename Flavor, bool HasZK = Flavor::HasZK> struct VerifierZKCorrecti
     FF libra_evaluation = FF{ 0 };
 
     VerifierZKCorrectionHandler(std::shared_ptr<Transcript> transcript)
-        : transcript(transcript)
+        : transcript(std::move(transcript))
     {}
 
     void initialize_target_sum(SumcheckRound& /*round*/) {}
@@ -302,7 +150,7 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     FF libra_evaluation = FF{ 0 };
 
     VerifierZKCorrectionHandler(std::shared_ptr<Transcript> transcript)
-        : transcript(transcript)
+        : transcript(std::move(transcript))
     {}
 
     void initialize_target_sum(SumcheckRound& round)
@@ -1002,8 +850,6 @@ template <typename Flavor> class SumcheckVerifier {
     {
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
 
-        // Initialize the round handler (type selected by template specialization based on IsGrumpkinFlavor)
-        VerifierRoundHandler<Flavor, IsGrumpkinFlavor<Flavor>> round_handler(transcript, round);
         // Initialize the ZK correction handler
         VerifierZKCorrectionHandler<Flavor> zk_correction_handler(transcript);
 
@@ -1017,8 +863,12 @@ template <typename Flavor> class SumcheckVerifier {
             padding_indicator.empty() ? std::vector<FF>(virtual_log_n, FF(1)) : padding_indicator;
 
         // Process all rounds
-        bool verified = round_handler.process_rounds(
-            multivariate_challenge, gate_separators, padding_indicator_array, virtual_log_n);
+        bool verified = true;
+        for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
+            bool checked = round.process_round(
+                transcript, multivariate_challenge, gate_separators, padding_indicator_array[round_idx], round_idx);
+            verified = verified && checked;
+        }
 
         // Populate claimed evaluations at the challenge
         ClaimedEvaluations purported_evaluations;
@@ -1039,16 +889,15 @@ template <typename Flavor> class SumcheckVerifier {
             full_honk_purported_value, multivariate_challenge, padding_indicator_array);
 
         //! [Final Verification Step]
-        verified = round_handler.perform_final_verification(full_honk_purported_value) && verified;
+        verified = round.perform_final_verification(full_honk_purported_value) && verified;
 
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
                                        .claimed_evaluations = purported_evaluations,
                                        .verified = verified,
                                        .claimed_libra_evaluation = zk_correction_handler.get_libra_evaluation(),
-                                       .round_univariate_commitments = round_handler.get_round_univariate_commitments(),
-                                       .round_univariate_evaluations =
-                                           round_handler.get_round_univariate_evaluations() };
+                                       .round_univariate_commitments = round.get_round_univariate_commitments(),
+                                       .round_univariate_evaluations = round.get_round_univariate_evaluations() };
     };
 };
 
