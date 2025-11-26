@@ -210,6 +210,58 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
     return result;
 }
 
+template <typename Builder, typename T>
+bigfield<Builder, T> bigfield<Builder, T>::create_from_single_limb(const field_t<Builder>& limb, size_t num_bits)
+{
+    // For a single limb, we:
+    // - Range-constrain the limb to num_bits
+    // - For small values (<=68 bits): put directly in limb_0, zeros elsewhere
+    // - For larger values (up to 136 bits): split into limb_0 and limb_1
+    // - Set high limbs (limb_2, limb_3) to constant zero
+    Builder* ctx = limb.get_context();
+    BB_ASSERT(ctx != nullptr);
+    BB_ASSERT(num_bits <= NUM_LIMB_BITS * 2); // Must fit in low part (136 bits max)
+    BB_ASSERT(num_bits > 0);
+
+    bigfield result(ctx);
+
+    // Use the builder's constant zero witness
+    field_t<Builder> zero = field_t<Builder>::from_witness_index(ctx, ctx->zero_idx());
+
+    if (num_bits <= NUM_LIMB_BITS) {
+        // Small value: fits entirely in limb_0, no splitting needed
+        // Range-constrain the limb directly
+        ctx->create_range_constraint(limb.get_witness_index(), num_bits, "create_from_single_limb range check");
+
+        result.binary_basis_limbs[0] = Limb(limb, (uint256_t(1) << num_bits) - 1);
+        result.binary_basis_limbs[1] = Limb(zero, 0);
+        result.binary_basis_limbs[2] = Limb(zero, 0);
+        result.binary_basis_limbs[3] = Limb(zero, 0);
+        result.prime_basis_limb = limb;
+    } else {
+        // Larger value: needs splitting into two 68-bit limbs
+        // Decompose the limb into two 68-bit parts with range constraints
+        const auto limb_witnesses =
+            ctx->decompose_non_native_field_double_width_limb(limb.get_witness_index(), num_bits);
+
+        field_t<Builder> limb_0(ctx);
+        field_t<Builder> limb_1(ctx);
+        limb_0.witness_index = limb_witnesses[0];
+        limb_1.witness_index = limb_witnesses[1];
+
+        // Constrain that limb_0 + limb_1 * 2^68 = limb
+        field_t<Builder>::evaluate_linear_identity(limb, -limb_0, -(limb_1 * shift_1), zero);
+
+        result.binary_basis_limbs[0] = Limb(limb_0, DEFAULT_MAXIMUM_LIMB);
+        result.binary_basis_limbs[1] = Limb(limb_1, (uint256_t(1) << (num_bits - NUM_LIMB_BITS)) - 1);
+        result.binary_basis_limbs[2] = Limb(zero, 0);
+        result.binary_basis_limbs[3] = Limb(zero, 0);
+        result.prime_basis_limb = limb;
+    }
+
+    return result;
+}
+
 template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byte_array<Builder>& bytes)
 {
     BB_ASSERT_EQ(bytes.size(), 32U); // we treat input as a 256-bit big integer

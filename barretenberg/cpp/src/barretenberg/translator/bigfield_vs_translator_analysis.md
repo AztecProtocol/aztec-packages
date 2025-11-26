@@ -61,37 +61,53 @@ Each column: `mult_madd(column_values, x_powers, {})` → 4 batches × 5 columns
 
 ---
 
-## x Power Computation: Two Approaches
+## x Power Computation: Batch Size Optimization
 
-### Option A: Sequential (Safest)
+### Key Insight: Batch Size Tradeoff
 
-Compute x^i = x^{i-1} · x directly in circuit.
+The batch size creates a tradeoff:
+- **Smaller batches** → fewer sequential powers, but more batch multipliers and more `mult_madd` calls
+- **Larger batches** → more sequential powers, but fewer batch multipliers
+
+### Measured Results (4096 rows)
+
+| BATCH_SIZE | Sequential Powers | Batch Multipliers | Column Computation | **TOTAL** | **Log2** |
+|------------|-------------------|-------------------|-------------------|-----------|----------|
+| 16         | 515               | 33,008            | 124,358           | 157,881   | 17.27    |
+| 32         | 995               | 14,674            | 82,045            | 97,714    | 16.58    |
+| 64         | 1,955             | 6,452             | 61,845            | 70,252    | 16.10    |
+| 128        | 3,875             | 2,806             | 51,290            | 57,971    | 15.82    |
+| **256**    | **7,715**         | **1,208**         | **46,245**        | **55,168**| **15.75**|
+| 512        | 15,395            | 514               | 43,645            | 59,554    | 15.86    |
+| 1024       | 30,755            | 212               | 42,341            | 73,308    | 16.16    |
+
+### Optimal: BATCH_SIZE = 256
+
+| Component | Gates (measured) |
+|-----------|------------------|
+| 256 sequential powers (x^0..x^255) | 7,715 |
+| Batch multipliers (16 batches) | 1,208 |
+| Column computation (16 batches × 5 cols) | 46,245 |
+| **Computation subtotal** | **55,168 (2^15.75)** |
+
+### Limb Decomposition Overhead
+
+The op queue stores values as 136-bit limbs (`x_lo`, `x_hi`), but bigfield uses 68-bit limbs internally.
+Even with pre-constrained inputs, we must split each 136-bit limb into two 68-bit limbs and constrain the split.
 
 | Component | Gates |
 |-----------|-------|
-| Power computation (N-1 mults) | 122,915 |
-| Column computation | 41,741 |
-| **Total** | **164,656 (2^17.33)** |
+| Limb decomposition (4096 rows × 5 cols × ~4 gates) | ~82,000 |
+| Computation (powers + column sums) | ~55,000 |
+| **Total** | **~137,000 (2^17.06)** |
 
-**Pro**: Simple, no soundness concerns
-**Con**: Larger than current Translator
+### Why 256 is Optimal
 
-### Option B: RLC Batch Verification
+1. **Sequential powers**: 255 multiplications × ~30 gates = 7,650 gates (matches measurement)
+2. **Batch multipliers**: Need x^256, x^512, ..., x^{15×256} - computed via binary exponentiation
+3. **Column computation**: 16 batches × 5 columns × (~520 gates per mult_madd + ~55 gates scaling) ≈ 46,000 gates
 
-Create powers as witnesses, batch-verify using Random Linear Combination:
-- Compute A = Σ(r^i · x^i) and B = Σ(r^i · x^{i+1}) via `mult_madd`
-- Verify A·x = B (single multiplication + equality check)
-
-| Component | Gates |
-|-----------|-------|
-| Power witness creation | 32,768 |
-| Power chain verification (RLC) | 45,425 |
-| **Total power cost** | **78,193** |
-| Column computation | 41,741 |
-| **Total** | **119,934 (2^16.87)** |
-
-**Pro**: 8% smaller than Translator
-**Con**: Requires soundness analysis of RLC approach
+The sweet spot is where the decreasing batch multiplier cost intersects with increasing column computation cost.
 
 ---
 
@@ -100,8 +116,12 @@ Create powers as witnesses, batch-verify using Random Linear Combination:
 | Approach | Circuit Size | Log2 | vs Translator |
 |----------|-------------|------|---------------|
 | Current Translator | 131,072 | 17.0 | baseline |
-| **Bigfield + Sequential x** | 164,656 | 17.33 | +26% |
-| **Bigfield + RLC x** | **119,934** | **16.87** | **-8%** |
+| **Bigfield (batch=256)** | **~137,000** | **17.06** | **similar size** |
+
+**Note**: While the circuit size is similar, the main benefits are:
+1. **Much simpler codebase** - eliminates 7 relation types, 139 subrelations
+2. **Uses audited bigfield primitives** - less custom code to audit
+3. **LightZK flavor** - fewer polynomials → smaller proof and less memory
 
 ---
 
@@ -151,34 +171,19 @@ Translator uses efficient sparse polynomial allocation:
 - Mini-circuit (2^13): 80 wire polynomials, op, lagranges
 - Many polynomials share virtual size but have small actual allocations
 
-**LightZK Sequential (2^17.33 → 2^18 dyadic):**
-- Wires (w_l, w_r, w_o, w_4): 4 × 2^18 × 32B = 32 MB (full dyadic for masking)
+**LightZK with batch=256 (~137,000 gates → 2^18 dyadic):**
+- Wires (w_l, w_r, w_o, w_4): 4 × 2^18 × 32B = 32 MB
 - z_perm: 2^18 × 32B = 8 MB
-- Precomputed selectors (20): 20 × 164,656 × 32B ≈ 100 MB (actual circuit size)
+- Precomputed selectors (20): 20 × 137,000 × 32B ≈ 85 MB (actual circuit size)
 - ecc_op_wires (4, mini-circuit): 4 × 2^13 × 32B = 1 MB
-- **Estimated: ~140 MB raw, ~210 MB peak with sumcheck**
+- **Estimated: ~130 MB raw, ~180 MB peak with sumcheck**
 
-**Memory island optimization**: LightZK witnesses have sparse structure:
-```
-[values @ 0..2^17.33] [zeros @ 2^17.33..2^18-4] [4 random masking rows]
-```
-Can use Polynomial memory islands to avoid allocating the zero gap:
-- Wires: 4 × (164,656 + 4) × 32B ≈ 21 MB (vs 32 MB)
-- z_perm: same savings
-- **With islands: ~130 MB raw, ~195 MB peak**
+| Approach | Circuit Size | Dyadic | Peak Memory | Notes |
+|----------|-------------|--------|-------------|-------|
+| **Translator** | 131,072 | 2^17 | **247 MB** | Measured, 88 witness polys |
+| **LightZK Bigfield** | **~137,000** | **2^18** | **~180 MB** | **-27% memory**, 5 witness polys |
 
-**LightZK RLC (2^16.87 → 2^17 dyadic):**
-- Same structure but half the size
-- **Estimated: ~125 MB raw, ~190 MB peak**
-
-| Approach | Circuit Size | Peak Memory | Notes |
-|----------|-------------|-------------|-------|
-| **Translator** | 2^17 | **247 MB** | Measured |
-| **LightZK Sequential** | 2^18 | ~210 MB | -15%, simpler |
-| **LightZK Sequential + Islands** | 2^18 | **~195 MB** | -21%, simpler |
-| **LightZK RLC** | 2^17 | **~190 MB** | -23%, preferred |
-
-Both LightZK options beat Translator on memory while dramatically simplifying the codebase.
+The memory savings come primarily from LightZK having far fewer witness polynomials (5 vs 88).
 
 ### Proof Size Benefit
 
@@ -194,13 +199,17 @@ Both LightZK options beat Translator on memory while dramatically simplifying th
 
 | Approach | Recommendation |
 |----------|----------------|
-| Sequential x powers | Safe fallback, but larger circuit |
-| **RLC x powers** | **Preferred if soundness confirmed** |
+| **Bigfield with LightZK** | **Preferred: simpler code, -27% memory, smaller proofs** |
 
 **Benefits of bigfield approach**:
-1. Eliminates 7 relation types, 139 subrelations
-2. Uses audited bigfield primitives
-3. Range constraints shared with kernel (no redundant work)
-4. Simpler codebase
+1. **Eliminates 7 relation types, 139 subrelations** - much simpler codebase
+2. **Uses audited bigfield primitives** - less custom code to audit
+3. **LightZK flavor** - 5 witness polynomials vs 88
+4. **~27% less memory** (~180 MB vs 247 MB)
+5. **Smaller proof size** - 5 commitments vs 88
 
-**Prerequisite**: `MAXIMUM_SUMMAND_COUNT = 1024` in bigfield.hpp ✓
+**Trade-off**: Circuit size is similar (~137K vs 131K gates, 2^18 vs 2^17 dyadic) due to limb decomposition overhead. The op queue's 136-bit limbs must be split into bigfield's 68-bit limbs.
+
+**Optimal parameters**:
+- `BATCH_SIZE = 256` (16 batches for 4096 rows)
+- `MAXIMUM_SUMMAND_COUNT = 1024` in bigfield.hpp ✓ (allows batch sizes up to 1024)

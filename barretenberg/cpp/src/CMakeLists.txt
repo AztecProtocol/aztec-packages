@@ -78,6 +78,7 @@ add_subdirectory(barretenberg/api)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/bbapi)
 add_subdirectory(barretenberg/benchmark)
+add_subdirectory(barretenberg/bigfield_translator)
 add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
 add_subdirectory(barretenberg/chonk)
@@ -147,6 +148,7 @@ message(STATUS "Compiling all-in-one barretenberg archive")
 
 set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:bbapi_objects>
+    $<TARGET_OBJECTS:bigfield_translator_objects>
     $<TARGET_OBJECTS:chonk_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>

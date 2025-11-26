@@ -293,6 +293,18 @@ template <typename Builder, typename T> class bigfield {
                                                 const bool can_overflow = false,
                                                 const size_t maximum_bitlength = 0);
 
+    /**
+     * @brief Create a bigfield from a single limb (e.g., for 128-bit scalars).
+     *
+     * @details The limb is placed in the low position and range-constrained.
+     * The high limbs are set to zero (constant, no constraints).
+     * Useful for z_1, z_2 scalars in the op queue which are 128 bits.
+     *
+     * @param limb The limb value (as a field_t witness)
+     * @param num_bits The number of bits to range-constrain (e.g., 128)
+     */
+    static bigfield create_from_single_limb(const field_t<Builder>& limb, size_t num_bits);
+
     static bigfield from_witness(Builder* ctx, const bb::field<T>& input)
     {
         uint256_t input_u256(input);

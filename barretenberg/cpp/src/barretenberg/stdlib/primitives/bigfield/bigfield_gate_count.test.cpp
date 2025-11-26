@@ -951,6 +951,347 @@ TEST_F(BigfieldGateCountTest, VerticalBatchingOptimized)
     EXPECT_TRUE(valid) << "Circuit check failed";
 }
 
+/**
+ * @brief Batch power optimization: only 1024 sequential powers + squarings
+ *
+ * Instead of computing all N powers sequentially, we:
+ * 1. Compute x^0, x^1, ..., x^1023 sequentially (1023 mults)
+ * 2. Compute batch multipliers x^1024, x^2048, x^3072 via squarings
+ * 3. Each batch result is scaled by x^(1024*k)
+ *
+ * This dramatically reduces the power computation cost.
+ */
+TEST_F(BigfieldGateCountTest, BatchPowerOptimization)
+{
+    constexpr size_t NUM_ROWS = 4096;
+    constexpr size_t BATCH_SIZE = 1024;
+    constexpr size_t NUM_BATCHES = NUM_ROWS / BATCH_SIZE;
+
+    Builder builder;
+
+    // Create challenge values
+    fq x_native = fq::random_element();
+    fq v_native = fq::random_element();
+
+    fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
+    fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
+
+    size_t gates_before_powers = builder.num_gates();
+
+    // Step 1: Compute only 1024 sequential powers (x^0 to x^1023)
+    std::vector<fq_ct> x_powers_base(BATCH_SIZE);
+    x_powers_base[0] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(1));
+    x_powers_base[1] = x;
+    for (size_t i = 2; i < BATCH_SIZE; i++) {
+        x_powers_base[i] = x_powers_base[i - 1] * x;
+    }
+
+    size_t gates_after_base_powers = builder.num_gates();
+    size_t base_power_cost = gates_after_base_powers - gates_before_powers;
+
+    // Step 2: Compute batch multipliers: x^1024, x^2048, x^3072
+    // For 4 batches we need: x^0, x^1024, x^2048, x^3072 as batch offsets
+    // But we're computing descending powers, so we need x^{N-1-batch*1024} = x^{3072}, x^{2048}, x^{1024}, x^0
+
+    // Compute the batch multipliers
+    std::vector<fq_ct> batch_multipliers(NUM_BATCHES);
+    batch_multipliers[NUM_BATCHES - 1] =
+        fq_ct::create_from_u512_as_witness(&builder, uint512_t(1)); // x^0 for last batch
+    if (NUM_BATCHES > 1) {
+        // x^1024
+        fq_ct x_1024_val = x_powers_base[BATCH_SIZE - 1] * x;
+        batch_multipliers[NUM_BATCHES - 2] = x_1024_val;
+
+        // x^2048 = x^1024 * x^1024
+        if (NUM_BATCHES > 2) {
+            fq_ct x_2048_val = x_1024_val * x_1024_val;
+            batch_multipliers[NUM_BATCHES - 3] = x_2048_val;
+
+            // x^3072 = x^2048 * x^1024
+            if (NUM_BATCHES > 3) {
+                fq_ct x_3072_val = x_2048_val * x_1024_val;
+                batch_multipliers[NUM_BATCHES - 4] = x_3072_val;
+            }
+        }
+    }
+
+    size_t gates_after_batch_mult = builder.num_gates();
+    size_t batch_mult_cost = gates_after_batch_mult - gates_after_base_powers;
+
+    // Compute powers of v
+    fq_ct v2 = v.sqr();
+    fq_ct v3 = v2 * v;
+    fq_ct v4 = v3 * v;
+
+    size_t gates_before_inputs = builder.num_gates();
+
+    // Create all row inputs (simulating pre-constrained from ECCVM)
+    std::vector<fq_ct> ops(NUM_ROWS);
+    std::vector<fq_ct> pxs(NUM_ROWS);
+    std::vector<fq_ct> pys(NUM_ROWS);
+    std::vector<fq_ct> z1s(NUM_ROWS);
+    std::vector<fq_ct> z2s(NUM_ROWS);
+
+    for (size_t i = 0; i < NUM_ROWS; i++) {
+        ops[i] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(i % 4 == 0 ? 0 : 3));
+        pxs[i] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(fq::random_element()));
+        pys[i] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(fq::random_element()));
+        z1s[i] = fq_ct::create_from_u512_as_witness(
+            &builder, uint512_t(uint256_t(fr::random_element()) & ((uint256_t(1) << 128) - 1)));
+        z2s[i] = fq_ct::create_from_u512_as_witness(
+            &builder, uint512_t(uint256_t(fr::random_element()) & ((uint256_t(1) << 128) - 1)));
+    }
+
+    size_t gates_after_inputs = builder.num_gates();
+    size_t input_creation_cost = gates_after_inputs - gates_before_inputs;
+
+    size_t gates_before_computation = builder.num_gates();
+
+    // Column sum with batch optimization
+    // For each column, compute sum using batches of 1024, then scale by batch multiplier
+    auto compute_column_sum_batched = [&](const std::vector<fq_ct>& col) -> fq_ct {
+        fq_ct total_sum = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0));
+
+        for (size_t batch = 0; batch < NUM_BATCHES; batch++) {
+            std::vector<fq_ct> left(BATCH_SIZE);
+            std::vector<fq_ct> right(BATCH_SIZE);
+
+            for (size_t j = 0; j < BATCH_SIZE; j++) {
+                size_t row_idx = batch * BATCH_SIZE + j;
+                left[j] = col[row_idx];
+                // Within this batch, use descending powers from x^1023 down to x^0
+                right[j] = x_powers_base[BATCH_SIZE - 1 - j];
+            }
+
+            fq_ct batch_sum = fq_ct::mult_madd(left, right, {});
+            // Scale by batch multiplier and add to total
+            total_sum = total_sum + batch_sum * batch_multipliers[batch];
+        }
+
+        return total_sum;
+    };
+
+    fq_ct op_sum = compute_column_sum_batched(ops);
+    fq_ct px_sum = compute_column_sum_batched(pxs);
+    fq_ct py_sum = compute_column_sum_batched(pys);
+    fq_ct z1_sum = compute_column_sum_batched(z1s);
+    fq_ct z2_sum = compute_column_sum_batched(z2s);
+
+    // Final result
+    fq_ct result = fq_ct::mult_madd({ px_sum, py_sum, z1_sum, z2_sum }, { v, v2, v3, v4 }, { op_sum });
+    (void)result;
+
+    size_t gates_after_computation = builder.num_gates();
+    size_t computation_cost = gates_after_computation - gates_before_computation;
+
+    size_t total_gates = builder.num_gates();
+    size_t power_total = base_power_cost + batch_mult_cost;
+
+    info("=== Batch Power Optimization (", NUM_ROWS, " rows) ===");
+    info("Base powers (x^0 to x^1023):        ", base_power_cost, " gates");
+    info("Batch multipliers (x^1024, etc):    ", batch_mult_cost, " gates");
+    info("Total power cost:                   ", power_total, " gates");
+    info("Input creation:                     ", input_creation_cost, " gates");
+    info("Column computation:                 ", computation_cost, " gates");
+    info("Total gates:                        ", total_gates);
+    info("Log2 total:                         ~", std::log2(total_gates));
+    info("");
+
+    size_t computation_only = power_total + computation_cost;
+    info("Computation only (pre-constrained): ", computation_only, " gates");
+    info("Log2 computation only:              ~", std::log2(computation_only));
+    info("");
+
+    // Compare with full sequential approach
+    info("Comparison:");
+    info("  Full sequential powers would be:  ~", (NUM_ROWS - 1) * 30, " gates (", NUM_ROWS - 1, " mults)");
+    info("  Batch approach:                   ", power_total, " gates");
+    info("  Savings:                          ~",
+         ((NUM_ROWS - 1) * 30 - power_total) * 100 / ((NUM_ROWS - 1) * 30),
+         "%");
+    info("");
+
+    bool valid = CircuitChecker::check(builder);
+    EXPECT_TRUE(valid) << "Circuit check failed";
+}
+
+/**
+ * @brief Sweep batch sizes to find optimal tradeoff
+ *
+ * Tradeoff:
+ * - Smaller batch = fewer sequential powers (only x^0 to x^{BATCH-1})
+ * - Smaller batch = more batch multipliers needed
+ * - Smaller batch = more mult_madd calls (NUM_ROWS/BATCH * 5 columns)
+ *
+ * Cost components:
+ * 1. Sequential powers: (BATCH-1) multiplications
+ * 2. Batch multipliers: log2(NUM_BATCHES) multiplications (via squaring)
+ * 3. Column computation: NUM_BATCHES * 5 mult_madd calls + NUM_BATCHES * 5 scaling mults
+ */
+TEST_F(BigfieldGateCountTest, BatchSizeSweep)
+{
+    constexpr size_t NUM_ROWS = 4096;
+
+    // Test different batch sizes: 16, 32, 64, 128, 256, 512, 1024
+    std::vector<size_t> batch_sizes = { 16, 32, 64, 128, 256, 512, 1024 };
+
+    info("=== Batch Size Sweep (", NUM_ROWS, " rows) ===");
+    info("");
+
+    for (size_t BATCH_SIZE : batch_sizes) {
+        if (NUM_ROWS % BATCH_SIZE != 0) {
+            continue;
+        }
+
+        size_t NUM_BATCHES = NUM_ROWS / BATCH_SIZE;
+
+        Builder builder;
+
+        // Create challenge values
+        fq x_native = fq::random_element();
+        fq v_native = fq::random_element();
+
+        fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
+        fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
+
+        size_t gates_before_powers = builder.num_gates();
+
+        // Step 1: Compute BATCH_SIZE sequential powers (x^0 to x^{BATCH-1})
+        std::vector<fq_ct> x_powers_base(BATCH_SIZE);
+        x_powers_base[0] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(1));
+        if (BATCH_SIZE > 1) {
+            x_powers_base[1] = x;
+            for (size_t i = 2; i < BATCH_SIZE; i++) {
+                x_powers_base[i] = x_powers_base[i - 1] * x;
+            }
+        }
+
+        size_t gates_after_base_powers = builder.num_gates();
+        size_t base_power_cost = gates_after_base_powers - gates_before_powers;
+
+        // Step 2: Compute batch multipliers via squaring
+        // Need x^BATCH, x^{2*BATCH}, x^{3*BATCH}, ... x^{(NUM_BATCHES-1)*BATCH}
+        // For descending powers, batch i needs multiplier x^{(NUM_BATCHES-1-i)*BATCH}
+
+        std::vector<fq_ct> batch_multipliers(NUM_BATCHES);
+        batch_multipliers[NUM_BATCHES - 1] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(1)); // x^0
+
+        if (NUM_BATCHES > 1) {
+            // x^BATCH = x^{BATCH-1} * x
+            fq_ct x_batch = x_powers_base[BATCH_SIZE - 1] * x;
+
+            // Build multipliers using repeated squaring where possible
+            // x^BATCH, x^{2*BATCH}, x^{4*BATCH}, ...
+            std::vector<fq_ct> power_of_two_mults;
+            power_of_two_mults.push_back(x_batch);
+
+            // Compute powers of two up to what we need
+            size_t max_mult_needed = NUM_BATCHES - 1;
+            while ((1ULL << power_of_two_mults.size()) <= max_mult_needed) {
+                fq_ct next = power_of_two_mults.back().sqr();
+                power_of_two_mults.push_back(next);
+            }
+
+            // Build each batch multiplier from binary decomposition
+            for (size_t i = 0; i < NUM_BATCHES - 1; i++) {
+                size_t mult_index = NUM_BATCHES - 1 - i; // Descending order
+                fq_ct mult = fq_ct::create_from_u512_as_witness(&builder, uint512_t(1));
+                size_t remaining = mult_index;
+                size_t bit = 0;
+                while (remaining > 0) {
+                    if (remaining & 1) {
+                        mult = mult * power_of_two_mults[bit];
+                    }
+                    remaining >>= 1;
+                    bit++;
+                }
+                batch_multipliers[i] = mult;
+            }
+        }
+
+        size_t gates_after_batch_mult = builder.num_gates();
+        size_t batch_mult_cost = gates_after_batch_mult - gates_after_base_powers;
+
+        // Compute powers of v
+        fq_ct v2 = v.sqr();
+        fq_ct v3 = v2 * v;
+        fq_ct v4 = v3 * v;
+
+        // Create mock inputs (in reality these would be pre-constrained)
+        std::vector<fq_ct> ops(NUM_ROWS);
+        std::vector<fq_ct> pxs(NUM_ROWS);
+        std::vector<fq_ct> pys(NUM_ROWS);
+        std::vector<fq_ct> z1s(NUM_ROWS);
+        std::vector<fq_ct> z2s(NUM_ROWS);
+
+        for (size_t i = 0; i < NUM_ROWS; i++) {
+            ops[i] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(i % 4 == 0 ? 0 : 3));
+            pxs[i] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(fq::random_element()));
+            pys[i] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(fq::random_element()));
+            z1s[i] = fq_ct::create_from_u512_as_witness(
+                &builder, uint512_t(uint256_t(fr::random_element()) & ((uint256_t(1) << 128) - 1)));
+            z2s[i] = fq_ct::create_from_u512_as_witness(
+                &builder, uint512_t(uint256_t(fr::random_element()) & ((uint256_t(1) << 128) - 1)));
+        }
+
+        size_t gates_before_computation = builder.num_gates();
+
+        // Column sum with batch optimization
+        auto compute_column_sum_batched = [&](const std::vector<fq_ct>& col) -> fq_ct {
+            fq_ct total_sum = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0));
+
+            for (size_t batch = 0; batch < NUM_BATCHES; batch++) {
+                std::vector<fq_ct> left(BATCH_SIZE);
+                std::vector<fq_ct> right(BATCH_SIZE);
+
+                for (size_t j = 0; j < BATCH_SIZE; j++) {
+                    size_t row_idx = batch * BATCH_SIZE + j;
+                    left[j] = col[row_idx];
+                    // Within this batch, use descending powers from x^{BATCH-1} down to x^0
+                    right[j] = x_powers_base[BATCH_SIZE - 1 - j];
+                }
+
+                fq_ct batch_sum = fq_ct::mult_madd(left, right, {});
+                // Scale by batch multiplier and add to total
+                total_sum = total_sum + batch_sum * batch_multipliers[batch];
+            }
+
+            return total_sum;
+        };
+
+        fq_ct op_sum = compute_column_sum_batched(ops);
+        fq_ct px_sum = compute_column_sum_batched(pxs);
+        fq_ct py_sum = compute_column_sum_batched(pys);
+        fq_ct z1_sum = compute_column_sum_batched(z1s);
+        fq_ct z2_sum = compute_column_sum_batched(z2s);
+
+        // Final result
+        fq_ct result = fq_ct::mult_madd({ px_sum, py_sum, z1_sum, z2_sum }, { v, v2, v3, v4 }, { op_sum });
+        (void)result;
+
+        size_t gates_after_computation = builder.num_gates();
+        size_t computation_cost = gates_after_computation - gates_before_computation;
+
+        size_t power_total = base_power_cost + batch_mult_cost;
+        size_t computation_only = power_total + computation_cost;
+
+        info("BATCH_SIZE=", BATCH_SIZE, " (", NUM_BATCHES, " batches):");
+        info("  Sequential powers (x^0..x^", BATCH_SIZE - 1, "): ", base_power_cost, " gates");
+        info("  Batch multipliers:                    ", batch_mult_cost, " gates");
+        info("  Column computation:                   ", computation_cost, " gates");
+        info("  TOTAL (computation only):             ",
+             computation_only,
+             " gates (2^",
+             std::log2(computation_only),
+             ")");
+        info("");
+
+        // Verify circuit
+        bool valid = CircuitChecker::check(builder);
+        EXPECT_TRUE(valid) << "Circuit check failed for BATCH_SIZE=" << BATCH_SIZE;
+    }
+}
+
 // Helper to create bigfield without range constraints (simulates pre-constrained input)
 template <typename Builder_, typename Params>
 stdlib::bigfield<Builder_, Params> create_unsafe_bigfield(Builder_* builder, const fq& value)
@@ -1125,4 +1466,43 @@ TEST_F(BigfieldGateCountTest, VerticalBatchingMegaProof)
     // Skip verification for now due to CRS size issues
     // The key measurement is the proving memory usage above
     EXPECT_GT(proof.size(), 0) << "Proof should not be empty";
+}
+
+/**
+ * @brief Test create_from_single_limb helper for correctness
+ */
+TEST_F(BigfieldGateCountTest, CreateFromSingleLimb)
+{
+    using field_ct = stdlib::field_t<Builder>;
+
+    Builder builder;
+
+    // Test small value (2 bits - op code)
+    {
+        uint32_t op_val = 3; // Max 2-bit value
+        field_ct op_field = field_ct::from_witness(&builder, bb::fr(op_val));
+        fq_ct op = fq_ct::create_from_single_limb(op_field, 2);
+
+        // Check value is correct
+        fq expected = fq(op_val);
+        fq got = fq(op.get_value().lo);
+        EXPECT_EQ(got, expected) << "2-bit value mismatch";
+    }
+
+    // Test 128-bit value (z1/z2)
+    {
+        uint256_t z_val = uint256_t(fr::random_element()) & ((uint256_t(1) << 128) - 1);
+        field_ct z_field = field_ct::from_witness(&builder, bb::fr(z_val));
+        fq_ct z = fq_ct::create_from_single_limb(z_field, 128);
+
+        // Check value is correct
+        fq expected = fq(z_val);
+        fq got = fq(z.get_value().lo);
+        EXPECT_EQ(got, expected) << "128-bit value mismatch";
+    }
+
+    info("Circuit has ", builder.num_gates(), " gates");
+
+    bool valid = CircuitChecker::check(builder);
+    EXPECT_TRUE(valid) << "create_from_single_limb circuit check failed";
 }
