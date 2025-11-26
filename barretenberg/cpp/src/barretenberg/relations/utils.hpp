@@ -48,8 +48,7 @@ template <typename Flavor> class RelationUtils {
             auto& inner_tuple = std::get<outer_idx>(tuple);
             constexpr size_t inner_tuple_size = std::tuple_size_v<std::decay_t<decltype(inner_tuple)>>;
             constexpr_for<0, inner_tuple_size, 1>([&]<size_t inner_idx>() {
-                std::forward<Operation>(operation).template operator()<outer_idx, inner_idx>(
-                    std::get<inner_idx>(inner_tuple));
+                std::forward<Operation>(operation).operator()(std::get<inner_idx>(inner_tuple));
             });
         });
     }
@@ -77,11 +76,12 @@ template <typename Flavor> class RelationUtils {
     static void scale_univariates(auto& tuple, const SubrelationSeparators& subrelation_separators)
     {
         size_t idx = 0;
-        auto scale_by_challenges = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+        auto scale_by_challenges = [&](auto& element) {
             // Don't need to scale first univariate
-            if constexpr (!(outer_idx == 0 && inner_idx == 0)) {
-                element *= subrelation_separators[idx++];
+            if (idx != 0) {
+                element *= subrelation_separators[idx - 1];
             }
+            idx++;
         };
         apply_to_tuple_of_tuples(tuple, scale_by_challenges);
     }

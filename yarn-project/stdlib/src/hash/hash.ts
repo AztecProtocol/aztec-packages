@@ -1,9 +1,9 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { GeneratorIndex, NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { poseidon2Hash, poseidon2HashWithSeparator, sha256ToField } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import type { AztecAddress } from '../aztec-address/index.js';
+import { AztecAddress } from '../aztec-address/index.js';
 
 /**
  * Computes a hash of a given verification key.
@@ -55,6 +55,17 @@ export function computeUniqueNoteHash(noteNonce: Fr, siloedNoteHash: Fr): Promis
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promise<Fr> {
   return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
+}
+
+/**
+ * Computes the protocol nullifier, which is the hash of the initial tx request siloed with the null msg sender address.
+ * @param txRequestHash - The hash of the initial tx request.
+ * @returns The siloed value of the protocol nullifier.
+ *
+ * @dev Must match the implementation in noir-protocol-circuits/crates/types/src/hash.nr > compute_protocol_nullifier
+ */
+export function computeProtocolNullifier(txRequestHash: Fr): Promise<Fr> {
+  return siloNullifier(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS), txRequestHash);
 }
 
 /**

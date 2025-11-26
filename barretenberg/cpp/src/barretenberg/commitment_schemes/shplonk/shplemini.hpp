@@ -14,6 +14,7 @@
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -226,14 +227,6 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         Fr batched_evaluation = Fr{ 0 };
 
-        // While Shplemini is not templated on Flavor, we derive ZK flag this way
-        Commitment hiding_polynomial_commitment;
-        if (has_zk) {
-            hiding_polynomial_commitment =
-                transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
-            batched_evaluation = transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
-        }
-
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
         const Fr gemini_batching_challenge = transcript->template get_challenge<Fr>("rho");
 
@@ -266,6 +259,14 @@ template <typename Curve> class ShpleminiVerifier_ {
             libra_evaluations[1] = transcript->template receive_from_prover<Fr>("Libra:shifted_grand_sum_eval");
             libra_evaluations[2] = transcript->template receive_from_prover<Fr>("Libra:grand_sum_eval");
             libra_evaluations[3] = transcript->template receive_from_prover<Fr>("Libra:quotient_eval");
+
+            // OriginTag false positive: Libra evaluations need to satisfy an identity where they
+            // are mixing without challenge, it is safe because these evaluations are opened in Shplonk.
+            if constexpr (Curve::is_stdlib_type) {
+                for (auto& eval : libra_evaluations) {
+                    eval.clear_round_provenance();
+                }
+            }
         }
 
         // Process Shplonk transcript data:
@@ -304,19 +305,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         claim_batcher.compute_scalars_for_each_batch(
             inverse_vanishing_evals, shplonk_batching_challenge, gemini_evaluation_challenge);
 
-        if (has_zk) {
-            commitments.emplace_back(hiding_polynomial_commitment);
-            scalars.emplace_back(-claim_batcher.get_unshifted_batch_scalar()); // corresponds to ρ⁰
-        }
-
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
-
-        Fr gemini_batching_challenge_power = Fr(1);
-        if (has_zk) {
-            // ρ⁰ is used to batch the hiding polynomial which has already been added to the commitments vector
-            gemini_batching_challenge_power *= gemini_batching_challenge;
-        }
 
         // Compute the Shplonk batching power for the interleaved claims. This is \nu^{d+1} where d = log_n as the
         // interleaved claims are sent after the rest of Gemini fold claims. Add the evaluations of (P₊(rˢ) ⋅ ν^{d+1}) /
@@ -338,7 +328,6 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                                      scalars,
                                                                      batched_evaluation,
                                                                      gemini_batching_challenge,
-                                                                     gemini_batching_challenge_power,
                                                                      shplonk_batching_pos,
                                                                      shplonk_batching_neg);
 

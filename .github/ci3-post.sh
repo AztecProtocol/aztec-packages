@@ -47,8 +47,12 @@ function handle_benchmarks {
   fi
   # Handle benchmarks download (internal only)
   echo "Downloading benchmarks..."
-  ./ci.sh gh-bench
-  echo "Benchmarks download complete - upload will be handled by GitHub Action"
+  if ./ci.sh gh-bench && [ -f "./bench-out/bench.json" ] && [ "$(cat ./bench-out/bench.json)" != "[]" ]; then
+    echo "Benchmarks downloaded successfully - upload will be handled by GitHub Action"
+  else
+    echo "No benchmarks to upload"
+    rm -f ./bench-out/bench.json 2>/dev/null || true
+  fi
 }
 
 function main {

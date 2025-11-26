@@ -4,6 +4,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import type { AttestationPool } from './attestation_pool.js';
+import { ATTESTATION_CAP_BUFFER, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
@@ -173,6 +174,29 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve();
   }
 
+  public hasAttestation(attestation: BlockAttestation): Promise<boolean> {
+    const slotNumber = attestation.payload.header.slotNumber;
+    const proposalId = attestation.archive.toString();
+    const sender = attestation.getSender();
+
+    // Attestations with invalid signatures are never in the pool
+    if (!sender) {
+      return Promise.resolve(false);
+    }
+
+    const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
+    if (!slotAttestationMap) {
+      return Promise.resolve(false);
+    }
+
+    const proposalAttestationMap = slotAttestationMap.get(proposalId);
+    if (!proposalAttestationMap) {
+      return Promise.resolve(false);
+    }
+
+    return Promise.resolve(proposalAttestationMap.has(sender.toString()));
+  }
+
   public addBlockProposal(blockProposal: BlockProposal): Promise<void> {
     // We initialize slot-proposal mapping if it does not exist
     // This is important to ensure we can delete this proposal if there were not attestations for it
@@ -185,6 +209,40 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   public getBlockProposal(id: string): Promise<BlockProposal | undefined> {
     return Promise.resolve(this.proposals.get(id));
+  }
+
+  public hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
+    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.payload.archive.toString();
+    return Promise.resolve(this.proposals.has(id));
+  }
+
+  public hasReachedProposalCap(slot: bigint): Promise<boolean> {
+    const slotAttestationMap = this.attestations.get(slot);
+    const proposalCount = slotAttestationMap?.size ?? 0;
+    return Promise.resolve(proposalCount >= MAX_PROPOSALS_PER_SLOT);
+  }
+
+  public hasReachedAttestationCap(slot: bigint, proposalId: string, committeeSize: number): Promise<boolean> {
+    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
+    const count = this.attestations.get(slot)?.get(proposalId)?.size ?? 0;
+    return Promise.resolve(limit <= 0 || count >= limit);
+  }
+
+  public async canAddProposal(block: BlockProposal): Promise<boolean> {
+    return (
+      this.proposals.has(block.archive.toString()) || !(await this.hasReachedProposalCap(block.slotNumber.toBigInt()))
+    );
+  }
+
+  public async canAddAttestation(attestation: BlockAttestation, committeeSize: number): Promise<boolean> {
+    const sender = attestation.getSender();
+    const slot = attestation.payload.header.slotNumber.toBigInt();
+    const pid = attestation.archive.toString();
+    return (
+      !!sender &&
+      ((this.attestations.get(slot)?.get(pid)?.has(sender.toString()) ?? false) ||
+        !(await this.hasReachedAttestationCap(slot, pid, committeeSize)))
+    );
   }
 }
 

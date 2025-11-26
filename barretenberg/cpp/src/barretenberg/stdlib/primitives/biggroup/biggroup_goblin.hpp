@@ -47,20 +47,25 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
 
     goblin_element() = default;
     goblin_element(const typename NativeGroup::affine_element& input)
-        : x(input.x)
-        , y(input.y)
+        : _x(input.x)
+        , _y(input.y)
         , _is_infinity(input.is_point_at_infinity())
     {}
-    goblin_element(const Fq& x, const Fq& y)
-        : x(x)
-        , y(y)
+
+    // Construct a goblin biggroup element from its coordinates
+    // The on-curve check is skipped as it is performed in ECCVM (assert_on_curve is unused)
+    goblin_element(const Fq& x, const Fq& y, [[maybe_unused]] bool assert_on_curve = true)
+        : _x(x)
+        , _y(y)
         , _is_infinity(false)
     {}
-    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity)
-        : x(x)
-        , y(y)
+
+    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity, [[maybe_unused]] bool assert_on_curve = true)
+        : _x(x)
+        , _y(y)
         , _is_infinity(is_infinity)
     {}
+
     goblin_element(const goblin_element& other) = default;
     goblin_element(goblin_element&& other) noexcept = default;
     goblin_element& operator=(const goblin_element& other) = default;
@@ -81,8 +86,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
                                  const std::string msg = "goblin_element::incomplete_assert_equal") const
     {
         is_point_at_infinity().assert_equal(other.is_point_at_infinity(), msg + " (infinity flag)");
-        x.assert_equal(other.x, msg + " (x coordinate)");
-        y.assert_equal(other.y, msg + " (y coordinate)");
+        _x.assert_equal(other._x, msg + " (x coordinate)");
+        _y.assert_equal(other._y, msg + " (y coordinate)");
     }
 
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
@@ -92,13 +97,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         if (input.is_point_at_infinity()) {
             Fq x = Fq::from_witness(ctx, bb::fq(0));
             Fq y = Fq::from_witness(ctx, bb::fq(0));
-            out.x = x;
-            out.y = y;
+            out._x = x;
+            out._y = y;
         } else {
             Fq x = Fq::from_witness(ctx, input.x);
             Fq y = Fq::from_witness(ctx, input.y);
-            out.x = x;
-            out.y = y;
+            out._x = x;
+            out._y = y;
         }
         out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
         out.set_free_witness_tag();
@@ -110,8 +115,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
      **/
     void convert_constant_to_fixed_witness(Builder* builder)
     {
-        this->x.convert_constant_to_fixed_witness(builder);
-        this->y.convert_constant_to_fixed_witness(builder);
+        this->_x.convert_constant_to_fixed_witness(builder);
+        this->_y.convert_constant_to_fixed_witness(builder);
         this->unset_free_witness_tag();
     }
 
@@ -121,8 +126,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     void fix_witness()
     {
         // Origin tags should be updated within
-        this->x.fix_witness();
-        this->y.fix_witness();
+        this->_x.fix_witness();
+        this->_y.fix_witness();
 
         // This is now effectively a constant
         unset_free_witness_tag();
@@ -153,18 +158,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return result;
     }
 
-    goblin_element checked_unconditional_add(const goblin_element& other) const
-    {
-        return goblin_element::operator+(*this, other);
-    }
-    goblin_element checked_unconditional_subtract(const goblin_element& other) const
-    {
-        return goblin_element::operator-(*this, other);
-    }
+    goblin_element checked_unconditional_add(const goblin_element& other) const { return operator+(other); }
+    goblin_element checked_unconditional_subtract(const goblin_element& other) const { return operator-(other); }
 
     goblin_element operator+(const goblin_element& other) const
     {
-        return batch_mul({ *this, other }, { Fr(1), Fr(1) });
+        auto builder = get_context(other);
+        return batch_mul({ *this, other }, { Fr(builder, 1), Fr(builder, 1) });
     }
 
     goblin_element operator-(const goblin_element& other) const
@@ -184,10 +184,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
             auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);
             auto y_lo = Fr::from_witness_index(builder, op_tuple.y_lo);
             auto y_hi = Fr::from_witness_index(builder, op_tuple.y_hi);
-            x_lo.assert_equal(other.x.limbs[0]);
-            x_hi.assert_equal(other.x.limbs[1]);
-            y_lo.assert_equal(other.y.limbs[0]);
-            y_hi.assert_equal(other.y.limbs[1]);
+            x_lo.assert_equal(other._x.limbs[0]);
+            x_hi.assert_equal(other._x.limbs[1]);
+            y_lo.assert_equal(other._y.limbs[0]);
+            y_hi.assert_equal(other._y.limbs[1]);
         }
         // if function queue_ecc_add_accum is used, op_tuple creates as a result of construct_and_populate_ultra_ops
         // function. In case of queue_ecc_add_accum, scalar is zero, (z_1, z_2) = (scalar, 0) = (0, 0) and they just put
@@ -220,10 +220,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
             auto y_lo = Fr::from_witness_index(builder, op_tuple3.y_lo);
             auto y_hi = Fr::from_witness_index(builder, op_tuple3.y_hi);
 
-            x_lo.assert_equal(x.limbs[0]);
-            x_hi.assert_equal(x.limbs[1]);
-            y_lo.assert_equal(y.limbs[0]);
-            y_hi.assert_equal(y.limbs[1]);
+            x_lo.assert_equal(_x.limbs[0]);
+            x_hi.assert_equal(_x.limbs[1]);
+            y_lo.assert_equal(_y.limbs[0]);
+            y_hi.assert_equal(_y.limbs[1]);
         }
 
         // Set the tag of the result to the union of the tags of inputs
@@ -231,7 +231,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return result;
     }
 
-    goblin_element operator-() const { return point_at_infinity(get_context()) - *this; }
+    goblin_element operator-() const
+    {
+        auto builder = get_context();
+        return point_at_infinity(builder) - *this;
+    }
 
     goblin_element operator+=(const goblin_element& other)
     {
@@ -254,7 +258,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     {
         goblin_element negated = -(*this);
         goblin_element result(*this);
-        result.y = Fq::conditional_assign(predicate, negated.y, result.y);
+        result._y = Fq::conditional_assign(predicate, negated._y, result._y);
         return result;
     }
 
@@ -268,8 +272,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     goblin_element conditional_select(const goblin_element& other, const bool_ct& predicate) const
     {
         goblin_element result(*this);
-        result.x = Fq::conditional_assign(predicate, other.x, result.x);
-        result.y = Fq::conditional_assign(predicate, other.y, result.y);
+        result._x = Fq::conditional_assign(predicate, other._x, result._x);
+        result._y = Fq::conditional_assign(predicate, other._y, result._y);
         result._is_infinity =
             bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
         return result;
@@ -287,7 +291,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return *this;
     }
 
-    goblin_element dbl() const { return batch_mul({ *this }, { 2 }); }
+    goblin_element dbl() const
+    {
+        auto builder = get_context();
+        return batch_mul({ *this }, { Fr(builder, 2) });
+    }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1291) max_num_bits is unused; could implement and
     // use this to optimize other operations. interface compatible with biggroup.hpp, the final parameter
@@ -295,15 +303,16 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     static goblin_element batch_mul(const std::vector<goblin_element>& points,
                                     const std::vector<Fr>& scalars,
                                     const size_t max_num_bits = 0,
-                                    const bool handle_edge_cases = false);
+                                    const bool handle_edge_cases = false,
+                                    const Fr& masking_scalar = Fr(1));
 
     // we use this data structure to add together a sequence of points.
     // By tracking the previous values of x_1, y_1, \lambda, we can avoid
 
     typename NativeGroup::affine_element get_value() const
     {
-        bb::fq x_val = x.get_value().lo;
-        bb::fq y_val = y.get_value().lo;
+        bb::fq x_val = _x.get_value().lo;
+        bb::fq y_val = _y.get_value().lo;
         auto result = typename NativeGroup::affine_element(x_val, y_val);
         if (is_point_at_infinity().get_value()) {
             result.self_set_infinity();
@@ -313,28 +322,28 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
 
     Builder* get_context() const
     {
-        if (x.get_context() != nullptr) {
-            return x.get_context();
+        if (_x.get_context() != nullptr) {
+            return _x.get_context();
         }
-        if (y.get_context() != nullptr) {
-            return y.get_context();
+        if (_y.get_context() != nullptr) {
+            return _y.get_context();
         }
         return nullptr;
     }
 
     Builder* get_context(const goblin_element& other) const
     {
-        if (x.get_context() != nullptr) {
-            return x.get_context();
+        if (_x.get_context() != nullptr) {
+            return _x.get_context();
         }
-        if (y.get_context() != nullptr) {
-            return y.get_context();
+        if (_y.get_context() != nullptr) {
+            return _y.get_context();
         }
-        if (other.x.get_context() != nullptr) {
-            return other.x.get_context();
+        if (other._x.get_context() != nullptr) {
+            return other._x.get_context();
         }
-        if (other.y.get_context() != nullptr) {
-            return other.y.get_context();
+        if (other._y.get_context() != nullptr) {
+            return other._y.get_context();
         }
         return nullptr;
     }
@@ -353,20 +362,20 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         const bool_ct is_infinity = is_point_at_infinity();
         goblin_element result(*this);
         const Fq zero = Fq::zero();
-        result.x = Fq::conditional_assign(is_infinity, zero, result.x);
-        result.y = Fq::conditional_assign(is_infinity, zero, result.y);
+        result._x = Fq::conditional_assign(is_infinity, zero, result._x);
+        result._y = Fq::conditional_assign(is_infinity, zero, result._y);
         return result;
     }
 
     OriginTag get_origin_tag() const
     {
-        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+        return OriginTag(_x.get_origin_tag(), _y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
     void set_origin_tag(const OriginTag& tag) const
     {
-        x.set_origin_tag(tag);
-        y.set_origin_tag(tag);
+        _x.set_origin_tag(tag);
+        _y.set_origin_tag(tag);
         _is_infinity.set_origin_tag(tag);
     }
 
@@ -375,8 +384,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
      */
     void set_free_witness_tag()
     {
-        x.set_free_witness_tag();
-        y.set_free_witness_tag();
+        _x.set_free_witness_tag();
+        _y.set_free_witness_tag();
         _is_infinity.set_free_witness_tag();
     }
 
@@ -385,8 +394,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
      */
     void unset_free_witness_tag()
     {
-        x.unset_free_witness_tag();
-        y.unset_free_witness_tag();
+        _x.unset_free_witness_tag();
+        _y.unset_free_witness_tag();
         _is_infinity.unset_free_witness_tag();
     }
     /**
@@ -400,11 +409,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
      */
     uint32_t set_public() const
     {
-        const uint32_t start_idx = x.set_public();
-        y.set_public();
+        const uint32_t start_idx = _x.set_public();
+        _y.set_public();
 
         return start_idx;
     }
+
+    // Coordinate accessors (non-owning, const reference)
+    const Fq& x() const { return _x; }
+    const Fq& y() const { return _y; }
+    // Non-const accessors for internal use (e.g., fix_witness in tests)
+    Fq& x() { return _x; }
+    Fq& y() { return _y; }
 
     /**
      * @brief Reconstruct a goblin element from its representation as limbs stored in the public inputs
@@ -423,10 +439,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
     }
 
-    Fq x;
-    Fq y;
-
   private:
+    Fq _x;
+    Fq _y;
     bool_ct _is_infinity;
 };
 
@@ -438,7 +453,7 @@ using BiggroupGoblin = goblin_element<bb::MegaCircuitBuilder,
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, goblin_element<C, Fq, Fr, G> const& v)
 {
-    return os << "{ " << v.x << " , " << v.y << " }";
+    return os << "{ " << v.x() << " , " << v.y() << " }";
 }
 } // namespace bb::stdlib::element_goblin
 

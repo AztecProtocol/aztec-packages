@@ -24,6 +24,10 @@ export class NoteDao implements NoteData {
      * since contracts typically make queries based on it.
      */
     public storageSlot: Fr,
+    /**
+     * The randomness injected to the note.
+     */
+    public randomness: Fr,
     /** The nonce that was injected into the note hash preimage in order to guarantee uniqueness. */
     public noteNonce: Fr,
 
@@ -52,11 +56,6 @@ export class NoteDao implements NoteData {
     public l2BlockHash: string,
     /** The index of the leaf in the global note hash tree the note is stored at */
     public index: bigint,
-    /**
-     * The address whose public key was used to encrypt the note log during delivery.
-     * (This is the x-coordinate of the public key.)
-     */
-    public recipient: AztecAddress,
   ) {}
 
   toBuffer(): Buffer {
@@ -64,6 +63,7 @@ export class NoteDao implements NoteData {
       this.note,
       this.contractAddress,
       this.storageSlot,
+      this.randomness,
       this.noteNonce,
       this.noteHash,
       this.siloedNullifier,
@@ -71,7 +71,6 @@ export class NoteDao implements NoteData {
       this.l2BlockNumber,
       Fr.fromHexString(this.l2BlockHash),
       this.index,
-      this.recipient,
     ]);
   }
 
@@ -81,6 +80,7 @@ export class NoteDao implements NoteData {
     const note = Note.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
     const storageSlot = Fr.fromBuffer(reader);
+    const randomness = Fr.fromBuffer(reader);
     const noteNonce = Fr.fromBuffer(reader);
     const noteHash = Fr.fromBuffer(reader);
     const siloedNullifier = Fr.fromBuffer(reader);
@@ -88,12 +88,12 @@ export class NoteDao implements NoteData {
     const l2BlockNumber = reader.readNumber();
     const l2BlockHash = Fr.fromBuffer(reader).toString();
     const index = toBigIntBE(reader.readBytes(32));
-    const recipient = AztecAddress.fromBuffer(reader);
 
     return new NoteDao(
       note,
       contractAddress,
       storageSlot,
+      randomness,
       noteNonce,
       noteHash,
       siloedNullifier,
@@ -101,7 +101,6 @@ export class NoteDao implements NoteData {
       l2BlockNumber,
       l2BlockHash,
       index,
-      recipient,
     );
   }
 
@@ -128,6 +127,7 @@ export class NoteDao implements NoteData {
     note = Note.random(),
     contractAddress = undefined,
     storageSlot = Fr.random(),
+    randomness = Fr.random(),
     noteNonce = Fr.random(),
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
@@ -135,12 +135,12 @@ export class NoteDao implements NoteData {
     l2BlockNumber = Math.floor(Math.random() * 1000),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),
-    recipient = undefined,
   }: Partial<NoteDao> = {}) {
     return new NoteDao(
       note,
       contractAddress ?? (await AztecAddress.random()),
       storageSlot,
+      randomness,
       noteNonce,
       noteHash,
       siloedNullifier,
@@ -148,7 +148,6 @@ export class NoteDao implements NoteData {
       l2BlockNumber,
       l2BlockHash,
       index,
-      recipient ?? (await AztecAddress.random()),
     );
   }
 }

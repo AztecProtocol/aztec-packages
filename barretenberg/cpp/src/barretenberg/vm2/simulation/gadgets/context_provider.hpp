@@ -23,6 +23,7 @@ class ContextProvider : public ContextProviderInterface {
                     HighLevelMerkleDBInterface& merkle_db,
                     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                     RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
+                    SideEffectTrackerInterface& side_effect_tracker,
                     const GlobalVariables& global_variables)
         : tx_bytecode_manager(tx_bytecode_manager)
         , memory_provider(memory_provider)
@@ -31,6 +32,7 @@ class ContextProvider : public ContextProviderInterface {
         , merkle_db(merkle_db)
         , written_public_data_slots_tree(written_public_data_slots_tree)
         , retrieved_bytecodes_tree(retrieved_bytecodes_tree)
+        , side_effect_tracker(side_effect_tracker)
         , global_variables(global_variables)
     {}
     std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
@@ -41,7 +43,6 @@ class ContextProvider : public ContextProviderInterface {
                                                           MemoryAddress cd_size_address,
                                                           bool is_static,
                                                           Gas gas_limit,
-                                                          SideEffectStates side_effect_states,
                                                           TransactionPhase phase) override;
     std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
                                                             AztecAddress msg_sender,
@@ -50,7 +51,6 @@ class ContextProvider : public ContextProviderInterface {
                                                             bool is_static,
                                                             Gas gas_limit,
                                                             Gas gas_used,
-                                                            SideEffectStates side_effect_states,
                                                             TransactionPhase phase) override;
     uint32_t get_next_context_id() const override;
 
@@ -64,6 +64,7 @@ class ContextProvider : public ContextProviderInterface {
     HighLevelMerkleDBInterface& merkle_db;
     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree;
     RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree;
+    SideEffectTrackerInterface& side_effect_tracker;
     const GlobalVariables& global_variables;
 };
 

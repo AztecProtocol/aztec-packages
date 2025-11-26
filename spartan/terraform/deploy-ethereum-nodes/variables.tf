@@ -57,6 +57,12 @@ variable "reth_chart_version" {
   default     = "0.1.6"
 }
 
+variable "reth_storage" {
+  description = "Lighthouse Helm chart version"
+  type        = string
+  default     = "4Ti"
+}
+
 variable "lighthouse_image" {
   description = "Lighthouse Docker image"
   type        = string
@@ -67,4 +73,10 @@ variable "lighthouse_chart_version" {
   description = "Lighthouse Helm chart version"
   type        = string
   default     = "1.1.7"
+}
+
+variable "lighthouse_storage" {
+  description = "Lighthouse Helm chart version"
+  type        = string
+  default     = "1Ti"
 }

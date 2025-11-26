@@ -12,7 +12,6 @@ export type ViemZkPassportProofParams = {
   };
   commitments: {
     committedInputs: `0x${string}`;
-    committedInputCounts: bigint[];
   };
   serviceConfig: {
     validityPeriodInSeconds: bigint;
@@ -31,7 +30,6 @@ export class ZkPassportProofParams {
     public proof: Buffer,
     public publicInputs: Fr[],
     public committedInputs: Buffer,
-    public committedInputCounts: bigint[],
     public validityPeriodInSeconds: bigint,
     public domain: string,
     public scope: string,
@@ -47,8 +45,6 @@ export class ZkPassportProofParams {
       this.publicInputs,
       this.committedInputs.length,
       this.committedInputs,
-      this.committedInputCounts.length,
-      this.committedInputCounts,
       this.validityPeriodInSeconds,
       this.domain,
       this.scope,
@@ -69,7 +65,6 @@ export class ZkPassportProofParams {
       randomBytes(1024),
       publicInputs,
       committedInputs,
-      committedInputCounts,
       BigInt(7 * 24 * 60 * 60), // 7 days
       'sequencer.alpha-testnet.aztec.network',
       'personhood',
@@ -84,7 +79,6 @@ export class ZkPassportProofParams {
       reader.readBuffer(),
       reader.readVector(Fr),
       reader.readBuffer(),
-      reader.readUint256Vector(),
       reader.readUInt256(),
       reader.readString(),
       reader.readString(),
@@ -98,7 +92,6 @@ export class ZkPassportProofParams {
       Buffer.from(withoutHexPrefix(params.proofVerificationData.proof), 'hex'),
       params.proofVerificationData.publicInputs.map(input => Fr.fromString(input)),
       Buffer.from(withoutHexPrefix(params.commitments.committedInputs), 'hex'),
-      params.commitments.committedInputCounts,
       params.serviceConfig.validityPeriodInSeconds,
       params.serviceConfig.domain,
       params.serviceConfig.scope,
@@ -120,7 +113,6 @@ export class ZkPassportProofParams {
       },
       commitments: {
         committedInputs: `0x${this.committedInputs.toString('hex')}`,
-        committedInputCounts: this.committedInputCounts,
       },
     };
   }

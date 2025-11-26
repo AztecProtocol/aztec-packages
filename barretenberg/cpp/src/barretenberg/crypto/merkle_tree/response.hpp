@@ -71,6 +71,7 @@ template <typename LeafType> struct LeafUpdateWitnessData {
     LeafUpdateWitnessData(LeafUpdateWitnessData&& other) noexcept = default;
     LeafUpdateWitnessData& operator=(const LeafUpdateWitnessData& other) = default;
     LeafUpdateWitnessData& operator=(LeafUpdateWitnessData&& other) noexcept = default;
+    bool operator==(const LeafUpdateWitnessData& other) const = default;
 
     MSGPACK_FIELDS(leaf, index, path);
 };

@@ -34,7 +34,6 @@ pub contract Test {
             traits::{Hash, Packable, Serialize},
         },
         // Event related
-        event::event_emission::emit_event_in_private,
         messages::message_delivery::MessageDelivery,
         // Hashing
         hash::pedersen_hash,
@@ -45,7 +44,7 @@ pub contract Test {
         // Macros
         macros::{
             events::event,
-            functions::{initializer, internal, noinitcheck, external},
+            functions::{initializer, only_self, noinitcheck, external, nophasecheck},
             storage::storage,
         },
         // Contract instance management
@@ -57,6 +56,7 @@ pub contract Test {
     // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
     use address_note::address_note::AddressNote;
+    use aztec::context::note_hash_read::NoteHashRead;
     use uint_note::uint_note::{PartialUintNote, UintNote};
 
     #[event]
@@ -103,7 +103,7 @@ pub contract Test {
 
     #[external("private")]
     fn get_ovsk_app(ovpk_m_hash: Field) -> Field {
-        context.request_ovsk_app(ovpk_m_hash)
+        self.context.request_ovsk_app(ovpk_m_hash)
     }
 
     #[external("private")]
@@ -116,20 +116,20 @@ pub contract Test {
     // Get the address of this contract (taken from the input context)
     #[external("private")]
     fn get_this_address() -> AztecAddress {
-        context.this_address()
+        self.address
     }
 
     #[external("private")]
     fn set_include_by_timestamp(include_by_timestamp: u64, make_tx_hybrid: bool) {
-        context.set_include_by_timestamp(include_by_timestamp);
+        self.context.set_include_by_timestamp(include_by_timestamp);
 
         if make_tx_hybrid {
-            Test::at(context.this_address()).dummy_public_call().enqueue(&mut context)
+            self.enqueue_self.dummy_public_call()
         }
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn dummy_public_call() {}
 
     #[external("private")]
@@ -140,30 +140,24 @@ pub contract Test {
         make_tx_hybrid: bool,
     ) {
         let note = UintNote::new(value, owner);
-        create_note(&mut context, storage_slot, note).emit(
+        create_note(self.context, storage_slot, note).emit(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
 
         if make_tx_hybrid {
-            Test::at(context.this_address()).dummy_public_call().enqueue(&mut context);
+            self.enqueue_self.dummy_public_call();
         }
     }
 
     #[external("private")]
     fn call_create_partial_note(owner: AztecAddress, storage_slot: Field) -> PartialUintNote {
-        UintNote::partial(
-            owner,
-            storage_slot,
-            &mut context,
-            owner,
-            context.this_address(),
-        )
+        UintNote::partial(owner, storage_slot, self.context, owner, self.address)
     }
 
     #[external("public")]
     fn call_complete_partial_note(partial_note: PartialUintNote, value: u128) {
-        partial_note.complete(&mut context, context.this_address(), value);
+        partial_note.complete(self.context, self.address, value);
     }
 
     #[external("private")]
@@ -172,17 +166,10 @@ pub contract Test {
         storage_slot: Field,
         value: u128,
     ) {
-        let partial_note = UintNote::partial(
-            owner,
-            storage_slot,
-            &mut context,
-            owner,
-            context.this_address(),
-        );
+        let partial_note =
+            UintNote::partial(owner, storage_slot, self.context, owner, self.address);
 
-        Test::at(context.this_address()).call_complete_partial_note(partial_note, value).enqueue(
-            &mut context,
-        );
+        self.enqueue_self.call_complete_partial_note(partial_note, value);
     }
 
     #[external("private")]
@@ -192,8 +179,8 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(&mut context, storage_slot, options);
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+            get_notes(self.context, storage_slot, options);
 
         retrieved_notes.get(0).note.get_value()
     }
@@ -205,8 +192,8 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(&mut context, storage_slot, options);
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+            get_notes(self.context, storage_slot, options);
 
         [retrieved_notes.get(0).note.get_value(), retrieved_notes.get(1).note.get_value()]
     }
@@ -241,13 +228,13 @@ pub contract Test {
     #[external("private")]
     fn call_destroy_note(storage_slot: Field) {
         let options = NoteGetterOptions::new();
-        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(&mut context, storage_slot, options);
+        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+            get_notes(self.context, storage_slot, options);
 
         let retrieved_note = retrieved_notes.get(0);
         let note_hash = note_hashes.get(0);
 
-        destroy_note_unsafe(&mut context, retrieved_note, note_hash);
+        destroy_note_unsafe(self.context, retrieved_note, note_hash);
     }
 
     #[external("private")]
@@ -255,18 +242,18 @@ pub contract Test {
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(&mut context, storage_slot, options);
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+            get_notes(self.context, storage_slot, options);
 
-        let header = context.get_anchor_block_header();
+        let header = self.context.get_anchor_block_header();
 
         header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
     }
 
     #[external("private")]
     fn test_setting_teardown() {
-        context.set_public_teardown_function(
-            context.this_address(),
+        self.context.set_public_teardown_function(
+            self.address,
             comptime { FunctionSelector::from_signature("dummy_public_call()") },
             [],
             false,
@@ -275,30 +262,50 @@ pub contract Test {
 
     #[external("private")]
     fn test_setting_fee_payer() {
-        context.set_as_fee_payer();
+        self.context.set_as_fee_payer();
+    }
+
+    #[external("private")]
+    #[nophasecheck]
+    fn end_setup_checking_phases() {
+        assert(!self.context.in_revertible_phase());
+        self.context.end_setup();
+        assert(self.context.in_revertible_phase());
+    }
+
+    #[external("private")]
+    fn call_function_that_ends_setup() {
+        // This function should error since it gets inadvertently phase changed by a nested call.
+        self.call_self.end_setup_checking_phases();
+    }
+
+    #[external("private")]
+    #[nophasecheck]
+    fn call_function_that_ends_setup_without_phase_check() {
+        self.call_self.end_setup_checking_phases();
     }
 
     #[external("public")]
     fn create_l2_to_l1_message_arbitrary_recipient_public(content: Field, recipient: EthAddress) {
         // Public oracle call to emit new commitment.
-        context.message_portal(recipient, content);
+        self.context.message_portal(recipient, content);
     }
 
     #[external("private")]
     fn create_l2_to_l1_message_arbitrary_recipient_private(content: Field, recipient: EthAddress) {
         // Public oracle call to emit new commitment.
-        context.message_portal(recipient, content);
+        self.context.message_portal(recipient, content);
     }
 
     #[external("public")]
     fn emit_nullifier_public(nullifier: Field) {
-        context.push_nullifier(nullifier);
+        self.context.push_nullifier(nullifier);
     }
 
     #[external("private")]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
-        context.push_nullifier(nullifier);
+        self.context.push_nullifier(nullifier);
     }
 
     // For testing non-note encrypted logs
@@ -312,31 +319,24 @@ pub contract Test {
             value4: fields[4],
         };
 
-        emit_event_in_private(
-            event,
-            &mut context,
-            owner,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
+        self.emit(event, owner, MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
-            Test::at(context.this_address())
-                .emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false)
-                .call(&mut context);
+            self.call_self.emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false);
 
             // Emit a log with non-encrypted content for testing purpose.
             let leaky_log = event.serialize().concat([0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
-            context.emit_private_log(leaky_log, 5);
+            self.context.emit_private_log(leaky_log, 5);
         }
     }
 
     #[external("public")]
     fn emit_public(value: Field) {
-        context.emit_public_log(/*message=*/ value);
-        context.emit_public_log(/*message=*/ [10, 20, 30]);
-        context.emit_public_log(/*message=*/ "Hello, world!");
+        self.context.emit_public_log(/*message=*/ value);
+        self.context.emit_public_log(/*message=*/ [10, 20, 30]);
+        self.context.emit_public_log(/*message=*/ "Hello, world!");
     }
 
     #[external("private")]
@@ -348,7 +348,7 @@ pub contract Test {
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_to_private_content_hash(amount);
-        context.consume_l1_to_l2_message(
+        self.context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,
             portal_address,
@@ -364,7 +364,7 @@ pub contract Test {
         message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
+        self.context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
     }
 
     #[external("private")]
@@ -375,29 +375,29 @@ pub contract Test {
         message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
+        self.context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
     }
 
     #[external("private")]
     fn assert_private_global_vars(chain_id: Field, version: Field) {
-        assert(context.chain_id() == chain_id, "Invalid chain id");
-        assert(context.version() == version, "Invalid version");
+        assert(self.context.chain_id() == chain_id, "Invalid chain id");
+        assert(self.context.version() == version, "Invalid version");
     }
 
     #[external("private")]
     fn assert_header_private(header_hash: Field) {
-        assert(context.anchor_block_header.hash() == header_hash, "Invalid header hash");
+        assert(self.context.anchor_block_header.hash() == header_hash, "Invalid header hash");
     }
 
     // TODO(4840): add AVM opcodes for getting header (members)
     //#[external("public")]
     //fn assert_header_public(header_hash: Field) {
-    //    assert(context.anchor_block_header.hash() == header_hash, "Invalid header hash");
+    //    assert(self.context.anchor_block_header.hash() == header_hash, "Invalid header hash");
     //}
 
     #[external("private")]
     fn publish_contract_instance(target: AztecAddress) {
-        publish_contract_instance_for_public_execution(&mut context, target);
+        publish_contract_instance_for_public_execution(self.context, target);
     }
 
     #[derive(Serialize)]

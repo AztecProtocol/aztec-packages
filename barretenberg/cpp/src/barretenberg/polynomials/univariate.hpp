@@ -5,11 +5,15 @@
 // =====================
 
 #pragma once
+
+#include <array>
+#include <span>
+#include <vector>
+
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate_coefficient_basis.hpp"
-#include <span>
 
 namespace bb {
 
@@ -39,7 +43,7 @@ template <class Fr, size_t domain_end> class Univariate {
 
     Univariate() = default;
 
-    explicit Univariate(std::array<Fr, LENGTH> evaluations)
+    explicit Univariate(const std::array<Fr, LENGTH>& evaluations)
         : evaluations(evaluations)
     {}
     ~Univariate() = default;
@@ -61,7 +65,7 @@ template <class Fr, size_t domain_end> class Univariate {
     }
 
     // Compute Lagrange coefficients of a given linear polynomial represented in monomial basis.
-    template <bool has_a0_plus_a1> Univariate(UnivariateCoefficientBasis<Fr, 2, has_a0_plus_a1> monomial)
+    template <bool has_a0_plus_a1> Univariate(const UnivariateCoefficientBasis<Fr, 2, has_a0_plus_a1>& monomial)
     {
         Fr to_add = monomial.coefficients[1];
         evaluations[0] = monomial.coefficients[0];
@@ -74,7 +78,7 @@ template <class Fr, size_t domain_end> class Univariate {
     }
 
     // Compute Lagrange coefficients of a given quadratic polynomial represented in monomial basis.
-    template <bool has_a0_plus_a1> Univariate(UnivariateCoefficientBasis<Fr, 3, has_a0_plus_a1> monomial)
+    template <bool has_a0_plus_a1> Univariate(const UnivariateCoefficientBasis<Fr, 3, has_a0_plus_a1>& monomial)
     {
         Fr to_add = monomial.coefficients[1];                                // a1 + a2
         Fr derivative = monomial.coefficients[2] + monomial.coefficients[2]; // 2a2
@@ -92,18 +96,18 @@ template <class Fr, size_t domain_end> class Univariate {
 
     // Construct constant Univariate from scalar which represents the value that all the points in the domain
     // evaluate to
-    explicit Univariate(Fr value)
-        : evaluations{}
+    explicit Univariate(const Fr& value)
     {
         for (size_t i = 0; i < LENGTH; ++i) {
             evaluations[i] = value;
         }
     }
-    // Construct Univariate from UnivariateView
-    explicit Univariate(UnivariateView<Fr, domain_end> in)
-        : evaluations{}
+    // Construct Univariate from UnivariateView.
+    // Lengths will match since we use `domain_end` both in the Univariate and the UnivariateView.
+    explicit Univariate(const UnivariateView<Fr, domain_end>& in)
     {
-        for (size_t i = 0; i < in.evaluations.size(); ++i) {
+        static_assert(UnivariateView<Fr, domain_end>::LENGTH == LENGTH);
+        for (size_t i = 0; i < LENGTH; ++i) {
             evaluations[i] = in.evaluations[i];
         }
     }
@@ -145,14 +149,7 @@ template <class Fr, size_t domain_end> class Univariate {
         return output;
     };
 
-    static Univariate zero()
-    {
-        auto output = Univariate<Fr, domain_end>();
-        for (size_t i = 0; i != LENGTH; ++i) {
-            output.value_at(i) = Fr::zero();
-        }
-        return output;
-    };
+    static Univariate zero() { return Univariate<Fr, domain_end>(Fr::zero()); };
 
     // Operations between Univariate and other Univariate
     bool operator==(const Univariate& other) const = default;
@@ -754,6 +751,7 @@ template <typename T, typename U, std::size_t N> std::array<T, N> array_to_array
 } // namespace bb
 
 namespace std {
+
 template <typename T, size_t N> struct tuple_size<bb::Univariate<T, N>> : std::integral_constant<std::size_t, N> {};
 
 } // namespace std

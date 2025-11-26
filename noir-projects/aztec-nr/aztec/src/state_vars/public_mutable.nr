@@ -80,7 +80,7 @@ impl<T, Context> PublicMutable<T, Context> {
     }
 }
 
-impl<T> PublicMutable<T, &mut PublicContext> {
+impl<T> PublicMutable<T, PublicContext> {
     /// Reads the current value stored in this PublicMutable state variable.
     ///
     /// # Returns

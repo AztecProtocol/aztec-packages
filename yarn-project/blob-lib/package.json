@@ -4,7 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./encoding": "./dest/encoding.js",
+    "./encoding": "./dest/encoding/index.js",
     "./types": "./dest/types.js",
     "./testing": "./dest/testing.js"
   },

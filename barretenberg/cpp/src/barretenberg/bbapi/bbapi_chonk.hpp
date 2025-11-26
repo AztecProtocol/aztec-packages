@@ -1,13 +1,13 @@
 #pragma once
 /**
  * @file bbapi_chonk.hpp
- * @brief SumcheckChonk-specific command definitions for the Barretenberg RPC API.
+ * @brief Chonk-specific command definitions for the Barretenberg RPC API.
  *
- * This file contains command structures for SumcheckChonk (Client-side Incrementally Verifiable Computation)
+ * This file contains command structures for Chonk (Client-side Incrementally Verifiable Computation)
  * operations including circuit loading, accumulation, proving, and verification key computation.
  */
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/chonk/sumcheck_chonk.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -17,7 +17,7 @@ namespace bb::bbapi {
 
 /**
  * @struct ChonkStart
- * @brief Initialize a new SumcheckChonk instance for incremental proof accumulation
+ * @brief Initialize a new Chonk instance for incremental proof accumulation
  *
  * @note Only one IVC request can be made at a time for each batch_request.
  */
@@ -43,7 +43,7 @@ struct ChonkStart {
 
 /**
  * @struct ChonkLoad
- * @brief Load a circuit into the SumcheckChonk instance for accumulation
+ * @brief Load a circuit into the Chonk instance for accumulation
  */
 struct ChonkLoad {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkLoad";
@@ -106,7 +106,7 @@ struct ChonkProve {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkProveResponse";
 
         /** @brief Complete IVC proof for all accumulated circuits */
-        SumcheckChonk::Proof proof;
+        Chonk::Proof proof;
         MSGPACK_FIELDS(proof);
         bool operator==(const Response&) const = default;
     };
@@ -117,7 +117,7 @@ struct ChonkProve {
 
 /**
  * @struct ChonkVerify
- * @brief Verify a SumcheckChonk proof with its verification key
+ * @brief Verify a Chonk proof with its verification key
  */
 struct ChonkVerify {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkVerify";
@@ -135,8 +135,8 @@ struct ChonkVerify {
         bool operator==(const Response&) const = default;
     };
 
-    /** @brief The SumcheckChonk proof to verify */
-    SumcheckChonk::Proof proof;
+    /** @brief The Chonk proof to verify */
+    Chonk::Proof proof;
     /** @brief The verification key */
     std::vector<uint8_t> vk;
     Response execute(const BBApiRequest& request = {}) &&;

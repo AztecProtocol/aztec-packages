@@ -25,12 +25,12 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     using FF = Curve::ScalarField;
     using G1 = Curve::Group;
 
-    PairingPoints<Builder> points_accumulator;
+    PairingPoints<Curve> points_accumulator;
     OpeningClaim<grumpkin<Builder>> ipa_claim;
     stdlib::Proof<Builder> ipa_proof;
     G1 kernel_return_data;
     std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments as extracted from the public inputs
-                                                      // of the HidingKernel, only for LegacyChonk
+                                                      // of the HidingKernel, only for Chonk
     FF mega_hash; // The hash of public inputs and VK of the inner circuit in the GoblinAvmRecursiveVerifier
 
     UltraRecursiveVerifierOutput() = default;

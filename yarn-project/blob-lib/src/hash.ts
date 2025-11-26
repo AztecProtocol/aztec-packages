@@ -2,6 +2,7 @@ import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Fr, Fr } from '@aztec/foundation/fields';
 
 import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, kzg } from './kzg_context.js';
+import { SpongeBlob } from './sponge_blob.js';
 
 const VERSIONED_HASH_VERSION_KZG = 0x01;
 
@@ -24,12 +25,21 @@ export function computeBlobsHash(evmVersionedBlobHashes: Buffer[]): Fr {
 }
 
 /**
- * The hash of the fields added throughout the checkpoint. The exact number of fields is specified by the checkpoint
- * prefix (the first field). It's verified in the circuit against the fields absorbed into the sponge blob.
- * This hash is used in generating the challenge z for all blobs in the same checkpoint.
+ * Computes a non-standard Poseidon2 hash over the provided fields.
+ *
+ * This function is used to compute:
+ * - `blobFieldsHash` of a checkpoint:
+ *   Verified in the circuit against all fields absorbed into the blob sponge over the entire checkpoint.
+ *   The exact number of fields is encoded in the checkpoint end marker (the last field).
+ *   This hash is used when generating the challenge `z` for all blobs in the checkpoint.
+ * - `spongeBlobHash` of a block:
+ *   Computed from the block's tx effects, its end-state, and the blob fields of all prior blocks in the same checkpoint.
+ *   This hash is included in the block header.
  */
 export async function computeBlobFieldsHash(fields: Fr[]): Promise<Fr> {
-  return await poseidon2Hash(fields);
+  const sponge = SpongeBlob.init();
+  await sponge.absorb(fields);
+  return sponge.squeeze();
 }
 
 export function computeBlobCommitment(data: Uint8Array): Buffer {

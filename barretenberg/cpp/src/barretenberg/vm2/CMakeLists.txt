@@ -53,4 +53,13 @@ if(AVM)
   if(NOT WASM AND NOT FUZZING)
       target_link_libraries(vm2_tests PRIVATE dsl vm2)
   endif()
+
+  if(FUZZING)
+      target_compile_options(
+          vm2
+          PRIVATE
+          -fsanitize=fuzzer-no-link)
+  endif()
+
+
 endif()

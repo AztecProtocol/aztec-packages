@@ -30,7 +30,6 @@ export class ServerEpochProver implements EpochProver {
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,
-    totalNumBlobFields: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
   ): Promise<void> {
     return this.orchestrator.startNewCheckpoint(
@@ -38,7 +37,6 @@ export class ServerEpochProver implements EpochProver {
       constants,
       l1ToL2Messages,
       totalNumBlocks,
-      totalNumBlobFields,
       headerOfLastBlockInPreviousCheckpoint,
     );
   }

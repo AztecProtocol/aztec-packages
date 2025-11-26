@@ -1,7 +1,7 @@
 #include "barretenberg/common/assert.hpp"
 #include <cstdint>
 #include <sys/types.h>
-#ifndef __wasm__
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "bb_bench.hpp"
 #include <algorithm>
@@ -182,7 +182,7 @@ void AggregateEntry::add_thread_time_sample(const TimeAndCount& stats)
     // Account for aggregate time and count
     time += stats.time;
     count += stats.count;
-    time_max = std::max(static_cast<size_t>(stats.time), time_max);
+    time_max = std::max(stats.time, time_max);
     // Use Welford's method to be able to track the variance
     num_threads++;
     double delta = static_cast<double>(stats.time) - time_mean;
@@ -300,12 +300,12 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
 // Serializable structure for a single benchmark entry (msgpack-compatible)
 struct SerializableEntry {
     std::string parent;
-    std::size_t time;
-    std::size_t time_max;
+    uint64_t time;
+    uint64_t time_max;
     double time_mean;
     double time_stddev;
-    std::size_t count;
-    std::size_t num_threads;
+    uint64_t count;
+    uint64_t num_threads;
 
     MSGPACK_FIELDS(parent, time, time_max, time_mean, time_stddev, count, num_threads);
 };
@@ -578,7 +578,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     uint64_t total_time = 0;
     for (const auto& [_, parent_map] : aggregated) {
         if (auto it = parent_map.find(""); it != parent_map.end()) {
-            total_time = std::max(static_cast<size_t>(total_time), it->second.time_max);
+            total_time = std::max(total_time, it->second.time_max);
         }
     }
 

@@ -22,14 +22,14 @@ TEST(ClassIdDerivationTraceGenTest, TraceGeneration)
     TestTraceContainer trace;
     ClassIdDerivationTraceBuilder builder;
 
-    ContractClassId class_id = FF(0xdeadbeef);
-    ContractClass klass{
+    ContractClassWithCommitment klass{
+        .id = FF(0xdeadbeef),
         .artifact_hash = FF(12),
-        .private_function_root = FF(23),
-        .public_bytecode_commitment = FF(45),
+        .private_functions_root = FF(23),
         .packed_bytecode = {},
+        .public_bytecode_commitment = FF(45),
     };
-    builder.process({ { .class_id = class_id, .klass = klass } }, trace);
+    builder.process({ { .klass = klass } }, trace);
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
@@ -37,7 +37,7 @@ TEST(ClassIdDerivationTraceGenTest, TraceGeneration)
                     AllOf(ROW_FIELD_EQ(class_id_derivation_sel, 1),
                           ROW_FIELD_EQ(class_id_derivation_class_id, FF(0xdeadbeef)),
                           ROW_FIELD_EQ(class_id_derivation_artifact_hash, FF(12)),
-                          ROW_FIELD_EQ(class_id_derivation_private_function_root, FF(23)),
+                          ROW_FIELD_EQ(class_id_derivation_private_functions_root, FF(23)),
                           ROW_FIELD_EQ(class_id_derivation_public_bytecode_commitment, FF(45)))));
 }
 

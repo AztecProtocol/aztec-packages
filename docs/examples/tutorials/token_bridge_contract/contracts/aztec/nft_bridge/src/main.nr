@@ -19,12 +19,12 @@ pub contract NFTBridge {
     #[external("public")]
     #[initializer]
     fn constructor(nft: AztecAddress) {
-        storage.nft.initialize(nft);
+        self.storage.nft.initialize(nft);
     }
     
     #[external("public")]
     fn set_portal(portal: EthAddress) {
-        storage.portal.initialize(portal);
+        self.storage.portal.initialize(portal);
     }
     // docs:end:bridge_setup
 
@@ -39,12 +39,12 @@ pub contract NFTBridge {
         context.consume_l1_to_l2_message(
             content_hash,
             secret,
-            storage.portal.read(),
+            self.storage.portal.read(),
             message_leaf_index
         );
 
         // Mint the NFT on L2
-        let nft = storage.nft.read();
+        let nft = self.storage.nft.read();
         NFTPunk::at(nft).mint(to, token_id).call(&mut context);
     }
     // docs:end:claim
@@ -62,7 +62,7 @@ pub contract NFTBridge {
         context.message_portal(storage.portal.read(), content);
 
         // Burn the NFT on L2
-        let nft = storage.nft.read();
+        let nft = self.storage.nft.read();
         NFTPunk::at(nft).burn(context.msg_sender().unwrap(), token_id).call(&mut context);
     }
     // docs:end:exit

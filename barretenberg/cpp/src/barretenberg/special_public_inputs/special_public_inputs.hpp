@@ -19,11 +19,11 @@ namespace bb {
 class DefaultIO {
   public:
     using FF = curve::BN254::ScalarField;
-    using PublicPairingPoints = PublicInputComponent<PairingPoints>;
+    using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = DEFAULT_PUBLIC_INPUTS_SIZE;
 
-    PairingPoints pairing_inputs;
+    PairingPoints<curve::BN254> pairing_inputs;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -48,12 +48,12 @@ class HidingKernelIO {
     using G1 = curve::BN254::AffineElement;
     using TableCommitments = std::array<G1, MegaCircuitBuilder::NUM_WIRES>;
 
-    using PublicPairingPoints = PublicInputComponent<PairingPoints>;
+    using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
     using PublicPoint = PublicInputComponent<G1>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
 
-    PairingPoints pairing_inputs;
+    PairingPoints<curve::BN254> pairing_inputs;
     G1 kernel_return_data;
     TableCommitments ecc_op_tables;
 
@@ -68,7 +68,7 @@ class HidingKernelIO {
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
-        index += PairingPoints::PUBLIC_INPUTS_SIZE;
+        index += PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE;
         kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
         index += G1::PUBLIC_INPUTS_SIZE;
         for (auto& commitment : ecc_op_tables) {
@@ -86,12 +86,12 @@ class RollupIO {
     using FF = curve::BN254::ScalarField;
     using IpaClaim = OpeningClaim<bb::curve::Grumpkin>;
 
-    using PublicPairingPoints = PublicInputComponent<PairingPoints>;
+    using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
     using PublicIpaClaim = PublicInputComponent<IpaClaim>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = ROLLUP_PUBLIC_INPUTS_SIZE;
 
-    PairingPoints pairing_inputs;
+    PairingPoints<curve::BN254> pairing_inputs;
     IpaClaim ipa_claim;
 
     /**
@@ -105,7 +105,7 @@ class RollupIO {
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
-        index += PairingPoints::PUBLIC_INPUTS_SIZE;
+        index += PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE;
         ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
     }
 };

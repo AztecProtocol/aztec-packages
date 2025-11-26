@@ -1,7 +1,5 @@
 export {
   type Aliased,
-  type ContractInstanceAndArtifact,
-  type UserFeeOptions,
   type SimulateOptions,
   type ProfileOptions,
   type SendOptions,
@@ -11,15 +9,13 @@ export {
   type BatchedMethodResultWrapper,
   type BatchResults,
   type Wallet,
-  ContractInstantiationDataSchema,
   FunctionCallSchema,
   ExecutionPayloadSchema,
-  UserFeeOptionsSchema,
+  GasSettingsOptionSchema,
   WalletSimulationFeeOptionSchema,
   SendOptionsSchema,
   SimulateOptionsSchema,
   ProfileOptionsSchema,
-  InstanceDataSchema,
   MessageHashOrIntentSchema,
   BatchedMethodSchema,
   ContractMetadataSchema,
@@ -27,8 +23,6 @@ export {
   EventMetadataDefinitionSchema,
   WalletSchema,
 } from '../wallet/wallet.js';
-
-export { type FeeOptions, BaseWallet } from '../wallet/base_wallet.js';
 
 export { AccountManager } from '../wallet/account_manager.js';
 

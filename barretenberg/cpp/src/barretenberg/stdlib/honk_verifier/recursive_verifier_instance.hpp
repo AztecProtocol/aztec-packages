@@ -44,11 +44,12 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
     SubrelationSeparator alpha;
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
-    FF target_sum{ 0 };
 
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
+
+    // For ZK flavors: commitment to Gemini masking polynomial
+    Commitment gemini_masking_commitment;
 
     RecursiveVerifierInstance_(Builder* builder)
         : builder(builder) {};
@@ -85,7 +86,6 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
                 comm = Commitment::from_witness(builder, other_comms[comm_idx]);
                 comm_idx++;
             }
-            target_sum = FF::from_witness(builder, verification_key->target_sum);
             size_t challenge_idx = 0;
             gate_challenges = std::vector<FF>(verification_key->gate_challenges.size());
             for (auto& challenge : gate_challenges) {
@@ -99,6 +99,12 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
             relation_parameters.gamma = FF::from_witness(builder, verification_key->relation_parameters.gamma);
             relation_parameters.public_input_delta =
                 FF::from_witness(builder, verification_key->relation_parameters.public_input_delta);
+
+            // For ZK flavors: convert gemini_masking_commitment
+            if constexpr (NativeFlavor::HasZK) {
+                gemini_masking_commitment =
+                    Commitment::from_witness(builder, verification_key->gemini_masking_commitment);
+            }
         }
     }
 
@@ -130,7 +136,6 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
              zip_view(witness_commitments.get_all(), verifier_inst.witness_commitments.get_all())) {
             inst_comm = comm.get_value();
         }
-        verifier_inst.target_sum = target_sum.get_value();
 
         verifier_inst.gate_challenges = std::vector<NativeFF>(gate_challenges.size());
         for (auto [challenge, inst_challenge] : zip_view(gate_challenges, verifier_inst.gate_challenges)) {
@@ -143,43 +148,13 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
         verifier_inst.relation_parameters.beta = relation_parameters.beta.get_value();
         verifier_inst.relation_parameters.gamma = relation_parameters.gamma.get_value();
         verifier_inst.relation_parameters.public_input_delta = relation_parameters.public_input_delta.get_value();
+
+        // For ZK flavors: convert gemini_masking_commitment back to native
+        if constexpr (NativeFlavor::HasZK) {
+            verifier_inst.gemini_masking_commitment = gemini_masking_commitment.get_value();
+        }
+
         return verifier_inst;
-    }
-
-    FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
-    {
-        BB_ASSERT_EQ(is_complete, true, "Trying to hash a recursive verifier instance that has not been completed.");
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_log_circuit_size",
-                                                  this->vk_and_hash->vk->log_circuit_size);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_num_public_inputs",
-                                                  this->vk_and_hash->vk->num_public_inputs);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_pub_inputs_offset",
-                                                  this->vk_and_hash->vk->pub_inputs_offset);
-
-        for (const Commitment& commitment : this->vk_and_hash->vk->get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_precomputed_comm", commitment);
-        }
-        for (const Commitment& comm : witness_commitments.get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_wit_comm", comm);
-        }
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_alpha", this->alpha);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta",
-                                                  this->relation_parameters.eta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta_two",
-                                                  this->relation_parameters.eta_two);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta_three",
-                                                  this->relation_parameters.eta_three);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_beta",
-                                                  this->relation_parameters.beta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_gamma",
-                                                  this->relation_parameters.gamma);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_public_input_delta",
-                                                  this->relation_parameters.public_input_delta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_target_sum", this->target_sum);
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_gate_challenges",
-                                                  this->gate_challenges);
-
-        return transcript.hash_independent_buffer();
     }
 };
 } // namespace bb::stdlib::recursion::honk

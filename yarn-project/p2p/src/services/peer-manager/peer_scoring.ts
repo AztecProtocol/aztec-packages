@@ -1,6 +1,14 @@
 import { median } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import {
+  Attributes,
+  Metrics,
+  type TelemetryClient,
+  type UpDownCounter,
+  ValueType,
+  getTelemetryClient,
+} from '@aztec/telemetry-client';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -30,7 +38,9 @@ export class PeerScoring {
   private decayFactor = 0.9;
   peerPenalties: { [key in PeerErrorSeverity]: number };
 
-  constructor(config: P2PConfig) {
+  private peerStateCounter: UpDownCounter;
+
+  constructor(config: P2PConfig, telemetry: TelemetryClient = getTelemetryClient()) {
     const orderedValues = config.peerPenaltyValues?.sort((a, b) => a - b);
     this.peerPenalties = {
       [PeerErrorSeverity.HighToleranceError]:
@@ -40,6 +50,13 @@ export class PeerScoring {
       [PeerErrorSeverity.LowToleranceError]:
         orderedValues?.[2] ?? DefaultPeerPenalties[PeerErrorSeverity.LowToleranceError],
     };
+
+    const meter = telemetry.getMeter('PeerScoring');
+
+    this.peerStateCounter = meter.createUpDownCounter(Metrics.P2P_PEER_STATE_COUNT, {
+      description: 'Count of peers by state (Healthy, Disconnect, Banned)',
+      valueType: ValueType.INT,
+    });
   }
 
   public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
@@ -99,7 +116,33 @@ export class PeerScoring {
     return PeerScoreState.Healthy;
   }
 
-  getStats(): { medianScore: number } {
-    return { medianScore: median(Array.from(this.scores.values())) ?? 0 };
+  getStats(): { medianScore: number; healthyCount: number; disconnectCount: number; bannedCount: number } {
+    const stateCounts = { healthy: 0, disconnect: 0, banned: 0 };
+
+    for (const peerId of this.scores.keys()) {
+      const state = this.getScoreState(peerId);
+      switch (state) {
+        case PeerScoreState.Healthy:
+          stateCounts.healthy++;
+          break;
+        case PeerScoreState.Disconnect:
+          stateCounts.disconnect++;
+          break;
+        case PeerScoreState.Banned:
+          stateCounts.banned++;
+          break;
+      }
+    }
+
+    this.peerStateCounter.add(stateCounts.healthy, { [Attributes.P2P_PEER_SCORE_STATE]: 'Healthy' });
+    this.peerStateCounter.add(stateCounts.disconnect, { [Attributes.P2P_PEER_SCORE_STATE]: 'Disconnect' });
+    this.peerStateCounter.add(stateCounts.banned, { [Attributes.P2P_PEER_SCORE_STATE]: 'Banned' });
+
+    return {
+      medianScore: median(Array.from(this.scores.values())) ?? 0,
+      healthyCount: stateCounts.healthy,
+      disconnectCount: stateCounts.disconnect,
+      bannedCount: stateCounts.banned,
+    };
   }
 }

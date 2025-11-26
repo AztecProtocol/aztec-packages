@@ -4,7 +4,6 @@ use aztec::macros::aztec;
 #[aztec]
 contract OffchainEffect {
     use aztec::{
-        event::event_emission::emit_event_in_private,
         macros::{events::event, functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
@@ -43,7 +42,7 @@ contract OffchainEffect {
 
             if effects.len() > 0 {
                 OffchainEffect::at(payload.next_contract).emit_offchain_effects(effects).call(
-                    &mut context,
+                    self.context,
                 );
             }
         }
@@ -51,10 +50,9 @@ contract OffchainEffect {
 
     #[external("private")]
     fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
-        emit_event_in_private(
+        self.emit(
             TestEvent { a, b, c },
-            &mut context,
-            context.msg_sender().unwrap(),
+            self.msg_sender().unwrap(),
             MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );
     }
@@ -63,8 +61,8 @@ contract OffchainEffect {
     fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
         let note = UintNote::new(value, owner);
 
-        storage.balances.at(owner).insert(note).emit(
-            context.msg_sender().unwrap(),
+        self.storage.balances.at(owner).insert(note).emit(
+            self.msg_sender().unwrap(),
             MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );
     }
@@ -76,7 +74,7 @@ contract OffchainEffect {
 
     #[external("utility")]
     unconstrained fn get_note_value(owner: AztecAddress) -> u128 {
-        let notes = storage.balances.at(owner).view_notes(NoteViewerOptions::new());
+        let notes = self.storage.balances.at(owner).view_notes(NoteViewerOptions::new());
         assert(notes.len() == 1, "No note found");
         notes.get(0).get_value()
     }

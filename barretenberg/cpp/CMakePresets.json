@@ -101,7 +101,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "ENABLE_ASAN": "OFF",
-        "DISABLE_ASM": "ON",
+        "DISABLE_ASM": "OFF",
         "ENABLE_STACKTRACES": "ON"
       }
     },
@@ -175,22 +175,6 @@
       }
     },
     {
-      "name": "debug-fast-notraces",
-      "displayName": "Optimized debug build with Clang-20",
-      "description": "Build with globally installed Clang-20 in optimized debug mode (no stack traces)",
-      "inherits": "debug",
-      "binaryDir": "build-debug-fast",
-      "environment": {
-        "CFLAGS": "-O2 -gdwarf",
-        "CXXFLAGS": "-O2 -gdwarf-4",
-        "LDFLAGS": "-O2 -gdwarf-4"
-      },
-      "cacheVariables": {
-        "DISABLE_ASM": "OFF",
-        "ENABLE_STACKTRACES": "OFF"
-      }
-    },
-    {
       "name": "asan-fast",
       "displayName": "Debugging build with address sanitizer on Clang-20 in optimized debug mode",
       "description": "Build with address sanitizer on clang20 in optimized debug mode",
@@ -241,8 +225,10 @@
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON",
+        "AVM": "OFF",
         "AVM_TRANSPILER_LIB": "",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "OFF"
       }
     },
     {
@@ -253,9 +239,11 @@
       "binaryDir": "build-fuzzing-noasm",
       "cacheVariables": {
         "FUZZING": "ON",
+        "AVM": "OFF",
         "AVM_TRANSPILER_LIB": "",
         "DISABLE_ASM": "ON",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "OFF"
       }
     },
     {
@@ -267,10 +255,12 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "FUZZING_SHOW_INFORMATION": "ON",
+        "AVM": "OFF",
         "AVM_TRANSPILER_LIB": "",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "OFF"
       }
     },
     {
@@ -281,12 +271,29 @@
       "binaryDir": "build-fuzzing-cov",
       "cacheVariables": {
         "FUZZING": "ON",
+        "AVM": "OFF",
         "DISABLE_ASM": "ON",
         "AVM_TRANSPILER_LIB": "",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "OFF"
       },
       "environment": {
         "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping"
+      }
+    },
+    {
+      "name": "fuzzing-avm",
+      "displayName": "Build with fuzzing and AVM",
+      "description": "Build default preset but with fuzzing and AVM enabled",
+      "inherits": "clang20",
+      "binaryDir": "build-fuzzing-avm",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "DISABLE_ASM": "OFF",
+        "AVM_TRANSPILER_LIB": "",
+        "FUZZING_AVM": "ON",
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "ON"
       }
     },
     {
@@ -405,7 +412,8 @@
       "binaryDir": "build-wasm-threads",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "MULTITHREADING": "ON"
+        "MULTITHREADING": "ON",
+        "ENABLE_WASM_BENCH": "ON"
       }
     },
     {
@@ -527,6 +535,11 @@
       "configurePreset": "clang20"
     },
     {
+      "name": "clang20-assert",
+      "inherits": "default",
+      "configurePreset": "clang20-assert"
+    },
+    {
       "name": "clang20-no-avm",
       "inherits": "default",
       "configurePreset": "clang20-no-avm"
@@ -560,11 +573,6 @@
       "name": "debug-fast",
       "inherits": "default",
       "configurePreset": "debug-fast"
-    },
-    {
-      "name": "debug-fast-notraces",
-      "inherits": "default",
-      "configurePreset": "debug-fast-notraces"
     },
     {
       "name": "asan",
@@ -602,6 +610,11 @@
       "configurePreset": "fuzzing-coverage"
     },
     {
+      "name": "fuzzing-avm",
+      "inherits": "clang20",
+      "configurePreset": "fuzzing-avm"
+    },
+    {
       "name": "gperftools",
       "inherits": "clang20",
       "configurePreset": "gperftools"
@@ -636,13 +649,7 @@
       "configurePreset": "wasm",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": [
-        "barretenberg.wasm",
-        "barretenberg.wasm.gz",
-        "barretenberg",
-        "wasi",
-        "env"
-      ]
+      "targets": ["barretenberg.wasm.gz"]
     },
     {
       "name": "wasm-threads-dbg",
@@ -656,7 +663,7 @@
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
+      "targets": ["barretenberg.wasm.gz", "ecc_tests"]
     },
     {
       "name": "xray",

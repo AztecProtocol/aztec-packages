@@ -48,10 +48,11 @@ class TranslatorProvingKey {
     {
         BB_BENCH_NAME("TranslatorProvingKey(TranslatorCircuit&)");
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value amounts to
-        // a number of EccOps sufficient for 10 rounds of folding (so 20 circuits)
-        if (circuit.num_gates() > Flavor::MINI_CIRCUIT_SIZE) {
-            throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
-        }
+        // a number of EccOps sufficient for 28 app circuits
+        vinfo("Translator circuit size: ", circuit.num_gates());
+        BB_ASSERT_LTE(circuit.num_gates(),
+                      Flavor::MINI_CIRCUIT_SIZE,
+                      "The Translator circuit size has exceeded the fixed upper bound");
 
         proving_key = std::make_shared<ProvingKey>(std::move(commitment_key));
         auto wires = proving_key->polynomials.get_wires();

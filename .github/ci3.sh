@@ -61,6 +61,10 @@ function process_labels {
         echo "Label 'ci-full' found"
         ci_full=1
         ;;
+      ci-full-no-test-cache)
+        echo "Label 'ci-full-no-test-cache' found"
+        ci_full_no_test_cache=1
+        ;;
       ci-no-cache)
         echo "Label 'ci-no-cache' found"
         ci_no_cache=1
@@ -73,9 +77,13 @@ function process_labels {
         echo "Label 'ci-docs' found"
         ci_docs=1
         ;;
-      ci-barretenberg)
-        echo "Label 'ci-barretenberg' found"
+      ci-barretenberg|barretenberg-ci)
+        echo "Label '${label}' found"
         ci_barretenberg=1
+        ;;
+      ci-release-pr)
+        echo "Label 'ci-release-pr' found"
+        ci_release_pr=1
         ;;
     esac
   done
@@ -83,11 +91,22 @@ function process_labels {
 
 function determine_ci_mode {
   echo_header "CI Mode Determination"
+  # Check target branch for docs/barretenberg modes
+  if [ "${TARGET_BRANCH:-}" == "merge-train/docs" ]; then
+    ci_docs=1
+  fi
+  if [ "${TARGET_BRANCH:-}" == "merge-train/barretenberg" ]; then
+    ci_barretenberg=1
+  fi
   # Determine CI mode
   if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || [ "${ci_merge_queue:-0}" -eq 1 ]; then
     ci_mode="merge-queue"
+  elif [ "${ci_release_pr:-0}" -eq 1 ]; then
+    ci_mode="release-pr"
   elif [ "${ci_full:-0}" -eq 1 ]; then
     ci_mode="full"
+  elif [ "${ci_full_no_test_cache:-0}" -eq 1 ]; then
+    ci_mode="full-no-test-cache"
   elif [ "${ci_docs:-0}" -eq 1 ]; then
     ci_mode="docs"
   elif [ "${ci_barretenberg:-0}" -eq 1 ]; then
@@ -120,12 +139,29 @@ function check_cache {
   echo "Cache miss, running CI in ${ci_mode} mode..."
 }
 
+function handle_release_pr {
+  echo_header "Release PR"
+  # Create and push a tag for release PR testing
+  local github_repository
+  github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
+  git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}"
+  local tag_name="v0.0.1-commit.$(git rev-parse --short HEAD)"
+  git tag "${tag_name}"
+  git push origin "${tag_name}"
+  echo "Created and pushed tag: ${tag_name}"
+}
+
 function main {
   local labels="${1:-}"
   echo_header "CI3 Main Script"
   setup_environment
   process_labels "${labels}"
   determine_ci_mode
+  # Handle release-pr mode separately (creates tag instead of running CI)
+  if [ "${ci_mode}" == "release-pr" ]; then
+    handle_release_pr
+    exit 0
+  fi
   check_cache "${ci_mode}"
   echo_header "Run CI"
   exec ./ci.sh "${ci_mode}"

@@ -134,12 +134,6 @@ template <typename Curve> class GeminiProver_ {
         Polynomial random_polynomial; // random polynomial used for ZK
         bool has_random_polynomial = false;
 
-        RefVector<Polynomial> unshifted;                             // set of unshifted polynomials
-        RefVector<Polynomial> to_be_shifted_by_one;                  // set of polynomials to be left shifted by 1
-        RefVector<Polynomial> to_be_shifted_by_k;                    // set of polynomials to be right shifted by k
-        RefVector<Polynomial> interleaved;                           // the interleaved polynomials used in Translator
-        std::vector<RefVector<Polynomial>> groups_to_be_interleaved; // groups of polynomials to be interleaved
-
         size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
@@ -151,6 +145,12 @@ template <typename Curve> class GeminiProver_ {
         std::vector<Polynomial> batched_group;
 
       public:
+        RefVector<Polynomial> unshifted;                             // set of unshifted polynomials
+        RefVector<Polynomial> to_be_shifted_by_one;                  // set of polynomials to be left shifted by 1
+        RefVector<Polynomial> to_be_shifted_by_k;                    // set of polynomials to be right shifted by k
+        RefVector<Polynomial> interleaved;                           // the interleaved polynomials used in Translator
+        std::vector<RefVector<Polynomial>> groups_to_be_interleaved; // groups of polynomials to be interleaved
+
         PolynomialBatcher(const size_t full_batched_size)
             : full_batched_size(full_batched_size)
             , batched_unshifted(full_batched_size)
@@ -198,8 +198,9 @@ template <typename Curve> class GeminiProver_ {
          * @param running_scalar power of the batching challenge
          * @return Polynomial A₀
          */
-        Polynomial compute_batched(const Fr& challenge, Fr& running_scalar)
+        Polynomial compute_batched(const Fr& challenge)
         {
+            Fr running_scalar(1);
             BB_BENCH_NAME("compute_batched");
             // lambda for batching polynomials; updates the running scalar in place
             auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {

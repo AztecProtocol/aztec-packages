@@ -10,7 +10,7 @@ fn propagate_right_out_hash_when_left_is_zero() {
     builder.left_rollup.out_hash = 0;
     builder.right_rollup.out_hash = 123;
 
-    let pi = builder.execute();
+    let (pi, _) = builder.execute_with_mock();
     builder.assert_expected_public_inputs(pi);
 
     let checkpoint_header = builder.get_expected_checkpoint_header();
@@ -23,7 +23,7 @@ fn non_zero_in_hash_in_right_rollup() {
 
     builder.right_rollup.in_hash = 123;
 
-    builder.execute_and_fail();
+    builder.execute_with_mock_and_fail();
 }
 
 #[test(should_fail_with = "Mismatched constants in block rollups")]

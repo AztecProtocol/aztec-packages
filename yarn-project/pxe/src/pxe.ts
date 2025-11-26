@@ -9,16 +9,16 @@ import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/pr
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
-  type EventMetadataDefinition,
+  EventSelector,
   FunctionCall,
   FunctionSelector,
   FunctionType,
-  decodeFromAbi,
   decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockHash } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -28,7 +28,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
@@ -46,6 +46,7 @@ import {
   type SimulationTimings,
   Tx,
   TxExecutionRequest,
+  TxHash,
   TxProfileResult,
   TxProvingResult,
   TxSimulationResult,
@@ -77,6 +78,15 @@ import { PrivateEventDataProvider } from './storage/private_event_data_provider/
 import { SyncDataProvider } from './storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from './storage/tagging_data_provider/tagging_data_provider.js';
 import { Synchronizer } from './synchronizer/index.js';
+
+export type PrivateEvent = {
+  packedEvent: Fr[];
+  blockNumber: number;
+  blockHash: L2BlockHash;
+  txHash: TxHash;
+  recipient: AztecAddress;
+  eventSelector: EventSelector;
+};
 
 /**
  * Private eXecution Environment (PXE) is a library used by wallets to simulate private phase of transactions and to
@@ -664,23 +674,14 @@ export class PXE {
    */
   public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
     // We need to manually trigger private state sync to have a guarantee that all the notes are available.
-    await this.simulateUtility('sync_private_state', [], filter.contractAddress);
+    const call = await this.#getFunctionCall('sync_private_state', [], filter.contractAddress);
+    await this.simulateUtility(call);
 
     const noteDaos = await this.noteDataProvider.getNotes(filter);
 
-    const uniqueNotes = noteDaos.map(async dao => {
-      const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
-      const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
-        completeAddress.address.equals(dao.recipient),
-      );
-      const completeAddress = completeAddresses[completeAddressIndex];
-      if (completeAddress === undefined) {
-        throw new Error(`Cannot find complete address for recipient ${dao.recipient.toString()}`);
-      }
-      const recipient = completeAddress.address;
-      return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.noteNonce);
+    return noteDaos.map(dao => {
+      return new UniqueNote(dao.note, dao.contractAddress, dao.storageSlot, dao.txHash, dao.noteNonce);
     });
-    return Promise.all(uniqueNotes);
   }
 
   /**
@@ -905,10 +906,9 @@ export class PXE {
 
         if (skipKernels) {
           // According to the protocol rules, the nonce generator for the note hashes
-          // can either be the first nullifier in the tx or the hash of the initial tx request
-          // if there are none.
+          // can either be the first nullifier in the tx or the protocol nullifier if there are none.
           const nonceGenerator = privateExecutionResult.firstNullifier.equals(Fr.ZERO)
-            ? await txRequest.toTxRequest().hash()
+            ? await computeProtocolNullifier(await txRequest.toTxRequest().hash())
             : privateExecutionResult.firstNullifier;
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
@@ -1000,21 +1000,15 @@ export class PXE {
   /**
    * Simulate the execution of a contract utility function.
    *
-   * @param functionName - The name of the utility contract function to be called.
-   * @param args - The arguments to be provided to the function.
-   * @param to - The address of the contract to be called.
+   * @param call - The function call containing the function details, arguments, and target contract address.
    * @param authwits - (Optional) The authentication witnesses required for the function call.
-   * @param from - (Optional) The msg sender to set for the call.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will
    * default to all.
    * @returns The result of the utility function call, structured based on the function ABI.
    */
   public simulateUtility(
-    functionName: string,
-    args: any[],
-    to: AztecAddress,
+    call: FunctionCall,
     authwits?: AuthWitness[],
-    _from?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<UtilitySimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
@@ -1026,20 +1020,14 @@ export class PXE {
         const syncTimer = new Timer();
         await this.synchronizer.sync();
         const syncTime = syncTimer.ms();
-        const functionCall = await this.#getFunctionCall(functionName, args, to);
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        const executionResult = await this.#simulateUtility(
-          contractFunctionSimulator,
-          functionCall,
-          authwits ?? [],
-          scopes,
-        );
+        const executionResult = await this.#simulateUtility(contractFunctionSimulator, call, authwits ?? [], scopes);
         const functionTime = functionTimer.ms();
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = [{ functionName, time: functionTime }];
+        const perFunction = [{ functionName: call.name, time: functionTime }];
 
         const timings: SimulationTimings = {
           total: totalTime,
@@ -1051,10 +1039,11 @@ export class PXE {
         const simulationStats = contractFunctionSimulator.getStats();
         return { result: executionResult, stats: { timings, nodeRPCCalls: simulationStats.nodeRPCCalls } };
       } catch (err: any) {
+        const { to, name, args } = call;
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
         throw this.#contextualizeError(
           err,
-          `simulateUtility ${to}:${functionName}(${stringifiedArgs})`,
+          `simulateUtility ${to}:${name}(${stringifiedArgs})`,
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );
       }
@@ -1064,19 +1053,19 @@ export class PXE {
   /**
    * Returns the private events given search parameters.
    * @param contractAddress - The address of the contract to get events from.
-   * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+   * @param eventSelector - Event selector to search for.
    * @param from - The block number to search from.
    * @param numBlocks - The amount of blocks to search.
    * @param recipients - The addresses that decrypted the logs.
-   * @returns - The deserialized events.
+   * @returns - The packed events with block and tx metadata.
    */
-  public async getPrivateEvents<T>(
+  public async getPrivateEvents(
     contractAddress: AztecAddress,
-    eventMetadataDef: EventMetadataDefinition,
+    eventSelector: EventSelector,
     from: number,
     numBlocks: number,
     recipients: AztecAddress[],
-  ): Promise<T[]> {
+  ): Promise<PrivateEvent[]> {
     if (recipients.length === 0) {
       throw new Error('Recipients are required to get private events');
     }
@@ -1084,19 +1073,10 @@ export class PXE {
     this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
 
     // We need to manually trigger private state sync to have a guarantee that all the events are available.
-    await this.simulateUtility('sync_private_state', [], contractAddress);
+    const call = await this.#getFunctionCall('sync_private_state', [], contractAddress);
+    await this.simulateUtility(call);
 
-    const events = await this.privateEventDataProvider.getPrivateEvents(
-      contractAddress,
-      from,
-      numBlocks,
-      recipients,
-      eventMetadataDef.eventSelector,
-    );
-
-    const decodedEvents = events.map((event: Fr[]): T => decodeFromAbi([eventMetadataDef.abiType], event) as T);
-
-    return decodedEvents;
+    return this.privateEventDataProvider.getPrivateEvents(contractAddress, from, numBlocks, recipients, eventSelector);
   }
 
   /**

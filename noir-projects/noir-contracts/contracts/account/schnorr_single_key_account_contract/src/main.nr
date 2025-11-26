@@ -13,24 +13,25 @@ pub contract SchnorrSingleKeyAccount {
 
     use crate::{auth_oracle::get_auth_witness, util::recover_address};
 
-    use dep::aztec::macros::functions::{external, view};
+    use dep::aztec::macros::functions::{external, nophasecheck, view};
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts (specifically `getEntrypointAbi()`)
     #[external("private")]
+    #[nophasecheck]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
         // it is safe to set from a constrained context.
-        unsafe { set_sender_for_tags(context.this_address()) };
+        unsafe { set_sender_for_tags(self.address) };
 
-        let actions = AccountActions::init(&mut context, is_valid_impl);
+        let actions = AccountActions::init(self.context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payment_method, cancellable);
     }
 
     #[external("private")]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::init(&mut context, is_valid_impl);
+        let actions = AccountActions::init(self.context, is_valid_impl);
         actions.verify_private_authwit(inner_hash)
     }
 

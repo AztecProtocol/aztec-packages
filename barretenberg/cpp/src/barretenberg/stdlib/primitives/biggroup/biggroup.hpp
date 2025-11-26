@@ -27,54 +27,26 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
   public:
     using Builder = Builder_;
     using bool_ct = stdlib::bool_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
     using BaseField = Fq;
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
-    struct secp256k1_wnaf {
-        std::vector<field_t<Builder>> wnaf;
-        bool_ct positive_skew;
-        bool_ct negative_skew;
-        field_t<Builder> least_significant_wnaf_fragment;
-        bool has_wnaf_fragment = false;
-    };
-    struct secp256k1_wnaf_pair {
-        secp256k1_wnaf klo;
-        secp256k1_wnaf khi;
-    };
 
     element();
     element(const typename NativeGroup::affine_element& input);
-    element(const Fq& x, const Fq& y);
-    element(const Fq& x, const Fq& y, const bool_ct& is_infinity);
+
+    // Construct a biggroup element from its coordinates
+    // By default, we validate that the point is on the curve
+    element(const Fq& x, const Fq& y, const bool assert_on_curve = true);
+    element(const Fq& x, const Fq& y, const bool_ct& is_infinity, bool assert_on_curve = true);
 
     element(const element& other);
     element(element&& other) noexcept;
 
     ~element() = default;
-
-    /**
-     * @brief Construct a dummy element (the group generator) and return its limbs as fr constants
-     *
-     * @return std::array<fr, PUBLIC_INPUTS_SIZE>
-     */
-    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
-    {
-        const typename NativeGroup::affine_element& native_val = NativeGroup::affine_element::one();
-        element val(native_val);
-        size_t idx = 0;
-        std::array<fr, PUBLIC_INPUTS_SIZE> limb_vals;
-        for (auto& limb : val.x.binary_basis_limbs) {
-            limb_vals[idx++] = limb.element.get_value();
-        }
-        for (auto& limb : val.y.binary_basis_limbs) {
-            limb_vals[idx++] = limb.element.get_value();
-        }
-        BB_ASSERT_EQ(idx, PUBLIC_INPUTS_SIZE);
-        return limb_vals;
-    }
 
     /**
      * @brief Set the witness indices for the x and y coordinates to public
@@ -83,8 +55,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     uint32_t set_public() const
     {
-        const uint32_t start_idx = x.set_public();
-        y.set_public();
+        const uint32_t start_idx = _x.set_public();
+        _y.set_public();
 
         return start_idx;
     }
@@ -101,7 +73,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
         std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
 
-        return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
+        const Fq x = Fq::reconstruct_from_public(x_limbs);
+        const Fq y = Fq::reconstruct_from_public(y_limbs);
+        return element(x, y);
     }
 
     /**
@@ -118,13 +92,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         if (input.is_point_at_infinity()) {
             Fq x = Fq::from_witness(ctx, NativeGroup::affine_one.x);
             Fq y = Fq::from_witness(ctx, NativeGroup::affine_one.y);
-            out.x = x;
-            out.y = y;
+            out._x = x;
+            out._y = y;
         } else {
             Fq x = Fq::from_witness(ctx, input.x);
             Fq y = Fq::from_witness(ctx, input.y);
-            out.x = x;
-            out.y = y;
+            out._x = x;
+            out._y = y;
         }
         out.set_point_at_infinity(witness_ct(ctx, input.is_point_at_infinity()));
 
@@ -142,17 +116,20 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         bool has_circuit_failed = get_context()->failed();
 
         Fq b(get_context(), uint256_t(NativeGroup::curve_b));
-        Fq _b = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), b);
-        Fq _x = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), x);
-        Fq _y = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), y);
+        Fq adjusted_b = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), b);
+        Fq adjusted_x = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), _x);
+        Fq adjusted_y = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), _y);
         if constexpr (!NativeGroup::has_a) {
             // we validate y^2 = x^3 + b by setting "fix_remainder_zero = true" when calling mult_madd
-            Fq::mult_madd({ _x.sqr(), _y }, { _x, -_y }, { _b }, true);
+            Fq::mult_madd({ adjusted_x.sqr(), adjusted_y }, { adjusted_x, -adjusted_y }, { adjusted_b }, true);
         } else {
             Fq a(get_context(), uint256_t(NativeGroup::curve_a));
-            Fq _a = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), a);
+            Fq adjusted_a = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), a);
             // we validate y^2 = x^3 + ax + b by setting "fix_remainder_zero = true" when calling mult_madd
-            Fq::mult_madd({ _x.sqr(), _x, _y }, { _x, _a, -_y }, { _b }, true);
+            Fq::mult_madd({ adjusted_x.sqr(), adjusted_x, adjusted_y },
+                          { adjusted_x, adjusted_a, -adjusted_y },
+                          { adjusted_b },
+                          true);
         }
 
         if ((!has_circuit_failed) && (get_context()->failed())) {
@@ -161,13 +138,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         }
     }
 
+    [[nodiscard]] bool is_constant() const
+    {
+        const bool x_is_const = _x.is_constant();
+        const bool y_is_const = _y.is_constant();
+        BB_ASSERT_EQ(x_is_const, y_is_const, "biggroup: x and y coordinate constant status mismatch");
+        return x_is_const;
+    }
+
     /**
      * @brief Creates fixed witnesses from a constant element.
      **/
     void convert_constant_to_fixed_witness(Builder* builder)
     {
-        this->x.convert_constant_to_fixed_witness(builder);
-        this->y.convert_constant_to_fixed_witness(builder);
+        this->_x.convert_constant_to_fixed_witness(builder);
+        this->_y.convert_constant_to_fixed_witness(builder);
         // Origin tags should be unset after fixing the witness
         unset_free_witness_tag();
     }
@@ -178,8 +163,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     void fix_witness()
     {
         // Origin tags should be updated within
-        this->x.fix_witness();
-        this->y.fix_witness();
+        this->_x.fix_witness();
+        this->_y.fix_witness();
 
         // This is now effectively a constant
         unset_free_witness_tag();
@@ -194,7 +179,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         uint256_t y = uint256_t(NativeGroup::one.y);
         Fq x_fq(ctx, x);
         Fq y_fq(ctx, y);
-        return element(x_fq, y_fq);
+        return element(x_fq, y_fq, /*assert_on_curve=*/false);
     }
 
     static element point_at_infinity(Builder* ctx)
@@ -203,26 +188,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         zero.unset_free_witness_tag();
         Fq x_fq(zero, zero);
         Fq y_fq(zero, zero);
-        element result(x_fq, y_fq);
+        element result(x_fq, y_fq, /*assert_on_curve=*/false);
         result.set_point_at_infinity(true);
         return result;
     }
 
     element& operator=(const element& other);
     element& operator=(element&& other) noexcept;
-
-    /**
-     * @brief Serialize the element to a byte array in form: (yhi || ylo || xhi || xlo).
-     *
-     * @return byte_array<Builder>
-     */
-    byte_array<Builder> to_byte_array() const
-    {
-        byte_array<Builder> result(get_context());
-        result.write(y.to_byte_array());
-        result.write(x.to_byte_array());
-        return result;
-    }
 
     element checked_unconditional_add(const element& other) const;
     element checked_unconditional_subtract(const element& other) const;
@@ -232,7 +204,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element operator-() const
     {
         element result(*this);
-        result.y = -result.y;
+        result._y = -result._y;
         return result;
     }
     element operator+=(const element& other)
@@ -245,14 +217,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         *this = *this - other;
         return *this;
     }
-    std::array<element, 2> checked_unconditional_add_sub(const element& other) const;
 
     element operator*(const Fr& scalar) const;
 
     element conditional_negate(const bool_ct& predicate) const
     {
         element result(*this);
-        result.y = result.y.conditional_negate(predicate);
+        result._y = result._y.conditional_negate(predicate);
         return result;
     }
 
@@ -278,8 +249,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         BB_ASSERT_NEQ(ctx, nullptr, "biggroup::conditional_select must have a context");
 
         element result(*this);
-        result.x = result.x.conditional_select(other.x, predicate);
-        result.y = result.y.conditional_select(other.y, predicate);
+        result._x = result._x.conditional_select(other._x, predicate);
+        result._y = result._y.conditional_select(other._y, predicate);
         result._is_infinity =
             bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
         return result;
@@ -299,15 +270,15 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                                  const std::string msg = "biggroup::incomplete_assert_equal") const
     {
         is_point_at_infinity().assert_equal(other.is_point_at_infinity(), msg + " (infinity flag)");
-        x.assert_equal(other.x, msg + " (x coordinate)");
-        y.assert_equal(other.y, msg + " (y coordinate)");
+        _x.assert_equal(other._x, msg + " (x coordinate)");
+        _y.assert_equal(other._y, msg + " (y coordinate)");
     }
 
     element normalize() const
     {
         element result(*this);
-        result.x.reduce_mod_target_modulus();
-        result.y.reduce_mod_target_modulus();
+        result._x.reduce_mod_target_modulus();
+        result._y.reduce_mod_target_modulus();
         return result;
     }
     element scalar_mul(const Fr& scalar, const size_t max_num_bits = 0) const;
@@ -315,9 +286,15 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element reduce() const
     {
         element result(*this);
-        result.x.self_reduce();
-        result.y.self_reduce();
+        result._x.self_reduce();
+        result._y.self_reduce();
         return result;
+    }
+
+    void assert_coordinates_in_field(const std::string& msg = "biggroup::assert_coordinates_in_field") const
+    {
+        _x.assert_is_in_field(msg + " (x coordinate)");
+        _y.assert_is_in_field(msg + " (y coordinate)");
     }
 
     element dbl() const;
@@ -331,13 +308,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         Fq lambda_prev;
         Fq x3_prev;
         Fq y3_prev;
-        bool is_element = false;
+        bool is_full_element = false;
 
         chain_add_accumulator() = default;
         explicit chain_add_accumulator(const element& input)
-            : x3_prev(input.x)
-            , y3_prev(input.y)
-            , is_element(true)
+            : x3_prev(input._x)
+            , y3_prev(input._y)
+            , is_full_element(true)
         {}
         chain_add_accumulator(const chain_add_accumulator& other) = default;
         chain_add_accumulator(chain_add_accumulator&& other) noexcept = default;
@@ -349,18 +326,17 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     /**
      * We can chain repeated point additions together, where we only require 2 non-native field multiplications per
      * point addition, instead of 3
+     * NOTE: These must remain public as they are used by nested structs like batch_lookup_table_plookup
      **/
     static chain_add_accumulator chain_add_start(const element& p1, const element& p2);
     static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator);
     static element chain_add_end(const chain_add_accumulator& accumulator);
-    element montgomery_ladder(const element& other) const;
-    element montgomery_ladder(const chain_add_accumulator& to_add);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
 
     typename NativeGroup::affine_element get_value() const
     {
-        uint512_t x_val = x.get_value() % Fq::modulus_u512;
-        uint512_t y_val = y.get_value() % Fq::modulus_u512;
+        uint512_t x_val = _x.get_value() % Fq::modulus_u512;
+        uint512_t y_val = _y.get_value() % Fq::modulus_u512;
         auto result = typename NativeGroup::affine_element(x_val.lo, y_val.lo);
         if (is_point_at_infinity().get_value()) {
             result.self_set_infinity();
@@ -368,52 +344,53 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
-    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
-                                                                        const std::vector<Fr>& _scalars);
-
-    static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
-        const std::vector<element>& _points, const std::vector<Fr>& _scalars);
-
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
-                             const bool with_edgecases = false);
+                             const bool with_edgecases = false,
+                             const Fr& masking_scalar = Fr(1));
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
 
+    /**
+     * @brief Compute Non-Adjacent Form (NAF) representation of a scalar
+     * @details Only used internally in biggroup_nafs.hpp
+     */
     static std::vector<bool_ct> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
 
+    // Internal struct to represent wNAF for a secp256k1 scalar
+    struct secp256k1_wnaf {
+        std::vector<field_t<Builder>> wnaf;
+        bool_ct positive_skew;
+        bool_ct negative_skew;
+        field_t<Builder> least_significant_wnaf_fragment;
+        bool has_wnaf_fragment = false;
+    };
+
+    // Internal struct to represent a pair of secp256k1 wNAFs
+    struct secp256k1_wnaf_pair {
+        secp256k1_wnaf klo;
+        secp256k1_wnaf khi;
+    };
+
+    /**
+     * @brief Compute endomorphism for a secp256k1 scalar, and then compute the wNAF representation of both halves
+     * @details Only used internally in biggroup_nafs.hpp and biggroup_secp256k1.hpp
+     */
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
     static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
-    Builder* get_context() const
-    {
-        if (x.context != nullptr) {
-            return x.context;
-        }
-        if (y.context != nullptr) {
-            return y.context;
-        }
-        return nullptr;
-    }
+    Builder* get_context() const { return validate_context<Builder>(_x.get_context(), _y.get_context()); }
 
     Builder* get_context(const element& other) const
     {
-        if (x.context != nullptr) {
-            return x.context;
-        }
-        if (y.context != nullptr) {
-            return y.context;
-        }
-        if (other.x.context != nullptr) {
-            return other.x.context;
-        }
-        if (other.y.context != nullptr) {
-            return other.y.context;
-        }
-        return nullptr;
+        return validate_context<Builder>(get_context(), other.get_context());
     }
+
+    // Coordinate accessors (non-owning, const reference)
+    const Fq& x() const { return _x; }
+    const Fq& y() const { return _y; }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
@@ -427,14 +404,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     void set_origin_tag(OriginTag tag) const
     {
-        x.set_origin_tag(tag);
-        y.set_origin_tag(tag);
+        _x.set_origin_tag(tag);
+        _y.set_origin_tag(tag);
         _is_infinity.set_origin_tag(tag);
+    }
+
+    void clear_round_provenance() const
+    {
+        _x.clear_round_provenance();
+        _y.clear_round_provenance();
+        _is_infinity.clear_round_provenance();
     }
 
     OriginTag get_origin_tag() const
     {
-        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+        return OriginTag(_x.get_origin_tag(), _y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
     /**
@@ -442,8 +426,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     void unset_free_witness_tag()
     {
-        x.unset_free_witness_tag();
-        y.unset_free_witness_tag();
+        _x.unset_free_witness_tag();
+        _y.unset_free_witness_tag();
         _is_infinity.unset_free_witness_tag();
     }
 
@@ -452,19 +436,48 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     void set_free_witness_tag()
     {
-        x.set_free_witness_tag();
-        y.set_free_witness_tag();
+        _x.set_free_witness_tag();
+        _y.set_free_witness_tag();
         _is_infinity.set_free_witness_tag();
     }
-
-    Fq x;
-    Fq y;
 
     // For testing purposes only
     friend class element_test_accessor;
 
   private:
+    Fq _x;
+    Fq _y;
     bool_ct _is_infinity;
+
+    /**
+     * @brief Compute both add and subtract (a + b, a - b) results simultaneously
+     * @details Only used internally for lookup table generation
+     */
+    std::array<element, 2> checked_unconditional_add_sub(const element& other) const;
+
+    /**
+     * @brief Mask points for batch multiplication to handle edge cases
+     * @param _points The points to be masked
+     * @param _scalars The corresponding scalars
+     * @param masking_scalar The masking scalar used to randomise the points
+     * @return A pair of vectors containing the masked points and scalars
+     *
+     * @details Only used internally in biggroup_edgecase_handling.hpp
+     */
+    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
+                                                                        const std::vector<Fr>& _scalars,
+                                                                        const Fr& masking_scalar);
+
+    /**
+     * @brief Handle points at infinity in batch operations, replaces (∞, scalar) pairs by (G, 0)
+     * @param _points The input points
+     * @param _scalars The corresponding scalars
+     * @return A pair of vectors containing the processed points and scalars
+     *
+     * @details Only used internally in biggroup_edgecase_handling.hpp
+     */
+    static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
+        const std::vector<element>& _points, const std::vector<Fr>& _scalars);
 
     /**
      * @brief Compute the wNAF representation (in circuit) of a scalar for secp256k1
@@ -510,18 +523,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @param wnaf_values
      * @param is_negative
      * @param rounds
-     * @return std::vector<field_t<Builder>>
+     * @return std::vector<field_ct>
      *
      * @details For 4-bit window, each wNAF value is in the range [-15, 15]. We convert these to the range [0, 30] by
      * adding 15 if `is_negative = false` and by subtracting from 15 if `is_negative = true`. This ensures that all
      * values are non-negative, which is required for the ROM table lookup.
      */
     template <size_t wnaf_size>
-    static std::vector<field_t<Builder>> convert_wnaf_values_to_witnesses(Builder* builder,
-                                                                          const uint64_t* wnaf_values,
-                                                                          bool is_negative,
-                                                                          size_t rounds,
-                                                                          const bool range_constrain_wnaf = true);
+    static std::vector<field_ct> convert_wnaf_values_to_witnesses(Builder* builder,
+                                                                  const uint64_t* wnaf_values,
+                                                                  bool is_negative,
+                                                                  size_t rounds,
+                                                                  const bool range_constrain_wnaf = true);
 
     /**
      * @brief Reconstruct a scalar from its wNAF representation in circuit
@@ -536,10 +549,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     template <size_t wnaf_size>
     static Fr reconstruct_bigfield_from_wnaf(Builder* builder,
-                                             const std::vector<field_t<Builder>>& wnaf,
+                                             const std::vector<field_ct>& wnaf,
                                              const bool_ct& positive_skew,
                                              const bool_ct& negative_skew,
-                                             const field_t<Builder>& stagger_fragment,
+                                             const field_ct& stagger_fragment,
                                              const size_t stagger,
                                              const size_t rounds);
 
@@ -549,7 +562,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     template <size_t num_elements>
     static element read_group_element_rom_tables(const std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1>& tables,
-                                                 const field_t<Builder>& index,
+                                                 const field_ct& index,
                                                  const std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max);
 
     static std::pair<element, element> compute_offset_generators(const size_t num_rounds);
@@ -570,7 +583,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         four_bit_table_plookup& operator=(four_bit_table_plookup&& other) noexcept = default;
         ~four_bit_table_plookup() = default;
 
-        element operator[](const field_t<Builder>& index) const;
+        element operator[](const field_ct& index) const;
         element operator[](const size_t idx) const { return element_table[idx]; }
         std::array<element, 16> element_table;
 
@@ -598,7 +611,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         eight_bit_fixed_base_table& operator=(eight_bit_fixed_base_table&& other) noexcept = default;
         ~eight_bit_fixed_base_table() = default;
 
-        element operator[](const field_t<Builder>& index) const;
+        element operator[](const field_ct& index) const;
 
         element operator[](const size_t index) const;
 
@@ -760,35 +773,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             }
         }
 
-        element get_initial_entry() const
-        {
-            std::vector<element> add_accumulator;
-            for (size_t i = 0; i < num_sixes; ++i) {
-                add_accumulator.push_back(six_tables[i][0]);
-            }
-            for (size_t i = 0; i < num_fives; ++i) {
-                add_accumulator.push_back(five_tables[i][0]);
-            }
-            if (has_quad) {
-                add_accumulator.push_back(quad_tables[0][0]);
-            }
-            if (has_twin) {
-                add_accumulator.push_back(twin_tables[0][0]);
-            }
-            if (has_triple) {
-                add_accumulator.push_back(triple_tables[0][0]);
-            }
-            if (has_singleton) {
-                add_accumulator.push_back(singletons[0]);
-            }
-
-            element accumulator = add_accumulator[0];
-            for (size_t i = 1; i < add_accumulator.size(); ++i) {
-                accumulator = accumulator + add_accumulator[i];
-            }
-            return accumulator;
-        }
-
         chain_add_accumulator get_chain_initial_entry() const
         {
             std::vector<element> add_accumulator;
@@ -858,7 +842,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                 round_accumulator.push_back(singletons[0].conditional_negate(naf_entries[num_points - 1]));
             }
 
-            element::chain_add_accumulator accumulator;
             if (round_accumulator.size() == 1) {
                 return element::chain_add_accumulator(round_accumulator[0]);
             }
@@ -868,7 +851,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             }
 
             // Use chain add for at least 3 elements
-            accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            element::chain_add_accumulator accumulator =
+                element::chain_add_start(round_accumulator[0], round_accumulator[1]);
             for (size_t j = 2; j < round_accumulator.size(); ++j) {
                 accumulator = element::chain_add(round_accumulator[j], accumulator);
             }
@@ -950,6 +934,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     };
 
     using batch_lookup_table = batch_lookup_table_plookup;
+
+    static element process_strauss_msm_rounds(const std::vector<element>& points,
+                                              const std::vector<Fr>& scalars,
+                                              const size_t max_num_bits);
 };
 
 // For testing purposes only
@@ -964,12 +952,26 @@ class element_test_accessor {
         return element<C, Fq, Fr, G>::template get_staggered_wnaf_fragment_value<wnaf_size>(
             fragment_u64, stagger, is_negative, wnaf_skew);
     }
+
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto checked_unconditional_add_sub(const element<C, Fq, Fr, G>& elem1, const element<C, Fq, Fr, G>& elem2)
+    {
+        return elem1.checked_unconditional_add_sub(elem2);
+    }
+
+    // Overload for goblin_element
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto checked_unconditional_add_sub(const element_goblin::goblin_element<C, Fq, Fr, G>& elem1,
+                                              const element_goblin::goblin_element<C, Fq, Fr, G>& elem2)
+    {
+        return elem1.checked_unconditional_add_sub(elem2);
+    }
 };
 
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, element<C, Fq, Fr, G> const& v)
 {
-    return os << "{ " << v.x << " , " << v.y << " }";
+    return os << "{ " << v.x() << " , " << v.y() << " }";
 }
 } // namespace bb::stdlib::element_default
 

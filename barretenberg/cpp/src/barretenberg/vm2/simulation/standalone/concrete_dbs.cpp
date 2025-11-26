@@ -18,6 +18,22 @@ std::optional<ContractClass> PureContractDB::get_contract_class(const ContractCl
     return raw_contract_db.get_contract_class(class_id);
 }
 
+std::optional<FF> PureContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+{
+    return raw_contract_db.get_bytecode_commitment(class_id);
+}
+
+std::optional<std::string> PureContractDB::get_debug_function_name(const AztecAddress& address,
+                                                                   const FunctionSelector& selector) const
+{
+    return raw_contract_db.get_debug_function_name(address, selector);
+}
+
+void PureContractDB::add_contracts(const ContractDeploymentData& contract_deployment_data)
+{
+    raw_contract_db.add_contracts(contract_deployment_data);
+}
+
 // Merkle DB starts.
 TreeStates PureMerkleDB::get_tree_state() const
 {
@@ -25,11 +41,11 @@ TreeStates PureMerkleDB::get_tree_state() const
     TreeSnapshots tree_snapshots = raw_merkle_db.get_tree_roots();
     TreeCounters tree_counters = tree_counters_stack.top();
     return {
-        .noteHashTree = { .tree = tree_snapshots.noteHashTree, .counter = tree_counters.note_hash_counter },
-        .nullifierTree = { .tree = tree_snapshots.nullifierTree, .counter = tree_counters.nullifier_counter },
-        .l1ToL2MessageTree = { .tree = tree_snapshots.l1ToL2MessageTree,
-                               .counter = tree_counters.l2_to_l1_msg_counter },
-        .publicDataTree = { .tree = tree_snapshots.publicDataTree, .counter = written_public_data_slots.size() },
+        .note_hash_tree = { .tree = tree_snapshots.note_hash_tree, .counter = tree_counters.note_hash_counter },
+        .nullifier_tree = { .tree = tree_snapshots.nullifier_tree, .counter = tree_counters.nullifier_counter },
+        .l1_to_l2_message_tree = { .tree = tree_snapshots.l1_to_l2_message_tree,
+                                   .counter = tree_counters.l2_to_l1_msg_counter },
+        .public_data_tree = { .tree = tree_snapshots.public_data_tree, .counter = written_public_data_slots.size() },
     };
 }
 

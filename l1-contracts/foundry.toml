@@ -30,7 +30,7 @@ gas_reports = [
   "RollupWithPreheating",
   "EmpireSlashingProposer",
   "TallySlashingProposer",
-  "MultiAdder"
+  "MultiAdder",
 ]
 
 remappings = [
@@ -39,18 +39,19 @@ remappings = [
   "@test/=test",
   "@zkpassport/=lib/circuits/src/solidity/src/",
   "@zkpassport-test/=lib/circuits/src/solidity/test",
+  "@aztec-blob-lib/=src/mock/libraries",
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
 fs_permissions = [
   { access = "read", path = "./test/fixtures/bn254_constants.json" },
-  { access = "read", path = "./test/fixtures/mixed_block_1.json" },
-  { access = "read", path = "./test/fixtures/mixed_block_2.json" },
-  { access = "read", path = "./test/fixtures/single_tx_block_1.json" },
-  { access = "read", path = "./test/fixtures/single_tx_block_2.json" },
-  { access = "read", path = "./test/fixtures/empty_block_1.json" },
-  { access = "read", path = "./test/fixtures/empty_block_2.json" },
+  { access = "read", path = "./test/fixtures/mixed_checkpoint_1.json" },
+  { access = "read", path = "./test/fixtures/mixed_checkpoint_2.json" },
+  { access = "read", path = "./test/fixtures/single_tx_checkpoint_1.json" },
+  { access = "read", path = "./test/fixtures/single_tx_checkpoint_2.json" },
+  { access = "read", path = "./test/fixtures/empty_checkpoint_1.json" },
+  { access = "read", path = "./test/fixtures/empty_checkpoint_2.json" },
   { access = "read", path = "./test/fixtures/fee_data_points.json" },
   { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_proof.hex" },
   { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_committed_inputs.hex" },
@@ -73,7 +74,7 @@ override_spacing = false
 [lint]
 ignore = ["./lib/**"]
 exclude_lints = [
-  "unused-import", # Mostly in test code
+  "unused-import",   # Mostly in test code
   "incorrect-shift", # Throws warnings on construction of bitmasks
 
   "asm-keccak256", # https://github.com/AztecProtocol/aztec-packages/issues/16808
@@ -87,3 +88,14 @@ exclude_lints = [
 
 [rpc_endpoints]
 mainnet_fork = "https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"
+
+
+[profile.production]
+remappings = [
+  "@oz/=lib/openzeppelin-contracts/contracts/",
+  "@aztec/=src",
+  "@test/=test",
+  "@zkpassport/=lib/circuits/src/solidity/src/",
+  "@zkpassport-test/=lib/circuits/src/solidity/test",
+  "@aztec-blob-lib/=src/core/libraries/rollup/",
+]

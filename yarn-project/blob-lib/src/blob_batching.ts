@@ -1,11 +1,11 @@
-import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK } from '@aztec/constants';
+import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT } from '@aztec/constants';
 import { poseidon2Hash, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
 import { Blob } from './blob.js';
-import { computeBlobFieldsHashFromBlobs } from './blob_utils.js';
+import { getBlobsPerL1Block } from './blob_utils.js';
 import { BlobAccumulator, FinalBlobAccumulator, FinalBlobBatchingChallenges } from './circuit_types/index.js';
-import { computeEthVersionedBlobHash, hashNoirBigNumLimbs } from './hash.js';
+import { computeBlobFieldsHash, computeEthVersionedBlobHash, hashNoirBigNumLimbs } from './hash.js';
 import { kzg } from './kzg_context.js';
 
 /**
@@ -32,18 +32,19 @@ export class BatchedBlob {
    *
    * @returns A batched blob.
    */
-  static async batch(blobs: Blob[][]): Promise<BatchedBlob> {
-    if (blobs.length > AZTEC_MAX_EPOCH_DURATION) {
+  static async batch(blobFieldsPerCheckpoint: Fr[][]): Promise<BatchedBlob> {
+    const numCheckpoints = blobFieldsPerCheckpoint.length;
+    if (numCheckpoints > AZTEC_MAX_EPOCH_DURATION) {
       throw new Error(
-        `Too many blocks sent to batch(). The maximum is ${AZTEC_MAX_EPOCH_DURATION}. Got ${blobs.length}.`,
+        `Too many checkpoints sent to batch(). The maximum is ${AZTEC_MAX_EPOCH_DURATION}. Got ${numCheckpoints}.`,
       );
     }
 
     // Precalculate the values (z and gamma) and initialize the accumulator:
-    let acc = await this.newAccumulator(blobs);
+    let acc = await this.newAccumulator(blobFieldsPerCheckpoint);
     // Now we can create a multi opening proof of all input blobs:
-    for (const blockBlobs of blobs) {
-      acc = await acc.accumulateBlobs(blockBlobs);
+    for (const blobFields of blobFieldsPerCheckpoint) {
+      acc = await acc.accumulateFields(blobFields);
     }
     return await acc.finalize();
   }
@@ -53,8 +54,8 @@ export class BatchedBlob {
    * @dev MUST input all blobs to be broadcast. Does not work in multiple calls because z and gamma are calculated
    *      beforehand from ALL blobs.
    */
-  static async newAccumulator(blobs: Blob[][]): Promise<BatchedBlobAccumulator> {
-    const finalBlobChallenges = await this.precomputeBatchedBlobChallenges(blobs);
+  static async newAccumulator(blobFieldsPerCheckpoint: Fr[][]): Promise<BatchedBlobAccumulator> {
+    const finalBlobChallenges = await this.precomputeBatchedBlobChallenges(blobFieldsPerCheckpoint);
     return BatchedBlobAccumulator.newWithChallenges(finalBlobChallenges);
   }
 
@@ -70,13 +71,15 @@ export class BatchedBlob {
    * @param blobs - The blobs to precompute the challenges for. Each sub-array is the blobs for an L1 block.
    * @returns Challenges z and gamma.
    */
-  static async precomputeBatchedBlobChallenges(blobs: Blob[][]): Promise<FinalBlobBatchingChallenges> {
+  static async precomputeBatchedBlobChallenges(blobFieldsPerCheckpoint: Fr[][]): Promise<FinalBlobBatchingChallenges> {
     // Compute the final challenge z to evaluate the blobs.
     let z: Fr | undefined;
-    for (const blockBlobs of blobs) {
+    const allBlobs = [];
+    for (const blobFields of blobFieldsPerCheckpoint) {
       // Compute the hash of all the fields in the block.
-      const blobFieldsHash = await computeBlobFieldsHashFromBlobs(blockBlobs);
-      for (const blob of blockBlobs) {
+      const blobFieldsHash = await computeBlobFieldsHash(blobFields);
+      const blobs = getBlobsPerL1Block(blobFields);
+      for (const blob of blobs) {
         // Compute the challenge z for each blob and accumulate it.
         const challengeZ = await blob.computeChallengeZ(blobFieldsHash);
         if (!z) {
@@ -85,13 +88,13 @@ export class BatchedBlob {
           z = await poseidon2Hash([z, challengeZ]);
         }
       }
+      allBlobs.push(...blobs);
     }
     if (!z) {
       throw new Error('No blobs to precompute challenges for.');
     }
 
     // Now we have a shared challenge for all blobs, evaluate them...
-    const allBlobs = blobs.flat();
     const proofObjects = allBlobs.map(b => b.evaluate(z));
     const evaluations = await Promise.all(proofObjects.map(({ y }) => hashNoirBigNumLimbs(y)));
     // ...and find the challenge for the linear combination of blobs.
@@ -190,7 +193,7 @@ export class BatchedBlobAccumulator {
    * We assume the input blob has not been evaluated at z.
    * @returns An updated blob accumulator.
    */
-  private async accumulate(blob: Blob, blobFieldsHash: Fr) {
+  async accumulateBlob(blob: Blob, blobFieldsHash: Fr) {
     const { proof, y: thisY } = blob.evaluate(this.finalBlobChallenges.z);
     const thisC = BLS12Point.decompress(blob.commitment);
     const thisQ = BLS12Point.decompress(proof);
@@ -234,23 +237,25 @@ export class BatchedBlobAccumulator {
   /**
    * Given blobs, accumulate all state.
    * We assume the input blobs have not been evaluated at z.
-   * @param blobs - The blobs to accumulate. They should be in the same L1 block.
+   * @param blobFields - The blob fields of a checkpoint to accumulate.
    * @returns An updated blob accumulator.
    */
-  async accumulateBlobs(blobs: Blob[]) {
-    if (blobs.length > BLOBS_PER_BLOCK) {
+  async accumulateFields(blobFields: Fr[]) {
+    const blobs = getBlobsPerL1Block(blobFields);
+
+    if (blobs.length > BLOBS_PER_CHECKPOINT) {
       throw new Error(
-        `Too many blobs to accumulate. The maximum is ${BLOBS_PER_BLOCK} per block. Got ${blobs.length}.`,
+        `Too many blobs to accumulate. The maximum is ${BLOBS_PER_CHECKPOINT} per checkpoint. Got ${blobs.length}.`,
       );
     }
 
     // Compute the hash of all the fields in the block.
-    const blobFieldsHash = await computeBlobFieldsHashFromBlobs(blobs);
+    const blobFieldsHash = await computeBlobFieldsHash(blobFields);
 
     // Initialize the acc to iterate over:
     let acc: BatchedBlobAccumulator = this.clone();
     for (const blob of blobs) {
-      acc = await acc.accumulate(blob, blobFieldsHash);
+      acc = await acc.accumulateBlob(blob, blobFieldsHash);
     }
     return acc;
   }

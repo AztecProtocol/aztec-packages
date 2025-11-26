@@ -139,7 +139,7 @@ impl<K, V, Context> Map<K, V, Context> {
     ///
     /// ```noir
     /// // Get a user's balance (assuming PrivateMutable<ValueNote>)
-    /// let user_balance = storage.balances.at(user_address);
+    /// let user_balance = self.storage.balances.at(user_address);
     /// let current_note = user_balance.get_note();
     ///
     /// // Update the balance

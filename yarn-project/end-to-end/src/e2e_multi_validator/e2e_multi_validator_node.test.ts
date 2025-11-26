@@ -163,7 +163,9 @@ describe('e2e_multi_validator_node', () => {
       validatorAddresses[VALIDATOR_COUNT - 2],
     ]);
 
-    await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1));
+    await cheatCodes.rollup.advanceToEpoch(
+      (await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochsForValidatorSet + 1),
+    );
 
     // check that the committee is undefined
     const committee = await rollup.getCurrentEpochCommittee();

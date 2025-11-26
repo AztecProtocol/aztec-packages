@@ -5,6 +5,10 @@ pub(crate) comptime fn is_fn_external(f: FunctionDefinition) -> bool {
     f.has_named_attribute("external")
 }
 
+pub(crate) comptime fn is_fn_internal(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("internal")
+}
+
 pub(crate) comptime fn is_fn_contract_library_method(f: FunctionDefinition) -> bool {
     f.has_named_attribute("contract_library_method")
 }
@@ -17,8 +21,8 @@ pub(crate) comptime fn is_fn_view(f: FunctionDefinition) -> bool {
     f.has_named_attribute("view")
 }
 
-pub(crate) comptime fn is_fn_internal(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("internal")
+pub(crate) comptime fn is_fn_only_self(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("only_self")
 }
 
 pub(crate) comptime fn is_fn_initializer(f: FunctionDefinition) -> bool {
@@ -29,29 +33,12 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
     f.has_named_attribute("noinitcheck")
 }
 
-pub(crate) comptime fn fn_has_authorize_once(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("authorize_once")
+pub(crate) comptime fn fn_has_nophasecheck(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("nophasecheck")
 }
 
-/// Takes a function body as a collection of expressions, and alters it by prepending and appending quoted values.
-pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
-    // We need to quote the body before we can alter its contents, so we fold it by quoting each expression.
-    let mut body_quote = body.fold(quote {}, |full_quote: Quoted, expr: Expr| {
-        let expr_quote = expr.quoted();
-        quote {
-                $full_quote
-                $expr_quote
-            }
-    });
-    body_quote = quote {
-        {
-            $prepend
-            $body_quote
-            $append
-        }
-    };
-    let body_expr = body_quote.as_expr();
-    body_expr.expect(f"Body is not an expression: {body_quote}")
+pub(crate) comptime fn fn_has_authorize_once(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("authorize_once")
 }
 
 comptime fn signature_of_type(typ: Type) -> Quoted {

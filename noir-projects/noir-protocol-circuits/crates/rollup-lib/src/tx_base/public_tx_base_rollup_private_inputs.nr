@@ -5,8 +5,9 @@ use crate::{
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        avm_circuit_public_inputs::AvmCircuitPublicInputs, sponge_blob::SpongeBlob,
+        avm_circuit_public_inputs::AvmCircuitPublicInputs,
     },
+    blob_data::SpongeBlob,
     constants::{ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
     proof::proof_data::{AvmV2ProofData, RollupHonkProofData},
 };

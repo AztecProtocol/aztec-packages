@@ -19,11 +19,11 @@ import { ethPrivateKeySchema } from './schemas.js';
 import { LocalSigner, RemoteSigner } from './signer.js';
 import type {
   AttesterAccounts,
+  EncryptedKeyFileConfig,
   EthAccount,
   EthAccounts,
   EthRemoteSignerAccount,
   EthRemoteSignerConfig,
-  JsonKeyFileV3Config,
   KeyStore,
   MnemonicConfig,
   ProverKeyStore,
@@ -465,7 +465,7 @@ export class KeystoreManager {
   /**
    * Create signer from JSON V3 keystore file or directory
    */
-  private createSignerFromJsonV3(config: JsonKeyFileV3Config): EthSigner[] {
+  private createSignerFromJsonV3(config: EncryptedKeyFileConfig): EthSigner[] {
     try {
       const stats = statSync(config.path);
 

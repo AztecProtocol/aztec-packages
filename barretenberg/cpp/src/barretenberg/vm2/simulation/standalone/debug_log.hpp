@@ -15,6 +15,8 @@ class NoopDebugLogger : public DebugLoggerInterface {
                    MemoryAddress /*fields_offset*/,
                    MemoryAddress /*fields_size_offset*/) override
     {}
+
+    std::vector<DebugLog> dump_logs() override { return {}; }
 };
 
 using LogFn = std::function<void(const std::string&)>;
@@ -35,7 +37,7 @@ class DebugLogger : public DebugLoggerInterface {
                    MemoryAddress fields_offset,
                    MemoryAddress fields_size_offset) override;
 
-    std::vector<DebugLog> dump_logs() { return std::move(debug_logs); }
+    std::vector<DebugLog> dump_logs() override { return std::move(debug_logs); }
 
   private:
     bool isLevelEnabled(DebugLogLevel level) const;

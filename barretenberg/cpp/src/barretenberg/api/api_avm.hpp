@@ -44,4 +44,14 @@ bool avm_verify(const std::filesystem::path& proof_path,
 // FIXME(fcarreiro): The inputs should not need to be the PROVING inputs.
 void avm_simulate(const std::filesystem::path& inputs_path);
 
+/**
+ * @brief Writes an avm (incomplete) verification key to a file.
+ *
+ * Communication:
+ * - Filesystem: The vk is written to the path output_path/vk
+ *
+ * @param output_path Path (directory) to write the output verification key
+ */
+void avm_write_verification_key(const std::filesystem::path& output_path);
+
 } // namespace bb

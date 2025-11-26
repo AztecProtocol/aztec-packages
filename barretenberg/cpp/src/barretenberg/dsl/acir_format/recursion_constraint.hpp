@@ -17,7 +17,7 @@ namespace acir_format {
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, PG_FINAL, PG_TAIL, CHONK };
+enum PROOF_TYPE { PLONK, HONK, OINK, HN, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, HN_FINAL, HN_TAIL, CHONK };
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof!

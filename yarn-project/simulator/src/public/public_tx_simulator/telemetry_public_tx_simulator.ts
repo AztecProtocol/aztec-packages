@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/fields';
+import type { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { type GlobalVariables, PublicCallRequestWithCalldata, TxExecutionPhase } from '@aztec/stdlib/tx';
@@ -10,7 +11,6 @@ import type { PublicContractsDB } from '../public_db_sources.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { MeasuredPublicTxSimulator } from './measured_public_tx_simulator.js';
 import { PublicTxContext } from './public_tx_context.js';
-import type { PublicTxSimulatorConfig } from './public_tx_simulator.js';
 
 /**
  * A public tx simulator that tracks runtime/production metrics with telemetry.
@@ -24,7 +24,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     telemetryClient: TelemetryClient = getTelemetryClient(),
-    config?: Partial<PublicTxSimulatorConfig>,
+    config?: Partial<PublicSimulatorConfig>,
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
     super(merkleTree, contractsDB, globalVariables, metrics, config);

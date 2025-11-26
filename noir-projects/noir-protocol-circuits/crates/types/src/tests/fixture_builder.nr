@@ -6,7 +6,6 @@ use crate::{
                 PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths,
             },
             PrivateAccumulatedData,
-            PrivateAccumulatedDataBuilder,
             PrivateToPublicAccumulatedData,
             PrivateToRollupAccumulatedData,
         },
@@ -70,6 +69,7 @@ use crate::{
     hash::{
         compute_contract_class_log_hash, compute_siloed_note_hash, compute_siloed_nullifier,
         compute_siloed_private_log_field, compute_unique_siloed_note_hash,
+        create_protocol_nullifier,
     },
     merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -127,6 +127,7 @@ pub struct FixtureBuilder {
     pub is_static_call: bool,
     pub is_private_only: bool,
     pub claimed_first_nullifier: Field,
+    pub claimed_revertible_counter: u32,
     pub include_by_timestamp: u64,
 
     // Fees.
@@ -162,7 +163,6 @@ pub struct FixtureBuilder {
     pub note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: BoundedVec<Scoped<KeyValidationRequestAndGenerator>, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
-    pub validation_requests_split_counter: Option<u32>,
 
     // Function.
     pub function_data: FunctionData,
@@ -204,6 +204,8 @@ pub struct FixtureBuilder {
     pub min_revertible_side_effect_counter: u32,
     pub counter_start: u32,
     pub counter: u32,
+    pub expected_non_revertible_side_effect_counter: u32,
+    pub expected_revertible_side_effect_counter: u32,
 
     // States.
     pub start_state: PartialStateReference,
@@ -214,7 +216,7 @@ pub struct FixtureBuilder {
 
 impl FixtureBuilder {
     pub fn new() -> Self {
-        FixtureBuilder::new_from_counter(0)
+        FixtureBuilder::new_from_counter(2)
     }
 
     pub fn new_from_counter(counter_start: u32) -> Self {
@@ -369,11 +371,11 @@ impl FixtureBuilder {
             is_fee_payer: self.is_fee_payer,
             include_by_timestamp: self.include_by_timestamp,
             note_hash_read_requests: ClaimedLengthArray {
-                array: subarray(self.note_hash_read_requests.storage().map(|r| r.inner)),
+                array: subarray(self.note_hash_read_requests.storage()),
                 length: self.note_hash_read_requests.len(),
             },
             nullifier_read_requests: ClaimedLengthArray {
-                array: subarray(self.nullifier_read_requests.storage().map(|r| r.inner)),
+                array: subarray(self.nullifier_read_requests.storage()),
                 length: self.nullifier_read_requests.len(),
             },
             key_validation_requests_and_generators: ClaimedLengthArray {
@@ -409,6 +411,9 @@ impl FixtureBuilder {
             },
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
+            expected_non_revertible_side_effect_counter: self
+                .expected_non_revertible_side_effect_counter,
+            expected_revertible_side_effect_counter: self.expected_revertible_side_effect_counter,
             private_logs: ClaimedLengthArray {
                 array: subarray(self.private_logs.storage().map(|l| l.inner)),
                 length: self.private_logs.len(),
@@ -521,8 +526,8 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_private_accumulated_data_builder(self) -> PrivateAccumulatedDataBuilder {
-        PrivateAccumulatedDataBuilder {
+    pub fn to_private_accumulated_data(self) -> PrivateAccumulatedData {
+        PrivateAccumulatedData {
             note_hashes: claimed_length_array_from_bounded_vec(self.note_hashes),
             nullifiers: claimed_length_array_from_bounded_vec(self.nullifiers),
             l2_to_l1_msgs: claimed_length_array_from_bounded_vec(self.l2_to_l1_msgs),
@@ -535,10 +540,6 @@ impl FixtureBuilder {
                 self.private_call_requests,
             )),
         }
-    }
-
-    pub fn to_private_accumulated_data(self) -> PrivateAccumulatedData {
-        self.to_private_accumulated_data_builder().finish()
     }
 
     pub fn to_public_call_request(self) -> PublicCallRequest {
@@ -600,7 +601,6 @@ impl FixtureBuilder {
             scoped_key_validation_requests_and_generators: claimed_length_array_from_bounded_vec(
                 self.scoped_key_validation_requests_and_generators,
             ),
-            split_counter: self.validation_requests_split_counter,
         }
     }
 
@@ -620,6 +620,7 @@ impl FixtureBuilder {
             include_by_timestamp: self.include_by_timestamp,
             is_private_only: self.is_private_only,
             claimed_first_nullifier: self.claimed_first_nullifier,
+            claimed_revertible_counter: self.claimed_revertible_counter,
         }
     }
 
@@ -827,11 +828,10 @@ impl FixtureBuilder {
 
     pub fn set_protocol_nullifier(&mut self) {
         assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
-        let value = self.mock_nullifier_value(0);
-        let first_nullifier =
-            Nullifier { value, note_hash: 0 }.count(0).scope(AztecAddress::zero());
-        self.nullifiers.push(first_nullifier);
-        self.claimed_first_nullifier = value;
+        let tx_request = self.build_tx_request();
+        let protocol_nullifier = create_protocol_nullifier(tx_request);
+        self.nullifiers.push(protocol_nullifier);
+        self.claimed_first_nullifier = protocol_nullifier.innermost().value;
     }
 
     pub fn add_nullifier(&mut self, value: Field) {
@@ -908,24 +908,26 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_note_hash_read_request(&mut self, value: Field) -> u32 {
+    pub fn add_settled_note_hash_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
-        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
+        let read_request = Counted::new(value, self.next_counter()).scope(AztecAddress::zero());
         self.note_hash_read_requests.push(read_request);
         read_request_index
     }
 
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
         let value = self.mock_note_hash_value(note_hash_index);
-        self.add_note_hash_read_request(value)
+        let read_request_index = self.note_hash_read_requests.len();
+        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
+        self.note_hash_read_requests.push(read_request);
+        read_request_index
     }
 
     pub fn append_note_hash_read_requests(&mut self, num_reads: u32) {
         let index_offset = self.note_hash_read_requests.len();
         for i in 0..self.note_hash_read_requests.max_len() {
             if i < num_reads {
-                let value = self.mock_note_hash_read_value(index_offset + i);
-                let _ = self.add_note_hash_read_request(value);
+                let _ = self.add_read_request_for_pending_note_hash(index_offset + i);
             }
         }
     }
@@ -1043,22 +1045,27 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_siloed_private_logs_for_note_with_lengths<let NumLogs: u32>(
+    pub fn append_siloed_private_logs(&mut self, num_logs: u32) {
+        self.append_siloed_private_logs_for_note(num_logs, 0 /* note_hash_counter */);
+    }
+
+    pub fn append_siloed_private_logs_with_lengths<let NumLogs: u32>(
         &mut self,
         lengths: [u32; NumLogs],
-        note_hash_counter: u32,
     ) {
         let index_offset = self.private_logs.len();
         for i in 0..lengths.len() {
             let length = lengths[i];
             let mut fields = self.mock_private_log_fields_with_length(index_offset + i, length);
             fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
-            self.add_siloed_private_log(fields, length, note_hash_counter);
+            self.add_siloed_private_log(fields, length, 0);
         }
     }
 
-    pub fn append_siloed_private_logs(&mut self, num_logs: u32) {
-        self.append_siloed_private_logs_for_note(num_logs, 0 /* note_hash_counter */);
+    pub fn append_siloed_private_logs_with_length<let LogFieldsLen: u32>(&mut self, num_logs: u32) {
+        for _i in 0..num_logs {
+            self.append_siloed_private_logs_with_lengths([LogFieldsLen]);
+        }
     }
 
     pub fn append_padded_private_logs(&mut self, num_logs: u32) {
@@ -1203,6 +1210,7 @@ impl FixtureBuilder {
 
     pub fn end_setup(&mut self) {
         self.min_revertible_side_effect_counter = self.counter;
+        self.claimed_revertible_counter = self.counter;
     }
 
     fn get_split_side_effects<T, let N: u32>(
@@ -1210,16 +1218,7 @@ impl FixtureBuilder {
         array: BoundedVec<Counted<T>, N>,
         revertible: bool,
     ) -> [T; N] {
-        let mut requests = BoundedVec::new();
-        for i in 0..array.max_len() {
-            if i < array.len() {
-                let request = array.get(i);
-                if revertible == (request.counter >= self.min_revertible_side_effect_counter) {
-                    requests.push(request);
-                }
-            }
-        }
-        requests.storage().map(|r| r.inner)
+        self.get_split_ordered_side_effects(array, revertible).map(|r| r.inner)
     }
 
     fn get_split_ordered_side_effects<T, let N: u32>(
@@ -1230,18 +1229,15 @@ impl FixtureBuilder {
     where
         T: Ordered,
     {
-        let mut requests = BoundedVec::new();
-        for i in 0..array.max_len() {
-            if i < array.len() {
-                let request = array.get(i);
-                let is_request_revertible = (self.min_revertible_side_effect_counter != 0)
-                    & (request.counter() >= self.min_revertible_side_effect_counter);
-                if is_request_revertible == revertible {
-                    requests.push(request);
-                }
+        let mut result = BoundedVec::new();
+        for i in 0..array.len() {
+            let item = array.get(i);
+            let is_item_revertible = item.counter() >= self.min_revertible_side_effect_counter;
+            if is_item_revertible == revertible {
+                result.push(item);
             }
         }
-        requests.storage()
+        result.storage()
     }
 
     fn mock_note_hash_read_value(self, index: u32) -> Field {

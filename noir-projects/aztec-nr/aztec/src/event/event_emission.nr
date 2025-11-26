@@ -71,7 +71,7 @@ where
     }
 }
 
-pub fn emit_event_in_public<Event>(event: Event, context: &mut PublicContext)
+pub fn emit_event_in_public<Event>(event: Event, context: PublicContext)
 where
     Event: EventInterface + Serialize,
 {

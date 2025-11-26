@@ -21,7 +21,7 @@ describe('Utility Execution test suite', () => {
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
 
   const buildNote = (amount: bigint, owner: AztecAddress) => {
-    return new Note([new Fr(amount), owner.toField(), Fr.random()]);
+    return new Note([new Fr(amount), owner.toField()]);
   };
 
   beforeEach(async () => {
@@ -58,6 +58,7 @@ describe('Utility Execution test suite', () => {
       notes.map((note, index) => ({
         contractAddress,
         storageSlot: Fr.random(),
+        randomness: Fr.random(),
         noteNonce: Fr.random(),
         isSome: new Fr(1),
         note,
@@ -83,6 +84,6 @@ describe('Utility Execution test suite', () => {
 
     const result = await acirSimulator.runUtility(execRequest, [], []);
 
-    expect(result).toEqual(9n);
+    expect(result).toEqual([new Fr(9)]);
   }, 30_000);
 });

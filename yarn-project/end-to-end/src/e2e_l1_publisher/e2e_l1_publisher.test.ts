@@ -5,7 +5,7 @@ import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { GlobalVariables } from '@aztec/aztec.js/tx';
-import { BatchedBlob, Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import { BatchedBlob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -25,7 +25,7 @@ import { range } from '@aztec/foundation/array';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
-import { SHA256Trunc, Secp256k1Signer, sha256ToField } from '@aztec/foundation/crypto';
+import { SHA256Trunc, Secp256k1Signer, flipSignature, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -52,8 +52,8 @@ import { orderAttestations } from '@aztec/stdlib/p2p';
 import {
   fr,
   makeAndSignCommitteeAttestationsAndSigners,
-  makeBloatedProcessedTx,
   makeBlockAttestationFromBlock,
+  mockProcessedTx,
 } from '@aztec/stdlib/testing';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
 import {
@@ -276,7 +276,7 @@ describe('L1Publisher integration', () => {
     baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
     // We jump two epochs such that the committee can be setup.
-    await rollupCheatCodes.advanceToEpoch(BigInt(config.lagInEpochs + 1));
+    await rollupCheatCodes.advanceToEpoch(BigInt(config.lagInEpochsForValidatorSet + 1));
     await rollupCheatCodes.setupEpoch();
 
     ({ committee } = await epochCache.getCommittee());
@@ -290,8 +290,8 @@ describe('L1Publisher integration', () => {
   });
 
   const makeProcessedTx = (seed = 0x1): Promise<ProcessedTx> =>
-    makeBloatedProcessedTx({
-      header: prevHeader,
+    mockProcessedTx({
+      anchorBlockHeader: prevHeader,
       chainId: fr(chainId),
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
@@ -367,7 +367,7 @@ describe('L1Publisher integration', () => {
 
       let currentL1ToL2Messages: Fr[] = [];
       let nextL1ToL2Messages: Fr[] = [];
-      const allBlockBlobs: Blob[][] = [];
+      const blobFieldsPerCheckpoint: Fr[][] = [];
       // The below batched blob is used for testing different epochs with 1..numberOfConsecutiveBlocks blocks on L1.
       // For real usage, always collect ALL epoch blobs first then call .batch().
       let currentBatch: BatchedBlob | undefined;
@@ -416,7 +416,8 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        const blockBlobs = getBlobsPerL1Block(block.getCheckpointBlobFields());
+        const checkpointBlobFields = block.getCheckpointBlobFields();
+        const blockBlobs = getBlobsPerL1Block(checkpointBlobFields);
         expect(block.header.contentCommitment.blobsHash).toEqual(
           sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
         );
@@ -424,10 +425,10 @@ describe('L1Publisher integration', () => {
         let prevBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
 
         blocks.push(block);
-        allBlockBlobs.push(blockBlobs);
+        blobFieldsPerCheckpoint.push(checkpointBlobFields);
 
         // Batch the blobs so far, so they can be used in the L1 unit tests:
-        currentBatch = await BatchedBlob.batch(allBlockBlobs);
+        currentBatch = await BatchedBlob.batch(blobFieldsPerCheckpoint);
 
         await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,
@@ -446,17 +447,17 @@ describe('L1Publisher integration', () => {
           address: rollupAddress,
           event: getAbiItem({
             abi: RollupAbi,
-            name: 'L2BlockProposed',
+            name: 'CheckpointProposed',
           }),
           fromBlock: blockNumber + 1n,
         });
         expect(logs).toHaveLength(i + 1);
-        expect(logs[i].args.blockNumber).toEqual(BigInt(i + 1));
+        expect(logs[i].args.checkpointNumber).toEqual(BigInt(i + 1));
         const thisBlockNumber = BigInt(block.header.globalVariables.blockNumber);
         const isFirstBlockOfEpoch =
           thisBlockNumber == 1n ||
-          (await rollup.getEpochNumberForBlock(thisBlockNumber)) >
-            (await rollup.getEpochNumberForBlock(thisBlockNumber - 1n));
+          (await rollup.getEpochNumberForCheckpoint(thisBlockNumber)) >
+            (await rollup.getEpochNumberForCheckpoint(thisBlockNumber - 1n));
         // If we are at the first blob of the epoch, we must initialize the hash:
         prevBlobAccumulatorHash = isFirstBlockOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
         const currentBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
@@ -527,9 +528,9 @@ describe('L1Publisher integration', () => {
     };
 
     it.each([
-      [0, 'empty_block'],
-      [1, 'single_tx_block'],
-      [4, 'mixed_block'],
+      [0, 'empty_checkpoint'],
+      [1, 'single_tx_checkpoint'],
+      [4, 'mixed_checkpoint'],
     ])(
       `builds ${numberOfConsecutiveBlocks} blocks of %i bloated txs building on each other`,
       async (numTxs: number, jsonFileNamePrefix: string) => {
@@ -595,6 +596,52 @@ describe('L1Publisher integration', () => {
 
       await expect(publisher.enqueueProposeL2Block(block, attestationsAndSigners, Signature.empty())).rejects.toThrow(
         /ValidatorSelection__InvalidCommitteeCommitment/,
+      );
+    });
+
+    it('rejects flipped proposer signature', async () => {
+      const block = await buildSingleBlock();
+      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const attestations = orderAttestations(blockAttestations, committee!);
+
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      expect(canPropose?.slot).toEqual(block.header.getSlot());
+      await publisher.validateBlockHeader(block.getCheckpointHeader());
+
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+        attestationsAndSigners,
+        validators.find(v => v.address.equals(proposer!))!,
+      );
+
+      await expect(
+        publisher.enqueueProposeL2Block(block, attestationsAndSigners, flipSignature(attestationsAndSignersSignature)),
+      ).rejects.toThrow(/ECDSAInvalidSignatureS/);
+    });
+
+    it('rejects signature with invalid recovery value', async () => {
+      const block = await buildSingleBlock();
+      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const attestations = orderAttestations(blockAttestations, committee!);
+
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      expect(canPropose?.slot).toEqual(block.header.getSlot());
+      await publisher.validateBlockHeader(block.getCheckpointHeader());
+
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+        attestationsAndSigners,
+        validators.find(v => v.address.equals(proposer!))!,
+      );
+
+      logger.warn(`Original v value: ${attestationsAndSignersSignature.v}`);
+
+      // Move v-value from 27-28 to 0-1
+      const wrongV = attestationsAndSignersSignature.v - 27;
+      const wrongSig = new Signature(attestationsAndSignersSignature.r, attestationsAndSignersSignature.s, wrongV);
+
+      await expect(publisher.enqueueProposeL2Block(block, attestationsAndSigners, wrongSig)).rejects.toThrow(
+        /ECDSAInvalidSignature/,
       );
     });
 
@@ -725,6 +772,8 @@ describe('L1Publisher integration', () => {
     let sendRequestsResult: Awaited<ReturnType<SequencerPublisher['sendRequests']>> | null;
 
     beforeEach(async () => {
+      sendRequestsResult = null;
+
       await setup({ aztecSlotDuration: 48 });
 
       await ethCheatCodes.setAutomine(false);
@@ -743,7 +792,10 @@ describe('L1Publisher integration', () => {
       void publisher
         .sendRequests()
         .then(r => (sendRequestsResult = r ?? null))
-        .catch(err => err);
+        .catch(err => {
+          sendRequestsResult = null;
+          return err;
+        });
 
       // Wait until the publish tx is sent
       await retryUntil(() => ethCheatCodes.getTxPoolStatus().then(s => s.pending > 0), 'tx sent', 20, 0.1);
@@ -775,8 +827,6 @@ describe('L1Publisher integration', () => {
         if (nextL2Slot > initialL2Slot) {
           expect(sendRequestsResult).toBeNull();
           break;
-        } else {
-          expect(sendRequestsResult).toBeUndefined();
         }
       }
 
@@ -826,7 +876,7 @@ describe('L1Publisher integration', () => {
       expect(minedTx).toBeDefined();
       const minedTxReceipt = await l1Client.getTransactionReceipt({ hash: minedTx!.hash });
       expect(minedTxReceipt.status).toEqual('success');
-      expect(await rollup.getBlockNumber()).toEqual(BigInt(block.number));
+      expect(await rollup.getCheckpointNumber()).toEqual(BigInt(block.number));
     });
 
     it(`can send two consecutive proposals if the first one times out`, async () => {
@@ -872,14 +922,14 @@ describe('L1Publisher integration', () => {
 
       // Wait for completion
       await retryUntil(() => !!sendRequestsResult, 'request resolved', 5, 0.1);
-      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.MINED, 'mined', 5, 0.1);
+      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.MINED, 'mined', 10, 0.1);
 
       // The second proposal should succeed
       expect(sendRequestsResult).not.toBeNull();
       expect(sendRequestsResult!.successfulActions).toEqual(['propose']);
       expect(sendRequestsResult!.failedActions).toEqual([]);
-      expect(await rollup.getBlockNumber()).toEqual(BigInt(block2.number));
-      const rollupBlock = await rollup.getBlock(block2.number);
+      expect(await rollup.getCheckpointNumber()).toEqual(BigInt(block2.number));
+      const rollupBlock = await rollup.getCheckpoint(block2.number);
       expect(rollupBlock.slotNumber).toEqual(block2.slot);
     });
   });

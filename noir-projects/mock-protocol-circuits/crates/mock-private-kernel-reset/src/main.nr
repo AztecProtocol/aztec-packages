@@ -1,6 +1,6 @@
 use dep::mock_types::{
     MAX_COMMITMENT_READ_REQUESTS_PER_TX, MAX_COMMITMENTS_PER_TX, MEGA_VK_LENGTH_IN_FIELDS,
-    PrivateKernelPublicInputs, PROOF_TYPE_PG, VerificationKey,
+    PrivateKernelPublicInputs, PROOF_TYPE_HN, VerificationKey,
 };
 
 // Mock reset kernel that reset read requests.
@@ -10,7 +10,7 @@ fn main(
     kernel_vk: VerificationKey<MEGA_VK_LENGTH_IN_FIELDS>,
     commitment_read_hints: [u32; MAX_COMMITMENT_READ_REQUESTS_PER_TX],
 ) -> return_data PrivateKernelPublicInputs {
-    std::verify_proof_with_type(kernel_vk.key, [], [], kernel_vk.hash, PROOF_TYPE_PG);
+    std::verify_proof_with_type(kernel_vk.key, [], [], kernel_vk.hash, PROOF_TYPE_HN);
 
     for i in 0..MAX_COMMITMENT_READ_REQUESTS_PER_TX {
         if commitment_read_hints[i] != MAX_COMMITMENTS_PER_TX {

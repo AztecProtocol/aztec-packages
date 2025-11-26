@@ -46,8 +46,8 @@ class AvmGoblinRecursiveVerifier {
     using UltraBuilder = UltraCircuitBuilder;
     using MegaBuilder = MegaCircuitBuilder;
 
-    using PairingPoints = bb::stdlib::recursion::PairingPoints<UltraBuilder>;
-    using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<MegaBuilder>;
+    using PairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<UltraBuilder>>;
+    using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<MegaBuilder>>;
 
     using UltraFF = stdlib::bn254<UltraBuilder>::ScalarField;
 

@@ -28,4 +28,9 @@ bool avm_verify(const std::filesystem::path& proof_path,
  */
 void avm_simulate(const std::filesystem::path& inputs_path);
 
+/**
+ * @brief Stub - throws runtime error if called
+ */
+void avm_write_verification_key(const std::filesystem::path& output_path);
+
 } // namespace bb

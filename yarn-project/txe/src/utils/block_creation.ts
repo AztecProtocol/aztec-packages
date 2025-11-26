@@ -58,5 +58,6 @@ export async function makeTXEBlockHeader(
     Fr.ZERO,
     Fr.ZERO,
     Fr.ZERO,
+    Fr.ZERO,
   );
 }

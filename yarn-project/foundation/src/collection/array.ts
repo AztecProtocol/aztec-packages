@@ -178,13 +178,25 @@ export function sum(arr: number[]): number {
 }
 
 /** Computes the median of a numeric array. Returns undefined if array is empty. */
-export function median(arr: number[]) {
+export function median(arr: number[]): number | undefined;
+/** Computes the median of a bigint array. Returns undefined if array is empty. */
+export function median(arr: bigint[]): bigint | undefined;
+export function median(arr: number[] | bigint[]): number | bigint | undefined {
   if (arr.length === 0) {
     return undefined;
   }
-  const sorted = [...arr].sort((a, b) => a - b);
+
+  // Handle number array
+  if (typeof arr[0] === 'number') {
+    const sorted = [...(arr as number[])].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+
+  // Handle bigint array
+  const sorted = [...(arr as bigint[])].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2n;
 }
 
 /** Computes the mean of a numeric array. Returns undefined if the array is empty. */

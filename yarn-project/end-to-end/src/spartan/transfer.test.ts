@@ -12,7 +12,7 @@ import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
-  deploySponsoredTestAccounts,
+  deploySponsoredTestAccountsWithTokens,
 } from './setup_test_wallets.js';
 import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
@@ -43,7 +43,7 @@ describe('token transfer test', () => {
     const rpcUrl = `http://127.0.0.1:${port}`;
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger));
 
-    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, logger);
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });
 
@@ -75,7 +75,7 @@ describe('token transfer test', () => {
     // For each round, make both private and public transfers
     for (let i = 1n; i <= ROUNDS; i++) {
       const txs = testAccounts.accounts.map(async a => {
-        const token = await TokenContract.at(testAccounts.tokenAddress, testAccounts.wallet);
+        const token = TokenContract.at(testAccounts.tokenAddress, testAccounts.wallet);
         return proveInteraction(wallet, token.methods.transfer_in_public(a, recipient, transferAmount, 0), {
           from: a,
           fee: {

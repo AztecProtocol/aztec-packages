@@ -92,7 +92,7 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
         let mut has_public_dispatch = false;
 
         for function in contract.functions {
-            if function.custom_attributes.contains(&"public".to_string()) {
+            if function.custom_attributes.contains(&"abi_public".to_string()) {
                 if function.name == "public_dispatch" {
                     has_public_dispatch = true;
                 }
@@ -192,7 +192,7 @@ fn create_revert_dispatch_fn() -> AvmOrAcirContractFunctionArtifact {
     let empty_dispatch_fn = AvmContractFunctionArtifact {
         name: "public_dispatch".to_string(),
         is_unconstrained: true,
-        custom_attributes: vec!["public".to_string()],
+        custom_attributes: vec!["abi_public".to_string()],
         abi: Abi {
             parameters: vec![AbiParameter {
                 name: "selector".to_string(),

@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_hashing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
@@ -49,6 +50,7 @@ class BytecodeManagerTest : public ::testing::Test {
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockRangeCheck> range_check;
     StrictMock<MockContractInstanceManager> contract_instance_manager;
+    StrictMock<MockClassIdDerivation> class_id_derivation;
     StrictMock<MockRetrievedBytecodesTreeCheck> retrieved_bytecodes_tree_check;
 
     EventEmitter<BytecodeRetrievalEvent> retrieval_events;
@@ -74,6 +76,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     AztecAddress address1 = AztecAddress::random_element();
     ContractInstance instance1 = testing::random_contract_instance();
     ContractClass klass = testing::random_contract_class();
+    FF bytecode_commitment = FF::random_element();
 
     // Expected interactions for first retrieval
 
@@ -81,63 +84,67 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     EXPECT_CALL(contract_instance_manager, get_contract_instance(address1))
         .WillOnce(Return(std::make_optional(instance1)));
 
-    EXPECT_CALL(retrieved_bytecodes_tree_check, contains(instance1.current_class_id)).WillOnce(Return(false));
+    EXPECT_CALL(retrieved_bytecodes_tree_check, contains(instance1.current_contract_class_id)).WillOnce(Return(false));
     EXPECT_CALL(retrieved_bytecodes_tree_check, size()).WillOnce(Return(0));
-    EXPECT_CALL(retrieved_bytecodes_tree_check, insert(instance1.current_class_id));
+    EXPECT_CALL(retrieved_bytecodes_tree_check, insert(instance1.current_contract_class_id));
 
-    EXPECT_CALL(contract_db, get_contract_class(instance1.current_class_id))
+    EXPECT_CALL(contract_db, get_contract_class(instance1.current_contract_class_id))
         .WillOnce(Return(std::make_optional(klass)));
+    EXPECT_CALL(contract_db, get_bytecode_commitment(instance1.current_contract_class_id))
+        .WillRepeatedly(Return(std::make_optional(bytecode_commitment)));
 
     // Let the real bytecode hasher run - it will emit hashing events
-    EXPECT_CALL(poseidon2, hash(_)).WillOnce(Return(klass.public_bytecode_commitment));
+    EXPECT_CALL(poseidon2, hash(_)).WillOnce(Return(bytecode_commitment));
 
     TreeStates tree_states = {};
     EXPECT_CALL(merkle_db, get_tree_state()).WillOnce(Return(tree_states));
 
     // Base case: First retrieval - should do full processing
     BytecodeId result1 = tx_bytecode_manager.get_bytecode(address1);
-    EXPECT_EQ(result1, klass.public_bytecode_commitment);
+    EXPECT_EQ(result1, bytecode_commitment);
 
     // Verify events after first retrieval
     // Verify retrieval events - should have exactly one retrieval event total
     auto retrieval_events_dump = retrieval_events.dump_events();
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address1);
-    EXPECT_EQ(retrieval_events_dump[0].bytecode_id, klass.public_bytecode_commitment);
+    EXPECT_EQ(retrieval_events_dump[0].bytecode_id, bytecode_commitment);
     EXPECT_FALSE(retrieval_events_dump[0].instance_not_found_error);
     EXPECT_FALSE(retrieval_events_dump[0].limit_error);
     // Verify hashing events - should have exactly one hashing event total
     auto hashing_events_dump = hashing_events.dump_events();
     EXPECT_THAT(hashing_events_dump, SizeIs(1));
-    EXPECT_EQ(hashing_events_dump[0].bytecode_id, klass.public_bytecode_commitment);
+    EXPECT_EQ(hashing_events_dump[0].bytecode_id, bytecode_commitment);
     // Verify decomposition events - should have exactly one decomposition event total
     auto decomposition_events_dump = decomposition_events.dump_events();
     EXPECT_THAT(decomposition_events_dump, SizeIs(1));
-    EXPECT_EQ(decomposition_events_dump[0].bytecode_id, klass.public_bytecode_commitment);
+    EXPECT_EQ(decomposition_events_dump[0].bytecode_id, bytecode_commitment);
 
     // Deduplication case 1: Same address retrieval
     // Expected interactions for second retrieval of same address
     EXPECT_CALL(retrieved_bytecodes_tree_check, get_snapshot()).Times(2);
     EXPECT_CALL(contract_instance_manager, get_contract_instance(address1))
         .WillOnce(Return(std::make_optional(instance1)));
-    EXPECT_CALL(retrieved_bytecodes_tree_check, contains(instance1.current_class_id)).WillOnce(Return(true));
+    EXPECT_CALL(retrieved_bytecodes_tree_check, contains(instance1.current_contract_class_id)).WillOnce(Return(true));
     EXPECT_CALL(retrieved_bytecodes_tree_check, size()).WillOnce(Return(1));
-    EXPECT_CALL(retrieved_bytecodes_tree_check, insert(instance1.current_class_id));
+    EXPECT_CALL(retrieved_bytecodes_tree_check, insert(instance1.current_contract_class_id));
 
-    EXPECT_CALL(contract_db, get_contract_class(instance1.current_class_id))
+    EXPECT_CALL(contract_db, get_contract_class(instance1.current_contract_class_id))
         .WillOnce(Return(std::make_optional(klass)));
+    // get_bytecode_commitment is called even for deduplicated retrievals
+    // (already set up with WillRepeatedly above)
     // No hashing should occur for duplicate retrieval
     EXPECT_CALL(merkle_db, get_tree_state()).WillOnce(Return(tree_states));
 
     // Second retrieval of same address - should be deduplicated
     BytecodeId result2 = tx_bytecode_manager.get_bytecode(address1);
-    EXPECT_EQ(result2, klass.public_bytecode_commitment);
+    EXPECT_EQ(result2, bytecode_commitment);
 
     // Verify events after second retrieval - retrieval event emitted, but no hashing or decomposition
     retrieval_events_dump = retrieval_events.dump_events();
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address1);
-    EXPECT_EQ(retrieval_events_dump[0].bytecode_id, klass.public_bytecode_commitment);
+    EXPECT_EQ(retrieval_events_dump[0].bytecode_id, bytecode_commitment);
     hashing_events_dump = hashing_events.dump_events();
     EXPECT_THAT(hashing_events_dump, SizeIs(0)); // No hashing for deduplicated bytecode
     decomposition_events_dump = decomposition_events.dump_events();
@@ -146,30 +153,32 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     // Deduplication case 2: Different address with same bytecode
     AztecAddress address2 = address1 + 1; // force a different address
     ContractInstance instance2 = testing::random_contract_instance();
-    instance2.current_class_id = instance1.current_class_id + 1; // force a different class id
+    instance2.current_contract_class_id = instance1.current_contract_class_id + 1; // force a different class id
 
     // Expected interactions for different address with same bytecode
     EXPECT_CALL(retrieved_bytecodes_tree_check, get_snapshot()).Times(2);
     EXPECT_CALL(contract_instance_manager, get_contract_instance(address2))
         .WillOnce(Return(std::make_optional(instance2)));
-    EXPECT_CALL(retrieved_bytecodes_tree_check, contains(instance2.current_class_id)).WillOnce(Return(true));
+    EXPECT_CALL(retrieved_bytecodes_tree_check, contains(instance2.current_contract_class_id)).WillOnce(Return(true));
     EXPECT_CALL(retrieved_bytecodes_tree_check, size()).WillOnce(Return(1));
-    EXPECT_CALL(retrieved_bytecodes_tree_check, insert(instance2.current_class_id));
+    EXPECT_CALL(retrieved_bytecodes_tree_check, insert(instance2.current_contract_class_id));
 
-    EXPECT_CALL(contract_db, get_contract_class(instance2.current_class_id))
+    EXPECT_CALL(contract_db, get_contract_class(instance2.current_contract_class_id))
         .WillOnce(Return(std::make_optional(klass))); // Same class/bytecode
+    EXPECT_CALL(contract_db, get_bytecode_commitment(instance2.current_contract_class_id))
+        .WillOnce(Return(std::make_optional(bytecode_commitment)));
     // No hashing should occur since we've already processed this bytecode
     EXPECT_CALL(merkle_db, get_tree_state()).WillOnce(Return(tree_states));
 
     // Third retrieval with different address but same bytecode - should be deduplicated
     BytecodeId result3 = tx_bytecode_manager.get_bytecode(address2);
-    EXPECT_EQ(result3, klass.public_bytecode_commitment);
+    EXPECT_EQ(result3, bytecode_commitment);
 
     // Verify events after third retrieval - retrieval event emitted, but no hashing or decomposition
     retrieval_events_dump = retrieval_events.dump_events();
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address2);
-    EXPECT_EQ(retrieval_events_dump[0].bytecode_id, klass.public_bytecode_commitment);
+    EXPECT_EQ(retrieval_events_dump[0].bytecode_id, bytecode_commitment);
     hashing_events_dump = hashing_events.dump_events();
     EXPECT_THAT(hashing_events_dump, SizeIs(0)); // No hashing for deduplicated bytecode
     decomposition_events_dump = decomposition_events.dump_events();
@@ -198,7 +207,7 @@ TEST_F(BytecodeManagerTest, TooManyBytecodes)
     EXPECT_CALL(contract_instance_manager, get_contract_instance(address1))
         .WillOnce(Return(std::make_optional(instance1)));
 
-    EXPECT_CALL(retrieved_bytecodes_tree_check, contains(instance1.current_class_id)).WillOnce(Return(false));
+    EXPECT_CALL(retrieved_bytecodes_tree_check, contains(instance1.current_contract_class_id)).WillOnce(Return(false));
     EXPECT_CALL(retrieved_bytecodes_tree_check, size()).WillOnce(Return(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS));
 
     // Base case: First retrieval - should do full processing

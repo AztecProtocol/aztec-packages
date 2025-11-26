@@ -1,13 +1,587 @@
 ---
 title: Migration notes
 description: Read about migration notes from previous versions, which could solve problems while updating
-keywords: [sandbox, aztec, notes, migration, updating, upgrading]
-tags: [migration, updating, sandbox]
+keywords: [local network, sandbox, aztec, notes, migration, updating, upgrading]
+tags: [migration, updating, sandbox, local network]
 ---
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
 ## TBD
+
+### [Aztec.nr] Note randomness is now handled internally
+
+In order to prevent pre-image attacks, it is necessary to inject randomness to notes. Aztec.nr users were previously expected to add said randomness to their custom note types. From now on, Aztec.nr takes care of handling randomness as built-in note metadata, making it impossible to miss for library users. This change breaks backwards compatibility as we'll discuss below.
+
+#### Changes to Aztec.nr note types
+
+If you're using any of the following note types, please be aware that `randomness` no longer is an explicit attribute in them.
+
+- ValueNote
+- UintNote
+- NFTNote
+- AddressNote
+
+#### Migrating your custom note types: refer to UintNote as an example of how to migrate
+
+We show the changes to `UintNote` below since it serves as a good example of the adjustments you will need to make to your own custom note types, including those that need to support partial notes.
+
+##### Remove `randomness` from note struct
+
+```diff
+pub struct UintNote {
+    /// The owner of the note, i.e. the account whose nullifier secret key is required to compute the nullifier.
+    owner: AztecAddress,
+-   /// Random value, protects against note hash preimage attacks.
+-   randomness: Field,
+    /// The number stored in the note.
+    value: u128,
+}
+
+impl UintNote {
+    pub fn new(value: u128, owner: AztecAddress) -> Self {
+-       let randomness = unsafe { random() };
+-       Self { value, owner, randomness }
++       Self { value, owner }
+    }
+```
+
+##### Add `randomness` to `compute_note_hash` implementation
+
+The `NoteHash` trait now requires `compute_note_hash` to receive a `randomness` field. This impacts
+
+```diff
+pub trait NoteHash {
+    /// ...
+-   fn compute_note_hash(self, storage_slot: Field) -> Field;
++   fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field;
+```
+
+Then in trait implementations:
+
+```diff
+impl NoteHash for UintNote {
+-   fn compute_note_hash(self, storage_slot: Field) -> Field {
++   fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
+    /// ...
+-   let private_content =
+-       UintPartialNotePrivateContent { owner: self.owner, randomness: self.randomness };
+-   let partial_note = PartialUintNote {
+-        commitment: private_content.compute_partial_commitment(storage_slot),
+-   };
+
++   let private_content =
++       UintPartialNotePrivateContent { owner: self.owner };
++   let partial_note = PartialUintNote {
++        commitment: private_content.compute_partial_commitment(storage_slot, randomness),
++   };
+```
+
+It's worth noting that this change also affects how partial notes are structured and handled.
+
+```diff
+pub fn partial(
+        owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+        context: &mut PrivateContext,
+        recipient: AztecAddress,
+        completer: AztecAddress,
+    ) -> PartialUintNote {
+-   let commitment = UintPartialNotePrivateContent { owner, randomness }
+-       .compute_partial_commitment(storage_slot);
++   let commitment = UintPartialNotePrivateContent { owner }
++       .compute_partial_commitment(storage_slot, randomness);
+
+    let private_log_content =
+-       UintPartialNotePrivateLogContent { owner, randomness, public_log_tag: commitment };
++       UintPartialNotePrivateLogContent { owner, public_log_tag: commitment };
+        let encrypted_log = note::compute_partial_note_private_content_log(
+            private_log_content,
+            storage_slot,
++           randomness,
+            recipient,
+        );
+    /// ...
+}
+
+struct UintPartialNotePrivateContent {
+    owner: AztecAddress,
+-   randomness: Field,
+}
+
+impl UintPartialNotePrivateContent {
+-   fn compute_partial_commitment(self, storage_slot: Field) -> Field {
++   fn compute_partial_commitment(self, storage_slot: Field, randomness: Field) -> Field {
+        poseidon2_hash_with_separator(
+-           self.pack().concat([storage_slot]),
++           self.pack().concat([storage_slot, randomness]),
+            GENERATOR_INDEX__NOTE_HASH,
+        )
+    }
+}
+
+struct UintPartialNotePrivateLogContent {
+    public_log_tag: Field,
+    owner: AztecAddress,
+-   randomness: Field,
+}
+```
+
+##### Note size
+
+As a result of this change, the maximum packed length of the content of a note is 11 fields, down from 12. This is a direct consequence of moving the randomness field from the note content structure to the note's metadata.
+
+#### RetrievedNote now includes randomness field
+
+```diff
+pub struct RetrievedNote<Note> {
+    pub note: Note,
+    pub contract_address: AztecAddress,
++   pub randomness: Field,
+    pub metadata: NoteMetadata,
+}
+```
+
+### [L1 Contracts] `Block` is now `Checkpoint`
+
+A `checkpoint` is now the primary unit handled by the L1 contracts.
+
+A checkpoint may contain one or more L2 blocks. The protocol circuits already support producing multiple blocks per checkpoint. Updating the L1 contracts to operate on checkpoints allow L2 blockchain to advance faster.
+
+Below are the API and event renames reflecting this change:
+
+```diff
+- event L2BlockProposed
++ event CheckpointProposed
+```
+
+```diff
+- event BlockInvalidated
++ event CheckpointInvalidated
+```
+
+```diff
+- function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
++ function getEpochForCheckpoint(uint256 _checkpointNumber) external view returns (Epoch);
+```
+
+```diff
+- function getProvenBlockNumber() external view returns (uint256);
++ function getProvenCheckpointNumber() external view returns (uint256);
+```
+
+```diff
+- function getPendingBlockNumber() external view returns (uint256);
++ function getPendingCheckpointNumber() external view returns (uint256);
+```
+
+```diff
+- function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
++ function getCheckpoint(uint256 _checkpointNumber) external view returns (CheckpointLog memory);
+```
+
+```diff
+- function getBlockReward() external view returns (uint256);
++ function getCheckpointReward() external view returns (uint256);
+```
+
+Additionally, any function or struct that previously referenced an L2 block number now uses a checkpoint number instead:
+
+```diff
+- function status(uint256 _blockNumber) external view returns (
++ function status(uint256 _checkpointNumber) external view returns (
+-    uint256 provenBlockNumber,
++    uint256 provenCheckpointNumber,
+     bytes32 provenArchive,
+-    uint256 pendingBlockNumber,
++    uint256 pendingCheckpointNumber,
+     bytes32 pendingArchive,
+     bytes32 archiveOfMyBlock,
+     Epoch provenEpochNumber
+);
+```
+
+Note: current node softwares still produce exactly one L2 block per checkpoint, so for now checkpoint numbers and L2 block numbers remain equal. This may change once multi-block checkpoints are enabled.
+
+### [Aztec.js] Wallet interface changes
+
+#### `simulateTx` is now batchable
+
+The `simulateTx` method on the `Wallet` interface is now batchable, meaning it can be called as part of a batch operation using `wallet.batch()`. This allows you to batch simulations together with other wallet operations like `registerContract`, `sendTx`, and `registerSender`.
+
+```diff
+- // Could not batch simulations
+- const simulationResult = await wallet.simulateTx(executionPayload, options);
++ // Can now batch simulations with other operations
++ const results = await wallet.batch([
++   { name: 'registerContract', args: [instance, artifact] },
++   { name: 'simulateTx', args: [executionPayload, options] },
++   { name: 'sendTx', args: [anotherPayload, sendOptions] },
++ ]);
+```
+
+#### `ExecutionPayload` moved to `@aztec/stdlib/tx`
+
+The `ExecutionPayload` type has been moved from `@aztec/aztec.js` to `@aztec/stdlib/tx`. Update your imports accordingly.
+
+```diff
+- import { ExecutionPayload } from '@aztec/aztec.js';
++ import { ExecutionPayload } from '@aztec/stdlib/tx';
++ // Or import from the re-export in aztec.js/tx:
++ import { ExecutionPayload } from '@aztec/aztec.js/tx';
+```
+
+#### `ExecutionPayload` now includes `feePayer` property
+
+The `ExecutionPayload` class now includes an optional `feePayer` property that specifies which address is paying for the fee in the execution payload (if any)
+
+```diff
+  const payload = new ExecutionPayload(
+    calls,
+    authWitnesses,
+    capsules,
+    extraHashedArgs,
++   feePayer // optional AztecAddress
+  );
+```
+
+This was previously provided as part of the `SendOptions` (and others) in the wallet interface, which could cause problems if a payload was assembled with a payment method and the parameter was later omitted. This means `SendOptions` now loses `embeddedPaymentMethodFeePayer`
+
+```diff
+-wallet.simulateTx(executionPayload, { from: address, embeddedFeePaymentMethodFeePayer: feePayer });
++wallet.simulateTx(executionPayload, { from: address });
+```
+
+#### `simulateUtility` signature and return type changed
+
+The `simulateUtility` method signature has changed to accept a `FunctionCall` object instead of separate `functionName`, `args`, and `to` parameters. Additionally, the return type has changed from `AbiDecoded` to `Fr[]`.
+
+```diff
+- const result: AbiDecoded = await wallet.simulateUtility(functionName, args, to, authWitnesses);
++ const result: UtilitySimulationResult = await wallet.simulateUtility(functionCall, authWitnesses?);
++ // result.result is now Fr[] instead of AbiDecoded
+```
+
+The new signature takes:
+
+- `functionCall`: A `FunctionCall` object containing `name`, `args`, `to`, `selector`, `type`, `isStatic`, `hideMsgSender`, and `returnTypes`
+- `authWitnesses` (optional): An array of `AuthWitness` objects
+
+The first argument is exactly the same as what goes into `ExecutionPayload.calls`. As such, the data is already encoded. The return value is now `UtilitySimulationResult` with `result: Fr[]` instead of returning an `AbiDecoded` value directly. You'll need to decode the `Fr[]` array yourself if you need typed results.
+
+#### `Contract.at()` is now synchronous and no longer calls `registerContract`
+
+The `Contract.at()` method (and generated contract `.at()` methods) is now synchronous and no longer automatically registers the contract with the wallet. This reduces unnecessary artifact storage and RPC calls.
+
+```diff
+- const contract = await TokenContract.at(address, wallet);
++ const contract = TokenContract.at(address, wallet);
+```
+
+**Important:** You now need to explicitly call `registerContract` if you want the wallet to store the contract instance and artifact. This is only necessary when:
+
+- An app first registers a contract
+- An app tries to update a contract's artifact
+
+If you need to register the contract, do so explicitly:
+
+```typescript
+// Get the instance from deployment
+const { contract, instance } = await TokenContract.deploy(wallet, ...args)
+  .send({ from: address })
+  .wait();
+
+// wallet already has it registered, since the deploy method does it by default
+// to avoid it, set skipContractRegistration: true in the send options.
+
+// Register it with another wallet
+await otherWallet.registerContract(instance, TokenContract.artifact);
+
+// Now you can use the contract
+const otherContract = TokenContract.at(instance.address, otherWallet);
+```
+
+Publicly deployed contract instances can be retrieved via `node.getContract(address)`. Otherwise and if deployment parameters are known, an instance can be computed via the `getContractInstanceFromInstantiationParams` from `@aztec/aztec.js/contracts`
+
+#### `registerContract` signature simplified
+
+The `registerContract` method now takes a `ContractInstanceWithAddress` instead of a `Contract` object, and the `artifact` parameter is now optional. If the artifact is not provided, the wallet will attempt to look it up from its contract class storage.
+
+```diff
+- await wallet.registerContract(contract);
++ await wallet.registerContract(instance, artifact?);
+```
+
+The method now only accepts:
+
+- `instance`: A `ContractInstanceWithAddress` object
+- `artifact` (optional): A `ContractArtifact` object
+- `secretKey` (optional): A secret key for privacy keys registration
+
+#### Return value of `getNotes` no longer contains a recipient
+
+Return value of `getNotes` is defined as `Promise<UniqueNote[]>` and recipient has been dropped from `UniqueNote`.
+This change has been done because the value has been redundant as the same outcome can be achieved by populating the `scopes` array in `NoteFilter` with the `recipient` value.
+(Having the recipient in the `UniqueNote` was also logically incorrect because a note does not have a recipient - it's the message containing the note that has a recipient.)
+
+### [CLI] Command refactor
+
+The sandbox command has been renamed and remapped to "local network". We believe this conveys better what is actually being spun up when running it.
+
+**REMOVED/RENAMED**:
+
+- `aztec start --sandbox`: now `aztec start --local-network`
+
+### [Aztec.nr] - Contract API redesign
+
+In this release we decided to largely redesign our contract API. Most of the changes here are not a breaking change
+(only renaming of original `#[internal]` to `#[only_self]` and `storage` now being available on the newly introduced
+`self` struct are a breaking change).
+
+#### 1. Renaming of original #[internal] as #[only_self]
+
+We want for internal to mean the same as in Solidity where internal function can be called only from the same contract
+and is also inlined (EVM JUMP opcode and not EVM CALL). The original implementation of our `#[internal]` macro also
+results in the function being callable only from the same contract but it results in a different call (hence it doesn't
+map to EVM JUMP). This is very confusing for people that know Solidity hence we are doing the rename. A true
+`#[internal]` will be introduced in the future.
+
+To migrate your contracts simply rename all the occurrences of `#[internal]` with `#[only_self]` and update the imports:
+
+```diff
+- use aztec::macros::functions::internal;
++ use aztec::macros::functions::only_self;
+```
+
+```diff
+#[external("public")]
+- #[internal]
++ #[only_self]
+fn _deduct_public_balance(owner: AztecAddress, amount: u64) {
+    ...
+}
+```
+
+#### 2. Introducing of new #[internal]
+
+Same as in Solidity internal functions are functions that are callable from inside the contract. Unlike #[only_self]
+functions, internal functions are inlined (e.g. akin to EVM's JUMP and not EVM's CALL).
+
+Internal function can be called using the following API which leverages the new `self` struct (see change 3 below for
+details):
+
+```noir
+self.internal.my_internal_function(...)
+```
+
+Private internal functions can only be called from other private external or internal functions.
+Public internal functions can only be called from other public external or internal functions.
+
+#### 3. Introducing `self` in contracts and a new call interface
+
+Aztec contracts now automatically inject a `self` parameter into every contract function, providing a unified interface
+for accessing the contract's address, storage, calling of function and an execution context.
+
+##### What is `self`?
+
+`self` is an instance of `ContractSelf<Context, Storage>` that provides:
+
+- `self.address` - The contract's own address
+- `self.storage` - Access to your contract's storage
+- `self.context` - The execution context (private, public, or utility)
+- `self.msg_sender()` - Get the address of the caller
+- `self.emit(...)` - Emit events
+- `self.call(...)` - Call an external function
+- `self.view(...)` - Call an external function statically
+- `self.enqueue(...)` - Enqueue a call to an external function
+- `self.enqueue_view(...)` - Enqueue a call to an external function
+- `self.enqueue_incognito(...)` - Enqueue a call to an external function but hides the `msg_sender`
+- `self.enqueue_view_incognito(...)` - Enqueue a static call to an external function but hides the `msg_sender`
+- `self.set_as_teardown(...)` - Enqueue a call to an external public function and sets the call as teardown
+- `self.set_as_teardown_incognito(...)` - Enqueue a call to an external public function and sets the call as teardown
+  and hides the `msg_sender`
+- `self.internal.my_internal_fn(...)` - Call an internal function
+
+`self` also provides you with convenience API to call and enqueue calls to external functions from within the same
+contract (this is just a convenience API as `self.call(MyContract::at(self.address).my_external_fn(...))` would also
+work):
+
+- `self.call_self.my_external_fn(...)` - Call external function from within the same contract
+- `self.enqueue_self.my_public_external_fn(...)`
+- `self.call_self_static.my_static_external_fn(...)`
+- `self.enqueue_self_static.my_static_external_public_fn(...)`
+
+##### How it works
+
+The `#[external(...)]` macro automatically injects `self` into your function. When you write:
+
+```noir
+#[external("private")]
+fn transfer(amount: u128, recipient: AztecAddress) {
+    let sender = self.msg_sender().unwrap();
+    self.storage.balances.at(sender).sub(amount);
+    self.storage.balances.at(recipient).add(amount);
+}
+```
+
+The macro transforms it to initialize `self` with the context and storage before your code executes.
+
+##### Migration guide
+
+**Before:** Access context and storage as separate parameters
+
+```noir
+#[external("private")]
+fn old_transfer(amount: u128, recipient: AztecAddress) {
+    let storage = Storage::init(context);
+    let sender = context.msg_sender().unwrap();
+    storage.balances.at(sender).sub(amount);
+}
+```
+
+**After:** Use `self` to access everything
+
+```noir
+#[external("private")]
+fn new_transfer(amount: u128, recipient: AztecAddress) {
+    let sender = self.msg_sender().unwrap();
+    self.storage.balances.at(sender).sub(amount);
+}
+```
+
+##### Key changes
+
+1. **Storage and context access:**
+
+Storage and context are no longer injected into the function as standalone variables and instead you need to access them via `self`:
+
+```diff
+- let balance = storage.balances.at(owner).read();
++ let balance = self.storage.balances.at(owner).read();
+```
+
+```diff
+- context.push_nullifier(nullifier);
++ self.context.push_nullifier(nullifier);
+```
+
+Note that `context` is expected to be use only when needing to access a low-level API (like directly emitting a nullifier).
+
+2. **Getting caller address:** Use `self.msg_sender()` instead of `context.msg_sender()`
+
+   ```diff
+   - let caller = context.msg_sender().unwrap();
+   + let caller = self.msg_sender().unwrap();
+   ```
+
+3. **Getting contract address:** Use `self.address` instead of `context.this_address()`
+
+   ```diff
+   - let this_contract = context.this_address();
+   + let this_contract = self.address;
+   ```
+
+4. **Emitting events:**
+
+   In private functions:
+
+   ```diff
+   - emit_event_in_private(event, context, recipient, delivery_mode);
+   + self.emit(event, recipient, delivery_mode);
+   ```
+
+   In public functions:
+
+   ```diff
+   - emit_event_in_public(event, context);
+   + self.emit(event);
+   ```
+
+5. **Calling functions:**
+
+   In private functions:
+
+   ```diff
+   - Token::at(stable_coin).mint_to_public(to, amount).call(&mut context);
+   + self.call(Token::at(stable_coin).mint_to_public(to, amount));
+   ```
+
+##### Example: Full contract migration
+
+**Before:**
+
+```noir
+#[external("private")]
+fn withdraw(amount: u128, recipient: AztecAddress) {
+    let storage = Storage::init(context);
+    let sender = context.msg_sender().unwrap();
+    let token = storage.donation_token.get_note().get_address();
+
+    // ... withdrawal logic
+
+    emit_event_in_private(Withdraw { withdrawer, amount }, context, withdrawer, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+}
+```
+
+**After:**
+
+```noir
+#[external("private")]
+fn withdraw(amount: u128, recipient: AztecAddress) {
+    let sender = self.msg_sender().unwrap();
+    let token = self.storage.donation_token.get_note().get_address();
+
+    // ... withdrawal logic
+
+    self.emit(Withdraw { withdrawer, amount }, withdrawer, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+}
+```
+
+#### No-longer allowing calling of non-view function statically via the old higher-level API
+
+We used to allow calling of non-view function statically as follows:
+
+```noir
+MyContract::at(address).my_non_view_function(...).view(context);
+MyContract::at(address).my_non_view_function(...).enqueue_view(context);
+```
+
+This is no-longer allowed and if you will want to call a function statically you will need to mark the function with
+`#[view]`.
+
+### Phase checks
+
+Now private external functions check by default that no phase change from non revertible to revertible happens during the execution of the function or any of its nested calls. If you're developing a function
+that handles phase change (you call `context.end_setup()` or call a function that you expect will change phase) you need to opt out of the phase check using the `#[nophasecheck]` macro. Also, now it's possible to know if you're in the revertible phase of the transaction at any point using `self.context.in_revertible_phase()`.
+
+### [`aztec` command] Moving functionality of `aztec-nargo` to `aztec` command
+
+`aztec-nargo` has been deprecated and all workflows should now migrate to the `aztec` command that fully replaces `aztec-nargo`:
+
+- **For contract initialization:**
+
+  ```bash
+  aztec init
+  ```
+
+  (Behaves like `nargo init`, but defaults to a contract project.)
+
+- **For testing:**
+
+  ```bash
+  aztec test
+  ```
+
+  (Starts the Aztec TXE and runs your tests.)
+
+- **For compiling contracts:**
+  ```bash
+  aztec compile
+  ```
+  (Transpiles your contracts and generates verification keys.)
+
+## 3.0.0-devnet.4
 
 ## [aztec.js] Removal of barrel export
 
@@ -54,7 +628,7 @@ Because Aztec has native account abstraction, the very first function call of a 
 
 Previously (before this change) we'd been silently setting this first `msg_sender` to be `AztecAddress::from_field(-1);`, and enforcing this value in the protocol's kernel circuits. Now we're passing explicitness to smart contract developers by wrapping `msg_sender` in an `Option` type. We'll explain the syntax shortly.
 
-We've also added a new protocol feature. Previously (before this change) whenever a public function call was enqueued by a private function (a so-called private->public call), the called public function (and hence the whole world) would be able to see `msg_sender`. For some use cases, visibility of `msg_sender` is important, to ensure the caller executed certain checks in private-land. For `#[internal]` public functions, visibility of `msg_sender` is unavoidable (the caller of an internal function must be the same contract address by definition). But for _some_ use cases, a visible `msg_sender` is an unnecessary privacy leakage.
+We've also added a new protocol feature. Previously (before this change) whenever a public function call was enqueued by a private function (a so-called private->public call), the called public function (and hence the whole world) would be able to see `msg_sender`. For some use cases, visibility of `msg_sender` is important, to ensure the caller executed certain checks in private-land. For `#[only_self]` public functions, visibility of `msg_sender` is unavoidable (the caller of an `#[only_self]` function must be the same contract address by definition). But for _some_ use cases, a visible `msg_sender` is an unnecessary privacy leakage.
 We therefore have added a feature where `msg_sender` can be optionally set to `Option<AztecAddress>::none()` for enqueued public function calls (aka private->public calls). We've been colloquially referring to this as "setting msg_sender to null".
 
 #### Aztec.nr diffs
@@ -231,6 +805,31 @@ Update attributes of your functions:
 -    #[utility]
 +    #[external("utility")]
     fn my_utility_func() {
+```
+
+### Dropping remote mutable references to public context
+
+`PrivateContext` generally needs to be passed as a mutable reference to functions because it does actually hold state
+we're mutating. This is not the case for `PublicContext`, or `UtilityContext` - these are just marker objects that
+indicate the current execution mode and make available the correct subset of the API. For this reason we have dropped
+the mutable reference from the API.
+
+If you've passed the context as an argument to custom functions you will need to do the following migration (example
+from our token contract):
+
+```diff
+#[contract_library_method]
+fn _finalize_transfer_to_private(
+    from_and_completer: AztecAddress,
+    amount: u128,
+    partial_note: PartialUintNote,
+-    context: &mut PublicContext,
+-    storage: Storage<&mut PublicContext>,
++    context: PublicContext,
++    storage: Storage<PublicContext>,
+) {
+    ...
+}
 ```
 
 ### Authwit Test Helper now takes `env`

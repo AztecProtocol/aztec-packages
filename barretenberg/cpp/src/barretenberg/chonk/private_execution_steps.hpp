@@ -45,9 +45,9 @@ struct PrivateExecutionStepRaw {
 struct PrivateExecutionSteps {
     std::vector<acir_format::AcirProgram> folding_stack;
     std::vector<std::string> function_names;
-    std::vector<std::shared_ptr<SumcheckChonk::MegaVerificationKey>> precomputed_vks;
+    std::vector<std::shared_ptr<Chonk::MegaVerificationKey>> precomputed_vks;
 
-    std::shared_ptr<SumcheckChonk> accumulate();
+    std::shared_ptr<Chonk> accumulate();
     void parse(std::vector<PrivateExecutionStepRaw>&& steps);
 };
 } // namespace bb

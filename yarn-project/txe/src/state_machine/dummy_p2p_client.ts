@@ -17,6 +17,10 @@ import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
+  public broadcastAttestations(_attestations: BlockAttestation[]): Promise<void> {
+    return Promise.resolve();
+  }
+
   public validate(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
   }

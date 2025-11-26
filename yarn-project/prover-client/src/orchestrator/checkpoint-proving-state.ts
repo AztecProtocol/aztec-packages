@@ -1,7 +1,12 @@
-import { BatchedBlobAccumulator, type FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
+import {
+  BatchedBlobAccumulator,
+  type FinalBlobBatchingChallenges,
+  SpongeBlob,
+  encodeCheckpointBlobDataFromBlocks,
+} from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
-  BLOBS_PER_BLOCK,
+  BLOBS_PER_CHECKPOINT,
   FIELDS_PER_BLOB,
   type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -11,7 +16,6 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
-import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
 import {
@@ -50,7 +54,6 @@ export class CheckpointProvingState {
     public readonly index: number,
     public readonly constants: CheckpointConstantData,
     public readonly totalNumBlocks: number,
-    private readonly totalNumBlobFields: number,
     private readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
     private readonly headerOfLastBlockInPreviousCheckpoint: BlockHeader,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
@@ -78,13 +81,13 @@ export class CheckpointProvingState {
     return this.parentEpoch.epochNumber;
   }
 
-  public async startNewBlock(
+  public startNewBlock(
     blockNumber: number,
     timestamp: UInt64,
     totalNumTxs: number,
     lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
-  ): Promise<BlockProvingState> {
+  ): BlockProvingState {
     const index = blockNumber - this.firstBlockNumber;
     if (index >= this.totalNumBlocks) {
       throw new Error(`Unable to start a new block at index ${index}. Expected at most ${this.totalNumBlocks} blocks.`);
@@ -98,8 +101,7 @@ export class CheckpointProvingState {
     const lastL1ToL2MessageSubtreeRootSiblingPath =
       index === 0 ? this.lastL1ToL2MessageSubtreeRootSiblingPath : this.newL1ToL2MessageSubtreeRootSiblingPath;
 
-    const startSpongeBlob =
-      index === 0 ? await SpongeBlob.init(this.totalNumBlobFields) : this.blocks[index - 1]?.getEndSpongeBlob();
+    const startSpongeBlob = index === 0 ? SpongeBlob.init() : this.blocks[index - 1]?.getEndSpongeBlob();
     if (!startSpongeBlob) {
       throw new Error(
         'Cannot start a new block before the trees have progressed from the tx effects in the previous block.',
@@ -192,12 +194,12 @@ export class CheckpointProvingState {
   }
 
   public async accumulateBlobs(startBlobAccumulator: BatchedBlobAccumulator) {
-    if (this.isAcceptingBlocks() || this.blocks.some(b => b!.isAcceptingTxs())) {
+    if (this.isAcceptingBlocks() || this.blocks.some(b => !b?.hasEndState())) {
       return;
     }
 
-    this.blobFields = getCheckpointBlobFields(this.blocks.map(b => b!.getTxEffects()));
-    this.endBlobAccumulator = await accumulateBlobs(this.blobFields, startBlobAccumulator);
+    this.blobFields = encodeCheckpointBlobDataFromBlocks(this.blocks.map(b => b!.getBlockBlobData()));
+    this.endBlobAccumulator = await accumulateBlobs(this.blobFields!, startBlobAccumulator);
     this.startBlobAccumulator = startBlobAccumulator;
 
     this.onBlobAccumulatorSet(this);
@@ -246,8 +248,8 @@ export class CheckpointProvingState {
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       startBlobAccumulator: this.startBlobAccumulator.toBlobAccumulator(),
       finalBlobChallenges: this.finalBlobBatchingChallenges,
-      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
-      blobCommitments: padArrayEnd(blobCommitments, BLS12Point.ZERO, BLOBS_PER_BLOCK),
+      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT),
+      blobCommitments: padArrayEnd(blobCommitments, BLS12Point.ZERO, BLOBS_PER_CHECKPOINT),
       blobsHash,
     });
 

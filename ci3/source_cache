@@ -16,6 +16,19 @@ function cache_disk_transfer {
       "mkdir -p /logs-disk/${prefix} && cat > /logs-disk/${prefix}/${key}.log.gz" &>/dev/null
 }
 
+# Transfer to bastion with explicit subfolder (accepts gzipped data on stdin)
+# Usage: cat file.gz | cache_disk_transfer_to <subfolder> <key>
+function cache_disk_transfer_to {
+  local subfolder="$1"
+  local key="$2"
+
+  # Transfer via SSH pipe using persistent multiplexed connection
+  ssh -F "${ci3}/aws/build_instance_ssh_config" \
+      -o ConnectTimeout=5 \
+      ci-bastion.aztecprotocol.com \
+      "mkdir -p /logs-disk/${subfolder} && cat > /logs-disk/${subfolder}/${key}.log.gz" &>/dev/null
+}
+
 # Persistent cache function that writes to both Redis and disk
 function cache_persistent {
   local key="$1"
@@ -40,4 +53,4 @@ function cache_persistent {
 }
 
 # Export functions
-export -f cache_disk_transfer cache_persistent
+export -f cache_disk_transfer cache_disk_transfer_to cache_persistent

@@ -1,22 +1,12 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-[ -n "$cmd" ] && shift
-
 if [ "${AVM:-1}" -eq "1" ]; then
   export native_preset=${NATIVE_PRESET:-clang20}
 else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
-export hash=$(cache_content_hash .rebuild_patterns)
-
-# Mix whether we're building multi-arch or single-arch into the hash
-if semver check "$REF_NAME"; then
-  export hash="$hash-multiarch"
-else
-  export hash="$hash-singlearch"
-fi
+export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -45,12 +35,24 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  local avm_transpiler_flag=""
+  local cmake_args=()
   if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
-    avm_transpiler_flag="-DAVM_TRANSPILER_LIB="
+    cmake_args+=(-DAVM_TRANSPILER_LIB=)
   fi
-  cmake --fresh --preset "$preset" $avm_transpiler_flag
+  cmake --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
+}
+
+# Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
+# Allow the build system to get a head start on compilation while building dependencies.
+# This is a noop if the final artifacts exist in the cache.
+function build_native_objects {
+  set -eu
+  if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+    cmake --preset "$native_preset"
+    targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
+    cmake --build --preset "$native_preset" --target $targets nodejs_module
+  fi
 }
 
 # Build all native binaries, including bb, bb-avm, tests, benches and napi lib.
@@ -59,7 +61,21 @@ function build_native {
   if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
+    inject_version build/bin/bb
+    [ -f build/bin/bb-avm ] && inject_version build/bin/bb-avm
     cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
+  fi
+}
+
+# Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
+# Allow the build system to get a head start on compilation while building dependencies.
+# For cross compilation we're only building bb and napi module.
+# This is a noop if the final artifacts exist in the cache.
+function build_cross_objects {
+  set -eu
+  target=$1
+  if ! cache_exists barretenberg-$target-$hash.zst; then
+    build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
   fi
 }
 
@@ -68,8 +84,13 @@ function build_native {
 function build_cross {
   set -eu
   target=$1
+  is_macos=${2:-false}
   if ! cache_download barretenberg-$target-$hash.zst; then
     build_preset zig-$target --target bb --target nodejs_module
+    inject_version build-zig-$target/bin/bb
+    if [ "$is_macos" == "true" ]; then
+      ldid -S build-zig-$target/bin/bb
+    fi
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
   fi
 }
@@ -99,8 +120,16 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
+    build_preset wasm-threads
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
+  fi
+}
+
+function build_wasm_threads_benches {
+  set -eu
+  if ! cache_download barretenberg-wasm-threads-benches-$hash.zst; then
+    build_preset wasm-threads --target ultra_honk_bench chonk_bench bb
+    cache_upload barretenberg-wasm-threads-benches-$hash.zst build-wasm-threads/bin/{ultra_honk_bench,chonk_bench,bb}
   fi
 }
 
@@ -162,41 +191,35 @@ function build_release_dir {
   rm -rf build-release
   mkdir build-release
 
-  cp build/bin/bb build-release/bb
-  inject_version build-release/bb
-  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
-
-  cp build/bin/bb-avm build-release/bb-avm
-  inject_version build-release/bb-avm
-  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build-release --remove-files bb-avm
+  # Note: Version already injected in build_native
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
+  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build/bin bb-avm
 
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
+  # Note: version already injected in build_cross
   # Package arm64-linux
-  cp build-zig-arm64-linux/bin/bb build-release/bb
-  inject_version build-release/bb
-  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-release --remove-files bb
+  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-zig-arm64-linux/bin bb
 
   # Package arm64-macos
-  cp build-zig-arm64-macos/bin/bb build-release/bb
-  inject_version build-release/bb
-  ldid -S build-release/bb
-  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
+  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-zig-arm64-macos/bin bb
 
   # Package amd64-macos
-  cp build-zig-amd64-macos/bin/bb build-release/bb
-  inject_version build-release/bb
-  ldid -S build-release/bb
-  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
+  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
 }
 
-export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f build_preset build_native_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
 
 function build {
   echo_header "bb cpp build"
+
+  if [ "$CI_FULL" -eq 1 ]; then
+    # Deletes all build dirs and build bb and wasms from scratch.
+    rm -rf build*
+  fi
 
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
 
@@ -207,8 +230,8 @@ function build {
       "build_wasm" \
       "build_wasm_threads" \
       "build_cross arm64-linux" \
-      "build_cross amd64-macos" \
-      "build_cross arm64-macos"
+      "build_cross amd64-macos true" \
+      "build_cross arm64-macos true"
     build_release_dir
   else
     builds=(
@@ -220,10 +243,19 @@ function build {
       builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
     fi
     if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      builds+=("build_cross arm64-macos" build_smt_verification)
+      builds+=("build_cross arm64-macos true" build_smt_verification)
     fi
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
   fi
+}
+
+function build_with_makefile {
+  if [ "$CI_FULL" -eq 1 ]; then
+    # Deletes all build dirs and build bb and wasms from scratch.
+    rm -rf build*
+  fi
+
+  (cd $root && make bb-cpp)
 }
 
 # Print every individual test command. Can be fed into gnu parallel.
@@ -232,6 +264,7 @@ function build {
 function test_cmds {
   # E.g. build, build-debug or build-coverage
   cd $(scripts/native-preset-build-dir)
+
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
 
@@ -249,9 +282,12 @@ function test_cmds {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
+  if [ "$CI_FULL" -eq 1 ]; then
     # We only want to sanity check that we haven't broken wasm ecc in merge queue.
     echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+
+    local prefix="$hash:CPUS=4:MEM=8g"
+
     # Mostly arbitrary set that touches lots of the code.
     declare -A asan_tests=(
       ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
@@ -259,17 +295,11 @@ function test_cmds {
       ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
       ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
     )
-    # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
     for bin_name in "${!asan_tests[@]}"; do
       local filter=${asan_tests[$bin_name]}
-      local prefix="$hash:CPUS=4:MEM=8g"
       echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
     done
-  fi
 
-  # Run the SMT compatibility tests
-  if [ "$(arch)" == "amd64" ] &&  [ "$CI_FULL" -eq 1 ]; then
-    local prefix="$hash:CPUS=4:MEM=8g"
     echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
   fi
 
@@ -297,8 +327,10 @@ function build_bench {
 function bench_cmds {
   prefix="$hash:CPUS=8"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk build/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk build/bin/chonk_bench ChonkBench/Full/5$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk_zk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench ChonkBench/Full/5$"
   prefix="$hash:CPUS=1"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify build/bin/chonk_bench VerificationOnly$"
@@ -313,83 +345,68 @@ function bench {
 
 # Upload assets to release.
 function release {
-  # ARM64 doesn't contribute to the build at all anymore.
-  if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
-    echo_header "bb cpp release"
-    do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
-  else
-    echo "bb/cpp/bootstraps.sh release - WARNING: Doing nothing. we only build on amd64, and if tagged as a release."
+  echo_header "bb cpp release"
+  do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
+}
+
+function bench_ivc {
+  # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
+  # Sample usage (CI=1 required for bench results to be visible; exclude NO_WASM=1 to run wasm benchmarks):
+  # CI=1 NO_WASM=1 ./barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc
+  git fetch origin next
+
+  flow_filter="${1:-}"               # optional string-match filter for flow names
+  commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
+
+  # Build both native and wasm benchmark binaries
+  builds=(
+    "build_preset $native_preset --target bb"
+  )
+  if [[ "${NO_WASM:-}" != "1" ]]; then
+    builds+=("build_preset wasm-threads --target bb")
   fi
+  parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
+
+  # Download cached flow inputs from the specified commit
+  export AZTEC_CACHE_COMMIT=$commit_hash
+  # TODO currently does nothing! to reinstate in cache_download
+  export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
+  # make sure that disabling the aztec VM does not interfere with cache results from CI.
+  BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
+
+  rm -rf bench-out
+
+  # Recreation of logic from bench.
+  ../../yarn-project/end-to-end/bootstrap.sh build_bench
+
+  # Extract and filter benchmark commands by flow name and wasm/no-wasm
+  function ivc_bench_cmds {
+    local flow_filter="$1"  # select only flows containing this string
+
+    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds |
+      grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh |
+      { [[ "${NO_WASM:-}" == "1" ]] && grep -v wasm || cat; } |
+      { [[ -n "$flow_filter" ]] && grep -F "$flow_filter" || cat; }
+  }
+
+  echo "Running commands:"
+  ivc_bench_cmds "$flow_filter"
+
+  ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelize
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  ""|"fast")
-    build
-    ;;
-  "full")
-    # Deletes all build dirs and build bb and wasms from scratch.
-    rm -rf build*
+  "")
     build
     ;;
   "ci")
     build
     test
     ;;
-  bench_ivc)
-    # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
-    # Sample usage (CI=1 required for bench results to be visible; exclude NO_WASM=1 to run wasm benchmarks):
-    # CI=1 NO_WASM=1 ./barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc
-    git fetch origin next
-
-    flow_filter="${1:-}"               # optional string-match filter for flow names
-    commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
-
-    # Build both native and wasm benchmark binaries
-    builds=(
-      "build_preset $native_preset --target bb"
-    )
-    if [[ "${NO_WASM:-}" != "1" ]]; then
-      builds+=("build_preset wasm-threads --target bb")
-    fi
-    parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
-
-    # Download cached flow inputs from the specified commit
-    export AZTEC_CACHE_COMMIT=$commit_hash
-    # TODO currently does nothing! to reinstate in cache_download
-    export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
-    # make sure that disabling the aztec VM does not interfere with cache results from CI.
-    BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
-
-    rm -rf bench-out
-
-    # Recreation of logic from bench.
-    ../../yarn-project/end-to-end/bootstrap.sh build_bench
-
-    # Extract and filter benchmark commands by flow name and wasm/no-wasm
-    function ivc_bench_cmds {
-      local flow_filter="$1"  # select only flows containing this string
-
-      ../../yarn-project/end-to-end/bootstrap.sh bench_cmds |
-        grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh |
-        { [[ "${NO_WASM:-}" == "1" ]] && grep -v wasm || cat; } |
-        { [[ -n "$flow_filter" ]] && grep -F "$flow_filter" || cat; }
-    }
-
-    echo "Running commands:"
-    ivc_bench_cmds "$flow_filter"
-
-    ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelize
-    ;;
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_native|build_cross|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_smt_verification|inject_version)
-    $cmd "$@"
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

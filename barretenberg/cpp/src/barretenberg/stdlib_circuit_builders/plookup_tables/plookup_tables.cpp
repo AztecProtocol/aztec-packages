@@ -50,23 +50,6 @@ std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES>& get_multi_tables()
         tables[MultiTableId::UINT16_AND] = uint_tables::get_uint_and_table<16>(MultiTableId::UINT16_AND);
         tables[MultiTableId::UINT32_AND] = uint_tables::get_uint_and_table<32>(MultiTableId::UINT32_AND);
         tables[MultiTableId::UINT64_AND] = uint_tables::get_uint_and_table<64>(MultiTableId::UINT64_AND);
-        tables[MultiTableId::BN254_XLO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xlo_table(
-            MultiTableId::BN254_XLO, BasicTableId::BN254_XLO_BASIC);
-        tables[MultiTableId::BN254_XHI] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xhi_table(
-            MultiTableId::BN254_XHI, BasicTableId::BN254_XHI_BASIC);
-        tables[MultiTableId::BN254_YLO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_ylo_table(
-            MultiTableId::BN254_YLO, BasicTableId::BN254_YLO_BASIC);
-        tables[MultiTableId::BN254_YHI] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_yhi_table(
-            MultiTableId::BN254_YHI, BasicTableId::BN254_YHI_BASIC);
-        tables[MultiTableId::BN254_XYPRIME] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xyprime_table(
-            MultiTableId::BN254_XYPRIME, BasicTableId::BN254_XYPRIME_BASIC);
-        tables[MultiTableId::BN254_XLO_ENDO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xlo_endo_table(
-            MultiTableId::BN254_XLO_ENDO, BasicTableId::BN254_XLO_ENDO_BASIC);
-        tables[MultiTableId::BN254_XHI_ENDO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xhi_endo_table(
-            MultiTableId::BN254_XHI_ENDO, BasicTableId::BN254_XHI_ENDO_BASIC);
-        tables[MultiTableId::BN254_XYPRIME_ENDO] =
-            ecc_generator_tables::ecc_generator_table<bb::g1>::get_xyprime_endo_table(
-                MultiTableId::BN254_XYPRIME_ENDO, BasicTableId::BN254_XYPRIME_ENDO_BASIC);
         tables[MultiTableId::SECP256K1_XLO] = ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xlo_table(
             MultiTableId::SECP256K1_XLO, BasicTableId::SECP256K1_XLO_BASIC);
         tables[MultiTableId::SECP256K1_XHI] = ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xhi_table(
@@ -205,7 +188,7 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
      * +---+-----------------------------------+----------------------------------+-----------------------------------+
      * | s | key_a                             | key_b                            | output                            |
      * |---+-----------------------------------+----------------------------------+-----------------------------------|
-     * | 6 | a6 + p.a5 + p^2.a4 + ... + p^5.a1 | b6 + q.b5 + qq.b4 + ... + q^5.b1 | s6 + r.s5 + r^2.s4 + ... + r^5.s1 |
+     * | 6 | a6 + p.a5 + p^2.a4 + ... + p^5.a1 | b6 + q.b5 + q^2.b4 + .. + q^5.b1 | s6 + r.s5 + r^2.s4 + ... + r^5.s1 |
      * | 5 | a5 + p.a4 + ...... + p^4.a1       | b5 + q.b4 + ...... + q^4.b1      | s5 + r.s4 + ...... + r^4.s1       |
      * | 4 | a4 + p.a3 + ... + p^3.a1          | b4 + q.b3 + ... + q^3.b1         | s4 + r.s3 + ... + r^3.s1          |
      * | 3 | a3 + p.a2 + p^2.a1                | b3 + q.b2 + q^2.b1               | s3 + r.s2 + r^2.s1                |
@@ -326,31 +309,6 @@ BasicTable create_basic_table(const BasicTableId id, const size_t index)
     case UINT_AND_SLICE_2_ROTATE_0: {
         return uint_tables::generate_and_rotate_table</*bits_per_slice=*/2, /*num_rotated_output_bits=*/0>(
             UINT_AND_SLICE_2_ROTATE_0, index);
-    }
-    case BN254_XLO_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<bb::g1>::generate_xlo_table(BN254_XLO_BASIC, index);
-    }
-    case BN254_XHI_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<bb::g1>::generate_xhi_table(BN254_XHI_BASIC, index);
-    }
-    case BN254_YLO_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<bb::g1>::generate_ylo_table(BN254_YLO_BASIC, index);
-    }
-    case BN254_YHI_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<bb::g1>::generate_yhi_table(BN254_YHI_BASIC, index);
-    }
-    case BN254_XYPRIME_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<bb::g1>::generate_xyprime_table(BN254_XYPRIME_BASIC, index);
-    }
-    case BN254_XLO_ENDO_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<bb::g1>::generate_xlo_endo_table(BN254_XLO_ENDO_BASIC, index);
-    }
-    case BN254_XHI_ENDO_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<bb::g1>::generate_xhi_endo_table(BN254_XHI_ENDO_BASIC, index);
-    }
-    case BN254_XYPRIME_ENDO_BASIC: {
-        return ecc_generator_tables::ecc_generator_table<bb::g1>::generate_xyprime_endo_table(BN254_XYPRIME_ENDO_BASIC,
-                                                                                              index);
     }
     case SECP256K1_XLO_BASIC: {
         return ecc_generator_tables::ecc_generator_table<secp256k1::g1>::generate_xlo_table(SECP256K1_XLO_BASIC, index);

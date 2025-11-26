@@ -37,7 +37,7 @@ BENCHMARK_DEFINE_F(ChonkBench, VerificationOnly)(benchmark::State& state)
     auto [proof, vk] = accumulate_and_prove_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
 
     for (auto _ : state) {
-        benchmark::DoNotOptimize(SumcheckChonk::verify(proof, vk));
+        benchmark::DoNotOptimize(Chonk::verify(proof, vk));
     }
 }
 

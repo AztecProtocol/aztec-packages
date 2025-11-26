@@ -83,8 +83,6 @@ class AvmFlavor {
 
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
 
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
-
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
     static_assert(MAX_PARTIAL_RELATION_LENGTH < 8, "MAX_PARTIAL_RELATION_LENGTH must be less than 8");
@@ -250,8 +248,8 @@ class AvmFlavor {
          * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
          * the provided VK hash directly to the transcript.
          */
-        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
-                                   [[maybe_unused]] Transcript& transcript) const override
+        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                    [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

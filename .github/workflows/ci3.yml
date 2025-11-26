@@ -55,7 +55,6 @@ jobs:
           # Enable disk logging for internal CI
           CI_ENABLE_DISK_LOGS: "1"
           # Nightly test env vars.
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
           EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
@@ -65,14 +64,16 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_COMMITS: ${{ github.event.pull_request.commits }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
         run: ./.github/ci3.sh "${{ join(github.event.pull_request.labels.*.name, ',') }}"
 
       - name: Post-Actions
         if: always()
         env:
+          CI_INTERNAL: "1"
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
-          SHOULD_UPLOAD_BENCHMARKS: ${{ (github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full')) && '1' || '0' }}
+          SHOULD_UPLOAD_BENCHMARKS: ${{ (github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full') || contains(github.event.pull_request.labels.*.name, 'ci-full-no-test-cache')) && '1' || '0' }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
@@ -81,7 +82,7 @@ jobs:
         run: ./.github/ci3-post.sh
 
       - name: Upload benchmarks
-        if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full')
+        if: (github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full') || contains(github.event.pull_request.labels.*.name, 'ci-full-no-test-cache')) && hashFiles('./bench-out/bench.json') != ''
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks

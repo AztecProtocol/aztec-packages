@@ -10,6 +10,7 @@
     "./aztec_node": "./dest/cmds/aztec_node/index.js",
     "./cli-utils": "./dest/utils/index.js",
     "./misc": "./dest/cmds/misc/index.js",
+    "./validator_keys": "./dest/cmds/validator_keys/index.js",
     "./setup-contracts": "./dest/cmds/misc/setup_contracts.js",
     "./utils": "./dest/utils/index.js",
     "./inspect": "./dest/utils/inspect.js",
@@ -78,23 +79,29 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/node-keystore": "workspace:^",
     "@aztec/node-lib": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/test-wallet": "workspace:^",
     "@aztec/world-state": "workspace:^",
+    "@ethersproject/wallet": "^5.8.0",
     "@iarna/toml": "^2.2.5",
     "@libp2p/peer-id-factory": "^3.0.4",
+    "@scure/bip39": "^2.0.1",
     "commander": "^12.1.0",
     "lodash.chunk": "^4.2.0",
     "lodash.groupby": "^4.6.0",
     "semver": "^7.5.4",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0"
+    "viem": "npm:@aztec/viem@2.38.2"
   },
   "devDependencies": {
+    "@aztec/aztec-node": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/lodash.chunk": "^4.2.9",
@@ -123,7 +130,8 @@
   "files": [
     "dest",
     "src",
-    "!*.test.*"
+    "!*.test.*",
+    "public_include_metric_prefixes.json"
   ],
   "types": "./dest/index.d.ts",
   "engines": {

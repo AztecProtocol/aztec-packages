@@ -31,6 +31,7 @@
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/bb.js": "workspace:^",
     "@aztec/blob-lib": "workspace:^",
     "@aztec/blob-sink": "workspace:^",
     "@aztec/bot": "workspace:^",
@@ -97,7 +98,7 @@
     "tslib": "^2.4.0",
     "typescript": "^5.3.3",
     "util": "^0.12.5",
-    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0",
+    "viem": "npm:@aztec/viem@2.38.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {

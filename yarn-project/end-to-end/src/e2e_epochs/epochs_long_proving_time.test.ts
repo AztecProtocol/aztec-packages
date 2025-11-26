@@ -41,7 +41,7 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
 
     // Wait until we hit the target proven block number, and keep an eye on how many proving jobs are run in parallel.
     let maxJobCount = 0;
-    while (monitor.l2ProvenBlockNumber === undefined || monitor.l2ProvenBlockNumber < targetProvenBlockNumber) {
+    while (monitor.provenCheckpointNumber === undefined || monitor.provenCheckpointNumber < targetProvenBlockNumber) {
       const jobs = await test.proverNodes[0].getJobs();
       if (jobs.length > maxJobCount) {
         maxJobCount = jobs.length;
@@ -51,7 +51,7 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     }
 
     // At least 3 epochs should have passed after the proven one (though we add a -1 just in case)
-    expect(monitor.l2BlockNumber).toBeGreaterThanOrEqual(targetProvenEpochs * test.epochDuration * 3 - 1);
+    expect(monitor.checkpointNumber).toBeGreaterThanOrEqual(targetProvenEpochs * test.epochDuration * 3 - 1);
 
     // We expect maxJobCount to equal 1, since the prover node epoch monitor defines an epoch as ready to be proven
     // only if the previous one has already been proven. We can relax this check if we want to support multiple epochs

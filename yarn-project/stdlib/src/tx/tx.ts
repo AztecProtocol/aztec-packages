@@ -271,11 +271,12 @@ export class Tx extends Gossipable {
   /**
    * Clones a tx, making a deep copy of all fields.
    * @param tx - The transaction to be cloned.
+   * @param cloneProof - Whether to clone the proof as well. If false, will shallow copy.
    * @returns The cloned transaction.
    */
-  static clone(tx: Tx): Tx {
+  static clone(tx: Tx, cloneProof = true): Tx {
     const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(tx.data.toBuffer());
-    const chonkProof = ChonkProof.fromBuffer(tx.chonkProof.toBuffer());
+    const chonkProof = cloneProof ? ChonkProof.fromBuffer(tx.chonkProof.toBuffer()) : tx.chonkProof;
     const contractClassLogFields = tx.contractClassLogFields.map(p => p.clone());
     const publicFunctionCalldata = tx.publicFunctionCalldata.map(cd => HashedValues.fromBuffer(cd.toBuffer()));
     const clonedTx = new Tx(tx.txHash, publicInputs, chonkProof, contractClassLogFields, publicFunctionCalldata);
@@ -317,13 +318,12 @@ export class Tx extends Gossipable {
  */
 export class TxArray extends Array<Tx> {
   static fromBuffer(buffer: Buffer | BufferReader): TxArray {
+    const reader = BufferReader.asReader(buffer);
     try {
-      const reader = BufferReader.asReader(buffer);
       const txs = reader.readVector(Tx);
-
       return new TxArray(...txs);
     } catch {
-      return new TxArray();
+      throw new Error('Failed to deserialize TxArray from buffer');
     }
   }
 

@@ -3,6 +3,7 @@ import { RollupContract, SlasherContract, TallySlashingProposerContract } from '
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -641,6 +642,17 @@ describe('TallySlasherClient', () => {
   });
 
   describe('integration', () => {
+    const waitForOffenses = (count: number) =>
+      retryUntil(
+        async () => {
+          const pendingOffenses = await offensesStore.getPendingOffenses();
+          return pendingOffenses.length >= count ? true : undefined;
+        },
+        'offense to be processed',
+        5,
+        0.1,
+      );
+
     it('should handle from offense detection to execution', async () => {
       // Round 3: Offense occurs
       const offenseRound = 3n;
@@ -657,7 +669,9 @@ describe('TallySlasherClient', () => {
 
       // Simulate watcher detecting offense
       dummyWatcher.triggerSlash([offense]);
-      await sleep(100);
+
+      // Wait for the offense to be processed
+      await waitForOffenses(1);
 
       // Round 5: Proposers vote on round 3 offenses
       const votingSlot = 5n * BigInt(roundSize);
@@ -698,7 +712,9 @@ describe('TallySlasherClient', () => {
         epochOrSlot: offenseRound * BigInt(roundSize),
       };
       dummyWatcher.triggerSlash([offense]);
-      await sleep(100);
+
+      // Wait for the first offense to be processed
+      await waitForOffenses(1);
 
       // Round 4: Another offense!
       const offenseRound4 = 4n;
@@ -709,7 +725,9 @@ describe('TallySlasherClient', () => {
         epochOrSlot: offenseRound4 * BigInt(roundSize),
       };
       dummyWatcher.triggerSlash([offense4]);
-      await sleep(100);
+
+      // Wait for the second offense to be processed
+      await waitForOffenses(2);
 
       // Round 5: Proposers vote on round 3 offenses
       const votingSlot = 5n * BigInt(roundSize);

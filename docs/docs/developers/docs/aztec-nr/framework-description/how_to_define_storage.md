@@ -180,7 +180,7 @@ Set the value of an PrivateImmutable by calling the `initialize` method:
 ```rust
 #[external("private")]
 fn initialize_private_immutable(my_value: u8) {
-    let new_note = MyNote::new(my_value, context.msg_sender());
+    let new_note = MyNote::new(my_value, context.msg_sender().unwrap());
 
     storage.my_private_immutable.initialize(new_note).emit(encode_and_encrypt_note(
         &mut context,
@@ -326,7 +326,7 @@ On the `PublicMutable` structs we have a `read` method to read the value at the 
 
 ```rust
 let admin = storage.admin.read();
-assert(admin == context.msg_sender(), "caller is not admin");
+assert(admin == context.msg_sender().unwrap(), "caller is not admin");
 ```
 
 #### `write`
@@ -372,7 +372,7 @@ A `PublicImmutable`'s storage **must** only be set once via `initialize`. Attemp
 ```rust
 #[external("public")]
 fn initialize_public_immutable(my_value: u8) {
-    let mut new_struct = MyStruct { account: context.msg_sender(), value: my_value };
+    let mut new_struct = MyStruct { account: context.msg_sender().unwrap(), value: my_value };
     storage.my_public_immutable.initialize(new_struct);
 }
 ```
@@ -416,6 +416,7 @@ pub struct Asset {
 ```
 
 Common optional derives include:
+
 - `Eq`: For equality comparisons between structs
 
 ### Store custom structs
@@ -598,7 +599,7 @@ This function can only be called in public, typically after some access control 
 ```rust
 #[external("public")]
 fn set_my_value(new_value: MyType) {
-    assert_eq(storage.admin.read(), context.msg_sender(), "caller is not admin");
+    assert_eq(storage.admin.read(), context.msg_sender().unwrap(), "caller is not admin");
     storage.my_delayed_value.schedule_value_change(new_value);
 }
 ```

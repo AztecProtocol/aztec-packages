@@ -35,6 +35,9 @@
     },
     {
       "path": "../stdlib"
+    },
+    {
+      "path": "../wallet-sdk"
     }
   ],
   "include": ["src"]

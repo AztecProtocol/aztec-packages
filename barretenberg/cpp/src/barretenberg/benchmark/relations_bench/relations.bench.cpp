@@ -49,7 +49,7 @@ template <typename Flavor, typename Relation> void execute_relation_for_univaria
 }
 
 // Ultra relations (Sumcheck prover work)
-BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraArithmeticRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<UltraFlavor, ArithmeticRelation<Fr>>);
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, EllipticRelation<Fr>>);
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, MemoryRelation<Fr>>);
@@ -64,7 +64,7 @@ BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2ExternalRelation
 BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2InternalRelation<Fr>>);
 
 // Ultra relations (verifier work)
-BENCHMARK(execute_relation_for_values<UltraFlavor, UltraArithmeticRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<UltraFlavor, ArithmeticRelation<Fr>>);
 BENCHMARK(execute_relation_for_values<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
 BENCHMARK(execute_relation_for_values<UltraFlavor, EllipticRelation<Fr>>);
 BENCHMARK(execute_relation_for_values<UltraFlavor, MemoryRelation<Fr>>);

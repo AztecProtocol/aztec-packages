@@ -292,7 +292,7 @@ export class P2PNetworkTest {
       });
 
       await cheatCodes.rollup.advanceToEpoch(
-        (await cheatCodes.rollup.getEpoch()) + (await rollup.read.getLagInEpochs()) + 1n,
+        (await cheatCodes.rollup.getEpoch()) + (await rollup.read.getLagInEpochsForValidatorSet()) + 1n,
       );
 
       // Send and await a tx to make sure we mine a block for the warp to correctly progress.
@@ -326,11 +326,12 @@ export class P2PNetworkTest {
           .deployed();
         return { contractAddress: spamContract.address };
       },
-      async ({ contractAddress }) => {
+      ({ contractAddress }) => {
         if (!this.wallet) {
           throw new Error('Call snapshot t.setupAccount before deploying account contract');
         }
-        this.spamContract = await SpamContract.at(contractAddress, this.wallet);
+        this.spamContract = SpamContract.at(contractAddress, this.wallet);
+        return Promise.resolve();
       },
     );
   }

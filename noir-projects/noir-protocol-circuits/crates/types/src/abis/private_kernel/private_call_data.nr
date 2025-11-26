@@ -1,7 +1,7 @@
 use crate::{
     abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     address::SaltedInitializationHash,
-    constants::{FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG, PUBLIC_DATA_TREE_HEIGHT},
+    constants::{FUNCTION_TREE_HEIGHT, PROOF_TYPE_HN, PROOF_TYPE_OINK, PUBLIC_DATA_TREE_HEIGHT},
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     merkle_tree::MembershipWitness,
     proof::verification_key::ChonkVerificationKey,
@@ -21,7 +21,7 @@ impl PrivateCallData {
         let proof_type = if is_first_app {
             PROOF_TYPE_OINK
         } else {
-            PROOF_TYPE_PG
+            PROOF_TYPE_HN
         };
 
         // CHONK public inputs are linked in the backend via the databus.

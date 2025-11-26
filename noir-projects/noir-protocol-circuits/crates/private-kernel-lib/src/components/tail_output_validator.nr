@@ -1,23 +1,20 @@
-mod tail_output_hints;
 mod validate_include_by_timestamp_duration;
 
-pub(crate) use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
 pub(crate) use validate_include_by_timestamp_duration::validate_include_by_timestamp_duration;
 
-use crate::components::tail_output_composer::meter_gas_used;
+use crate::{
+    accumulated_data::{assert_sorted_transformed_array, assert_transformed_array},
+    components::gas_meter::meter_gas_used,
+};
 
-use dep::types::{
-    abis::kernel_circuit_public_inputs::{
-        PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
-    },
-    utils::arrays::assert_exposed_sorted_transformed_value_array,
+use dep::types::abis::kernel_circuit_public_inputs::{
+    PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
 };
 
 pub struct TailOutputValidator {
     output: PrivateToRollupKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     include_by_timestamp_upper_bound: u64,
-    hints: TailOutputHints,
 }
 
 impl TailOutputValidator {
@@ -26,24 +23,7 @@ impl TailOutputValidator {
         previous_kernel: PrivateKernelCircuitPublicInputs,
         include_by_timestamp_upper_bound: u64,
     ) -> Self {
-        // Safety: the below hints are constrained by calling validate(). See private_kernel_tail for use.
-        let hints = unsafe { generate_tail_output_hints(previous_kernel) };
-
-        TailOutputValidator::new_with_hints(
-            output,
-            previous_kernel,
-            include_by_timestamp_upper_bound,
-            hints,
-        )
-    }
-
-    pub fn new_with_hints(
-        output: PrivateToRollupKernelCircuitPublicInputs,
-        previous_kernel: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp_upper_bound: u64,
-        hints: TailOutputHints,
-    ) -> Self {
-        TailOutputValidator { output, previous_kernel, include_by_timestamp_upper_bound, hints }
+        TailOutputValidator { output, previous_kernel, include_by_timestamp_upper_bound }
     }
 
     pub fn validate(self) {
@@ -97,62 +77,50 @@ impl TailOutputValidator {
         );
 
         // note_hashes
-        let note_hashes = self.previous_kernel.end.note_hashes;
-        for i in 0..note_hashes.array.len() {
-            assert_eq(
-                note_hashes.array[i].expose_to_public(),
-                self.output.end.note_hashes[i],
-                "mismatch note_hashes",
-            );
-        }
+        assert_transformed_array(
+            self.previous_kernel.end.note_hashes,
+            self.output.end.note_hashes,
+            |prev, out| assert_eq(out, prev.expose_to_public(), "mismatch note_hashes"),
+        );
 
         // nullifiers
-        let nullifiers = self.previous_kernel.end.nullifiers;
-        for i in 0..nullifiers.array.len() {
-            assert_eq(
-                nullifiers.array[i].expose_to_public(),
-                self.output.end.nullifiers[i],
-                "mismatch nullifiers",
-            );
-        }
+        assert_transformed_array(
+            self.previous_kernel.end.nullifiers,
+            self.output.end.nullifiers,
+            |prev, out| assert_eq(out, prev.expose_to_public(), "mismatch nullifiers"),
+        );
 
         // private_logs
-        let private_logs = self.previous_kernel.end.private_logs;
-        for i in 0..private_logs.array.len() {
-            assert_eq(
-                private_logs.array[i].expose_to_public(),
-                self.output.end.private_logs[i],
-                "mismatch private_logs",
-            );
-        }
+        assert_transformed_array(
+            self.previous_kernel.end.private_logs,
+            self.output.end.private_logs,
+            |prev, out| assert_eq(out, prev.innermost().log, "mismatch private_logs"),
+        );
     }
 
     fn validate_propagated_sorted_values(self) {
         // l2_to_l1_msgs
-        assert_exposed_sorted_transformed_value_array(
+        assert_sorted_transformed_array(
             self.previous_kernel.end.l2_to_l1_msgs,
             self.output.end.l2_to_l1_msgs,
             |prev, out| assert_eq(out, prev.expose_to_public(), "mismatch l2_to_l1_msgs"),
-            self.hints.sorted_l2_to_l1_msg_hints,
         );
+
         // contract_class_logs
-        assert_exposed_sorted_transformed_value_array(
+        assert_sorted_transformed_array(
             self.previous_kernel.end.contract_class_logs_hashes,
             self.output.end.contract_class_logs_hashes,
             |prev, out| {
                 assert_eq(out, prev.expose_to_public(), "mismatch contract_class_logs_hashes")
             },
-            self.hints.sorted_contract_class_log_hash_hints,
         );
     }
 
     fn validate_gas_used(self) {
-        let gas_used = meter_gas_used(self.output.end);
-
+        let gas_used = meter_gas_used(self.previous_kernel, false /* is_for_public */);
         assert_eq(self.output.gas_used, gas_used, "incorrect metered gas used");
 
         let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;
-
         assert(self.output.gas_used.within(limits), "The gas used exceeds the gas limits");
     }
 }

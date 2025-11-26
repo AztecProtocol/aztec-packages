@@ -39,6 +39,10 @@ class AvmVerifierTests : public ::testing::Test {
 
 TEST_F(AvmVerifierTests, GoodPublicInputs)
 {
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     NativeProofResult proof_result = create_proof_and_vk();
     auto [proof, verification_key, public_inputs_cols] = proof_result;
 
@@ -51,6 +55,10 @@ TEST_F(AvmVerifierTests, GoodPublicInputs)
 
 TEST_F(AvmVerifierTests, NegativeBadPublicInputs)
 {
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     NativeProofResult proof_result = create_proof_and_vk();
     auto [proof, verification_key, public_inputs_cols] = proof_result;
     auto verify_with_corrupt_pi_col = [&](size_t col_idx) {

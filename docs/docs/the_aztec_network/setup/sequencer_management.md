@@ -21,57 +21,77 @@ Once sufficient attestations are collected (two-thirds of the committee plus one
 
 ### Minimum Hardware Requirements
 
-- 2 core / 4 vCPU (released in 2015 or later)
+- 8 core / 16 vCPU (released in 2015 or later)
 - 16 GB RAM
 - 1 TB NVMe SSD
 - 25 Mbps network connection
 
 These requirements are subject to change as the network throughput increases.
 
-**Before proceeding:** Ensure you've reviewed and completed the [prerequisites](../prerequisites.md) for the Docker Compose method. This guide uses Docker Compose, which is the recommended approach for sequencer nodes.
+**Before proceeding:** Ensure you've reviewed and completed the [prerequisites](../prerequisites.md).
 
 ## Keystore Explanation
 
-Sequencers require private keys to identify themselves as valid proposers and attesters. These keys are configured through a keystore file.
+Sequencers require private keys to identify themselves as valid proposers and attesters. These keys are configured through a private keystore file.
 
-### Keystore Structure
+### Private Keystore Structure
 
-The keystore file (`keystore.json`) uses the following structure:
+The private keystore file (`keystore.json`) uses the following structure:
 
 ```json
 {
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": ["ETH_PRIVATE_KEY_0"],
-      "publisher": ["ETH_PRIVATE_KEY_1"],
-      "coinbase": "ETH_ADDRESS_2"
+      "attester": {
+        "eth": "ETH_PRIVATE_KEY",
+        "bls": "BLS_PRIVATE_KEY"
+      },
+      "publisher": ["PUBLISHER_PRIVATE_KEY"],  // Optional: defaults to attester key
+      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",  // Not currently used, set to all zeros
+      "coinbase": "ETH_ADDRESS"
     }
   ]
 }
 ```
 
+:::info
+The attester field contains both Ethereum and BLS keys:
+- **ETH key**: Derives the address that serves as your sequencer's unique identifier in the protocol
+- **BLS key**: Used to sign proposals and attestations, as well as for staking operations
+:::
+
 ### Field Descriptions
 
 #### attester (required)
 
-**Your sequencer's identity.** The Ethereum address derived from this private key uniquely identifies your sequencer in the network. This key is used to sign block proposals and attestations.
+**Your sequencer's identity.** Contains both Ethereum and BLS keys:
 
-- **Format**: Array of Ethereum private keys
-- **Purpose**: Signs attestations and proposals
-- **Identity**: The corresponding Ethereum address is your sequencer's unique identifier
+- **Format**: Object with `eth` and `bls` fields
+- **eth**: Ethereum private key - the derived address serves as your sequencer's unique identifier in the protocol
+- **bls**: BLS private key - actually signs proposals and attestations, and is used for staking operations (validator registration and proof of possession)
+- **Purpose**: The ETH address identifies your sequencer, while the BLS key performs the cryptographic signing of consensus messages
 
 #### publisher (optional)
 
-Private key for sending block proposals to L1. This account needs ETH funding to pay for L1 gas.
+Separate private key(s) for submitting BLS-signed messages to L1. The publisher just pays gas to post already-signed proposals and attestations.
 
 - **Format**: Array of Ethereum private keys
 - **Default**: Uses attester key if not specified
-**Rule of thumb**: Ensure every publisher account maintains at least 0.1 ETH per attester account it serves. This balance allows the selected publisher to successfully post transactions when chosen.
+- **Purpose**: Posts signed messages to L1 and pays for gas (doesn't participate in signing)
+- **Rule of thumb**: Ensure every publisher account maintains at least 0.1 ETH per attester account it serves. This balance allows the selected publisher to successfully post transactions when chosen.
 
 :::tip
-If you're using the same key for both attester and publisher, you can omit the `publisher` field entirely from your keystore.
+If you're using the attester ETH key for publishing (no separate publisher keys), you can omit the `publisher` field entirely from your keystore, but you will still need to fund the attester account according to the rule of thumb above.
 :::
+
+#### feeRecipient
+
+Aztec address that would receive L2 transaction fees.
+
+- **Format**: 32-byte Aztec address (64 hex characters)
+- **Current status**: Not currently used by the protocol - set to `0x0000000000000000000000000000000000000000000000000000000000000000`
+- **Purpose**: Reserved for future fee distribution mechanisms
 
 #### coinbase (optional)
 
@@ -82,21 +102,89 @@ Ethereum address that receives all L1 block rewards and tx fees.
 
 ### Generating Keys
 
-Before creating your keystore file, you'll need to generate the required keys.
-
-#### Ethereum Private Keys
-
-Generate Ethereum private keys using Foundry's `cast` tool:
+Use the Aztec CLI's keystore utility to generate both your private and public keystores:
 
 ```bash
-# Generate a new wallet with a 24-word mnemonic
-cast wallet new-mnemonic --words 24
-
-# This outputs a mnemonic phrase, a derived address, and private key
-# Save these securely - you'll need the private key for the keystore
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls $ETH_RPC
 ```
 
-At a minimum, you need one Ethereum private key for the `attester` field. Optionally, you can generate a separate key for the `publisher` field and a separate address for the `coinbase` field.
+**Required parameters:**
+- `--fee-recipient`: Set to all zeros (not currently used by the protocol)
+- `--staker-output`: Generate the public keystore for the staking dashboard
+- `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f` for mainnet)
+- `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint
+  - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your RPC URL (e.g., `https://mainnet.infura.io/v3/YOUR_API_KEY`)
+
+
+**This command creates two JSON files:**
+1. **Private keystore** (`~/.aztec/keystore/keyN.json`) - Contains your ETH and BLS private keys for running the node
+2. **Public keystore** (`~/.aztec/keystore/keyN_staker_output.json`) - Contains only public information (public keys and proof of possession) for the staking dashboard
+
+Where `N` is an auto-incrementing number (e.g., `key1.json`, `key2.json`, etc.)
+
+**What gets generated:**
+- Automatically generates a mnemonic for key derivation (or provide your own with `--mnemonic`)
+- Creates an ETH key (for your sequencer identifier) and BLS key (for signing)
+- Computes BLS public keys (G1 and G2) and proof of possession
+- Outputs your attester address and BLS public key to the console
+
+**Example output:**
+```
+No mnemonic provided, generating new one...
+Using new mnemonic:
+
+word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12
+
+Wrote validator keystore to /Users/aztec/.aztec/keystore/key1.json
+Wrote staker output for 1 validator(s) to /Users/aztec/.aztec/keystore/key1_staker_output.json
+
+acc1:
+  attester:
+    eth: 0xA55aB561877E479361BA033c4ff7B516006CF547
+    bls: 0xa931139040533679ff3990bfc4f40b63f50807815d77346e3c02919d71891dc1
+```
+
+**Critical: Save your mnemonic phrase!**
+- The mnemonic is the **only thing you must save** - it can regenerate all your keys, addresses, and keystores
+- Store it securely offline (not on the server running the node)
+
+**For convenience, note:**
+- **Attester address** (eth): Your sequencer's identifier (e.g., `0xA55aB...F547`) - useful for registration and monitoring
+- **File paths**: Where the keystores were saved
+
+All other information (BLS keys, public keys, addresses) can be re-derived from the mnemonic if needed.
+
+:::tip Complete Example Command
+Complete command with all recommended parameters:
+```bash
+# Replace YOUR_API_KEY with your actual Infura API key
+export ETH_RPC=https://mainnet.infura.io/v3/YOUR_API_KEY
+
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls $ETH_RPC
+```
+:::
+
+:::tip Provide Your Own Mnemonic
+For deterministic key generation or to recreate keys later, provide your own mnemonic:
+```bash
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls $ETH_RPC \
+  --mnemonic "your twelve word mnemonic phrase here"
+```
+:::
+
+For detailed instructions, advanced options, and complete examples, see the [Creating Sequencer Keystores guide](../operation/keystore/creating_keystores.md).
 
 ## Setup with Docker Compose
 
@@ -110,36 +198,49 @@ cd aztec-sequencer
 touch .env
 ```
 
-### Step 2: Create Keystore File
+### Step 2: Generate and Move Private Keystore to Docker Directory
 
-Create a `keystore.json` file in your `aztec-sequencer/keys` folder with your generated keys:
+If you haven't already generated your private and public keystores, do so now (see [Generating Keys](#generating-keys) above).
 
-```json
-{
-  "schemaVersion": 1,
-  "validators": [
-    {
-      "attester": ["ETH_PRIVATE_KEY_0"],
-      "publisher": ["ETH_PRIVATE_KEY_1"],
-      "coinbase": "ETH_ADDRESS_2"
-    }
-  ]
-}
+Move the private keystore (not the public keystore) into the Docker directory:
+
+```bash
+# Move the private keystore to Docker directory (replace N with your key number)
+cp ~/.aztec/keystore/keyN.json aztec-sequencer/keys/keystore.json
+
+# Keep the public keystore for later use with the staking dashboard
+# It will be at ~/.aztec/keystore/keyN_staker_output.json
 ```
 
-Replace the placeholder values with your actual keys and addresses generated in the previous section.
+### Step 3: Fund Your Publisher Account
 
-:::warning
-Publisher accounts submit block proposals to L1. Each publisher operates independently, and the system does not retry with another publisher if a transaction fails due to insufficient funds.
+Your sequencer needs ETH to pay for gas when submitting blocks to L1. Fund the account that will act as the publisher.
 
-**Examples**:
+**Determine which address to fund:**
+
+```bash
+# Get your attester address (this will be your publisher if no separate publisher is configured)
+jq -r '.validators[0].attester.eth' aztec-sequencer/keys/keystore.json
+
+# If you have a separate publisher configured:
+jq -r '.validators[0].publisher[0]' aztec-sequencer/keys/keystore.json
+```
+
+**Funding requirements:**
+- **Rule of thumb**: Maintain at least **0.1 ETH per attester account** in each publisher account
+- Publisher accounts submit blocks to L1 and pay for gas fees
+- The system does not retry with another publisher if a transaction fails due to insufficient funds
+
+**Examples:**
+- 1 attester with 1 publisher (or using attester as publisher) → Maintain ≥ 0.1 ETH
 - 3 attesters with 1 publisher → Maintain ≥ 0.3 ETH in that publisher account
 - 3 attesters with 2 publishers → Maintain ≥ 0.15 ETH in each publisher account (0.3 ETH total)
 
-Maintaining these minimum balances prevents failed block publications caused by low gas funds.
+:::tip
+Set up monitoring or alerts to notify you when the publisher balance falls below the recommended threshold to prevent failed block publications.
 :::
 
-### Step 3: Configure Environment Variables
+### Step 4: Configure Environment Variables
 
 Add the following to your `.env` file:
 
@@ -159,18 +260,17 @@ AZTEC_ADMIN_PORT=8880
 Find your public IP address with: `curl ipv4.icanhazip.com`
 :::
 
-### Step 4: Create Docker Compose File
+### Step 5: Create Docker Compose File
 
 Create a `docker-compose.yml` file in your `aztec-sequencer` directory:
 
 ```yaml
 services:
   aztec-sequencer:
-    image: "aztecprotocol/aztec:#include_testnet_version"
+    image: "aztecprotocol/aztec:2.0.4"
     container_name: "aztec-sequencer"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
-      - ${AZTEC_ADMIN_PORT}:${AZTEC_ADMIN_PORT}
       - ${P2P_PORT}:${P2P_PORT}
       - ${P2P_PORT}:${P2P_PORT}/udp
     volumes:
@@ -194,7 +294,7 @@ services:
       --node
       --archiver
       --sequencer
-      --network testnet
+      --network mainnet
     networks:
       - aztec
     restart: always
@@ -204,9 +304,20 @@ networks:
     name: aztec
 ```
 
+:::warning Security: Admin Port Not Exposed
+The admin port (8880) is intentionally **not exposed** to the host machine for security reasons. The admin API provides sensitive operations like configuration changes and database rollbacks that should never be accessible from outside the container.
+
+If you need to access admin endpoints, use `docker exec`:
+```bash
+docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+```
+:::
+
 This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
-### Step 5: Start the Sequencer
+### Step 6: Start the Sequencer
 
 Start the sequencer:
 
@@ -242,20 +353,32 @@ curl http://localhost:8080/status
 docker compose logs -f aztec-sequencer
 ```
 
-## Registering a Sequencer
+## Next Steps: Registering Your Sequencer
 
-After your sequencer node is set up and running, you must register it with the network to join the sequencer set.
+Now that your sequencer node is set up and running, you need to register it with the network. There are two ways to participate as a sequencer:
 
-### Registration Process
+### Option 1: Self-Staking via Staking Dashboard
 
-Complete the onboarding process at [testnet.aztec.network](https://testnet.aztec.network) using zkPassport.
+Register your sequencer and provide your own stake through the staking dashboard. This is the most common approach for individual operators.
 
-This process will:
-1. Verify your identity using zkPassport
-2. Register your sequencer's attester address with the network
-3. Add you to the sequencer set once approved
+**→ [Register Your Sequencer (Self-Staking)](../operation/sequencer_management/registering_sequencer.md)**
 
-Your sequencer's identity is determined by the attester address derived from the private key in your keystore file.
+You'll use the **public keystore** file (`keyN_staker_output.json`) that was generated when you created your keys.
+
+### Option 2: Running with Delegated Stake
+
+Operate sequencers backed by tokens from delegators. This non-custodial system allows you to run sequencer infrastructure while delegators provide the economic backing.
+
+**→ [Run with Delegated Stake](../operation/sequencer_management/running_delegated_stake.md)**
+
+As a provider, you'll register with the Staking Registry and manage a queue of sequencer identities that activate when delegators stake to you.
+
+:::tip Which Option Should I Choose?
+- **Self-staking**: You have tokens and want to run your own sequencer
+- **Delegated staking**: You want to operate sequencer infrastructure and earn commission from delegators' stake
+
+Both options use the same node setup from this guide.
+:::
 
 ## Monitoring Sequencer Status
 
@@ -293,6 +416,7 @@ cast call [ROLLUP_ADDRESS] "getAttesterView(address)" [ATTESTER_ADDRESS] --rpc-u
 ```
 
 This returns an `AttesterView` struct containing:
+
 1. **status** - The sequencer's current status (see Status Codes below)
 2. **effectiveBalance** - The sequencer's effective stake balance
 3. **exit** - Exit information (if the sequencer is exiting)
@@ -300,16 +424,17 @@ This returns an `AttesterView` struct containing:
 
 #### Status Codes
 
-| Status | Name | Meaning |
-| ------ | ---- | ------- |
-| 0 | NONE | The sequencer does not exist in the sequencer set |
-| 1 | VALIDATING | The sequencer is currently active and participating in consensus |
-| 2 | ZOMBIE | The sequencer is not active (balance fell below ejection threshold, possibly due to slashing) but still has funds in the system |
-| 3 | EXITING | The sequencer has initiated withdrawal and is in the exit delay period |
+| Status | Name       | Meaning                                                                                                                         |
+| ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 0      | NONE       | The sequencer does not exist in the sequencer set                                                                               |
+| 1      | VALIDATING | The sequencer is currently active and participating in consensus                                                                |
+| 2      | ZOMBIE     | The sequencer is not active (balance fell below ejection threshold, possibly due to slashing) but still has funds in the system |
+| 3      | EXITING    | The sequencer has initiated withdrawal and is in the exit delay period                                                          |
 
 ### Performance Monitoring
 
 Track your sequencer's performance by monitoring:
+
 - **Effective balance** - Should remain above the ejection threshold
 - **Status** - Should be VALIDATING for active participation
 - **Attestation rate** - How many attestations you've successfully submitted
@@ -329,6 +454,7 @@ Information about the exit process will be added when the mechanism is finalized
 **Issue**: Your node cannot connect to peers.
 
 **Solutions**:
+
 - Verify your external IP address matches the `P2P_IP` setting
 - Check firewall rules on your router and local machine
 - Test connectivity using: `nc -zv [your-ip] 40400`
@@ -338,16 +464,18 @@ Information about the exit process will be added when the mechanism is finalized
 **Issue**: Your node is not synchronizing with the network.
 
 **Solutions**:
+
 - Check L1 endpoint connectivity
 - Verify both execution and consensus clients are fully synced
 - Review logs for specific error messages
 - Ensure L1 endpoints support high throughput
 
-### Keystore issues
+### Private keystore issues
 
-**Issue**: Keystore not loading or errors about invalid keys.
+**Issue**: Private keystore not loading or errors about invalid keys.
 
 **Solutions**:
+
 - Ensure `keystore.json` is properly formatted
 - Verify private keys are valid Ethereum private keys
 - Check file permissions on the keys directory
@@ -357,6 +485,7 @@ Information about the exit process will be added when the mechanism is finalized
 **Issue**: Container won't start or crashes.
 
 **Solutions**:
+
 - Ensure Docker and Docker Compose are up to date
 - Check disk space availability
 - Verify the `.env` file is properly formatted
@@ -366,10 +495,16 @@ Information about the exit process will be added when the mechanism is finalized
 
 See the [Operator FAQ](../operation/operator_faq.md) for additional common issues and resolutions.
 
-## Next Steps
+## Additional Resources
 
-- Monitor your sequencer's performance and attestation rate
-- Join the [Aztec Discord](https://discord.gg/aztec) for operator support
-- Review [creating and voting on proposals](../operation/sequencer_management/creating_and_voting_on_proposals.md) for participating in governance
-- Set up [high availability](./high_availability_sequencers.md) to run your sequencer across multiple nodes for redundancy
-- Learn about [advanced keystore patterns](../operation/keystore/advanced_patterns.md) for running multiple sequencer identities or complex configurations
+After setting up and registering your sequencer:
+
+- **[Register Your Sequencer](../operation/sequencer_management/registering_sequencer.md)** - Complete registration via staking dashboard
+- **[Monitor Sequencer Status](#monitoring-sequencer-status)** - Track performance and attestation rate
+- **[Operator FAQ](../operation/operator_faq.md)** - Common issues and resolutions
+- **[Creating and Voting on Proposals](../operation/sequencer_management/creating_and_voting_on_proposals.md)** - Participate in governance
+- **[High Availability Setup](./high_availability_sequencers.md)** - Run your sequencer across multiple nodes for redundancy
+- **[Advanced Keystore Patterns](../operation/keystore/advanced_patterns.md)** - Manage multiple sequencer identities
+
+**Community support:**
+- Join the [Aztec Discord](https://discord.gg/aztec) for operator support and network updates

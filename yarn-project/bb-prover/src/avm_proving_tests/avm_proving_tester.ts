@@ -8,7 +8,7 @@ import {
   type TestPrivateInsertions,
 } from '@aztec/simulator/public/fixtures';
 import type { PublicTxResult } from '@aztec/simulator/server';
-import { type AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
@@ -227,7 +227,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 
     const opString = this.checkCircuitOnly ? 'Check circuit' : 'Proving and verification';
 
-    const avmCircuitInputs = simRes.avmProvingRequest.inputs;
+    const avmCircuitInputs = new AvmCircuitInputs(simRes.hints!, simRes.publicInputs);
     const timer = new Timer();
     await this.proveVerify(avmCircuitInputs, txLabel);
     this.logger.info(`${opString} took ${timer.ms()} ms for tx ${txLabel}`);

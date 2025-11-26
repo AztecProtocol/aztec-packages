@@ -38,7 +38,7 @@ use dep::types::{
         utils::{pad_end, pad_end_with},
     },
     traits::Empty,
-    utils::arrays::find_index_hint,
+    utils::arrays::find_first_index,
 };
 use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 
@@ -117,7 +117,7 @@ impl TestBuilder {
         let min_revertible_side_effect_counter = 0;
 
         let mut output = previous_kernel;
-        output.validation_requests_split_counter = Option::some(min_revertible_side_effect_counter);
+        output.claimed_revertible_counter = min_revertible_side_effect_counter;
 
         Self {
             previous_kernel,
@@ -147,7 +147,8 @@ impl TestBuilder {
 
     pub fn read_settled_note_hash(&mut self, preimage_index: u32) {
         let preimage = self.note_hash_preimages[preimage_index];
-        let read_request_index = self.previous_kernel.add_note_hash_read_request(preimage.value);
+        let read_request_index =
+            self.previous_kernel.add_settled_note_hash_read_request(preimage.value);
         let leaf_index = preimage_index as Field;
         let membership_witness = MembershipWitness {
             leaf_index,
@@ -189,14 +190,13 @@ impl TestBuilder {
         self.previous_kernel.nullifiers.set(nullifier_index, nullifier);
         // Safety: this is only used in tests.
         let num_hints = unsafe {
-            find_index_hint(
+            find_first_index(
                 self.transient_data_squashing_hints,
                 |hint: TransientDataSquashingHint| {
                     hint.nullifier_index == MAX_NULLIFIERS_PER_TX
                 },
             )
-        }
-            .unwrap();
+        };
         self.transient_data_squashing_hints[num_hints] =
             TransientDataSquashingHint { nullifier_index, note_hash_index };
     }
@@ -293,7 +293,6 @@ impl TestBuilder {
             nullifier_read_request_hints: self.nullifier_read_request_hints.to_hints(),
             key_validation_hints: self.key_validation_hints.storage(),
             transient_data_squashing_hints: self.transient_data_squashing_hints,
-            min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
         };
 
         let previous_kernel = self.previous_kernel.to_private_kernel_data();

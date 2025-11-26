@@ -59,7 +59,7 @@ export class PublicPersistableStateManager {
     private readonly trace: PublicSideEffectTraceInterface,
     private readonly firstNullifier: Fr, // Needed for note hashes.
     private readonly timestamp: UInt64, // Needed for contract updates.
-    private readonly doMerkleOperations: boolean = false,
+    private readonly doMerkleOperations: boolean = true,
     private readonly publicStorage: PublicStorage = new PublicStorage(treesDB),
     private readonly nullifiers: NullifierManager = new NullifierManager(treesDB),
   ) {}
@@ -71,18 +71,10 @@ export class PublicPersistableStateManager {
     treesDB: PublicTreesDB,
     contractsDB: PublicContractsDBInterface,
     trace: PublicSideEffectTraceInterface,
-    doMerkleOperations: boolean = false,
     firstNullifier: Fr,
     timestamp: UInt64,
   ): PublicPersistableStateManager {
-    return new PublicPersistableStateManager(
-      treesDB,
-      contractsDB,
-      trace,
-      firstNullifier,
-      timestamp,
-      doMerkleOperations,
-    );
+    return new PublicPersistableStateManager(treesDB, contractsDB, trace, firstNullifier, timestamp);
   }
 
   /**
@@ -171,7 +163,6 @@ export class PublicPersistableStateManager {
     if (this.doMerkleOperations) {
       return await this.treesDB.storageRead(contractAddress, slot);
     } else {
-      // TODO(fcarreiro): I don't get this. PublicStorage CAN end up reading the tree. Why is it in the "dont do merkle operations" branch?
       const read = await this.publicStorage.read(contractAddress, slot);
       this.log.trace(
         `Storage read results (address=${contractAddress}, slot=${slot}): value=${read.value}, cached=${read.cached}`,
@@ -437,6 +428,8 @@ export class PublicPersistableStateManager {
         await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
 
       const hash = await readDeployerStorage(delayedPublicMutableHashSlot);
+      // NOTE: The below reads are either not performed (if hash.isZero()) or only performed in unconstrained in c++ simulation.
+      // See UpdateCheck::check_current_class_id documentation - this means if we generate hints from the merkle db, they are unused:
       const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
         delayedPublicMutableSlot,
         readDeployerStorage,

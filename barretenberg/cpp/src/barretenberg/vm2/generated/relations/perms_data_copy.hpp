@@ -47,7 +47,7 @@ struct perm_data_copy_mem_read_settings_ {
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
         ColumnAndShifts::data_copy_clk,       ColumnAndShifts::data_copy_src_context_id,
         ColumnAndShifts::data_copy_read_addr, ColumnAndShifts::data_copy_value,
-        ColumnAndShifts::precomputed_zero,    ColumnAndShifts::precomputed_zero
+        ColumnAndShifts::data_copy_tag,       ColumnAndShifts::precomputed_zero
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
         ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,

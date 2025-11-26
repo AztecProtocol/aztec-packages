@@ -1,12 +1,10 @@
-use crate::{
-    abis::TxEffect,
-    tx_base::components::{private_tail_validator, tx_blob_data::TxEffectArrayLengths},
-};
+use crate::tx_base::components::private_tail_validator;
 use dep::types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, contract_class_log::ContractClassLog,
         kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs, log::Log,
     },
+    blob_data::{TxEffect, TxEffectArrayLengths},
     constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
     hash::silo_l2_to_l1_message,
     traits::Hash,

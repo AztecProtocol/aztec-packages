@@ -10,30 +10,30 @@ namespace {
 
 // Wider type used for intermediate gas calculations.
 struct IntermediateGas {
-    uint64_t l2Gas;
-    uint64_t daGas;
+    uint64_t l2_gas;
+    uint64_t da_gas;
 
     IntermediateGas operator+(const IntermediateGas& other) const
     {
-        return IntermediateGas{ .l2Gas = l2Gas + other.l2Gas, .daGas = daGas + other.daGas };
+        return IntermediateGas{ .l2_gas = this->l2_gas + other.l2_gas, .da_gas = this->da_gas + other.da_gas };
     }
 
     IntermediateGas operator*(const IntermediateGas& other) const
     {
-        return IntermediateGas{ .l2Gas = l2Gas * other.l2Gas, .daGas = daGas * other.daGas };
+        return IntermediateGas{ .l2_gas = l2_gas * other.l2_gas, .da_gas = da_gas * other.da_gas };
     }
 
     Gas to_gas() const
     {
-        assert(l2Gas <= std::numeric_limits<uint32_t>::max());
-        assert(daGas <= std::numeric_limits<uint32_t>::max());
-        return Gas{ .l2Gas = static_cast<uint32_t>(l2Gas), .daGas = static_cast<uint32_t>(daGas) };
+        assert(l2_gas <= std::numeric_limits<uint32_t>::max());
+        assert(da_gas <= std::numeric_limits<uint32_t>::max());
+        return Gas{ .l2_gas = static_cast<uint32_t>(l2_gas), .da_gas = static_cast<uint32_t>(da_gas) };
     }
 };
 
 IntermediateGas to_intermediate_gas(const Gas& gas)
 {
-    return IntermediateGas{ .l2Gas = static_cast<uint64_t>(gas.l2Gas), .daGas = static_cast<uint64_t>(gas.daGas) };
+    return IntermediateGas{ .l2_gas = static_cast<uint64_t>(gas.l2_gas), .da_gas = static_cast<uint64_t>(gas.da_gas) };
 }
 
 } // namespace
@@ -63,8 +63,8 @@ void GasTracker::consume_gas(const Gas& dynamic_gas_factor)
         to_intermediate_gas({ gas_event.addressing_gas + spec.gas_cost.opcode_gas, base_da_gas });
     IntermediateGas gas_limit = to_intermediate_gas(context.get_gas_limit());
 
-    bool oog_base_l2 = base_actual_gas_used.l2Gas > gas_limit.l2Gas;
-    bool oog_base_da = base_actual_gas_used.daGas > gas_limit.daGas;
+    bool oog_base_l2 = base_actual_gas_used.l2_gas > gas_limit.l2_gas;
+    bool oog_base_da = base_actual_gas_used.da_gas > gas_limit.da_gas;
 
     // Dynamic.
     gas_event.dynamic_gas_factor = dynamic_gas_factor;
@@ -76,32 +76,32 @@ void GasTracker::consume_gas(const Gas& dynamic_gas_factor)
         base_actual_gas_used +
         (to_intermediate_gas(Gas{ dynamic_l2_gas, dynamic_da_gas }) * to_intermediate_gas(dynamic_gas_factor));
 
-    gas_event.total_gas_used_l2 = total_gas_used.l2Gas;
-    gas_event.total_gas_used_da = total_gas_used.daGas;
+    gas_event.total_gas_used_l2 = total_gas_used.l2_gas;
+    gas_event.total_gas_used_da = total_gas_used.da_gas;
 
-    gas_event.oog_l2 = greater_than.gt(total_gas_used.l2Gas, gas_limit.l2Gas);
-    gas_event.oog_da = greater_than.gt(total_gas_used.daGas, gas_limit.daGas);
+    gas_event.oog_l2 = greater_than.gt(total_gas_used.l2_gas, gas_limit.l2_gas);
+    gas_event.oog_da = greater_than.gt(total_gas_used.da_gas, gas_limit.da_gas);
 
     if (oog_base_l2 || oog_base_da) {
         throw OutOfGasException(format("Out of gas (base): L2 used ",
-                                       base_actual_gas_used.l2Gas,
+                                       base_actual_gas_used.l2_gas,
                                        " of ",
-                                       gas_limit.l2Gas,
+                                       gas_limit.l2_gas,
                                        ", DA used ",
-                                       base_actual_gas_used.daGas,
+                                       base_actual_gas_used.da_gas,
                                        " of ",
-                                       gas_limit.daGas));
+                                       gas_limit.da_gas));
     }
 
     if (gas_event.oog_l2 || gas_event.oog_da) {
         throw OutOfGasException(format("Out of gas (dynamic): L2 used ",
-                                       total_gas_used.l2Gas,
+                                       total_gas_used.l2_gas,
                                        " of ",
-                                       gas_limit.l2Gas,
+                                       gas_limit.l2_gas,
                                        ", DA used ",
-                                       total_gas_used.daGas,
+                                       total_gas_used.da_gas,
                                        " of ",
-                                       gas_limit.daGas));
+                                       gas_limit.da_gas));
     }
 
     // Safe downcast since if we were over 32 bits, we would have OOG'd.
@@ -115,12 +115,12 @@ Gas GasTracker::compute_gas_limit_for_call(const Gas& allocated_gas)
 {
     Gas gas_left = context.gas_left();
 
-    bool is_l2_gas_allocated_lt_left = greater_than.gt(gas_left.l2Gas, allocated_gas.l2Gas);
-    bool is_da_gas_allocated_lt_left = greater_than.gt(gas_left.daGas, allocated_gas.daGas);
+    bool is_l2_gas_allocated_lt_left = greater_than.gt(gas_left.l2_gas, allocated_gas.l2_gas);
+    bool is_da_gas_allocated_lt_left = greater_than.gt(gas_left.da_gas, allocated_gas.da_gas);
 
     return {
-        .l2Gas = is_l2_gas_allocated_lt_left ? allocated_gas.l2Gas : gas_left.l2Gas,
-        .daGas = is_da_gas_allocated_lt_left ? allocated_gas.daGas : gas_left.daGas,
+        .l2_gas = is_l2_gas_allocated_lt_left ? allocated_gas.l2_gas : gas_left.l2_gas,
+        .da_gas = is_da_gas_allocated_lt_left ? allocated_gas.da_gas : gas_left.da_gas,
     };
 }
 
