@@ -5,8 +5,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@azte
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock } from '@aztec/stdlib/block';
 import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
-
-import { NoteDao } from './note_dao.js';
+import { NoteDao } from '@aztec/stdlib/note';
 
 /**
  * NoteDataProvider manages the storage and retrieval of notes.
