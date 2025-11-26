@@ -832,7 +832,7 @@ template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> class Sum
      * 2. checks the consistency of the new round univariate with respect to the one from the previous round
      * 3. updates the target for the next consistency check
      */
-    void process_round(std::shared_ptr<Transcript> transcript,
+    void process_round(const std::shared_ptr<Transcript>& transcript,
                        std::vector<FF>& multivariate_challenge,
                        bb::GateSeparatorPolynomial<FF>& gate_separators,
                        const FF& padding_indicator,
@@ -934,7 +934,7 @@ template <typename Flavor> class SumcheckVerifierRound<Flavor, true> {
      * @brief Process a single sumcheck round for Grumpkin: receive commitment and evaluations,
      * defer per-round verification to Shplemini.
      */
-    void process_round(std::shared_ptr<Transcript> transcript,
+    void process_round(const std::shared_ptr<Transcript>& transcript,
                        std::vector<FF>& multivariate_challenge,
                        bb::GateSeparatorPolynomial<FF>& gate_separators,
                        const FF& /*padding_indicator*/,

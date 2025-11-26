@@ -841,9 +841,9 @@ template <typename Flavor> class SumcheckVerifier {
      * @param padding_indicator Optional padding indicator (only used for non-Grumpkin flavors)
      * @return SumcheckOutput
      */
-    SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters = {},
-                                  const std::vector<FF>& gate_challenges = {},
-                                  const std::vector<FF>& padding_indicator = {})
+    SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
+                                  const std::vector<FF>& gate_challenges,
+                                  const std::vector<FF>& padding_indicator_array)
     {
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
         // Construct a ZKHandler to handle all the libra related information in the transcript
@@ -854,10 +854,6 @@ template <typename Flavor> class SumcheckVerifier {
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(virtual_log_n);
-
-        // Initialize padding indicator to all 1s if not provided
-        std::vector<FF> padding_indicator_array =
-            padding_indicator.empty() ? std::vector<FF>(virtual_log_n, FF(1)) : padding_indicator;
 
         // Process univariate consistancy check rounds
         // For ECCVM we ensure the consistencies by populating an vector of claimed evaluations that will be checked in

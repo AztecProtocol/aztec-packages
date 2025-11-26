@@ -142,7 +142,7 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
                                            accumulator_evaluations[1]);
 
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);
-    const auto sumcheck_result = sumcheck.verify();
+    const auto sumcheck_result = sumcheck.verify({}, {}, {});
 
     // Construct new claim
     auto claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
