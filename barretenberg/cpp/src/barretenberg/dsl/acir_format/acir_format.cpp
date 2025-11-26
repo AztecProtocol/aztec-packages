@@ -610,12 +610,11 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
     WitnessVector& witness = program.witness;
 
     UltraCircuitBuilder builder{ metadata.size_hint, witness.empty() };
+    builder.initialize_from_acir_data(witness, constraints.public_inputs);
     if (witness.empty()) {
         for (size_t idx = 0; idx < program.constraints.max_witness_index + 1; ++idx) {
             builder.add_variable(UltraCircuitBuilder::FF::zero());
         }
-    } else {
-        builder.initialize_from_acir_data(witness, constraints.public_inputs);
     }
 
     build_constraints(builder, program, metadata);
@@ -641,12 +640,11 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     MegaCircuitBuilder builder{ metadata.size_hint, op_queue, witness.empty() };
+    builder.initialize_from_acir_data(witness, constraints.public_inputs);
     if (witness.empty()) {
         for (size_t idx = 0; idx < program.constraints.max_witness_index + 1; ++idx) {
             builder.add_variable(MegaCircuitBuilder::FF::zero());
         }
-    } else {
-        builder.initialize_from_acir_data(witness, constraints.public_inputs);
     }
 
     // Populate constraints in the builder via the data in constraint_system
