@@ -32,8 +32,9 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
 
 1. Stop your node:
 
-   - Docker Compose: `docker compose down`
-   - CLI: Press `Ctrl+C` to stop the process
+   ```bash
+   docker compose down
+   ```
 
 2. Remove the archiver data directory:
 
@@ -41,16 +42,16 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
    rm -rf ~/.aztec/v2.0.4/data/archiver
    ```
 
-3. Update to the latest version:
+3. Update to the latest version (see the "Updating to Latest Version" section below)
+
+4. Restart your node:
 
    ```bash
-   aztec-up -v latest
+   docker compose up -d
    ```
 
-4. Restart your node with your normal startup command
-
 :::warning Data Loss and Resync
-This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`--sync-mode snapshot`) to speed up recovery. See the [syncing best practices guide](../setup/syncing_best_practices.md) for more information.
+This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`SYNC_MODE=snapshot`) to speed up recovery. See the [syncing best practices guide](../setup/syncing_best_practices.md) for more information.
 :::
 
 ### Error Getting Slot Number
