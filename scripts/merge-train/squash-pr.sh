@@ -14,12 +14,13 @@ base_branch="$3"
 base_sha="$4"
 
 # Get PR info including author and repository information
-pr_info=$(gh pr view "$pr_number" --json title,body,author,headRepository,isCrossRepository)
+pr_info=$(gh pr view "$pr_number" --json title,body,author,headRepository,isCrossRepository,autoMergeRequest)
 pr_title=$(echo "$pr_info" | jq -r '.title')
 pr_body=$(echo "$pr_info" | jq -r '.body // ""')
 pr_author=$(echo "$pr_info" | jq -r '.author.login')
 head_repo=$(echo "$pr_info" | jq -r '.headRepository.nameWithOwner')
 is_fork=$(echo "$pr_info" | jq -r '.isCrossRepository')
+is_queued_for_merge=$(echo "$pr_info" | jq -r '.autoMergeRequest != null')
 
 # Get the PR author's name and email
 user_id=$(gh api "/users/$pr_author" --jq '.id')
@@ -107,7 +108,18 @@ fi
 
 # Update PR body with co-authors so GitHub includes them in merge commit
 # This ensures proper attribution when the merge queue creates its merge commit
-if [[ -n "$co_authors" ]]; then
+# Only update if PR is not already queued for merge (to avoid interfering with in-flight merges)
+if [[ "$is_queued_for_merge" == "false" ]]; then
+  # Start with any existing co-authors from commits
+  all_co_authors="$co_authors"
+
+  # Add the main PR author as a co-author for attribution in the merge commit
+  author_co_author="Co-authored-by: $pr_author <$author_email>"
+  if [[ "$pr_body" != *"$author_co_author"* ]] && [[ "$all_co_authors" != *"$author_co_author"* ]]; then
+    all_co_authors="${all_co_authors}${author_co_author}
+"
+  fi
+
   # Build new co-authors to add (only those not already in PR body)
   new_co_authors=""
   while IFS= read -r co_author_line; do
@@ -115,7 +127,7 @@ if [[ -n "$co_authors" ]]; then
       new_co_authors="${new_co_authors}${co_author_line}
 "
     fi
-  done <<< "$co_authors"
+  done <<< "$all_co_authors"
 
   # If there are new co-authors to add, update the PR body
   if [[ -n "$new_co_authors" ]]; then
@@ -125,6 +137,8 @@ ${new_co_authors}"
     gh pr edit "$pr_number" --body "$updated_body"
     echo "Updated PR body with co-authors"
   fi
+else
+  echo "PR is queued for merge, skipping PR body update"
 fi
 
 echo "Squashed PR #$pr_number!"
