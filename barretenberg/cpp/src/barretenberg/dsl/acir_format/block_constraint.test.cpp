@@ -399,12 +399,19 @@ TYPED_TEST(RAMTest, Tampering)
     TestFixture::test_tampering();
 }
 
-template <CallDataType calldata_type> class CallDataTestingFunctions {
+template <CallDataType CallDataType_, size_t CallDataSize_, size_t NumReads_, bool PerformConstantOps_>
+struct CallDataTestParams {
+    static constexpr CallDataType calldata_type = CallDataType_;
+    static constexpr size_t calldata_size = CallDataSize_;
+    static constexpr size_t num_reads = NumReads_;
+    static constexpr bool perform_constant_ops = PerformConstantOps_;
+};
+
+template <CallDataType calldata_type, size_t calldata_size, size_t num_reads, bool perform_constant_ops>
+class CallDataTestingFunctions {
   public:
     using AcirConstraint = BlockConstraint;
     using Builder = MegaCircuitBuilder;
-    static constexpr size_t CALLDATA_SIZE = 10;
-    static constexpr size_t NUM_READ = 5;
 
     class InvalidWitness {
       public:
@@ -420,14 +427,14 @@ template <CallDataType calldata_type> class CallDataTestingFunctions {
 
         // Create initial memory values "natively". Memory tables always start out initialized.
         std::vector<bb::fr> calldata_values;
-        calldata_values.reserve(CALLDATA_SIZE);
-        for (size_t _i = 0; _i < CALLDATA_SIZE; _i++) {
+        calldata_values.reserve(calldata_size);
+        for (size_t _i = 0; _i < calldata_size; _i++) {
             calldata_values.push_back(bb::fr::random_element());
         }
 
         // `init_indices` contains the initial values of the circuit.
         std::vector<uint32_t> init_indices;
-        for (size_t i = 0; i < CALLDATA_SIZE; ++i) {
+        for (size_t i = 0; i < calldata_size; ++i) {
             uint32_t value_index = add_to_witness_and_track_indices(witness_values, calldata_values[i]);
             init_indices.push_back(value_index);
         }
@@ -435,9 +442,9 @@ template <CallDataType calldata_type> class CallDataTestingFunctions {
         std::vector<MemOp> trace;
 
         // Add read operations
-        for (size_t idx = 0; idx < NUM_READ; ++idx) {
+        for (size_t idx = 0; idx < num_reads; ++idx) {
             MemOp mem_op;
-            const size_t calldata_idx_to_read = static_cast<size_t>(engine.get_random_uint32() % CALLDATA_SIZE);
+            const size_t calldata_idx_to_read = static_cast<size_t>(engine.get_random_uint32() % calldata_size);
             const uint32_t index_for_read =
                 add_to_witness_and_track_indices(witness_values, bb::fr(calldata_idx_to_read));
             bb::fr read_value = calldata_values[calldata_idx_to_read];
@@ -448,7 +455,9 @@ template <CallDataType calldata_type> class CallDataTestingFunctions {
                        .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
             trace.push_back(mem_op);
         }
-        add_constant_ops<AccessType::Read>(CALLDATA_SIZE, calldata_values, witness_values, trace);
+        if constexpr (perform_constant_ops) {
+            add_constant_ops<AccessType::Read>(calldata_size, calldata_values, witness_values, trace);
+        }
 
         // Create the MemoryConstraint
         memory_constraint = AcirConstraint{
@@ -465,7 +474,7 @@ template <CallDataType calldata_type> class CallDataTestingFunctions {
             break;
         case InvalidWitness::Target::ReadValueIncremented:
             // Tamper with a random read value using the recorded witness index
-            const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % NUM_READ);
+            const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % num_reads);
             const uint32_t witness_idx = memory_constraint.trace[random_read_idx].index.index;
             witness_values[witness_idx] += bb::fr(1);
             break;
@@ -473,42 +482,37 @@ template <CallDataType calldata_type> class CallDataTestingFunctions {
     }
 };
 
-class PrimaryCallDataTests : public ::testing::Test, public TestClass<CallDataTestingFunctions<CallDataType::Primary>> {
+using CallDataTestConfigs = testing::Types<CallDataTestParams<CallDataType::Primary, 10, 5, false>,
+                                           CallDataTestParams<CallDataType::Primary, 10, 5, true>>;
+
+template <typename Params>
+class CallDataTests : public ::testing::Test,
+                      public TestClass<CallDataTestingFunctions<Params::calldata_type,
+                                                                Params::calldata_size,
+                                                                Params::num_reads,
+                                                                Params::perform_constant_ops>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-TEST_F(PrimaryCallDataTests, GenerateVKFromConstraints)
+TYPED_TEST_SUITE(CallDataTests, CallDataTestConfigs);
+
+TYPED_TEST(CallDataTests, GenerateVKFromConstraints)
 {
-    test_vk_independence<MegaFlavor>();
+    TestFixture::template test_vk_independence<MegaFlavor>();
 }
 
-TEST_F(PrimaryCallDataTests, Tampering)
+TYPED_TEST(CallDataTests, Tampering)
 {
-    test_tampering();
+    TestFixture::test_tampering();
 }
 
-class SecondaryCallDataTests : public ::testing::Test,
-                               public TestClass<CallDataTestingFunctions<CallDataType::Secondary>> {
-  protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-};
-
-TEST_F(SecondaryCallDataTests, GenerateVKFromConstraints)
-{
-    test_vk_independence<MegaFlavor>();
-}
-
-TEST_F(SecondaryCallDataTests, Tampering)
-{
-    test_tampering();
-}
+template <size_t returndata_size>
 
 class ReturnDataTestingFunctions {
   public:
     using AcirConstraint = BlockConstraint;
     using Builder = MegaCircuitBuilder;
-    static constexpr size_t RETURNDATA_SIZE = 10;
 
     // There is no tampering that can be done for ReturnData as the only thing that a return data opcode does is
     // adding data to the return data bus vector and constraining such data to be equal to the data with which the
@@ -526,14 +530,14 @@ class ReturnDataTestingFunctions {
     {
         // Create initial memory values "natively". Memory tables always start out initialized.
         std::vector<bb::fr> returndata_values;
-        returndata_values.reserve(RETURNDATA_SIZE);
-        for (size_t _i = 0; _i < RETURNDATA_SIZE; _i++) {
+        returndata_values.reserve(returndata_size);
+        for (size_t _i = 0; _i < returndata_size; _i++) {
             returndata_values.push_back(bb::fr::random_element());
         }
 
         // `init_indices` contains the initial values of the circuit.
         std::vector<uint32_t> init_indices;
-        for (size_t i = 0; i < RETURNDATA_SIZE; ++i) {
+        for (size_t i = 0; i < returndata_size; ++i) {
             uint32_t value_index = add_to_witness_and_track_indices(witness_values, returndata_values[i]);
             init_indices.push_back(value_index);
         }
@@ -553,7 +557,8 @@ class ReturnDataTestingFunctions {
     }
 };
 
-class ReturnDataTests : public ::testing::Test, public TestClass<ReturnDataTestingFunctions> {
+static constexpr size_t RETURNDATA_SIZE = 10;
+class ReturnDataTests : public ::testing::Test, public TestClass<ReturnDataTestingFunctions<RETURNDATA_SIZE>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
