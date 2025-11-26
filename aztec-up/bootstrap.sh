@@ -35,16 +35,23 @@ function test {
 function release {
   echo_header "aztec-up release"
   local version=${REF_NAME#v}
+  local source_dir=./bin
+
+  # Create versions.json so we know what to install.
+  ../bootstrap.sh versions > $source_dir/versions
+  echo "Versions:"
+  cat $source_dir/versions
+  echo
 
   # Always create a version directory and upload files there.
-  do_or_dryrun aws s3 sync ./bin "s3://install.aztec.network/$version/"
+  do_or_dryrun aws s3 sync $source_dir "s3://install.aztec.network/$version/"
 
   if [[ $(dist_tag) != "latest" ]]; then
     # Also upload to a $dist_tag directory, if not latest.
-    do_or_dryrun aws s3 sync ./bin "s3://install.aztec.network/$(dist_tag)/"
+    do_or_dryrun aws s3 sync $source_dir "s3://install.aztec.network/$(dist_tag)/"
   else
     # Upload new version to root.
-    do_or_dryrun aws s3 sync ./bin s3://install.aztec.network/
+    do_or_dryrun aws s3 sync $source_dir s3://install.aztec.network/
   fi
 }
 

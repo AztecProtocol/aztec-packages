@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { computeSecretHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
