@@ -4,7 +4,10 @@ for var in $(compgen -e); do
   if [[ "$var" =~ (KEY|TOKEN|PASSWORD|SECRET|MNEMONIC) ]]; then
     val="${!var}"
     if [[ -n "$val" ]]; then
-      esc=$(printf '%s\n' "$val" | sed 's/[][\/.^$*]/\\&/g')
+      # Escape special sed characters and convert newlines to \n for matching
+      esc=$(printf '%s' "$val" | sed 's/[][\/.^$*]/\\&/g' | tr '\n' ' ')
+      # Skip if the escaped value is empty or only whitespace
+      [[ -z "${esc// /}" ]] && continue
       sed_expr+="s/${esc}/***/g;"
     fi
   fi
