@@ -90,6 +90,10 @@ const sidebar = {
     },
     {
       "type": "doc",
+      "id": "the_aztec_network/setup/building_from_source"
+    },
+    {
+      "type": "doc",
       "id": "the_aztec_network/setup/bootnode_operation"
     },
     {
