@@ -199,7 +199,7 @@ locals {
           "agent.node.env.NETWORK"                          = var.NETWORK
           "agent.replicaCount"                              = var.PROVER_REPLICAS
           "agent.node.env.BOOTSTRAP_NODES"                  = "asdf"
-          "agent.node.env.AGENT_COUNT"                      = var.PROVER_AGENTS_PER_PROVER
+          "agent.node.env.PROVER_AGENT_COUNT"               = var.PROVER_AGENTS_PER_PROVER
         },
         # Only set web3signerUrl if proof publishing is enabled
         !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
