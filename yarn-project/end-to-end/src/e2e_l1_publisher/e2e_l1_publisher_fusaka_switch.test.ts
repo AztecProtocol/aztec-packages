@@ -406,7 +406,7 @@ describe('L1Publisher integration', () => {
       expect(isFusakaBlobTransaction).toBe(false);
     });
 
-    it.skip('builds the correct block after fusaka', async () => {
+    it('builds the correct block after fusaka', async () => {
       let isFusakaBlobTransaction: boolean | undefined = undefined;
 
       // NOTE: we only need to spy on a single client because all l1Utils use the same ViemClient instance
