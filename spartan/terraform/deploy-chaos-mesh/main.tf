@@ -52,15 +52,15 @@ resource "helm_release" "chaos_mesh" {
           storageClassName = "standard"
           mountPath        = "/data"
           subPath          = ""
-
-          securityMode = var.ENABLE_SAFE_MODE
-
-          chaosDaemon = {
-            privileged = true
-            runtime    = "containerd"
-            socketPath = "/run/containerd/containerd.sock"
-          }
         }
+
+        securityMode = var.ENABLE_SAFE_MODE
+      }
+
+      chaosDaemon = {
+        privileged = true
+        runtime    = "containerd"
+        socketPath = "/run/containerd/containerd.sock"
       }
     })
   ]
