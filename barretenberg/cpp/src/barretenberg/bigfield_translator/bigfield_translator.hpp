@@ -47,18 +47,33 @@ class BigfieldTranslator {
     static constexpr size_t BATCH_SIZE = 256;
 
     /**
+     * @brief Populate the builder's ecc_op block from the op_queue.
+     *
+     * @details This creates witnesses for all op_queue entries and populates the
+     * ecc_op block. Must be called before compute_accumulator if the builder
+     * doesn't already have the ecc_op block populated (e.g., for a standalone
+     * translator circuit).
+     *
+     * @param builder The circuit builder
+     * @param op_queue The ECC op queue containing the operation data
+     */
+    static void populate_ecc_op_block(Builder& builder, const std::shared_ptr<ECCOpQueue>& op_queue);
+
+    /**
      * @brief Compute the translator accumulation result using bigfield arithmetic.
      *
-     * @param builder The circuit builder to add constraints to
+     * @details Uses the witness indices from the builder's ecc_op block directly,
+     * ensuring the computation is linked to the same witnesses used by the kernel
+     * and merge protocol.
+     *
+     * @param builder The circuit builder (must have ecc_op block populated)
      * @param evaluation_challenge_x The evaluation point x from ECCVM (as circuit witness)
      * @param batching_challenge_v The batching challenge v from ECCVM (as circuit witness)
-     * @param op_queue The ECC op queue containing the operation data
      * @return fq_ct The accumulated result (as a bigfield circuit type)
      */
     static fq_ct compute_accumulator(Builder& builder,
                                      const fq_ct& evaluation_challenge_x,
-                                     const fq_ct& batching_challenge_v,
-                                     const std::shared_ptr<ECCOpQueue>& op_queue);
+                                     const fq_ct& batching_challenge_v);
 
     /**
      * @brief Native computation of the translator accumulation (for testing/verification).

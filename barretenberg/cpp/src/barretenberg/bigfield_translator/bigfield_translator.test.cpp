@@ -7,7 +7,11 @@
 #include "bigfield_translator.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/goblin/types.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -70,12 +74,19 @@ TEST_F(BigfieldTranslatorTest, NativeAccumulatorComputation)
 
 /**
  * @brief Test circuit accumulator matches native
+ *
+ * Uses populate_ecc_op_block to fill the ecc_op block from the op_queue,
+ * which is the expected flow in Goblin integration.
  */
 TEST_F(BigfieldTranslatorTest, CircuitMatchesNative)
 {
     constexpr size_t NUM_OPS = 10;
 
+    // Create and populate the op_queue (this mimics the real flow where op_queue
+    // is populated by previous circuits and then passed to the translator)
     auto op_queue = create_test_op_queue(NUM_OPS);
+
+    info("Op queue has ", op_queue->get_ultra_ops().size(), " rows");
 
     Fq x_native = Fq::random_element();
     Fq v_native = Fq::random_element();
@@ -83,12 +94,22 @@ TEST_F(BigfieldTranslatorTest, CircuitMatchesNative)
     // Compute native result
     Fq expected = BigfieldTranslator::compute_accumulator_native(x_native, v_native, op_queue);
 
-    // Compute circuit result
+    // Create a fresh builder for the BigfieldTranslator circuit
+    // (like TranslatorCircuitBuilder, this is a standalone circuit)
     Builder builder;
+
+    // Populate ecc_op block from the op_queue - this creates witnesses and fills blocks.ecc_op
+    BigfieldTranslator::populate_ecc_op_block(builder, op_queue);
+
+    info("ecc_op block has ", builder.blocks.ecc_op.size(), " rows");
+    EXPECT_EQ(builder.blocks.ecc_op.size(), op_queue->get_ultra_ops().size() * 2);
+
+    // Create circuit witnesses for challenges
     fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
     fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
 
-    fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v, op_queue);
+    // Compute the accumulator in-circuit using ecc_op block witnesses
+    fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
 
     // Get the native value from the circuit element
     Fq result_native = Fq(result.get_value().lo);
@@ -113,27 +134,29 @@ TEST_F(BigfieldTranslatorTest, GateCountMeasurement)
     constexpr size_t NUM_OPS = 100;
 
     auto op_queue = create_test_op_queue(NUM_OPS);
-    auto& ultra_ops = op_queue->get_ultra_ops();
 
-    info("Op queue has ", ultra_ops.size(), " rows");
+    info("Op queue has ", op_queue->get_ultra_ops().size(), " rows");
+
+    // Create builder and populate ecc_op block
+    Builder builder;
+    BigfieldTranslator::populate_ecc_op_block(builder, op_queue);
 
     Fq x_native = Fq::random_element();
     Fq v_native = Fq::random_element();
 
-    Builder builder;
     fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
     fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
 
     size_t gates_before = builder.num_gates();
 
-    fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v, op_queue);
+    fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
     (void)result;
 
     size_t gates_after = builder.num_gates();
     size_t total_gates = gates_after - gates_before;
 
     info("=== BigfieldTranslator Gate Count ===");
-    info("Number of rows:       ", ultra_ops.size());
+    info("Number of rows:       ", op_queue->get_ultra_ops().size());
     info("Total gates:          ", total_gates, " (2^", std::log2(total_gates), ")");
     info("Current Translator:   131,072 (2^17)");
     info("");
@@ -143,4 +166,137 @@ TEST_F(BigfieldTranslatorTest, GateCountMeasurement)
     // - Computation: ~55K gates (powers of x, batch multipliers, column sums)
     // Total: ~137K gates, similar to current Translator
     // Main benefit is simpler code and LightZK flavor (fewer polynomials)
+}
+
+/**
+ * @brief Test that witnesses are properly linked to ecc_op block
+ *
+ * This test verifies that the bigfield translator uses the same witness indices
+ * as the ecc_op block, which is required for proper integration with the merge protocol.
+ */
+TEST_F(BigfieldTranslatorTest, WitnessesLinkedToEccOpBlock)
+{
+    constexpr size_t NUM_OPS = 10;
+
+    // Create and populate the op_queue
+    auto op_queue = create_test_op_queue(NUM_OPS);
+
+    // Create builder and populate ecc_op block from op_queue
+    Builder builder;
+    BigfieldTranslator::populate_ecc_op_block(builder, op_queue);
+
+    info("Op queue has ", op_queue->get_ultra_ops().size(), " rows");
+    info("ecc_op block has ", builder.blocks.ecc_op.size(), " rows");
+
+    // Verify the ecc_op block has the expected size (2 rows per UltraOp)
+    EXPECT_EQ(builder.blocks.ecc_op.size(), op_queue->get_ultra_ops().size() * 2);
+
+    // Verify that the witness values in ecc_op block match the op_queue data
+    auto& ultra_ops = op_queue->get_ultra_ops();
+    auto& ecc_op_wires = builder.blocks.ecc_op.wires;
+
+    for (size_t i = 0; i < ultra_ops.size(); i++) {
+        size_t row_idx = 2 * i;
+        const auto& ultra_op = ultra_ops[i];
+
+        // Check x_lo witness value matches
+        uint32_t x_lo_idx = ecc_op_wires[1][row_idx];
+        Fr x_lo_value = builder.get_variable(x_lo_idx);
+        EXPECT_EQ(x_lo_value, ultra_op.x_lo) << "x_lo mismatch at row " << i;
+
+        // Check z_1 witness value matches
+        uint32_t z1_idx = ecc_op_wires[2][row_idx + 1];
+        Fr z1_value = builder.get_variable(z1_idx);
+        EXPECT_EQ(z1_value, ultra_op.z_1) << "z_1 mismatch at row " << i;
+    }
+
+    // Create the evaluation and batching challenges
+    Fq x_native = Fq::random_element();
+    Fq v_native = Fq::random_element();
+
+    // Compute native result for comparison
+    Fq expected = BigfieldTranslator::compute_accumulator_native(x_native, v_native, op_queue);
+
+    // Create circuit witnesses for challenges
+    fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
+    fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
+
+    // Compute the accumulator in-circuit using ecc_op block witnesses
+    fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
+
+    // Verify the result matches
+    Fq result_native = Fq(result.get_value().lo);
+    EXPECT_EQ(result_native, expected) << "Circuit result doesn't match native";
+
+    info("Circuit has ", builder.num_gates(), " gates");
+
+    // Check circuit validity
+    bool valid = CircuitChecker::check(builder);
+    EXPECT_TRUE(valid) << "Circuit check failed";
+}
+
+/**
+ * @brief Test that the BigfieldTranslator circuit can be proven and verified using MegaHonk
+ *
+ * This is the key test - since BigfieldTranslator produces a MegaCircuitBuilder circuit,
+ * we can use the standard MegaHonk prover/verifier to create and verify proofs.
+ */
+TEST_F(BigfieldTranslatorTest, MegaHonkProveAndVerify)
+{
+    constexpr size_t NUM_OPS = 10;
+
+    // Create and populate the op_queue
+    auto op_queue = create_test_op_queue(NUM_OPS);
+
+    info("Op queue has ", op_queue->get_ultra_ops().size(), " rows");
+
+    // Create builder and populate ecc_op block from op_queue
+    Builder builder;
+    BigfieldTranslator::populate_ecc_op_block(builder, op_queue);
+
+    // Create the evaluation and batching challenges (in real flow, these come from ECCVM)
+    Fq x_native = Fq::random_element();
+    Fq v_native = Fq::random_element();
+
+    // Create circuit witnesses for challenges
+    fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
+    fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
+
+    // Compute the accumulator in-circuit
+    fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
+
+    // Verify circuit correctness matches native
+    Fq expected = BigfieldTranslator::compute_accumulator_native(x_native, v_native, op_queue);
+    Fq result_native = Fq(result.get_value().lo);
+    EXPECT_EQ(result_native, expected);
+
+    // Add default public inputs required by DefaultIO
+    stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
+
+    info("Circuit has ", builder.num_gates(), " gates");
+
+    // Now prove and verify using Mega (non-ZK for simplicity)
+    using Flavor = MegaFlavor;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+
+    // Create prover instance and verification key
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    info("Creating proof...");
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    info("Proof size: ", proof.size(), " elements");
+
+    // Verify the proof
+    info("Verifying proof...");
+    Verifier verifier(verification_key);
+    bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
+
+    EXPECT_TRUE(verified) << "MegaZK proof verification failed";
+    info("Proof verified successfully!");
 }

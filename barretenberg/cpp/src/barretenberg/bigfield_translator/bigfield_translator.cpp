@@ -46,14 +46,15 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_column_sum(Builder& builde
 
 BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& builder,
                                                                   const fq_ct& evaluation_challenge_x,
-                                                                  const fq_ct& batching_challenge_v,
-                                                                  const std::shared_ptr<ECCOpQueue>& op_queue)
+                                                                  const fq_ct& batching_challenge_v)
 {
     BB_BENCH_NAME("BigfieldTranslator::compute_accumulator");
 
-    // Get the ultra ops from the op queue
-    auto& ultra_ops = op_queue->get_ultra_ops();
-    const size_t num_rows = ultra_ops.size();
+    // Get the number of UltraOps from the ecc_op block
+    // Each UltraOp uses 2 rows in the ecc_op block
+    const size_t ecc_op_block_size = builder.blocks.ecc_op.size();
+    BB_ASSERT(ecc_op_block_size % 2 == 0, "ecc_op block size must be even");
+    const size_t num_rows = ecc_op_block_size / 2;
 
     if (num_rows == 0) {
         return fq_ct::create_from_u512_as_witness(&builder, uint512_t(0));
@@ -107,18 +108,24 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
         }
     }
 
-    // Step 3: Create column witnesses from op queue data with range constraints
-    // The UltraOp structure has: op_code, x_lo, x_hi, y_lo, y_hi, z_1, z_2
-    // Each lo/hi pair is a 136-bit limb that combines to form a 272-bit Fq element:
-    //   Px = x_lo + x_hi * 2^136
-    //   Py = y_lo + y_hi * 2^136
+    // Step 3: Get witness indices from ecc_op block and create bigfield elements with range constraints
+    //
+    // The ecc_op block stores each UltraOp across 2 rows:
+    //   Row 2i:   (op, x_lo, x_hi, y_lo)
+    //   Row 2i+1: (0,  y_hi, z_1,  z_2)
+    //
+    // We use these witness indices directly to ensure the accumulator computation
+    // uses the same witnesses that are copy-constrained to the kernel circuit.
     //
     // Range constraints:
     // - x_lo, x_hi, y_lo, y_hi: 136 bits each (Fq coordinates)
     // - z_1, z_2: 128 bits each (scalars)
-    // - op: 2 bits (values 0-3, refactored from {0,3,4,8})
+    // - op: 4 bits (values in {0, 3, 4, 8}, TODO: refactor to {0,1,2,3})
 
     using field_ct = stdlib::field_t<Builder>;
+
+    // Access the ecc_op block wires
+    auto& ecc_op_wires = builder.blocks.ecc_op.wires;
 
     std::vector<fq_ct> ops(num_rows);
     std::vector<fq_ct> pxs(num_rows);
@@ -127,30 +134,42 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
     std::vector<fq_ct> z2s(num_rows);
 
     for (size_t i = 0; i < num_rows; i++) {
-        const auto& row = ultra_ops[i];
+        // Each UltraOp uses 2 rows in the ecc_op block
+        size_t row_idx = 2 * i;
+
+        // Row 2i: (op, x_lo, x_hi, y_lo)
+        uint32_t op_idx = ecc_op_wires[0][row_idx];
+        uint32_t x_lo_idx = ecc_op_wires[1][row_idx];
+        uint32_t x_hi_idx = ecc_op_wires[2][row_idx];
+        uint32_t y_lo_idx = ecc_op_wires[3][row_idx];
+
+        // Row 2i+1: (0, y_hi, z_1, z_2)
+        uint32_t y_hi_idx = ecc_op_wires[1][row_idx + 1];
+        uint32_t z1_idx = ecc_op_wires[2][row_idx + 1];
+        uint32_t z2_idx = ecc_op_wires[3][row_idx + 1];
+
+        // Create field_t from witness indices
+        field_ct op_field = field_ct::from_witness_index(&builder, op_idx);
+        field_ct x_lo = field_ct::from_witness_index(&builder, x_lo_idx);
+        field_ct x_hi = field_ct::from_witness_index(&builder, x_hi_idx);
+        field_ct y_lo = field_ct::from_witness_index(&builder, y_lo_idx);
+        field_ct y_hi = field_ct::from_witness_index(&builder, y_hi_idx);
+        field_ct z1_field = field_ct::from_witness_index(&builder, z1_idx);
+        field_ct z2_field = field_ct::from_witness_index(&builder, z2_idx);
 
         // op_code.value() = 8*add + 4*mul + 2*eq + reset, currently in {0, 3, 4, 8}
         // TODO: Refactor opcodes to {0, 1, 2, 3} to reduce to 2-bit range constraint
-        uint32_t op_value = row.op_code.value();
-        field_ct op_field = field_ct::from_witness(&builder, Fr(op_value));
         ops[i] = fq_ct::create_from_single_limb(op_field, 4);
 
         // Px from x_lo and x_hi (each 136 bits) - use safe constructor with range constraints
-        field_ct x_lo = field_ct::from_witness(&builder, row.x_lo);
-        field_ct x_hi = field_ct::from_witness(&builder, row.x_hi);
         pxs[i] = fq_ct(x_lo, x_hi);
 
         // Py from y_lo and y_hi (each 136 bits)
-        field_ct y_lo = field_ct::from_witness(&builder, row.y_lo);
-        field_ct y_hi = field_ct::from_witness(&builder, row.y_hi);
         pys[i] = fq_ct(y_lo, y_hi);
 
         // z1 and z2 are 128-bit scalar field elements
         // Use create_from_single_limb which range-constrains to 128 bits
-        field_ct z1_field = field_ct::from_witness(&builder, row.z_1);
         z1s[i] = fq_ct::create_from_single_limb(z1_field, 128);
-
-        field_ct z2_field = field_ct::from_witness(&builder, row.z_2);
         z2s[i] = fq_ct::create_from_single_limb(z2_field, 128);
     }
 
@@ -172,6 +191,51 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
     fq_ct result = fq_ct::mult_madd({ px_sum, py_sum, z1_sum, z2_sum }, { v, v2, v3, v4 }, { op_sum });
 
     return result;
+}
+
+void BigfieldTranslator::populate_ecc_op_block(Builder& builder, const std::shared_ptr<ECCOpQueue>& op_queue)
+{
+    BB_BENCH_NAME("BigfieldTranslator::populate_ecc_op_block");
+
+    auto& ultra_ops = op_queue->get_ultra_ops();
+
+    // Populate the ecc_op block with all UltraOps from the op_queue.
+    // This mirrors MegaCircuitBuilder::populate_ecc_op_wires but works for standalone translator circuits
+    // where we receive the op_queue directly rather than building it incrementally via queue_ecc_* methods.
+    for (const auto& ultra_op : ultra_ops) {
+        // Create witness variables for each component
+        uint32_t x_lo_idx = builder.add_variable(ultra_op.x_lo);
+        uint32_t x_hi_idx = builder.add_variable(ultra_op.x_hi);
+        uint32_t y_lo_idx = builder.add_variable(ultra_op.y_lo);
+        uint32_t y_hi_idx = builder.add_variable(ultra_op.y_hi);
+        uint32_t z1_idx = builder.add_variable(ultra_op.z_1);
+        uint32_t z2_idx = builder.add_variable(ultra_op.z_2);
+
+        // Get the op code witness index
+        uint32_t op_idx = builder.get_ecc_op_idx(ultra_op.op_code);
+
+        // Set the indices for the op values for each of the two rows
+        uint32_t op_val_idx_1 = op_idx;             // genuine op code value
+        uint32_t op_val_idx_2 = builder.zero_idx(); // second row value always set to 0
+
+        // If this is a random operation, the op values are randomized
+        if (ultra_op.op_code.is_random_op) {
+            op_val_idx_1 = builder.add_variable(ultra_op.op_code.random_value_1);
+            op_val_idx_2 = builder.add_variable(ultra_op.op_code.random_value_2);
+        }
+
+        // Row 2i: (op, x_lo, x_hi, y_lo)
+        builder.blocks.ecc_op.populate_wires(op_val_idx_1, x_lo_idx, x_hi_idx, y_lo_idx);
+        for (auto& selector : builder.blocks.ecc_op.get_selectors()) {
+            selector.emplace_back(0);
+        }
+
+        // Row 2i+1: (0, y_hi, z_1, z_2)
+        builder.blocks.ecc_op.populate_wires(op_val_idx_2, y_hi_idx, z1_idx, z2_idx);
+        for (auto& selector : builder.blocks.ecc_op.get_selectors()) {
+            selector.emplace_back(0);
+        }
+    }
 }
 
 BigfieldTranslator::Fq BigfieldTranslator::compute_accumulator_native(const Fq& evaluation_challenge_x,
