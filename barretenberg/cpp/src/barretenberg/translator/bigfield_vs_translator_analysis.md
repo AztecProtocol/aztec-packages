@@ -2,67 +2,85 @@
 
 ## Overview
 
-Analyzes whether the Translator's complexity is justified versus a simpler bigfield approach.
+Replace the Translator VM with bigfield-based computation. The key insight: op queue inputs are **sequentially built** by the merge protocol during kernel execution. By adding range constraints in `batch_mul` (single entrypoint), we can enable a much simpler "translator" computation using bigfield primitives.
 
-## Translator Architecture
+---
 
-Verifies ECCVM polynomial evaluations in Fq while proving in Fr. Each row computes:
-
-```
-accumulator = prev_accumulator·x + op + P.x·v + P.y·v² + z1·v³ + z2·v⁴ mod p
-```
+## Current Translator Architecture
 
 | Property | Value |
 |----------|-------|
 | Mini-circuit | 2^13 rows (2^12 actual ops, 2 rows per op) |
-| Full circuit | 2^17 (131K gates) |
+| Full circuit | **2^17 (131,072 gates)** |
 | Relations | 7 types, 139 subrelations |
 
+Each row computes:
+```
+accumulator = prev_accumulator·x + op + P.x·v + P.y·v² + z1·v³ + z2·v⁴ mod p
+```
+
 ---
 
-## Bigfield Alternative
+## Proposed: Bigfield with Vertical Batching
 
-### Approach
+### Data Flow Change
 
-Use `mult_madd` to combine products in single quotient/remainder verification:
+```
+Current:  Kernel (batch_mul) → OpQueue → Merge → ECCVM → Translator (2^17)
+Proposed: Kernel (batch_mul + RANGE) → OpQueue → Merge → ECCVM → bigfield mult_madd
+```
+
+### Range Constraints in batch_mul (New)
+
+**Current state**: Op queue members are **not** range-constrained in kernels today.
+
+**Proposed**: Add range constraints in `batch_mul` - feasible because:
+1. Single entrypoint for all op queue construction
+2. Gate count overhead is acceptable (shared across kernel execution)
+
+**For point coordinates (P.x, P.y)**: Use `bigfield(lo, hi)` constructor which:
+- Decomposes 136-bit lo/hi into 4×68-bit limbs
+- Automatically range-constrains all limbs
 
 ```cpp
-return mult_madd({prev_acc, px, py, z1, z2},
-                 {x, v, v², v³, v⁴},
-                 {op});
+fq_ct px(x_lo, x_hi);  // Automatically range-constrained
+fq_ct py(y_lo, y_hi);
 ```
 
-### Gate Costs
+**For scalars (z1, z2)**: Use `cycle_scalar(lo, hi)` - range constraints come **free from batch_mul** algorithm (128-bit lo, 126-bit hi split).
 
-| Operation | Gates |
+### Vertical Batching Computation
+
+Compute column sums independently using `mult_madd` with batch size 1024:
+
+```
+result = Σ(op_i·x^{N-1-i}) + v·Σ(px_i·x^{N-1-i}) + v²·Σ(py_i·x^{N-1-i}) + ...
+```
+
+Each column: `mult_madd(column_values, x_powers, {})` → 4 batches × 5 columns = 20 calls.
+
+---
+
+## x Power Computation: Two Approaches
+
+### Option A: Sequential (Safest)
+
+Compute x^i = x^{i-1} · x directly in circuit.
+
+| Component | Gates |
 |-----------|-------|
-| Full NNF multiplication | 8 |
-| Partial NNF multiplication | 4 |
-| `range_constrain_two_limbs` | 3 |
+| Power computation (N-1 mults) | 122,915 |
+| Column computation | 41,741 |
+| **Total** | **164,656 (2^17.33)** |
 
-### Wide Batching Optimization
+**Pro**: Simple, no soundness concerns
+**Con**: Larger than current Translator
 
-Increased `MAXIMUM_SUMMAND_COUNT` from 16 to 1024 enables much larger batches per `mult_madd` call, significantly reducing overhead.
+### Option B: RLC Batch Verification
 
----
-
-## Computation Strategies
-
-### Vertical Batching
-
-Compute column sums independently, batch elements per `mult_madd`:
-
-```
-result = Σ(op_i·x^{N-1-i}) + v·Σ(px_i·x^{N-1-i}) + ...
-```
-
-### RLC Power Verification
-
-Batch-verify power chain using: A·x = B where A = Σ(r^i·x^i), B = Σ(r^i·x^{i+1})
-
----
-
-## Measured Results (batch size = 1024)
+Create powers as witnesses, batch-verify using Random Linear Combination:
+- Compute A = Σ(r^i · x^i) and B = Σ(r^i · x^{i+1}) via `mult_madd`
+- Verify A·x = B (single multiplication + equality check)
 
 | Component | Gates |
 |-----------|-------|
@@ -70,49 +88,119 @@ Batch-verify power chain using: A·x = B where A = Σ(r^i·x^i), B = Σ(r^i·x^{
 | Power chain verification (RLC) | 45,425 |
 | **Total power cost** | **78,193** |
 | Column computation | 41,741 |
-| **Total (pre-constrained inputs)** | **119,934 (2^16.87)** |
+| **Total** | **119,934 (2^16.87)** |
+
+**Pro**: 8% smaller than Translator
+**Con**: Requires soundness analysis of RLC approach
 
 ---
 
 ## Comparison
 
-| Approach | Circuit Size | Ratio |
-|----------|-------------|-------|
-| Translator | 131,072 (2^17) | 1x |
-| **Bigfield (batch=1024)** | **119,934 (2^16.87)** | **0.92x** |
-
-**Key finding**: With wide batching (1024 elements per `mult_madd`), the bigfield approach is **8% smaller** than the Translator while being significantly simpler.
+| Approach | Circuit Size | Log2 | vs Translator |
+|----------|-------------|------|---------------|
+| Current Translator | 131,072 | 17.0 | baseline |
+| **Bigfield + Sequential x** | 164,656 | 17.33 | +26% |
+| **Bigfield + RLC x** | **119,934** | **16.87** | **-8%** |
 
 ---
 
-## Challenge Polynomial Commitment (Not Feasible)
+## Flavor for Final Circuit
 
-### Concept
+### Problem with MegaZK
 
-Commit to x powers in ECCVM, verify via geometric sum: L(1)·(1-x) = 1-x^N
+MegaZK has `ecc_op_wires` for copy-constraining op queue inputs, but includes unnecessary overhead:
 
-### Why It Fails
+| Component | Polynomials | Notes |
+|-----------|-------------|-------|
+| Databus (calldata, return_data) | 12 | Not needed |
+| Poseidon2 selectors | 2 | Not needed |
+| **Total Mega entities** | **55** | Too heavy |
 
-Cross-curve binding issue:
-- ECCVM commits over **Grumpkin**
-- Translator proves over **BN254**
-- No mechanism to bind BN254 witnesses to Grumpkin commitments
+**Note**: Range constraints use `DeltaRangeConstraintRelation` (sorted permutation with D(D-1)(D-2)(D-3)=0 check), **not** log-derivative lookups. So no log-derivative overhead for bigfield range checks.
+
+### Proposed: Lightweight ZK Flavor (No Lookups)
+
+Bigfield uses `DeltaRangeConstraintRelation` for range checks (sorted permutation), **not** log-derivative lookups. So we can remove lookup machinery entirely.
+
+**Precomputed (20 polys):**
+- Selectors: q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_delta_range, q_elliptic, q_nnf (10)
+- Permutation: sigma_1-4, id_1-4 (8)
+- Lagrange: lagrange_first, lagrange_last (2)
+
+**Witness (9 polys):**
+- Wires: w_l, w_r, w_o, w_4 (4)
+- Derived: z_perm (1)
+- ECC op wires: ecc_op_wire_1-4 (4)
+
+
+**Remove from Mega:**
+- q_busread, q_lookup, q_memory, q_poseidon2_external, q_poseidon2_internal, databus_id, lagrange_last, lagrange_ecc_op (-8 precomputed)
+- table_1-4 (-4 precomputed, no lookups needed)
+- lookup_inverses, lookup_read_counts, lookup_read_tags (-3 witness)
+- calldata/secondary_calldata/return_data + counts/tags/inverses (-12 witness)
+
+**LightZK Total: 29 polys** (vs 55 in Mega)
+
+### Memory Footprint
+
+**Translator (measured): 247 MB peak**
+
+Translator uses efficient sparse polynomial allocation:
+- Full-size (2^17): interleaved (4), ordered_range_constraints (5), z_perm
+- Mini-circuit (2^13): 80 wire polynomials, op, lagranges
+- Many polynomials share virtual size but have small actual allocations
+
+**LightZK Sequential (2^17.33 → 2^18 dyadic):**
+- Wires (w_l, w_r, w_o, w_4): 4 × 2^18 × 32B = 32 MB (full dyadic for masking)
+- z_perm: 2^18 × 32B = 8 MB
+- Precomputed selectors (20): 20 × 164,656 × 32B ≈ 100 MB (actual circuit size)
+- ecc_op_wires (4, mini-circuit): 4 × 2^13 × 32B = 1 MB
+- **Estimated: ~140 MB raw, ~210 MB peak with sumcheck**
+
+**Memory island optimization**: LightZK witnesses have sparse structure:
+```
+[values @ 0..2^17.33] [zeros @ 2^17.33..2^18-4] [4 random masking rows]
+```
+Can use Polynomial memory islands to avoid allocating the zero gap:
+- Wires: 4 × (164,656 + 4) × 32B ≈ 21 MB (vs 32 MB)
+- z_perm: same savings
+- **With islands: ~130 MB raw, ~195 MB peak**
+
+**LightZK RLC (2^16.87 → 2^17 dyadic):**
+- Same structure but half the size
+- **Estimated: ~125 MB raw, ~190 MB peak**
+
+| Approach | Circuit Size | Peak Memory | Notes |
+|----------|-------------|-------------|-------|
+| **Translator** | 2^17 | **247 MB** | Measured |
+| **LightZK Sequential** | 2^18 | ~210 MB | -15%, simpler |
+| **LightZK Sequential + Islands** | 2^18 | **~195 MB** | -21%, simpler |
+| **LightZK RLC** | 2^17 | **~190 MB** | -23%, preferred |
+
+Both LightZK options beat Translator on memory while dramatically simplifying the codebase.
+
+### Proof Size Benefit
+
+**Prover commits to only 5 witness polys** (selectors in fixed VK, ecc_op_wires reused from merge):
+- Wires: w_l, w_r, w_o, w_4 (4)
+- z_perm (1)
+
+**Chonk proof size reduction**: Translator currently has 88 witness commitments. LightZK reduces this to 5, significantly shrinking the final Chonk proof.
 
 ---
 
 ## Conclusion
 
-**The bigfield approach beats the Translator** when using wide batching.
+| Approach | Recommendation |
+|----------|----------------|
+| Sequential x powers | Safe fallback, but larger circuit |
+| **RLC x powers** | **Preferred if soundness confirmed** |
 
-| Approach | Size | Trade-off |
-|----------|------|-----------|
-| Translator | 2^17 | Complex (139 subrelations), larger |
-| **Bigfield** | **2^16.87** | Simple, 8% smaller |
+**Benefits of bigfield approach**:
+1. Eliminates 7 relation types, 139 subrelations
+2. Uses audited bigfield primitives
+3. Range constraints shared with kernel (no redundant work)
+4. Simpler codebase
 
-**Recommendation**: Consider replacing Translator with bigfield approach. Benefits:
-1. **Smaller circuit** - 8% fewer gates
-2. **Simpler implementation** - standard bigfield operations
-3. **No custom relations** - eliminates 7 relation types, 139 subrelations
-4. **Easier auditing** - uses well-understood primitives
-
-**Note**: Requires increasing `MAXIMUM_SUMMAND_COUNT` in bigfield.hpp from 16 to 1024.
+**Prerequisite**: `MAXIMUM_SUMMAND_COUNT = 1024` in bigfield.hpp ✓
