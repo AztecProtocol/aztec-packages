@@ -87,14 +87,15 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_r
     witness_comms.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_r);
     witness_comms.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_o);
 
-    // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
-    if constexpr (IsMegaFlavor<Flavor>) {
-        // Receive ECC op wire commitments
+    // Receive ECC op wire commitments (for flavors that have them: Mega and LightZK)
+    if constexpr (HasEccOpWires<Flavor>) {
         for (auto [commitment, label] : zip_view(witness_comms.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
         }
+    }
 
-        // Receive DataBus related polynomial commitments
+    // Receive DataBus related polynomial commitments (only for MegaFlavor)
+    if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [commitment, label] :
              zip_view(witness_comms.get_databus_entities(), comm_labels.get_databus_entities())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);

@@ -91,9 +91,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
     batch.add_to_batch(prover_instance->polynomials.w_r, commitment_labels.w_r, /*mask?*/ Flavor::HasZK);
     batch.add_to_batch(prover_instance->polynomials.w_o, commitment_labels.w_o, /*mask?*/ Flavor::HasZK);
 
-    if constexpr (IsMegaFlavor<Flavor>) {
-
-        // Commit to Goblin ECC op wires.
+    // Commit to Goblin ECC op wires (for flavors that have them: Mega and LightZK)
+    if constexpr (HasEccOpWires<Flavor>) {
         // Note even with zk, we do not mask here. The masking for these is done differently.
         // It is necessary that "random" ops are added to the op_queue, which is then used to populate these ecc op
         // wires. This is more holistic and obviates the need to extend with random values.
@@ -106,8 +105,10 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
                 batch.add_to_batch(polynomial, domain_separator + label, mask_ecc_op_polys);
             };
         }
+    }
 
-        // Commit to DataBus related polynomials
+    // Commit to DataBus related polynomials (only for MegaFlavor)
+    if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
             {
@@ -123,13 +124,17 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
     prover_instance->commitments.w_r = computed_commitments[1];
     prover_instance->commitments.w_o = computed_commitments[2];
 
-    if constexpr (IsMegaFlavor<Flavor>) {
-        size_t commitment_idx = 3;
+    size_t commitment_idx = 3;
+    // Store ECC op wire commitments (for flavors that have them: Mega and LightZK)
+    if constexpr (HasEccOpWires<Flavor>) {
         for (auto& commitment : prover_instance->commitments.get_ecc_op_wires()) {
             commitment = computed_commitments[commitment_idx];
             commitment_idx++;
         }
+    }
 
+    // Store DataBus commitments (only for MegaFlavor)
+    if constexpr (IsMegaFlavor<Flavor>) {
         for (auto& commitment : prover_instance->commitments.get_databus_entities()) {
             commitment = computed_commitments[commitment_idx];
             commitment_idx++;

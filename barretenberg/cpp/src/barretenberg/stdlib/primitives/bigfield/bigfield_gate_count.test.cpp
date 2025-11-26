@@ -7,9 +7,12 @@
  */
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/light_zk_flavor.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -1505,4 +1508,105 @@ TEST_F(BigfieldGateCountTest, CreateFromSingleLimb)
 
     bool valid = CircuitChecker::check(builder);
     EXPECT_TRUE(valid) << "create_from_single_limb circuit check failed";
+}
+
+/**
+ * @brief Debug LightZKFlavor with a minimal circuit (just arithmetic gates)
+ * @details Also tests memory impact of computing VK in separate scope
+ */
+TEST_F(BigfieldGateCountTest, LightZKMinimalCircuit)
+{
+    using Flavor = LightZKFlavor;
+    using Builder = MegaCircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+
+    using StdlibDefaultIO = stdlib::recursion::honk::DefaultIO<Builder>;
+
+    std::shared_ptr<VerificationKey> verification_key;
+
+    // Compute VK in separate scope to allow deallocation of prover instance
+    {
+        Builder builder;
+
+        // Create a simple arithmetic circuit: a + b = c
+        auto a = builder.add_variable(fr::random_element());
+        auto b = builder.add_variable(fr::random_element());
+        auto c_val = builder.get_variable(a) + builder.get_variable(b);
+        auto c = builder.add_variable(c_val);
+
+        // a + b - c = 0
+        builder.create_add_gate({ a, b, c, fr(1), fr(1), fr(-1), fr(0) });
+
+        // Add a few more gates to ensure we have enough for the flavor
+        for (size_t i = 0; i < 10; i++) {
+            auto x = builder.add_variable(fr::random_element());
+            auto y = builder.add_variable(fr::random_element());
+            auto z_val = builder.get_variable(x) + builder.get_variable(y);
+            auto z = builder.add_variable(z_val);
+            builder.create_add_gate({ x, y, z, fr(1), fr(1), fr(-1), fr(0) });
+        }
+
+        // Add default public inputs (pairing points) required by DefaultIO
+        StdlibDefaultIO::add_default(builder);
+
+        info("Computing VK in separate scope...");
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        info("VK computed, exiting scope to deallocate prover instance");
+    }
+    info("After VK scope");
+
+    // Now build the circuit again for proving
+    Builder builder;
+
+    // Create a simple arithmetic circuit: a + b = c
+    auto a = builder.add_variable(fr::random_element());
+    auto b = builder.add_variable(fr::random_element());
+    auto c_val = builder.get_variable(a) + builder.get_variable(b);
+    auto c = builder.add_variable(c_val);
+
+    // a + b - c = 0
+    builder.create_add_gate({ a, b, c, fr(1), fr(1), fr(-1), fr(0) });
+
+    // Add a few more gates to ensure we have enough for the flavor
+    for (size_t i = 0; i < 10; i++) {
+        auto x = builder.add_variable(fr::random_element());
+        auto y = builder.add_variable(fr::random_element());
+        auto z_val = builder.get_variable(x) + builder.get_variable(y);
+        auto z = builder.add_variable(z_val);
+        builder.create_add_gate({ x, y, z, fr(1), fr(1), fr(-1), fr(0) });
+    }
+
+    // Add default public inputs (pairing points) required by DefaultIO
+    StdlibDefaultIO::add_default(builder);
+
+    info("Circuit has ", builder.num_gates(), " gates before finalization");
+
+    // Check circuit validity
+    bool circuit_valid = CircuitChecker::check(builder);
+    EXPECT_TRUE(circuit_valid) << "Circuit check failed";
+
+    info("Circuit has ", builder.get_num_finalized_gates_inefficient(), " gates after finalization");
+
+    // Create prover instance
+    info("Creating prover instance...");
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    info("Dyadic size: ", prover_instance->dyadic_size());
+
+    // Create proof
+    info("Creating proof...");
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+    info("Proof size: ", proof.size());
+
+    // Verify proof
+    info("Verifying proof...");
+    Verifier verifier(verification_key);
+    bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
+    EXPECT_TRUE(verified) << "LightZK proof verification failed";
+
+    info("LightZK minimal circuit test passed!");
 }
