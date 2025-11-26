@@ -1,7 +1,5 @@
 use crate::{
-    context::{
-        inputs::PrivateContextInputs, note_hash_read::NoteHashRead, returns_hash::ReturnsHash,
-    },
+    context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
     hash::{hash_args, hash_calldata_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
@@ -763,7 +761,8 @@ impl PrivateContext {
     /// requests.
     ///
     /// # Arguments
-    /// * `note_hash_read` - The note hash to read and verify
+    /// * `note_hash` - The note hash to read and verify
+    /// * `contract_address` - The contract address that emitted the note. None for settled notes.
     ///
     /// # Advanced
     /// In "traditional" circuits for non-Aztec privacy applications, the merkle
@@ -795,9 +794,13 @@ impl PrivateContext {
     /// than performing the read in a later tx, after waiting for the earlier tx
     /// to be included, to ensure the note is included in the tree).
     ///
-    pub fn push_note_hash_read_request(&mut self, note_hash_read: NoteHashRead) {
-        let note_hash = note_hash_read.note_hash();
-        let contract_address = note_hash_read.contract_address().unwrap_or(AztecAddress::zero());
+    pub fn push_note_hash_read_request(
+        &mut self,
+        note_hash: Field,
+        contract_address: Option<AztecAddress>,
+    ) {
+        // If settled, we use the zero address since that fact will be verified by the kernel.
+        let contract_address = contract_address.unwrap_or(AztecAddress::zero());
         let side_effect = Scoped::new(
             Counted::new(note_hash, self.next_counter()),
             contract_address,
@@ -805,15 +808,20 @@ impl PrivateContext {
         self.note_hash_read_requests.push(side_effect);
     }
 
-    /// Asserts that a NoteHashRead has been requested to the kernel by this context.
+    /// Asserts that a note hash read has been requested to the kernel by this context.
     /// Asserts instead of returning a boolean to save on gates.
     ///
     /// # Arguments
-    /// * `note_hash_read` - The note hash read to assert that has been requested.
+    /// * `note_hash` - The note hash to read and verify
+    /// * `contract_address` - The contract address that emitted the note. None for settled notes.
     ///
-    pub fn assert_has_been_requested(self, note_hash_read: NoteHashRead) {
-        let note_hash = note_hash_read.note_hash();
-        let contract_address = note_hash_read.contract_address().unwrap_or(AztecAddress::zero());
+    pub fn assert_has_been_requested(
+        self,
+        note_hash: Field,
+        contract_address: Option<AztecAddress>,
+    ) {
+        // If settled, we use the zero address since that fact will be verified by the kernel.
+        let contract_address = contract_address.unwrap_or(AztecAddress::zero());
 
         // Safety: The index is constrained by the checks below.
         let hinted_index = unsafe {

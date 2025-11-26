@@ -1,9 +1,11 @@
-use crate::context::{note_hash_read::NoteHashRead, PrivateContext};
+use crate::context::PrivateContext;
 use crate::note::{
     note_emission::NoteEmission,
     note_interface::{NoteHash, NoteType},
     retrieved_note::RetrievedNote,
-    utils::{compute_note_hash_for_nullification_from_note_hash_read, compute_note_hash_read},
+    utils::{
+        compute_note_hash_for_nullification_from_read_request, compute_note_hash_for_read_request,
+    },
 };
 use crate::oracle::notes::notify_created_note;
 use crate::oracle::random::random;
@@ -51,21 +53,24 @@ pub fn destroy_note<Note>(
 where
     Note: NoteHash,
 {
-    let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
+    let note_hash_for_read_request =
+        compute_note_hash_for_read_request(retrieved_note, storage_slot);
 
-    destroy_note_unsafe(context, retrieved_note, note_hash_read)
+    destroy_note_unsafe(context, retrieved_note, note_hash_for_read_request)
 }
 
 pub fn destroy_note_unsafe<Note>(
     context: &mut PrivateContext,
     retrieved_note: RetrievedNote<Note>,
-    note_hash_read: NoteHashRead,
+    note_hash_for_read_request: Field,
 )
 where
     Note: NoteHash,
 {
-    let note_hash_for_nullification =
-        compute_note_hash_for_nullification_from_note_hash_read(retrieved_note, note_hash_read);
+    let note_hash_for_nullification = compute_note_hash_for_nullification_from_read_request(
+        retrieved_note,
+        note_hash_for_read_request,
+    );
     let nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullification);
 
     let note_hash = if retrieved_note.metadata.is_settled() {
