@@ -18,9 +18,9 @@ import {
   createAsyncApiCompiler,
   type SchemaCompiler,
 } from './schema_compiler.js';
-import { SchemaProcessor } from './schema_ir.js';
-import { RustGenerator } from './generators/rust_generator.js';
-import { ZigGenerator } from './generators/zig_generator.js';
+import { SchemaVisitor } from './schema_visitor.js';
+import { RustCodegen } from './rust_codegen.js';
+import { ZigCodegen } from './zig_codegen.js';
 
 const execAsync = promisify(exec);
 
@@ -28,12 +28,6 @@ interface GeneratorConfig {
   name: string;
   outputFile: string;
   createCompiler: () => SchemaCompiler;
-}
-
-interface RustGeneratorConfig {
-  name: string;
-  outputFile: string;
-  createCompiler: () => any; // v2 compiler has same interface
 }
 
 const GENERATORS: GeneratorConfig[] = [
@@ -54,21 +48,22 @@ const GENERATORS: GeneratorConfig[] = [
   },
 ];
 
-// IR-based generators (new elegant architecture)
-interface IrGeneratorConfig {
+// Visitor-based generators (clean architecture)
+interface VisitorGeneratorConfig {
   name: string;
   enabled: boolean;
-  generate: (processor: SchemaProcessor) => { files: Array<{ path: string; content: string }> };
+  generate: (visitor: SchemaVisitor) => { files: Array<{ path: string; content: string }> };
 }
 
-const IR_GENERATORS: IrGeneratorConfig[] = [
+const VISITOR_GENERATORS: VisitorGeneratorConfig[] = [
   {
-    name: 'Rust (IR-based)',
+    name: 'Rust',
     enabled: true,
-    generate: (processor) => {
-      const ir = processor.process(schema.commands, schema.responses);
-      const rustGen = new RustGenerator();
-      const { types, api } = rustGen.generate(ir);
+    generate: (visitor) => {
+      const compiled = visitor.visit(schema.commands, schema.responses);
+      const rustGen = new RustCodegen();
+      const types = rustGen.generateTypes(compiled);
+      const api = rustGen.generateApi(compiled);
 
       return {
         files: [
@@ -81,10 +76,11 @@ const IR_GENERATORS: IrGeneratorConfig[] = [
   {
     name: 'Zig (proof of concept)',
     enabled: true, // Enable Zig bindings for multi-language proof of concept
-    generate: (processor) => {
-      const ir = processor.process(schema.commands, schema.responses);
-      const zigGen = new ZigGenerator();
-      const { types, api } = zigGen.generate(ir);
+    generate: (visitor) => {
+      const compiled = visitor.visit(schema.commands, schema.responses);
+      const zigGen = new ZigCodegen();
+      const types = zigGen.generateTypes(compiled);
+      const api = zigGen.generateApi(compiled);
 
       return {
         files: [
@@ -99,7 +95,7 @@ const IR_GENERATORS: IrGeneratorConfig[] = [
 // @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-let schema: any; // Global for IR generators
+let schema: any; // Global for visitor generators
 
 async function generate() {
   const bbBuildPath = process.env.BB_BINARY_PATH || join(__dirname, '../../../cpp/build/bin/bb');
@@ -131,18 +127,18 @@ async function generate() {
     console.log(`✓ ${config.name}: ${outputPath}`);
   }
 
-  console.log('\nGenerating language bindings (IR-based)...\n');
+  console.log('\nGenerating language bindings...\n');
 
-  // Generate using new IR-based architecture
-  const processor = new SchemaProcessor();
+  // Generate using visitor-based architecture
+  const visitor = new SchemaVisitor();
 
-  for (const config of IR_GENERATORS) {
+  for (const config of VISITOR_GENERATORS) {
     if (!config.enabled) {
       console.log(`⊘ ${config.name}: disabled`);
       continue;
     }
 
-    const { files } = config.generate(processor);
+    const { files } = config.generate(visitor);
 
     for (const file of files) {
       const outputPath = join(__dirname, file.path);

@@ -8,9 +8,9 @@
 
 This architecture embodies three core principles:
 
-1. **Separation of Concerns**: Schema parsing, type normalization, and code emission are distinct layers
-2. **Language Agnosticism**: The IR (Intermediate Representation) knows nothing about target languages
-3. **Extensibility**: Adding a new language requires implementing one interface
+1. **Separation of Concerns**: Schema parsing, type resolution, and code emission are distinct layers
+2. **Language Agnosticism**: The compiled schema knows nothing about target languages
+3. **Extensibility**: Adding a new language requires implementing one codegen class
 
 ## Architecture Overview
 
@@ -22,37 +22,37 @@ This architecture embodies three core principles:
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  NORMALIZATION LAYER                         │
+│                  SCHEMA VISITOR                              │
 │                                                              │
-│  SchemaProcessor: Raw Schema → Normalized IR                │
+│  SchemaVisitor: Raw Schema → CompiledSchema                 │
 │  ├─ Type resolution & inference                             │
-│  ├─ Naming convention normalization                         │
 │  ├─ Recursive type discovery                                │
-│  └─ Semantic validation                                     │
+│  ├─ Command/Response pairing                                │
+│  └─ Struct deduplication                                    │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              INTERMEDIATE REPRESENTATION (IR)                │
+│                COMPILED SCHEMA                               │
 │                                                              │
 │  Language-agnostic type system:                             │
-│  ├─ TypeIR: Composable type definitions                    │
-│  ├─ StructIR: Product types with fields                    │
-│  ├─ MethodIR: Functions with parameters                    │
-│  └─ SchemaIR: Complete API definition                      │
+│  ├─ Type: Composable type definitions                      │
+│  ├─ Struct: Product types with fields                      │
+│  ├─ Command: API methods with response types               │
+│  └─ CompiledSchema: Complete API definition                │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   GENERATOR LAYER                            │
+│                   CODEGEN LAYER                              │
 │                                                              │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
 │  │    Rust      │  │     Zig      │  │   Future     │     │
-│  │  Generator   │  │  Generator   │  │  Languages   │     │
+│  │   Codegen    │  │   Codegen    │  │  Languages   │     │
 │  └──────────────┘  └──────────────┘  └──────────────┘     │
 │                                                              │
-│  Each generator implements:                                 │
-│  ├─ Type mapping (IR → language types)                     │
+│  Each codegen implements:                                   │
+│  ├─ Type mapping (Type → language types)                   │
 │  ├─ Serialization strategy                                 │
 │  ├─ Memory model (ownership, GC, etc.)                     │
 │  └─ Idiomatic code patterns                                │
@@ -67,77 +67,49 @@ This architecture embodies three core principles:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Layer 1: Intermediate Representation (IR)
+## Layer 1: Schema Visitor & Compiled Schema
 
 ### Design Philosophy
 
-The IR is the **contract** between schema parsing and code generation. It must be:
-- **Complete**: Captures all semantic information from the schema
-- **Normalized**: Consistent naming and structure regardless of input format
-- **Composable**: Types can reference other types
-- **Validated**: Semantic correctness guaranteed
+The SchemaVisitor walks the raw msgpack schema and produces a CompiledSchema that:
+- **Resolves** all type references into a connected graph
+- **Discovers** nested struct types recursively
+- **Pairs** commands with their response types
+- **Deduplicates** shared struct definitions
 
-### Core Types
+### Core Types (schema_visitor.ts)
 
 ```typescript
-/**
- * TypeIR: Universal type representation
- *
- * Supports all common type system features:
- * - Primitives (bool, integers, floats, bytes)
- * - Collections (arrays, vectors, options)
- * - Product types (structs)
- * - Sum types (enums via custom)
- */
-interface TypeIR {
-  kind: 'primitive' | 'struct' | 'array' | 'vec' | 'option' | 'custom';
-  name?: string;              // Type identifier
-  elementType?: TypeIR;       // For parameterized types
-  size?: number;              // For fixed-size arrays
-  fields?: FieldIR[];         // For inline structs
+type PrimitiveType = 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'f64' | 'string' | 'bytes';
+
+interface Type {
+  kind: 'primitive' | 'vector' | 'array' | 'optional' | 'struct';
+  primitive?: PrimitiveType;
+  element?: Type;  // For vector, array, optional
+  size?: number;   // For array
+  struct?: Struct; // For struct types
 }
 
-/**
- * FieldIR: Struct field representation
- *
- * Preserves both original and normalized names for roundtrip serialization
- */
-interface FieldIR {
-  name: string;               // Normalized name (snake_case)
-  originalName: string;       // Schema name (for serialization)
-  type: TypeIR;
-  doc?: string;
+interface Field {
+  name: string;
+  type: Type;
 }
 
-/**
- * StructIR: Product type definition
- */
-interface StructIR {
-  name: string;               // Normalized type name (PascalCase)
-  originalName: string;       // Schema name (for serialization)
-  fields: FieldIR[];
-  isCommand: boolean;         // Commands need special serialization
-  doc?: string;
+interface Struct {
+  name: string;
+  fields: Field[];
 }
 
-/**
- * MethodIR: API function definition
- */
-interface MethodIR {
-  name: string;               // Normalized method name (snake_case)
-  originalName: string;       // Schema name
-  params: FieldIR[];
-  returnType: string;         // Response type name
-  doc?: string;
+interface Command {
+  name: string;
+  fields: Field[];
+  responseType: string;
 }
 
-/**
- * SchemaIR: Complete API definition
- */
-interface SchemaIR {
-  structs: Map<string, StructIR>;
-  commands: MethodIR[];
-  primitiveTypes: Set<string>;
+interface CompiledSchema {
+  structs: Map<string, Struct>;    // All unique struct types
+  commands: Command[];              // Command → Response mappings
+  responses: Map<string, Struct>;  // Response types
 }
 ```
 
@@ -148,35 +120,25 @@ interface SchemaIR {
 3. **Pointer Dereferencing**: `shared_ptr<T>` → `T` (ownership implicit in target language)
 4. **Nullable Types**: `optional<T>` → language-specific nullable representation
 
-## Layer 2: Generator Abstraction
+## Layer 2: Codegen Classes
 
-### Generator Interface
+### Codegen Interface
 
-Every generator must implement:
+Each language codegen implements two methods:
 
 ```typescript
-interface LanguageGenerator {
-  /**
-   * Generate complete bindings from IR
-   *
-   * @param ir - Complete normalized schema
-   * @returns Object with generated code for each output file
-   */
-  generate(ir: SchemaIR): GeneratedCode;
-}
-
-interface GeneratedCode {
-  types: string;    // Type definitions
-  api: string;      // High-level API wrapper
+class LanguageCodegen {
+  generateTypes(schema: CompiledSchema): string;  // Type definitions
+  generateApi(schema: CompiledSchema): string;    // High-level API wrapper
 }
 ```
 
-### Generator Responsibilities
+### Codegen Responsibilities
 
-Each generator must handle:
+Each codegen must handle:
 
-1. **Type Mapping**: IR types → language-specific types
-2. **Serialization**: How to encode/decode msgpack
+1. **Type Mapping**: Schema types → language-specific types
+2. **Serialization**: How to encode/decode msgpack (serde, custom, etc.)
 3. **Memory Model**: Stack vs heap, ownership, lifetimes
 4. **API Ergonomics**: Idiomatic parameter passing
 5. **Error Handling**: Language-specific error patterns
@@ -280,27 +242,26 @@ pub fn blake2s(self: *BarretenbergApi, allocator: Allocator, data: []const u8) !
 
 ### Adding a New Language
 
-1. Create `{language}_generator.ts` implementing `LanguageGenerator`
+1. Create `{language}_codegen.ts` with a class implementing `generateTypes()` and `generateApi()`
 2. Implement type mapping logic
 3. Implement serialization strategy
-4. Add to `generate.ts` pipeline
+4. Add to `VISITOR_GENERATORS` in `generate.ts`
 5. Done!
 
 Example for Go:
 ```typescript
-class GoGenerator implements LanguageGenerator {
-  generate(ir: SchemaIR): GeneratedCode {
-    return {
-      types: this.generateTypes(ir),
-      api: this.generateAPI(ir),
-    };
+class GoCodegen {
+  generateTypes(schema: CompiledSchema): string {
+    // Generate Go struct definitions
   }
 
-  private typeToGo(type: TypeIR): string {
-    // Map IR types to Go types
+  generateApi(schema: CompiledSchema): string {
+    // Generate Go API wrapper
   }
 
-  // ... rest of generator
+  private typeToGo(type: Type): string {
+    // Map schema types to Go types
+  }
 }
 ```
 
@@ -340,8 +301,8 @@ class GoGenerator implements LanguageGenerator {
 This architecture provides:
 - ✅ **Maintainability**: Each layer has clear responsibilities
 - ✅ **Extensibility**: New languages are straightforward
-- ✅ **Correctness**: Type-safe IR prevents errors
+- ✅ **Correctness**: Type-safe compiled schema prevents errors
 - ✅ **Simplicity**: Minimal backend surface area
 - ✅ **Performance**: Efficient serialization strategies
 
-The IR-based design ensures that improvements to schema processing benefit all languages, while language-specific optimizations remain isolated in generators.
+The visitor-based design ensures that improvements to schema processing benefit all languages, while language-specific optimizations remain isolated in codegen classes.
