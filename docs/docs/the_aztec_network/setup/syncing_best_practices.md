@@ -34,10 +34,11 @@ Before proceeding, you should:
 
 ### Configuring sync mode
 
-Control how your node synchronizes using the `--sync-mode` flag:
+Control how your node synchronizes using the `SYNC_MODE` environment variable in your `.env` file:
 
 ```bash
 aztec start --node --sync-mode [MODE]
+SYNC_MODE=[MODE]
 ```
 
 Available sync modes:
@@ -48,10 +49,11 @@ Available sync modes:
 
 ### Setting the snapshot source
 
-By default, nodes use Aztec's official snapshot storage. To specify a custom snapshot location, use the `--snapshots-url` flag:
+By default, nodes use Aztec's official snapshot storage. To specify a custom snapshot location, add the `SNAPSHOTS_URL` environment variable to your `.env` file:
 
 ```bash
-aztec start --node --sync-mode snapshot --snapshots-url [BASE_URL]
+SYNC_MODE=snapshot
+SNAPSHOTS_URL=[BASE_URL]
 ```
 
 The node searches for the snapshot index at:
@@ -76,21 +78,34 @@ The node searches for the snapshot index at:
 
 You can configure your node to use custom snapshot sources for various use cases.
 
-**Force sync from custom Google Cloud Storage:**
-```bash
-aztec start --node --sync-mode force-snapshot --snapshots-url gs://my-snapshots/
-```
-Use this to always start from a known snapshot state, overwriting any existing local data.
+Add the following to your `.env` file:
 
-**Using Cloudflare R2:**
+**Google Cloud Storage:**
 ```bash
-aztec start --node --sync-mode snapshot --snapshots-url "s3://my-bucket/snapshots/?endpoint=https://[ACCOUNT_ID].r2.cloudflarestorage.com"
+SYNC_MODE=force-snapshot
+SNAPSHOTS_URL=gs://my-snapshots/
+```
+
+**Cloudflare R2:**
+```bash
+SYNC_MODE=snapshot
+SNAPSHOTS_URL=s3://my-bucket/snapshots/?endpoint=https://[ACCOUNT_ID].r2.cloudflarestorage.com
 ```
 Replace `[ACCOUNT_ID]` with your Cloudflare account ID.
 
-**Using a custom HTTP mirror:**
+**HTTP/HTTPS mirror:**
 ```bash
-aztec start --node --sync-mode snapshot --snapshots-url https://my-mirror.example.com/snapshots/
+SYNC_MODE=snapshot
+SNAPSHOTS_URL=https://my-mirror.example.com/snapshots/
+```
+
+Then add the environment variables to your `docker-compose.yml`:
+
+```yaml
+environment:
+  # ... other environment variables
+  SYNC_MODE: ${SYNC_MODE}
+  SNAPSHOTS_URL: ${SNAPSHOTS_URL}
 ```
 
 ## Creating and uploading snapshots
