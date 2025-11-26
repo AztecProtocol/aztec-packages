@@ -319,11 +319,11 @@ The method now only accepts:
 - `artifact` (optional): A `ContractArtifact` object
 - `secretKey` (optional): A secret key for privacy keys registration
 
-#### Return value of `getNotes` no longer contains a recipient
+#### Return value of `getNotes` no longer contains a recipient and it contains some other additional info
 
-Return value of `getNotes` is defined as `Promise<UniqueNote[]>` and recipient has been dropped from `UniqueNote`.
-This change has been done because the value has been redundant as the same outcome can be achieved by populating the `scopes` array in `NoteFilter` with the `recipient` value.
-(Having the recipient in the `UniqueNote` was also logically incorrect because a note does not have a recipient - it's the message containing the note that has a recipient.)
+Return value of `getNotes` used to be defined as `Promise<UniqueNote[]>` and now it's defined as `Promise<UniqueNote[]>`.
+`NoteDao` is mostly a super-set of `UniqueNote` but it doesn't contain a `recipient`.
+Having the recipient in the return value has been redundant as the same outcome can be achieved by populating the `scopes` array in `NoteFilter` with the `recipient` value.
 
 ### [CLI] Command refactor
 

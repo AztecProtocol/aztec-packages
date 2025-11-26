@@ -2,9 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
-import { NoteStatus } from '@aztec/stdlib/note';
+import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
-import { NoteDao } from './note_dao.js';
 import { NoteDataProvider } from './note_data_provider.js';
 
 // -----------------------------------------------------------------------------

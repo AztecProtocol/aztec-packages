@@ -35,7 +35,8 @@ import type {
   PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
-import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
+import type { NotesFilter } from '@aztec/stdlib/note';
+import { NoteDao } from '@aztec/stdlib/note';
 import {
   type ContractOverrides,
   PrivateExecutionResult,
@@ -672,16 +673,12 @@ export class PXE {
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+  public async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
     // We need to manually trigger private state sync to have a guarantee that all the notes are available.
     const call = await this.#getFunctionCall('sync_private_state', [], filter.contractAddress);
     await this.simulateUtility(call);
 
-    const noteDaos = await this.noteDataProvider.getNotes(filter);
-
-    return noteDaos.map(dao => {
-      return new UniqueNote(dao.note, dao.contractAddress, dao.storageSlot, dao.txHash, dao.noteNonce);
-    });
+    return this.noteDataProvider.getNotes(filter);
   }
 
   /**
