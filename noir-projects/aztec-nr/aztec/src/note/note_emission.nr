@@ -68,13 +68,16 @@ where
         // TODO(#14565): Add constrained tagging
         let _constrained_tagging = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
 
+        // Do not capture `self` in the lambda.
+        let content = self.content;
+
         let ciphertext = remove_constraints_if(
             !constrained_encryption,
             || AES128::encrypt(
                 private_note_to_message_plaintext(
-                    self.content.note,
-                    self.content.storage_slot,
-                    self.content.randomness,
+                    content.note,
+                    content.storage_slot,
+                    content.randomness,
                 ),
                 recipient,
             ),
