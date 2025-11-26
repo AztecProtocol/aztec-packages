@@ -305,6 +305,6 @@ comptime fn assert_has_owner(note: TypeDefinition) {
 
     assert(
         has_owner,
-        f"{note_name} does not have an 'owner' field. If your notes have no owner, use #[custom_note] insteadof #[note] and implement the NoteHashing trait manually.",
+        f"{note_name} does not have an 'owner' field. If your notes have no owner, use #[custom_note] instead of #[note] and implement the NoteHashing trait manually.",
     );
 }

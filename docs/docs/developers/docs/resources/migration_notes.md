@@ -13,9 +13,14 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 In order to prevent pre-image attacks, it is necessary to inject randomness to notes. Aztec.nr users were previously expected to add said randomness to their custom note types. From now on, Aztec.nr takes care of handling randomness as built-in note metadata, making it impossible to miss for library users. This change breaks backwards compatibility as we'll discuss below.
 
-#### Changes to ValueNote, UintNote and NFTNote
+#### Changes to Aztec.nr note types
 
-If you're using `ValueNote`, `UintNote` or `NFTNote`, please be aware that `randomness` no longer is an explicit attribute in them.
+If you're using any of the following note types, please be aware that `randomness` no longer is an explicit attribute in them.
+
+- ValueNote
+- UintNote
+- NFTNote
+- AddressNote
 
 #### Migrating your custom note types: refer to UintNote as an example of how to migrate
 
