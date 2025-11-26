@@ -37,8 +37,8 @@ template <typename Builder>
 inline constexpr size_t ECDSA_SECP256R1 = 72209 + ZERO_GATE + (IsMegaBuilder<Builder> ? 2 : 0);
 
 template <typename Builder> inline constexpr size_t BLAKE2S = 2864 + ZERO_GATE + MEGA_OFFSET<Builder>;
-// Blake2b gate count reflects the bit-based (non-lookup) implementation.
-template <typename Builder> inline constexpr size_t BLAKE2B = 198618 + ZERO_GATE + MEGA_OFFSET<Builder>;
+// Blake2b gate count after lookup-based XOR and single-bit decomposition per rotate.
+template <typename Builder> inline constexpr size_t BLAKE2B = 104130 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLAKE3 = 2100 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t KECCAK_PERMUTATION = 17387 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t POSEIDON2_PERMUTATION = 73 + ZERO_GATE + MEGA_OFFSET<Builder>;

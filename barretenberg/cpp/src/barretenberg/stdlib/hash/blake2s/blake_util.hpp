@@ -311,6 +311,14 @@ static std::array<bool_t<Builder>, 64> xor_bits_64(const std::array<bool_t<Build
     return out;
 }
 
+// XOR two 64-bit words using the plookup XOR table to avoid double bit decompositions.
+template <typename Builder> static field_t<Builder> xor_lookup_64(const field_t<Builder>& a, const field_t<Builder>& b)
+{
+    using plookup::ColumnIdx;
+    const auto lookup = plookup_read<Builder>::get_lookup_accumulators(plookup::MultiTableId::BLAKE2B_XOR, a, b, true);
+    return lookup[ColumnIdx::C3][0];
+}
+
 // Rotate-right by a compile-time constant R on a 64-bit bit-vector.
 template <typename Builder, size_t R>
 static std::array<bool_t<Builder>, 64> rotate_right_bits_64(const std::array<bool_t<Builder>, 64>& in)
@@ -341,15 +349,14 @@ static field_t<Builder> xor_and_rotate_right_const_64(const field_t<Builder>& a,
 {
     Builder* ctx = a.get_context() ? a.get_context() : b.get_context();
 
-    // Decompose a and b into bits and constrain correctness.
-    std::array<bool_t<Builder>, 64> a_bits;
-    std::array<bool_t<Builder>, 64> b_bits;
-    field_t<Builder> a_re, b_re;
-    decompose_64(a, a_bits, a_re);
-    decompose_64(b, b_bits, b_re);
+    // XOR via lookup (enforces 64-bit slices), then decompose the result once.
+    const field_t<Builder> xor_val = xor_lookup_64(a, b);
 
-    // XOR them bitwise, then rotate right by R.
-    auto x_bits = xor_bits_64<Builder>(a_bits, b_bits);
+    std::array<bool_t<Builder>, 64> x_bits;
+    field_t<Builder> x_re;
+    decompose_64(xor_val, x_bits, x_re);
+
+    // Rotate right by R in the bit domain.
     auto r_bits = rotate_right_bits_64<Builder, R>(x_bits);
 
     // Recompose rotated bits into a 64-bit word.

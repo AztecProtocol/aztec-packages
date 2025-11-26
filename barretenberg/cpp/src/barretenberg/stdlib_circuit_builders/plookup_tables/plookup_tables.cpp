@@ -147,8 +147,13 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
     const size_t num_lookups = multi_table.basic_table_ids.size();
 
     ReadData<bb::fr> lookup;
-    const auto key_a_slices = numeric::slice_input_using_variable_bases(key_a, multi_table.slice_sizes);
-    const auto key_b_slices = numeric::slice_input_using_variable_bases(key_b, multi_table.slice_sizes);
+    const auto key_a_native = key_a.from_montgomery_form();
+    const auto key_b_native = key_b.from_montgomery_form();
+
+    const auto key_a_slices = numeric::slice_input_using_variable_bases(
+        key_a_native.uint256_t_no_montgomery_conversion(), multi_table.slice_sizes);
+    const auto key_b_slices = numeric::slice_input_using_variable_bases(
+        key_b_native.uint256_t_no_montgomery_conversion(), multi_table.slice_sizes);
 
     std::vector<fr> column_1_raw_values;
     std::vector<fr> column_2_raw_values;
