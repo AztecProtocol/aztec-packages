@@ -27,17 +27,17 @@ where
 
 pub fn create_exact_card_getter_options<let M: u32>(
     points: u8,
-    secret: Field,
     account: AztecAddress,
 ) -> NoteGetterOptions<CardNote, M, Field, Field>
 where
     CardNote: Packable<N = M>,
 {
     let mut options = NoteGetterOptions::new();
-    options
-        .select(CardNote::properties().points, Comparator.EQ, points as Field)
-        .select(CardNote::properties().randomness, Comparator.EQ, secret)
-        .select(CardNote::properties().owner, Comparator.EQ, account)
+    options.select(CardNote::properties().points, Comparator.EQ, points as Field).select(
+        CardNote::properties().owner,
+        Comparator.EQ,
+        account,
+    )
 }
 
 pub fn filter_min_points(
