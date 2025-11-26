@@ -164,23 +164,9 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     // Add range constraint
-
-    // AUDITTODO(federico): evaluate the minimal range optimization
-
-    // preprocessing: remove range constraints if they are implied by memory operations
-    for (auto const& index_range : constraint_system.index_range) {
-        if (constraint_system.minimal_range[index_range.first] == index_range.second) {
-            constraint_system.minimal_range.erase(index_range.first);
-        }
-    }
     for (const auto& [constraint, opcode_idx] :
          zip_view(constraint_system.range_constraints, constraint_system.original_opcode_indices.range_constraints)) {
         uint32_t range = constraint.num_bits;
-        if (constraint_system.minimal_range.contains(constraint.witness)) {
-            range = constraint_system.minimal_range[constraint.witness];
-            // no need to add more range constraints for this witness later.
-            constraint_system.minimal_range.erase(constraint.witness);
-        }
         builder.create_range_constraint(constraint.witness, range, "");
         gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }

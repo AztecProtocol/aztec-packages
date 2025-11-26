@@ -174,7 +174,7 @@ bool is_rom(Acir::MemOp const& mem_op);
 
 uint32_t poly_to_witness(const arithmetic_triple poly);
 
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, BlockConstraint& block);
+void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block);
 
 /// ========= BLACKBOX FUNCTIONS ========= ///
 

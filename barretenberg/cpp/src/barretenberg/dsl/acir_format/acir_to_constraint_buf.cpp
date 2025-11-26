@@ -142,7 +142,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
                     if (block == block_id_to_block_constraint.end()) {
                         throw_or_abort("unitialized MemoryOp");
                     }
-                    handle_memory_op(arg, af, block->second.first);
+                    handle_memory_op(arg, block->second.first);
                     block->second.second.push_back(i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
                     // This is a no-op in Barretenberg
@@ -436,25 +436,6 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
         BB_ASSERT_EQ(mul_quads.size(), 1U, "acir_format::handle_arithmetic: expected a single gate.");
         auto mul_quad = mul_quads[0];
 
-        // AUDITTODO(federico): evaluate this logic and if it is needed
-        if (is_assert_equal(mul_quad) && (mul_quad.a != 0)) {
-            if (mul_quad.a != mul_quad.b) {
-                // minimal_range of a witness is the smallest range of the witness and the witness that are
-                // 'assert_equal' to it
-                if (af.minimal_range.contains(mul_quad.b) && af.minimal_range.contains(mul_quad.a)) {
-                    if (af.minimal_range[mul_quad.a] < af.minimal_range[mul_quad.b]) {
-                        af.minimal_range[mul_quad.a] = af.minimal_range[mul_quad.b];
-                    } else {
-                        af.minimal_range[mul_quad.b] = af.minimal_range[mul_quad.a];
-                    }
-                } else if (af.minimal_range.contains(mul_quad.b)) {
-                    af.minimal_range[mul_quad.a] = af.minimal_range[mul_quad.b];
-                } else if (af.minimal_range.contains(mul_quad.a)) {
-                    af.minimal_range[mul_quad.b] = af.minimal_range[mul_quad.a];
-                }
-            }
-        }
-
         af.quad_constraints.push_back(mul_quad);
         af.original_opcode_indices.quad_constraints.push_back(opcode_index);
     } else {
@@ -502,13 +483,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .num_bits = arg.num_bits,
                 });
                 af.original_opcode_indices.range_constraints.push_back(opcode_index);
-                if (af.minimal_range.contains(witness_input)) {
-                    if (af.minimal_range[witness_input] > arg.num_bits) {
-                        af.minimal_range[witness_input] = arg.num_bits;
-                    }
-                } else {
-                    af.minimal_range[witness_input] = arg.num_bits;
-                }
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
                     .inputs = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
@@ -719,7 +693,7 @@ uint32_t poly_to_witness(const arithmetic_triple poly)
     return 0;
 }
 
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, BlockConstraint& block)
+void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
     uint8_t access_type = 1;
     if (is_rom(mem_op.op)) {
@@ -733,30 +707,6 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, Bloc
 
     // Update the ranges of the index using the array length
     arithmetic_triple index = serialize_arithmetic_gate(mem_op.op.index);
-    int bit_range = std::bit_width(block.init.size());
-    uint32_t index_witness = poly_to_witness(index);
-    if (index_witness != 0 && bit_range > 0) {
-        unsigned int u_bit_range = static_cast<unsigned int>(bit_range);
-        // Updates both af.minimal_range and af.index_range with u_bit_range when it is lower.
-        // By doing so, we keep these invariants:
-        // - minimal_range contains the smallest possible range for a witness
-        // - index_range constains the smallest range for a witness implied by any array operation
-        if (af.minimal_range.contains(index_witness)) {
-            if (af.minimal_range[index_witness] > u_bit_range) {
-                af.minimal_range[index_witness] = u_bit_range;
-            }
-        } else {
-            af.minimal_range[index_witness] = u_bit_range;
-        }
-        if (af.index_range.contains(index_witness)) {
-            if (af.index_range[index_witness] > u_bit_range) {
-                af.index_range[index_witness] = u_bit_range;
-            }
-        } else {
-            af.index_range[index_witness] = u_bit_range;
-        }
-    }
-
     MemOp acir_mem_op =
         MemOp{ .access_type = access_type, .index = index, .value = serialize_arithmetic_gate(mem_op.op.value) };
     block.trace.push_back(acir_mem_op);
