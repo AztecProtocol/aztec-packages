@@ -1,20 +1,8 @@
 validator:
-  hostNetwork: true
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
     cores: "2"
-  affinity:
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchExpressions:
-              - key: app
-                operator: In
-                values:
-                  - node
-          topologyKey: "kubernetes.io/hostname"
-          namespaceSelector: {}
   node:
     resources:
       requests:
