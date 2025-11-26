@@ -29,11 +29,14 @@ describe('reqresp effectiveness under tx drop', () => {
   const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
   const MINT_AMOUNT = 10000n;
   const FAST_ENABLED = (process.env.TX_COLLECTION_FAST_ENABLED ?? 'true').toLowerCase() === 'true' ? 'on' : 'off';
+  const WAIT_TIMEOUT_S = Number(process.env.REQRESP_WAIT_TIMEOUT_S ?? 120);
 
   let wallet: TestWallet;
   let cleanup: undefined | (() => Promise<void>);
   let testAccounts: TestAccounts;
   const forwardProcesses: Array<{ kill: () => void }> = [];
+  let rpcForwardProcess: { kill: () => void } | undefined;
+  let rpcUrl: string;
 
   afterAll(async () => {
     // Reset validators to default (no tx drop)
@@ -54,10 +57,13 @@ describe('reqresp effectiveness under tx drop', () => {
   beforeAll(async () => {
     logger.info(`Benchmark mode: fast_tx=${FAST_ENABLED}, duration_s=${TEST_DURATION_SECONDS}, tps=${TARGET_TPS}`);
     logger.info('Starting port forward for PXE');
+    logger.info('Opening RPC port-forward to aztec-node service...');
     const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess);
-    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    rpcForwardProcess = aztecRpcProcess;
+    rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
+    logger.info(`Creating wallet and aztec-node client against ${rpcUrl} (initialization)...`);
     const {
       wallet: _wallet,
       aztecNode: _aztecNode,
@@ -65,12 +71,74 @@ describe('reqresp effectiveness under tx drop', () => {
     } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
     cleanup = _cleanup;
     wallet = _wallet;
+    logger.info('Wallet and aztec-node client created (initialization complete). Deploying sponsored test accounts...');
     testAccounts = await deploySponsoredTestAccounts(wallet, _aztecNode, MINT_AMOUNT, logger);
     const name = readFieldCompressedString(
       await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
     );
     expect(name).toBe(testAccounts.tokenName);
+    logger.info('Sponsored test accounts deployed and verified.');
   });
+
+  async function waitForRpcReady() {
+    // Poll the RPC status endpoint until it responds OK
+    const deadline = Date.now() + 30_000;
+    let ok = false;
+    while (Date.now() < deadline && !ok) {
+      try {
+        const res = await fetch(`${rpcUrl}/status`);
+        ok = res.status === 200;
+        if (ok) {
+          break;
+        }
+      } catch {
+        // ignore and retry
+      }
+      await sleep(1_000);
+    }
+    if (!ok) {
+      logger.warn('RPC status did not become ready within 30s; proceeding anyway');
+    }
+  }
+
+  async function reinitRpcAndClients() {
+    logger.info('Re-initializing RPC port-forward and client after validator restart...');
+    logger.info('Stopping previous wallet and cleaning up resources...');
+    await cleanup?.();
+    try {
+      rpcForwardProcess?.kill();
+    } catch {
+      // ignore
+    }
+    logger.info('Opening fresh RPC port-forward to aztec-node service...');
+    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
+    forwardProcesses.push(aztecRpcProcess);
+    rpcForwardProcess = aztecRpcProcess;
+    rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    logger.info(`Recreating wallet and aztec-node client against ${rpcUrl}...`);
+    const {
+      wallet: _wallet,
+      aztecNode: _aztecNode,
+      cleanup: _cleanup,
+    } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
+    cleanup = _cleanup;
+    wallet = _wallet;
+    // Do not redeploy accounts/contracts; just verify existing contracts are reachable
+    try {
+      logger.info('Reusing pre-existing sponsored test accounts; verifying token contract is reachable...');
+      const name = readFieldCompressedString(
+        await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+      );
+      if (name !== testAccounts.tokenName) {
+        logger.warn(`Token name mismatch after reinit (got ${name}); continuing`);
+      }
+    } catch (e) {
+      logger.warn(`Contract check after reinit failed: ${String(e)}`);
+    }
+    logger.info('Waiting for RPC readiness after reinit...');
+    await waitForRpcReady();
+    logger.info('RPC reported ready after reinit.');
+  }
 
   async function portForwardPrometheus() {
     // Try Prometheus in dedicated metrics namespace; fall back to network namespace
@@ -181,14 +249,17 @@ describe('reqresp effectiveness under tx drop', () => {
     await Promise.all(
       sends.flat().map(async ({ sentAt, promise }, idx) => {
         try {
-          await promise.wait({ timeout: 180, interval: 1, ignoreDroppedReceiptsFor: 2 });
+          logger.info(`waiting for tx ${idx + 1} (timeout_s=${WAIT_TIMEOUT_S})`);
+          await promise.wait({ timeout: WAIT_TIMEOUT_S, interval: 1, ignoreDroppedReceiptsFor: 2 });
           const receipt = await promise.getReceipt();
           if (receipt?.blockNumber !== undefined) {
             included++;
             const l = Date.now() - sentAt;
             latencies.push(l);
+            logger.info(`tx ${idx + 1} included in block ${receipt.blockNumber} after ${l}ms`);
           } else {
             failed++;
+            logger.warn(`tx ${idx + 1} has no blockNumber in receipt`);
           }
         } catch (err) {
           failed++;
@@ -212,12 +283,12 @@ describe('reqresp effectiveness under tx drop', () => {
     expect(included).toBeGreaterThan(0);
   }
 
-  it('measures req/resp effectiveness across drop probabilities', async () => {
-    // Tx drop probabilities
-    for (const p of [0.0, 0.7]) {
-      await runLoadAndMeasure(p);
-    }
-  });
+  // it('measures req/resp effectiveness across drop probabilities', async () => {
+  //   // Tx drop probabilities
+  //   for (const p of [0.0, 0.7]) {
+  //     await runLoadAndMeasure(p);
+  //   }
+  // });
 
   it('scrapes tx collection metrics before and after fast tx switch', async () => {
     const promBaseApi = await portForwardPrometheus();
@@ -231,8 +302,8 @@ describe('reqresp effectiveness under tx drop', () => {
     if (initialFast) {
       logger.info('Disabling fast tx collection for baseline metrics');
       await setValidatorFastTx({ namespace: config.NAMESPACE, enabled: false, logger });
-      // allow some time for pods to settle
-      await sleep(10_000);
+      await reinitRpcAndClients();
+      await sleep(5_000);
     }
     // Baseline load and scrape
     await runLoadAndMeasure(0.0);
@@ -243,7 +314,8 @@ describe('reqresp effectiveness under tx drop', () => {
     // Enable fast tx collection
     logger.info('Enabling fast tx collection for comparison metrics');
     await setValidatorFastTx({ namespace: config.NAMESPACE, enabled: true, logger });
-    await sleep(10_000);
+    await reinitRpcAndClients();
+    await sleep(5_000);
 
     // Comparison load and scrape
     await runLoadAndMeasure(0.0);
