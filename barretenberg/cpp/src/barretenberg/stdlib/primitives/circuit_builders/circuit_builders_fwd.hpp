@@ -30,6 +30,7 @@ class UltraFlavor;
 class UltraZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
+class LightZKFlavor;
 class UltraKeccakFlavor;
 class UltraKeccakZKFlavor;
 class UltraRollupFlavor;

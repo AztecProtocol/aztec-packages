@@ -10,6 +10,7 @@
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/light_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
@@ -141,11 +142,13 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
             allocate_selectors(circuit);
 
-            allocate_table_lookup_polynomials(circuit);
+            if constexpr (HasLookups<Flavor>) {
+                allocate_table_lookup_polynomials(circuit);
+            }
 
             allocate_lagrange_polynomials();
 
-            if constexpr (IsMegaFlavor<Flavor>) {
+            if constexpr (HasEccOpWires<Flavor>) {
                 allocate_ecc_op_polynomials(circuit);
             }
             if constexpr (HasDataBus<Flavor>) {
@@ -163,8 +166,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         {
             BB_BENCH_NAME("constructing prover instance after trace populate");
 
-            // If Goblin, construct the databus polynomials
-            if constexpr (IsMegaFlavor<Flavor>) {
+            // If flavor has databus, construct the databus polynomials
+            if constexpr (HasDataBus<Flavor>) {
                 BB_BENCH_NAME("constructing databus polynomials");
 
                 construct_databus_polynomials(circuit);
@@ -174,13 +177,13 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         polynomials.lagrange_first.at(0) = 1;
         polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
-        {
+        if constexpr (HasLookups<Flavor>) {
             BB_BENCH_NAME("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(polynomials.get_tables(), circuit);
         }
 
-        {
+        if constexpr (HasLookups<Flavor>) {
             BB_BENCH_NAME("constructing lookup read counts");
 
             construct_lookup_read_counts<Flavor>(polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit);
@@ -223,10 +226,11 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
     void allocate_selectors(const Circuit&);
 
-    void allocate_table_lookup_polynomials(const Circuit&);
+    void allocate_table_lookup_polynomials(const Circuit&)
+        requires HasLookups<Flavor>;
 
     void allocate_ecc_op_polynomials(const Circuit&)
-        requires IsMegaFlavor<Flavor>;
+        requires HasEccOpWires<Flavor>;
 
     void allocate_databus_polynomials(const Circuit&)
         requires HasDataBus<Flavor>;

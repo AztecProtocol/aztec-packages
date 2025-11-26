@@ -8,6 +8,7 @@
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 
+#include "barretenberg/flavor/light_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
@@ -25,7 +26,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
 
     auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials, active_region_data);
 
-    if constexpr (IsMegaFlavor<Flavor>) {
+    if constexpr (HasEccOpWires<Flavor>) {
         BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
 
         add_ecc_op_wires_to_prover_instance(builder, polynomials);
@@ -83,11 +84,28 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         RefVector<Selector<FF>> block_selectors = block.get_selectors();
         // Insert the selector values for this block into the selector polynomials at the correct offset
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
-        for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
-            auto& selector = block_selectors[selector_idx];
-            for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                size_t trace_row_idx = row_idx + offset;
-                selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
+        if constexpr (IsLightZKFlavor<Flavor>) {
+            // LightZKFlavor has a reduced set of selectors. Manually map from block selectors to flavor selectors.
+            // Block selector order: q_m, q_c, q_1, q_2, q_3, q_4, q_busread, q_lookup, q_arith, q_delta_range,
+            //                       q_elliptic, q_memory, q_nnf, q_poseidon2_external, q_poseidon2_internal
+            // Flavor selector order: q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_delta_range, q_elliptic, q_nnf
+            // Mapping: 0->0, 1->1, 2->2, 3->3, 4->4, 5->5, 8->6, 9->7, 10->8, 12->9
+            constexpr std::array<size_t, 10> block_to_flavor_idx = { 0, 1, 2, 3, 4, 5, 8, 9, 10, 12 };
+            for (size_t flavor_idx = 0; flavor_idx < selectors.size(); flavor_idx++) {
+                size_t block_idx = block_to_flavor_idx[flavor_idx];
+                auto& block_selector = block_selectors[block_idx];
+                for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                    size_t trace_row_idx = row_idx + offset;
+                    selectors[flavor_idx].set_if_valid_index(trace_row_idx, block_selector[row_idx]);
+                }
+            }
+        } else {
+            for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
+                auto& selector = block_selectors[selector_idx];
+                for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                    size_t trace_row_idx = row_idx + offset;
+                    selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
+                }
             }
         }
     }
@@ -97,7 +115,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 
 template <class Flavor>
 void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials& polynomials)
-    requires IsMegaFlavor<Flavor>
+    requires HasEccOpWires<Flavor>
 {
     auto& ecc_op_selector = polynomials.lagrange_ecc_op;
     const size_t wire_idx_offset = Flavor::has_zero_row ? 1 : 0;
@@ -124,5 +142,6 @@ template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<UltraRollupFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
+template class TraceToPolynomials<LightZKFlavor>;
 
 } // namespace bb

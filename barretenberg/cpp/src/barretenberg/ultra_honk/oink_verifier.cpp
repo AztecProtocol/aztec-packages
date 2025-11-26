@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/light_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
@@ -114,11 +115,13 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumu
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
 
-    // Get commitments to lookup argument polynomials and fourth wire
-    witness_comms.lookup_read_counts =
-        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_counts);
-    witness_comms.lookup_read_tags =
-        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_tags);
+    // Get commitments to lookup argument polynomials (if flavor has lookups) and fourth wire
+    if constexpr (HasLookups<Flavor>) {
+        witness_comms.lookup_read_counts =
+            transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_counts);
+        witness_comms.lookup_read_tags =
+            transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_tags);
+    }
     witness_comms.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_4);
 }
 
@@ -134,11 +137,13 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inv
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
 
-    witness_comms.lookup_inverses =
-        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);
+    if constexpr (HasLookups<Flavor>) {
+        witness_comms.lookup_inverses =
+            transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);
+    }
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
-    if constexpr (IsMegaFlavor<Flavor>) {
+    if constexpr (HasDataBus<Flavor>) {
         for (auto [commitment, label] :
              zip_view(witness_comms.get_databus_inverses(), comm_labels.get_databus_inverses())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
@@ -182,6 +187,7 @@ template class OinkVerifier<UltraKeccakZKFlavor>;
 template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;
+template class OinkVerifier<LightZKFlavor>;
 
 // Recursive flavor instantiations
 template class OinkVerifier<UltraRecursiveFlavor_<UltraCircuitBuilder>>;

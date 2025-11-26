@@ -162,28 +162,63 @@ Bigfield uses `DeltaRangeConstraintRelation` for range checks (sorted permutatio
 
 **LightZK Total: 29 polys** (vs 55 in Mega)
 
-### Memory Footprint
+### Implementation Considerations for LightZK Flavor
 
-**Translator (measured): 247 MB peak**
+Creating a dedicated LightZK flavor requires several changes:
 
-Translator uses efficient sparse polynomial allocation:
-- Full-size (2^17): interleaved (4), ordered_range_constraints (5), z_perm
-- Mini-circuit (2^13): 80 wire polynomials, op, lagranges
-- Many polynomials share virtual size but have small actual allocations
+1. **Flavor concepts** (`flavor_concepts.hpp`):
+   - Current: `HasDataBus` is tied to `IsMegaFlavor`, but LightZK needs ecc_op_wires without databus
+   - Need: Separate `HasEccOpWires` concept from `HasDataBus`
+   - Or: Create `IsLightZKFlavor` concept that has ecc_op_wires but not databus
 
-**LightZK with batch=256 (~137,000 gates → 2^18 dyadic):**
-- Wires (w_l, w_r, w_o, w_4): 4 × 2^18 × 32B = 32 MB
-- z_perm: 2^18 × 32B = 8 MB
-- Precomputed selectors (20): 20 × 137,000 × 32B ≈ 85 MB (actual circuit size)
-- ecc_op_wires (4, mini-circuit): 4 × 2^13 × 32B = 1 MB
-- **Estimated: ~130 MB raw, ~180 MB peak with sumcheck**
+2. **ProverInstance** (`prover_instance.hpp`):
+   - Current: Uses `IsMegaFlavor` to decide whether to allocate ecc_op and databus polynomials
+   - Need: Separate checks for ecc_op allocation vs databus allocation
 
-| Approach | Circuit Size | Dyadic | Peak Memory | Notes |
-|----------|-------------|--------|-------------|-------|
-| **Translator** | 131,072 | 2^17 | **247 MB** | Measured, 88 witness polys |
-| **LightZK Bigfield** | **~137,000** | **2^18** | **~180 MB** | **-27% memory**, 5 witness polys |
+3. **Circuit finalization** (`mega_circuit_builder.cpp`):
+   - Current: `finalize_circuit` always adds databus gates to ensure non-zero polynomials
+   - Need: Skip databus finalization for LightZK (no databus relations)
 
-The memory savings come primarily from LightZK having far fewer witness polynomials (5 vs 88).
+4. **Relations tuple**:
+   - LightZK relations: Arithmetic, Permutation, DeltaRange, Elliptic, NNF, EccOpQueue
+   - Remove: LogDerivLookup, Memory, Databus, Poseidon2
+
+**Current approach**: Use MegaFlavor for initial BigfieldTranslator proving (verified working).
+The unused databus/lookup polynomials add overhead but proving still works.
+LightZK optimization can be added later as a separate PR.
+
+### Memory Footprint (Measured)
+
+**Issue: Circuit finalization doubles gate count**
+
+The initial gate count (~167K) doubles to ~301K after finalization due to:
+1. Deferred NNF multiplication gates (~67K)
+2. Deferred range constraint batching (~67K)
+
+This results in **2^19 dyadic size** instead of the hoped-for 2^18.
+
+**Measured Memory Comparison:**
+
+| Flavor | Dyadic | Prover Instance | Peak Memory | Witness Entities |
+|--------|--------|-----------------|-------------|------------------|
+| **Translator** | 2^17 | ~200 MB | **247 MB** | 91 |
+| **MegaZKFlavor** | 2^19 | 758 MB | **1,090 MB** | 25 |
+| **LightZKFlavor** | 2^19 | 518 MB | **717 MB** | 9 |
+
+**Analysis:**
+- LightZK is **34% better than MegaZK** (717 MB vs 1,090 MB peak)
+- But LightZK is **worse than Translator** (717 MB vs 247 MB peak)
+
+The reason: Translator has 2^17 dyadic size with 91 witness polynomials, while LightZK has 2^19 dyadic size with 9 witness polynomials.
+
+Total witness elements:
+- **Translator**: 91 × 2^17 = ~12M elements
+- **LightZK**: 9 × 2^19 = ~4.7M elements
+
+Despite LightZK having fewer total elements, the larger dyadic size (4x) affects other allocations:
+- Non-gate selectors are allocated at full dyadic size
+- Sigma/ID polynomials scale with trace_active_range_size
+- Commitment key and sumcheck working memory scale with dyadic size
 
 ### Proof Size Benefit
 
@@ -195,21 +230,132 @@ The memory savings come primarily from LightZK having far fewer witness polynomi
 
 ---
 
-## Conclusion
+## Conclusion: Why This Approach Fails
 
-| Approach | Recommendation |
-|----------|----------------|
-| **Bigfield with LightZK** | **Preferred: simpler code, -27% memory, smaller proofs** |
+| Approach | Dyadic Size | Peak Memory | Verdict |
+|----------|-------------|-------------|---------|
+| **Translator** | 2^17 | **247 MB** | Current baseline |
+| **LightZK Bigfield** | 2^19 | **717 MB** | **2.9x worse** |
 
-**Benefits of bigfield approach**:
-1. **Eliminates 7 relation types, 139 subrelations** - much simpler codebase
-2. **Uses audited bigfield primitives** - less custom code to audit
-3. **LightZK flavor** - 5 witness polynomials vs 88
-4. **~27% less memory** (~180 MB vs 247 MB)
-5. **Smaller proof size** - 5 commitments vs 88
+### Root Cause: Bigfield's Deferred Constraints
 
-**Trade-off**: Circuit size is similar (~137K vs 131K gates, 2^18 vs 2^17 dyadic) due to limb decomposition overhead. The op queue's 136-bit limbs must be split into bigfield's 68-bit limbs.
+The bigfield library uses two optimization techniques that defer constraint creation to circuit finalization:
 
-**Optimal parameters**:
-- `BATCH_SIZE = 256` (16 batches for 4096 rows)
-- `MAXIMUM_SUMMAND_COUNT = 1024` in bigfield.hpp ✓ (allows batch sizes up to 1024)
+1. **Deferred NNF multiplications**: Partial multiplication witnesses are cached and deduplicated at finalization, then ~67K NNF gates are added.
+
+2. **Deferred range constraints**: All range-constrained variables are collected in `range_lists`, sorted at finalization, and ~67K delta_range gates are added.
+
+These optimizations are beneficial for general circuits (deduplication, batching), but for the Translator replacement they cause the gate count to **double** from ~167K to ~301K, pushing the dyadic size from 2^18 to 2^19.
+
+### The Fundamental Problem
+
+The Translator VM was designed with memory efficiency as a primary goal:
+- **Interleaved polynomial structure**: 16 mini-circuits (2^13 each) are interleaved into full-size (2^17) polynomials
+- **Sparse allocations**: Most of the 91 witness polynomials only store data in the mini-circuit region
+- **Custom relations**: Relations are tailored to the specific computation, avoiding general-purpose overhead
+
+Bigfield takes the opposite approach:
+- **General-purpose primitives**: Designed for flexibility, not minimal gate count
+- **Full polynomial allocations**: No interleaving or sparse structure
+- **Deferred constraints**: Beneficial for deduplication but adds gates at finalization
+
+### Why This Gap Cannot Be Closed
+
+The 3x memory difference (717 MB vs 247 MB) is not fixable with incremental changes:
+
+1. **Dyadic size is fundamental**: Going from 2^19 to 2^17 requires 4x fewer gates. Even with eager constraints, the ~167K gates before finalization already exceed 2^17 = 131K.
+
+2. **Bigfield's gate overhead is inherent**: Each bigfield operation requires limb decomposition, range constraints, and NNF gates. This is the cost of using general-purpose non-native field arithmetic.
+
+3. **Translator's interleaving is key**: The Translator achieves 2^17 by processing 16 mini-circuits of 2^13 rows in an interleaved fashion. The bigfield approach processes all 4096 rows in a single pass, requiring full-size polynomials.
+
+4. **No path to 2^17**: Even optimizing bigfield to zero deferred constraints would still yield ~167K gates → 2^18 dyadic size → still 2x worse than Translator.
+
+### Recommendation
+
+**Keep the existing Translator VM.**
+
+The Translator's complexity (7 relation types, 139 subrelations) is the price paid for memory efficiency. This is a worthwhile trade-off because:
+- Memory is the primary constraint in client-side proving
+- The 3x memory difference (717 MB vs 247 MB) cannot be bridged
+- Code simplification does not justify 3x resource regression
+
+---
+
+## Circuit Finalization: Why Gates Double
+
+### Measured Gate Counts (4096 op queue rows)
+
+```
+Before finalization:  167,597 gates
+After finalization:   301,374 gates
+Finalization added:   133,777 gates
+```
+
+### Block Breakdown Before Finalization
+
+| Block | Gates | Notes |
+|-------|-------|-------|
+| arithmetic | 86,413 | Main computation gates |
+| delta_range | 0 | Empty until finalization |
+| elliptic | 0 | Not used |
+| nnf | 81,184 | Limb accumulation gates from `range_constrain_two_limbs` |
+| ecc_op | 8,192 | 4096 rows × 2 gates per row |
+
+### Deferred Operations in Finalization
+
+Bigfield defers two types of constraints to enable batching/deduplication optimizations:
+
+#### 1. Non-Native Field Multiplications (~67K gates)
+
+Bigfield caches partial NNF multiplications during circuit construction (`queue_partial_non_native_field_multiplication`). At finalization:
+
+1. **Deduplication**: Removes duplicate multiplications (biggroup operations often produce the same mults)
+2. **Gate creation**: 4 NNF gates per unique multiplication
+
+```
+Cached NNF mults before dedup:  20,403
+After dedup (estimated):        ~16,700
+NNF gates added:                ~66,800 (4 × 16,700)
+```
+
+#### 2. Range Constraint Batching (~67K gates)
+
+All range constraints are batched via the `range_lists` mechanism:
+
+| Range | Variables | Notes |
+|-------|-----------|-------|
+| 16383 (14-bit) | 212,837 | From 68-bit limb decomposition (5 × 14-bit sublimbs) |
+| 4095 (12-bit) | 36,947 | Partial limbs |
+| 255 (8-bit) | 8,821 | Small range constraints |
+| 15 (4-bit) | 8,201 | Nibble constraints |
+| Other | 1,273 | Various sizes |
+| **Total** | **268,079** | |
+
+**Processing at finalization**:
+1. For each unique range, create a "lookup table" of valid values (negligible gates)
+2. Sort all variables by value
+3. Create delta_range gates verifying sorted order (4 variables per gate)
+
+```
+Expected delta_range gates: 268,079 / 4 ≈ 67,019
+```
+
+### Why This Architecture?
+
+1. **NNF deduplication**: Biggroup operations frequently compute the same limb products. Caching and deduplicating removes ~20% of NNF gates.
+
+2. **Range batching**: Instead of creating individual range check circuits for each variable, variables with the same range are batched into a single sorted permutation. The delta_range relation verifies `D(D-1)(D-2)(D-3)=0` where D is the difference between adjacent sorted values.
+
+3. **Trade-off**: The "doubled" gate count is expected behavior. The 81K NNF gates before finalization are from `range_constrain_two_limbs` which creates limb accumulation gates directly (these verify that sublimbs reconstruct to the original value). The additional 67K NNF gates from finalization are the actual multiplication constraints.
+
+### Finalization Gate Math
+
+| Component | Gates |
+|-----------|-------|
+| NNF multiplications (after dedup) | ~67,000 |
+| Delta range (sorted permutation) | ~67,000 |
+| Overhead (poly non-zero, public inputs) | ~100 |
+| **Total finalization** | **~134,000** |
+
+This matches the measured 133,777 gates added during finalization.

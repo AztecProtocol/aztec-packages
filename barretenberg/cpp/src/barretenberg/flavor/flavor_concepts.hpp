@@ -21,7 +21,7 @@ template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
 #endif
 template <typename T>
-concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor>;
+concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor, LightZKFlavor>;
 
 template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
@@ -30,8 +30,21 @@ concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
                                     MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
+// LightZK flavors have ecc_op_wires but no databus (used by BigfieldTranslator)
+template <typename T>
+concept IsLightZKFlavor = IsAnyOf<T, LightZKFlavor>;
+
+// HasEccOpWires: flavors that use ecc_op_wire polynomials (Mega and LightZK)
+template <typename T>
+concept HasEccOpWires = IsMegaFlavor<T> || IsLightZKFlavor<T>;
+
+// HasDataBus: flavors that use databus polynomials (only Mega, not LightZK)
 template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
+
+// HasLookups: flavors that use lookup table polynomials (Ultra and Mega, not LightZK)
+template <typename T>
+concept HasLookups = !IsLightZKFlavor<T>;
 
 // Whether the Flavor has randomness at the end of its trace to randomise commitments and evaluations of its polynomials
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.

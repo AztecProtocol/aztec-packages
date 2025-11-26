@@ -50,7 +50,7 @@ template <class Flavor> class TraceToPolynomials {
      * data assumed already to be present in the corrresponding block of the conventional wires in the proving key.
      */
     static void add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials&)
-        requires IsMegaFlavor<Flavor>;
+        requires HasEccOpWires<Flavor>;
 };
 
 } // namespace bb

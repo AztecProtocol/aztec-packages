@@ -8,6 +8,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/light_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
@@ -74,8 +75,10 @@ void WitnessComputation<Flavor>::compute_logderivative_inverses(Flavor::ProverPo
 {
     BB_BENCH_NAME("compute_logderivative_inverses");
 
-    // Compute inverses for conventional lookups
-    LogDerivLookupRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size);
+    // Compute inverses for conventional lookups (only for flavors with lookups)
+    if constexpr (HasLookups<Flavor>) {
+        LogDerivLookupRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size);
+    }
 
     if constexpr (HasDataBus<Flavor>) {
         // Compute inverses for calldata reads
@@ -161,5 +164,6 @@ template class WitnessComputation<UltraKeccakZKFlavor>;
 template class WitnessComputation<UltraRollupFlavor>;
 template class WitnessComputation<MegaFlavor>;
 template class WitnessComputation<MegaZKFlavor>;
+template class WitnessComputation<LightZKFlavor>;
 
 } // namespace bb

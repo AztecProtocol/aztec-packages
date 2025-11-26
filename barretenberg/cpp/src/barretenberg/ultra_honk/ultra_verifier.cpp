@@ -145,6 +145,7 @@ template class UltraVerifier_<UltraKeccakZKFlavor>;
 template class UltraVerifier_<UltraRollupFlavor>;
 template class UltraVerifier_<MegaFlavor>;
 template class UltraVerifier_<MegaZKFlavor>;
+template class UltraVerifier_<LightZKFlavor>;
 
 template UltraVerifier_<UltraFlavor>::UltraVerifierOutput UltraVerifier_<UltraFlavor>::verify_proof<DefaultIO>(
     const Proof& proof, const Proof& ipa_proof);
@@ -173,6 +174,9 @@ template UltraVerifier_<MegaFlavor>::UltraVerifierOutput UltraVerifier_<MegaFlav
     const Proof& proof, const Proof& ipa_proof);
 
 template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<DefaultIO>(
+    const Proof& proof, const Proof& ipa_proof);
+
+template UltraVerifier_<LightZKFlavor>::UltraVerifierOutput UltraVerifier_<LightZKFlavor>::verify_proof<DefaultIO>(
     const Proof& proof, const Proof& ipa_proof);
 
 // Chonk specialization

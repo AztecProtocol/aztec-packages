@@ -554,6 +554,7 @@ class UltraStarknetZKFlavor;
 class UltraKeccakZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
+class LightZKFlavor;
 class TranslatorFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;

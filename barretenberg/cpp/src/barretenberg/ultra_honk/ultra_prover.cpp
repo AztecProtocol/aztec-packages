@@ -191,5 +191,6 @@ template class UltraProver_<UltraKeccakZKFlavor>;
 template class UltraProver_<UltraRollupFlavor>;
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;
+template class UltraProver_<LightZKFlavor>;
 
 } // namespace bb

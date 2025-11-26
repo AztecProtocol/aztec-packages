@@ -158,20 +158,27 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
                                                                      eta_two,
                                                                      eta_three);
 
-    // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
+    // Commit to lookup argument polynomials (if flavor has lookups) and the finalized fourth wire polynomial
     auto batch = prover_instance->commitment_key.start_batch();
-    batch.add_to_batch(prover_instance->polynomials.lookup_read_counts,
-                       commitment_labels.lookup_read_counts,
-                       /*mask?*/ Flavor::HasZK);
-    batch.add_to_batch(
-        prover_instance->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags, /*mask?*/ Flavor::HasZK);
+    if constexpr (HasLookups<Flavor>) {
+        batch.add_to_batch(prover_instance->polynomials.lookup_read_counts,
+                           commitment_labels.lookup_read_counts,
+                           /*mask?*/ Flavor::HasZK);
+        batch.add_to_batch(prover_instance->polynomials.lookup_read_tags,
+                           commitment_labels.lookup_read_tags,
+                           /*mask?*/ Flavor::HasZK);
+    }
     batch.add_to_batch(
         prover_instance->polynomials.w_4, domain_separator + commitment_labels.w_4, /*mask?*/ Flavor::HasZK);
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
 
-    prover_instance->commitments.lookup_read_counts = computed_commitments[0];
-    prover_instance->commitments.lookup_read_tags = computed_commitments[1];
-    prover_instance->commitments.w_4 = computed_commitments[2];
+    if constexpr (HasLookups<Flavor>) {
+        prover_instance->commitments.lookup_read_counts = computed_commitments[0];
+        prover_instance->commitments.lookup_read_tags = computed_commitments[1];
+        prover_instance->commitments.w_4 = computed_commitments[2];
+    } else {
+        prover_instance->commitments.w_4 = computed_commitments[0];
+    }
 }
 
 /**
@@ -191,12 +198,14 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
         prover_instance->polynomials, prover_instance->dyadic_size(), prover_instance->relation_parameters);
 
     auto batch = prover_instance->commitment_key.start_batch();
-    batch.add_to_batch(prover_instance->polynomials.lookup_inverses,
-                       commitment_labels.lookup_inverses,
-                       /*mask?*/ Flavor::HasZK);
+    if constexpr (HasLookups<Flavor>) {
+        batch.add_to_batch(prover_instance->polynomials.lookup_inverses,
+                           commitment_labels.lookup_inverses,
+                           /*mask?*/ Flavor::HasZK);
+    }
 
     // If Mega, commit to the databus inverse polynomials and send
-    if constexpr (IsMegaFlavor<Flavor>) {
+    if constexpr (HasDataBus<Flavor>) {
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
             batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
@@ -204,9 +213,17 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
     }
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
 
-    prover_instance->commitments.lookup_inverses = computed_commitments[0];
-    if constexpr (IsMegaFlavor<Flavor>) {
-        size_t commitment_idx = 1;
+    if constexpr (HasLookups<Flavor>) {
+        prover_instance->commitments.lookup_inverses = computed_commitments[0];
+        if constexpr (HasDataBus<Flavor>) {
+            size_t commitment_idx = 1;
+            for (auto& commitment : prover_instance->commitments.get_databus_inverses()) {
+                commitment = computed_commitments[commitment_idx];
+                commitment_idx++;
+            };
+        }
+    } else if constexpr (HasDataBus<Flavor>) {
+        size_t commitment_idx = 0;
         for (auto& commitment : prover_instance->commitments.get_databus_inverses()) {
             commitment = computed_commitments[commitment_idx];
             commitment_idx++;
@@ -297,5 +314,6 @@ template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
+template class OinkProver<LightZKFlavor>;
 
 } // namespace bb

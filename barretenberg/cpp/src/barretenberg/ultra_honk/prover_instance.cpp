@@ -84,8 +84,20 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
     BB_BENCH_NAME("allocate_selectors");
 
     // Define gate selectors over the block they are isolated to
-    for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
-        selector = Polynomial(block.size(), dyadic_size(), block.trace_offset());
+    if constexpr (IsLightZKFlavor<Flavor>) {
+        // LightZKFlavor only uses a subset of gate selectors (q_arith, q_delta_range, q_elliptic, q_nnf)
+        // Manually map to the corresponding blocks
+        polynomials.q_arith =
+            Polynomial(circuit.blocks.arithmetic.size(), dyadic_size(), circuit.blocks.arithmetic.trace_offset());
+        polynomials.q_delta_range =
+            Polynomial(circuit.blocks.delta_range.size(), dyadic_size(), circuit.blocks.delta_range.trace_offset());
+        polynomials.q_elliptic =
+            Polynomial(circuit.blocks.elliptic.size(), dyadic_size(), circuit.blocks.elliptic.trace_offset());
+        polynomials.q_nnf = Polynomial(circuit.blocks.nnf.size(), dyadic_size(), circuit.blocks.nnf.trace_offset());
+    } else {
+        for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
+            selector = Polynomial(block.size(), dyadic_size(), block.trace_offset());
+        }
     }
 
     // Set the other non-gate selector polynomials (e.g. q_l, q_r, q_m etc.) to full size
@@ -96,6 +108,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
 
 template <IsUltraOrMegaHonk Flavor>
 void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
+    requires HasLookups<Flavor>
 {
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
@@ -124,7 +137,7 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
 
 template <IsUltraOrMegaHonk Flavor>
 void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit)
-    requires IsMegaFlavor<Flavor>
+    requires HasEccOpWires<Flavor>
 {
     BB_BENCH_NAME("allocate_ecc_op_polynomials");
 
@@ -262,5 +275,6 @@ template class ProverInstance_<UltraKeccakZKFlavor>;
 template class ProverInstance_<UltraRollupFlavor>;
 template class ProverInstance_<MegaFlavor>;
 template class ProverInstance_<MegaZKFlavor>;
+template class ProverInstance_<LightZKFlavor>;
 
 } // namespace bb
