@@ -1,12 +1,53 @@
 #!/bin/bash
-sed_expr=""
+# Redacts sensitive environment variables from stdin.
+# Matches env vars containing: KEY, TOKEN, PASSWORD, SECRET, MNEMONIC
+# Replaces their values with *** in the output stream.
+set -euo pipefail
+
+# Build a file of patterns (one per line)
+patterns_file=$(mktemp)
+trap "rm -f '$patterns_file'" EXIT
+
 for var in $(compgen -e); do
   if [[ "$var" =~ (KEY|TOKEN|PASSWORD|SECRET|MNEMONIC) ]]; then
     val="${!var}"
-    if [[ -n "$val" ]]; then
-      esc=$(printf '%s\n' "$val" | sed 's/[][\/.^$*]/\\&/g')
-      sed_expr+="s/${esc}/***/g;"
-    fi
+    # Skip empty values
+    [[ -z "$val" ]] && continue
+    # Skip values that are too short (likely not real secrets)
+    [[ ${#val} -lt 8 ]] && continue
+    # For multiline values, add each line as a separate pattern
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && echo "$line" >> "$patterns_file"
+    done <<< "$val"
   fi
 done
-sed -u "$sed_expr"
+
+# If no patterns, just pass through
+if [[ ! -s "$patterns_file" ]]; then
+  cat
+  exit 0
+fi
+
+# Use awk for efficient multipattern replacement
+# Escape regex special chars and use index() for literal matching
+awk -v pfile="$patterns_file" '
+BEGIN {
+  i = 0
+  while ((getline line < pfile) > 0) {
+    patterns[i++] = line
+  }
+  close(pfile)
+  n = i
+}
+{
+  for (i = 0; i < n; i++) {
+    p = patterns[i]
+    plen = length(p)
+    # Use literal string replacement via index() to avoid regex issues
+    while ((pos = index($0, p)) > 0) {
+      $0 = substr($0, 1, pos-1) "***" substr($0, pos+plen)
+    }
+  }
+  print
+}
+'
