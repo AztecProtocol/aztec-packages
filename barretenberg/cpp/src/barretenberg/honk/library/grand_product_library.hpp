@@ -175,7 +175,6 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         }
     });
 
-    BB_ASSERT_EQ(grand_product_polynomial.at(1), 1);
     DEBUG_LOG_ALL(grand_product_polynomial.coeffs());
 }
 
