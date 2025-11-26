@@ -228,14 +228,20 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let generics_declarations = get_generics_declarations(s);
     let where_deserialize_clause = get_where_trait_clause(s, quote {Deserialize});
 
-    // The following will give us <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
-    let right_hand_side_of_definition_of_n = params
-        .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
-            quote {
+    // The following will give us:
+    // <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
+    // (or 0 if the struct has no members)
+    let right_hand_side_of_definition_of_n = if params.len() > 0 {
+        params
+            .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+                quote {
             <$param_type as $crate::traits::Deserialize>::N
         }
-        })
-        .join(quote {+});
+            })
+            .join(quote {+})
+    } else {
+        quote {0}
+    };
 
     // For structs containing a single member, we can enhance performance by directly deserializing the input array,
     // bypassing the need for loop-based array construction. While this optimization yields significant benefits in
@@ -269,10 +275,14 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
 
             Self { $struct_members }
         }
-    } else {
+    } else if params.len() == 1 {
         let param_name = params[0].0;
         quote {
             Self { $param_name: $crate::traits::Deserialize::deserialize(serialized) }
+        }
+    } else {
+        quote {
+            Self {}
         }
     };
 
@@ -365,14 +375,20 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     let generics_declarations = get_generics_declarations(s);
     let where_packable_clause = get_where_trait_clause(s, quote {Packable});
 
-    // The following will give us <type_of_struct_member_1 as Packable>::N + <type_of_struct_member_2 as Packable>::N + ...
-    let right_hand_side_of_definition_of_n = params
-        .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
-            quote {
+    // The following will give us:
+    // <type_of_struct_member_1 as Packable>::N + <type_of_struct_member_2 as Packable>::N + ...
+    // (or 0 if the struct has no members)
+    let right_hand_side_of_definition_of_n = if params.len() > 0 {
+        params
+            .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+                quote {
             <$param_type as $crate::traits::Packable>::N
         }
-        })
-        .join(quote {+});
+            })
+            .join(quote {+})
+    } else {
+        quote {0}
+    };
 
     // For structs containing a single member, we can enhance performance by directly returning the packed member,
     // bypassing the need for loop-based array construction. While this optimization yields significant benefits in
@@ -404,10 +420,14 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
 
             result
         }
-    } else {
+    } else if params.len() == 1 {
         let param_name = params[0].0;
         quote {
             $crate::traits::Packable::pack(self.$param_name)
+        }
+    } else {
+        quote {
+            [0; Self::N]
         }
     };
 
@@ -443,10 +463,14 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
             $unpacking_of_struct_members
             Self { $struct_members }
         }
-    } else {
+    } else if params.len() == 1 {
         let param_name = params[0].0;
         quote {
             Self { $param_name: $crate::traits::Packable::unpack(packed) }
+        }
+    } else {
+        quote {
+            Self {}
         }
     };
 
@@ -473,6 +497,9 @@ mod test {
     use crate::traits::{Deserialize, Packable, Serialize};
 
     #[derive(Deserialize, Eq, Packable, Serialize)]
+    pub struct Empty {}
+
+    #[derive(Deserialize, Eq, Packable, Serialize)]
     pub struct Smol {
         a: Field,
         b: Field,
@@ -496,6 +523,24 @@ mod test {
     pub struct HasArrayWithGenerics<T, let N: u32> {
         pub fields: [T; N],
         pub length: u32,
+    }
+
+    #[test]
+    fn serde_on_empty() {
+        let original = Empty {};
+        let serialized = original.serialize();
+        assert_eq(serialized, [], "Serialized does not match empty array");
+        let deserialized = Empty::deserialize(serialized);
+        assert_eq(deserialized, original, "Deserialized does not match original");
+    }
+
+    #[test]
+    fn packable_on_empty() {
+        let original = Empty {};
+        let packed = original.pack();
+        assert_eq(packed, [], "Packed does not match empty array");
+        let unpacked = Empty::unpack(packed);
+        assert_eq(unpacked, original, "Unpacked does not match original");
     }
 
     #[test]

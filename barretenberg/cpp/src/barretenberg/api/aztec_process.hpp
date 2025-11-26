@@ -34,5 +34,16 @@ std::vector<std::string> find_contract_artifacts(const std::string& search_path 
  */
 bool process_all_artifacts(const std::string& search_path = ".", bool force = false);
 
+/**
+ * @brief Get cache paths for all verification keys in an artifact
+ *
+ * Outputs cache key information in format: <hash>:<cache_path>
+ * One line per function, to stdout.
+ *
+ * @param input_path Path to input artifact JSON
+ * @return true on success, false on failure
+ */
+bool get_cache_paths(const std::string& input_path);
+
 } // namespace bb
 #endif
