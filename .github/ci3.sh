@@ -77,8 +77,8 @@ function process_labels {
         echo "Label 'ci-docs' found"
         ci_docs=1
         ;;
-      ci-barretenberg|barretenberg-ci)
-        echo "Label '${label}' found"
+      ci-barretenberg)
+        echo "Label 'ci-barretenberg' found"
         ci_barretenberg=1
         ;;
       ci-release-pr)
