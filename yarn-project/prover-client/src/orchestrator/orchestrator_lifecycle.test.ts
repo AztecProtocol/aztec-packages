@@ -1,5 +1,6 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
 import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
@@ -46,7 +47,7 @@ describe('prover/orchestrator/lifecycle', () => {
       });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
       await orchestrator.startNewCheckpoint(
         0, // checkpointIndex

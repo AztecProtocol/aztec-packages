@@ -1,4 +1,5 @@
 import type { EpochAndSlot, EpochCacheInterface, EpochCommitteeInfo, SlotTag } from '@aztec/epoch-cache';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
@@ -10,13 +11,13 @@ export class MockEpochCache implements EpochCacheInterface {
     return Promise.resolve({
       committee: undefined,
       seed: 0n,
-      epoch: 0n,
+      epoch: EpochNumber.ZERO,
     });
   }
 
   getEpochAndSlotNow(): EpochAndSlot {
     return {
-      epoch: 0n,
+      epoch: EpochNumber.ZERO,
       slot: 0n,
       ts: 0n,
     };
@@ -24,18 +25,18 @@ export class MockEpochCache implements EpochCacheInterface {
 
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
     return {
-      epoch: 0n,
+      epoch: EpochNumber.ZERO,
       slot: 0n,
       ts: 0n,
       now: 0n,
     };
   }
 
-  getProposerIndexEncoding(_epoch: bigint, _slot: bigint, _seed: bigint): `0x${string}` {
+  getProposerIndexEncoding(_epoch: EpochNumber, _slot: bigint, _seed: bigint): `0x${string}` {
     return '0x00';
   }
 
-  computeProposerIndex(_slot: bigint, _epoch: bigint, _seed: bigint, _size: bigint): bigint {
+  computeProposerIndex(_slot: bigint, _epoch: EpochNumber, _seed: bigint, _size: bigint): bigint {
     return 0n;
   }
 

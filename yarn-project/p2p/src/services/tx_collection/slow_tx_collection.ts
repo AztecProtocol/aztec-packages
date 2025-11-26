@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { chunk } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { boundInclusive } from '@aztec/foundation/number';
@@ -225,7 +226,7 @@ export class SlowTxCollection {
   /** Computes the proof submission deadline for a given slot, a tx mined in this slot is no longer interesting after this deadline */
   private getDeadlineForSlot(slotNumber: bigint): Date {
     const epoch = getEpochAtSlot(slotNumber, this.constants);
-    const submissionEndEpoch = epoch + BigInt(this.constants.proofSubmissionEpochs);
+    const submissionEndEpoch = EpochNumber(epoch + this.constants.proofSubmissionEpochs);
     const submissionEndTimestamp = getTimestampRangeForEpoch(submissionEndEpoch, this.constants)[1];
     return new Date(Number(submissionEndTimestamp) * 1000);
   }

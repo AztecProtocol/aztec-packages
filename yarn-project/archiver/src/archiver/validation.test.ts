@@ -1,4 +1,5 @@
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
@@ -56,7 +57,7 @@ describe('validateBlockAttestations', () => {
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
 
       expect(result.valid).toBe(true);
-      expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(0n);
+      expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(0));
     });
 
     it('validates a block with no attestations if no committee is found', async () => {
@@ -64,7 +65,7 @@ describe('validateBlockAttestations', () => {
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
 
       expect(result.valid).toBe(true);
-      expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(0n);
+      expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(0));
     });
   });
 
@@ -76,7 +77,7 @@ describe('validateBlockAttestations', () => {
     it('requests committee for the correct epoch', async () => {
       const block = await makeBlock(signers, committee, 28);
       await validateBlockAttestations(block, epochCache, constants, logger);
-      expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(2n);
+      expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(2));
     });
 
     it('fails if there is an attestation is from a non-committee member', async () => {

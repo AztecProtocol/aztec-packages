@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BufferReader, numToUInt8, numToUInt32BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -33,7 +34,7 @@ export class SentinelStore {
     return this.config.historicProvenPerformanceLength;
   }
 
-  public async updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
+  public async updateProvenPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
     await this.store.transactionAsync(async () => {
       for (const [who, { missed, total }] of Object.entries(performance)) {
         await this.pushValidatorProvenPerformanceForEpoch({ who: EthAddress.fromString(who), missed, total, epoch });
@@ -41,7 +42,7 @@ export class SentinelStore {
     });
   }
 
-  public async getProvenPerformance(who: EthAddress): Promise<{ missed: number; total: number; epoch: bigint }[]> {
+  public async getProvenPerformance(who: EthAddress): Promise<{ missed: number; total: number; epoch: EpochNumber }[]> {
     const currentPerformanceBuffer = await this.provenMap.getAsync(who.toString());
     return currentPerformanceBuffer ? this.deserializePerformance(currentPerformanceBuffer) : [];
   }
@@ -55,7 +56,7 @@ export class SentinelStore {
     who: EthAddress;
     missed: number;
     total: number;
-    epoch: bigint;
+    epoch: EpochNumber;
   }) {
     const currentPerformance = await this.getProvenPerformance(who);
     const existingIndex = currentPerformance.findIndex(p => p.epoch === epoch);
@@ -110,18 +111,18 @@ export class SentinelStore {
     return data && this.deserializeHistory(data);
   }
 
-  private serializePerformance(performance: { missed: number; total: number; epoch: bigint }[]): Buffer {
+  private serializePerformance(performance: { missed: number; total: number; epoch: EpochNumber }[]): Buffer {
     return serializeToBuffer(
       performance.map(p => [numToUInt32BE(Number(p.epoch)), numToUInt32BE(p.missed), numToUInt32BE(p.total)]),
     );
   }
 
-  private deserializePerformance(buffer: Buffer): { missed: number; total: number; epoch: bigint }[] {
+  private deserializePerformance(buffer: Buffer): { missed: number; total: number; epoch: EpochNumber }[] {
     const reader = new BufferReader(buffer);
-    const performance: { missed: number; total: number; epoch: bigint }[] = [];
+    const performance: { missed: number; total: number; epoch: EpochNumber }[] = [];
     while (!reader.isEmpty()) {
       performance.push({
-        epoch: BigInt(reader.readNumber()),
+        epoch: EpochNumber(reader.readNumber()),
         missed: reader.readNumber(),
         total: reader.readNumber(),
       });
