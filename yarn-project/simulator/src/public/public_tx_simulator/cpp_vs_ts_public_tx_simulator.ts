@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger, logLevel } from '@aztec/foundation/log';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { avmSimulate } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
@@ -113,7 +113,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     let resultBuffer: Buffer;
     try {
       this.log.debug(`Calling C++ simulator for tx ${txHash}`);
-      resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsCppHandle);
+      resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsCppHandle, logLevel);
     } catch (error: any) {
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
     }

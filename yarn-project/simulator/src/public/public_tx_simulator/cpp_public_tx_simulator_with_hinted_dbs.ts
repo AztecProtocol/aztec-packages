@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger, logLevel } from '@aztec/foundation/log';
 import { avmSimulateWithHintedDbs } from '@aztec/native';
 import {
   AvmCircuitInputs,
@@ -74,7 +74,7 @@ export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements 
 
     let resultBuffer: Buffer;
     try {
-      resultBuffer = await avmSimulateWithHintedDbs(inputBuffer);
+      resultBuffer = await avmSimulateWithHintedDbs(inputBuffer, logLevel);
     } catch (error: any) {
       throw new SimulationError(`C++ hinted simulation failed: ${error.message}`, []);
     }
