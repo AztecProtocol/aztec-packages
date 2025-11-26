@@ -23,6 +23,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
   public:
     using ExecutionTrace = MegaExecutionTraceBlocks;
 
+    static constexpr uint32_t ACIR_OFFSET = 4;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
         UltraCircuitBuilder_<MegaExecutionTraceBlocks>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
@@ -50,8 +51,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
   public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
-                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
+                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
+                        bool has_dummy_witnesses = false)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint, has_dummy_witnesses)
         , op_queue(std::move(op_queue_in))
     {
         BB_BENCH();
@@ -68,39 +70,38 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     {}
 
     /**
-     * @brief Constructor from data generated from ACIR
+     * @brief Initialize builder data from ACIR data
      *
-     * @param op_queue_in Op queue to which goblinized group ops will be added
      * @param witness_values witnesses values known to acir
      * @param public_inputs indices of public inputs in witness array
-     * @param num_acir_witnesses the number of witnesses known at the time of ACIR generation
      *
      * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
-     * witness values which are interleaved with zeros when witnesses are optimized away. When the circuit is
-     * constructed with a valid witness vector, the vector of witness values has always size equal to
-     * num_acir_witnesses. However, when we want to generate the VK for a circuit, we are given an empty witness vector,
-     * and we need to add to the builder as many dummy variables as the number of acir witnesses to prevent the code
-     * from misbehaving.
+     * witness values which are interleaved with zeros when witnesses are optimized away.
      *
      * @note num_acir_witnesses is in general less than total number of variables/witnesses that might be present for a
      * circuit generated from acir, since many gates will depend on the details of the bberg implementation (or more
      * generally on the backend used to process acir).
+     *
      */
-    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
-                        const std::vector<FF>& witness_values,
-                        const std::vector<uint32_t>& public_inputs,
-                        size_t num_acir_witnesses)
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(
-              /*size_hint=*/0, witness_values, public_inputs, num_acir_witnesses)
-        , op_queue(std::move(op_queue_in))
+    void initialize_from_acir_data(const std::vector<FF>& witness_values, const std::vector<uint32_t>& public_inputs)
     {
-        // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
-        // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
-        op_queue->initialize_new_subtable();
+        BB_ASSERT_EQ(this->num_gates(),
+                     ACIR_OFFSET,
+                     "MegaCircuitBuilder: Found " << this->num_gates()
+                                                  << " gates when initializing from ACIR data, expected " << ACIR_OFFSET
+                                                  << " gates.");
 
-        // Set indices to constants corresponding to Goblin ECC op codes
-        set_goblin_ecc_op_code_constant_variables();
-    };
+        for (const auto& value : witness_values) {
+            this->add_variable(value);
+        }
+
+        std::vector<uint32_t> public_inputs_with_offset;
+        public_inputs_with_offset.reserve(public_inputs.size());
+        for (const auto& public_input : public_inputs) {
+            public_inputs_with_offset.emplace_back(public_input + ACIR_OFFSET);
+        }
+        this->initialize_public_inputs(public_inputs_with_offset);
+    }
 
     /**
      * @brief Convert op code to the witness index for the corresponding op index in the builder

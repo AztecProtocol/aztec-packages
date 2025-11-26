@@ -45,6 +45,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     using RomRamLogic = RomRamLogic_<ExecutionTrace>;
 
     static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
+    static constexpr uint32_t ACIR_OFFSET = 1;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
     // The plookup range proof requires work linear in range size, thus cannot be used directly for
@@ -211,65 +212,52 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void process_non_native_field_multiplications();
 
-    UltraCircuitBuilder_(const size_t size_hint = 0)
-        : CircuitBuilderBase<FF>(size_hint)
+    UltraCircuitBuilder_(const size_t size_hint = 0, bool has_dummy_witnesses = false)
+        : CircuitBuilderBase<FF>(size_hint, has_dummy_witnesses)
     {
         this->set_zero_idx(put_constant_variable(FF::zero()));
         this->_tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
 
+    UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
+    UltraCircuitBuilder_(UltraCircuitBuilder_&& other) = default;
+    UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
+    UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) = default;
+    ~UltraCircuitBuilder_() override = default;
+
     /**
-     * @brief Constructor from data generated from ACIR
+     * @brief Initialize builder data from ACIR data
      *
-     * @param size_hint
      * @param witness_values witnesses values known to acir
      * @param public_inputs indices of public inputs in witness array
-     * @param num_acir_witnesses the number of witnesses known at the time of ACIR generation
      *
      * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
-     * witness values which are interleaved with zeros when witnesses are optimized away. When the circuit is
-     * constructed with a valid witness vector, the vector of witness values has always size equal to
-     * num_acir_witnesses. However, when we want to generate the VK for a circuit, we are given an empty witness vector,
-     * and we need to add to the builder as many dummy variables as the number of acir witnesses to prevent the code
-     * from misbehaving.
+     * witness values which are interleaved with zeros when witnesses are optimized away.
      *
      * @note num_acir_witnesses is in general less than total number of variables/witnesses that might be present for a
      * circuit generated from acir, since many gates will depend on the details of the bberg implementation (or more
      * generally on the backend used to process acir).
      *
      */
-    UltraCircuitBuilder_(const size_t size_hint,
-                         const std::vector<FF>& witness_values,
-                         const std::vector<uint32_t>& public_inputs,
-                         size_t num_acir_witnesses)
-        : CircuitBuilderBase<FF>(size_hint, witness_values.empty())
+    void initialize_from_acir_data(const std::vector<FF>& witness_values, const std::vector<uint32_t>& public_inputs)
     {
-        info("NUM WITNESS VALUES: ", witness_values.size());
-        info("NUM ACIR WITNESSES: ", num_acir_witnesses);
-        BB_ASSERT((witness_values.size() == num_acir_witnesses) || witness_values.empty());
-        if (!witness_values.empty()) {
-            for (const auto value : witness_values) {
-                this->add_variable(value);
-            }
-        } else {
-            for (size_t idx = 0; idx < num_acir_witnesses; idx++) {
-                this->add_variable(FF::zero());
-            }
+        BB_ASSERT_EQ(this->num_gates(),
+                     ACIR_OFFSET,
+                     "UltraCircuitBuilder: Found "
+                         << this->num_gates() << " gates when initializing from ACIR data, expected " << ACIR_OFFSET
+                         << " gates.");
+
+        for (const auto& value : witness_values) {
+            this->add_variable(value);
         }
 
-        // Initialize the builder public_inputs directly from the acir public inputs.
-        this->initialize_public_inputs(public_inputs);
-
-        // Add the const zero variable after the acir witness has been
-        // incorporated into variables.
-        this->set_zero_idx(put_constant_variable(FF::zero()));
-        this->_tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
-    };
-    UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
-    UltraCircuitBuilder_(UltraCircuitBuilder_&& other) = default;
-    UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
-    UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) = default;
-    ~UltraCircuitBuilder_() override = default;
+        std::vector<uint32_t> public_inputs_with_offset;
+        public_inputs_with_offset.reserve(public_inputs.size());
+        for (const auto& public_input : public_inputs) {
+            public_inputs_with_offset.emplace_back(public_input + ACIR_OFFSET);
+        }
+        this->initialize_public_inputs(public_inputs_with_offset);
+    }
 
     /**
      * @brief Debug helper method for ensuring all selectors have the same size
