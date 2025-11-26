@@ -108,6 +108,13 @@ function installChonkGlobal() {
 
 installChonkGlobal();
 
+// Add test function to verify bbLogger works
+(window as any).testBbLogger = async function() {
+  const bb = await Barretenberg.new({ threads: 1, logger: bbLogger });
+  await bb.destroy();
+  return true;
+};
+
 document.addEventListener("DOMContentLoaded", function () {
   const ultraHonkButton = document.createElement("button");
   ultraHonkButton.innerText = "Run UltraHonk Proving";
