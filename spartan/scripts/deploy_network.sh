@@ -324,6 +324,15 @@ JOB_TTL_SECONDS_AFTER_FINISHED = 3600
 EOF
 
 tf_run "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${DESTROY_ROLLUP_CONTRACTS}" "${CREATE_ROLLUP_CONTRACTS}"
+
+# Print logs from any failed pods (useful if job succeeded after retries)
+JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
+for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
+  --field-selector=status.phase=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+  echo "=== Failed pod: $pod ==="
+  kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
+done
+
 log "Deployed rollup contracts"
 
 if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
