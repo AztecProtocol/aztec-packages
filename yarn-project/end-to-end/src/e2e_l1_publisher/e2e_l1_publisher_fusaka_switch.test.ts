@@ -75,8 +75,14 @@ const logger = createLogger('integration_l1_publisher');
 
 const config: AztecNodeConfig = { ...getConfigEnvVars(), checkIntervalMs: 100, stallTimeMs: 6_000 };
 
-jest.setTimeout(1000000);
-jest.useFakeTimers();
+beforeAll(() => {
+  jest.setTimeout(1000000);
+  jest.useFakeTimers({ doNotFake: ['setTimeout', 'setInterval'] });
+});
+
+afterAll(() => {
+  jest.useRealTimers();
+});
 
 describe('L1Publisher integration', () => {
   let l1Client: ExtendedViemWalletClient;
@@ -258,6 +264,8 @@ describe('L1Publisher integration', () => {
   afterEach(async () => {
     await anvil.stop();
     await worldStateSynchronizer.stop();
+    await builderDb.close();
+    publisher.interrupt();
     // Clean up any mocks
     jest.restoreAllMocks();
   });
