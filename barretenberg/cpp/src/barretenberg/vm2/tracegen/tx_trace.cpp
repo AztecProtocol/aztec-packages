@@ -204,7 +204,8 @@ std::vector<std::pair<C, FF>> insert_side_effect_states(const TxContextEvent& pr
 }
 
 /**
- * @brief Populate the columns for the read offset of the public inputs.
+ * @brief Populate the columns for the read offset of the public inputs and the
+ *        remaining phase counter and its inversion.
  *
  * @param phase The transaction phase.
  * @param phase_length The length of the phase.
@@ -219,7 +220,6 @@ std::vector<std::pair<C, FF>> handle_pi_read(TransactionPhase phase, uint32_t ph
 
     return {
         { C::tx_read_pi_offset, phase_spec.read_pi_start_offset + read_counter },
-
         { C::tx_remaining_phase_counter, remaining_length },
         { C::tx_remaining_phase_inv, remaining_length },               // Will be inverted in batch later
         { C::tx_remaining_phase_minus_one_inv, remaining_length - 1 }, // Will be inverted in batch later
@@ -406,16 +406,18 @@ std::vector<std::pair<C, FF>> handle_append_tree_event(const PrivateAppendTreeEv
  *
  * @param event The L2 to L1 message event of type PrivateEmitL2L1MessageEvent.
  * @param state_before The previous TxContextEvent.
+ * @param discard Whether the L2 to L1 message should be discarded.
  * @return The relevant populated columns.
  */
 std::vector<std::pair<C, FF>> handle_l2_l1_msg_event(const PrivateEmitL2L1MessageEvent& event,
-                                                     const TxContextEvent& state_before)
+                                                     const TxContextEvent& state_before,
+                                                     bool discard)
 {
     uint32_t remaining_l2_to_l1_msgs = MAX_L2_TO_L1_MSGS_PER_TX - state_before.numL2ToL1Messages;
     return {
         { C::tx_should_try_l2_l1_msg_append, 1 },
         { C::tx_remaining_side_effects_inv, remaining_l2_to_l1_msgs }, // Will be inverted in batch later
-        { C::tx_should_l2_l1_msg_append, remaining_l2_to_l1_msgs > 0 ? 1 : 0 },
+        { C::tx_should_l2_l1_msg_append, (remaining_l2_to_l1_msgs > 0 && !discard) ? 1 : 0 },
         { C::tx_l2_l1_msg_contract_address, event.scoped_msg.contract_address },
         { C::tx_l2_l1_msg_recipient, event.scoped_msg.message.recipient },
         { C::tx_l2_l1_msg_content, event.scoped_msg.message.content },
@@ -669,29 +671,28 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             trace.set(row, handle_prev_gas_used(gas_used));
 
             // Pattern match on the variant event type and call the appropriate handler.
-            std::visit(overloaded{ [&](const EnqueuedCallEvent& event) {
-                                      trace.set(row, handle_enqueued_call_event(event));
-                                      gas_used = tx_phase_event->state_after.gas_used;
-                                  },
-                                   [&](const PrivateAppendTreeEvent& event) {
-                                       trace.set(row,
-                                                 handle_append_tree_event(event, phase, tx_phase_event->state_before));
-                                   },
-                                   [&](const PrivateEmitL2L1MessageEvent& event) {
-                                       trace.set(row, handle_l2_l1_msg_event(event, tx_phase_event->state_before));
-                                   },
-                                   [&](const CollectGasFeeEvent& event) {
-                                       trace.set(row, handle_collect_gas_fee_event(event));
-                                   },
-                                   [&](const PadTreesEvent&) {},
-                                   [&](const CleanupEvent&) { trace.set(row, handle_cleanup()); },
-                                   [&](const EmptyPhaseEvent&) {
-                                       // EmptyPhaseEvent represents a phase that is not explicitly skipped because of a
-                                       // revert, but just has no contents to process, like when app logic starts but
-                                       // has no enqueued calls.
-                                       trace.set(C::tx_is_padded, row, 1);
-                                   } },
-                       tx_phase_event->event);
+            std::visit(
+                overloaded{
+                    [&](const EnqueuedCallEvent& event) {
+                        trace.set(row, handle_enqueued_call_event(event));
+                        gas_used = tx_phase_event->state_after.gas_used;
+                    },
+                    [&](const PrivateAppendTreeEvent& event) {
+                        trace.set(row, handle_append_tree_event(event, phase, tx_phase_event->state_before));
+                    },
+                    [&](const PrivateEmitL2L1MessageEvent& event) {
+                        trace.set(row, handle_l2_l1_msg_event(event, tx_phase_event->state_before, discard));
+                    },
+                    [&](const CollectGasFeeEvent& event) { trace.set(row, handle_collect_gas_fee_event(event)); },
+                    [&](const PadTreesEvent&) {},
+                    [&](const CleanupEvent&) { trace.set(row, handle_cleanup()); },
+                    [&](const EmptyPhaseEvent&) {
+                        // EmptyPhaseEvent represents a phase that is not explicitly skipped because of a
+                        // revert, but just has no contents to process, like when app logic starts but
+                        // has no enqueued calls.
+                        trace.set(C::tx_is_padded, row, 1);
+                    } },
+                tx_phase_event->event);
 
             trace.set(row, handle_next_gas_used(gas_used));
             trace.set(row, handle_gas_limit(phase, current_gas_limit, row == 1));
