@@ -2,37 +2,59 @@ const std = @import("std");
 const api = @import("api.zig");
 const types = @import("types.zig");
 
-test "basic structure compiles" {
-    // This test verifies that the basic structure compiles
-    // Full integration tests will be added once msgpack serialization is implemented
-
-    const allocator = std.testing.allocator;
-
-    // Create a mock backend
-    const MockBackend = struct {
-        fn call(_: *anyopaque, input: []const u8) ![]u8 {
-            _ = input;
-            return error.NotImplemented;
-        }
-
-        fn destroy(_: *anyopaque) void {}
-    };
-
-    var mock_data: u8 = 0;
+test "backend interface compiles" {
+    // Verify that the Backend interface is well-formed
     const backend = api.Backend{
-        .ptr = &mock_data,
+        .ptr = undefined,
         .vtable = &.{
-            .call = MockBackend.call,
-            .destroy = MockBackend.destroy,
+            .call = struct {
+                fn callFn(_: *anyopaque, _: []const u8) anyerror![]u8 {
+                    return error.NotImplemented;
+                }
+            }.callFn,
+            .destroy = struct {
+                fn destroyFn(_: *anyopaque) void {}
+            }.destroyFn,
         },
     };
 
-    const bb_api = api.BarretenbergApi.init(backend, allocator);
-    _ = bb_api;
+    // Verify vtable has the expected functions
+    _ = backend.vtable.call;
+    _ = backend.vtable.destroy;
+}
 
-    // Verify types exist
-    _ = types.Command;
-    _ = types.Response;
+test "mock backend basic usage" {
+    const allocator = std.testing.allocator;
+
+    var mock = api.MockBackend.init(allocator);
+    const backend = mock.backend();
+
+    // Initial state
+    try std.testing.expectEqual(@as(usize, 0), mock.call_count);
+
+    // Make a call
+    const result = try backend.call("test");
+    defer allocator.free(result);
+
+    // Verify call was tracked
+    try std.testing.expectEqual(@as(usize, 1), mock.call_count);
+
+    // Result should be 32 zero bytes (mock Blake2s response)
+    try std.testing.expectEqual(@as(usize, 32), result.len);
+
+    // Clean up
+    backend.destroy();
+}
+
+test "barretenberg api with mock backend" {
+    const allocator = std.testing.allocator;
+
+    var mock = api.MockBackend.init(allocator);
+    var bb = api.BarretenbergApi.init(mock.backend(), allocator);
+    defer bb.deinit();
+
+    // Verify API is usable (placeholder implementation)
+    _ = try bb.blake2s("test data");
 }
 
 test "types are well-formed" {
@@ -42,4 +64,40 @@ test "types are well-formed" {
 
     const resp = types.Response{ .Blake2sResponse = .{ .hash = "hash" } };
     try std.testing.expect(resp == .Blake2sResponse);
+}
+
+test "custom backend implementation" {
+    // Example of implementing a custom backend
+    const CustomBackend = struct {
+        const Self = @This();
+        response_data: []const u8,
+
+        fn backend(self: *Self) api.Backend {
+            return .{
+                .ptr = self,
+                .vtable = &.{
+                    .call = callImpl,
+                    .destroy = destroyImpl,
+                },
+            };
+        }
+
+        fn callImpl(ptr: *anyopaque, _: []const u8) anyerror![]u8 {
+            const self: *Self = @ptrCast(@alignCast(ptr));
+            // Return the predefined response
+            const result = std.testing.allocator.alloc(u8, self.response_data.len) catch unreachable;
+            @memcpy(result, self.response_data);
+            return result;
+        }
+
+        fn destroyImpl(_: *anyopaque) void {}
+    };
+
+    var custom = CustomBackend{ .response_data = "custom response!" };
+    const backend = custom.backend();
+
+    const result = try backend.call("input");
+    defer std.testing.allocator.free(result);
+
+    try std.testing.expectEqualStrings("custom response!", result);
 }
