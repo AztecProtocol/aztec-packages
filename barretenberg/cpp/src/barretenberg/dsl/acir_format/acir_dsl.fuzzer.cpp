@@ -42,35 +42,6 @@ extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
 namespace {
 
 /**
- * @brief Convert bytes to field element
- */
-fr bytes_to_fr(const std::vector<uint8_t>& bytes)
-{
-    if (bytes.size() != 32)
-        return fr::zero();
-    uint256_t result = 0;
-    for (size_t i = 0; i < 32; ++i) {
-        result <<= 8;
-        result |= bytes[i];
-    }
-    return fr(result);
-}
-
-/**
- * @brief Convert field element to 32-byte big-endian representation
- */
-std::vector<uint8_t> fr_to_bytes(const fr& value)
-{
-    std::vector<uint8_t> bytes(32, 0);
-    uint256_t val = value;
-    for (size_t i = 0; i < 32; ++i) {
-        bytes[31 - i] = static_cast<uint8_t>(val.data[0] & 0xFF);
-        val >>= 8;
-    }
-    return bytes;
-}
-
-/**
  * @brief Witness solver that handles ASSERT_ZERO expressions
  *
  * Takes VM-generated initial values and iteratively solves to satisfy constraints
@@ -109,15 +80,15 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
     // Solve linear-only witnesses and adjust q_c as needed
     for (auto& expr : expressions) {
         // Evaluate current value
-        fr value = bytes_to_fr(expr.q_c);
+        fr value = fr::serialize_from_buffer(&expr.q_c[0]);
 
         for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             value += coeff * witnesses[w1.value] * witnesses[w2.value];
         }
 
         for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             value += coeff * witnesses[w.value];
         }
 
@@ -130,7 +101,7 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
             std::map<uint32_t, fr> linear_witness_coeffs;
             for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
                 if (linear_only_witnesses.contains(w.value)) {
-                    fr coeff = bytes_to_fr(coeff_bytes);
+                    fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
                     linear_witness_coeffs[w.value] += coeff;
                 }
             }
@@ -140,14 +111,14 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
                 if (total_coeff != fr::zero()) {
                     // Calculate value excluding this witness:
                     // value = q_c + mul_terms + (coeff_of_other_witnesses * other_witnesses)
-                    fr value_without_witness = bytes_to_fr(expr.q_c);
+                    fr value_without_witness = fr::serialize_from_buffer(&expr.q_c[0]);
                     for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-                        fr coeff = bytes_to_fr(coeff_bytes);
+                        fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
                         value_without_witness += coeff * witnesses[w1.value] * witnesses[w2.value];
                     }
                     for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
                         if (w.value != w_idx) {
-                            fr coeff = bytes_to_fr(coeff_bytes);
+                            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
                             value_without_witness += coeff * witnesses[w.value];
                         }
                     }
@@ -163,7 +134,7 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
             // TIER 2: If no linear-only witness found, adjust q_c to force equation to zero
             if (!solved) {
                 // Set q_c = -value to make: q_c + value = 0
-                expr.q_c = fr_to_bytes(bytes_to_fr(expr.q_c) - value);
+                fr::serialize_to_buffer(fr::serialize_from_buffer(&expr.q_c[0]) - value, &expr.q_c[0]);
             }
         }
 
@@ -185,14 +156,14 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
 bool is_trivial_expression(const Acir::Expression& expr)
 {
     // Check constant term
-    fr q_c = bytes_to_fr(expr.q_c);
+    fr q_c = fr::serialize_from_buffer(&expr.q_c[0]);
     if (q_c != fr::zero()) {
         return false;
     }
 
     // Check mul terms
     for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-        fr coeff = bytes_to_fr(coeff_bytes);
+        fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
         if (coeff != fr::zero()) {
             return false;
         }
@@ -200,7 +171,7 @@ bool is_trivial_expression(const Acir::Expression& expr)
 
     // Check linear combinations
     for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
-        fr coeff = bytes_to_fr(coeff_bytes);
+        fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
         if (coeff != fr::zero()) {
             return false;
         }
@@ -288,14 +259,14 @@ void print_expressions_and_witnesses(const std::vector<Acir::Expression>& expres
         std::cerr << "\nExpression " << i << ":" << std::endl;
 
         // Constant term
-        fr q_c = bytes_to_fr(expr.q_c);
+        fr q_c = fr::serialize_from_buffer(&expr.q_c[0]);
         std::cerr << "  Constant: " << q_c << std::endl;
 
         // Multiplication terms
         if (!expr.mul_terms.empty()) {
             std::cerr << "  Mul terms:" << std::endl;
             for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-                fr coeff = bytes_to_fr(coeff_bytes);
+                fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
                 std::cerr << "    " << coeff << " * w" << w1.value << " * w" << w2.value << std::endl;
             }
         }
@@ -304,7 +275,7 @@ void print_expressions_and_witnesses(const std::vector<Acir::Expression>& expres
         if (!expr.linear_combinations.empty()) {
             std::cerr << "  Linear terms:" << std::endl;
             for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
-                fr coeff = bytes_to_fr(coeff_bytes);
+                fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
                 std::cerr << "    " << coeff << " * w" << w.value << std::endl;
             }
         }
@@ -312,7 +283,7 @@ void print_expressions_and_witnesses(const std::vector<Acir::Expression>& expres
         // Evaluate expression
         fr value = q_c;
         for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             auto it1 = witnesses.find(w1.value);
             auto it2 = witnesses.find(w2.value);
             if (it1 != witnesses.end() && it2 != witnesses.end()) {
@@ -320,7 +291,7 @@ void print_expressions_and_witnesses(const std::vector<Acir::Expression>& expres
             }
         }
         for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             auto it = witnesses.find(w.value);
             if (it != witnesses.end()) {
                 value += coeff * it->second;
@@ -355,10 +326,10 @@ bool validate_witnesses(const std::vector<Acir::Expression>& expressions,
         const auto& expr = expressions[i];
 
         // Evaluate expression
-        fr value = bytes_to_fr(expr.q_c);
+        fr value = fr::serialize_from_buffer(&expr.q_c[0]);
 
         for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             auto it1 = witnesses.find(w1.value);
             auto it2 = witnesses.find(w2.value);
             if (it1 != witnesses.end() && it2 != witnesses.end()) {
@@ -367,7 +338,7 @@ bool validate_witnesses(const std::vector<Acir::Expression>& expressions,
         }
 
         for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             auto it = witnesses.find(w.value);
             if (it != witnesses.end()) {
                 value += coeff * it->second;
@@ -486,7 +457,8 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             ptr += 3;
             remaining -= 3;
 
-            std::vector<uint8_t> coeff = fr_to_bytes(coeff_state[coeff_reg]);
+            std::vector<uint8_t> coeff(32);
+            fr::serialize_to_buffer(coeff_state[coeff_reg], &coeff[0]);
             Acir::Witness w1, w2;
             w1.value = w1_idx;
             w2.value = w2_idx;
@@ -509,7 +481,8 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             }
             prev_witness = w_idx;
 
-            std::vector<uint8_t> coeff = fr_to_bytes(coeff_state[coeff_reg]);
+            std::vector<uint8_t> coeff(32);
+            fr::serialize_to_buffer(coeff_state[coeff_reg], &coeff[0]);
             Acir::Witness w;
             w.value = w_idx;
             expr.linear_combinations.push_back(std::make_tuple(coeff, w));
@@ -520,7 +493,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             uint8_t const_reg = ptr[0] % INTERNAL_STATE_SIZE;
             ptr++;
             remaining--;
-            expr.q_c = fr_to_bytes(coeff_state[const_reg]);
+            fr::serialize_to_buffer(coeff_state[const_reg], &expr.q_c[0]);
         } else {
             expr.q_c = std::vector<uint8_t>(32, 0);
         }
@@ -643,11 +616,11 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
 
                 for (const auto& expr : expressions) {
                     bool is_assert_equal_pattern = expr.mul_terms.empty() && expr.linear_combinations.size() == 2 &&
-                                                   bytes_to_fr(expr.q_c) == fr::zero();
+                                                   fr::serialize_from_buffer(&expr.q_c[0]) == fr::zero();
 
                     if (is_assert_equal_pattern) {
-                        fr coeff1 = bytes_to_fr(std::get<0>(expr.linear_combinations[0]));
-                        fr coeff2 = bytes_to_fr(std::get<0>(expr.linear_combinations[1]));
+                        fr coeff1 = fr::serialize_from_buffer(&std::get<0>(expr.linear_combinations[0])[0]);
+                        fr coeff2 = fr::serialize_from_buffer(&std::get<0>(expr.linear_combinations[1])[0]);
                         if (coeff1 == -coeff2 && coeff1 != fr::zero()) {
                             // This is an assert_equal pattern (w1 - w2 = 0)
                             uint32_t w1 = std::get<1>(expr.linear_combinations[0]).value;
