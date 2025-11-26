@@ -5,13 +5,11 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Note } from '@aztec/stdlib/note';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import type { NoteData } from '../../contract_function_simulator/oracle/interfaces.js';
-
 /**
  * A Note Data Access Object, representing a note that was committed to the note hash tree, holding all of the
  * information required to use it during execution and manage its state.
  */
-export class NoteDao implements NoteData {
+export class NoteDao {
   constructor(
     // Note information
 
