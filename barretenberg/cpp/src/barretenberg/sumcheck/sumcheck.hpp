@@ -154,10 +154,8 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     // multivariate over the hypercube
     VerifierZKCorrectionHandler(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript))
-        , libra_total_sum(transcript->template receive_from_prover<FF>("Libra:Sum")) /**/
-        , libra_challenge(
-              transcript->template get_challenge<FF>("Libra:Challenge")) /*The random \rho to combine the libra
-                                                                            multivariate and the sumcheck multivariate*/
+        , libra_total_sum(this->transcript->template receive_from_prover<FF>("Libra:Sum"))
+        , libra_challenge(this->transcript->template get_challenge<FF>("Libra:Challenge"))
     {}
 
     void initialize_target_sum(SumcheckRound& round) { round.target_total_sum = libra_total_sum * libra_challenge; }
