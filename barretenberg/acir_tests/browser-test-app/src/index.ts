@@ -7,6 +7,9 @@ const logger = pino({
   name: "browser-test-app",
 });
 
+// Create a logger wrapper that uses pino for bb.js internal logging
+const bbLogger = (msg: string) => logger.debug({ source: 'bb.js' }, msg);
+
 function installUltraHonkGlobals() {
   async function prove(
     bytecode: string,
@@ -16,7 +19,7 @@ function installUltraHonkGlobals() {
     const { UltraHonkBackend } = await import("@aztec/bb.js");
 
     logger.debug("starting test...");
-    const bb = await Barretenberg.new({ threads, logger: console.log });
+    const bb = await Barretenberg.new({ threads, logger: bbLogger });
     const backend = new UltraHonkBackend(bytecode, bb);
     const proofData = await backend.generateProof(witness);
 
@@ -31,7 +34,7 @@ function installUltraHonkGlobals() {
     const { UltraHonkVerifierBackend } = await import("@aztec/bb.js");
 
     logger.debug(`verifying...`);
-    const bb = await Barretenberg.new({ threads: 1, logger: console.log });
+    const bb = await Barretenberg.new({ threads: 1, logger: bbLogger });
     const backend = new UltraHonkVerifierBackend(bb);
     const verified = await backend.verifyProof({
       ...proofData,
@@ -84,7 +87,7 @@ function installChonkGlobal() {
       ivcInputsBuf
     );
     logger.debug("starting test...");
-    const bb = await Barretenberg.new({ threads, logger: console.log });
+    const bb = await Barretenberg.new({ threads, logger: bbLogger });
     const backend = new AztecClientBackend(acirBufs, bb);
     const [_, proof, verificationKey] = await backend.prove(
       witnessBufs,
