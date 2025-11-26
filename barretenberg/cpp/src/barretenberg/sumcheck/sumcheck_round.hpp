@@ -743,10 +743,19 @@ template <typename Flavor> class SumcheckProverRound {
     }
 };
 
-/*!\brief Base class for common Sumcheck Verifier Round functionality
+/*!\brief Implementation of the Sumcheck Verifier Round
+ \class SumcheckVerifierRound
+ \details  This Flavor contains the methods
+ * - \ref bb::SumcheckVerifierRound< Flavor >::check_sum "Check target sum": \f$\quad \sigma_{
+ i } \stackrel{?}{=}  \tilde{S}^i(0) + \tilde{S}^i(1)  \f$
+ * - \ref bb::SumcheckVerifierRound< Flavor >::compute_next_target_sum "Compute next target
+ sum" :\f$ \quad \sigma_{i+1} \gets \tilde{S}^i(u_i) \f$ required in Round \f$ i = 0,\ldots, d-1 \f$.
+ *
+ * The last step of the verifification requires to compute the value \f$ pow(u_0,\ldots, u_{d-1}) \cdot F
+ \left(P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \right) \f$ implemented as
+ * - \ref compute_full_relation_purported_value method needed at the last verification step.
  */
-template <typename Flavor> class SumcheckVerifierRoundBase {
-  protected:
+template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> class SumcheckVerifierRound {
     using FF = typename Flavor::FF;
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
@@ -767,7 +776,7 @@ template <typename Flavor> class SumcheckVerifierRoundBase {
     FF target_total_sum = 0;
     TupleOfArraysOfValues relation_evaluations;
 
-    explicit SumcheckVerifierRoundBase(FF target_total_sum = 0)
+    explicit SumcheckVerifierRound(FF target_total_sum = 0)
         : target_total_sum(target_total_sum)
     {
         Utils::zero_elements(relation_evaluations);
@@ -776,7 +785,7 @@ template <typename Flavor> class SumcheckVerifierRoundBase {
     /**
      * @brief Check that the round target sum is correct
      */
-    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
+    void check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
     {
         FF total_sum =
             (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
@@ -790,7 +799,6 @@ template <typename Flavor> class SumcheckVerifierRoundBase {
             sumcheck_round_failed = (target_total_sum != total_sum);
         }
         round_failed = round_failed || sumcheck_round_failed;
-        return !sumcheck_round_failed;
     };
 
     /**
@@ -817,38 +825,6 @@ template <typename Flavor> class SumcheckVerifierRoundBase {
                                                                            gate_separators.partial_evaluation_result);
         return Utils::scale_and_batch_elements(relation_evaluations, alphas);
     }
-};
-
-/*!\brief Implementation of the Sumcheck Verifier Round
- \class SumcheckVerifierRound
- \details  This Flavor contains the methods
- * - \ref bb::SumcheckVerifierRound< Flavor >::check_sum "Check target sum": \f$\quad \sigma_{
- i } \stackrel{?}{=}  \tilde{S}^i(0) + \tilde{S}^i(1)  \f$
- * - \ref bb::SumcheckVerifierRound< Flavor >::compute_next_target_sum "Compute next target
- sum" :\f$ \quad \sigma_{i+1} \gets \tilde{S}^i(u_i) \f$ required in Round \f$ i = 0,\ldots, d-1 \f$.
- *
- * The last step of the verifification requires to compute the value \f$ pow(u_0,\ldots, u_{d-1}) \cdot F
- \left(P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \right) \f$ implemented as
- * - \ref compute_full_relation_purported_value method needed at the last verification step.
- */
-template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>>
-class SumcheckVerifierRound : public SumcheckVerifierRoundBase<Flavor> {
-    using Base = SumcheckVerifierRoundBase<Flavor>;
-    using FF = typename Flavor::FF;
-    using Base::BATCHED_RELATION_PARTIAL_LENGTH;
-
-  public:
-    using Base::check_sum;
-    using Base::compute_full_relation_purported_value;
-    using Base::compute_next_target_sum;
-    using Base::target_total_sum;
-    using typename Base::ClaimedEvaluations;
-    using typename Base::Commitment;
-    using typename Base::SumcheckRoundUnivariate;
-    using typename Base::Transcript;
-
-    explicit SumcheckVerifierRound(FF target_total_sum = 0)
-        : Base(target_total_sum) {};
 
     /**
      * @brief Process a single sumcheck round: receive univariate from transcript, verify sum, generate challenge.
@@ -856,7 +832,7 @@ class SumcheckVerifierRound : public SumcheckVerifierRoundBase<Flavor> {
      * 2. checks the consistency of the new round univariate with respect to the one from the previous round
      * 3. updates the target for the next consistency check
      */
-    bool process_round(std::shared_ptr<Transcript> transcript,
+    void process_round(std::shared_ptr<Transcript> transcript,
                        std::vector<FF>& multivariate_challenge,
                        bb::GateSeparatorPolynomial<FF>& gate_separators,
                        const FF& padding_indicator,
@@ -871,12 +847,10 @@ class SumcheckVerifierRound : public SumcheckVerifierRoundBase<Flavor> {
         multivariate_challenge.emplace_back(round_challenge);
         // Check that $\tilde{S}^{i-1}(u_{i-1}) == \tilde{S}^{i}(0) + \tilde{S}^{i}(1)$
         // For i = 0, check that $\tilde{S}^0(u_0) == target_total_sum$
-        const bool checked = check_sum(round_univariate, padding_indicator);
+        check_sum(round_univariate, padding_indicator);
         // Evaluate $\tilde{S}^{i}(u_i)$
         compute_next_target_sum(round_univariate, round_challenge, padding_indicator);
         gate_separators.partially_evaluate(round_challenge, padding_indicator);
-
-        return checked;
     }
 
     /**
@@ -910,33 +884,57 @@ class SumcheckVerifierRound : public SumcheckVerifierRoundBase<Flavor> {
  * @brief Specialization for Grumpkin flavors: receive commitments and evaluations,
  * defer per-round verification to Shplemini.
  */
-template <typename Flavor> class SumcheckVerifierRound<Flavor, true> : public SumcheckVerifierRoundBase<Flavor> {
-    using Base = SumcheckVerifierRoundBase<Flavor>;
+template <typename Flavor> class SumcheckVerifierRound<Flavor, true> {
     using FF = typename Flavor::FF;
-    using Base::BATCHED_RELATION_PARTIAL_LENGTH;
+    using Utils = bb::RelationUtils<Flavor>;
+    using Relations = typename Flavor::Relations;
+    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
+    using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
 
   public:
-    using Base::check_sum;
-    using Base::compute_full_relation_purported_value;
-    using Base::compute_next_target_sum;
-    using Base::target_total_sum;
-    using typename Base::ClaimedEvaluations;
-    using typename Base::Commitment;
-    using typename Base::SumcheckRoundUnivariate;
-    using typename Base::Transcript;
+    using ClaimedEvaluations = typename Flavor::AllValues;
+    using ClaimedLibraEvaluations = typename std::vector<FF>;
+    using Transcript = typename Flavor::Transcript;
+    using Commitment = typename Flavor::Commitment;
+
+    bool round_failed = false;
+    static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
+
+    FF target_total_sum = 0;
+    TupleOfArraysOfValues relation_evaluations;
 
     // Grumpkin-specific state for Shplemini
     std::vector<Commitment> round_univariate_commitments;
     std::vector<std::array<FF, 3>> round_univariate_evaluations;
 
     explicit SumcheckVerifierRound(FF target_total_sum = 0)
-        : Base(target_total_sum) {};
+        : target_total_sum(target_total_sum)
+    {
+        Utils::zero_elements(relation_evaluations);
+    };
+
+    /**
+     * @brief Compute the full relation purported value
+     */
+    FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
+                                             const bb::RelationParameters<FF>& relation_parameters,
+                                             const bb::GateSeparatorPolynomial<FF>& gate_separators,
+                                             const SubrelationSeparators& alphas)
+    {
+        Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
+                                                                           relation_evaluations,
+                                                                           relation_parameters,
+                                                                           gate_separators.partial_evaluation_result);
+        return Utils::scale_and_batch_elements(relation_evaluations, alphas);
+    }
 
     /**
      * @brief Process a single sumcheck round for Grumpkin: receive commitment and evaluations,
      * defer per-round verification to Shplemini.
      */
-    bool process_round(std::shared_ptr<Transcript> transcript,
+    void process_round(std::shared_ptr<Transcript> transcript,
                        std::vector<FF>& multivariate_challenge,
                        bb::GateSeparatorPolynomial<FF>& gate_separators,
                        const FF& /*padding_indicator*/,
@@ -963,7 +961,6 @@ template <typename Flavor> class SumcheckVerifierRound<Flavor, true> : public Su
 
         // For Grumpkin, we don't perform per-round verification here
         // It will be deferred to the final check
-        return true;
     }
 
     /**

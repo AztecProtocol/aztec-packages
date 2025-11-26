@@ -862,12 +862,16 @@ template <typename Flavor> class SumcheckVerifier {
         std::vector<FF> padding_indicator_array =
             padding_indicator.empty() ? std::vector<FF>(virtual_log_n, FF(1)) : padding_indicator;
 
-        // Process all rounds
+        // Process univariate consistancy check rounds
+        // For ECCVM we ensure the consistencies by populating an vector of claimed evaluations that will be checked in
+        // the PCS rounds
+        // For other flavors, we perform the sumcheck univariate consistency check
+
         bool verified = true;
         for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
-            bool checked = round.process_round(
+            round.process_round(
                 transcript, multivariate_challenge, gate_separators, padding_indicator_array[round_idx], round_idx);
-            verified = verified && checked;
+            verified = verified && !round.round_failed;
         }
 
         // Populate claimed evaluations at the challenge
