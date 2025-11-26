@@ -45,98 +45,52 @@ function setup_environment {
   fi
 }
 
-function process_labels {
-  local labels="$1"
-  echo_header "Label Processing"
-  echo "Labels: ${labels}"
-  # Parse labels into array
-  IFS=',' read -ra label_array <<< "${labels}"
-  for label in "${label_array[@]}"; do
-    case "${label}" in
-      ci-merge-queue)
-        echo "Label 'ci-merge-queue' found"
-        ci_merge_queue=1
-        ;;
-      ci-full)
-        echo "Label 'ci-full' found"
-        ci_full=1
-        ;;
-      ci-full-no-test-cache)
-        echo "Label 'ci-full-no-test-cache' found"
-        ci_full_no_test_cache=1
-        ;;
-      ci-no-cache)
-        echo "Label 'ci-no-cache' found"
-        ci_no_cache=1
-        ;;
-      ci-no-fail-fast)
-        echo "Label 'ci-no-fail-fast' found"
-        ci_no_fail_fast=1
-        ;;
-      ci-docs)
-        echo "Label 'ci-docs' found"
-        ci_docs=1
-        ;;
-      ci-barretenberg)
-        echo "Label 'ci-barretenberg' found"
-        ci_barretenberg=1
-        ;;
-      ci-release-pr)
-        echo "Label 'ci-release-pr' found"
-        ci_release_pr=1
-        ;;
-    esac
-  done
+function has_label {
+  local label="$1"
+  if [[ ",$LABELS," == *",$label,"* ]]; then
+    echo "Label '$label' found" >&2
+    return 0
+  fi
+  return 1
 }
 
 function determine_ci_mode {
   echo_header "CI Mode Determination"
-  # Check target branch for docs/barretenberg modes
-  if [ "${TARGET_BRANCH:-}" == "merge-train/docs" ]; then
-    ci_docs=1
-  fi
-  if [ "${TARGET_BRANCH:-}" == "merge-train/barretenberg" ]; then
-    ci_barretenberg=1
-  fi
-  # Determine CI mode
-  if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || [ "${ci_merge_queue:-0}" -eq 1 ]; then
-    ci_mode="merge-queue"
-  elif [ "${ci_release_pr:-0}" -eq 1 ]; then
-    ci_mode="release-pr"
-  elif [ "${ci_full:-0}" -eq 1 ]; then
-    ci_mode="full"
-  elif [ "${ci_full_no_test_cache:-0}" -eq 1 ]; then
-    ci_mode="full-no-test-cache"
-  elif [ "${ci_docs:-0}" -eq 1 ]; then
-    ci_mode="docs"
-  elif [ "${ci_barretenberg:-0}" -eq 1 ]; then
-    ci_mode="barretenberg"
+  echo "Labels: ${LABELS}"
+  # Determine CI mode based on event, labels, and target branch
+  if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || has_label "ci-merge-queue"; then
+    CI_MODE="merge-queue"
+  elif has_label "ci-release-pr"; then
+    CI_MODE="release-pr"
+  elif has_label "ci-full"; then
+    CI_MODE="full"
+  elif has_label "ci-full-no-test-cache"; then
+    CI_MODE="full-no-test-cache"
+  elif has_label "ci-docs" || [ "${TARGET_BRANCH:-}" == "merge-train/docs" ]; then
+    CI_MODE="docs"
+  elif has_label "ci-barretenberg" || [ "${TARGET_BRANCH:-}" == "merge-train/barretenberg" ]; then
+    CI_MODE="barretenberg"
   elif [[ "${GITHUB_REF:-}" == *"-nightly."* ]] || [[ "${GITHUB_REF:-}" == *"-rc."* ]]; then
-    ci_mode="nightly"
+    CI_MODE="nightly"
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
-    ci_mode="release"
+    CI_MODE="release"
   else
-    ci_mode="fast"
+    CI_MODE="fast"
   fi
-  CI_MODE=$ci_mode
   echo "CI_MODE=$CI_MODE" >> $GITHUB_ENV
   echo "CI mode: $CI_MODE"
 }
 
 function check_cache {
-  local ci_mode="$1"
   echo_header "Cache Check"
-  # Check cache (unless disabled)
-  local cache_name="ci-success-${ci_mode}.tar.gz"
-  if [ "${ci_no_cache:-0}" -eq 0 ]; then
-    if cache_download "$cache_name" . 2>/dev/null; then
-      if [ -f ".ci-success.txt" ]; then
-        echo "Cache hit! Previous run: $(cat ".ci-success.txt")"
-        exit 0
-      fi
-    fi
+  local cache_name="ci-success-${CI_MODE}.tar.gz"
+  if has_label "ci-no-cache"; then
+    echo "Cache disabled by label"
+  elif cache_download "$cache_name" . 2>/dev/null && [ -f ".ci-success.txt" ]; then
+    echo "Cache hit! Previous run: $(cat ".ci-success.txt")"
+    exit 0
   fi
-  echo "Cache miss, running CI in ${ci_mode} mode..."
+  echo "Cache miss, running CI in ${CI_MODE} mode..."
 }
 
 function handle_release_pr {
@@ -152,19 +106,18 @@ function handle_release_pr {
 }
 
 function main {
-  local labels="${1:-}"
+  LABELS="${1:-}"
   echo_header "CI3 Main Script"
   setup_environment
-  process_labels "${labels}"
   determine_ci_mode
   # Handle release-pr mode separately (creates tag instead of running CI)
-  if [ "${ci_mode}" == "release-pr" ]; then
+  if [ "${CI_MODE}" == "release-pr" ]; then
     handle_release_pr
     exit 0
   fi
-  check_cache "${ci_mode}"
+  check_cache
   echo_header "Run CI"
-  exec ./ci.sh "${ci_mode}"
+  exec ./ci.sh "${CI_MODE}"
 }
 
 main "$@"
