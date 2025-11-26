@@ -1,6 +1,6 @@
+#include "arithmetic_constraints.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "big_quad_constraints.hpp"
 
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
@@ -136,6 +136,22 @@ class ArithmeticConstraintsTestingFunctions {
         return result;
     }
 
+    void reset_indices(mul_quad_<typename Builder::FF>& mul_quad)
+    {
+        if (mul_quad.a != stdlib::IS_CONSTANT) {
+            mul_quad.a -= Builder::ACIR_OFFSET;
+        }
+        if (mul_quad.b != stdlib::IS_CONSTANT) {
+            mul_quad.b -= Builder::ACIR_OFFSET;
+        }
+        if (mul_quad.c != stdlib::IS_CONSTANT) {
+            mul_quad.c -= Builder::ACIR_OFFSET;
+        }
+        if (mul_quad.d != stdlib::IS_CONSTANT) {
+            mul_quad.d -= Builder::ACIR_OFFSET;
+        }
+    }
+
     void generate_constraints(AcirConstraint& arithmetic_constraint, WitnessVector& witness_values)
     {
         // (scalar, (lhs_index, lhs_value), (rhs_index, rhs_value))
@@ -218,6 +234,7 @@ class ArithmeticConstraintsTestingFunctions {
         // Construct the big quad constraint
         Acir::Opcode::AssertZero acir_assert_zero{ .value = expression };
         AcirFormat dummy_acir_format;
+        dummy_acir_format.acir_gates_offset = Builder::ACIR_OFFSET;
         handle_arithmetic(acir_assert_zero, dummy_acir_format, 0);
 
         // Check that the construction worked as expected
@@ -232,8 +249,12 @@ class ArithmeticConstraintsTestingFunctions {
         }
 
         if constexpr (IS_BIG_QUAD) {
+            for (auto& mul_quad : dummy_acir_format.big_quad_constraints[0]) {
+                reset_indices(mul_quad);
+            }
             arithmetic_constraint = dummy_acir_format.big_quad_constraints[0];
         } else {
+            reset_indices(dummy_acir_format.quad_constraints[0]);
             arithmetic_constraint = dummy_acir_format.quad_constraints[0];
         }
     }

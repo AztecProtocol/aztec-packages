@@ -36,7 +36,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
         };
 
     AcirFormat constraint_system{
-        .num_acir_witnesses = 9,
+
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .poseidon2_constraints = { poseidon2_constraint },

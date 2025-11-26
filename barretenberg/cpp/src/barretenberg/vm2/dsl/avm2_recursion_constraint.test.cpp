@@ -78,10 +78,16 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
             const std::vector<fr> proof_witnesses = inner_circuit_data.proof;
             const std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_flat;
 
+            std::vector<uint32_t> key_indices = add_to_witness_and_track_indices(witness, key_witnesses);
+            std::vector<uint32_t> proof_indices = add_to_witness_and_track_indices(witness, proof_witnesses);
+            std::vector<uint32_t> public_inputs_indices =
+                add_to_witness_and_track_indices(witness, public_inputs_witnesses);
+
             RecursionConstraint avm_recursion_constraint{
-                .key = add_to_witness_and_track_indices(witness, key_witnesses),
-                .proof = add_to_witness_and_track_indices(witness, proof_witnesses),
-                .public_inputs = add_to_witness_and_track_indices(witness, public_inputs_witnesses),
+                .key = transform::map(key_indices, [&](auto& e) { return e + Builder::ACIR_OFFSET; }),
+                .proof = transform::map(proof_indices, [&](auto& e) { return e + Builder::ACIR_OFFSET; }),
+                .public_inputs =
+                    transform::map(public_inputs_indices, [&](auto& e) { return e + Builder::ACIR_OFFSET; }),
                 .key_hash = 0, // not used
                 .proof_type = AVM,
             };
@@ -92,7 +98,8 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         std::iota(avm_recursion_opcode_indices.begin(), avm_recursion_opcode_indices.end(), 0);
 
         AcirFormat& constraint_system = program.constraints;
-        constraint_system.num_acir_witnesses = static_cast<uint32_t>(witness.size());
+        constraint_system.acir_gates_offset = Builder::ACIR_OFFSET;
+        constraint_system.max_witness_index = static_cast<uint32_t>(witness.size() + Builder::ACIR_OFFSET - 1);
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(avm_recursion_constraints.size());
         constraint_system.avm_recursion_constraints = avm_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();

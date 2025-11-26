@@ -23,6 +23,7 @@ class AcirIntegrationTest : public ::testing::Test {
         return file.good();
     }
 
+    template <class Flavor>
     static acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name)
     {
         std::string base_path = "../../acir_tests/acir_tests/" + test_program_name + "/target";
@@ -31,7 +32,8 @@ class AcirIntegrationTest : public ::testing::Test {
 
         std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
         std::vector<uint8_t> witness = get_bytecode(witness_path);
-        acir_format::AcirFormat program = acir_format::circuit_buf_to_acir_format(std::move(bytecode));
+        acir_format::AcirFormat program =
+            acir_format::circuit_buf_to_acir_format(std::move(bytecode), Flavor::CircuitBuilder::ACIR_OFFSET);
         acir_format::WitnessVector witness_vector = acir_format::witness_buf_to_witness_vector(std::move(witness));
 
         return { program, witness_vector };
@@ -104,7 +106,7 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 
     std::string test_name = GetParam();
     info("Test: ", test_name);
-    acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
+    acir_format::AcirProgram acir_program = get_program_data_from_test_file<Flavor>(test_name);
 
     // Construct a bberg circuit from the acir representation
     Builder builder = acir_format::create_circuit<Builder>(acir_program);
@@ -323,7 +325,7 @@ TEST_F(AcirIntegrationTest, DISABLED_Databus)
 
     std::string test_name = "databus";
     info("Test: ", test_name);
-    acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
+    acir_format::AcirProgram acir_program = get_program_data_from_test_file<Flavor>(test_name);
 
     // Construct a bberg circuit from the acir representation
     Builder builder = acir_format::create_circuit<Builder>(acir_program);
@@ -347,7 +349,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
 
     std::string test_name = "databus_two_calldata";
     info("Test: ", test_name);
-    acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
+    acir_format::AcirProgram acir_program = get_program_data_from_test_file<Flavor>(test_name);
 
     // Construct a bberg circuit from the acir representation
     Builder builder = acir_format::create_circuit<Builder>(acir_program);
@@ -399,7 +401,7 @@ TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = "6_array"; // arbitrary program with RAM gates
-    auto acir_program = get_program_data_from_test_file(test_name);
+    auto acir_program = get_program_data_from_test_file<Flavor>(test_name);
 
     // Construct a bberg circuit from the acir representation
     Builder circuit = acir_format::create_circuit<Builder>(acir_program);
@@ -433,7 +435,7 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = "verify_honk_proof"; // program that recursively verifies a honk proof
-    auto acir_program = get_program_data_from_test_file(test_name);
+    auto acir_program = get_program_data_from_test_file<Flavor>(test_name);
 
     // Construct a bberg circuit from the acir representation
     Builder circuit = acir_format::create_circuit<Builder>(acir_program);

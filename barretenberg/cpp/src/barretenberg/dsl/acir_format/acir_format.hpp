@@ -9,9 +9,9 @@
 #include "avm2_recursion_constraint.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 
+#include "arithmetic_constraints.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "big_quad_constraints.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
@@ -67,8 +67,8 @@ struct AcirFormatOriginalOpcodeIndices {
 };
 
 struct AcirFormat {
-    // Number of witnesses known at the time of ACIR generation
-    uint32_t num_acir_witnesses;
+    uint32_t max_witness_index = 0;
+    uint32_t acir_gates_offset;
     uint32_t num_acir_opcodes;
 
     using ArithTripleConstraint = bb::arithmetic_triple_<bb::curve::BN254::ScalarField>;
@@ -229,23 +229,4 @@ template <typename Builder> class GateCounter {
     bool collect_gates_per_opcode;
     size_t prev_gate_count{};
 };
-
-/**
- * @brief Replace indices which are set to IS_CONSTANT with the zero index of the builder
- *
- * @details When creating a mul_quad_ gate, unused witness indices are set to IS_CONSTANT. When adding the gate to
- * the builder, we replace these indices with the zero index. Note that we don't do this replacement for a, so that
- * we implicitly get a check that the gate is non-zero when adding it to the Builder.
- */
-template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad);
-
-/**
- * @brief Check if a mul add gate is valid.
- *
- */
-template <typename Builder>
-void check_mul_add_gate(Builder& builder,
-                        const mul_quad_<typename Builder::FF>& mul_quad,
-                        const typename Builder::FF next_wire_w4 = Builder::FF::zero());
-
 } // namespace acir_format

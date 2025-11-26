@@ -18,14 +18,14 @@ namespace acir_format {
 /**
  * @brief Parse an Acir::FunctionInput (which can either be a witness or a constant) into a WitnessOrConstant.
  */
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input);
+WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input, [[maybe_unused]] AcirFormat& af);
 
 /**
  * @brief Extract the witness index from an Acir::FunctionInput representing a witness.
  *
  * @note The function asserts that the input is indeed a witness variant.
  */
-uint32_t get_witness_from_function_input(Acir::FunctionInput input);
+uint32_t get_witness_from_function_input(Acir::FunctionInput input, AcirFormat& af);
 
 /// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
 
@@ -64,7 +64,7 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
 /**
  * @brief Convert an Acir::Circuit into an AcirFormat by processing all the opcodes.
  */
-AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit);
+AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, uint32_t acir_gates_offset);
 
 /**
  * @brief Convert from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
@@ -77,7 +77,7 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
 /**
  * @brief Convert a buffer representing a circuit into Barretenberg's internal `AcirFormat` representation.
  */
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf);
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf, uint32_t acir_gates_offset);
 
 /**
  * @brief Convert a buffer representing a witness vector into Barretenberg's internal `WitnessVector` format.
@@ -135,7 +135,8 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf);
  */
 // clang-format on
 std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg,
-                                                     std::map<uint32_t, bb::fr>& linear_terms);
+                                                     std::map<uint32_t, bb::fr>& linear_terms,
+                                                     AcirFormat& af);
 
 /**
  * @brief Given an Acir::Expression and its processed linear terms, determine whether it can be represented by a single
@@ -168,13 +169,13 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
 
 /// ========= MEMORY OPERATIONS ========== ///
 
-BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init);
+BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init, AcirFormat& af);
 
 bool is_rom(Acir::MemOp const& mem_op);
 
 uint32_t poly_to_witness(const arithmetic_triple poly);
 
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block);
+void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block, AcirFormat& af);
 
 /// ========= BLACKBOX FUNCTIONS ========= ///
 

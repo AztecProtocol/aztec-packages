@@ -134,10 +134,18 @@ template <TestBase Base> class TestClass {
         AcirConstraint constraint;
         WitnessVector witness_values;
 
+        // Add dummy values at the beginning of the witness vector to simulate real ACIR flows
+        for (size_t idx = 0; idx < Builder::ACIR_OFFSET; idx++) {
+            witness_values.emplace_back(0);
+        }
+
         // Create an instance to allow for non-static methods
         Base base_instance;
         base_instance.generate_constraints(constraint, witness_values);
         base_instance.invalidate_witness(constraint, witness_values, invalid_witness_target);
+
+        // Remove the dummy values, they will be added again during circuit initialization
+        witness_values.erase(witness_values.begin(), witness_values.begin() + Builder::ACIR_OFFSET);
 
         return { constraint, witness_values };
     }
@@ -150,7 +158,8 @@ template <TestBase Base> class TestClass {
         auto [constraint, witness_values] = generate_constraints(invalid_witness_target);
 
         AcirFormat constraint_system = {
-            .num_acir_witnesses = static_cast<uint32_t>(witness_values.size()),
+            .max_witness_index = static_cast<uint32_t>(witness_values.size() + Builder::ACIR_OFFSET - 1),
+            .acir_gates_offset = Builder::ACIR_OFFSET,
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),
@@ -182,7 +191,8 @@ template <TestBase Base> class TestClass {
         auto [constraint, witness_values] = generate_constraints();
 
         AcirFormat constraint_system = {
-            .num_acir_witnesses = static_cast<uint32_t>(witness_values.size()),
+            .max_witness_index = static_cast<uint32_t>(witness_values.size() + Builder::ACIR_OFFSET - 1),
+            .acir_gates_offset = Flavor::CircuitBuilder::ACIR_OFFSET,
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),

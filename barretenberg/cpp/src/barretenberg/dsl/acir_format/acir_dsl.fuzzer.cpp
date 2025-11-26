@@ -868,9 +868,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         // Build circuit using the proper constructor that initializes witnesses
         // NOTE: Must use the witness-aware constructor, not default constructor!
         // The default constructor leaves witnesses uninitialized, causing false negatives.
-        UltraCircuitBuilder builder{
-            /*size_hint*/ 0, witness_vec, acir_format.public_inputs, acir_format.num_acir_witnesses
-        };
+        UltraCircuitBuilder builder{ /*size_hint*/ 0, witness_vec, acir_format.public_inputs };
 
         AcirProgram acir_program = { acir_format, witness_vec };
         build_constraints(builder, acir_program, ProgramMetadata{});

@@ -135,8 +135,16 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
     {
         AcirConstraint constraint;
         WitnessVector witness_values;
+
+        // Add dummy values at the beginning of the witness vector to simulate real ACIR flows
+        for (size_t idx = 0; idx < Builder::ACIR_OFFSET; idx++) {
+            witness_values.emplace_back(0);
+        }
         Base::generate_constraints(constraint, witness_values);
         update_witness_based_on_predicate(constraint, witness_values, mode);
+
+        // Remove the dummy values, they will be added again during circuit initialization
+        witness_values.erase(witness_values.begin(), witness_values.begin() + Builder::ACIR_OFFSET);
 
         return { constraint, witness_values };
     }
@@ -152,7 +160,8 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
         auto [constraint, witness_values] = generate_constraints(predicate);
 
         AcirFormat constraint_system = {
-            .num_acir_witnesses = static_cast<uint32_t>(witness_values.size()),
+            .max_witness_index = static_cast<uint32_t>(witness_values.size() + Builder::ACIR_OFFSET - 1),
+            .acir_gates_offset = Builder::ACIR_OFFSET,
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),
@@ -190,7 +199,8 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             auto [constraint, witness_values] = generate_constraints(predicate);
 
             AcirFormat constraint_system = {
-                .num_acir_witnesses = static_cast<uint32_t>(witness_values.size()),
+                .max_witness_index = static_cast<uint32_t>(witness_values.size() + Builder::ACIR_OFFSET - 1),
+                .acir_gates_offset = Flavor::CircuitBuilder::ACIR_OFFSET,
                 .num_acir_opcodes = 1,
                 .public_inputs = {},
                 .original_opcode_indices = create_empty_original_opcode_indices(),

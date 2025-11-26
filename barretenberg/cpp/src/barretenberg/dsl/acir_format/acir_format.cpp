@@ -32,41 +32,6 @@ namespace acir_format {
 
 using namespace bb;
 
-template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad)
-{
-    using FF = Builder::FF;
-
-    auto replace_and_check_zero_scaling = [&](uint32_t& index, const FF& scaling) {
-        if (index == bb::stdlib::IS_CONSTANT) {
-            index = builder.zero_idx();
-            BB_ASSERT_EQ(scaling, FF(0), "mul_quad_ gate with IS_CONSTANT witness index has non-zero scaling");
-        }
-    };
-
-    replace_and_check_zero_scaling(mul_quad.b, mul_quad.b_scaling);
-    replace_and_check_zero_scaling(mul_quad.c, mul_quad.c_scaling);
-    replace_and_check_zero_scaling(mul_quad.d, mul_quad.d_scaling);
-}
-
-template <typename Builder>
-void check_mul_add_gate(Builder& builder,
-                        const mul_quad_<typename Builder::FF>& mul_quad,
-                        const typename Builder::FF next_wire_w4)
-{
-    using FF = Builder::FF;
-
-    FF result = mul_quad.const_scaling + next_wire_w4;
-    result += builder.get_variable(mul_quad.a) * builder.get_variable(mul_quad.b) * mul_quad.mul_scaling;
-    result += builder.get_variable(mul_quad.a) * mul_quad.a_scaling;
-    result += builder.get_variable(mul_quad.b) * mul_quad.b_scaling;
-    result += builder.get_variable(mul_quad.c) * mul_quad.c_scaling;
-    result += builder.get_variable(mul_quad.d) * mul_quad.d_scaling;
-
-    if (result != FF::zero() && !builder.failed()) {
-        builder.failure("mul_add_gate");
-    }
-}
-
 template <typename Builder>
 void perform_full_IPA_verification(Builder& builder,
                                    const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
@@ -140,9 +105,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add standard width-4 Ultra arithmetic gates
     for (auto [constraint, opcode_idx] :
          zip_view(constraint_system.quad_constraints, constraint_system.original_opcode_indices.quad_constraints)) {
-        set_zero_idx(builder, constraint);
-        check_mul_add_gate(builder, constraint);
-        builder.create_big_mul_add_gate(constraint);
+        create_quad_constraint(builder, constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
@@ -166,8 +129,11 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add range constraint
     for (const auto& [constraint, opcode_idx] :
          zip_view(constraint_system.range_constraints, constraint_system.original_opcode_indices.range_constraints)) {
-        uint32_t range = constraint.num_bits;
-        builder.create_range_constraint(constraint.witness, range, "");
+        if (builder.has_dummy_witnesses()) {
+            // Fill witnesses if we are in a write vk scenario
+            builder.set_variable(constraint.witness, Builder::FF::zero());
+        }
+        builder.create_range_constraint(constraint.witness, constraint.num_bits, "");
         gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
@@ -216,14 +182,14 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add keccak permutations
     for (const auto& [constraint, opcode_idx] : zip_view(
              constraint_system.keccak_permutations, constraint_system.original_opcode_indices.keccak_permutations)) {
-        create_keccak_permutations(builder, constraint);
+        create_keccak_permutations_constraints(builder, constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
     for (const auto& [constraint, opcode_idx] :
          zip_view(constraint_system.poseidon2_constraints,
                   constraint_system.original_opcode_indices.poseidon2_constraints)) {
-        create_poseidon2_permutations(builder, constraint);
+        create_poseidon2_permutations_constraints(builder, constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
     }
 
@@ -245,7 +211,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add block constraints
     for (const auto& [constraint, opcode_indices] :
          zip_view(constraint_system.block_constraints, constraint_system.original_opcode_indices.block_constraints)) {
-        create_block_constraints(builder, constraint, has_valid_witness_assignments);
+        create_block_constraints(builder, constraint);
         if (collect_gates_per_opcode) {
             size_t avg_gates_per_opcode = gate_counter.compute_diff() / opcode_indices.size();
             for (size_t opcode_index : opcode_indices) {
@@ -643,7 +609,14 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
-    Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.num_acir_witnesses };
+    UltraCircuitBuilder builder{ metadata.size_hint, witness.empty() };
+    if (witness.empty()) {
+        for (size_t idx = 0; idx < program.constraints.max_witness_index + 1; ++idx) {
+            builder.add_variable(UltraCircuitBuilder::FF::zero());
+        }
+    } else {
+        builder.initialize_from_acir_data(witness, constraints.public_inputs);
+    }
 
     build_constraints(builder, program, metadata);
 
@@ -667,7 +640,14 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->get_goblin().op_queue;
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.num_acir_witnesses };
+    MegaCircuitBuilder builder{ metadata.size_hint, op_queue, witness.empty() };
+    if (witness.empty()) {
+        for (size_t idx = 0; idx < program.constraints.max_witness_index + 1; ++idx) {
+            builder.add_variable(MegaCircuitBuilder::FF::zero());
+        }
+    } else {
+        builder.initialize_from_acir_data(witness, constraints.public_inputs);
+    }
 
     // Populate constraints in the builder via the data in constraint_system
     build_constraints(builder, program, metadata);
@@ -676,18 +656,5 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 };
 
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirProgram&, const ProgramMetadata&);
-
-template void set_zero_idx<UltraCircuitBuilder>(const UltraCircuitBuilder&,
-                                                mul_quad_<typename UltraCircuitBuilder::FF>&);
-
-template void set_zero_idx<MegaCircuitBuilder>(const MegaCircuitBuilder&, mul_quad_<typename MegaCircuitBuilder::FF>&);
-
-template void check_mul_add_gate<UltraCircuitBuilder>(UltraCircuitBuilder&,
-                                                      const mul_quad_<typename UltraCircuitBuilder::FF>&,
-                                                      const typename UltraCircuitBuilder::FF);
-
-template void check_mul_add_gate<MegaCircuitBuilder>(MegaCircuitBuilder&,
-                                                     const mul_quad_<typename MegaCircuitBuilder::FF>&,
-                                                     const typename MegaCircuitBuilder::FF);
 
 } // namespace acir_format
