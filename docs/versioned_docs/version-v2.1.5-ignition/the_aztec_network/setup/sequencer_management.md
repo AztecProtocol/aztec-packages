@@ -407,7 +407,7 @@ aztec validator-keys staker \
 - `--from`: Path to your keystore file
 - `--gse-address`: The GSE (Governance Staking Escrow) contract address for your network
 - `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint (e.g., `https://sepolia.infura.io/v3/YOUR_API_KEY`)
-- `--l1-chain-id`: The L1 chain ID (e.g., `11155111` for Sepolia)
+- `--l1-chain-id`: The L1 chain ID (e.g., `1` for Mainnet)
 - `--output`: (Optional) Output file path. If not specified, JSON is written to stdout
 
 This command automatically:
@@ -421,9 +421,9 @@ This command automatically:
 ```bash
 aztec validator-keys staker \
   --from aztec-sequencer/keys/keystore.json \
-  --gse-address 0x1234567890123456789012345678901234567890 \
-  --l1-rpc-urls https://sepolia.infura.io/v3/YOUR_API_KEY \
-  --l1-chain-id 11155111 \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls https://www.infura.io/v3/YOUR_API_KEY \
+  --l1-chain-id 1 \
   --output registration.json
 ```
 

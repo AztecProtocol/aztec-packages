@@ -11,6 +11,10 @@ This guide covers running a sequencer with delegated stake on the Aztec network.
 
 **This is a non-custodial system**: Delegators retain full control and ownership of their tokens at all times. You never take custody of the delegated tokens—they remain in the delegator's control while providing economic backing for your sequencer operations.
 
+:::tip Alternative: Self-Staking
+If you prefer to provide your own stake instead of receiving delegated stake, see [Registering a Sequencer (Self-Staking)](./registering_sequencer.md).
+:::
+
 ## Prerequisites
 
 Before proceeding, ensure you have:
@@ -183,19 +187,24 @@ Use the `aztec validator-keys` command with the `--staker-output` flag to automa
 
 ```bash
 aztec validator-keys new \
-  --fee-recipient $AZTEC_ADDRESS \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
-  --l1-rpc-urls $RPC_URL
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls $ETH_RPC \
+  --l1-chain-id 1
 ```
 
+**For testnet (Sepolia):** Use `--gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614` and `--l1-chain-id 11155111`
+
 This command automatically:
-1. Generates the keystore with ETH and BLS keys
-2. Computes G1 and G2 public keys
+1. Generates the private keystore with ETH and BLS keys
+2. Generates the public keystore with G1 and G2 public keys
 3. Generates the proof of possession signature
 4. Outputs the data in the correct format for the `addKeysToProvider` function
 
-For more details on keystore creation, see the [Creating Sequencer Keystores](../keystore/creating_keystores.md) guide.
+The public keystore file (`keyN_staker_output.json`) contains the data you'll use for provider registration.
+
+For more details on keystore creation, see the [Sequencer Setup Guide](../../setup/sequencer_management.md#generating-keys).
 
 ### Building the Registration Command
 
@@ -298,7 +307,7 @@ Update the `coinbase` field in your sequencer node's keystore configuration to t
       },
       "publisher": ["0x..."],  // Address that submits blocks to L1
       "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]",  // Split contract for this delegation
-      "feeRecipient": "0x..."  // Your Aztec address for L2 fees
+      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000"  // Not currently used, set to all zeros
     }
   ]
 }

@@ -32,8 +32,9 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
 
 1. Stop your node:
 
-   - Docker Compose: `docker compose down`
-   - CLI: Press `Ctrl+C` to stop the process
+   ```bash
+   docker compose down
+   ```
 
 2. Remove the archiver data directory:
 
@@ -41,16 +42,16 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
    rm -rf ~/.aztec/v2.0.4/data/archiver
    ```
 
-3. Update to the latest version:
+3. Update to the latest version (see the "Updating to Latest Version" section below)
+
+4. Restart your node:
 
    ```bash
-   aztec-up -v latest
+   docker compose up -d
    ```
 
-4. Restart your node with your normal startup command
-
 :::warning Data Loss and Resync
-This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`--sync-mode snapshot`) to speed up recovery. See the [syncing best practices guide](../setup/syncing_best_practices.md) for more information.
+This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`SYNC_MODE=snapshot`) to speed up recovery. See the [syncing best practices guide](../setup/syncing_best_practices.md) for more information.
 :::
 
 ### Error Getting Slot Number
@@ -221,20 +222,6 @@ Sequencers with insufficient funds in their publisher account risk being slashed
 
 **Solution**:
 
-#### For CLI Method:
-
-```bash
-# Update the Aztec binary
-aztec-up -v latest
-
-# Verify the new version
-aztec --version
-
-# Restart your node with your normal startup command
-```
-
-#### For Docker Compose Method:
-
 ```bash
 # Pull the latest image
 docker compose pull
@@ -251,17 +238,21 @@ docker compose logs -f aztec-sequencer
 
 #### Version-Specific Updates:
 
-To update to a specific version instead of latest:
+To update to a specific version instead of latest, update your `docker-compose.yml`:
 
-```bash
-# CLI method
-aztec-up -v 2.0.4
-
-# Docker Compose: Update your docker-compose.yml
+```yaml
 # Change the image tag from:
 image: "aztecprotocol/aztec:latest"
 # To:
 image: "aztecprotocol/aztec:2.0.4"
+```
+
+Then run:
+
+```bash
+docker compose pull
+docker compose down
+docker compose up -d
 ```
 
 :::tip Stay Informed About Updates
@@ -310,7 +301,7 @@ Join the [Aztec Discord](https://discord.gg/aztec) and follow the announcements 
    sudo ufw status
    ```
 
-5. **Verify Docker network settings** (Docker Compose method):
+5. **Verify Docker network settings**:
    - Ensure ports are properly mapped in docker-compose.yml
    - Check that `P2P_PORT` environment variable matches the exposed ports
 
@@ -375,8 +366,8 @@ CodeError: stream reset
    ```
 
 4. **Verify keystore directory path**:
-   - Docker Compose: Ensure `KEY_STORE_DIRECTORY` environment variable is set
-   - CLI: Check that `--key-store` flag points to the correct directory
+   - Ensure `KEY_STORE_DIRECTORY` environment variable is set in your `.env` file
+   - Verify the volume mount in `docker-compose.yml` points to the correct directory
 
 For more information on keystore configuration and creation, see the [Creating Validator Keystores guide](./keystore/creating_keystores.md) and the [Advanced Keystore Usage guide](./keystore/index.md).
 

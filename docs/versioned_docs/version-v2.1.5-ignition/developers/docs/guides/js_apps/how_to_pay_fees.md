@@ -138,7 +138,7 @@ Then bridge with CLI:
 ```bash
 aztec-wallet bridge-fee-juice 1000000000000000000000 myAccount --no-wait \
   --l1-rpc-urls https://rpc.sepolia.ethpandaops.io \
-  --l1-chain-id 11155111 \
+  --l1-chain-id 1 \
   --l1-private-key <YOUR_L1_PRIVATE_KEY>
 ```
 
