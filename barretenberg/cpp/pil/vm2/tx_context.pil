@@ -24,7 +24,7 @@ namespace tx;
     * Similar mechanisms apply for other tree states and side effect states.
     */
 
-    // This the same sel as in tx
+    // This is the same sel as in tx
     #[skippable_if]
     sel = 0;
 
@@ -62,7 +62,7 @@ namespace tx;
 
     // ==== READ START/END STATE FROM PI ====
     // Selector used to read trees and gas used from PI.
-    pol commit sel_read_trees_and_gas_used; // @boolean Because start_tx and is_cleanup are disjoint and booleans.
+    pol commit sel_read_trees_and_gas_used; // @boolean because start_tx and is_cleanup are disjoint and booleans.
     sel_read_trees_and_gas_used = start_tx + is_cleanup;
 
     // Read start/end state of the note hash tree from PI
@@ -162,7 +162,7 @@ namespace tx;
     start_tx * (constants.AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX - gas_limit_pi_offset) = 0;
     is_teardown * (constants.AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX - gas_limit_pi_offset) = 0;
 
-    // Gas limit is read twice, but not on start and end, but rather on start and teardown.
+    // Gas limit is read twice, but not on start and end; rather, on start and teardown.
     // On start we read the general tx gas limit, and on teardown we read the teardown gas limit.
     pol commit should_read_gas_limit; // @boolean (follows from definition and mutual exclusivity of start_tx and is_teardown)
     should_read_gas_limit = start_tx + is_teardown;
@@ -267,7 +267,7 @@ namespace tx;
     #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted) * (next_num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
 
-    // tx_reverted stays the same unless we revert, where it must be 1 (see #[SET_TX_REVERTED]).
+    // tx_reverted stays the same unless we revert, in which case it must be 1 (see #[SET_TX_REVERTED]).
     // This results in a column with 0s until a reverted phase, where it flips once and remains 1.
     #[TX_REVERTED_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted') * (tx_reverted - tx_reverted') = 0;
@@ -320,7 +320,7 @@ namespace tx;
     #[PROPAGATE_DA_GAS_LIMIT]
     NOT_LAST_ROW * (1 - is_teardown') * (da_gas_limit - da_gas_limit') = 0;
 
-    // Selectors to allow prev => next state changes on the different phases
+    // Selectors to allow prev => next state changes in the different phases
     pol SEL_CAN_EMIT_NOTE_HASH = is_public_call_request + sel_non_revertible_append_note_hash + sel_revertible_append_note_hash;
     pol SEL_CAN_EMIT_NULLIFIER = is_public_call_request + sel_non_revertible_append_nullifier + sel_revertible_append_nullifier;
     pol SEL_CAN_WRITE_PUBLIC_DATA = is_public_call_request + is_collect_fee;
@@ -328,7 +328,7 @@ namespace tx;
     pol SEL_CAN_EMIT_UNENCRYPTED_LOG = is_public_call_request;
     pol SEL_CAN_EMIT_L2_L1_MSG = is_public_call_request + sel_non_revertible_append_l2_l1_msg + sel_revertible_append_l2_l1_msg;
     // The 6 above selectors are booleans on active rows due to #[READ_PHASE_SPEC] and
-    // mutual exclusivity of the selectors on right hand side.
+    // mutual exclusivity of the selectors on the right-hand side.
 
 
     #[NOTE_HASH_ROOT_IMMUTABILITY]
@@ -471,7 +471,7 @@ namespace tx;
 
     // ===== EXECUTION CONTEXT ID =====
 
-    // The next available context id. When peforming an enqueued call, this is the context id used by it.
+    // The next available context id. When performing an enqueued call, this is the context id used by it.
     pol commit next_context_id;
     // Initial next context id is 1
     #[NEXT_CONTEXT_ID_INITIAL_VALUE]

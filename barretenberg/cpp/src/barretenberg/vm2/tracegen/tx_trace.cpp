@@ -31,14 +31,14 @@ using simulation::PrivateAppendTreeEvent;
 using simulation::PrivateEmitL2L1MessageEvent;
 using simulation::TxContextEvent;
 
-// helper type for the visitor (See https://en.cppreference.com/w/cpp/utility/variant/visit)
+// Helper type for the visitor (See https://en.cppreference.com/w/cpp/utility/variant/visit)
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
 };
-// explicit deduction guide (not needed as of C++20)
+// Explicit deduction guide (not needed as of C++20)
 template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-// Helper to get phase length from PhaseLengths struct
+// Helper to get the phase length from PhaseLengths struct
 uint32_t get_phase_length(const PhaseLengths& phase_lengths, TransactionPhase phase)
 {
     switch (phase) {
@@ -61,7 +61,7 @@ uint32_t get_phase_length(const PhaseLengths& phase_lengths, TransactionPhase ph
     case TransactionPhase::TEARDOWN:
         return phase_lengths.teardown;
     default:
-        return 1; // One-shot phases (COLLECT_GAS_FEES, TREE_PADDING, CLEANUP)
+        return 1; // One-shot phases (COLLECT_GAS_FEES, TREE_PADDING, CLEANUP).
     }
 }
 
@@ -127,7 +127,7 @@ bool is_teardown(TransactionPhase phase)
 }
 
 /**
- * @brief Populate the colums for the previous and next tree state.
+ * @brief Populate the columns for the previous and next tree state.
  *
  * @param prev_state The previous TxContextEvent.
  * @param next_state The next TxContextEvent.
@@ -186,7 +186,7 @@ std::vector<std::pair<C, FF>> insert_tree_state(const TxContextEvent& prev_state
 
 /**
  * @brief Populate the columns for the accounting of the side effect states.
- *        Side effects are the unencrypted log fields and the l2 to l1 messages.
+ *        Side effects are the unencrypted log fields and the L2 to L1 messages.
  *
  * @param prev_state The previous TxContextEvent.
  * @param next_state The next TxContextEvent.
@@ -228,8 +228,8 @@ std::vector<std::pair<C, FF>> handle_pi_read(TransactionPhase phase, uint32_t ph
 
 /**
  * @brief Populate the columns for the phase spec and derived columns. These are static attributes
- *        of PHASE_SPEC_MAP and used in the #[READ_PHASE_SPEC] lookup in tx.pil. We also populate
- *        the column C::tx_is_tree_insert_phase which is directly derived from the phase spec.
+ *        of PHASE_SPEC_MAP and are used in the #[READ_PHASE_SPEC] lookup in tx.pil. We also populate
+ *        the column C::tx_is_tree_insert_phase, which is directly derived from the phase spec.
  *
  * @param phase The transaction phase.
  * @return The relevant populated columns.
@@ -255,7 +255,7 @@ std::vector<std::pair<C, FF>> handle_phase_spec(TransactionPhase phase)
         { C::tx_sel_revertible_append_l2_l1_msg, phase_spec.revertible_append_l2_l1_msg ? 1 : 0 },
         { C::tx_next_phase_on_revert, phase_spec.next_phase_on_revert },
 
-        // Directly derived from phase spec but not part of the phase spec struct.
+        // Directly derived from the phase spec but not part of the phase spec struct.
         { C::tx_is_tree_insert_phase, (is_note_hash_insert_phase(phase) || is_nullifier_insert_phase(phase)) ? 1 : 0 },
     };
 }
@@ -498,10 +498,10 @@ std::vector<std::pair<C, FF>> handle_first_active_row()
 } // namespace
 
 /**
- * @brief Process the TX events and populate the TX relevant columns in the trace.
+ * @brief Process the TX events and populate the relevant TX columns in the trace.
  *        A processed TxEvent is either a TxStartupEvent or a TxPhaseEvent.
  *        A TxStartupEvent is used to provide some global information about the transaction,
- *        such as the gas limit or the phase lengths and does not populate any rows in the trace.
+ *        such as the gas limit or the phase lengths, and does not populate any rows in the trace.
  *        We have an outer loop iterating over each phase and an inner loop iterating over the events in the phase.
  *        A phase event is one of the types specified in the TxPhaseEventType enum and embedded in the TxPhaseEvent.
  *        A TxPhaseEvent is used to represent an event that occurs during a specific phase of the transaction.
@@ -519,7 +519,7 @@ std::vector<std::pair<C, FF>> handle_first_active_row()
  *            - EmptyPhaseEvent: Represents an event that occurs during an empty phase.
  *
  *        Transaction phases and TxPhaseEvent variant types:
- *            - NR_NULLIFIER_INSERTION: PrivateAppendTreeEvent or EmptyPhaseEvent (prevented by protocol but we
+ *            - NR_NULLIFIER_INSERTION: PrivateAppendTreeEvent or EmptyPhaseEvent (prevented by protocol, but we
  *                                      handle it here for completeness).
  *            - NR_NOTE_INSERTION: PrivateAppendTreeEvent or EmptyPhaseEvent.
  *            - NR_L2_TO_L1_MESSAGE: PrivateEmitL2L1MessageEvent or EmptyPhaseEvent.
@@ -553,8 +553,8 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
     // We bucket the events by phase to make it easier to detect phases with no events.
     std::array<std::vector<const TxPhaseEvent*>, NUM_PHASES> phase_buckets = {};
-    // We have the phases in iterable form so that in the main loop when we and empty phase
-    // we can map back to this enum
+    // We have the phases in iterable form so that, in the main loop, when we encounter an empty phase,
+    // we can map back to this enum.
 
     std::optional<TxStartupEvent> startup_event;
     PhaseLengths phase_lengths{}; // Will be populated from startup event
@@ -564,9 +564,9 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     bool teardown_failure = false;
 
     // Pre-processing pass:
-    // - extract the startup event and phase lengths.
-    // - set the flags defined above.
-    // - bucket the events by phase.
+    // - Extract the startup event and phase lengths.
+    // - Set the flags defined above.
+    // - Bucket the events by phase.
     for (const auto& tx_event : events) {
         if (std::holds_alternative<TxStartupEvent>(tx_event)) {
             startup_event = std::get<TxStartupEvent>(tx_event);
@@ -599,14 +599,14 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     const Gas& teardown_gas_limit = startup_event_data.teardown_gas_limit;
     // Track the gas used over the course of the transaction.
     Gas gas_used = startup_event_data.gas_used;
-    // Track whether this tx reverted
+    // Track whether this tx reverted.
     bool tx_reverted = false;
 
     // From here we start populating the trace.
 
     trace.set(row, handle_first_active_row());
 
-    // Go through each phase except startup and process the events in the phase
+    // Go through each phase except startup and process the events in the phase.
     for (uint32_t i = 0; i < NUM_PHASES; i++) {
         const auto& phase_events = phase_buckets[i];
         if (phase_events.empty()) {
@@ -632,14 +632,14 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             current_gas_limit = teardown_gas_limit;
         }
 
-        // Count the number of steps in this phase
+        // Count the number of steps in this phase.
         uint32_t phase_counter = 0;
-        // Get the phase length from the startup event's phase_lengths
+        // Get the phase length from the startup event's phase_lengths.
         // This represents how many items were specified for this phase in the transaction itself.
-        // In case of a revert, we may process less items in a phase as we'll stop at the revert.
+        // In case of a revert, we may process fewer items in a phase as we'll stop at the revert.
         const uint32_t phase_length = get_phase_length(phase_lengths, phase);
 
-        // We have events to process in this phase
+        // We have events to process in this phase.
         for (const auto* tx_phase_event : phase_events) {
             // If this phase is the first revert, set tx_reverted:
             tx_reverted = tx_reverted || tx_phase_event->reverted;
@@ -657,18 +657,18 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                           { C::tx_end_phase, phase_counter == phase_events.size() - 1 ? 1 : 0 },
                       } });
 
-            // Populate all phase_spec related columns
+            // Populate all phase_spec related columns.
             trace.set(row, handle_phase_spec(phase));
 
             // Read PI offset and remaining phase counter related columns.
             trace.set(row, handle_pi_read(phase, phase_length, phase_counter));
 
-            // We always set the tree state and side effect states
+            // We always set the tree state and side effect states.
             trace.set(row, insert_tree_state(tx_phase_event->state_before, tx_phase_event->state_after));
             trace.set(row, insert_side_effect_states(tx_phase_event->state_before, tx_phase_event->state_after));
             trace.set(row, handle_prev_gas_used(gas_used));
 
-            // Pattern match on the variant event type and call the appropriate handler
+            // Pattern match on the variant event type and call the appropriate handler.
             std::visit(overloaded{ [&](const EnqueuedCallEvent& event) {
                                       trace.set(row, handle_enqueued_call_event(event));
                                       gas_used = tx_phase_event->state_after.gas_used;

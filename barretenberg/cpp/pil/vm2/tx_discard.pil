@@ -7,10 +7,10 @@
  * It is a virtual gadget, which is part of the tx trace.
  *
  * 1. Propagate `discard` by default.
- * 2. `discard` must be 0 for all rows of non-revertibles phases: `is_revertible == 0`
+ * 2. `discard` must be 0 for all rows of non-revertible phases: `is_revertible == 0`
  * 3. If `reverted` is 1, `discard` must be 1.
- *    Note: 2. and 3. implies `reverted == 1 ==> is_revertible == 1`.
- * 4. Lift/relax propagation only in either of the following two scenarios:
+ *    Note: 2. and 3. imply `reverted == 1 ==> is_revertible == 1`.
+ * 4. Lift/relax propagation only in the following scenarios:
  *    * A revert is encountered.
  *    * End of setup is encountered.
  */
@@ -41,7 +41,7 @@ namespace tx; // virtual to tx.pil
 
     // As a consequence, whenever a row in revertible insertions or app-logic has `reverted == 1`,
     // this row and all rows above it must have `discard == 1` up to the first row after setup.
-    // Same is true if teardown phase row has `reverted == 1`.
+    // The same is true if a teardown phase row has `reverted == 1`.
     pol LAST_ROW_OF_SETUP = (1 - is_revertible) * is_revertible';
     pol PROPAGATE_DISCARD = (1 - LAST_ROW_OF_SETUP) * (1 - reverted);
 
@@ -49,7 +49,7 @@ namespace tx; // virtual to tx.pil
     #[DISCARD_PROPAGATION]
     sel * PROPAGATE_DISCARD * (discard' - discard) = 0;
 
-    /** Prevention against toggling discard when no revert happens:
+    /** Prevention against toggling discard when no revert occurs:
      *  ======================================================================
      *  If a malicious prover toggles `discard == 1` and `reverted == 0`, then
      *  `discard == 1` propagates to the next row as long as there is no revert.
