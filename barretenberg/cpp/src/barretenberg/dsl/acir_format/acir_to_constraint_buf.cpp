@@ -142,7 +142,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
                     if (block == block_id_to_block_constraint.end()) {
                         throw_or_abort("unitialized MemoryOp");
                     }
-                    handle_memory_op(arg, af, block->second.first);
+                    handle_memory_op(arg, block->second.first);
                     block->second.second.push_back(i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
                     // This is a no-op in Barretenberg
