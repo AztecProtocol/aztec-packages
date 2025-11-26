@@ -251,12 +251,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             this->add_variable(value);
         }
 
-        std::vector<uint32_t> public_inputs_with_offset;
-        public_inputs_with_offset.reserve(public_inputs.size());
-        for (const auto& public_input : public_inputs) {
-            public_inputs_with_offset.emplace_back(public_input + ACIR_OFFSET);
-        }
-        this->initialize_public_inputs(public_inputs_with_offset);
+        this->initialize_public_inputs(public_inputs);
     }
 
     /**
