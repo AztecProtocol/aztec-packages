@@ -6,7 +6,7 @@
     ".": "./dest/index.js",
     "./testing": "./dest/testing/index.js"
   },
-  "bin": "./dest/bin/index.js",
+  "bin": "./scripts/aztec.sh",
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -70,6 +70,7 @@
   },
   "files": [
     "dest",
+    "scripts",
     "src",
     "!*.test.*"
   ],

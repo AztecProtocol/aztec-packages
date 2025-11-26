@@ -149,6 +149,18 @@ function check_toolchains {
   done
 }
 
+function versions {
+  echo "aztec: $((git describe --tags --exact-match 2>/dev/null || jq -r '."."' .release-please-manifest.json) | tr -d v)"
+  echo "noir: $(git -C noir/noir-repo describe --tags --exact-match HEAD)"
+  echo "foundry: $(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')"
+  echo "node: $(node --version | cut -d 'v' -f 2)"
+  echo "cmake: $(cmake --version | head -n1 | cut -d' ' -f3)"
+  echo "clang: $(clang++-20 --version | head -n1 | cut -d' ' -f4)"
+  echo "zig: $(zig version)"
+  echo "rustc: $(rustc --version | cut -d' ' -f2)"
+  echo "wasi-sdk: $(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)"
+}
+
 # Install pre-commit git hooks.
 function install_hooks {
   hooks_dir=$(git rev-parse --git-path hooks)
