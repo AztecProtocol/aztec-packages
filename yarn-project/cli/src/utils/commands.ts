@@ -113,6 +113,34 @@ export async function getTxSender(pxe: PXE, _from?: string) {
 }
 
 /**
+ * Parses and validates a hex string. Removes leading 0x if present, checks for hex validity,
+ * and enforces an optional minimum length.
+ * @param hex - The hex string to validate.
+ * @param minLen - Optional minimum length (in hex characters, after stripping '0x').
+ * @returns The normalized hex string (without leading 0x).
+ * @throws InvalidArgumentError if the string is not valid hex or does not meet the minimum length.
+ */
+// minLen is now interpreted as the minimum number of bytes (2 hex characters per byte)
+export function parseHex(hex: string, minLen?: number): `0x${string}` {
+  const normalized = hex.startsWith('0x') ? hex.slice(2) : hex;
+
+  if (!/^[0-9a-fA-F]*$/.test(normalized)) {
+    throw new InvalidArgumentError('Invalid hex string');
+  }
+
+  if (minLen !== undefined) {
+    const minHexLen = minLen * 2;
+    if (normalized.length < minHexLen) {
+      throw new InvalidArgumentError(
+        `Hex string is too short (length ${normalized.length}), minimum byte length is ${minLen} (hex chars: ${minHexLen})`,
+      );
+    }
+  }
+
+  return `0x${normalized}`;
+}
+
+/**
  * Removes the leading 0x from a hex string. If no leading 0x is found the string is returned unchanged.
  * @param hex - A hex string
  * @returns A new string with leading 0x removed
@@ -166,7 +194,7 @@ export function parseAztecAddress(address: string): AztecAddress {
   try {
     return AztecAddress.fromString(address);
   } catch {
-    throw new InvalidArgumentError(`Invalid address: ${address}`);
+    throw new InvalidArgumentError(`Invalid Aztec address: ${address}`);
   }
 }
 
@@ -180,7 +208,7 @@ export function parseEthereumAddress(address: string): EthAddress {
   try {
     return EthAddress.fromString(address);
   } catch {
-    throw new InvalidArgumentError(`Invalid address: ${address}`);
+    throw new InvalidArgumentError(`Invalid Ethereumaddress: ${address}`);
   }
 }
 
@@ -234,13 +262,23 @@ export function parseOptionalSelector(selector: string): FunctionSelector | unde
  * @returns The parsed integer, or undefined if the input string is falsy.
  * @throws If the input is not a valid integer.
  */
-export function parseOptionalInteger(value: string): number | undefined {
+export function parseOptionalInteger(
+  value: string,
+  min: number = Number.MIN_SAFE_INTEGER,
+  max: number = Number.MAX_SAFE_INTEGER,
+): number | undefined {
   if (!value) {
     return undefined;
   }
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) {
     throw new InvalidArgumentError('Invalid integer.');
+  }
+  if (parsed < min) {
+    throw new InvalidArgumentError(`Value must be greater than ${min}.`);
+  }
+  if (parsed > max) {
+    throw new InvalidArgumentError(`Value must be less than ${max}.`);
   }
   return parsed;
 }

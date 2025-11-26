@@ -45,6 +45,7 @@ contract UniswapPortal {
     IERC20 outputAsset;
     bytes32 contentHash;
   }
+
   // docs:end:setup
 
   // docs:start:solidity_uniswap_swap_public
@@ -83,14 +84,15 @@ contract UniswapPortal {
 
     // Withdraw the input asset from the portal
     {
-      TokenPortal(_inputTokenPortal).withdraw(
-        address(this),
-        _inAmount,
-        true,
-        _outboxMessageMetadata[0]._l2BlockNumber,
-        _outboxMessageMetadata[0]._leafIndex,
-        _outboxMessageMetadata[0]._path
-      );
+      TokenPortal(_inputTokenPortal)
+        .withdraw(
+          address(this),
+          _inAmount,
+          true,
+          _outboxMessageMetadata[0]._checkpointNumber,
+          _outboxMessageMetadata[0]._leafIndex,
+          _outboxMessageMetadata[0]._path
+        );
     }
 
     {
@@ -120,7 +122,7 @@ contract UniswapPortal {
           recipient: DataStructures.L1Actor(address(this), block.chainid),
           content: vars.contentHash
         }),
-        _outboxMessageMetadata[1]._l2BlockNumber,
+        _outboxMessageMetadata[1]._checkpointNumber,
         _outboxMessageMetadata[1]._leafIndex,
         _outboxMessageMetadata[1]._path
       );
@@ -151,6 +153,7 @@ contract UniswapPortal {
     // Deposit the output asset to the L2 via its portal
     return TokenPortal(_outputTokenPortal).depositToAztecPublic(_aztecRecipient, amountOut, _secretHashForL1ToL2Message);
   }
+
   // docs:end:solidity_uniswap_swap_public
 
   // docs:start:solidity_uniswap_swap_private
@@ -186,14 +189,15 @@ contract UniswapPortal {
     vars.outputAsset = TokenPortal(_outputTokenPortal).underlying();
 
     {
-      TokenPortal(_inputTokenPortal).withdraw(
-        address(this),
-        _inAmount,
-        true,
-        _outboxMessageMetadata[0]._l2BlockNumber,
-        _outboxMessageMetadata[0]._leafIndex,
-        _outboxMessageMetadata[0]._path
-      );
+      TokenPortal(_inputTokenPortal)
+        .withdraw(
+          address(this),
+          _inAmount,
+          true,
+          _outboxMessageMetadata[0]._checkpointNumber,
+          _outboxMessageMetadata[0]._leafIndex,
+          _outboxMessageMetadata[0]._path
+        );
     }
 
     {
@@ -222,7 +226,7 @@ contract UniswapPortal {
           recipient: DataStructures.L1Actor(address(this), block.chainid),
           content: vars.contentHash
         }),
-        _outboxMessageMetadata[1]._l2BlockNumber,
+        _outboxMessageMetadata[1]._checkpointNumber,
         _outboxMessageMetadata[1]._leafIndex,
         _outboxMessageMetadata[1]._path
       );

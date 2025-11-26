@@ -50,7 +50,7 @@ impl<T, let InitialDelay: u64, Context> DelayedPublicMutable<T, InitialDelay, Co
     }
 }
 
-impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, &mut PublicContext>
+impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, PublicContext>
 where
     T: Eq,
 {

@@ -19,11 +19,11 @@ pub contract AvmInitializerTest {
     #[external("public")]
     #[initializer]
     fn constructor() {
-        storage.immutable.initialize(42);
+        self.storage.immutable.initialize(42);
     }
 
     #[external("public")]
     fn read_storage_immutable() -> pub Field {
-        storage.immutable.read()
+        self.storage.immutable.read()
     }
 }

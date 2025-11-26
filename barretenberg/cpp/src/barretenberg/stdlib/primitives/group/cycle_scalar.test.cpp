@@ -45,71 +45,15 @@ TYPED_TEST(CycleScalarTest, TestFromWitness)
 
     EXPECT_EQ(scalar.get_value(), scalar_val);
     EXPECT_FALSE(scalar.is_constant());
-    EXPECT_EQ(scalar.num_bits(), cycle_scalar::NUM_BITS);
 
     // Check that lo and hi reconstruct to the original value
-    uint256_t lo_val = uint256_t(scalar.lo.get_value());
-    uint256_t hi_val = uint256_t(scalar.hi.get_value());
+    uint256_t lo_val = uint256_t(scalar.lo().get_value());
+    uint256_t hi_val = uint256_t(scalar.hi().get_value());
     uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
 
     EXPECT_EQ(ScalarField(reconstructed), scalar_val);
 
     check_circuit_and_gate_count(builder, 2761);
-}
-
-/**
- * @brief Test construction from uint256_t witness
- */
-TYPED_TEST(CycleScalarTest, TestFromU256Witness)
-{
-    using cycle_scalar = typename TestFixture::cycle_scalar;
-    using ScalarField = typename TestFixture::ScalarField;
-
-    TypeParam builder;
-    uint256_t value(123456789);
-    auto scalar = cycle_scalar::from_u256_witness(&builder, value);
-
-    EXPECT_EQ(scalar.get_value(), ScalarField(value));
-    EXPECT_FALSE(scalar.is_constant());
-    EXPECT_EQ(scalar.num_bits(), 256);
-
-    // Check that lo and hi reconstruct to the original value
-    uint256_t lo_val = uint256_t(scalar.lo.get_value());
-    uint256_t hi_val = uint256_t(scalar.hi.get_value());
-    uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
-
-    EXPECT_EQ(reconstructed, value);
-
-    check_circuit_and_gate_count(builder, 0);
-}
-
-/**
- * @brief Test creation from bn254 scalar field element
- */
-TYPED_TEST(CycleScalarTest, TestCreateFromBn254Scalar)
-{
-    using cycle_scalar = typename TestFixture::cycle_scalar;
-    using ScalarField = typename TestFixture::ScalarField;
-    using field_t = typename TestFixture::field_t;
-    using NativeField = typename TestFixture::NativeField;
-
-    TypeParam builder;
-    auto native_val = NativeField::random_element(&engine);
-    auto field_val = field_t::from_witness(&builder, native_val);
-
-    auto scalar = cycle_scalar::create_from_bn254_scalar(field_val);
-
-    EXPECT_EQ(scalar.get_value(), ScalarField(uint256_t(native_val)));
-    EXPECT_FALSE(scalar.is_constant());
-
-    // Check that lo and hi reconstruct to the original value
-    uint256_t lo_val = uint256_t(scalar.lo.get_value());
-    uint256_t hi_val = uint256_t(scalar.hi.get_value());
-    uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
-
-    EXPECT_EQ(NativeField(reconstructed), field_val.get_value());
-
-    check_circuit_and_gate_count(builder, 2762);
 }
 
 /**
@@ -133,8 +77,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructor)
         EXPECT_FALSE(scalar.is_constant());
 
         // Verify lo/hi decomposition matches
-        uint256_t lo_val = uint256_t(scalar.lo.get_value());
-        uint256_t hi_val = uint256_t(scalar.hi.get_value());
+        uint256_t lo_val = uint256_t(scalar.lo().get_value());
+        uint256_t hi_val = uint256_t(scalar.hi().get_value());
         uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
         EXPECT_EQ(ScalarField(reconstructed), value);
 
@@ -153,8 +97,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructor)
         EXPECT_TRUE(scalar.is_constant());
 
         // Verify lo/hi decomposition matches
-        uint256_t lo_val = uint256_t(scalar.lo.get_value());
-        uint256_t hi_val = uint256_t(scalar.hi.get_value());
+        uint256_t lo_val = uint256_t(scalar.lo().get_value());
+        uint256_t hi_val = uint256_t(scalar.hi().get_value());
         uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
         EXPECT_EQ(ScalarField(reconstructed), value);
 
@@ -219,12 +163,12 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
 
         // Verify the reconstructed value matches what we expect
         uint256_t reconstructed =
-            uint256_t(scalar.lo.get_value()) + (uint256_t(scalar.hi.get_value()) << cycle_scalar::LO_BITS);
+            uint256_t(scalar.lo().get_value()) + (uint256_t(scalar.hi().get_value()) << cycle_scalar::LO_BITS);
         EXPECT_EQ(reconstructed, value_between_moduli);
 
-        // Now directly call validate_split_in_field with BN254::fr modulus
+        // Now directly call validate_split_in_field_unsafe with BN254::fr modulus
         // This should create unsatisfied constraints because value > BN254::fr modulus
-        bb::stdlib::validate_split_in_field(lo, hi, cycle_scalar::LO_BITS, bn254_fr_modulus);
+        bb::stdlib::validate_split_in_field_unsafe(lo, hi, cycle_scalar::LO_BITS, bn254_fr_modulus);
 
         // The builder should have failed
         EXPECT_TRUE(builder.failed());
@@ -244,12 +188,12 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     // Test case 1: BigScalarField with zero value
     {
         TypeParam builder;
-        BigScalarField zero_scalar = BigScalarField::from_witness(&builder, uint256_t(0));
+        BigScalarField zero_scalar = BigScalarField::from_witness(&builder, typename BigScalarField::native(0));
         cycle_scalar scalar(zero_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(0));
-        EXPECT_EQ(scalar.lo.get_value(), 0);
-        EXPECT_EQ(scalar.hi.get_value(), 0);
+        EXPECT_EQ(scalar.lo().get_value(), 0);
+        EXPECT_EQ(scalar.hi().get_value(), 0);
 
         check_circuit_and_gate_count(builder, 3523);
     }
@@ -258,12 +202,13 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     {
         TypeParam builder;
         uint256_t small_value = uint256_t(0x12345678);
-        BigScalarField small_scalar = BigScalarField::from_witness(&builder, small_value);
+        BigScalarField small_scalar =
+            BigScalarField::from_witness(&builder, typename BigScalarField::native(small_value));
         cycle_scalar scalar(small_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(small_value));
-        EXPECT_EQ(scalar.lo.get_value(), small_value);
-        EXPECT_EQ(scalar.hi.get_value(), 0);
+        EXPECT_EQ(scalar.lo().get_value(), small_value);
+        EXPECT_EQ(scalar.hi().get_value(), 0);
 
         check_circuit_and_gate_count(builder, 3523);
     }
@@ -272,7 +217,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     {
         TypeParam builder;
         uint256_t limb_boundary = uint256_t(1) << 68;
-        BigScalarField boundary_scalar = BigScalarField::from_witness(&builder, limb_boundary);
+        BigScalarField boundary_scalar =
+            BigScalarField::from_witness(&builder, typename BigScalarField::native(limb_boundary));
         cycle_scalar scalar(boundary_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(limb_boundary));
@@ -285,7 +231,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     {
         TypeParam builder;
         uint256_t limb0_full = (uint256_t(1) << 68) - 1; // Max value for limb0
-        BigScalarField limb0_full_scalar = BigScalarField::from_witness(&builder, limb0_full);
+        BigScalarField limb0_full_scalar =
+            BigScalarField::from_witness(&builder, typename BigScalarField::native(limb0_full));
         cycle_scalar scalar(limb0_full_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(limb0_full));
@@ -297,7 +244,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     {
         TypeParam builder;
         uint256_t val_136 = uint256_t(1) << 136; // limb0=0, limb1=0, limb2=1
-        BigScalarField val_136_scalar = BigScalarField::from_witness(&builder, val_136);
+        BigScalarField val_136_scalar =
+            BigScalarField::from_witness(&builder, typename BigScalarField::native(val_136));
         cycle_scalar scalar(val_136_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(val_136));
@@ -310,7 +258,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     {
         TypeParam builder;
         uint256_t special_value = (uint256_t(1) << 136) + 0x42;
-        BigScalarField special_scalar = BigScalarField::from_witness(&builder, special_value);
+        BigScalarField special_scalar =
+            BigScalarField::from_witness(&builder, typename BigScalarField::native(special_value));
         cycle_scalar scalar(special_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(special_value));
@@ -326,8 +275,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
         uint256_t val1 = (uint256_t(1) << 67) - 1; // Almost full first limb
         uint256_t val2 = (uint256_t(1) << 67) - 1; // Another almost full first limb
 
-        BigScalarField scalar1 = BigScalarField::from_witness(&builder, val1);
-        BigScalarField scalar2 = BigScalarField::from_witness(&builder, val2);
+        BigScalarField scalar1 = BigScalarField::from_witness(&builder, typename BigScalarField::native(val1));
+        BigScalarField scalar2 = BigScalarField::from_witness(&builder, typename BigScalarField::native(val2));
 
         // Add them together - this will make limb0.maximum_value = 2 * ((2^67) - 1) > 2^68 - 1
         BigScalarField sum = scalar1 + scalar2;

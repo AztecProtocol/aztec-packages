@@ -129,43 +129,20 @@ fn absorb_in_chunks<let NUM_ITEMS: u32, let MAX_CHUNKS: u32>(
     sponge
 }
 
-fn assert_trailing_zeros<let N: u32>(input: [Field; N], in_len: u32) {
-    let mut should_check = false;
-    for i in 0..N {
-        should_check |= i == in_len;
-        if should_check {
-            assert_eq(input[i], 0, "Found non-zero field after breakpoint");
-        }
-    }
-}
-
 pub fn poseidon2_absorb_in_chunks_existing_sponge<let NUM_ITEMS: u32>(
     mut sponge: Poseidon2Sponge,
     input: [Field; NUM_ITEMS],
     in_len: u32,
-    skip_0_check: bool,
 ) -> Poseidon2Sponge {
     assert(in_len <= NUM_ITEMS, "Given in_len to absorb is larger than the input array len");
     assert(!sponge.squeeze_mode, "Cannot absorb in squeeze mode");
 
-    if (!skip_0_check) {
-        assert_trailing_zeros(input, in_len);
-    }
     absorb_in_chunks::<NUM_ITEMS, (NUM_ITEMS - (NUM_ITEMS % 3)) / 3>(sponge, input, in_len)
 }
 
-pub fn poseidon2_absorb_in_chunks<let N: u32>(
-    input: [Field; N],
-    in_len: u32,
-    skip_0_check: bool,
-) -> Poseidon2Sponge {
+pub fn poseidon2_absorb_in_chunks<let N: u32>(input: [Field; N], in_len: u32) -> Poseidon2Sponge {
     let iv: Field = (in_len as Field) * TWO_POW_64;
-    poseidon2_absorb_in_chunks_existing_sponge(
-        Poseidon2Sponge::new(iv),
-        input,
-        in_len,
-        skip_0_check,
-    )
+    poseidon2_absorb_in_chunks_existing_sponge(Poseidon2Sponge::new(iv), input, in_len)
 }
 
 mod tests {
@@ -304,11 +281,9 @@ mod tests {
         }
         // absorb 250 of the 501 things
         let empty_sponge = Poseidon2Sponge::new((in_len as Field) * TWO_POW_64);
-        let first_sponge =
-            poseidon2_absorb_in_chunks_existing_sponge(empty_sponge, input, 250, true);
+        let first_sponge = poseidon2_absorb_in_chunks_existing_sponge(empty_sponge, input, 250);
         // now absorb the final 251 (since they are all 3s, im being lazy and not making a new array)
-        let mut final_sponge =
-            poseidon2_absorb_in_chunks_existing_sponge(first_sponge, input, 251, true);
+        let mut final_sponge = poseidon2_absorb_in_chunks_existing_sponge(first_sponge, input, 251);
         let fixed_len_hash = Poseidon2Sponge::hash(fixed_input, fixed_input.len());
         assert(final_sponge.squeeze() == fixed_len_hash);
     }
@@ -317,13 +292,9 @@ mod tests {
     fn poseidon_chunks_empty_inputs() {
         let in_len = 0;
         let mut input: [Field; 4096] = [0; 4096];
-        let mut constructed_empty_sponge = poseidon2_absorb_in_chunks(input, in_len, true);
-        let mut first_sponge = poseidon2_absorb_in_chunks_existing_sponge(
-            constructed_empty_sponge,
-            input,
-            in_len,
-            true,
-        );
+        let mut constructed_empty_sponge = poseidon2_absorb_in_chunks(input, in_len);
+        let mut first_sponge =
+            poseidon2_absorb_in_chunks_existing_sponge(constructed_empty_sponge, input, in_len);
         assert(first_sponge.squeeze() == constructed_empty_sponge.squeeze());
     }
 
@@ -336,22 +307,22 @@ mod tests {
         }
 
         // Test length 1
-        let mut result = poseidon2_absorb_in_chunks(input, 1, true);
+        let mut result = poseidon2_absorb_in_chunks(input, 1);
         assert(result.squeeze() == Poseidon2Sponge::hash([1], 1), "Length 1 failed");
 
         // Test length 3 (exactly one full permutation)
-        let mut result = poseidon2_absorb_in_chunks(input, 3, true);
+        let mut result = poseidon2_absorb_in_chunks(input, 3);
         assert(result.squeeze() == Poseidon2Sponge::hash([1, 2, 3], 3), "Length 3 failed");
 
         // Test length 7 (2 full permutations + 1)
-        let mut result = poseidon2_absorb_in_chunks(input, 7, true);
+        let mut result = poseidon2_absorb_in_chunks(input, 7);
         assert(
             result.squeeze() == Poseidon2Sponge::hash([1, 2, 3, 4, 5, 6, 7], 7),
             "Length 7 failed",
         );
 
         // Test length 10 (3 full permutations + 1)
-        let mut result = poseidon2_absorb_in_chunks(input, 10, true);
+        let mut result = poseidon2_absorb_in_chunks(input, 10);
         assert(
             result.squeeze() == Poseidon2Sponge::hash([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 10),
             "Length 10 failed",
@@ -359,16 +330,20 @@ mod tests {
     }
 
     #[test]
-    fn test_poseidon_chunks_with_zero_check_passes() {
+    fn test_poseidon_chunks_with_extra_non_zero_values() {
         let mut input: [Field; 10] = [0; 10];
         input[0] = 42;
         input[1] = 43;
         input[2] = 44;
+        // Only absorb the 3 fields above.
+        let in_len = 3;
+        input[3] = 99;
+        input[9] = 9999;
 
-        let mut result = poseidon2_absorb_in_chunks(input, 3, false);
-        let expected = Poseidon2Sponge::hash([42, 43, 44], 3);
+        let mut result = poseidon2_absorb_in_chunks(input, in_len);
+        let expected = Poseidon2Sponge::hash([42, 43, 44], in_len);
 
-        assert(result.squeeze() == expected, "Zero check should pass with trailing zeros");
+        assert(result.squeeze() == expected);
     }
 
     #[test]
@@ -381,16 +356,16 @@ mod tests {
         // Absorb all 15 at once
         let iv = (15 as Field) * TWO_POW_64;
         let mut all_at_once =
-            poseidon2_absorb_in_chunks_existing_sponge(Poseidon2Sponge::new(iv), input, 15, true);
+            poseidon2_absorb_in_chunks_existing_sponge(Poseidon2Sponge::new(iv), input, 15);
 
         // Absorb incrementally: 7 + 8
         let mut incremental =
-            poseidon2_absorb_in_chunks_existing_sponge(Poseidon2Sponge::new(iv), input, 7, true);
+            poseidon2_absorb_in_chunks_existing_sponge(Poseidon2Sponge::new(iv), input, 7);
         let mut remaining: [Field; 30] = [0; 30];
         for i in 0..8 {
             remaining[i] = input[7 + i];
         }
-        incremental = poseidon2_absorb_in_chunks_existing_sponge(incremental, remaining, 8, true);
+        incremental = poseidon2_absorb_in_chunks_existing_sponge(incremental, remaining, 8);
 
         let all_at_once_hash = all_at_once.squeeze();
         let incremental_hash = incremental.squeeze();
@@ -411,17 +386,7 @@ mod tests {
     #[test(should_fail_with = "Given in_len to absorb is larger than the input array len")]
     fn test_poseidon_chunks_length_exceeds_array() {
         let input: [Field; 5] = [1, 2, 3, 4, 5];
-        let _ = poseidon2_absorb_in_chunks(input, 10, true);
-    }
-
-    #[test(should_fail_with = "Found non-zero field after breakpoint")]
-    fn test_zero_check_fails_with_trailing_non_zero() {
-        let mut input: [Field; 10] = [0; 10];
-        input[0] = 1;
-        input[1] = 2;
-        input[7] = 999; // Non-zero after length
-
-        let _ = poseidon2_absorb_in_chunks(input, 2, false);
+        let _ = poseidon2_absorb_in_chunks(input, 10);
     }
 
     #[test]
@@ -432,7 +397,7 @@ mod tests {
             input[i] = (i + 1) as Field;
         }
 
-        let mut result = poseidon2_absorb_in_chunks(input, 50, true);
+        let mut result = poseidon2_absorb_in_chunks(input, 50);
 
         // Verify against standard approach
         let mut expected_input = [0; 50];
@@ -456,7 +421,7 @@ mod tests {
             }
         }
         let expected_result = sponge.squeeze();
-        let chunked_result = poseidon2_absorb_in_chunks(items, in_len, true).squeeze();
+        let chunked_result = poseidon2_absorb_in_chunks(items, in_len).squeeze();
         assert(chunked_result == expected_result, "Fuzz 7 items should match expected");
     }
 
@@ -472,7 +437,7 @@ mod tests {
             }
         }
         let expected_result = sponge.squeeze();
-        let chunked_result = poseidon2_absorb_in_chunks(items, in_len, true).squeeze();
+        let chunked_result = poseidon2_absorb_in_chunks(items, in_len).squeeze();
         assert(chunked_result == expected_result, "Fuzz 30 items should match expected");
     }
 
@@ -488,31 +453,8 @@ mod tests {
             }
         }
         let expected_result = sponge.squeeze();
-        let chunked_result = poseidon2_absorb_in_chunks(items, in_len, true).squeeze();
+        let chunked_result = poseidon2_absorb_in_chunks(items, in_len).squeeze();
         assert(chunked_result == expected_result, "Fuzz 1024 items should match expected");
-    }
-
-    #[test(should_fail_with = "Found non-zero field after breakpoint")]
-    fn poseidon_chunks_zero_check_regression() {
-        // Five items
-        let mut input: [Field; 5] = [
-            42,
-            /* will be absorbed to reach cache_size = 1 */
-            43,
-            /* will be absorbed */
-            0,
-            /* will be checked for zero */
-            0,
-            /* will be checked for zero */
-            1, /* will be checked for zero */
-        ];
-        // Just absorbing two items. it should fail the zero check
-        let in_len = 2;
-
-        assert(
-            poseidon2_absorb_in_chunks(input, in_len, false).squeeze()
-                == Poseidon2Sponge::hash([42, 43], 2),
-        );
     }
 
     #[test(should_fail_with = "Cannot absorb in squeeze mode")]
@@ -527,7 +469,7 @@ mod tests {
         let _ = sponge.squeeze();
 
         // Try to absorb more data using chunked function - should fail
-        let _ = poseidon2_absorb_in_chunks_existing_sponge(sponge, input, 5, true);
+        let _ = poseidon2_absorb_in_chunks_existing_sponge(sponge, input, 5);
     }
 
 }

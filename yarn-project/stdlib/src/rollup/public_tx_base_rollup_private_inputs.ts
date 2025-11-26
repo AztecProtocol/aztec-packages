@@ -7,11 +7,11 @@ import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { ProofData, type RollupHonkProofData } from '../proofs/proof_data.js';
 import type { AvmProofData } from './avm_proof_data.js';
 import { PublicBaseRollupHints } from './base_rollup_hints.js';
-import { PublicTubePublicInputs } from './public_tube_public_inputs.js';
+import { PublicChonkVerifierPublicInputs } from './public_chonk_verifier_public_inputs.js';
 
 export class PublicTxBaseRollupPrivateInputs {
   constructor(
-    public publicTubeProofData: RollupHonkProofData<PublicTubePublicInputs>,
+    public publicChonkVerifierProofData: RollupHonkProofData<PublicChonkVerifierPublicInputs>,
     public avmProofData: AvmProofData,
     public hints: PublicBaseRollupHints,
   ) {}
@@ -21,13 +21,13 @@ export class PublicTxBaseRollupPrivateInputs {
   }
 
   static getFields(fields: FieldsOf<PublicTxBaseRollupPrivateInputs>) {
-    return [fields.publicTubeProofData, fields.avmProofData, fields.hints] as const;
+    return [fields.publicChonkVerifierProofData, fields.avmProofData, fields.hints] as const;
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PublicTxBaseRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new PublicTxBaseRollupPrivateInputs(
-      ProofData.fromBuffer(reader, PublicTubePublicInputs),
+      ProofData.fromBuffer(reader, PublicChonkVerifierPublicInputs),
       ProofData.fromBuffer(reader, AvmCircuitPublicInputs),
       reader.readObject(PublicBaseRollupHints),
     );

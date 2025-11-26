@@ -53,7 +53,7 @@ void TranslatorProver::execute_preamble_round()
                                                key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW] };
 
     // Send the accumulation result to the verifier, this value cannot be linked to the actual content of the op queue
-    // in practice (CIVC scenario) as we add a random, but genuine scalar mul operation to the op queue
+    // in practice (Chonk scenario) as we add a random, but genuine scalar mul operation to the op queue
     transcript->send_to_verifier("accumulated_result", accumulated_result);
 }
 
@@ -75,6 +75,14 @@ void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, cons
 void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
     BB_BENCH_NAME("TranslatorProver::execute_wire_and_sorted_constraints_commitments_round");
+
+    // Create and commit to Gemini masking polynomial (for ZK-PCS)
+    const size_t circuit_size = key->proving_key->circuit_size;
+    key->proving_key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
+    auto masking_commitment =
+        key->proving_key->commitment_key.commit(key->proving_key->polynomials.gemini_masking_poly);
+    transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
+
     auto batch = key->proving_key->commitment_key.start_batch();
     for (const auto& [wire, label] :
          zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {

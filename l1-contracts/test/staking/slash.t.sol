@@ -67,7 +67,12 @@ contract SlashTest is StakingBase {
     _;
   }
 
-  function test_GivenTimeIsAfterUnlock() external whenCallerIsTheSlasher whenAttesterIsRegistered whenAttesterIsExiting {
+  function test_GivenTimeIsAfterUnlock()
+    external
+    whenCallerIsTheSlasher
+    whenAttesterIsRegistered
+    whenAttesterIsExiting
+  {
     // it reverts
 
     Exit memory exit = staking.getExit(ATTESTER);

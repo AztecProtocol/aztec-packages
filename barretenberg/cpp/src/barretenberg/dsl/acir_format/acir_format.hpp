@@ -6,20 +6,20 @@
 
 #pragma once
 #include "aes128_constraint.hpp"
-
-#ifndef DISABLE_AZTEC_VM
 #include "avm2_recursion_constraint.hpp"
-#endif
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 
-#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
-#include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "big_quad_constraints.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
+#include "chonk_recursion_constraints.hpp"
 #include "ec_operations.hpp"
 #include "ecdsa_constraints.hpp"
 #include "honk_recursion_constraint.hpp"
+#include "hypernova_recursion_constraint.hpp"
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
 #include "multi_scalar_mul.hpp"
@@ -54,11 +54,11 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> ec_add_constraints;
     std::vector<size_t> honk_recursion_constraints;
     std::vector<size_t> avm_recursion_constraints;
-    std::vector<size_t> pg_recursion_constraints;
-    std::vector<size_t> civc_recursion_constraints;
-    std::vector<size_t> assert_equalities;
-    std::vector<size_t> poly_triple_constraints;
+    std::vector<size_t> hn_recursion_constraints;
+    std::vector<size_t> chonk_recursion_constraints;
+    std::vector<size_t> arithmetic_triple_constraints;
     std::vector<size_t> quad_constraints;
+    std::vector<size_t> big_quad_constraints;
     // Multiple opcode indices per block:
     std::vector<std::vector<size_t>> block_constraints;
 
@@ -69,15 +69,9 @@ struct AcirFormatOriginalOpcodeIndices {
 struct AcirFormat {
     // The number of witnesses in the circuit
     uint32_t varnum;
-    // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
-    // The proof produced when this flag is true should be friendly for recursive verification inside
-    // of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen for
-    // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in order
-    // to be able to verify SNARKs on Ethereum.
-
     uint32_t num_acir_opcodes;
 
-    using PolyTripleConstraint = bb::poly_triple_<bb::curve::BN254::ScalarField>;
+    using ArithTripleConstraint = bb::arithmetic_triple_<bb::curve::BN254::ScalarField>;
     std::vector<uint32_t> public_inputs;
 
     std::vector<LogicConstraint> logic_constraints;
@@ -94,33 +88,25 @@ struct AcirFormat {
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
     std::vector<RecursionConstraint> avm_recursion_constraints;
-    std::vector<RecursionConstraint> pg_recursion_constraints;
-    std::vector<RecursionConstraint> civc_recursion_constraints;
-    std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
+    std::vector<RecursionConstraint> hn_recursion_constraints;
+    std::vector<RecursionConstraint> chonk_recursion_constraints;
 
-    // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
+    // A standard plonk arithmetic constraint, as defined in the arithmetic_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
-    bb::SlabVector<PolyTripleConstraint> poly_triple_constraints;
+    std::vector<ArithTripleConstraint> arithmetic_triple_constraints;
     // A standard ultra plonk arithmetic constraint, of width 4: q_Ma*b+q_A*a+q_B*b+q_C*c+q_d*d+q_const = 0
-    bb::SlabVector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
+    std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
     // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
     // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
     // mul_gate) that has been splitted into multiple mul_gates, using w4_omega (the 4th wire of the next gate), to
     // reduce the number of intermediate variables.
-    bb::SlabVector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
+    std::vector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
     // Has length equal to num_acir_opcodes.
     std::vector<size_t> gates_per_opcode;
-
-    // Set of constrained witnesses
-    std::set<uint32_t> constrained_witness;
-    // map witness with their minimal bit-range
-    std::map<uint32_t, uint32_t> minimal_range;
-    // map witness with their minimal bit-range implied by array operations
-    std::map<uint32_t, uint32_t> index_range;
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
@@ -142,18 +128,17 @@ struct AcirFormat {
                    ec_add_constraints,
                    honk_recursion_constraints,
                    avm_recursion_constraints,
-                   pg_recursion_constraints,
-                   civc_recursion_constraints,
-                   poly_triple_constraints,
+                   hn_recursion_constraints,
+                   chonk_recursion_constraints,
+                   arithmetic_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
-                   block_constraints,
-                   assert_equalities);
+                   block_constraints);
 
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
 
-using WitnessVector = bb::SlabVector<bb::fr>;
+using WitnessVector = std::vector<bb::fr>;
 using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
 struct AcirProgram {
@@ -196,17 +181,10 @@ struct ProgramMetadata {
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
     std::shared_ptr<bb::IVCBase> ivc = nullptr;
 
-    bool recursive = false; // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
-                            // The proof produced when this flag is true should be friendly for recursive verification
-                            // inside of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen
-                            // for hashing in its transcript, while we still want a prove that uses Keccak for its
-                            // transcript in order to be able to verify SNARKs on Ethereum.
-    uint32_t honk_recursion = 0; // honk_recursion means we will honk to recursively verify this
-                                 // circuit. This distinction is needed to not add the default
-                                 // aggregation object when we're not using the honk RV.
-                                 // 0 means we are not proving with honk
-                                 // 1 means we are using the UltraHonk flavor
-                                 // 2 means we are using the UltraRollupHonk flavor
+    bool has_ipa_claim =
+        false; // Boolean describing whether the circuit should propagate an IPA claim or not. If `True`, the circuit
+               // should propagate an IPA claim. In our codebase, circuits that propagate IPA claims are the ones whose
+               // proof is constructed/verified using Rollup flavors.
     bool collect_gates_per_opcode = false;
     size_t size_hint = 0;
 };
@@ -234,7 +212,7 @@ template <typename Builder> class GateCounter {
         if (!collect_gates_per_opcode) {
             return 0;
         }
-        size_t new_gate_count = builder->get_estimated_num_finalized_gates();
+        size_t new_gate_count = builder->get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false);
         size_t diff = new_gate_count - prev_gate_count;
         prev_gate_count = new_gate_count;
         return diff;
@@ -252,5 +230,23 @@ template <typename Builder> class GateCounter {
     bool collect_gates_per_opcode;
     size_t prev_gate_count{};
 };
+
+/**
+ * @brief Replace indices which are set to IS_CONSTANT with the zero index of the builder
+ *
+ * @details When creating a mul_quad_ gate, unused witness indices are set to IS_CONSTANT. When adding the gate to
+ * the builder, we replace these indices with the zero index. Note that we don't do this replacement for a, so that
+ * we implicitly get a check that the gate is non-zero when adding it to the Builder.
+ */
+template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad);
+
+/**
+ * @brief Check if a mul add gate is valid.
+ *
+ */
+template <typename Builder>
+void check_mul_add_gate(Builder& builder,
+                        const mul_quad_<typename Builder::FF>& mul_quad,
+                        const typename Builder::FF next_wire_w4 = Builder::FF::zero());
 
 } // namespace acir_format

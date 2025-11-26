@@ -24,9 +24,9 @@ TEST(smtExample, multiplication_true)
     field_t b(witness_t(&builder, fr::random_element()));
     field_t c = (a + a) / (b + b + b);
 
-    builder.set_variable_name(a.witness_index, "a");
-    builder.set_variable_name(b.witness_index, "b");
-    builder.set_variable_name(c.witness_index, "c");
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
+    builder.set_variable_name(c.get_witness_index(), "c");
     ASSERT_TRUE(CircuitChecker::check(builder));
 
     auto buf = builder.export_circuit();
@@ -55,9 +55,9 @@ TEST(smtExample, multiplication_true_kind)
     field_t b(witness_t(&builder, fr::random_element()));
     field_t c = (a + a) / (b + b + b);
 
-    builder.set_variable_name(a.witness_index, "a");
-    builder.set_variable_name(b.witness_index, "b");
-    builder.set_variable_name(c.witness_index, "c");
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
+    builder.set_variable_name(c.get_witness_index(), "c");
     ASSERT_TRUE(CircuitChecker::check(builder));
 
     auto buf = builder.export_circuit();
@@ -86,9 +86,9 @@ TEST(smtExample, multiplication_false)
     field_t b(witness_t(&builder, fr::random_element()));
     field_t c = (a) / (b + b + b); // mistake was here
 
-    builder.set_variable_name(a.witness_index, "a");
-    builder.set_variable_name(b.witness_index, "b");
-    builder.set_variable_name(c.witness_index, "c");
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
+    builder.set_variable_name(c.get_witness_index(), "c");
     ASSERT_TRUE(CircuitChecker::check(builder));
 
     auto buf = builder.export_circuit();
@@ -129,12 +129,12 @@ TEST(smtExample, unique_witness_ext)
 
     field_t a(pub_witness_t(&builder, fr::random_element()));
     field_t b(pub_witness_t(&builder, fr::random_element()));
-    builder.set_variable_name(a.witness_index, "a");
-    builder.set_variable_name(b.witness_index, "b");
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
     field_t z(witness_t(&builder, fr::random_element()));
     field_t ev = z * z + a * z + b;
-    builder.set_variable_name(z.witness_index, "z");
-    builder.set_variable_name(ev.witness_index, "ev");
+    builder.set_variable_name(z.get_witness_index(), "z");
+    builder.set_variable_name(ev.get_witness_index(), "ev");
 
     auto buf = builder.export_circuit();
 
@@ -161,12 +161,12 @@ TEST(smtExample, unique_witness)
 
     field_t a(pub_witness_t(&builder, fr::random_element()));
     field_t b(pub_witness_t(&builder, fr::random_element()));
-    builder.set_variable_name(a.witness_index, "a");
-    builder.set_variable_name(b.witness_index, "b");
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
     field_t z(witness_t(&builder, fr::random_element()));
     field_t ev = z * z + a * z + b;
-    builder.set_variable_name(z.witness_index, "z");
-    builder.set_variable_name(ev.witness_index, "ev");
+    builder.set_variable_name(z.get_witness_index(), "z");
+    builder.set_variable_name(ev.get_witness_index(), "ev");
 
     auto buf = builder.export_circuit();
 

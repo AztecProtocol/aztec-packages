@@ -1,1 +1,1 @@
-["tube.*", "rollup_tx.*", "rollup_block.*", "rollup_checkpoint.*"]
+["chonk_verifier.*", "rollup_tx.*", "rollup_block.*", "rollup_checkpoint.*"]

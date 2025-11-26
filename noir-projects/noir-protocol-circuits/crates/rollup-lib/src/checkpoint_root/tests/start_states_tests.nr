@@ -1,4 +1,5 @@
 use super::TestBuilder;
+use types::blob_data::SpongeBlob;
 
 #[test]
 fn correct_default_inputs() {
@@ -8,12 +9,53 @@ fn correct_default_inputs() {
     builder.assert_mock_called(mock);
 }
 
-#[test(should_fail_with = "The start blob sponge was not empty")]
+#[test(should_fail_with = "The start blob sponge was not correctly initialized")]
 fn start_sponge_blob_not_empty() {
     let mut builder = TestBuilder::default();
 
-    // Absorb a field to the start sponge blob.
-    builder.left_rollup.start_sponge_blob.absorb([123], 1);
+    // The start sponge blob has absorbed a value.
+    let mut start_sponge_blob = SpongeBlob::init();
+    start_sponge_blob.absorb([123], 1);
+    builder.left_rollup.start_sponge_blob = start_sponge_blob;
+
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "The start blob sponge was not correctly initialized")]
+fn start_sponge_blob_with_non_zero_cache_size() {
+    let mut builder = TestBuilder::default();
+
+    // Tweak the cache size to be non-zero.
+    builder.left_rollup.start_sponge_blob.sponge.cache_size = 1;
+
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "The start blob sponge was not correctly initialized")]
+fn start_sponge_blob_with_non_empty_state() {
+    let mut builder = TestBuilder::default();
+
+    // Set a value to the initial state
+    builder.left_rollup.start_sponge_blob.sponge.state[2] = 1;
+
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "The start blob sponge was not correctly initialized")]
+fn start_sponge_blob_with_non_zero_num_absorbed_fields() {
+    let mut builder = TestBuilder::default();
+
+    // Tweak the number of the absorbed fields to be non-zero.
+    builder.left_rollup.start_sponge_blob.num_absorbed_fields = 1;
+
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "The start blob sponge was not correctly initialized")]
+fn start_sponge_blob_already_squeezed() {
+    let mut builder = TestBuilder::default();
+
+    builder.left_rollup.start_sponge_blob.sponge.squeeze_mode = true;
 
     builder.execute_with_mock_and_fail();
 }

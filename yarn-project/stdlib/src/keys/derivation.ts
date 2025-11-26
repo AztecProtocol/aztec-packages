@@ -50,7 +50,7 @@ export async function computeAddress(publicKeys: PublicKeys, partialAddress: Fr)
   // 2. addressPoint = (preaddress * G) + ivpk_m
   // 3. address = addressPoint.x
   const preaddress = await computePreaddress(await publicKeys.hash(), partialAddress);
-  const address = await new Grumpkin().add(
+  const address = await Grumpkin.add(
     await derivePublicKeyFromSecretKey(new Fq(preaddress.toBigInt())),
     publicKeys.masterIncomingViewingPublicKey,
   );
@@ -81,8 +81,7 @@ export async function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
 }
 
 export function derivePublicKeyFromSecretKey(secretKey: Fq) {
-  const curve = new Grumpkin();
-  return curve.mul(curve.generator(), secretKey);
+  return Grumpkin.mul(Grumpkin.generator, secretKey);
 }
 
 /**

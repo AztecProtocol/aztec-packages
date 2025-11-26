@@ -56,11 +56,9 @@ contract MoveTest is StakingBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = n;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset).setRegistry(
-      registry
-    ).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false).setStakingQueueConfig(
-      stakingQueueConfig
-    ).deploy();
+    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset)
+      .setRegistry(registry).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false)
+      .setStakingQueueConfig(stakingQueueConfig).deploy();
 
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));
@@ -85,6 +83,10 @@ contract MoveTest is StakingBase {
     Epoch epoch = Epoch.wrap(5);
     Timestamp ts = newRollup.getTimestampForSlot(Slot.wrap(Epoch.unwrap(epoch) * newRollup.getEpochDuration()));
 
+    // Warp to the target epoch time so we can query epoch 5's committee
+    // With lagInEpochs=2, being at epoch 5 allows us to query epoch 5 (sample time is at epoch 3)
+    vm.warp(Timestamp.unwrap(ts));
+
     assertEq(gse.getAttesterCountAtTime(address(oldRollup), Timestamp.wrap(block.timestamp)), n);
     assertEq(gse.getAttesterCountAtTime(address(newRollup), Timestamp.wrap(block.timestamp)), 0);
 
@@ -98,8 +100,7 @@ contract MoveTest is StakingBase {
     );
     newRollup.getEpochCommittee(epoch);
 
-    // Jump to epoch and add the rollup.
-    vm.warp(Timestamp.unwrap(ts));
+    // Add the rollup (we're already at the epoch).
     vm.prank(gse.owner());
     gse.addRollup(address(newRollup));
 
@@ -119,6 +120,10 @@ contract MoveTest is StakingBase {
     newRollup.getEpochCommittee(epoch);
 
     Epoch epoch2 = epoch + Epoch.wrap(100);
+
+    // Warp to epoch2 so we can query its committee
+    Timestamp ts2 = newRollup.getTimestampForSlot(Slot.wrap(Epoch.unwrap(epoch2) * newRollup.getEpochDuration()));
+    vm.warp(Timestamp.unwrap(ts2));
 
     {
       address[] memory committee = oldRollup.getEpochCommittee(epoch2);

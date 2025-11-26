@@ -1,3 +1,4 @@
+export * from './balanced_merkle_tree.js';
 export * from './unbalanced_merkle_tree.js';
 export * from './unbalanced_tree_store.js';
 export * from './merkle_tree_calculator.js';

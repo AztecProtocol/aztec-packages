@@ -29,6 +29,11 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify()
 {
     // Execute the Verifier rounds
     execute_preamble_round();
+    // For ZK flavors: receive Gemini masking polynomial commitment
+    if constexpr (Flavor::HasZK) {
+        verifier_instance->gemini_masking_commitment =
+            transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+    }
     execute_wire_commitments_round();
     execute_sorted_list_accumulator_round();
     execute_log_derivative_inverse_round();
@@ -36,7 +41,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify()
 
     verifier_instance->witness_commitments = witness_comms;
     verifier_instance->relation_parameters = relation_parameters;
-    verifier_instance->alphas = generate_alphas_round();
+    verifier_instance->alpha = generate_alpha_round();
     verifier_instance->is_complete = true; // instance has been completely populated
 }
 
@@ -48,11 +53,11 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
     auto vk = verifier_instance->get_vk();
 
-    FF vk_hash = vk->hash_through_transcript(domain_separator, *transcript);
+    FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink verifier: ", vk_hash);
 
-    // For recursive flavors, assert that the VK hash matches
+    // For recursive flavors, assert that the VK hash matches the expected hash provided in the VK
     if constexpr (IsRecursiveFlavor<Flavor>) {
         vinfo("expected vk hash: ", verifier_instance->vk_and_hash->hash);
         verifier_instance->vk_and_hash->hash.assert_equal(vk_hash);
@@ -158,18 +163,11 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_grand_product_comp
     witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
 }
 
-template <typename Flavor> typename Flavor::SubrelationSeparators OinkVerifier<Flavor>::generate_alphas_round()
+template <typename Flavor> typename Flavor::SubrelationSeparator OinkVerifier<Flavor>::generate_alpha_round()
 {
-    // Get the relation separation challenges for sumcheck computation
-    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
-
-    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
-        challenge_labels[idx] = domain_separator + "alpha_" + std::to_string(idx);
-    }
-    // It is more efficient to generate an array of challenges than to generate them individually.
-    SubrelationSeparators alphas = transcript->template get_challenges<FF>(challenge_labels);
-
-    return alphas;
+    // Get the single alpha challenge for sumcheck computation
+    // Powers of this challenge will be used to batch subrelations
+    return transcript->template get_challenge<FF>(domain_separator + "alpha");
 }
 
 // Native flavor instantiations

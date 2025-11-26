@@ -1,15 +1,16 @@
+import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
 import {
   AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  CIVC_PROOF_LENGTH,
-  CIVC_VK_LENGTH_IN_FIELDS,
+  CHONK_PROOF_LENGTH,
+  CHONK_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest, executeAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
-import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
-import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
+import { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -19,7 +20,7 @@ import { fileURLToPath } from 'url';
 
 import MockHidingJson from '../artifacts/mock_hiding.json' with { type: 'json' };
 import { getWorkingDirectory } from './bb_working_directory.js';
-import { proveAvm, proveClientIVC, proveRollupHonk } from './prove_native.js';
+import { proofBytesToRecursiveProof, proveAvm, proveRollupHonk } from './prove_native.js';
 import type { KernelPublicInputs } from './types/index.js';
 import {
   MockRollupTxBasePublicCircuit,
@@ -41,8 +42,8 @@ async function proveMockPublicBaseRollup(
   avmCircuitInputs: AvmCircuitInputs,
   bbWorkingDirectory: string,
   bbBinaryPath: string,
-  clientIVCPublicInputs: KernelPublicInputs,
-  civcProof: ProofAndVerificationKey<typeof CIVC_PROOF_LENGTH>,
+  chonkPublicInputs: KernelPublicInputs,
+  chonkProof: RecursiveProof<typeof CHONK_PROOF_LENGTH>,
   skipPublicInputsValidation: boolean = false,
 ) {
   const { vk, proof, publicInputs } = await proveAvm(
@@ -53,14 +54,14 @@ async function proveMockPublicBaseRollup(
   );
 
   // Use the pre-generated standalone vk to verify the proof recursively.
-  const ivcVk = await VerificationKeyAsFields.fromKey(
+  const chonkVk = await VerificationKeyAsFields.fromKey(
     MockHidingJson.verificationKey.fields.map((str: string) => Fr.fromHexString(str)),
   );
   const baseWitnessResult = await witnessGenMockPublicBaseCircuit({
-    civc_proof_data: {
-      public_inputs: clientIVCPublicInputs,
-      proof: mapRecursiveProofToNoir(civcProof.proof),
-      vk_data: mapVerificationKeyToNoir(ivcVk, CIVC_VK_LENGTH_IN_FIELDS),
+    chonk_proof_data: {
+      public_inputs: chonkPublicInputs,
+      proof: mapRecursiveProofToNoir(chonkProof),
+      vk_data: mapVerificationKeyToNoir(chonkVk, CHONK_VK_LENGTH_IN_FIELDS),
     },
     verification_key: mapVerificationKeyToNoir(vk, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
     proof: mapAvmProofToNoir(proof),
@@ -80,18 +81,30 @@ async function proveMockPublicBaseRollup(
 describe('AVM Integration', () => {
   let bbWorkingDirectory: string;
   let bbBinaryPath: string;
-  let civcProof: ProofAndVerificationKey<typeof CIVC_PROOF_LENGTH>;
-  let clientIVCPublicInputs: KernelPublicInputs;
 
+  let backend: AztecClientBackend;
+  let chonkProof: RecursiveProof<typeof CHONK_PROOF_LENGTH>;
+  let chonkPublicInputs: KernelPublicInputs;
   let worldStateService: NativeWorldStateService;
   let simTester: PublicTxSimulationTester;
 
   beforeAll(async () => {
-    const clientIVCProofPath = await getWorkingDirectory('bb-avm-integration-client-ivc-');
-    bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
+    const barretenberg = await Barretenberg.initSingleton({
+      threads: 16,
+      // logger: (m: string) => logger.info(m),
+    });
+
+    bbBinaryPath = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../../barretenberg/cpp/build/bin',
+      'bb-avm',
+    );
+
     const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
-    clientIVCPublicInputs = tailPublicInputs;
-    civcProof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, vks, logger);
+    chonkPublicInputs = tailPublicInputs;
+    backend = new AztecClientBackend(bytecodes, barretenberg);
+    const [proofAsFields, , vkBytes] = await backend.prove(witnessStack, vks);
+    chonkProof = await proofBytesToRecursiveProof(proofAsFields, vkBytes);
   });
 
   beforeEach(async () => {
@@ -109,15 +122,9 @@ describe('AVM Integration', () => {
   it('Should generate and verify an ultra honk proof from an AVM verification of the bulk test', async () => {
     const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
-    const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
+    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs);
 
-    await proveMockPublicBaseRollup(
-      avmCircuitInputs,
-      bbWorkingDirectory,
-      bbBinaryPath,
-      clientIVCPublicInputs,
-      civcProof,
-    );
+    await proveMockPublicBaseRollup(avmCircuitInputs, bbWorkingDirectory, bbBinaryPath, chonkPublicInputs, chonkProof);
   }, 240_000);
 
   it('Should generate and verify an ultra honk proof from an AVM verification for the minimal TX with skipping public inputs validation', async () => {
@@ -125,11 +132,11 @@ describe('AVM Integration', () => {
     expect(result.revertCode.isOK()).toBe(true);
 
     await proveMockPublicBaseRollup(
-      result.avmProvingRequest.inputs,
+      new AvmCircuitInputs(result.hints!, result.publicInputs),
       bbWorkingDirectory,
       bbBinaryPath,
-      clientIVCPublicInputs,
-      civcProof,
+      chonkPublicInputs,
+      chonkProof,
       true,
     );
   }, 240_000);

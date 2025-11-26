@@ -1165,11 +1165,11 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 witness_ct(&builder, fr(uint256_t(P2.y).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
                 witness_ct(&builder, fr(uint256_t(P2.y).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
 
-            uint64_t before = builder.get_estimated_num_finalized_gates();
+            uint64_t before = builder.get_num_finalized_gates_inefficient();
             fq_ct lambda = (y2 - y1) / (x2 - x1);
             fq_ct x3 = lambda.sqr() - (x2 + x1);
             fq_ct y3 = (x1 - x3) * lambda - y1;
-            uint64_t after = builder.get_estimated_num_finalized_gates();
+            uint64_t after = builder.get_num_finalized_gates_inefficient();
             std::cerr << "added gates = " << after - before << std::endl;
 
             // Check the result against the native group addition
@@ -1469,26 +1469,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_to_byte_array()
-    {
-        auto builder = Builder();
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            auto [a_native, a_ct] = get_random_witness(&builder, true); // fq_native, fq_ct
-            byte_array_ct a_bytes_ct = a_ct.to_byte_array();
-
-            std::vector<fr_ct> actual_bytes = a_bytes_ct.bytes();
-            EXPECT_EQ(actual_bytes.size(), 32);
-
-            for (size_t j = 0; j < actual_bytes.size(); ++j) {
-                const uint256_t expected = (uint256_t(a_native) >> (8 * j)).slice(0, 8);
-                EXPECT_EQ(actual_bytes[32 - 1 - j].get_value(), expected);
-            }
-        }
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
     // This check tests if elements are reduced to fit quotient into range proof
     static void test_quotient_completeness()
     {
@@ -1601,7 +1581,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         // Set the high bit
         exponent_val |= static_cast<uint32_t>(1) << 31;
         fq_ct base_constant(&builder, static_cast<uint256_t>(base_val));
-        fq_ct base_witness_ct = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
+        fq_ct base_witness_ct = fq_ct::from_witness(&builder, typename fq_ct::native(base_val));
         // This also tests for the case where the exponent is zero
         for (size_t i = 0; i <= 32; i += 4) {
             uint32_t current_exponent_val = exponent_val >> i;
@@ -1630,7 +1610,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
         uint32_t current_exponent_val = 1;
         fq_ct base_constant_ct(&builder, static_cast<uint256_t>(base_val));
-        fq_ct base_witness_ct = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
+        fq_ct base_witness_ct = fq_ct::from_witness(&builder, typename fq_ct::native(base_val));
         fq_native expected = base_val.pow(current_exponent_val);
 
         // Check for constant bigfield element with constant exponent
@@ -1975,7 +1955,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         typedef stdlib::bool_t<Builder> bool_t;
         auto builder = Builder();
 
-        fq_ct w0 = fq_ct::from_witness(&builder, 1);
+        fq_ct w0 = fq_ct::from_witness(&builder, typename fq_ct::native(1));
         w0 = w0.conditional_negate(bool_t(&builder, true));
         w0 = w0.conditional_negate(bool_t(&builder, false));
         w0 = w0.conditional_negate(bool_t(&builder, true));
@@ -2446,10 +2426,6 @@ TYPED_TEST(stdlib_bigfield, reduce_mod_target_modulus)
 TYPED_TEST(stdlib_bigfield, byte_array_constructors)
 {
     TestFixture::test_byte_array_constructors();
-}
-TYPED_TEST(stdlib_bigfield, to_byte_array)
-{
-    TestFixture::test_to_byte_array();
 }
 TYPED_TEST(stdlib_bigfield, quotient_completeness_regression)
 {

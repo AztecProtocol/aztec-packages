@@ -14,6 +14,6 @@ export class UnsafeContract extends ContractBase {
     /** The wallet used for interacting with this contract. */
     wallet: Wallet,
   ) {
-    super(instance, artifact, wallet);
+    super(instance.address, artifact, wallet);
   }
 }

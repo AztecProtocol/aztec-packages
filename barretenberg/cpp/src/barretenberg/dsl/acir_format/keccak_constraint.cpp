@@ -27,7 +27,7 @@ template <typename Builder> void create_keccak_permutations(Builder& builder, co
     std::array<field_ct, 25> output_state = bb::stdlib::keccak<Builder>::permutation_opcode(state, &builder);
 
     for (size_t i = 0; i < output_state.size(); ++i) {
-        builder.assert_equal(output_state[i].normalize().witness_index, constraint.result[i]);
+        output_state[i].assert_equal(field_ct::from_witness_index(&builder, constraint.result[i]));
     }
 }
 template void create_keccak_permutations<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,

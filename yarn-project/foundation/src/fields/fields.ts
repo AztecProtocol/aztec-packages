@@ -335,7 +335,23 @@ export class Fr extends BaseField {
     return this.toString();
   }
 
+  /**
+   * Creates an Fr instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * Handles buffers, strings, numbers, bigints, or existing instances.
+   * @param obj - Plain object, buffer, string, number, bigint, boolean, or Fr instance
+   * @returns An Fr instance
+   */
+  static fromPlainObject(obj: any): Fr {
+    if (obj instanceof Fr) {
+      return obj;
+    }
+    return new Fr(obj);
+  }
+
   static get schema() {
+    // Serialization from hex string.
     return hexSchemaFor(Fr);
   }
 }
@@ -432,6 +448,21 @@ export class Fq extends BaseField {
 
   add(rhs: Fq) {
     return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
+  }
+
+  /**
+   * Computes a square root of the field element.
+   * @returns A square root of the field element (null if it does not exist).
+   */
+  async sqrt(): Promise<Fq | null> {
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.bn254FqSqrt({ input: this.toBuffer() });
+    if (!response.isSquareRoot) {
+      // Field element is not a quadratic residue mod p so it has no square root.
+      return null;
+    }
+    return Fq.fromBuffer(Buffer.from(response.value));
   }
 
   toJSON() {

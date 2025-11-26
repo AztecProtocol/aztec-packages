@@ -99,6 +99,11 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/to_radix_p_decompositions",
                            precomputed_builder.process_to_radix_p_decompositions(trace));
         },
+        [&]() {
+            // public_inputs.sel is precomputed. Should it be populated by the precomputed builder?
+            PublicInputsTraceBuilder public_inputs_builder;
+            public_inputs_builder.process_public_inputs_aux_precomputed(trace);
+        },
     };
 }
 
@@ -108,10 +113,6 @@ auto build_public_inputs_columns_jobs(TraceContainer& trace, const PublicInputs&
         [&]() {
             PublicInputsTraceBuilder public_inputs_builder;
             public_inputs_builder.process_public_inputs(trace, public_inputs);
-        },
-        [&]() {
-            PublicInputsTraceBuilder public_inputs_builder;
-            public_inputs_builder.process_public_inputs_aux_precomputed(trace);
         },
     };
 }

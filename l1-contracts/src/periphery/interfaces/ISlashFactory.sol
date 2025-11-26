@@ -16,8 +16,9 @@ interface ISlashFactory {
     external
     returns (IPayload);
 
-  function getAddressAndIsDeployed(address[] memory _validators, uint96[] memory _amounts, uint128[][] memory _offenses)
-    external
-    view
-    returns (address, bytes32, bool);
+  function getAddressAndIsDeployed(
+    address[] memory _validators,
+    uint96[] memory _amounts,
+    uint128[][] memory _offenses
+  ) external view returns (address, bytes32, bool);
 }

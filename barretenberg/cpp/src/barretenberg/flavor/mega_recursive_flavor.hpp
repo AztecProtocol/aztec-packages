@@ -74,7 +74,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using Relations = MegaFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -85,11 +84,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenge for each
-    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
-    // combiner) to much.
+    // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = MegaFlavor::NUM_SUBRELATIONS;
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using SubrelationSeparator = FF;
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
@@ -124,9 +121,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->log_circuit_size = FF::from_witness(builder, native_key->log_circuit_size);
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->log_circuit_size = FF::from_witness(builder, typename FF::native(native_key->log_circuit_size));
+            this->num_public_inputs = FF::from_witness(builder, typename FF::native(native_key->num_public_inputs));
+            this->pub_inputs_offset = FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset));
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -190,6 +187,25 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
                 commitment.fix_witness();
             }
         }
+
+#ifndef NDEBUG
+        /**
+         * @brief Get the native verification key corresponding to this stdlib verification key
+         *
+         * @return NativeVerificationKey
+         */
+        NativeVerificationKey get_value() const
+        {
+            NativeVerificationKey native_vk;
+            native_vk.log_circuit_size = static_cast<uint64_t>(this->log_circuit_size.get_value());
+            native_vk.num_public_inputs = static_cast<uint64_t>(this->num_public_inputs.get_value());
+            native_vk.pub_inputs_offset = static_cast<uint64_t>(this->pub_inputs_offset.get_value());
+            for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_vk.get_all())) {
+                native_commitment = commitment.get_value();
+            }
+            return native_vk;
+        }
+#endif
     };
 
     /**

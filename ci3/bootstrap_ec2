@@ -14,11 +14,10 @@ if [ "$arch" == "arm64" ]; then
   # Allow for 90 minutes as ARM has less cores.
   export AWS_SHUTDOWN_TIME=90
 else
+  cores=192,128,64
   if [ "$CI_FULL" -eq 1 ]; then
-    # cores=192,128,64
-    cores=128,64
-  else
-    cores=128,64
+    # Allow for 75 minutes as ci-full time has crept up.
+    export AWS_SHUTDOWN_TIME=75
   fi
 fi
 
@@ -133,11 +132,12 @@ container_script=$(
   source ci3/source
   source ci3/source_refname
   source ci3/source_redis
+  source ci3/source_cache
   ci_log_id=\$(log_ci_run)
   export PARENT_LOG_URL=${PARENT_LOG_URL:-http://ci.aztec-labs.com/\$ci_log_id}
 
-  if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
-    echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+  if [ -n "\$DOCKERHUB_PASSWORD" ]; then
+    echo \$DOCKERHUB_PASSWORD | docker login -u \$DOCKERHUB_USERNAME --password-stdin
   fi
 
   # Heartbeat.
@@ -171,7 +171,6 @@ container_script=$(
   export -f run
 
   set +e
-  set -x
   $run_cmd
   code=\${PIPESTATUS[0]}
 
@@ -190,7 +189,7 @@ EOF
 #   - Use a volume on /var/lib/docker for docker-in-docker as overlayfs trashes performance (in fact it just breaks).
 #   - The volume has the devbox image preloaded within it in the ami_update.sh script.
 #   - Use a volume for the actual working directory in /home/aztec-dev/aztec-packages.
-#   - Copy the CRS into a 3G tmpfs and mount that into the container.
+#   - Mount the CRS directly from the host into the container.
 #   - Mount the hosts /tmp into the container.
 # We mount in aws credentials to leverage the s3 cache.
 # We enable the test cache, which uses a redis instance for tracking test runs.
@@ -208,17 +207,23 @@ function run {
   if [ -f ${NETWORK_ENV_FILE} ]; then
     export NETWORK_ENV_FILE_B64=$(cat ${NETWORK_ENV_FILE} | base64 -w 0)
   fi
+  # Only pass SSH keys if disk logging is enabled (internal CI only)
+  if [ "${CI_ENABLE_DISK_LOGS:-0}" -eq 1 ]; then
+    # if the build instance key exists, load it into a base64 encoded string
+    if [ -f ~/.ssh/build_instance_key ]; then
+      export BUILD_INSTANCE_KEY_B64=$(cat ~/.ssh/build_instance_key | base64 -w 0)
+    fi
+    # if the build instance ssh config exists, load it into a base64 encoded string
+    if [ -f $ci3/aws/build_instance_ssh_config ]; then
+      export BUILD_INSTANCE_SSH_CONFIG_B64=$(cat $ci3/aws/build_instance_ssh_config | base64 -w 0)
+    fi
+  fi
 
   ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     # TODO: This should *not* be needed in a CI run. Remove watching code, e.g. in boxes.
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
-    echo Loading CRS into tmpfs...
-    sudo mkdir /mnt/bb-crs
-    sudo mount -t tmpfs -o size=3G tmpfs /mnt/bb-crs
-    sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
-    echo Done in \$SECONDS seconds.
 
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
@@ -235,6 +240,21 @@ function run {
       echo "NETWORK_ENV_FILE decoded and saved to ${NETWORK_ENV_FILE}"
     fi
 
+    # Save BUILD_INSTANCE_KEY to a file if set
+    if [ -n "${BUILD_INSTANCE_KEY_B64:-}" ]; then
+      mkdir -p \$HOME/.ssh
+      echo "${BUILD_INSTANCE_KEY_B64:-}" | base64 -d > \$HOME/.ssh/build_instance_key
+      chmod 600 \$HOME/.ssh/build_instance_key
+      echo "BUILD_INSTANCE_KEY decoded and saved to \$HOME/.ssh/build_instance_key"
+    fi
+
+    # Save BUILD_INSTANCE_SSH_CONFIG to a file if set
+    if [ -n "${BUILD_INSTANCE_SSH_CONFIG_B64:-}" ]; then
+      mkdir -p \$HOME/.ssh
+      echo "${BUILD_INSTANCE_SSH_CONFIG_B64:-}" | base64 -d > \$HOME/.ssh/build_instance_ssh_config
+      echo "BUILD_INSTANCE_SSH_CONFIG decoded and saved to \$HOME/.ssh/build_instance_ssh_config"
+    fi
+
     start_build() {
       echo Starting devbox...
       docker run --privileged --rm \${docker_args:-} \
@@ -243,7 +263,8 @@ function run {
         -v bootstrap_ci_local_docker:/var/lib/docker \
         -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
         -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
-        -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
+        -v \$HOME/.ssh:/home/aztec-dev/.ssh:ro \
+        -v \$HOME/.bb-crs:/home/aztec-dev/.bb-crs \
         -v /dev/kmsg:/dev/kmsg \
         -v /tmp:/tmp \
         -v ${GOOGLE_APPLICATION_CREDENTIALS}:${GOOGLE_APPLICATION_CREDENTIALS}:ro \
@@ -258,6 +279,7 @@ function run {
         -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
         -e NO_CACHE=${NO_CACHE:-} \
         -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
+        -e CI_ENABLE_DISK_LOGS=${CI_ENABLE_DISK_LOGS:-} \
         -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
         -e SSH_CONNECTION=' ' \
         -e LOCAL_USER_ID=\$(id -u) \
@@ -269,6 +291,7 @@ function run {
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
         -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
         -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
+        -e DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME:-} \
         -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
         -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
         -e R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-} \
@@ -282,6 +305,7 @@ function run {
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \
         --pids-limit=32768 \
+        --shm-size=2g \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
     }
 

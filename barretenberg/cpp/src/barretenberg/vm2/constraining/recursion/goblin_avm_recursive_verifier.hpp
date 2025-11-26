@@ -46,8 +46,8 @@ class AvmGoblinRecursiveVerifier {
     using UltraBuilder = UltraCircuitBuilder;
     using MegaBuilder = MegaCircuitBuilder;
 
-    using PairingPoints = bb::stdlib::recursion::PairingPoints<UltraBuilder>;
-    using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<MegaBuilder>;
+    using PairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<UltraBuilder>>;
+    using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<MegaBuilder>>;
 
     using UltraFF = stdlib::bn254<UltraBuilder>::ScalarField;
 
@@ -72,7 +72,7 @@ class AvmGoblinRecursiveVerifier {
         , outer_key_fields(outer_key_fields)
     {
         // TODO(#15892): Set this to be the actual vk hash when vk is fixed.
-        vk_hash = UltraFF::from_witness(&builder, /* should be native hash of vk fields*/ 0);
+        vk_hash = UltraFF::from_witness(&builder, /* should be native hash of vk fields*/ typename UltraFF::native(0));
         vk_hash.fix_witness();
     }
 

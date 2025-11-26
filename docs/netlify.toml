@@ -1,7 +1,12 @@
 [build]
   # Only build if changes are made in the docs directory
   ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF"
+  command = "yarn build"
   functions = "netlify/functions"
+
+[[redirects]]
+    from = "/try_testnet"
+    to = "/ignition_info"
 
 [[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
@@ -17,15 +22,15 @@
 
 [[redirects]]
     from = "/getting_started"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/developers/getting_started/main"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "guides/getting_started"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/tutorials/simple_dapp/*"
@@ -44,16 +49,6 @@
     to = "/developers/docs/tutorials/contract_tutorials/token_contract"
 
 [[redirects]]
-    from = "/developers/sandbox/*"
-    to = "/developers/getting_started_on_sandbox"
-
-
-[[redirects]]
-    from = "/dev_docs/*"
-    to = "/developers/getting_started_on_sandbox"
-
-
-[[redirects]]
     from = "/noir"
     to = "/"
 
@@ -64,22 +59,6 @@
 [[redirects]]
     from= "zk-money/userguide"
     to= "/aztec_connect_sunset"
-
-[[redirects]]
-    from = "/how-aztec-works/*"
-    to = "/"
-
-[[redirects]]
-    from = "/sdk/*"
-    to = "/"
-
-[[redirects]]
-    from = "/developers/*"
-    to = "/"
-
-[[redirects]]
-    from = "/spec/*"
-    to = "/"
 
 [[redirects]]
     from = "/compliance"
@@ -99,19 +78,19 @@
 
 [[redirects]]
     from = "/reference/sandbox_reference/sandbox-reference"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/reference/sandbox_reference"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/guides/getting_started/*"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/guides/developer_guides/*"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/aztec/concepts/accounts/authwit"
@@ -132,18 +111,6 @@
 [[redirects]]
     from = "/aztec/concepts/circuits/*"
     to = "/developers/docs/concepts/advanced/circuits"
-
-[[redirects]]
-    from = "/tutorials/*"
-    to = "/developers/docs/tutorials/*"
-
-[[redirects]]
-    from = "/guides/*"
-    to = "/developers/docs/guides/*"
-
-[[redirects]]
-    from = "/reference/*"
-    to = "/developers/docs/reference/*"
 
 [[redirects]]
     from = "/guides/privacy_considerations"
@@ -169,7 +136,7 @@
 # Redirects for renamed JS app guide pages
 [[redirects]]
     from = "/developers/guides/js_apps/connect_to_sandbox"
-    to = "/developers/docs/guides/js_apps/how_to_connect_to_sandbox"
+    to = "/developers/docs/guides/js_apps/how_to_connect_to_local_network"
 
 [[redirects]]
     from = "/developers/guides/js_apps/create_account"
@@ -252,15 +219,45 @@
 # Redirect getting_started variations
 [[redirects]]
     from = "/developers/getting_started/getting_started"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/getting_started/getting_started"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
 
 [[redirects]]
     from = "/developers/getting_started/getting_started.md"
-    to = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
+
+# Redirects for Refactor (granular)
+
+# [[redirects]]
+#     from = "/glossary"
+#     to = "/resources/glossary"
+
+# [[redirects]]
+#     from = "/migration_notes"
+#     to = "/resources/migration_notes"
+
+# [[redirects]]
+#     from = "/guides/local_env/sandbox"
+#     to = "/getting-started"  # Note: sandbox renamed to local-network
+
+# [[redirects]]
+#     from = "/guides/local_env/installing_noir_lsp"
+#     to = "/aztec-nr/installation"
+
+# [[redirects]]
+#     from = "/guides/local_env/how_to_debug"
+#     to = "/aztec-nr/debugging"
+
+# [[redirects]]
+#     from = "/reference/environment_reference/sandbox_reference"
+#     to = "/aztec-cli/local-network-reference"  # Updated: sandbox renamed to local-network
+
+# [[redirects]]
+#     from = "/reference/environment_reference/cli_reference"
+#     to = "/aztec-cli/cli_reference"
 
 # Redirect guides that moved to aztec-js
 # The follow section should be uncommented when v2.0.2 is no longer the default version
@@ -268,7 +265,7 @@
 
 # [[redirects]]
 #     from = "/developers/guides/js_apps/connect_to_sandbox"
-#     to = "/developers/docs/guides/aztec-js/how_to_connect_to_sandbox"
+#     to = "/developers/docs/guides/aztec-js/how_to_connect_to_local_network"  # Updated: sandbox renamed to local-network
 
 # [[redirects]]
 #     from = "/developers/guides/js_apps/create_account"
@@ -356,10 +353,10 @@
     from = "/developers/guides/getting_started_on_testnet"
     to = "/developers/getting_started_on_testnet"
 
-# Sandbox reference redirect
+# Local network reference redirect (renamed from sandbox)
 [[redirects]]
     from = "/developers/guides/local_env/sandbox-reference"
-    to = "/developers/docs/reference/environment_reference/sandbox-reference"
+    to = "/developers/docs/reference/environment_reference/local-network-reference"
 
 # FaceID wallet redirect
 [[redirects]]
@@ -385,3 +382,69 @@
 [[redirects]]
     from = "/the_aztec_network/reference/useful_commands"
     to = "/the_aztec_network/operation/sequencer_management/useful_commands"
+
+# Refactor redirects
+
+# [[redirects]]
+#     from = "/developers/docs/concepts/*"
+#     to = "/developers/docs/foundational-topics/:splat"
+
+# [[redirects]]
+#     from = "/concepts/*"
+#     to = "/foundational-topics/:splat"
+
+# [[redirects]]
+#     from = "/guides/smart_contracts/*"
+#     to = "/aztec-nr"
+
+# [[redirects]]
+#     from = "/guides/js_apps/*"
+#     to = "/aztec-js/:splat"
+
+# [[redirects]]
+#     from = "/reference/environment_reference/cli_wallet"
+#     to = "/wallet-cli"
+
+# [[redirects]]
+#     from = "/reference/smart_contract_reference/*"
+#     to = "/aztec-nr"
+
+# [[redirects]]
+#     from = "/reference/considerations/*"
+#     to = "/resources/considerations/:splat"
+
+[[redirects]]
+    from = "/tutorials/*"
+    to = "/developers/docs/tutorials/*"
+
+[[redirects]]
+    from = "/guides/*"
+    to = "/developers/docs/guides/*"
+
+[[redirects]]
+    from = "/reference/*"
+    to = "/developers/docs/reference/*"
+
+[[redirects]]
+    from = "/how-aztec-works/*"
+    to = "/"
+
+[[redirects]]
+    from = "/sdk/*"
+    to = "/"
+
+[[redirects]]
+    from = "/developers/*"
+    to = "/"
+
+[[redirects]]
+    from = "/spec/*"
+    to = "/"
+
+[[redirects]]
+    from = "/developers/sandbox/*"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "/dev_docs/*"
+    to = "/developers/getting_started_on_local_network"

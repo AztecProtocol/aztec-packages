@@ -27,8 +27,7 @@ contract RegisterNewRollupVersionPayload is IPayload {
       Action({target: address(REGISTRY), data: abi.encodeWithSelector(IRegistry.addRollup.selector, address(ROLLUP))});
 
     res[1] = Action({
-      target: address(ROLLUP.getGSE()),
-      data: abi.encodeWithSelector(IGSECore.addRollup.selector, address(ROLLUP))
+      target: address(ROLLUP.getGSE()), data: abi.encodeWithSelector(IGSECore.addRollup.selector, address(ROLLUP))
     });
 
     return res;

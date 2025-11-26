@@ -70,9 +70,8 @@ contract UpgradeGovernanceProposerTest is TestBase {
       });
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10).setValidators(
-      initialValidators
-    ).setTargetCommitteeSize(4).setEpochDuration(1);
+    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10)
+      .setValidators(initialValidators).setTargetCommitteeSize(4).setEpochDuration(1);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -94,7 +93,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
   }
 
   function test_UpgradeIntoNewVersion() external {
-    timeCheater.cheat__jumpForwardEpochs(2);
+    timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
     payload = IPayload(address(new NewGovernanceProposerPayload(registry, gse)));
 
     for (uint256 i = 0; i < 10; i++) {

@@ -1,27 +1,19 @@
-pub(crate) mod abi_export;
-pub(crate) mod call_interface_stubs;
 // TODO: Move initialization_utils out of this crate
 // See https://github.com/AztecProtocol/aztec-packages/pull/15856#discussion_r2229134689 for more details
 pub mod initialization_utils;
-pub(crate) mod stub_registry;
 pub(crate) mod auth_registry;
-pub(crate) mod utils;
 
 use crate::macros::{
-    functions::{
-        abi_export::create_fn_abi_export,
-        utils::{transform_private, transform_public, transform_utility},
-    },
+    internals_functions_generation::{external_functions_registry, internal_functions_registry},
     utils::{is_fn_external, module_has_initializer},
 };
-use super::utils::{fn_has_noinitcheck, is_fn_initializer, is_fn_internal, is_fn_view};
+use super::utils::{
+    fn_has_noinitcheck, fn_has_nophasecheck, is_fn_initializer, is_fn_only_self, is_fn_view,
+};
 use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 
-// Note: The internal naming below is deprecated and will soon be renamed. For this reason it's so weird (having
-// external and internal applicable to one function).
-//
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[external("public")],
-// #[view] and #[internal]. However. the order in which this will be evaluated is unknown, which makes combining them
+// #[view] and #[only_self]. However. the order in which this will be evaluated is unknown, which makes combining them
 // tricky.
 //
 // Our strategy is to have functions accept at most one #[external(...)] attribute that takes a parameter ("private",
@@ -29,10 +21,10 @@ use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 // the arg of #[external(...)] attribute contains the code for all other attributes, but they only run if
 // the corresponding marker attribute has been applied to the function.
 //
-// For example, the "private" handler of #[external(...)] knows about #[internal] and what it should do, but it only
-// does it if it sees that the private function in question also has the `internal` attribute applied. `#[internal]`
+// For example, the "private" handler of #[external(...)] knows about #[only_self] and what it should do, but it only
+// does it if it sees that the private function in question also has the `only_self` attribute applied. `#[only_self]`
 // itself does nothing - it is what we call a 'marker' attribute, that only exists for `#[external("private")]`
-// and `#[external(public)]` to check if it's been applied. Therefore, the execution order of `#[internal]` and
+// and `#[external(public)]` to check if it's been applied. Therefore, the execution order of `#[only_self]` and
 // `#[external(...)]` is irrelevant.
 
 /// An initializer function is similar to a constructor:
@@ -74,8 +66,28 @@ pub comptime fn noinitcheck(f: FunctionDefinition) {
     }
 }
 
-/// Internal functions can only be called by the contract itself, typically from private into public.
-pub comptime fn internal(f: FunctionDefinition) {
+/// Functions marked with #[nophasecheck] will handle phase changes internally
+pub comptime fn nophasecheck(f: FunctionDefinition) {
+    // Marker attribute - see the comment above
+    if !is_fn_external(f) {
+        // Unfortunately we cannot check if we are dealing with a utility or public function here as Noir does not support
+        // getting arguments passed to attributes. For this reason, we will check for this when the utility and public macro
+        // functions are run.
+        let name = f.name();
+        panic(
+            f"The #[nophasecheck] attribute can only be applied to #[external(\"private\")] functions - {name} is not",
+        );
+    }
+}
+
+/// Functions marked with #[only_self] attribute can only be called by the contract itself.
+///
+/// # Usage
+/// This attribute is commonly used when an action starts in private but needs to be completed in public. The public
+/// function must be marked with #[only_self] to restrict access to only the contract itself. A typical example is a
+/// private token mint operation that needs to enqueue a call to a public function to update the publicly tracked total
+/// token supply.
+pub comptime fn only_self(f: FunctionDefinition) {
     // Marker attribute - see the comment above
 
     if !is_fn_external(f) {
@@ -84,7 +96,7 @@ pub comptime fn internal(f: FunctionDefinition) {
         // function is run.
         let name = f.name();
         panic(
-            f"The #[internal] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
+            f"The #[only_self] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
         );
     }
 }
@@ -130,95 +142,109 @@ pub comptime fn authorize_once(
     AUTHORIZE_ONCE_REGISTRY.insert(f, (from_arg_name, nonce_arg_name));
 }
 
-/// Same as in Solidity external functions are functions that our callable from outside the contract. External
-/// functions can be either private, public, or utility.
-pub comptime fn external(f: FunctionDefinition, f_type: CtString) -> Quoted {
+/// Same as in Solidity external functions are functions that our callable from outside the contract.
+///
+/// There are 3 types of external functions: private, public, and utility.
+/// - private functions are executed client-side and preserve privacy.
+/// - public functions are executed sequencer-side and do not preserve privacy, similar to the EVM.
+/// - utility functions are standalone unconstrained functions that cannot be called from another function in a
+///   contract. They are typically used either to obtain some information from the contract (e.g. token balance of a
+///   user) or to modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
+///
+/// In this function we perform basic checks on the function to ensure it is valid and then we add the function to the
+/// external functions registry for later processing by the `#[aztec]` macro.
+pub comptime fn external(f: FunctionDefinition, f_type: CtString) {
     if f_type.eq("private") {
-        private(f)
+        assert_valid_private(f);
+        external_functions_registry::add_private(f);
     } else if f_type.eq("public") {
-        public(f)
+        assert_valid_public(f);
+        external_functions_registry::add_public(f);
     } else if f_type.eq("utility") {
-        utility(f)
+        assert_valid_utility(f);
+        external_functions_registry::add_utility(f);
     } else {
         let function_name = f.name();
         panic(
             f"Function '{function_name}' is marked as #[external(\"{f_type}\")], but '{f_type}' is not a valid external function type. External functions must be one of 'private', 'public' or 'utility'",
         );
-        quote {}
     }
 }
 
-/// Private functions are executed client-side and preserve privacy.
-comptime fn private(f: FunctionDefinition) -> Quoted {
-    // We need to add this attribute to be able to identify if the function is external private when constructing
-    // the contract artifact.
-    f.add_attribute("private");
+/// Same as in Solidity internal functions are functions that are callable from inside the contract. Unlike #[only_self]
+/// functions, internal functions are inlined (e.g. akin to EVM's JUMP and not EVM's CALL).
+///
+/// Internal function can be called using the following API:
+/// ```noir
+/// self.internal.my_internal_function(...)
+/// ```
+///
+/// Private internal functions can only be called from other private external or internal functions.
+/// Public internal functions can only be called from other public external or internal functions.
+pub comptime fn internal(f: FunctionDefinition, f_type: CtString) {
+    let function_name = f.name();
+    if is_fn_external(f) {
+        panic(
+            f"The #[internal] attribute cannot be applied to external functions - {function_name} is marked as both #[external] and #[internal(\"{f_type}\")]",
+        );
+    }
 
+    if f_type.eq("private") {
+        assert_valid_private(f);
+        internal_functions_registry::add_private(f);
+    } else if f_type.eq("public") {
+        assert_valid_public(f);
+        internal_functions_registry::add_public(f);
+    } else {
+        let function_name = f.name();
+        panic(
+            f"Function '{function_name}' is marked as #[internal(\"{f_type}\")], but '{f_type}' is not a valid internal function type. Internal functions must be one of 'private', 'public'",
+        );
+    }
+}
+
+comptime fn assert_valid_private(f: FunctionDefinition) {
     let visibility = f.visibility();
     if visibility != quote {} {
         let name = f.name();
         panic(
-            f"A function marked as #[external(\"private\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+            f"A function marked as #[external(\"private\")] or #[internal(\"private\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
         );
     }
 
     if f.is_unconstrained() {
         let name = f.name();
         panic(
-            f"#[external(\"private\")] functions must not be unconstrained - {name} is",
+            f"#[external(\"private\")] or #[internal(\"private\")] functions must not be unconstrained - {name} is",
+        );
+    }
+}
+
+comptime fn assert_valid_public(f: FunctionDefinition) {
+    let visibility = f.visibility();
+    if visibility != quote {} {
+        let name = f.name();
+        panic(
+            f"A function marked as #[external(\"public\")] or #[internal(\"public\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
         );
     }
 
-    // The abi export function is expected to be executed before the function is transformed.
-    let fn_abi_export = create_fn_abi_export(f);
+    if f.is_unconstrained() {
+        let name = f.name();
+        panic(
+            f"#[external(\"public\")] or #[internal(\"public\")] functions must not be unconstrained - {name} is",
+        );
+    }
 
-    transform_private(f);
-
-    fn_abi_export
-}
-
-/// Public functions are executed sequencer-side and do not preserve privacy, similar to the EVM.
-comptime fn public(f: FunctionDefinition) -> Quoted {
-    // We need to add this attribute to be able to identify if the function is external public when constructing
-    // the contract artifact.
-    f.add_attribute("public");
-
-    // We don't want to transform the public_dispatch function.
-    if f.name() == quote { public_dispatch } {
-        quote {}
-    } else {
-        let visibility = f.visibility();
-        if visibility != quote {} {
-            let name = f.name();
-            panic(
-                f"A function marked as #[external(\"public\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
-            );
-        }
-
-        if f.is_unconstrained() {
-            let name = f.name();
-            panic(
-                f"#[external(\"public\")] functions must not be unconstrained - {name} is",
-            );
-        }
-
-        // The abi export function is expected to be executed before the function is transformed.
-        let fn_abi_export = create_fn_abi_export(f);
-
-        transform_public(f);
-
-        fn_abi_export
+    if fn_has_nophasecheck(f) {
+        let name = f.name();
+        panic(
+            f"The #[nophasecheck] attribute cannot be applied to #[external(\"public\")] functions - {name}",
+        );
     }
 }
 
-/// Utility functions are standalone unconstrained functions that cannot be called from another function in a contract.
-/// They are typically used either to obtain some information from the contract (e.g. token balance of a user) or to
-/// modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
-comptime fn utility(f: FunctionDefinition) -> Quoted {
-    // We need to add this attribute to be able to identify if the function is external utility when constructing
-    // the contract artifact.
-    f.add_attribute("utility");
-
+comptime fn assert_valid_utility(f: FunctionDefinition) {
     let visibility = f.visibility();
     if visibility != quote {} {
         let name = f.name();
@@ -234,22 +260,11 @@ comptime fn utility(f: FunctionDefinition) -> Quoted {
         );
     }
 
-    post_external_utility_checks(f);
-
-    // The abi export function is expected to be executed before the function is transformed.
-    let fn_abi_export = create_fn_abi_export(f);
-
-    transform_utility(f);
-
-    fn_abi_export
-}
-
-/// Utility functions cannot be used with the following modifiers: #[authorize_once], #[internal], #[view],
-/// #[initializer], and #[noinitcheck]. Since we cannot enforce a specific ordering between these modifiers and
-/// #[external(...)], and we cannot access the #[external(...)] argument from within these modifiers' implementations
-/// (as accessing EXTERNAL_REGISTRY would require enforcing ordering), we perform these compatibility checks here in
-/// the utility macro.
-comptime fn post_external_utility_checks(f: FunctionDefinition) {
+    // Utility functions cannot be used with the following modifiers: #[authorize_once], #[only_self], #[view],
+    // #[initializer], #[nophasecheck], and #[noinitcheck]. Since we cannot enforce a specific ordering between these modifiers and
+    // #[external(...)], and we cannot access the #[external(...)] argument from within these modifiers' implementations
+    // (as accessing EXTERNAL_REGISTRY would require enforcing ordering), we perform these compatibility checks here in
+    // the utility macro.
     if AUTHORIZE_ONCE_REGISTRY.get(f).is_some() {
         let name = f.name();
         panic(
@@ -257,10 +272,10 @@ comptime fn post_external_utility_checks(f: FunctionDefinition) {
         );
     }
 
-    if is_fn_internal(f) {
+    if is_fn_only_self(f) {
         let name = f.name();
         panic(
-            f"The #[internal] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+            f"The #[only_self] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
         );
     }
 
@@ -282,6 +297,13 @@ comptime fn post_external_utility_checks(f: FunctionDefinition) {
         let name = f.name();
         panic(
             f"The #[noinitcheck] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+        );
+    }
+
+    if fn_has_nophasecheck(f) {
+        let name = f.name();
+        panic(
+            f"The #[nophasecheck] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
         );
     }
 }

@@ -1,5 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
+import type { PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -10,12 +11,7 @@ import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js'
 import type { PublicContractsDB } from '../public_db_sources.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
-import {
-  type ProcessedPhase,
-  type PublicTxResult,
-  PublicTxSimulator,
-  type PublicTxSimulatorConfig,
-} from './public_tx_simulator.js';
+import { PublicTxSimulator } from './public_tx_simulator.js';
 import type { MeasuredPublicTxSimulatorInterface } from './public_tx_simulator_interface.js';
 
 /**
@@ -27,7 +23,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     protected readonly metrics: ExecutorMetricsInterface,
-    config?: Partial<PublicTxSimulatorConfig>,
+    config?: Partial<PublicSimulatorConfig>,
   ) {
     super(merkleTree, contractsDB, globalVariables, config);
   }
@@ -38,24 +34,24 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
     try {
       avmResult = await super.simulate(tx);
     } finally {
-      this.metrics.stopRecordingTxSimulation(txLabel, avmResult?.revertCode);
+      this.metrics.stopRecordingTxSimulation(txLabel, avmResult?.gasUsed, avmResult?.revertCode);
     }
     return avmResult;
   }
 
-  protected override async insertNonRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
+  protected override async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
     const timer = new Timer();
-    await super.insertNonRevertiblesFromPrivate(context, tx);
+    await super.insertNonRevertiblesFromPrivate(context);
     this.metrics.recordPrivateEffectsInsertion(timer.us(), 'non-revertible');
   }
 
-  protected override async insertRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
+  protected override async insertRevertiblesFromPrivate(context: PublicTxContext) {
     const timer = new Timer();
-    await super.insertRevertiblesFromPrivate(context, tx);
+    await super.insertRevertiblesFromPrivate(context);
     this.metrics.recordPrivateEffectsInsertion(timer.us(), 'revertible');
   }
 
-  protected override async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
+  protected override async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext) {
     const timer = new Timer();
     const result = await super.simulatePhase(phase, context);
     result.durationMs = timer.ms();

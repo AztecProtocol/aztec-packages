@@ -23,7 +23,7 @@ export const getBBConfig = async (
   try {
     const bbBinaryPath =
       BB_BINARY_PATH ??
-      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../', BB_RELEASE_DIR, 'bb');
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../', BB_RELEASE_DIR, 'bb-avm');
     await fs.access(bbBinaryPath, fs.constants.R_OK);
 
     let bbWorkingDirectory: string;

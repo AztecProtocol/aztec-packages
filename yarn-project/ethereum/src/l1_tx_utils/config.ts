@@ -1,7 +1,7 @@
 import {
   type ConfigMappingsType,
-  bigintConfigHelper,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -15,11 +15,11 @@ export interface L1TxUtilsConfig {
   /**
    * Maximum gas price in gwei
    */
-  maxGwei?: bigint;
+  maxGwei?: number;
   /**
    * Maximum blob fee per gas in gwei
    */
-  maxBlobGwei?: bigint;
+  maxBlobGwei?: number;
   /**
    * Priority fee bump percentage
    */
@@ -69,14 +69,16 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     ...numberConfigHelper(20),
   },
   maxGwei: {
-    description: 'Maximum gas price in gwei',
+    description: 'Maximum gas price in gwei to be used for transactions.',
     env: 'L1_GAS_PRICE_MAX',
-    ...bigintConfigHelper(500n),
+    fallback: ['L1_FEE_PER_GAS_GWEI_MAX'],
+    ...floatConfigHelper(2000),
   },
   maxBlobGwei: {
     description: 'Maximum blob fee per gas in gwei',
     env: 'L1_BLOB_FEE_PER_GAS_MAX',
-    ...bigintConfigHelper(1_500n),
+    fallback: ['L1_BLOB_FEE_PER_GAS_GWEI_MAX'],
+    ...floatConfigHelper(3000),
   },
   priorityFeeBumpPercentage: {
     description: 'How much to increase priority fee by each attempt (percentage)',
@@ -91,7 +93,8 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   fixedPriorityFeePerGas: {
     description: 'Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage',
     env: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
-    ...numberConfigHelper(0),
+    fallback: ['L1_FIXED_PRIORITY_FEE_PER_GAS_GWEI'],
+    ...floatConfigHelper(0),
   },
   maxSpeedUpAttempts: {
     description: 'Maximum number of speed-up attempts',
@@ -106,7 +109,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   stallTimeMs: {
     description: 'How long before considering tx stalled',
     env: 'L1_TX_MONITOR_STALL_TIME_MS',
-    ...numberConfigHelper(24_000), // 24s, 2 ethereum slots
+    ...numberConfigHelper(12_000), // 12s, 1 ethereum slot
   },
   txTimeoutMs: {
     description: 'How long to wait for a tx to be mined before giving up. Set to 0 to disable.',

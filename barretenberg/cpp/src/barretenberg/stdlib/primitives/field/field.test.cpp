@@ -1,6 +1,5 @@
 #include "field.hpp"
 #include "../bool/bool.hpp"
-#include "array.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -30,13 +29,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct a(public_witness_ct(&builder, fr::one())); // a is a legit wire value in our circuit
         field_ct b(&builder,
                    (fr::one())); // b is just a constant, and should not turn up as a wire value in our circuit
-        const size_t num_gates = builder.get_estimated_num_finalized_gates();
+        const size_t num_gates = builder.get_num_finalized_gates_inefficient();
 
         // This shouldn't create a constraint - we just need to scale the addition/multiplication gates that `a` is
         // involved in, `c` should have the same witness index as `a`, i.e. point to the same wire value
         field_ct c = a + b;
-        EXPECT_TRUE(c.witness_index == a.witness_index);
-        EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates);
+        EXPECT_TRUE(field_ct::witness_indices_match(c, a));
+        EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() == num_gates);
         field_ct d(&builder, fr::coset_generator<0>()); // like b, d is just a constant and not a wire value
 
         // by this point, we shouldn't have added any constraints in our circuit
@@ -99,18 +98,18 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct c(fr::random_element());
         field_ct sum_with_constant = sum + c;
         EXPECT_TRUE(sum_with_constant.get_value() == sum.get_value() + c.get_value());
-        EXPECT_TRUE(sum.witness_index == sum_with_constant.witness_index);
+        EXPECT_TRUE(field_ct::witness_indices_match(sum, sum_with_constant));
 
         // Case 3: first summand is a constant
         sum_with_constant = c + sum;
         EXPECT_TRUE(sum_with_constant.get_value() == sum.get_value() + c.get_value());
-        EXPECT_TRUE(sum.witness_index == sum_with_constant.witness_index);
+        EXPECT_TRUE(field_ct::witness_indices_match(sum, sum_with_constant));
 
         // Case 4: both summands are witnesses with matching indices
         field_ct sum_with_same_witness_index = sum_with_constant + sum;
         EXPECT_TRUE(sum_with_same_witness_index.get_value() == sum.get_value() + sum_with_constant.get_value());
-        EXPECT_TRUE((sum_with_same_witness_index.witness_index == sum_with_constant.witness_index) &&
-                    (sum_with_same_witness_index.witness_index == sum.witness_index));
+        EXPECT_TRUE(field_ct::witness_indices_match(sum_with_same_witness_index, sum_with_constant) &&
+                    field_ct::witness_indices_match(sum_with_same_witness_index, sum));
 
         // Case 5: both summands are constant
         field_ct d(fr::random_element());
@@ -164,7 +163,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
             if (!expected_to_be_constant) {
                 EXPECT_TRUE(CircuitChecker::check(builder));
-                EXPECT_TRUE(converted.get_normalized_witness_index() == field_elt.witness_index);
+                EXPECT_TRUE(field_ct::witness_indices_match(converted, field_elt));
             }
         }
         // Check that the conversion aborts in the case of random field elements.
@@ -209,8 +208,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         auto check_conditional_assign =
             [](auto& builder, bool_ct& predicate, field_ct& lhs, field_ct& rhs, bool same_elt) {
-                size_t num_gates_before = builder.get_estimated_num_finalized_gates();
-                field_ct result = field_ct::conditional_assign(predicate, lhs, rhs);
+                size_t num_gates_before = builder.get_num_finalized_gates_inefficient();
+                field_ct result = field_ct::conditional_assign_internal(predicate, lhs, rhs);
                 EXPECT_TRUE(result.get_value() == (predicate.get_value() ? lhs.get_value() : rhs.get_value()));
 
                 size_t expected_num_gates = 0;
@@ -224,7 +223,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
                     }
                 }
 
-                EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == expected_num_gates);
+                EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() - num_gates_before == expected_num_gates);
             };
         // Populate predicate array, ensure that both constant and witness predicates are present
         std::array<bool_ct, 4> predicates{
@@ -251,7 +250,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             field_ct z(1);
             field_ct alpha = x.madd(y, -z);
             field_ct beta(3);
-            field_ct zeta = field_ct::conditional_assign(predicate, alpha, beta);
+            field_ct zeta = field_ct::conditional_assign_internal(predicate, alpha, beta);
 
             EXPECT_TRUE(zeta.is_constant());
         };
@@ -312,8 +311,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 if (true_when_y_val_zero) {
                     // constraint: 0*x + 1*y + 0*0 + 0 == 0
 
-                    builder.create_add_gate({ .a = x.witness_index,
-                                              .b = y.witness_index,
+                    builder.create_add_gate({ .a = x.get_witness_index(),
+                                              .b = y.get_witness_index(),
                                               .c = builder.zero_idx(),
                                               .a_scaling = 0,
                                               .b_scaling = 1,
@@ -323,8 +322,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 } else {
                     // constraint: 0*x + 1*y + 0*0 - 1 == 0
 
-                    builder.create_add_gate({ .a = x.witness_index,
-                                              .b = y.witness_index,
+                    builder.create_add_gate({ .a = x.get_witness_index(),
+                                              .b = y.get_witness_index(),
                                               .c = builder.zero_idx(),
                                               .a_scaling = 0,
                                               .b_scaling = 1,
@@ -371,52 +370,52 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // Constant == witness
         {
             Builder builder;
-            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
             field_ct a(&builder, 9);
-            field_ct b = field_ct::from_witness(&builder, 9);
+            field_ct b = field_ct::from_witness(&builder, typename field_ct::native(9));
             a.assert_equal(b);
             EXPECT_TRUE(CircuitChecker::check(builder));
             // 1 gate is needed to fix the constant
-            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 1);
+            EXPECT_EQ(builder.get_num_finalized_gates_inefficient() - num_gates_start, 1);
         }
 
         // Witness == constant
         {
             Builder builder;
-            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
-            field_ct a = field_ct::from_witness(&builder, 42);
+            size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
+            field_ct a = field_ct::from_witness(&builder, typename field_ct::native(42));
             field_ct b(&builder, 42);
             a.assert_equal(b);
             EXPECT_TRUE(CircuitChecker::check(builder));
             // 1 gate is needed to fix the constant
-            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 1);
+            EXPECT_EQ(builder.get_num_finalized_gates_inefficient() - num_gates_start, 1);
         }
 
         // Witness == witness (equal values)
         {
             Builder builder;
-            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
 
-            field_ct a = field_ct::from_witness(&builder, 11);
-            field_ct b = field_ct::from_witness(&builder, 11);
+            field_ct a = field_ct::from_witness(&builder, typename field_ct::native(11));
+            field_ct b = field_ct::from_witness(&builder, typename field_ct::native(11));
             a.assert_equal(b);
             EXPECT_TRUE(CircuitChecker::check(builder));
             // Both witnesses are normalized, no gates are created, only a copy constraint
-            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 0);
+            EXPECT_EQ(builder.get_num_finalized_gates_inefficient() - num_gates_start, 0);
         }
 
         // Witness != witness (both are not normalized)
         {
             Builder builder;
-            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
-            field_ct a = field_ct::from_witness(&builder, 10);
+            size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
+            field_ct a = field_ct::from_witness(&builder, typename field_ct::native(10));
             a += 13;
-            field_ct b = field_ct::from_witness(&builder, 15);
+            field_ct b = field_ct::from_witness(&builder, typename field_ct::native(15));
             b += 1;
             a.assert_equal(b);
             EXPECT_FALSE(CircuitChecker::check(builder));
             // Both witnesses are not normalized, we use a single `add_gate` to ensure they are equal
-            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 1);
+            EXPECT_EQ(builder.get_num_finalized_gates_inefficient() - num_gates_start, 1);
             EXPECT_EQ(builder.err(), "field_t::assert_equal");
         }
     }
@@ -424,9 +423,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_add_mul_with_constants()
     {
         Builder builder = Builder();
-        auto gates_before = builder.get_estimated_num_finalized_gates();
+        auto gates_before = builder.get_num_finalized_gates_inefficient();
         uint64_t expected = fidget(builder);
-        auto gates_after = builder.get_estimated_num_finalized_gates();
+        auto gates_after = builder.get_num_finalized_gates_inefficient();
         auto& block = builder.blocks.arithmetic;
         EXPECT_EQ(builder.get_variable(block.w_o()[block.size() - 1]), fr(expected));
         info("Number of gates added", gates_after - gates_before);
@@ -460,7 +459,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // Case 2: Numerator != const, denominator = const,
         out = a / b.get_value();
         EXPECT_EQ(out.get_value(), a.get_value() / b.get_value());
-        EXPECT_EQ(out.witness_index, a.witness_index);
+        EXPECT_TRUE(field_ct::witness_indices_match(out, a));
 
         // Case 3: Numerator = const 0.
         out = field_ct(0) / b;
@@ -606,7 +605,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         c_sqr.set_public();
         field_ct sum_sqrs = a_sqr + b_sqr;
 
-        // builder.assert_equal(sum_sqrs.witness_index, c_sqr.witness_index, "triple is not pythagorean");
+        // builder.assert_equal(sum_sqrs.get_witness_index(), c_sqr.get_witness_index(), "triple is not pythagorean");
         c_sqr.assert_equal(sum_sqrs);
 
         bool verified = CircuitChecker::check(builder);
@@ -617,12 +616,12 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_equality()
     {
         Builder builder = Builder();
-        auto gates_before = builder.get_estimated_num_finalized_gates();
+        auto gates_before = builder.get_num_finalized_gates_inefficient();
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 4));
         bool_ct r = a == b;
 
-        auto gates_after = builder.get_estimated_num_finalized_gates();
+        auto gates_after = builder.get_num_finalized_gates_inefficient();
         EXPECT_EQ(r.get_value(), true);
 
         fr x = r.get_value();
@@ -642,11 +641,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        auto gates_before = builder.get_estimated_num_finalized_gates();
+        auto gates_before = builder.get_num_finalized_gates_inefficient();
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 3));
         bool_ct r = a == b;
-        auto gates_after = builder.get_estimated_num_finalized_gates();
+        auto gates_after = builder.get_num_finalized_gates_inefficient();
 
         EXPECT_FALSE(r.get_value());
 
@@ -664,18 +663,18 @@ template <typename Builder> class stdlib_field : public testing::Test {
         Builder builder = Builder();
         field_ct a(witness_ct(&builder, 4));
 
-        auto gates_before = builder.get_estimated_num_finalized_gates();
+        auto gates_before = builder.get_num_finalized_gates_inefficient();
         field_ct b = 3;
         field_ct c = 7;
         // Note that the lhs is constant, hence (rhs - lhs) can be computed without adding new gates, using == in
         // this case requires 3 constraints 1) ensure r is bool; 2) (a - b) * I + r - 1 = 0; 3) -I * r + r = 0
         bool_ct r = (a * c) == (b * c + c);
-        auto gates_after = builder.get_estimated_num_finalized_gates();
+        auto gates_after = builder.get_num_finalized_gates_inefficient();
         EXPECT_EQ(gates_after - gates_before, 3UL);
         r = r && (b + 1 == a);
         EXPECT_EQ(r.get_value(), true);
         // The situation is as above, but we also applied && to bool_t witnesses, which adds an extra gate.
-        EXPECT_EQ(builder.get_estimated_num_finalized_gates() - gates_after, 4UL);
+        EXPECT_EQ(builder.get_num_finalized_gates_inefficient() - gates_after, 4UL);
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
@@ -697,10 +696,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct d(&builder, fr::zero());
         field_ct e(&builder, fr::one());
         // Validate that `is_zero()` check does not add any gates in this case
-        const size_t old_n = builder.get_estimated_num_finalized_gates();
+        const size_t old_n = builder.get_num_finalized_gates_inefficient();
         bool_ct d_zero = d.is_zero();
         bool_ct e_zero = e.is_zero();
-        const size_t new_n = builder.get_estimated_num_finalized_gates();
+        const size_t new_n = builder.get_num_finalized_gates_inefficient();
         EXPECT_EQ(old_n, new_n);
 
         // Create witnesses
@@ -740,17 +739,17 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_assert_is_not_zero()
     {
         Builder builder = Builder();
-        size_t num_gates_before = builder.get_estimated_num_finalized_gates();
+        size_t num_gates_before = builder.get_num_finalized_gates_inefficient();
         field_ct a(engine.get_random_uint256());
         if (a.get_value() == 0) {
             a += 1;
         }
         a.assert_is_not_zero();
         // a is a constant, so no gates should be added
-        EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 0);
+        EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() - num_gates_before == 0);
         a = witness_ct(&builder, 17);
         a.assert_is_not_zero();
-        EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 1);
+        EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() - num_gates_before == 1);
         // Ensure a is not normalized anymore
         a *= 2;
         a += 4;
@@ -846,15 +845,15 @@ template <typename Builder> class stdlib_field : public testing::Test {
             auto b = b_const ? make_constant(builder, 2) : make_witness(builder, 2);
             auto c = c_const ? make_constant(builder, 3) : make_witness(builder, 3);
 
-            size_t before = builder.get_estimated_num_finalized_gates();
+            size_t before = builder.get_num_finalized_gates_inefficient();
             a.madd(b, c);
-            size_t after = builder.get_estimated_num_finalized_gates();
+            size_t after = builder.get_num_finalized_gates_inefficient();
             bool gate_added = (after - before == 1);
             EXPECT_EQ(gate_added, expect_gate);
 
-            before = builder.get_estimated_num_finalized_gates();
+            before = builder.get_num_finalized_gates_inefficient();
             a.add_two(b, c);
-            after = builder.get_estimated_num_finalized_gates();
+            after = builder.get_num_finalized_gates_inefficient();
 
             gate_added = (after - before == 1);
             EXPECT_EQ(gate_added, expect_gate);
@@ -873,24 +872,24 @@ template <typename Builder> class stdlib_field : public testing::Test {
             const bool predicate_is_witness = !predicate.is_constant();
 
             // Conditionally negate a constant
-            size_t num_gates_before = builder.get_estimated_num_finalized_gates();
+            size_t num_gates_before = builder.get_num_finalized_gates_inefficient();
             auto result = constant_summand.conditional_negate(predicate);
             auto expected_result = predicate.get_value() ? -constant_summand.get_value() : constant_summand.get_value();
             EXPECT_TRUE(result.get_value() == expected_result);
             // Check that `result` is constant if and only if both the predicate and (*this) are constant.
             EXPECT_TRUE(result.is_constant() == predicate.is_constant());
             // A gate is only added if the predicate is a witness
-            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 0);
+            EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() - num_gates_before == 0);
 
             // Conditionally negate a witness
-            num_gates_before = builder.get_estimated_num_finalized_gates();
+            num_gates_before = builder.get_num_finalized_gates_inefficient();
             result = witness_summand.conditional_negate(predicate);
             expected_result = predicate.get_value() ? -witness_summand.get_value() : witness_summand.get_value();
             EXPECT_TRUE(result.get_value() == expected_result);
             // The result must be a witness
             EXPECT_FALSE(result.is_constant());
             // A gate is only added if the predicate is a witness
-            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == predicate_is_witness);
+            EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() - num_gates_before == predicate_is_witness);
         }
     }
     static void test_two_bit_table()
@@ -1021,7 +1020,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         std::vector<field_ct> set = { a, b, c, d, e };
 
         a.assert_is_in_set(set);
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        info("num gates = ", builder.get_num_finalized_gates_inefficient());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -1041,7 +1040,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct f(witness_ct(&builder, fr(6)));
         f.assert_is_in_set(set);
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        info("num gates = ", builder.get_num_finalized_gates_inefficient());
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
@@ -1128,7 +1127,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         EXPECT_EQ(value_ct.get_witness_index() + 1, first_copy.get_witness_index());
         EXPECT_EQ(value_ct.get_witness_index() + 2, second_copy.get_witness_index());
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        info("num gates = ", builder.get_num_finalized_gates_inefficient());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -1195,7 +1194,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             size_t padding = (3 - (num_witnesses % 3)) % 3;
             size_t expected_num_gates = (num_witnesses + padding) / 3;
 
-            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - 1, expected_num_gates);
+            EXPECT_EQ(builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false) - 1, expected_num_gates);
 
             // Check that the accumulation of constant entries does not create a witness
             std::vector<field_ct> constant_input;
@@ -1398,7 +1397,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         auto l = a.conditional_negate(k);
         EXPECT_EQ(l.get_origin_tag(), first_and_third_merged_tag);
 
-        auto m = field_ct::conditional_assign(k, a, b);
+        auto m = field_ct::conditional_assign_internal(k, a, b);
         EXPECT_EQ(m.get_origin_tag(), first_second_third_merged_tag);
 
         // Accumulate merges tags

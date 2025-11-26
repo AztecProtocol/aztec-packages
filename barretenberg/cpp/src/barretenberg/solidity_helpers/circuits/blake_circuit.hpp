@@ -16,9 +16,13 @@ class BlakeCircuit {
     {
         Builder builder;
 
-        byte_array_ct input_buffer(&builder);
+        // Build byte array from field elements with proper constraints using write() pattern
+        byte_array_ct input_buffer(&builder, std::vector<uint8_t>());
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
-            input_buffer.write(byte_array_ct(field_ct(public_witness_ct(&builder, public_inputs[i]))));
+            field_ct field_element = public_witness_ct(&builder, public_inputs[i]);
+            // byte_array_ct(field_t) constructor adds range constraints for each byte
+            byte_array_ct field_bytes(field_element);
+            input_buffer.write(field_bytes);
         }
 
         bb::stdlib::Blake2s<Builder>::hash(input_buffer);

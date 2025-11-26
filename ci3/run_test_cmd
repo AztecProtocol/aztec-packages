@@ -2,6 +2,7 @@
 # Called by 'parallelize' to execute a given test cmd.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
+source $ci3/source_cache
 source $ci3/source_refname
 
 # We must enable job control to ensure our test runs in it's own process group.
@@ -95,7 +96,13 @@ History: http://ci.aztec-labs.com/list/history_$test_hash${TARGET_BRANCH:+_$TARG
 EOF
 
 function publish_log {
-  cat $tmp_file 2>/dev/null | redis_setexz $log_key ${1:-$CI_REDIS_EXPIRE}
+  local expire=${1:-$CI_REDIS_EXPIRE}
+  cat $tmp_file 2>/dev/null | redis_setexz $log_key $expire
+}
+
+function publish_log_final {
+  local expire=${1:-$CI_REDIS_EXPIRE}
+  cat $tmp_file 2>/dev/null | cache_persistent $log_key $expire
 }
 
 function live_publish_log {
@@ -153,36 +160,35 @@ if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
 fi
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  # If the test succeeded and we're using the test cache, set success flag for test. This key is unique to the test.
+  # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
   # If the test succeeded and we're in CI, save the test log.
-  # If the test failed, save the test log.
+  # If the test failed, regardless of CI state, save the test log.
   if [ $code -eq 0 ]; then
-    if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
-      redis_cli SETEX $key 604800 $log_key &>/dev/null
-    fi
     if [ "$CI" -eq 1 ]; then
-      publish_log
+      redis_cli SETEX $key 604800 $log_key &>/dev/null
+      publish_log_final
     else
       log_info=""
     fi
   else
     # Extend lifetime of failed test logs to 12 weeks.
-    publish_log $((60 * 60 * 24 * 7 * 12))
+    publish_log_final $((60 * 60 * 24 * 7 * 12))
   fi
 fi
 
 function track_test {
-  # We track tests in merge queues only.
-  if [ "$is_merge_queue" -eq 0 ]; then
-    return
+  # For the next branch, we track tests in merge queues only.
+  # This means that in-PR tests for other branches get into history,
+  # but it's better to have the noise than lack of data.
+  # Skip tracking for non-merge-queue PRs on next branch
+  if [ "$is_merge_queue" -eq 1 ] || [[ -n "${TARGET_BRANCH:-}" && "$TARGET_BRANCH" != "next" ]]; then
+    local key=$1
+    local line=$(pr_link "$2")
+
+    redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
+    # Keeps only the last 1000 lines.
+    redis_cli RTRIM $key -1000 -1 &>/dev/null
   fi
-
-  local key=$1
-  local line=$(pr_link "$2")
-
-  redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
-  # Keeps only the last 1000 lines.
-  redis_cli RTRIM $key -1000 -1 &>/dev/null
 }
 
 # Show PASSED and early out on success.
@@ -209,6 +215,21 @@ function fail {
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
 
+  # Publish failed status to Redis channel
+  local redis_data=$(jq -n \
+    --arg status "failed" \
+    --arg test_cmd "$test_cmd" \
+    --arg log_url "${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}" \
+    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
+    --arg commit_hash "$COMMIT_HASH" \
+    --arg commit_author "$COMMIT_AUTHOR" \
+    --arg commit_msg "$COMMIT_MSG" \
+    --argjson code "$code" \
+    --argjson duration "$SECONDS" \
+    --argjson is_scenario "$SCENARIO_TESTS" \
+    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, is_scenario_test: ($is_scenario == 1), timestamp: now | todate}')
+  redis_publish "ci:test:failed" "$redis_data"
+
   # notify slack if scenario test failed
   if [ "$SCENARIO_TESTS" -eq 1 ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
     read -r -d '' data <<EOF
@@ -228,7 +249,11 @@ EOF
 
 # Show FLAKED and send slack message to test owner(s). Exit with success.
 function flake {
-  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  local group_suffix=""
+  if [ -n "${flake_group_id:-}" ]; then
+    group_suffix=" group:$flake_group_id"
+  fi
+  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix}"
   echo -e "$line"
 
   line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
@@ -239,6 +264,23 @@ function flake {
   if [ -n "${FLAKES_FILE:-}" ]; then
     echo "$line" >> "$FLAKES_FILE"
   fi
+
+  # Publish flake status to Redis channel
+  local owners_json=$(echo "$owners" | jq -R -s 'split("\n") | map(select(length > 0))')
+  local redis_data=$(jq -n \
+    --arg status "flaked" \
+    --arg test_cmd "$test_cmd" \
+    --arg log_url "http://ci.aztec-labs.com/$log_key" \
+    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
+    --arg commit_hash "$COMMIT_HASH" \
+    --arg commit_author "$COMMIT_AUTHOR" \
+    --arg commit_msg "$COMMIT_MSG" \
+    --argjson code "$code" \
+    --argjson duration "$SECONDS" \
+    --argjson owners "$owners_json" \
+    --arg flake_group_id "${flake_group_id:-}" \
+    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, owners: $owners, flake_group_id: $flake_group_id, timestamp: now | todate}')
+  redis_publish "ci:test:flaked" "$redis_data"
 
   # Early out if no token or not in merge queue (unless on backport-to-v2-staging).
   if [ -z "${SLACK_BOT_TOKEN:-}" ] || { [ "$is_merge_queue" -eq 0 ] && [ "$REF_NAME" != "backport-to-v2-staging" ]; }; then
@@ -269,7 +311,14 @@ EOF
 # We're not in CI, fail.
 [ "$CI" -eq 0 ] && fail
 
-owners=$(get_test_owner "$test_cmd" "$tmp_file")
+# Get matching test entries
+test_entries=$(get_test_entry "$test_cmd" "$tmp_file")
+
+# Extract owners from entries
+owners=$(echo "$test_entries" | jq -r '.owners[]' | sort -u)
+
+# Extract flake_group_id from first matching entry
+flake_group_id=$(echo "$test_entries" | jq -r '.flake_group_id // empty' | head -1)
 
 # To not fail a test, we at least need an owner to notify.
 if [ -z "$owners" ]; then

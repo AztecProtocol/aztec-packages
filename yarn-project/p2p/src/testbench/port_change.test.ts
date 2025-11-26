@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
 
 import getPort from 'get-port';
@@ -60,7 +60,7 @@ describe('Port Change', () => {
 
         // Send tx from random client
         const tx = await mockTx(1, {
-          clientIvcProof: ClientIvcProof.random(),
+          chonkProof: ChonkProof.random(),
         });
 
         workerClientManager.processes[clientIndex].send({ type: 'SEND_TX', tx: tx.toBuffer() });

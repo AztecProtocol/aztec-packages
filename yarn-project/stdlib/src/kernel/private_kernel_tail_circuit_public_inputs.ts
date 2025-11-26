@@ -184,6 +184,12 @@ export class PrivateKernelTailCircuitPublicInputs {
     );
   }
 
+  publicInputs(): PrivateToPublicKernelCircuitPublicInputs | PrivateToRollupKernelCircuitPublicInputs {
+    return this.forPublic
+      ? this.toPrivateToPublicKernelCircuitPublicInputs()
+      : this.toPrivateToRollupKernelCircuitPublicInputs();
+  }
+
   numberOfPublicCallRequests() {
     return (
       this.numberOfNonRevertiblePublicCallRequests() +

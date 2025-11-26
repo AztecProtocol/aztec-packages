@@ -38,25 +38,6 @@ TEST_F(ThreadTest, BasicParallelFor)
     }
 }
 
-// Test nested parallel_for
-TEST_F(ThreadTest, NestedParallelFor)
-{
-    constexpr size_t outer_iterations = 4;
-    constexpr size_t inner_iterations = 10;
-
-    std::vector<std::vector<char>> flags(outer_iterations, std::vector<char>(inner_iterations, 0));
-
-    parallel_for(outer_iterations,
-                 [&](size_t i) { parallel_for(inner_iterations, [&](size_t j) { flags[i][j] = 1; }); });
-
-    // All iterations should have been executed
-    for (size_t i = 0; i < outer_iterations; ++i) {
-        for (size_t j = 0; j < inner_iterations; ++j) {
-            EXPECT_TRUE(flags[i][j]);
-        }
-    }
-}
-
 // Test thread count calculation
 TEST_F(ThreadTest, CalculateNumThreads)
 {
@@ -209,35 +190,33 @@ TEST_F(ThreadTest, HardwareConcurrencyPow2)
     EXPECT_EQ(get_num_cpus_pow2(), 16);
 }
 
-// Test main thread concurrency isolation and nested concurrency
-TEST_F(ThreadTest, ConcurrencyIsolation)
+// Test that spawned threads can use parallel_for with set_parallel_for_concurrency
+TEST_F(ThreadTest, SpawnedThreadsCanUseParallelFor)
 {
     set_parallel_for_concurrency(8);
 
-    // Main thread concurrency should be preserved before/after parallel_for
-    size_t cpus_before = get_num_cpus();
-    EXPECT_EQ(cpus_before, 8);
+    constexpr size_t num_outer = 2;
+    constexpr size_t num_inner = 100;
+    std::vector<std::vector<char>> results(num_outer, std::vector<char>(num_inner, 0));
 
-    std::vector<std::atomic<size_t>> observed_inner_cpus(4);
+    auto worker = [&](size_t outer_idx) {
+        set_parallel_for_concurrency(4);
+        parallel_for(num_inner, [&](size_t inner_idx) { results[outer_idx][inner_idx] = 1; });
+    };
 
-    parallel_for(4, [&](size_t outer_idx) {
-        // Worker threads get their own thread_local concurrency set by the pool
-        // With 8 CPUs and 4 outer tasks, each gets at least 2 CPUs for inner work
-        size_t inner_cpus = get_num_cpus();
-        observed_inner_cpus[outer_idx].store(inner_cpus);
-
-        // Run a nested parallel_for to verify inner concurrency works
-        parallel_for(10, [](size_t) {});
-    });
-
-    // All inner parallel_for calls should see at least 2 CPUs
-    for (size_t i = 0; i < 4; ++i) {
-        EXPECT_GE(observed_inner_cpus[i].load(), 2);
+    std::vector<std::thread> threads;
+    for (size_t i = 0; i < num_outer; ++i) {
+        threads.emplace_back(worker, i);
+    }
+    for (auto& t : threads) {
+        t.join();
     }
 
-    // Main thread concurrency should be unchanged
-    size_t cpus_after = get_num_cpus();
-    EXPECT_EQ(cpus_after, 8);
-    EXPECT_EQ(cpus_before, cpus_after);
+    // Verify all work completed
+    for (size_t i = 0; i < num_outer; ++i) {
+        for (size_t j = 0; j < num_inner; ++j) {
+            EXPECT_TRUE(results[i][j]);
+        }
+    }
 }
 } // namespace bb

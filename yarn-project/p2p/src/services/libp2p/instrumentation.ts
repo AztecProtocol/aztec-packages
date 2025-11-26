@@ -17,6 +17,7 @@ export class P2PInstrumentation {
   private messageValidationDuration: Histogram;
   private messagePrevalidationCount: UpDownCounter;
   private messageLatency: Histogram;
+  private txReceivedCount: UpDownCounter;
 
   private aggLatencyHisto = new Map<TopicType, RecordableHistogram>();
   private aggValidationHisto = new Map<TopicType, RecordableHistogram>();
@@ -42,6 +43,10 @@ export class P2PInstrumentation {
       unit: 'ms',
       description: 'P2P message latency',
       valueType: ValueType.INT,
+    });
+
+    this.txReceivedCount = meter.createUpDownCounter(Metrics.P2P_GOSSIP_TX_RECEIVED_COUNT, {
+      description: 'The number of txs received from the p2p network',
     });
 
     this.aggLatencyMetrics = {
@@ -119,6 +124,10 @@ export class P2PInstrumentation {
     validationHistogram.record(Math.max(ms, 1));
   }
 
+  public incrementTxReceived(count: number) {
+    this.txReceivedCount.add(count);
+  }
+
   public incMessagePrevalidationStatus(passed: boolean, topicName: TopicType | undefined) {
     this.messagePrevalidationCount.add(1, { [Attributes.TOPIC_NAME]: topicName, [Attributes.OK]: passed });
   }
@@ -129,7 +138,7 @@ export class P2PInstrumentation {
 
     let latencyHistogram = this.aggLatencyHisto.get(topicName);
     if (!latencyHistogram) {
-      latencyHistogram = createHistogram({ min: 1, max: 24 * 60 * 60 * 1000 }); // 24hrs
+      latencyHistogram = createHistogram({ min: 1, max: 60 * 1000 }); // Max: 1 minute
       this.aggLatencyHisto.set(topicName, latencyHistogram);
     }
 

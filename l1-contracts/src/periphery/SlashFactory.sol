@@ -42,12 +42,11 @@ contract SlashFactory is ISlashFactory {
     return IPayload(address(payload));
   }
 
-  function getAddressAndIsDeployed(address[] memory _validators, uint96[] memory _amounts, uint128[][] memory _offenses)
-    public
-    view
-    override(ISlashFactory)
-    returns (address, bytes32, bool)
-  {
+  function getAddressAndIsDeployed(
+    address[] memory _validators,
+    uint96[] memory _amounts,
+    uint128[][] memory _offenses
+  ) public view override(ISlashFactory) returns (address, bytes32, bool) {
     (address predictedAddress, bytes32 salt) = _computeSlashPayloadAddress(_validators, _amounts, _offenses);
     bool isDeployed = predictedAddress.code.length > 0;
     return (predictedAddress, salt, isDeployed);
@@ -63,8 +62,10 @@ contract SlashFactory is ISlashFactory {
     bytes memory constructorArgs = abi.encode(_validators, _amounts, VALIDATOR_SELECTION);
     bytes32 creationCodeHash = keccak256(abi.encodePacked(type(SlashPayload).creationCode, constructorArgs));
 
-    return (
-      address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, creationCodeHash))))), salt
-    );
+    return
+      (
+        address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, creationCodeHash))))),
+        salt
+      );
   }
 }

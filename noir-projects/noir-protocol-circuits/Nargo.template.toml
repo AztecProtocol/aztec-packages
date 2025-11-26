@@ -19,7 +19,7 @@ members = [
     "crates/private-kernel-tail-to-public-simulated",
     "crates/hiding-kernel-to-rollup",
     "crates/hiding-kernel-to-public",
-    "crates/tube-public",
+    "crates/chonk-verifier-public",
     "crates/rollup-lib",
     "crates/rollup-tx-base-private",
     "crates/rollup-tx-base-private-simulated",

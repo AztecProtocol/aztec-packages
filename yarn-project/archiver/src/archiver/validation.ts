@@ -43,7 +43,6 @@ export async function validateBlockAttestations(
     return { valid: true };
   }
 
-  const committeeSet = new Set(committee.map(member => member.toString()));
   const requiredAttestationCount = Math.floor((committee.length * 2) / 3) + 1;
 
   const failedValidationResult = <TReason extends ValidateBlockNegativeResult['reason']>(reason: TReason) => ({
@@ -70,15 +69,20 @@ export async function validateBlockAttestations(
       return { ...failedValidationResult('invalid-attestation'), invalidIndex: i };
     }
 
-    // Check if the attestor is in the committee
+    // Check if the attestor at this index matches the committee member at the same index
     if (info.status === 'recovered-from-signature' || info.status === 'provided-as-address') {
       const signer = info.address.toString();
-      if (!committeeSet.has(signer)) {
-        logger?.warn(`Attestation from non-committee member ${signer} at slot ${slot}`, {
-          committee,
-          invalidIndex: i,
-          ...logData,
-        });
+      const expectedCommitteeMember = committee[i]?.toString();
+
+      if (!expectedCommitteeMember || signer !== expectedCommitteeMember) {
+        logger?.warn(
+          `Attestation at index ${i} from ${signer} does not match expected committee member ${expectedCommitteeMember} at slot ${slot}`,
+          {
+            committee,
+            invalidIndex: i,
+            ...logData,
+          },
+        );
         return { ...failedValidationResult('invalid-attestation'), invalidIndex: i };
       }
     }

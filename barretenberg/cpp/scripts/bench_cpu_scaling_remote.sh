@@ -19,7 +19,7 @@ NC='\033[0m' # No Color
 # Parse arguments
 if [ $# -lt 2 ]; then
     echo -e "${RED}Usage: $0 \"benchmark_name\" \"command\" [cpu_counts]${NC}"
-    echo -e "Example: $0 \"ClientIvcProve\" \"./build/bin/bb prove --ivc_inputs_path input.msgpack --scheme client_ivc\""
+    echo -e "Example: $0 \"ChonkProve\" \"./build/bin/bb prove --ivc_inputs_path input.msgpack --scheme chonk\""
     echo -e "Example: $0 \"construct_mock_function_circuit\" \"./build/bin/ultra_honk_bench --benchmark_filter=.*power_of_2.*/15\" \"1,2,4,8\""
     exit 1
 fi
@@ -91,7 +91,7 @@ extract_bench_time() {
     if [ -z "$time_ns" ] && [ -f "${json_file%/bench.json}/output.log" ]; then
         local log_file="${json_file%/bench.json}/output.log"
         # Try to extract from hierarchical BB_BENCH output
-        # Look for pattern like: "  ├─ ClientIvcProve ... 28.13s"
+        # Look for pattern like: "  ├─ ChonkProve ... 28.13s"
         local time_s=$(grep -E "├─.*${bench_name}" "$log_file" | grep -oP '\d+\.\d+s' | grep -oP '\d+\.\d+' | head -1)
         if [ -n "$time_s" ]; then
             # Convert seconds to nanoseconds

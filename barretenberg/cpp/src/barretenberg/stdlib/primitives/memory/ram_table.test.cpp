@@ -7,11 +7,14 @@
 #include "ram_table.hpp"
 
 using namespace bb;
-// Defining ultra-specific types for local testing.
-using Builder = UltraCircuitBuilder;
-using field_ct = stdlib::field_t<Builder>;
-using witness_ct = stdlib::witness_t<Builder>;
-using ram_table_ct = stdlib::ram_table<Builder>;
+
+template <typename Builder> class RamTableTests : public ::testing::Test {
+  public:
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using ram_table_ct = stdlib::ram_table<Builder>;
+};
+using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
@@ -25,7 +28,10 @@ STANDARD_TESTING_TAGS
  */
 TEST(RamTable, TagCorrectness)
 {
-
+    using Builder = UltraCircuitBuilder;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using ram_table_ct = stdlib::ram_table<Builder>;
     Builder builder;
     std::vector<field_ct> table_values;
 
@@ -67,8 +73,15 @@ TEST(RamTable, TagCorrectness)
 #endif
 }
 
-TEST(RamTable, RamTableInitReadConsistency)
+TYPED_TEST_SUITE(RamTableTests, BuilderTypes);
+
+TYPED_TEST(RamTableTests, RamTableInitReadConsistency)
 {
+
+    using Builder = TypeParam;
+    using field_ct = typename TestFixture::field_ct;
+    using witness_ct = typename TestFixture::witness_ct;
+    using ram_table_ct = typename TestFixture::ram_table_ct;
     Builder builder;
 
     std::vector<field_ct> table_values;
@@ -83,7 +96,7 @@ TEST(RamTable, RamTableInitReadConsistency)
     fr expected(0);
 
     for (size_t i = 0; i < 10; ++i) {
-        field_ct index(witness_ct(&builder, (uint64_t)i));
+        field_ct index(witness_ct(&builder, static_cast<uint64_t>(i)));
 
         if (i % 2 == 0) {
             const auto to_add = table.read(index);
@@ -101,10 +114,15 @@ TEST(RamTable, RamTableInitReadConsistency)
     EXPECT_EQ(verified, true);
 }
 
-TEST(RamTable, RamTableReadWriteConsistency)
+TYPED_TEST(RamTableTests, RamTableReadWriteConsistency)
 {
+    using Builder = TypeParam;
+    using field_ct = typename TestFixture::field_ct;
+    using witness_ct = typename TestFixture::witness_ct;
+    using ram_table_ct = typename TestFixture::ram_table_ct;
     Builder builder;
     const size_t table_size = 10;
+    const size_t num_reads = 2 * table_size;
 
     std::vector<fr> table_values(table_size);
 
@@ -113,29 +131,30 @@ TEST(RamTable, RamTableReadWriteConsistency)
     for (size_t i = 0; i < table_size; ++i) {
         table.write(i, 0);
     }
-    field_ct result(0);
-    fr expected(0);
-
+    field_ct result(0); // tracks a running sum of circuit values to verify correctness of RAM operations
+    fr expected(0);     // tracks a running sum of native values to verify correctness of RAM operations
+    // lambda that both initializes and updates our table.
     const auto update = [&]() {
         for (size_t i = 0; i < table_size / 2; ++i) {
             table_values[2 * i] = fr::random_element();
             table_values[2 * i + 1] = fr::random_element();
 
-            // init with both constant and variable values
+            // init with both constant and variable index values
             table.write(2 * i, table_values[2 * i]);
             table.write(2 * i + 1, witness_ct(&builder, table_values[2 * i + 1]));
         }
     };
-
+    // lambda that reads from our table
     const auto read = [&]() {
-        for (size_t i = 0; i < table_size / 2; ++i) {
-            const size_t index = table_size - 2 - (i * 2); // access in something other than basic incremental order
+        for (size_t i = 0; i < num_reads / 2; ++i) {
+            const size_t index_1 = static_cast<size_t>(engine.get_random_uint32() % table_size);
+            const size_t index_2 = static_cast<size_t>(engine.get_random_uint32() % table_size);
+            // both constant and variable reads
+            result += table.read(witness_ct(&builder, index_1));
+            result += table.read(index_2);
 
-            result += table.read(witness_ct(&builder, index));
-            result += table.read(index + 1);
-
-            expected += table_values[index];
-            expected += table_values[index + 1];
+            expected += table_values[index_1];
+            expected += table_values[index_2];
         }
     };
 

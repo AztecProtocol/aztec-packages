@@ -33,8 +33,8 @@ contract GSEBase is TestBase {
     gse = builder.getConfig().gse;
     governance = builder.getConfig().governance;
 
-    EPOCH_DURATION_SECONDS =
-      builder.getConfig().rollupConfigInput.aztecEpochDuration * builder.getConfig().rollupConfigInput.aztecSlotDuration;
+    EPOCH_DURATION_SECONDS = builder.getConfig().rollupConfigInput.aztecEpochDuration
+      * builder.getConfig().rollupConfigInput.aztecSlotDuration;
 
     vm.label(address(governance), "governance");
     vm.label(address(governance.governanceProposer()), "governance proposer");

@@ -4,12 +4,12 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/private_to_rollup_kernel_circuit_public_inputs.js';
-import { type CivcProofData, ProofData } from '../proofs/proof_data.js';
+import { type ChonkProofData, ProofData } from '../proofs/proof_data.js';
 import { PrivateBaseRollupHints } from './base_rollup_hints.js';
 
 export class PrivateTxBaseRollupPrivateInputs {
   constructor(
-    public hidingKernelProofData: CivcProofData<PrivateToRollupKernelCircuitPublicInputs>,
+    public hidingKernelProofData: ChonkProofData<PrivateToRollupKernelCircuitPublicInputs>,
     public hints: PrivateBaseRollupHints,
   ) {}
 

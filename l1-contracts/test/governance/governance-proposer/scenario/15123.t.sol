@@ -69,7 +69,11 @@ contract Test15123 is GovernanceProposerBase {
     assertEq(governanceProposer.signalCount(address(validatorSelection), round, proposal), 1, "invalid number of votes");
   }
 
-  function createSignature(uint256 _privateKey, IPayload _payload, Slot _slot) internal view returns (Signature memory) {
+  function createSignature(uint256 _privateKey, IPayload _payload, Slot _slot)
+    internal
+    view
+    returns (Signature memory)
+  {
     bytes32 digest = governanceProposer.getSignalSignatureDigest(_payload, _slot);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
     return Signature({v: v, r: r, s: s});

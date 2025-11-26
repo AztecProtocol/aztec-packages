@@ -2,6 +2,7 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -32,7 +33,11 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     CircuitBuilder builder = Circuit::generate(inputs);
     // If this is not a recursive circuit, we need to add the default pairing points to the public inputs
     if constexpr (!std::same_as<Circuit, RecursiveCircuit>) {
-        stdlib::recursion::PairingPoints<CircuitBuilder>::add_default_to_public_inputs(builder);
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            stdlib::recursion::honk::RollupIO::add_default(builder);
+        } else {
+            stdlib::recursion::honk::DefaultIO<CircuitBuilder>::add_default(builder);
+        }
     }
 
     auto instance = std::make_shared<ProverInstance>(builder);

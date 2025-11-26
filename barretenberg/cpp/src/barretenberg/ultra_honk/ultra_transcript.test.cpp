@@ -6,6 +6,7 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -59,7 +60,6 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : log_n;
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-        size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
         // Size of types is number of bb::frs needed to represent the types
         // UltraKeccak uses uint256_t for commitments and frs, so we need to handle that differently.
         size_t data_types_per_Frs = [] {
@@ -89,6 +89,10 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), data_types_per_Frs);
         }
 
+        // For ZK flavors: Gemini masking polynomial commitment is sent at end of oink
+        if constexpr (Flavor::HasZK) {
+            manifest_expected.add_entry(round, "Gemini:masking_poly_comm", data_types_per_G);
+        }
         manifest_expected.add_entry(round, "W_L", data_types_per_G);
         manifest_expected.add_entry(round, "W_R", data_types_per_G);
         manifest_expected.add_entry(round, "W_O", data_types_per_G);
@@ -104,13 +108,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", data_types_per_G);
         manifest_expected.add_entry(round, "Z_PERM", data_types_per_G);
 
-        std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> alpha_labels;
-        for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
-            std::string label = "alpha_" + std::to_string(i);
-            alpha_labels[i] = label;
-        }
-
-        manifest_expected.add_challenge(round, alpha_labels);
+        manifest_expected.add_challenge(round, "alpha");
         round++;
 
         manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");
@@ -137,8 +135,6 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "Libra:claimed_evaluation", data_types_per_Frs);
             manifest_expected.add_entry(round, "Libra:grand_sum_commitment", data_types_per_G);
             manifest_expected.add_entry(round, "Libra:quotient_commitment", data_types_per_G);
-            manifest_expected.add_entry(round, "Gemini:masking_poly_comm", data_types_per_G);
-            manifest_expected.add_entry(round, "Gemini:masking_poly_eval", data_types_per_Frs);
         }
 
         manifest_expected.add_challenge(round, "rho");
@@ -169,6 +165,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "KZG:W", data_types_per_G);
+        manifest_expected.add_challenge(round, "KZG:masking_challenge");
 
         return manifest_expected;
     }
@@ -178,12 +175,10 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         FF a = 1;
         builder.add_variable(a);
         builder.add_public_variable(a);
-        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
         if constexpr (HasIPAAccumulator<Flavor>) {
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
-            stdlib_opening_claim.set_public();
-            builder.ipa_proof = ipa_proof;
+            stdlib::recursion::honk::RollupIO::add_default(builder);
+        } else {
+            stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
         }
     }
 
@@ -203,11 +198,11 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         }
     }
 
-    Proof export_serialized_proof(Prover prover, const size_t num_public_inputs)
+    Proof export_serialized_proof(Prover& prover, const size_t num_public_inputs)
     {
         // reset internal variables needed for exporting the proof
-        prover.transcript->num_frs_written = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
-        prover.transcript->proof_start = 0;
+        size_t proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
+        prover.transcript->test_set_proof_parsing_state(0, proof_length);
         return prover.export_proof();
     }
 };
@@ -386,6 +381,6 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
         EXPECT_FALSE(result); // the proof is now wrong after serializing it
     }
 
-    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }

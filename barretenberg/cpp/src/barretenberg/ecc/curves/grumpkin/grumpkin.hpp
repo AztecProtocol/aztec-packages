@@ -44,6 +44,13 @@ struct G1Params {
 };
 using g1 = bb::group<bb::fr, bb::fq, G1Params>;
 
+// specialize the name in msgpack schema generation
+// consumed by the typescript schema compiler, helps disambiguate templates
+inline std::string msgpack_schema_name(g1::affine_element const& /*unused*/)
+{
+    return "GrumpkinPoint";
+}
+
 }; // namespace bb::grumpkin
 
 namespace bb::curve {

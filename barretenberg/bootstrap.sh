@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 function bootstrap_all {
   # To run bb we need a crs.
   # Download ignition up front to ensure no race conditions at runtime.
-  [ -n "${SKIP_BB_CRS:-}" ] || ./scripts/download_bb_crs.sh
+  [ -n "${SKIP_BB_CRS:-}" ] || ./crs/bootstrap.sh
   ./bbup/bootstrap.sh $@
   ./cpp/bootstrap.sh $@
   ./ts/bootstrap.sh $@
@@ -21,12 +21,11 @@ function hash {
 }
 
 cmd=${1:-}
-
 case "$cmd" in
   hash)
     hash
     ;;
-  ""|clean|ci|fast|test|test_cmds|bench|bench_cmds|release)
+  ""|clean|ci|test|test_cmds|bench|bench_cmds|release)
     bootstrap_all $@
     ;;
   "release-preview")

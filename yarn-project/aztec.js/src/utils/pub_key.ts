@@ -8,6 +8,5 @@ import type { PublicKey } from '@aztec/stdlib/keys';
  * @returns The generated public key.
  */
 export function generatePublicKey(privateKey: GrumpkinScalar): Promise<PublicKey> {
-  const grumpkin = new Grumpkin();
-  return grumpkin.mul(grumpkin.generator(), privateKey);
+  return Grumpkin.mul(Grumpkin.generator, privateKey);
 }

@@ -1,8 +1,10 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -13,19 +15,18 @@ namespace bb::avm2::simulation {
 // Forward declarations
 class ContextInterface;
 
-struct ExecutionResult {
-    MemoryAddress rd_offset;
-    MemoryAddress rd_size;
-    Gas gas_used;
-    SideEffectStates side_effect_states;
+struct EnqueuedCallResult {
     bool success;
+    Gas gas_used;
+    // Optional: if set, contains the actual return data.
+    std::optional<std::vector<FF>> output;
 };
 
 class ExecutionInterface {
   public:
     virtual ~ExecutionInterface() = default;
     // Returns the top-level execution result. TODO: This should only be top level enqueud calls
-    virtual ExecutionResult execute(std::unique_ptr<ContextInterface> context) = 0;
+    virtual EnqueuedCallResult execute(std::unique_ptr<ContextInterface> context) = 0;
 };
 
 class RegisterValidationException : public std::runtime_error {

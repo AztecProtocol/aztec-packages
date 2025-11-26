@@ -11,7 +11,7 @@ import os from 'os';
 import path from 'path';
 
 import type { P2PConfig } from './config.js';
-import { createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from './util.js';
+import { createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey, isValidIpAddress } from './util.js';
 
 const logger = createLogger('p2p-util-test');
 
@@ -169,6 +169,43 @@ describe('p2p utils', () => {
       // Can recover a peer id from the private key
       const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
       expect(peerId).toBeDefined();
+    });
+  });
+
+  describe('isValidIpAddress', () => {
+    it('Determines if IP address is valid', () => {
+      expect(isValidIpAddress('127.0.0.1')).toBe(true);
+      expect(isValidIpAddress('192.168.0.1')).toBe(true);
+      expect(isValidIpAddress('10.0.0.255')).toBe(true);
+      expect(isValidIpAddress('255.255.255.255')).toBe(true);
+      expect(isValidIpAddress('0.0.0.0')).toBe(true);
+
+      // No IP v6 support
+      expect(isValidIpAddress('::1')).toBe(false);
+      expect(isValidIpAddress('2001:0db8:85a3:0000:0000:8a2e:0370:7334')).toBe(false);
+      expect(isValidIpAddress('2001:db8::1')).toBe(false);
+      expect(isValidIpAddress('fe80::1ff:fe23:4567:890a')).toBe(false);
+      expect(isValidIpAddress('::')).toBe(false);
+
+      expect(isValidIpAddress('256.256.256.256')).toBe(false);
+      expect(isValidIpAddress('192.168.1')).toBe(false);
+      expect(isValidIpAddress('192.168.1.1.1')).toBe(false);
+      expect(isValidIpAddress('192.168.1.-1')).toBe(false);
+      expect(isValidIpAddress('192.168.01.1')).toBe(false);
+      expect(isValidIpAddress('999.999.999.999')).toBe(false);
+      expect(isValidIpAddress('abc.def.gha.bcd')).toBe(false);
+      expect(isValidIpAddress('')).toBe(false);
+      expect(isValidIpAddress(' ')).toBe(false);
+      expect(isValidIpAddress('127.0.0.1 ')).toBe(false);
+
+      expect(isValidIpAddress('2001:::1')).toBe(false);
+      expect(isValidIpAddress('2001:db8:85a3::8a2e:37023:7334')).toBe(false);
+      expect(isValidIpAddress('2001:db8:::1')).toBe(false);
+      expect(isValidIpAddress('ghij::1234')).toBe(false);
+      expect(isValidIpAddress('12345::')).toBe(false);
+      expect(isValidIpAddress('::1::')).toBe(false);
+      expect(isValidIpAddress('::ffff:192.168.1.256')).toBe(false);
+      expect(isValidIpAddress('abcd')).toBe(false);
     });
   });
 });

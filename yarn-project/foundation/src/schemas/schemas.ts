@@ -54,15 +54,7 @@ export const schemas = {
   Buffer32: z.string().refine(isHex, 'Not a valid hex string').transform(Buffer32.fromString),
 
   /** Accepts a base64 string or an object `{ type: 'Buffer', data: [byte, byte...] }` as a buffer. */
-  Buffer: z.union([
-    bufferSchema,
-    z
-      .object({
-        type: z.literal('Buffer'),
-        data: z.array(z.number().int().min(0).max(255)),
-      })
-      .transform(({ data }) => Buffer.from(data)),
-  ]),
+  Buffer: bufferSchema,
 
   /** Accepts a hex string as a buffer. */
   BufferHex: z

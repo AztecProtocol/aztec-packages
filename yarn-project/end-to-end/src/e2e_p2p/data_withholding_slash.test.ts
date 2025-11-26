@@ -129,6 +129,9 @@ describe('e2e_p2p_data_withholding_slash', () => {
       shouldCollectMetrics(),
     );
 
+    // Wait for P2P mesh to be fully formed before proceeding
+    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
+
     await debugRollup();
     const committee = await awaitCommitteeExists({ rollup, logger: t.logger });
     await debugRollup();
@@ -168,6 +171,9 @@ describe('e2e_p2p_data_withholding_slash', () => {
       t.prefilledPublicData,
       DATA_DIR,
     );
+
+    // Wait for P2P mesh to be fully formed before proceeding
+    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
     const offenses = await awaitOffenseDetected({
       epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,

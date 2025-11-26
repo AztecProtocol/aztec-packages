@@ -10,7 +10,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
 import { ProvenTx, proveInteraction } from '@aztec/test-wallet/server';
@@ -136,7 +136,7 @@ describe('full_prover', () => {
 
       const rewardsBeforeCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
       const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
-      const oldProvenBlockNumber = await rollup.getProvenBlockNumber();
+      const oldProvenBlockNumber = await rollup.getProvenCheckpointNumber();
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
@@ -147,9 +147,9 @@ describe('full_prover', () => {
         }),
       );
 
-      const newProvenBlockNumber = await rollup.getProvenBlockNumber();
+      const newProvenBlockNumber = await rollup.getProvenCheckpointNumber();
       expect(newProvenBlockNumber).toBeGreaterThan(oldProvenBlockNumber);
-      expect(await rollup.getBlockNumber()).toBe(newProvenBlockNumber);
+      expect(await rollup.getCheckpointNumber()).toBe(newProvenBlockNumber);
 
       logger.info(`checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
       const rewardsAfterCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
@@ -158,7 +158,7 @@ describe('full_prover', () => {
       const rewardsAfterProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
       expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
 
-      const blockReward = await rollup.getBlockReward();
+      const blockReward = await rollup.getCheckpointReward();
       const fees = (
         await Promise.all([
           t.aztecNode.getBlock(Number(newProvenBlockNumber - 1n)),
@@ -325,7 +325,7 @@ describe('full_prover', () => {
       const data = provenTx.data;
       const invalidTxs = await Promise.all(
         Array.from({ length: NUM_INVALID_TXS }, async (_, i) => {
-          // Use a random ClientIvcProof and alter the public tx data to generate a unique invalid tx hash
+          // Use a random ChonkProof and alter the public tx data to generate a unique invalid tx hash
           const invalidProvenTx = new ProvenTx(
             aztecNode,
             await Tx.create({
@@ -337,7 +337,7 @@ describe('full_prover', () => {
                 data.forPublic,
                 data.forRollup,
               ),
-              clientIvcProof: ClientIvcProof.random(),
+              chonkProof: ChonkProof.random(),
               contractClassLogFields: provenTx.contractClassLogFields,
               publicFunctionCalldata: provenTx.publicFunctionCalldata,
             }),

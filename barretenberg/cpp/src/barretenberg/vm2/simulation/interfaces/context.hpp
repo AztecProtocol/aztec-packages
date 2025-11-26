@@ -14,6 +14,7 @@ namespace bb::avm2::simulation {
 class MemoryInterface;
 class BytecodeManagerInterface;
 class InternalCallStackManagerInterface;
+class SideEffectTrackerInterface;
 struct ContextEvent;
 
 class ContextInterface {
@@ -40,15 +41,14 @@ class ContextInterface {
     virtual const AztecAddress& get_msg_sender() const = 0;
     virtual const FF& get_transaction_fee() const = 0;
     virtual bool get_is_static() const = 0;
-    virtual SideEffectStates& get_side_effect_states() = 0;
+    virtual SideEffectTrackerInterface& get_side_effect_tracker() = 0;
     virtual AppendOnlyTreeSnapshot get_written_public_data_slots_tree_snapshot() = 0;
-    virtual void set_side_effect_states(SideEffectStates side_effect_states) = 0;
     virtual const GlobalVariables& get_globals() const = 0;
 
     virtual TransactionPhase get_phase() const = 0;
 
-    virtual std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
-    virtual std::vector<FF> get_returndata(uint32_t rd_addr, uint32_t rd_size) = 0;
+    virtual std::vector<MemoryValue> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
+    virtual std::vector<MemoryValue> get_returndata(uint32_t rd_addr, uint32_t rd_size) = 0;
     virtual ContextInterface& get_child_context() = 0;
     // The child context needs to be accessible by this context in order to access the child
     // memory for returndata. We own it so that it's lifetime is as long as decided by this context

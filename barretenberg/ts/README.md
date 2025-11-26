@@ -85,7 +85,7 @@ You can enable these headers for specific pages that perform proof generation, b
 Got an unhelpful stack trace in wasm? Run:
 
 ```
-NO_STRIP=1 ./script/build_wasm.sh
+BUILD_CPP=1 NO_STRIP=1 ./script/copy_wasm.sh
 ```
 
 This will drop unstripped wasms into the dest folder. Run your test again to get a trace.

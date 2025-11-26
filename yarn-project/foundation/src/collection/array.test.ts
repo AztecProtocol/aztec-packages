@@ -172,6 +172,21 @@ describe('mean', () => {
 });
 
 describe('median', () => {
+  it('calculates the median of an array of bigints', () => {
+    expect(median([1n, 2n, 3n, 4n, 5n])).toBe(3n);
+    expect(median([10n, 20n, 30n, 40n, 50n])).toBe(30n);
+    expect(median([-1n, 0n, 1n])).toBe(0n);
+    expect(
+      median([
+        1000000000000000000n,
+        2000000000000000000n,
+        3000000000000000000n,
+        4000000000000000000n,
+        5000000000000000000n,
+      ]),
+    ).toBe(3000000000000000000n);
+  });
+
   it('calculates the median of an array of numbers', () => {
     expect(median([1, 2, 3, 4, 5])).toBe(3);
     expect(median([10, 20, 30, 40, 50])).toBe(30);

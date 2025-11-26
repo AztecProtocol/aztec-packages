@@ -1,1 +1,2 @@
-barretenberg_module(commitment_schemes_recursion commitment_schemes stdlib_poseidon2)
+barretenberg_module(commitment_schemes_recursion commitment_schemes stdlib_poseidon2 eccvm)
+

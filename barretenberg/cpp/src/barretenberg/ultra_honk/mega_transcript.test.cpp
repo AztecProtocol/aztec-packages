@@ -41,7 +41,6 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         size_t NUM_PUBLIC_INPUTS =
             stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-        size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
         size_t frs_per_Fr = FrCodec::calc_num_fields<FF>();
         size_t frs_per_G = FrCodec::calc_num_fields<Commitment>();
@@ -53,6 +52,9 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
+        }
+        if constexpr (Flavor::HasZK) {
+            manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
         }
         manifest_expected.add_entry(round, "W_L", frs_per_G);
         manifest_expected.add_entry(round, "W_R", frs_per_G);
@@ -85,13 +87,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
 
-        std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> alpha_labels;
-        for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
-            std::string label = "alpha_" + std::to_string(i);
-            alpha_labels[i] = label;
-        }
-
-        manifest_expected.add_challenge(round, alpha_labels);
+        manifest_expected.add_challenge(round, "alpha");
         round++;
 
         manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");
@@ -118,8 +114,6 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
             manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
             manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
-            manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
-            manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
         }
 
         manifest_expected.add_challenge(round, "rho");
@@ -149,6 +143,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "KZG:W", frs_per_G);
+        manifest_expected.add_challenge(round, "KZG:masking_challenge");
 
         return manifest_expected;
     }

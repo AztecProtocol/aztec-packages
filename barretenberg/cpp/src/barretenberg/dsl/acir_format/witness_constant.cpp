@@ -14,10 +14,11 @@ using namespace bb::stdlib;
 
 /**
  * @brief Convert inputs representing a Grumpkin point into a cycle_group element.
- * @details Inputs x, y, and is_infinite are used to construct the point. If no valid witness is provided or if the
- * predicate is constant false, the point is set to the generator point. If the predicate is a non-constant witness, the
- * point is conditionally assigned to the generator point based on the predicate value. This ensures that the point is
- * always valid and will not trigger any on_curve assertions.
+ * @details Inputs x, y, and is_infinite are used to construct the point. We handle two cases:
+ *  1. has_valid_witness_assignments is false:  we are in a write_vk scenario. In this case, we set the point to be the
+ *     generator of Grumpkin.
+ *  2. predicate is a witness: we conditionally assign the point depending on the predicate; if it is witness true, we
+ *     use the witnesses provided, otherwise, we set the point to be the generator of Grumpkin.
  *
  * @tparam Builder
  * @tparam FF
@@ -29,59 +30,131 @@ using namespace bb::stdlib;
  * @param builder
  * @return bb::stdlib::cycle_group<Builder>
  */
-template <typename Builder, typename FF>
-bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& input_x,
-                                                   const WitnessOrConstant<FF>& input_y,
-                                                   const WitnessOrConstant<FF>& input_infinite,
+template <typename Builder>
+bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typename Builder::FF>& input_x,
+                                                   const WitnessOrConstant<typename Builder::FF>& input_y,
+                                                   const WitnessOrConstant<typename Builder::FF>& input_infinite,
                                                    bool has_valid_witness_assignments,
-                                                   const WitnessOrConstant<FF>& predicate,
+                                                   const bb::stdlib::bool_t<Builder>& predicate,
                                                    Builder& builder)
 {
     using bool_ct = bb::stdlib::bool_t<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
+
+    bool constant_coordinates = input_x.is_constant && input_y.is_constant;
+
     auto point_x = to_field_ct(input_x, builder);
     auto point_y = to_field_ct(input_y, builder);
     auto infinite = bool_ct(to_field_ct(input_infinite, builder));
 
-    BB_ASSERT_EQ(input_x.is_constant, input_y.is_constant, "to_grumpkin_point: Inconsistent constancy of coordinates");
-    bool constant_coordinates = input_x.is_constant && input_y.is_constant;
-
-    // In a witness is not provided, or the relevant predicate is constant false, we ensure the coordinates correspond
-    // to a valid point to avoid erroneous failures during circuit construction. We only do this if the coordinates are
-    // non-constant since otherwise no variable indices exist.
-    bool constant_false_predicate = predicate.is_constant && predicate.value == FF(0);
-    if ((!has_valid_witness_assignments || constant_false_predicate) && !constant_coordinates) {
-        auto one = bb::grumpkin::g1::affine_one;
-        builder.set_variable(input_x.index, one.x);
-        builder.set_variable(input_y.index, one.y);
+    // If a witness is not provided (we are in a write_vk scenario) we ensure the coordinates correspond to a valid
+    // point to avoid erroneous failures during circuit construction. We only do this if the coordinates are
+    // non-constant since otherwise no variable indices exist. Note that there is no need to assign the infinite flag
+    // because native on-curve checks will always pass as long x and y coordinates correspond to a valid point on
+    // Grumpkin.
+    if (!has_valid_witness_assignments && !constant_coordinates) {
+        builder.set_variable(input_x.index, bb::grumpkin::g1::affine_one.x);
+        builder.set_variable(input_y.index, bb::grumpkin::g1::affine_one.y);
     }
 
     // If the predicate is a non-constant witness, conditionally replace coordinates with a valid point.
-    // Note: this must be done before constructing the cycle_group to avoid triggering on_curve assertions
-    if (!predicate.is_constant) {
-        bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, predicate.index);
-        auto generator = bb::grumpkin::g1::affine_one;
-        point_x = field_ct::conditional_assign(predicate_witness, point_x, generator.x).normalize();
-        point_y = field_ct::conditional_assign(predicate_witness, point_y, generator.y).normalize();
-        bool_ct generator_is_infinity = bool_ct(&builder, generator.is_point_at_infinity());
-        infinite = bool_ct::conditional_assign(predicate_witness, infinite, generator_is_infinity).normalize();
+    if (!predicate.is_constant()) {
+        point_x = field_ct::conditional_assign(predicate, point_x, field_ct(bb::grumpkin::g1::affine_one.x));
+        point_y = field_ct::conditional_assign(predicate, point_y, field_ct(bb::grumpkin::g1::affine_one.y));
+        infinite = bool_ct::conditional_assign(predicate, infinite, bool_ct(false));
+    } else {
+        BB_ASSERT(predicate.get_value(), "Creating Grumpkin point with a constant predicate equal to false.");
     }
 
     cycle_group<Builder> input_point(point_x, point_y, infinite, /*assert_on_curve=*/true);
     return input_point;
 }
 
-template bb::stdlib::cycle_group<UltraCircuitBuilder> to_grumpkin_point(const WitnessOrConstant<fr>& input_x,
-                                                                        const WitnessOrConstant<fr>& input_y,
-                                                                        const WitnessOrConstant<fr>& input_infinite,
-                                                                        bool has_valid_witness_assignments,
-                                                                        const WitnessOrConstant<fr>& predicate,
-                                                                        UltraCircuitBuilder& builder);
-template bb::stdlib::cycle_group<MegaCircuitBuilder> to_grumpkin_point(const WitnessOrConstant<fr>& input_x,
-                                                                       const WitnessOrConstant<fr>& input_y,
-                                                                       const WitnessOrConstant<fr>& input_infinite,
-                                                                       bool has_valid_witness_assignments,
-                                                                       const WitnessOrConstant<fr>& predicate,
-                                                                       MegaCircuitBuilder& builder);
+template bb::stdlib::cycle_group<UltraCircuitBuilder> to_grumpkin_point(
+    const WitnessOrConstant<UltraCircuitBuilder::FF>& input_x,
+    const WitnessOrConstant<UltraCircuitBuilder::FF>& input_y,
+    const WitnessOrConstant<UltraCircuitBuilder::FF>& input_infinite,
+    bool has_valid_witness_assignments,
+    const bb::stdlib::bool_t<UltraCircuitBuilder>& predicate,
+    UltraCircuitBuilder& builder);
+
+template bb::stdlib::cycle_group<MegaCircuitBuilder> to_grumpkin_point(
+    const WitnessOrConstant<MegaCircuitBuilder::FF>& input_x,
+    const WitnessOrConstant<MegaCircuitBuilder::FF>& input_y,
+    const WitnessOrConstant<MegaCircuitBuilder::FF>& input_infinite,
+    bool has_valid_witness_assignments,
+    const bb::stdlib::bool_t<MegaCircuitBuilder>& predicate,
+    MegaCircuitBuilder& builder);
+
+/**
+ * @brief Convert inputs representing a Grumpkin scalar into a cycle_scalar element.
+ * @details Inputs scalar_lo and scalar_hi are used to construct the scalar. We handle two cases:
+ *  1. has_valid_witness_assignments is false: we are in a write_vk scenario. In this case, we set the scalar to 1.
+ *  2. predicate is a witness: we conditionally assign the scalar depending on the predicate; if it is witness true, we
+ *     use the witnesses provided, otherwise, we set the scalar to 1.
+ *
+ * @tparam Builder
+ * @param scalar_lo low 128-bit limb of the scalar
+ * @param scalar_hi high 126-bit limb of the scalar
+ * @param has_valid_witness_assignments boolean indicating whether a witness is provided
+ * @param predicate A relevant predicate used to conditionally assign the scalar to a valid value
+ * @param builder
+ * @return typename bb::stdlib::cycle_group<Builder>::cycle_scalar
+ */
+template <typename Builder>
+typename bb::stdlib::cycle_group<Builder>::cycle_scalar to_grumpkin_scalar(
+    const WitnessOrConstant<typename Builder::FF>& scalar_lo,
+    const WitnessOrConstant<typename Builder::FF>& scalar_hi,
+    bool has_valid_witness_assignments,
+    const bb::stdlib::bool_t<Builder>& predicate,
+    Builder& builder)
+{
+    using field_ct = bb::stdlib::field_t<Builder>;
+    using cycle_scalar_ct = typename bb::stdlib::cycle_group<Builder>::cycle_scalar;
+
+    auto lo_as_field = to_field_ct(scalar_lo, builder);
+    auto hi_as_field = to_field_ct(scalar_hi, builder);
+
+    // We assert that scalar_hi is not a witness when scalar_lo is constant as this might indicate unintended behavior.
+    BB_ASSERT(!(scalar_lo.is_constant && !scalar_hi.is_constant),
+              "to_grumpkin_scalar: scalar_lo is constant while scalar_hi is not.");
+
+    // If a witness is not provided (we are in a write_vk scenario) we ensure the scalar is valid.
+    // We only do this if the limbs are non-constant since otherwise no variable indices exist.
+    // Note: the two limbs may have different constancy, e.g. if the scalar is a witness known to be <= 128 bits.
+    if (!has_valid_witness_assignments) {
+        if (!scalar_lo.is_constant) {
+            builder.set_variable(scalar_lo.index, bb::fr(1));
+        }
+        if (!scalar_hi.is_constant) {
+            builder.set_variable(scalar_hi.index, bb::fr(0));
+        }
+    }
+
+    // If the predicate is a non-constant witness, conditionally replace the scalar with 1.
+    if (!predicate.is_constant()) {
+        lo_as_field = field_ct::conditional_assign(predicate, lo_as_field, field_ct(1));
+        hi_as_field = field_ct::conditional_assign(predicate, hi_as_field, field_ct(0));
+    } else {
+        BB_ASSERT(predicate.get_value(), "Creating Grumpkin scalar with a constant predicate equal to false.");
+    }
+
+    cycle_scalar_ct scalar(lo_as_field, hi_as_field);
+    return scalar;
+}
+
+template typename bb::stdlib::cycle_group<UltraCircuitBuilder>::cycle_scalar to_grumpkin_scalar(
+    const WitnessOrConstant<UltraCircuitBuilder::FF>& scalar_lo,
+    const WitnessOrConstant<UltraCircuitBuilder::FF>& scalar_hi,
+    bool has_valid_witness_assignments,
+    const bb::stdlib::bool_t<UltraCircuitBuilder>& predicate,
+    UltraCircuitBuilder& builder);
+
+template typename bb::stdlib::cycle_group<MegaCircuitBuilder>::cycle_scalar to_grumpkin_scalar(
+    const WitnessOrConstant<MegaCircuitBuilder::FF>& scalar_lo,
+    const WitnessOrConstant<MegaCircuitBuilder::FF>& scalar_hi,
+    bool has_valid_witness_assignments,
+    const bb::stdlib::bool_t<MegaCircuitBuilder>& predicate,
+    MegaCircuitBuilder& builder);
 
 } // namespace acir_format

@@ -13,7 +13,7 @@ pub contract Uniswap {
             assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call,
             set_authorized,
         },
-        macros::{functions::{external, initializer, internal}, storage::storage},
+        macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
@@ -34,7 +34,7 @@ pub contract Uniswap {
     #[external("public")]
     #[initializer]
     fn constructor(portal_address: EthAddress) {
-        storage.portal_address.initialize(portal_address);
+        self.storage.portal_address.initialize(portal_address);
     }
     // docs:end:uniswap_setup
 
@@ -57,38 +57,34 @@ pub contract Uniswap {
         // nonce for someone to call swap on sender's behalf
         _nonce_for_swap_approval: Field,
     ) {
-        if (!sender.eq(context.msg_sender().unwrap())) {
-            assert_current_call_valid_authwit_public(&mut context, sender);
+        if (!sender.eq(self.msg_sender().unwrap())) {
+            assert_current_call_valid_authwit_public(self.context, sender);
         }
 
         let input_asset_bridge_config =
-            TokenBridge::at(input_asset_bridge).get_config_public().view(&mut context);
+            self.view(TokenBridge::at(input_asset_bridge).get_config_public());
 
         let input_asset = input_asset_bridge_config.token;
         let input_asset_bridge_portal_address = input_asset_bridge_config.portal;
 
         // Transfer funds to this contract
-        Token::at(input_asset)
-            .transfer_in_public(
-                sender,
-                context.this_address(),
-                input_amount,
-                nonce_for_transfer_approval,
-            )
-            .call(&mut context);
+        self.call(Token::at(input_asset).transfer_in_public(
+            sender,
+            self.address,
+            input_amount,
+            nonce_for_transfer_approval,
+        ));
 
         // Approve bridge to burn this contract's funds and exit to L1 Uniswap Portal
-        Uniswap::at(context.this_address())
-            ._approve_bridge_and_exit_input_asset_to_L1(
-                input_asset,
-                input_asset_bridge,
-                input_amount,
-            )
-            .call(&mut context);
+        let _ = self.call_self._approve_bridge_and_exit_input_asset_to_L1(
+            input_asset,
+            input_asset_bridge,
+            input_amount,
+        );
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.
         let output_asset_bridge_portal_address =
-            TokenBridge::at(output_asset_bridge).get_config_public().view(&mut context).portal;
+            self.view(TokenBridge::at(output_asset_bridge).get_config_public()).portal;
         // ensure portal exists - else funds might be lost
         assert(
             !input_asset_bridge_portal_address.is_zero(),
@@ -109,7 +105,7 @@ pub contract Uniswap {
             secret_hash_for_L1_to_l2_message,
             caller_on_L1,
         );
-        context.message_portal(storage.portal_address.read(), content_hash);
+        self.context.message_portal(self.storage.portal_address.read(), content_hash);
     }
     // docs:end:swap_public
 
@@ -129,10 +125,9 @@ pub contract Uniswap {
         secret_hash_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
         caller_on_L1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
-        let input_asset_bridge_config =
-            TokenBridge::at(input_asset_bridge).get_config().view(&mut context);
+        let input_asset_bridge_config = self.view(TokenBridge::at(input_asset_bridge).get_config());
         let output_asset_bridge_config =
-            TokenBridge::at(output_asset_bridge).get_config().view(&mut context);
+            self.view(TokenBridge::at(output_asset_bridge).get_config());
 
         // Assert that user provided token address is same as expected by token bridge.
         // we can't directly use `input_asset_bridge.token` because that is a public method and public can't return data to private
@@ -142,23 +137,19 @@ pub contract Uniswap {
         );
 
         // Transfer funds to this contract
-        Token::at(input_asset)
-            .transfer_to_public(
-                context.msg_sender().unwrap(),
-                context.this_address(),
-                input_amount,
-                nonce_for_transfer_to_public_approval,
-            )
-            .call(&mut context);
+        self.call(Token::at(input_asset).transfer_to_public(
+            self.msg_sender().unwrap(),
+            self.address,
+            input_amount,
+            nonce_for_transfer_to_public_approval,
+        ));
 
         // Approve bridge to burn this contract's funds and exit to L1 Uniswap Portal
-        Uniswap::at(context.this_address())
-            ._approve_bridge_and_exit_input_asset_to_L1(
-                input_asset,
-                input_asset_bridge,
-                input_amount,
-            )
-            .enqueue(&mut context);
+        self.enqueue_self._approve_bridge_and_exit_input_asset_to_L1(
+            input_asset,
+            input_asset_bridge,
+            input_amount,
+        );
 
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.
@@ -182,7 +173,7 @@ pub contract Uniswap {
             secret_hash_for_L1_to_l2_message,
             caller_on_L1,
         );
-        context.message_portal(storage.portal_address.read(), content_hash);
+        self.context.message_portal(self.storage.portal_address.read(), content_hash);
     }
     // docs:end:swap_private
 
@@ -190,10 +181,10 @@ pub contract Uniswap {
     // This helper method approves the bridge to burn this contract's funds and exits the input asset to L1
     // Assumes contract already has funds.
     // Assume `token` relates to `token_bridge` (ie token_bridge.token == token)
-    // Note that private can't read public return values so created an internal public that handles everything
+    // Note that private can't read public return values so created an `only_self` public that handles everything
     // this method is used for both private and public swaps.
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _approve_bridge_and_exit_input_asset_to_L1(
         token: AztecAddress,
         token_bridge: AztecAddress,
@@ -207,20 +198,23 @@ pub contract Uniswap {
         let message_hash = compute_authwit_message_hash_from_call(
             token_bridge,
             token,
-            context.chain_id(),
-            context.version(),
+            self.context.chain_id(),
+            self.context.version(),
             selector,
-            [context.this_address().to_field(), amount as Field, authwit_nonce],
+            [self.address.to_field(), amount as Field, authwit_nonce],
         );
 
         // We need to make a call to update it.
-        set_authorized(&mut context, message_hash, true);
+        set_authorized(self.context, message_hash, true);
 
-        let this_portal_address = storage.portal_address.read();
+        let this_portal_address = self.storage.portal_address.read();
         // Exit to L1 Uniswap Portal !
-        TokenBridge::at(token_bridge)
-            .exit_to_l1_public(this_portal_address, amount, this_portal_address, authwit_nonce)
-            .call(&mut context)
+        self.call(TokenBridge::at(token_bridge).exit_to_l1_public(
+            this_portal_address,
+            amount,
+            this_portal_address,
+            authwit_nonce,
+        ));
     }
     // docs:end:authwit_uniswap_set
 }

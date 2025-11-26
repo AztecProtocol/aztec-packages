@@ -48,8 +48,8 @@ export const ContractMethodDescriptions = {
 };
 
 export const ContractDocumentationLinks = {
-  PrivateVoting: 'https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/private_voting_contract',
-  SimpleToken: 'https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/private_voting_contract',
+  PrivateVoting: 'https://docs.aztec.network/developers/docs/tutorials/contract_tutorials/counter_contract',
+  SimpleToken: 'https://docs.aztec.network/developers/docs/tutorials/contract_tutorials/counter_contract',
 };
 
 export const ContractMethodOrder = {

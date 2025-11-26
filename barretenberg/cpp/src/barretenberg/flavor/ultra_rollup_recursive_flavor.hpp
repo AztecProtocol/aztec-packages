@@ -69,9 +69,9 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->log_circuit_size = FF::from_witness(builder, native_key->log_circuit_size);
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->log_circuit_size = FF::from_witness(builder, typename FF::native(native_key->log_circuit_size));
+            this->num_public_inputs = FF::from_witness(builder, typename FF::native(native_key->num_public_inputs));
+            this->pub_inputs_offset = FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset));
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -117,6 +117,25 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             }
             return VerificationKey(vk_fields);
         }
+
+#ifndef NDEBUG
+        /**
+         * @brief Get the native verification key corresponding to this stdlib verification key
+         *
+         * @return NativeVerificationKey
+         */
+        NativeVerificationKey get_value() const
+        {
+            NativeVerificationKey native_vk;
+            native_vk.log_circuit_size = static_cast<uint64_t>(this->log_circuit_size.get_value());
+            native_vk.num_public_inputs = static_cast<uint64_t>(this->num_public_inputs.get_value());
+            native_vk.pub_inputs_offset = static_cast<uint64_t>(this->pub_inputs_offset.get_value());
+            for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_vk.get_all())) {
+                native_commitment = commitment.get_value();
+            }
+            return native_vk;
+        }
+#endif
     };
 
     // Reuse the VerifierCommitments from Ultra

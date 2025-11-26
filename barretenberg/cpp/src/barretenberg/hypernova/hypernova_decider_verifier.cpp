@@ -32,11 +32,11 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
     const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
         padding_indicator_array, claim_batcher, accumulator.challenge, generator, transcript);
 
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-
     if constexpr (IsRecursiveFlavor<Flavor>) {
+        PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
         return pairing_points;
     } else {
+        auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
         // Native pairing points contain affine elements
         return { typename Curve::AffineElement(pairing_points[0]), typename Curve::AffineElement(pairing_points[1]) };
     }

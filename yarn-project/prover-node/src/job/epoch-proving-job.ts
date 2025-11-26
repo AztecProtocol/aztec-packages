@@ -9,6 +9,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import {
   type EpochProver,
@@ -132,7 +133,7 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      const blobFieldsPerCheckpoint = this.blocks.map(block => block.body.toBlobFields());
+      const blobFieldsPerCheckpoint = this.blocks.map(block => block.getCheckpointBlobFields());
       const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
 
       // TODO(#17027): Enable multiple blocks per checkpoint.
@@ -140,7 +141,7 @@ export class EpochProvingJob implements Traceable {
       const totalNumCheckpoints = epochSizeBlocks;
 
       this.prover.startNewEpoch(epochNumber, totalNumCheckpoints, finalBlobBatchingChallenges);
-      await this.prover.startTubeCircuits(Array.from(this.txs.values()));
+      await this.prover.startChonkVerifierCircuits(Array.from(this.txs.values()));
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
         this.checkState();
@@ -183,7 +184,6 @@ export class EpochProvingJob implements Traceable {
           checkpointConstants,
           l1ToL2Messages,
           totalNumBlocks,
-          blobFieldsPerCheckpoint[checkpointIndex].length,
           previousHeader,
         );
 
@@ -192,11 +192,15 @@ export class EpochProvingJob implements Traceable {
 
         // Process public fns
         const db = await this.createFork(block.number - 1, l1ToL2Messages);
-        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, {
-          skipFeeEnforcement: true,
-          clientInitiatedSimulation: false,
+        const config = PublicSimulatorConfig.from({
           proverId: this.prover.getProverId().toField(),
+          skipFeeEnforcement: false,
+          collectDebugLogs: false,
+          collectHints: true,
+          maxDebugLogMemoryReads: 0,
+          collectStatistics: false,
         });
+        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
         const processed = await this.processTxs(publicProcessor, txs);
         await this.prover.addTxs(processed);
         await db.close();
@@ -282,7 +286,7 @@ export class EpochProvingJob implements Traceable {
     );
     this.log.verbose(`Creating fork at ${blockNumber} with ${l1ToL2Messages.length} L1 to L2 messages`, {
       blockNumber,
-      l1ToL2Messages: l1ToL2MessagesPadded.map(m => m.toString()),
+      l1ToL2Messages: l1ToL2Messages.map(m => m.toString()),
     });
     await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
     return db;

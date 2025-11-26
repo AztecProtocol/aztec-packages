@@ -484,7 +484,6 @@ MultiTable ecc_generator_table<G1>::get_xyprime_endo_table(const MultiTableId id
     }
     return table;
 }
-template class ecc_generator_table<bb::g1>;
 template class ecc_generator_table<secp256k1::g1>;
 
 } // namespace bb::plookup::ecc_generator_tables

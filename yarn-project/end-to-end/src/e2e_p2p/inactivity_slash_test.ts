@@ -146,6 +146,10 @@ export class P2PInactivityTest {
       offlineValidators: this.offlineValidators,
     });
 
+    // Wait for P2P mesh to be fully formed before starting slashing period
+    // This prevents race conditions where validators propose blocks before the network is ready
+    await this.test.waitForP2PMeshConnectivity(this.nodes, NUM_NODES);
+
     this.test.logger.warn(`Advancing to epoch ${SETUP_EPOCH_DURATION + 1} to start slashing`);
     await this.test.ctx.cheatCodes.rollup.advanceToEpoch(SETUP_EPOCH_DURATION + 1);
 

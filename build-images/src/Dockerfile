@@ -233,6 +233,10 @@ RUN mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packag
 # Install gt (graphite).
 RUN npm install -g @withgraphite/graphite-cli@stable
 
+# Install ldid for mac cross-compile signing.
+RUN curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o /usr/local/bin/ldid \
+    && chmod +x /usr/local/bin/ldid
+
 # fzf seems to not install this file for some reason.
 COPY ./key-bindings.zsh /usr/share/doc/fzf/examples/key-bindings.zsh
 
@@ -363,8 +367,6 @@ RUN curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh \
     # Add user "ubuntu" to the Docker group
     && usermod -a -G docker ubuntu
 RUN curl -fsSL https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker -o /etc/bash_completion.d/docker.sh
-# Temp hack to downgrade containerd.io: https://github.com/opencontainers/runc/issues/4542
-RUN apt install containerd.io=1.6.33-1 --allow-downgrades -y
 
 # Install sshd.
 RUN apt install --no-install-recommends -y openssh-server \
@@ -383,5 +385,12 @@ RUN apt update && apt install -y libpam-google-authenticator
 # Sets RUSTUP_HOME.
 # Adds foundry and cargo bin dirs to PATH.
 COPY environment /etc/environment
+
+# Bump thread limits in line with whatever the container is launched with.
+RUN sed -i 's/^#\?DefaultTasksMax=.*/DefaultTasksMax=infinity/' /etc/systemd/system.conf
+RUN mkdir -p /etc/systemd/user.conf.d /etc/systemd/user/user.slice.d /etc/systemd/system/user-.slice.d && \
+    printf "[Manager]\nDefaultTasksMax=infinity\n" > /etc/systemd/user.conf.d/override.conf && \
+    printf "[Slice]\nTasksMax=infinity\n" > /etc/systemd/user/user.slice.d/override.conf && \
+    printf "[Slice]\nTasksMax=infinity\n" > /etc/systemd/system/user-.slice.d/override.conf
 
 EXPOSE 22

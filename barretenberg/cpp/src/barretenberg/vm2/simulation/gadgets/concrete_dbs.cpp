@@ -28,15 +28,37 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
 
 std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassId& class_id) const
 {
-    std::optional<ContractClass> klass = raw_contract_db.get_contract_class(class_id);
-    // If we didn't get a contract class, we don't prove anything.
-    // It is the responsibility of the caller to prove what the protocol expects.
-    if (!klass.has_value()) {
+    // Get the contract class from the raw DB.
+    std::optional<ContractClass> maybe_klass = raw_contract_db.get_contract_class(class_id);
+    if (!maybe_klass.has_value()) {
         return std::nullopt;
     }
-    // If we did get a contract class, we need to prove that the class_id is derived from the class.
-    class_id_derivation.assert_derivation(class_id, klass.value());
-    return klass;
+
+    // Get the bytecode commitment for this class.
+    std::optional<FF> maybe_bytecode_commitment = raw_contract_db.get_bytecode_commitment(class_id);
+    // If the class exists, the bytecode commitment must also exist.
+    assert(maybe_bytecode_commitment.has_value());
+
+    // Perform class ID derivation to verify the class ID is correctly derived from the class data.
+    class_id_derivation.assert_derivation(maybe_klass->with_commitment(maybe_bytecode_commitment.value()));
+
+    return maybe_klass;
+}
+
+std::optional<FF> ContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+{
+    return raw_contract_db.get_bytecode_commitment(class_id);
+}
+
+std::optional<std::string> ContractDB::get_debug_function_name(const AztecAddress& address,
+                                                               const FunctionSelector& selector) const
+{
+    return raw_contract_db.get_debug_function_name(address, selector);
+}
+
+void ContractDB::add_contracts(const ContractDeploymentData& contract_deployment_data)
+{
+    raw_contract_db.add_contracts(contract_deployment_data);
 }
 
 // Merkle DB starts.
@@ -47,11 +69,11 @@ TreeStates MerkleDB::get_tree_state() const
     TreeSnapshots tree_snapshots = raw_merkle_db.get_tree_roots();
     TreeCounters tree_counters = tree_counters_stack.top();
     return {
-        .noteHashTree = { .tree = tree_snapshots.noteHashTree, .counter = tree_counters.note_hash_counter },
-        .nullifierTree = { .tree = tree_snapshots.nullifierTree, .counter = tree_counters.nullifier_counter },
-        .l1ToL2MessageTree = { .tree = tree_snapshots.l1ToL2MessageTree,
-                               .counter = tree_counters.l2_to_l1_msg_counter },
-        .publicDataTree = { .tree = tree_snapshots.publicDataTree, .counter = written_public_data_slots.size() },
+        .note_hash_tree = { .tree = tree_snapshots.note_hash_tree, .counter = tree_counters.note_hash_counter },
+        .nullifier_tree = { .tree = tree_snapshots.nullifier_tree, .counter = tree_counters.nullifier_counter },
+        .l1_to_l2_message_tree = { .tree = tree_snapshots.l1_to_l2_message_tree,
+                                   .counter = tree_counters.l2_to_l1_msg_counter },
+        .public_data_tree = { .tree = tree_snapshots.public_data_tree, .counter = written_public_data_slots.size() },
     };
 }
 
@@ -65,7 +87,7 @@ FF MerkleDB::storage_read(const AztecAddress& contract_address, const FF& slot) 
     FF value = present ? preimage.leaf.value : 0;
 
     public_data_tree_check.assert_read(
-        slot, contract_address, value, preimage, index, path, raw_merkle_db.get_tree_roots().publicDataTree);
+        slot, contract_address, value, preimage, index, path, raw_merkle_db.get_tree_roots().public_data_tree);
 
     return value;
 }
@@ -76,7 +98,7 @@ void MerkleDB::storage_write(const AztecAddress& contract_address,
                              bool is_protocol_write)
 {
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
-    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().publicDataTree;
+    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().public_data_tree;
 
     auto hint = raw_merkle_db.insert_indexed_leaves_public_data_tree(PublicDataLeafValue(leaf_slot, value));
 
@@ -95,7 +117,7 @@ void MerkleDB::storage_write(const AztecAddress& contract_address,
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
-    assert(snapshot_after == raw_merkle_db.get_tree_roots().publicDataTree);
+    assert(snapshot_after == raw_merkle_db.get_tree_roots().public_data_tree);
     if (!is_protocol_write) {
         written_public_data_slots.insert(contract_address, slot);
     }
@@ -135,7 +157,7 @@ bool MerkleDB::nullifier_exists_internal(std::optional<AztecAddress> contract_ad
                                      low_leaf_preimage,
                                      low_leaf_index,
                                      low_leaf_path,
-                                     raw_merkle_db.get_tree_roots().nullifierTree);
+                                     raw_merkle_db.get_tree_roots().nullifier_tree);
 
     return present;
 }
@@ -161,7 +183,7 @@ void MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
     }
 
     auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
-    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().nullifierTree;
+    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().nullifier_tree;
 
     SiblingPath low_leaf_path;
     IndexedLeaf<NullifierLeafValue> low_leaf_preimage;
@@ -189,7 +211,7 @@ void MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
-    assert(snapshot_after == raw_merkle_db.get_tree_roots().nullifierTree);
+    assert(snapshot_after == raw_merkle_db.get_tree_roots().nullifier_tree);
 
     if (!present) {
         tree_counters_stack.top().nullifier_counter++;
@@ -203,14 +225,14 @@ bool MerkleDB::note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash)
     auto leaf_value = raw_merkle_db.get_leaf_value(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
     auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
     return note_hash_tree_check.note_hash_exists(
-        unique_note_hash, leaf_value, leaf_index, path, raw_merkle_db.get_tree_roots().noteHashTree);
+        unique_note_hash, leaf_value, leaf_index, path, raw_merkle_db.get_tree_roots().note_hash_tree);
 }
 
 void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash)
 {
     uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
 
-    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().noteHashTree;
+    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().note_hash_tree;
     // Unconstrained siloing and uniqueness to fetch the hint, since the hints are keyed by the unique note hash.
     // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
     FF siloed_note_hash = unconstrained_silo_note_hash(contract_address, note_hash);
@@ -224,7 +246,7 @@ void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& n
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
-    assert(snapshot_after == raw_merkle_db.get_tree_roots().noteHashTree);
+    assert(snapshot_after == raw_merkle_db.get_tree_roots().note_hash_tree);
 
     tree_counters_stack.top().note_hash_counter++;
 }
@@ -232,7 +254,7 @@ void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& n
 void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
 {
     uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
-    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().noteHashTree;
+    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().note_hash_tree;
     // Unconstrained siloing and uniqueness to fetch the hint, since the hints are keyed by the unique note hash.
     // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
     FF unique_note_hash = unconstrained_make_unique_note_hash(
@@ -244,7 +266,7 @@ void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
-    assert(snapshot_after == raw_merkle_db.get_tree_roots().noteHashTree);
+    assert(snapshot_after == raw_merkle_db.get_tree_roots().note_hash_tree);
 
     tree_counters_stack.top().note_hash_counter++;
 }
@@ -252,7 +274,7 @@ void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
 void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
 {
     uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
-    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().noteHashTree;
+    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().note_hash_tree;
     auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
 
     AppendOnlyTreeSnapshot snapshot_after =
@@ -260,7 +282,7 @@ void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
-    assert(snapshot_after == raw_merkle_db.get_tree_roots().noteHashTree);
+    assert(snapshot_after == raw_merkle_db.get_tree_roots().note_hash_tree);
 
     tree_counters_stack.top().note_hash_counter++;
 }
@@ -270,7 +292,7 @@ bool MerkleDB::l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) cons
     auto leaf_value = raw_merkle_db.get_leaf_value(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, leaf_index);
     auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, leaf_index);
     return l1_to_l2_msg_tree_check.exists(
-        msg_hash, leaf_value, leaf_index, path, raw_merkle_db.get_tree_roots().l1ToL2MessageTree);
+        msg_hash, leaf_value, leaf_index, path, raw_merkle_db.get_tree_roots().l1_to_l2_message_tree);
 }
 
 void MerkleDB::pad_trees()

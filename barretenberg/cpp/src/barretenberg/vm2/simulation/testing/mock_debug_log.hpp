@@ -21,6 +21,8 @@ class MockDebugLog : public DebugLoggerInterface {
                  MemoryAddress fields_offset,
                  MemoryAddress fields_size_offset),
                 (override));
+
+    MOCK_METHOD(std::vector<DebugLog>, dump_logs, (), (override));
 };
 
 } // namespace bb::avm2::simulation

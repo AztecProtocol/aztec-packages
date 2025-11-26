@@ -108,6 +108,13 @@ template <typename Fr> class Polynomial {
     {
         return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1);
     }
+    /**
+     * @brief Utility to create a shiftable polynomial of given size and virtual size.
+     */
+    static Polynomial shiftable(size_t size, size_t virtual_size)
+    {
+        return Polynomial(/*actual size*/ size - 1, virtual_size, /*shiftable offset*/ 1);
+    }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
 
@@ -422,7 +429,7 @@ template <typename Fr> class Polynomial {
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
 {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
+    return std::make_shared<Fr[]>(n_elements);
 }
 
 /**

@@ -44,7 +44,7 @@ pub contract AppSubscription {
 
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
-        macros::{functions::{external, initializer}, storage::storage},
+        macros::{functions::{external, initializer, nophasecheck}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
         protocol_types::address::AztecAddress,
@@ -64,6 +64,7 @@ pub contract AppSubscription {
     global SUBSCRIPTION_TXS: u32 = 5;
 
     #[external("private")]
+    #[nophasecheck]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -75,33 +76,33 @@ pub contract AppSubscription {
 
         // This function takes a generic argument that corresponds to the number of params
         // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
-        assert_current_call_valid_authwit::<2>(&mut context, user_address);
+        assert_current_call_valid_authwit::<2>(self.context, user_address);
 
-        let emission = storage.subscriptions.at(user_address).replace(|mut note| {
+        let emission = self.storage.subscriptions.at(user_address).replace(|mut note| {
             assert(note.remaining_txs > 0, "you're out of txs");
             note.remaining_txs -= 1;
             note
         });
-        emission.emit(&mut context, user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
+        emission.emit(user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
 
-        context.set_as_fee_payer();
+        self.context.set_as_fee_payer();
 
-        let config = storage.config.read();
+        let config = self.storage.config.read();
 
         // TODO(palla/gas) Assert fee_juice_limit_per_tx is less than this tx gas_limit
         let _gas_limit = config.fee_juice_limit_per_tx;
 
-        context.end_setup();
+        self.context.end_setup();
 
         // We check that the note is not expired. We do that via the router contract to conceal which contract
         // is performing the check.
         privately_check_block_number(
             Comparator.LT,
-            emission.note.expiry_block_number,
-            &mut context,
+            emission.content.note.expiry_block_number,
+            self.context,
         );
 
-        payload.execute_calls(&mut context, config.target_address);
+        payload.execute_calls(self.context, config.target_address);
     }
 
     #[external("public")]
@@ -113,7 +114,7 @@ pub contract AppSubscription {
         subscription_price: u128,
         fee_juice_limit_per_tx: Field,
     ) {
-        storage.config.initialize(
+        self.storage.config.initialize(
             Config {
                 target_address,
                 subscription_recipient_address,
@@ -133,36 +134,35 @@ pub contract AppSubscription {
     ) {
         assert(tx_count <= SUBSCRIPTION_TXS);
 
-        let config = storage.config.read();
+        let config = self.storage.config.read();
 
-        Token::at(config.subscription_token_address)
-            .transfer_in_private(
-                context.msg_sender().unwrap(),
-                config.subscription_recipient_address,
-                config.subscription_price,
-                authwit_nonce,
-            )
-            .call(&mut context);
+        self.call(Token::at(config.subscription_token_address).transfer_in_private(
+            self.msg_sender().unwrap(),
+            config.subscription_recipient_address,
+            config.subscription_price,
+            authwit_nonce,
+        ));
 
         // Assert that the `current_block_number > expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS`.
         // --> We do that via the router contract to conceal which contract is performing the check.
         privately_check_block_number(
             Comparator.GT,
             expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
-            &mut context,
+            self.context,
         );
 
-        storage
+        self
+            .storage
             .subscriptions
             .at(subscriber)
             .initialize_or_replace(|_| {
                 SubscriptionNote::new(subscriber, expiry_block_number, tx_count)
             })
-            .emit(&mut context, subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]
     unconstrained fn is_initialized(subscriber: AztecAddress) -> bool {
-        storage.subscriptions.at(subscriber).is_initialized()
+        self.storage.subscriptions.at(subscriber).is_initialized()
     }
 }

@@ -176,6 +176,346 @@ groups:
           labels:
             <<: *common_labels
           isPaused: false
+        - uid: fef0j8bn7wsqxz
+          title: Fisherman - block re-execution failed
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name) (increase(aztec_validator_failed_reexecution_count{k8s_namespace_name=~".*(fisherman|mainnet).*"}[$__rate_interval]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 5m
+          annotations:
+            summary: Fisherman detected block re-execution failure
+            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) failed to re-execute block(s).
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: gef0k9cn8xtryp
+          title: Fisherman - block build failed
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_block_proposal_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*"}[$__rate_interval]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 5m
+          annotations:
+            summary: Fisherman node failed to build validation block
+            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) failed to build block. Reason - {{ ` {{ $labels.aztec_error_type }} ` }}.
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: hef0k9dn9yuszq
+          title: Fisherman - pre-build checks failed
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_block_proposal_precheck_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*"}[$__rate_interval]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 5m
+          annotations:
+            summary: Fisherman node failed pre-build checks
+            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) failed pre-build checks. Check type - {{ ` {{ $labels.aztec_error_type }} ` }}.
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: ief0k9en0zuvtx
+          title: Fisherman - invalid attestations received
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_fisherman_invalid_attestation_received_count{k8s_namespace_name=~".*(fisherman|mainnet).*"}[$__rate_interval]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 5m
+          annotations:
+            summary: Fisherman node received invalid attestations
+            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) received invalid attestations from other validators. Reason - {{ ` {{ $labels.aztec_error_type }} ` }}.
+          labels:
+            <<: *common_labels
+          isPaused: false
         - uid: bef0du59q8sg0b
           title: Chain - no new blocks
           condition: C
@@ -187,7 +527,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: max by (k8s_namespace_name) (delta(aztec_archiver_block_height{k8s_namespace_name!="",aztec_status=""}[$__rate_interval]))
+                expr: max by (k8s_namespace_name) (increase(aztec_archiver_block_height{k8s_namespace_name!="",aztec_status=""}[10m]))
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -252,11 +592,11 @@ groups:
                 type: threshold
           dashboardUid: ""
           panelId: 0
-          noDataState: NoData
+          noDataState: Alerting
           execErrState: Error
           for: 10m
           annotations:
-            summary: Pending chain in {{ ` {{ $labels.k8s_namespace_name  }} ` }} hasn't advanced in 5 minutes
+            summary: Pending chain in {{ ` {{ $labels.k8s_namespace_name  }} ` }} hasn't advanced in 10 minutes
           labels:
             <<: *common_labels
           isPaused: false
@@ -355,7 +695,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: avg by (k8s_namespace_name) (aztec_sequencer_time_to_collect_attestations)
+                expr: avg by (k8s_namespace_name) (aztec_sequencer_attestations_collect_duration_milliseconds)
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -399,7 +739,7 @@ groups:
                 conditions:
                     - evaluator:
                         params:
-                            - 12000
+                            - 20000
                         type: gt
                       operator:
                         type: and
@@ -846,6 +1186,90 @@ groups:
           labels:
             <<: *common_labels
           isPaused: false
+        - uid: ajslazlqf4dy7lct
+          title: Snapshot errors
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: max by (k8s_namespace_name) (increase(aztec_node_snapshot_error_count{k8s_namespace_name!=""}[$__rate_interval]))
+                instant: true
+                intervalMs: 50000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 0s
+          annotations:
+            summary: There was an error taking a snapshot in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
+          labels:
+            <<: *common_labels
+          isPaused: false
     - orgId: 1
       name: Every minute
       folder: Metrics
@@ -988,7 +1412,7 @@ groups:
                 type: threshold
           dashboardUid: bexge5lz3e51cd
           panelId: 5
-          noDataState: NoData
+          noDataState: Alerting
           execErrState: Error
           for: 1m
           annotations:

@@ -43,11 +43,11 @@ export async function deployFundedSchnorrAccounts(
 }
 
 /**
- * Registers the initial sandbox accounts in the wallet.
+ * Registers the initial local network accounts in the wallet.
  * @param wallet - Test wallet to use to register the accounts.
  * @returns Addresses of the registered accounts.
  */
-export async function registerInitialSandboxAccountsInWallet(wallet: BaseTestWallet): Promise<AztecAddress[]> {
+export async function registerInitialLocalNetworkAccountsInWallet(wallet: BaseTestWallet): Promise<AztecAddress[]> {
   const testAccounts = await getInitialTestAccountsData();
   return Promise.all(
     testAccounts.map(async account => {
@@ -67,7 +67,7 @@ export class ProvenTx extends Tx {
     // eslint-disable-next-line jsdoc/require-jsdoc
     public stats?: ProvingStats,
   ) {
-    super(tx.getTxHash(), tx.data, tx.clientIvcProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
+    super(tx.getTxHash(), tx.data, tx.chonkProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
   }
 
   send() {
@@ -97,5 +97,5 @@ export async function proveInteraction(
   } else {
     execPayload = await interaction.request(options);
   }
-  return wallet.proveTx(execPayload, await toSendOptions(options));
+  return wallet.proveTx(execPayload, toSendOptions(options));
 }

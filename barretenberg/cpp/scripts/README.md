@@ -28,7 +28,7 @@ There are scripts that:
 4. If `ssh` worked, the setup is complete.
 
 ## How
-- `./scripts/benchmark_client_ivc.sh` lets you run `client_ivc_bench` remotely and analyze the results.
+- `./scripts/benchmark_chonk.sh` lets you run `chonk_bench` remotely and analyze the results.
 - `./scripts/benchmark_example_ivc_flow_remote.sh` copies the example flow input you'd like to run to the remote machine, runs `bb prove`, and analyze the results.
     - For the script to work you need to have the example flows downloaded locally, by `AZTEC_CACHE_COMMIT=origin/next~3 FORCE_CACHE_DOWNLOAD=1 yarn-project/end-to-end/bootstrap.sh build_bench`
 - If you have other special needs, look inside the above scripts and see what parameters you can give, or use `./scripts/benchmark_remote.sh`.

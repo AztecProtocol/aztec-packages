@@ -9,7 +9,7 @@ test.beforeAll(async () => {
   const nodeResp = await fetch(nodeUrl + '/status');
   if (!nodeResp.ok) {
     throw new Error(
-      `Failed to connect to node. This test assumes you have a Sandbox running at ${nodeUrl}.`
+      `Failed to connect to node. This test assumes you have a local network running at ${nodeUrl}.`
     );
   }
 });
@@ -19,10 +19,18 @@ test('create account and cast vote', async ({ page }, testInfo) => {
     const text = msg.text();
     if (msg.type() === 'error') {
       console.error(text);
-      // NOTE: this block is speculative. We were too busy to test if it worked - if we get real errors
-      // distinguished from timeouts, then it worked.
       // Fail immediately on JavaScript errors to avoid timeout
+
+      // Check if this is an "Error:" message that should fail the test
+      // We exclude MIME type errors due to an 'expected' error in Firefox
+      // Note: It's unclear why Firefox shows MIME type errors for index.js in some cases
+      const isErrorThatShouldFail =
+        text.includes('Error: ') &&
+        !text.includes('Error: Timed out ') &&
+        !text.includes('was blocked because of a disallowed MIME type');
+
       if (
+        isErrorThatShouldFail ||
         text.includes('Uncaught') ||
         text.includes('TypeError') ||
         text.includes('ReferenceError') ||
@@ -76,7 +84,7 @@ test('create account and cast vote', async ({ page }, testInfo) => {
 
   await voteButton.click();
 
-  // This will take some time to complete (Client IVC proof generation)
+  // This will take some time to complete (chonk proof generation)
   // Button is enabled when the transaction is complete
   await expect(voteButton).toBeEnabled({
     enabled: true,

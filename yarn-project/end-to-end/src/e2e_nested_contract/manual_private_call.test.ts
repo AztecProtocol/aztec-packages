@@ -21,12 +21,4 @@ describe('e2e_nested_contract manual', () => {
       .send({ from: defaultAccountAddress })
       .wait();
   });
-
-  it('fails simulation if calling a function not allowed to be called externally', async () => {
-    await expect(
-      parentContract.methods
-        .entry_point(childContract.address, await (childContract.methods as any).value_internal.selector())
-        .simulate({ from: defaultAccountAddress }),
-    ).rejects.toThrow(/Assertion failed: Function value_internal can only be called internally/);
-  });
 });

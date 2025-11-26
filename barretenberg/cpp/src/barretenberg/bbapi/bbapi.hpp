@@ -6,7 +6,7 @@
  * This file includes and exports all command structures from specialized headers
  * and provides unified Command and CommandResponse types for the API.
  */
-#include "barretenberg/bbapi/bbapi_client_ivc.hpp"
+#include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_execute.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"

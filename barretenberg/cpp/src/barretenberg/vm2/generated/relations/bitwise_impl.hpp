@@ -73,7 +73,7 @@ void bitwiseImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // RES_TAG_SHOULD_MATCH_INPUT
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_start)) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::bitwise_err))) * static_cast<View>(in.get(C::bitwise_start)) *
                    (static_cast<View>(in.get(C::bitwise_tag_c)) - static_cast<View>(in.get(C::bitwise_tag_a)));
         std::get<9>(evals) += (tmp * scaling_factor);
     }

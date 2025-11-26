@@ -1,3 +1,6 @@
+/** Parameterized hex string type for specific byte lengths */
+export type Hex<TByteLength extends number> = `0x${string}` & { readonly _length: TByteLength };
+
 export function hasHexPrefix(str: string): str is `0x${string}` {
   return str.startsWith('0x');
 }

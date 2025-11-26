@@ -12,9 +12,9 @@ use crate::{
 };
 
 // Used by `create_mark_as_initialized` (you won't find it through searching)
-pub fn mark_as_initialized_public(context: &mut PublicContext) {
+pub fn mark_as_initialized_public(context: PublicContext) {
     let init_nullifier =
-        compute_unsiloed_contract_initialization_nullifier((*context).this_address());
+        compute_unsiloed_contract_initialization_nullifier((context).this_address());
     context.push_nullifier(init_nullifier);
 }
 
@@ -26,7 +26,7 @@ pub fn mark_as_initialized_private(context: &mut PrivateContext) {
 }
 
 // Used by `create_init_check` (you won't find it through searching)
-pub fn assert_is_initialized_public(context: &mut PublicContext) {
+pub fn assert_is_initialized_public(context: PublicContext) {
     let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
     assert(context.nullifier_exists(init_nullifier, context.this_address()), "Not initialized");
 }
@@ -34,7 +34,7 @@ pub fn assert_is_initialized_public(context: &mut PublicContext) {
 // Used by `create_init_check` (you won't find it through searching)
 pub fn assert_is_initialized_private(context: &mut PrivateContext) {
     let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
-    context.push_nullifier_read_request(init_nullifier);
+    context.push_nullifier_read_request(init_nullifier, context.this_address());
 }
 
 fn compute_unsiloed_contract_initialization_nullifier(address: AztecAddress) -> Field {

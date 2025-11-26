@@ -30,6 +30,7 @@ impl BatchingBlobCommitment {
         let x = BLS12_381_Fq::from_limbs(x_limbs);
         let y = BLS12_381_Fq::from_limbs(y_limbs);
         let point = BLSPoint { x, y, is_infinity: (x.is_zero()) & (y.is_zero()) };
+        point.validate_on_curve();
         compress_to_blob_commitment(point)
     }
 }

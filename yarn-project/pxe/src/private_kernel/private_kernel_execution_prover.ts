@@ -23,7 +23,7 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
   PrivateVerificationKeyHints,
 } from '@aztec/stdlib/kernel';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof, ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
 import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
@@ -53,7 +53,7 @@ export interface PrivateKernelExecutionProverConfig {
 /**
  * The PrivateKernelExecutionProver class is responsible for taking a transaction request and sequencing the
  * the execution of the private functions within, sequenced with private kernel "glue" to check protocol rules.
- * The result can be a client IVC proof of the private transaction portion, or just a simulation that can e.g.
+ * The result can be a chonk proof of the private transaction portion, or just a simulation that can e.g.
  * inform state tree updates.
  */
 export class PrivateKernelExecutionProver {
@@ -103,9 +103,8 @@ export class PrivateKernelExecutionProver {
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
-    const validationRequestsSplitCounter = isPrivateOnlyTx
-      ? 0
-      : getFinalMinRevertibleSideEffectCounter(executionResult);
+    const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(executionResult);
+    const splitCounter = isPrivateOnlyTx ? 0 : minRevertibleSideEffectCounter;
 
     while (executionStack.length) {
       if (!firstIteration) {
@@ -113,7 +112,7 @@ export class PrivateKernelExecutionProver {
           output,
           executionStack,
           noteHashNullifierCounterMap,
-          validationRequestsSplitCounter,
+          splitCounter,
         );
         while (resetBuilder.needsReset()) {
           const witgenTimer = new Timer();
@@ -134,7 +133,7 @@ export class PrivateKernelExecutionProver {
             output,
             executionStack,
             noteHashNullifierCounterMap,
-            validationRequestsSplitCounter,
+            splitCounter,
           );
         }
       }
@@ -171,6 +170,7 @@ export class PrivateKernelExecutionProver {
           privateCallData,
           isPrivateOnlyTx,
           executionResult.firstNullifier,
+          minRevertibleSideEffectCounter,
         );
         this.log.debug(
           `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
@@ -220,7 +220,7 @@ export class PrivateKernelExecutionProver {
       output,
       [],
       noteHashNullifierCounterMap,
-      validationRequestsSplitCounter,
+      splitCounter,
     );
     while (resetBuilder.needsReset()) {
       const witgenTimer = new Timer();
@@ -239,12 +239,7 @@ export class PrivateKernelExecutionProver {
         },
       });
 
-      resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
-        output,
-        [],
-        noteHashNullifierCounterMap,
-        validationRequestsSplitCounter,
-      );
+      resetBuilder = new PrivateKernelResetPrivateInputsBuilder(output, [], noteHashNullifierCounterMap, splitCounter);
     }
 
     if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {
@@ -347,23 +342,51 @@ export class PrivateKernelExecutionProver {
       this.log.info(`Private kernel witness generation took ${timer.ms()}ms`);
     }
 
-    let clientIvcProof: ClientIvcProof;
+    let chonkProof: ChonkProof;
     // TODO(#7368) how do we 'bincode' encode these inputs?
     let provingTime;
     if (!skipProofGeneration) {
       const provingTimer = new Timer();
-      clientIvcProof = await this.proofCreator.createClientIvcProof(executionSteps);
+      const proofWithPublicInputs = await this.proofCreator.createChonkProof(executionSteps);
       provingTime = provingTimer.ms();
+      this.ensurePublicInputsMatch(proofWithPublicInputs, tailOutput.publicInputs);
+      chonkProof = proofWithPublicInputs.removePublicInputs();
     } else {
-      clientIvcProof = ClientIvcProof.random();
+      chonkProof = ChonkProof.random();
     }
 
     return {
       publicInputs: tailOutput.publicInputs,
       executionSteps,
-      clientIvcProof,
+      chonkProof,
       timings: provingTime ? { proving: provingTime } : undefined,
     };
+  }
+
+  /**
+   * Checks that the public inputs of the chonk proof match the public inputs of the tail circuit.
+   * This can only mismatch if there is a circuit / noir / bb bug.
+   * @param chonkProof - The chonk proof with public inputs.
+   * @param tailPublicInputs - The public inputs resulting from witness generation of the tail circuit.
+   */
+  private ensurePublicInputsMatch(
+    chonkProof: ChonkProofWithPublicInputs,
+    tailPublicInputs: PrivateKernelTailCircuitPublicInputs,
+  ) {
+    const serializedChonkProofPublicInputs = chonkProof.getPublicInputs();
+    const serializedTailPublicInputs = tailPublicInputs.publicInputs().toFields();
+    if (serializedChonkProofPublicInputs.length !== serializedTailPublicInputs.length) {
+      throw new Error(
+        `Public inputs length mismatch: ${serializedChonkProofPublicInputs.length} !== ${serializedTailPublicInputs.length}`,
+      );
+    }
+    if (
+      !serializedChonkProofPublicInputs.every((input: Fr, index: number) =>
+        input.equals(serializedTailPublicInputs[index]),
+      )
+    ) {
+      throw new Error(`Public inputs mismatch between kernel and chonk proof`);
+    }
   }
 
   private async getVkData(verificationKey: VerificationKeyData) {

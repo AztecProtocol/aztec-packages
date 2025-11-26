@@ -6,7 +6,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSi
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
@@ -271,6 +271,11 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
 
   async hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
     return await Promise.all(txHashes.map(txHash => this.#txs.hasAsync(txHash.toString())));
+  }
+
+  async hasTx(txHash: TxHash): Promise<boolean> {
+    const result = await this.hasTxs([txHash]);
+    return result[0];
   }
 
   /**
@@ -546,7 +551,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
           const archivedTx: Tx = new Tx(
             tx.txHash,
             tx.data,
-            ClientIvcProof.empty(),
+            ChonkProof.empty(),
             tx.contractClassLogFields,
             tx.publicFunctionCalldata,
           );

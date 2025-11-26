@@ -1,3 +1,4 @@
+import { type BlockBlobData, encodeBlockBlobData, encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -13,6 +14,8 @@ import type { L2BlockInfo } from './l2_block_info.js';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
+ *
+ * @deprecated Use `L2BlockNew` instead.
  */
 export class L2Block {
   constructor(
@@ -131,6 +134,11 @@ export class L2Block {
     return this.blockHash;
   }
 
+  /**
+   * @deprecated
+   * This only works when there's one block per checkpoint.
+   * TODO(#17027): Remove this method from L2Block and create a dedicated Checkpoint class.
+   */
   public getCheckpointHeader() {
     return this.header.toCheckpointHeader();
   }
@@ -138,6 +146,44 @@ export class L2Block {
   // Temporary helper to get the actual block header.
   public getBlockHeader(): BlockHeader {
     return this.header.toBlockHeader();
+  }
+
+  /**
+   * @deprecated
+   * This only works when there's one block per checkpoint.
+   * TODO(#17027): Remove this method from L2Block and create a dedicated Checkpoint class.
+   */
+  public getCheckpointBlobFields() {
+    const blockBlobData = this.toBlockBlobData(true);
+    return encodeCheckpointBlobDataFromBlocks([blockBlobData]);
+  }
+
+  public toBlobFields(isFirstBlock: boolean): Fr[] {
+    const blockBlobData = this.toBlockBlobData(isFirstBlock);
+    return encodeBlockBlobData(blockBlobData);
+  }
+
+  public toBlockBlobData(isFirstBlock: boolean): BlockBlobData {
+    return {
+      blockEndMarker: {
+        numTxs: this.body.txEffects.length,
+        timestamp: this.header.globalVariables.timestamp,
+        blockNumber: this.number,
+      },
+      blockEndStateField: {
+        l1ToL2MessageNextAvailableLeafIndex: this.header.state.l1ToL2MessageTree.nextAvailableLeafIndex,
+        noteHashNextAvailableLeafIndex: this.header.state.partial.noteHashTree.nextAvailableLeafIndex,
+        nullifierNextAvailableLeafIndex: this.header.state.partial.nullifierTree.nextAvailableLeafIndex,
+        publicDataNextAvailableLeafIndex: this.header.state.partial.publicDataTree.nextAvailableLeafIndex,
+        totalManaUsed: this.header.totalManaUsed.toBigInt(),
+      },
+      lastArchiveRoot: this.header.lastArchive.root,
+      noteHashRoot: this.header.state.partial.noteHashTree.root,
+      nullifierRoot: this.header.state.partial.nullifierTree.root,
+      publicDataRoot: this.header.state.partial.publicDataTree.root,
+      l1ToL2MessageRoot: isFirstBlock ? this.header.state.l1ToL2MessageTree.root : undefined,
+      txs: this.body.toTxBlobData(),
+    };
   }
 
   /**

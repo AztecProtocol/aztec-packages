@@ -15,7 +15,7 @@ import {
   CheckpointMergeRollupPrivateInputs,
   CheckpointPaddingRollupPrivateInputs,
   CheckpointRollupPublicInputs,
-  PublicTubePublicInputs,
+  PublicChonkVerifierPublicInputs,
   RootRollupPrivateInputs,
   type RootRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
@@ -57,10 +57,12 @@ export class EpochProvingState {
   private finalBatchedBlob: BatchedBlob | undefined;
   private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
 
-  // Map from tx hash to tube proof promise. Used when kickstarting tube proofs before tx processing.
-  public readonly cachedTubeProofs = new Map<
+  // Map from tx hash to chonk verifier proof promise. Used when kickstarting chonk verifier proofs before tx processing.
+  public readonly cachedChonkVerifierProofs = new Map<
     string,
-    Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>
+    Promise<
+      PublicInputsAndRecursiveProof<PublicChonkVerifierPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    >
   >();
 
   constructor(
@@ -81,7 +83,6 @@ export class EpochProvingState {
     checkpointIndex: number,
     constants: CheckpointConstantData,
     totalNumBlocks: number,
-    totalNumBlobFields: number,
     previousBlockHeader: BlockHeader,
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     l1ToL2Messages: Fr[],
@@ -100,7 +101,6 @@ export class EpochProvingState {
       checkpointIndex,
       constants,
       totalNumBlocks,
-      totalNumBlobFields,
       this.finalBlobBatchingChallenges,
       previousBlockHeader,
       lastArchiveSiblingPath,
@@ -236,7 +236,7 @@ export class EpochProvingState {
     if (!this.endBlobAccumulator) {
       throw new Error('End blob accumulator not ready.');
     }
-    this.finalBatchedBlob = await this.endBlobAccumulator.finalize();
+    this.finalBatchedBlob = await this.endBlobAccumulator.finalize(true /* verifyProof */);
   }
 
   public getParentLocation(location: TreeNodeLocation) {

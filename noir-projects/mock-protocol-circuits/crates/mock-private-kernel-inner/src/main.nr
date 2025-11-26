@@ -1,6 +1,6 @@
 use dep::mock_types::{
     AppPublicInputs, MEGA_VK_LENGTH_IN_FIELDS, PrivateKernelPublicInputs,
-    PrivateKernelPublicInputsBuilder, PROOF_TYPE_PG, VerificationKey,
+    PrivateKernelPublicInputsBuilder, PROOF_TYPE_HN, VerificationKey,
 };
 
 fn main(
@@ -9,8 +9,8 @@ fn main(
     app_inputs: call_data(1) AppPublicInputs,
     app_vk: VerificationKey<MEGA_VK_LENGTH_IN_FIELDS>,
 ) -> return_data PrivateKernelPublicInputs {
-    std::verify_proof_with_type(kernel_vk.key, [], [], kernel_vk.hash, PROOF_TYPE_PG);
-    std::verify_proof_with_type(app_vk.key, [], [], app_vk.hash, PROOF_TYPE_PG);
+    std::verify_proof_with_type(kernel_vk.key, [], [], kernel_vk.hash, PROOF_TYPE_HN);
+    std::verify_proof_with_type(app_vk.key, [], [], app_vk.hash, PROOF_TYPE_HN);
 
     let mut private_kernel_inputs =
         PrivateKernelPublicInputsBuilder::from_previous_kernel(prev_kernel_public_inputs);

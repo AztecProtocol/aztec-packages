@@ -7,10 +7,10 @@
 #    - BB_SSH_CPP_PATH: Path to barretenberg/cpp in a cloned repository on the EC2 instance
 set -eu
 
-BENCHMARK=${1:-client_ivc_bench}
+BENCHMARK=${1:-chonk_bench}
 COMMAND=${2:-./$BENCHMARK}
 PRESET=${3:-clang20-no-avm}
-BUILD_DIR=${4:-build-no-avm}
+BUILD_DIR=${4:-build}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
 # Move above script dir.

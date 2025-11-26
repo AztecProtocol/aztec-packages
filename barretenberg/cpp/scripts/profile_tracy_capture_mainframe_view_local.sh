@@ -11,8 +11,8 @@
 set -eux
 USER=${1:-$USER}
 BOX=$USER-box
-TARGET=${2:-client_ivc_bench}
-COMMAND=${3:-./bin/$TARGET --benchmark_filter=ClientIVCBench/Full/6"\$"}
+TARGET=${2:-chonk_bench}
+COMMAND=${3:-./bin/$TARGET --benchmark_filter=ChonkBench/Full/6"\$"}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 # Can also set PRESET=tracy-gates env variable
 PRESET=${PRESET:-tracy-memory}

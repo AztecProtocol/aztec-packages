@@ -85,8 +85,8 @@ template <class Builder> class goblin_field {
         uint256_t converted(input);
         uint256_t lo_v = converted.slice(0, NUM_LIMB_BITS * 2);
         uint256_t hi_v = converted.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS);
-        field_ct lo = field_ct::from_witness(ctx, lo_v);
-        field_ct hi = field_ct::from_witness(ctx, hi_v);
+        field_ct lo = field_ct::from_witness(ctx, bb::fr(lo_v));
+        field_ct hi = field_ct::from_witness(ctx, bb::fr(hi_v));
         auto result = goblin_field(lo, hi);
         result.set_free_witness_tag();
         return result;

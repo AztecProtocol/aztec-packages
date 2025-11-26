@@ -45,14 +45,11 @@ fn extra_non_empty_nullifier_in_output() {
 
     // Append an extra item to the output.
     builder.output.append_siloed_nullifiers(3);
-    let mut hints = builder.get_output_hints();
-    // Tweak the hint to point to an empty item.
-    hints.sorted_kept_nullifier_indexes[3] = 4;
 
-    builder.validate_siloing_with_output_hints(hints);
+    builder.validate_siloing();
 }
 
-#[test]
+#[test(should_fail_with = "Nullifiers have been siloed in a previous reset")]
 fn previous_nullifiers_already_siloed() {
     let mut builder = TestBuilder::new();
 
@@ -83,7 +80,7 @@ fn with_padded_nullifiers() {
     builder.validate_siloing();
 }
 
-#[test(should_fail_with = "attempt to subtract with overflow")]
+#[test(should_fail_with = "CappedSize not large enough to cover all valid items in original_array")]
 fn more_non_empty_nullifiers_than_capped_size() {
     let mut builder = TestBuilder::new();
 

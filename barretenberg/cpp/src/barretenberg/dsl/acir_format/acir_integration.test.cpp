@@ -1,10 +1,11 @@
-#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
+#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
 #ifndef __wasm__
+#include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 
 #include <filesystem>
@@ -22,22 +23,18 @@ class AcirIntegrationTest : public ::testing::Test {
         return file.good();
     }
 
-    static acir_format::AcirProgramStack get_program_stack_data_from_test_file(const std::string& test_program_name)
+    static acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name)
     {
         std::string base_path = "../../acir_tests/acir_tests/" + test_program_name + "/target";
         std::string bytecode_path = base_path + "/program.json";
         std::string witness_path = base_path + "/witness.gz";
 
-        return acir_format::get_acir_program_stack(bytecode_path, witness_path);
-    }
+        std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
+        std::vector<uint8_t> witness = get_bytecode(witness_path);
+        acir_format::AcirFormat program = acir_format::circuit_buf_to_acir_format(std::move(bytecode));
+        acir_format::WitnessVector witness_vector = acir_format::witness_buf_to_witness_vector(std::move(witness));
 
-    static acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name)
-    {
-        auto program_stack = get_program_stack_data_from_test_file(test_program_name);
-        BB_ASSERT_EQ(program_stack.size(),
-                     static_cast<size_t>(1)); // Otherwise this method will not return full stack data
-
-        return program_stack.back();
+        return { program, witness_vector };
     }
 
     template <class Flavor> bool prove_and_verify_honk(Flavor::CircuitBuilder& builder)
@@ -51,7 +48,7 @@ class AcirIntegrationTest : public ::testing::Test {
         Prover prover{ prover_instance, verification_key };
 #ifdef LOG_SIZES
         builder.blocks.summarize();
-        info("num gates          = ", builder.get_estimated_num_finalized_gates());
+        info("num gates          = ", builder.get_num_finalized_gates_inefficient());
         info("total circuit size = ", builder.get_estimated_total_circuit_size());
         info("circuit size       = ", prover.prover_instance->dyadic_size());
         info("log circuit size   = ", prover.prover_instance->log_dyadic_size());
@@ -67,9 +64,9 @@ class AcirIntegrationTest : public ::testing::Test {
 
     void add_some_simple_RAM_gates(auto& circuit)
     {
-        std::array<uint32_t, 3> ram_values{ circuit.add_variable(5),
-                                            circuit.add_variable(10),
-                                            circuit.add_variable(20) };
+        std::array<uint32_t, 3> ram_values{ circuit.add_variable(bb::fr(5)),
+                                            circuit.add_variable(bb::fr(10)),
+                                            circuit.add_variable(bb::fr(20)) };
 
         size_t ram_id = circuit.create_RAM_array(3);
 
@@ -77,9 +74,9 @@ class AcirIntegrationTest : public ::testing::Test {
             circuit.init_RAM_element(ram_id, i, ram_values[i]);
         }
 
-        auto val_idx_1 = circuit.read_RAM_array(ram_id, circuit.add_variable(1));
-        auto val_idx_2 = circuit.read_RAM_array(ram_id, circuit.add_variable(2));
-        auto val_idx_3 = circuit.read_RAM_array(ram_id, circuit.add_variable(0));
+        auto val_idx_1 = circuit.read_RAM_array(ram_id, circuit.add_variable(bb::fr(1)));
+        auto val_idx_2 = circuit.read_RAM_array(ram_id, circuit.add_variable(bb::fr(2)));
+        auto val_idx_3 = circuit.read_RAM_array(ram_id, circuit.add_variable(bb::fr(0)));
 
         circuit.create_big_add_gate({
             val_idx_1,
@@ -99,11 +96,6 @@ class AcirIntegrationTest : public ::testing::Test {
 };
 
 class AcirIntegrationSingleTest : public AcirIntegrationTest, public testing::WithParamInterface<std::string> {};
-
-class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::WithParamInterface<std::string> {
-  protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-};
 
 TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 {
@@ -320,33 +312,6 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          //  "workspace_default_member",
                                          "xor"));
 
-TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
-{
-    using Flavor = MegaFlavor;
-    using Builder = Flavor::CircuitBuilder;
-
-    std::string test_name = GetParam();
-    info("Test: ", test_name);
-
-    auto program_stack = get_program_stack_data_from_test_file(test_name);
-
-    while (!program_stack.empty()) {
-        auto program = program_stack.back();
-
-        // Construct a bberg circuit from the acir representation
-        auto builder = acir_format::create_circuit<Builder>(program);
-
-        // Construct and verify Honk proof for the individidual circuit
-        EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
-
-        program_stack.pop_back();
-    }
-}
-
-INSTANTIATE_TEST_SUITE_P(AcirTests,
-                         AcirIntegrationFoldingTest,
-                         testing::Values("fold_basic", "fold_basic_nested_call"));
-
 /**
  * @brief A basic test of a circuit generated in noir that makes use of the databus
  *
@@ -425,7 +390,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
 
 /**
  * @brief Ensure that adding gates post-facto to a circuit generated from acir still results in a valid circuit
- * @details This is a pattern required by e.g. ClientIvc which appends recursive verifiers to acir-generated circuits
+ * @details This is a pattern required by e.g. Chonk which appends recursive verifiers to acir-generated circuits
  *
  */
 TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
@@ -478,10 +443,10 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
 }
 
 /**
- * @brief Test LegacyClientIVC proof generation and verification given an ivc-inputs msgpack file
+ * @brief Test Chonk proof generation and verification given an ivc-inputs msgpack file
  *
  */
-TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
+TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
 {
     // NOTE: to populate the test inputs at this location, run the following commands:
     //      export  AZTEC_CACHE_COMMIT=origin/master~3
@@ -493,14 +458,14 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<SumcheckClientIVC> ivc = steps.accumulate();
-    SumcheckClientIVC::Proof proof = ivc->prove();
+    std::shared_ptr<Chonk> ivc = steps.accumulate();
+    Chonk::Proof proof = ivc->prove();
 
     EXPECT_TRUE(ivc->verify(proof, ivc->get_vk()));
 }
 
 /**
- * @brief Check that for a set of programs to be accumulated via CIVC, the verification keys computed with a dummy
+ * @brief Check that for a set of programs to be accumulated via Chonk, the verification keys computed with a dummy
  * witness are identical to those computed with the genuine provided witness.
  */
 TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
@@ -521,10 +486,10 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         {
             auto program = program_in;
             program.witness = {}; // erase the witness to mimmic the "dummy witness" case
-            auto& ivc_constraints = program.constraints.pg_recursion_constraints;
+            auto& ivc_constraints = program.constraints.hn_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
-                .ivc = ivc_constraints.empty() ? nullptr
-                                               : acir_format::create_mock_sumcheck_ivc_from_constraints(ivc_constraints)
+                .ivc =
+                    ivc_constraints.empty() ? nullptr : acir_format::create_mock_chonk_from_constraints(ivc_constraints)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
@@ -534,10 +499,10 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         // Compute the verification key using the genuine witness
         {
             auto program = program_in;
-            auto& ivc_constraints = program.constraints.pg_recursion_constraints;
+            auto& ivc_constraints = program.constraints.hn_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
-                .ivc = ivc_constraints.empty() ? nullptr
-                                               : acir_format::create_mock_sumcheck_ivc_from_constraints(ivc_constraints)
+                .ivc =
+                    ivc_constraints.empty() ? nullptr : acir_format::create_mock_chonk_from_constraints(ivc_constraints)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);

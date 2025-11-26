@@ -1,6 +1,6 @@
 use crate::{
     constants::{
-        AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, CIVC_VK_LENGTH_IN_FIELDS, MEGA_VK_LENGTH_IN_FIELDS,
+        AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, CHONK_VK_LENGTH_IN_FIELDS, MEGA_VK_LENGTH_IN_FIELDS,
         ULTRA_VK_LENGTH_IN_FIELDS,
     },
     traits::Empty,
@@ -22,5 +22,6 @@ impl<let M: u32> Empty for VerificationKey<M> {
 pub type RollupHonkVerificationKey = VerificationKey<ULTRA_VK_LENGTH_IN_FIELDS>;
 pub type HonkVerificationKey = VerificationKey<ULTRA_VK_LENGTH_IN_FIELDS>;
 pub type MegaVerificationKey = VerificationKey<MEGA_VK_LENGTH_IN_FIELDS>;
-pub type ClientIVCVerificationKey = VerificationKey<CIVC_VK_LENGTH_IN_FIELDS>;
+// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
+pub type ChonkVerificationKey = VerificationKey<CHONK_VK_LENGTH_IN_FIELDS>;
 pub type AvmVerificationKey = VerificationKey<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>;

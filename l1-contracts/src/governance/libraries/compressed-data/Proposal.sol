@@ -26,7 +26,7 @@ struct CompressedProposal {
   // Slot 1: Core Identity (256 bits)
   address proposer; // 160 bits
   uint96 minimumVotes; // 96 bits - from config
-  // Slot 2: Timing (232 bits used, 24 bits padding)
+    // Slot 2: Timing (232 bits used, 24 bits padding)
   ProposalState cachedState; // 8 bits
   CompressedTimestamp creation; // 32 bits
   CompressedTimestamp votingDelay; // 32 bits - from config
@@ -34,9 +34,9 @@ struct CompressedProposal {
   CompressedTimestamp executionDelay; // 32 bits - from config
   CompressedTimestamp gracePeriod; // 32 bits - from config
   uint64 quorum; // 64 bits - from config
-  // Slot 3: Votes (256 bits)
+    // Slot 3: Votes (256 bits)
   CompressedBallot summedBallot; // 256 bits (128 yea + 128 nay)
-  // Slot 4: References (224 bits used, 32 bits padding)
+    // Slot 4: References (224 bits used, 32 bits padding)
   IPayload payload; // 160 bits
   uint64 requiredYeaMargin; // 64 bits - from config
 }

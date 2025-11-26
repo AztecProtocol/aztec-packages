@@ -30,7 +30,6 @@ export class ServerEpochProver implements EpochProver {
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,
-    totalNumBlobFields: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
   ): Promise<void> {
     return this.orchestrator.startNewCheckpoint(
@@ -38,12 +37,11 @@ export class ServerEpochProver implements EpochProver {
       constants,
       l1ToL2Messages,
       totalNumBlocks,
-      totalNumBlobFields,
       headerOfLastBlockInPreviousCheckpoint,
     );
   }
-  startTubeCircuits(txs: Tx[]): Promise<void> {
-    return this.orchestrator.startTubeCircuits(txs);
+  startChonkVerifierCircuits(txs: Tx[]): Promise<void> {
+    return this.orchestrator.startChonkVerifierCircuits(txs);
   }
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<BlockHeader> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);

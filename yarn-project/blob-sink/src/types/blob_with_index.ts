@@ -37,6 +37,10 @@ export class BlobWithIndex {
     return new BlobWithIndex(reader.readObject(Blob), reader.readNumber());
   }
 
+  public static fromJson(json: BlobJson): BlobWithIndex {
+    return new BlobWithIndex(Blob.fromJson(json), parseInt(json.index));
+  }
+
   // Follows the structure the beacon node api expects
   public toJSON(): BlobJson {
     return this.blob.toJson(this.index);

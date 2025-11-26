@@ -1,11 +1,11 @@
 use dep::types::{
     abis::{note_hash::NoteHash, private_log::PrivateLogData},
     side_effect::{Counted, Ordered, Scoped},
-    utils::arrays::{ClaimedLengthArray, find_index_hint},
+    utils::arrays::{ClaimedLengthArray, find_first_index},
 };
 
 /// Validates that a given note log is correctly linked to a note hash at the provided index hint.
-/// This function assumes the index hint has been found using `find_index_hint`.
+/// This function assumes the index hint has been found using `find_first_index`.
 fn validate_note_log_linked_to_note_hash_with_hint<let NUM_NOTE_HASHES: u32>(
     log: Scoped<Counted<PrivateLogData>>,
     note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NUM_NOTE_HASHES>,
@@ -51,11 +51,17 @@ pub fn validate_note_logs_linked_to_note_hashes<let NUM_LOGS: u32, let NUM_NOTE_
         if log.innermost().note_hash_counter != 0 {
             // Safety: the index is constrained by the checks below.
             let note_hash_index_hint = unsafe {
-                find_index_hint(
+                let index = find_first_index(
                     note_hashes.array,
                     |n| n.counter() == log.innermost().note_hash_counter,
-                )
-                    .unwrap_unchecked()
+                );
+                if index == note_hashes.array.len() {
+                    // If the note hash is not found, return 0 as the index hint so the error message can be more
+                    // explicit.
+                    0
+                } else {
+                    index
+                }
             };
 
             validate_note_log_linked_to_note_hash_with_hint(log, note_hashes, note_hash_index_hint);

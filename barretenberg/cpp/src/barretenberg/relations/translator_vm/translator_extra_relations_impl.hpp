@@ -117,18 +117,19 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
 {
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
+    // Starting with 4th relation, we use shorter accumulators
+    using ShorterAccumulator = std::tuple_element_t<4, ContainerOverSubrelations>;
+    using ShorterView = typename ShorterAccumulator::View;
     // We use combination of lagrange polynomials at odd indices in the minicircuit for copying the accumulator
     auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
 
     // Lagrange ensuring the accumulator result is validated at the correct row
-    auto lagrange_result_row = View(in.lagrange_result_row);
+    auto lagrange_result_row_shorter = ShorterView(in.lagrange_result_row);
 
     // Lagrange at index (size of minicircuit without masking - 1) is used to enforce that the accumulator starts from
     // zero
     auto lagrange_last_in_minicircuit = View(in.lagrange_last_in_minicircuit);
-
-    // Locations of randomness in the minicircuit
-    auto lagrange_mini_masking = View(in.lagrange_mini_masking);
+    auto lagrange_last_in_minicircuit_shorter = ShorterView(in.lagrange_last_in_minicircuit);
 
     auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
     auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
@@ -138,6 +139,11 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     auto accumulators_binary_limbs_1_shift = View(in.accumulators_binary_limbs_1_shift);
     auto accumulators_binary_limbs_2_shift = View(in.accumulators_binary_limbs_2_shift);
     auto accumulators_binary_limbs_3_shift = View(in.accumulators_binary_limbs_3_shift);
+
+    auto accumulators_binary_limbs_0_shorter = ShorterView(in.accumulators_binary_limbs_0);
+    auto accumulators_binary_limbs_1_shorter = ShorterView(in.accumulators_binary_limbs_1);
+    auto accumulators_binary_limbs_2_shorter = ShorterView(in.accumulators_binary_limbs_2);
+    auto accumulators_binary_limbs_3_shorter = ShorterView(in.accumulators_binary_limbs_3);
 
     FF minus_one = FF(-1);
 
@@ -165,44 +171,42 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     std::get<3>(accumulators) += tmp_4;
 
     // Contribution (5) (5-9 ensure that accumulator starts with zeroed-out limbs)
-    auto tmp_5 = accumulators_binary_limbs_0 * lagrange_last_in_minicircuit;
-    tmp_5 *= (lagrange_mini_masking + minus_one) * scaling_factor;
+    auto lagrange_last_in_minicircuit_by_scaling_factor = lagrange_last_in_minicircuit_shorter * scaling_factor;
+    auto tmp_5 = accumulators_binary_limbs_0_shorter * lagrange_last_in_minicircuit_by_scaling_factor;
     std::get<4>(accumulators) += tmp_5;
 
     //    Contribution (6)
-    auto tmp_6 = accumulators_binary_limbs_1 * lagrange_last_in_minicircuit;
-    tmp_6 *= (lagrange_mini_masking + minus_one) * scaling_factor;
+    auto tmp_6 = accumulators_binary_limbs_1_shorter * lagrange_last_in_minicircuit_by_scaling_factor;
     std::get<5>(accumulators) += tmp_6;
 
     // Contribution (7)
-    auto tmp_7 = accumulators_binary_limbs_2 * lagrange_last_in_minicircuit;
-    tmp_7 *= (lagrange_mini_masking + minus_one) * scaling_factor;
+    auto tmp_7 = accumulators_binary_limbs_2_shorter * lagrange_last_in_minicircuit_by_scaling_factor;
     std::get<6>(accumulators) += tmp_7;
 
     // Contribution (8)
-    auto tmp_8 = accumulators_binary_limbs_3 * lagrange_last_in_minicircuit;
-    tmp_8 *= (lagrange_mini_masking + minus_one) * scaling_factor;
+    auto tmp_8 = accumulators_binary_limbs_3_shorter * lagrange_last_in_minicircuit_by_scaling_factor;
     std::get<7>(accumulators) += tmp_8;
 
     // Contribution (9) (9-12 ensure the output is as stated, we basically use this to get the result out of the
     // // proof)
-    auto tmp_9 = (accumulators_binary_limbs_0 - params.accumulated_result[0]) * lagrange_result_row;
-    tmp_9 *= (lagrange_mini_masking + minus_one) * scaling_factor;
+    auto lagrange_result_row_by_scaling_factor = lagrange_result_row_shorter * scaling_factor;
+    auto tmp_9 =
+        (accumulators_binary_limbs_0_shorter - params.accumulated_result[0]) * lagrange_result_row_by_scaling_factor;
     std::get<8>(accumulators) += tmp_9;
 
     // Contribution (10)
-    auto tmp_10 = (accumulators_binary_limbs_1 - params.accumulated_result[1]) * lagrange_result_row;
-    tmp_10 *= (lagrange_mini_masking + minus_one) * scaling_factor;
+    auto tmp_10 =
+        (accumulators_binary_limbs_1_shorter - params.accumulated_result[1]) * lagrange_result_row_by_scaling_factor;
     std::get<9>(accumulators) += tmp_10;
 
     // Contribution (11)
-    auto tmp_11 = (accumulators_binary_limbs_2 - params.accumulated_result[2]) * lagrange_result_row;
-    tmp_11 *= (lagrange_mini_masking + minus_one) * scaling_factor;
+    auto tmp_11 =
+        (accumulators_binary_limbs_2_shorter - params.accumulated_result[2]) * lagrange_result_row_by_scaling_factor;
     std::get<10>(accumulators) += tmp_11;
 
     // Contribution (12)
-    auto tmp_12 = (accumulators_binary_limbs_3 - params.accumulated_result[3]) * lagrange_result_row;
-    tmp_12 *= (lagrange_mini_masking + minus_one) * scaling_factor;
+    auto tmp_12 =
+        (accumulators_binary_limbs_3_shorter - params.accumulated_result[3]) * lagrange_result_row_by_scaling_factor;
     std::get<11>(accumulators) += tmp_12;
 };
 

@@ -14,7 +14,6 @@ const container = css({
 });
 
 const text = css({
-  color: 'rgba(0, 0, 0, 0.6)',
   marginTop: '0.15rem',
   marginLeft: '0.5rem',
 });

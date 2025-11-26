@@ -22,12 +22,12 @@ import {
   PROOF_FILENAME,
   PUBLIC_INPUTS_FILENAME,
   VK_FILENAME,
-  verifyClientIvcProof,
+  verifyChonkProof,
   verifyProof,
 } from '../bb/execute.js';
 import type { BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
-import { writeClientIVCProofToPath } from '../prover/proof_utils.js';
+import { writeChonkProofToPath } from '../prover/proof_utils.js';
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   private constructor(
@@ -40,6 +40,9 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   }
 
   public static async new(config: BBConfig, logger = createLogger('bb-prover:verifier')) {
+    if (!config.bbWorkingDirectory) {
+      throw new Error(`Barretenberg working directory (BB_WORKING_DIRECTORY) is not set`);
+    }
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     return new BBCircuitVerifier(config, logger);
   }
@@ -90,7 +93,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   }
 
   public async verifyProof(tx: Tx): Promise<IVCProofVerificationResult> {
-    const proofType = 'ClientIVC';
+    const proofType = 'Chonk';
     try {
       const totalTimer = new Timer();
       let verificationDuration = 0;
@@ -104,14 +107,14 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         };
 
         const proofPath = path.join(bbWorkingDirectory, PROOF_FILENAME);
-        await writeClientIVCProofToPath(tx.clientIvcProof, proofPath);
+        await writeChonkProofToPath(tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields()), proofPath);
 
         const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
         const verificationKey = this.getVerificationKeyData(circuit);
         await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
         const timer = new Timer();
-        const result = await verifyClientIvcProof(
+        const result = await verifyChonkProof(
           this.config.bbBinaryPath,
           proofPath,
           verificationKeyPath,
@@ -129,7 +132,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           circuitName: mapProtocolArtifactNameToCircuitName(circuit),
           duration: result.durationMs,
           eventName: 'circuit-verification',
-          proofType: 'client-ivc',
+          proofType: 'chonk',
         } satisfies CircuitVerificationStats);
       };
       await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);

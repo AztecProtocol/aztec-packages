@@ -36,6 +36,9 @@ provider "helm" {
 }
 
 module "web3signer" {
+  # Only deploy web3signer if we have validators or provers that need to publish to L1
+  count = tonumber(var.VALIDATOR_REPLICAS) > 0 ? 1 : 0
+
   source                                   = "../modules/web3signer"
   NAMESPACE                                = var.NAMESPACE
   RELEASE_NAME                             = var.RELEASE_PREFIX
@@ -47,6 +50,7 @@ module "web3signer" {
   NODE_COUNT                               = tonumber(var.VALIDATOR_REPLICAS)
   VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
+  VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY   = tonumber(var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY)
   PROVER_COUNT                             = tonumber(var.PROVER_REPLICAS)
   PUBLISHERS_PER_PROVER                    = tonumber(var.PROVER_PUBLISHERS_PER_PROVER)
   PROVER_PUBLISHER_MNEMONIC_START_INDEX    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
@@ -122,7 +126,7 @@ locals {
       wait                 = true
     } : null
 
-    validators = {
+    validators = tonumber(var.VALIDATOR_REPLICAS) > 0 ? {
       name  = "${var.RELEASE_PREFIX}-validator"
       chart = "aztec-validator"
       values = [
@@ -131,42 +135,55 @@ locals {
         "validator-resources-${var.VALIDATOR_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "validator.web3signerUrl"                               = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
-        "validator.mnemonic"                                    = var.VALIDATOR_MNEMONIC
-        "validator.mnemonicStartIndex"                          = var.VALIDATOR_MNEMONIC_START_INDEX
-        "validator.validatorsPerNode"                           = var.VALIDATORS_PER_NODE
-        "validator.publishersPerValidatorKey"                   = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
-        "validator.publisherMnemonicStartIndex"                 = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-        "validator.replicaCount"                                = var.VALIDATOR_REPLICAS
-        "validator.sentinel.enabled"                            = var.SENTINEL_ENABLED
-        "validator.slash.minPenaltyPercentage"                  = var.SLASH_MIN_PENALTY_PERCENTAGE
-        "validator.slash.maxPenaltyPercentage"                  = var.SLASH_MAX_PENALTY_PERCENTAGE
-        "validator.slash.inactivityTargetPercentage"            = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
-        "validator.slash.inactivityPenalty"                     = var.SLASH_INACTIVITY_PENALTY
-        "validator.slash.prunePenalty"                          = var.SLASH_PRUNE_PENALTY
-        "validator.slash.dataWithholdingPenalty"                = var.SLASH_DATA_WITHHOLDING_PENALTY
-        "validator.slash.proposeInvalidAttestationsPenalty"     = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
-        "validator.slash.attestDescendantOfInvalidPenalty"      = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
-        "validator.slash.unknownPenalty"                        = var.SLASH_UNKNOWN_PENALTY
-        "validator.slash.invalidBlockPenalty"                   = var.SLASH_INVALID_BLOCK_PENALTY
-        "validator.slash.offenseExpirationRounds"               = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
-        "validator.slash.maxPayloadSize"                        = var.SLASH_MAX_PAYLOAD_SIZE
-        "validator.node.env.TRANSACTIONS_DISABLED"              = var.TRANSACTIONS_DISABLED
-        "validator.node.env.NETWORK"                            = var.NETWORK
-        "validator.node.env.KEY_INDEX_START"                    = var.VALIDATOR_MNEMONIC_START_INDEX
-        "validator.node.env.PUBLISHER_KEY_INDEX_START"          = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-        "validator.node.env.VALIDATORS_PER_NODE"                = var.VALIDATORS_PER_NODE
-        "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"       = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
-        "validator.node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "validator.node.env.SEQ_MIN_TX_PER_BLOCK"               = var.SEQ_MIN_TX_PER_BLOCK
-        "validator.node.env.SEQ_MAX_TX_PER_BLOCK"               = var.SEQ_MAX_TX_PER_BLOCK
-        "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-        "validator.node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "validator.web3signerUrl"                                  = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+        "validator.mnemonic"                                       = var.VALIDATOR_MNEMONIC
+        "validator.mnemonicStartIndex"                             = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.validatorsPerNode"                              = var.VALIDATORS_PER_NODE
+        "validator.publishersPerValidatorKey"                      = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.publisherMnemonicStartIndex"                    = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+        "validator.replicaCount"                                   = var.VALIDATOR_REPLICAS
+        "validator.sentinel.enabled"                               = var.SENTINEL_ENABLED
+        "validator.slash.minPenaltyPercentage"                     = var.SLASH_MIN_PENALTY_PERCENTAGE
+        "validator.slash.maxPenaltyPercentage"                     = var.SLASH_MAX_PENALTY_PERCENTAGE
+        "validator.slash.inactivityTargetPercentage"               = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
+        "validator.slash.inactivityPenalty"                        = var.SLASH_INACTIVITY_PENALTY
+        "validator.slash.prunePenalty"                             = var.SLASH_PRUNE_PENALTY
+        "validator.slash.dataWithholdingPenalty"                   = var.SLASH_DATA_WITHHOLDING_PENALTY
+        "validator.slash.proposeInvalidAttestationsPenalty"        = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+        "validator.slash.attestDescendantOfInvalidPenalty"         = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+        "validator.slash.unknownPenalty"                           = var.SLASH_UNKNOWN_PENALTY
+        "validator.slash.invalidBlockPenalty"                      = var.SLASH_INVALID_BLOCK_PENALTY
+        "validator.slash.offenseExpirationRounds"                  = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
+        "validator.slash.maxPayloadSize"                           = var.SLASH_MAX_PAYLOAD_SIZE
+        "validator.node.env.TRANSACTIONS_DISABLED"                 = var.TRANSACTIONS_DISABLED
+        "validator.node.env.KEY_INDEX_START"                       = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.node.env.PUBLISHER_KEY_INDEX_START"             = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+        "validator.node.env.VALIDATORS_PER_NODE"                   = var.VALIDATORS_PER_NODE
+        "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"          = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
+        "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                  = var.SEQ_MIN_TX_PER_BLOCK
+        "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                  = var.SEQ_MAX_TX_PER_BLOCK
+        "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
+        "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
+        "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"              = var.BLOB_ALLOW_EMPTY_SOURCES
+        "validator.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
+        "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "validator.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"         = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+        "validator.node.logLevel"                                  = var.LOG_LEVEL
+        "validator.node.secret.envEnabled"                         = true
+        "validator.node.secret.mnemonic"                           = var.VALIDATOR_MNEMONIC
+        "validator.node.secret.mnemonicIndex"                      = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.node.env.P2P_GOSSIPSUB_D"                       = var.P2P_GOSSIPSUB_D
+        "validator.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
+        "validator.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
+        "validator.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
+        "validator.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
       wait                 = true
-    }
+    } : null
 
     prover = {
       name  = "${var.RELEASE_PREFIX}-prover"
@@ -176,27 +193,49 @@ locals {
         "prover.yaml",
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
-      custom_settings = {
-        "node.mnemonic"                                    = var.PROVER_MNEMONIC
-        "node.mnemonicStartIndex"                          = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-        "node.node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "node.web3signerUrl"                               = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
-        "node.node.env.NETWORK"                            = var.NETWORK
-        "node.node.env.PROVER_FAILED_PROOF_STORE"          = var.PROVER_FAILED_PROOF_STORE
-        "node.node.env.KEY_INDEX_START"                    = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-        "node.node.env.PUBLISHER_KEY_INDEX_START"          = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-        "node.node.env.PUBLISHERS_PER_PROVER"              = var.PROVER_PUBLISHERS_PER_PROVER
-        "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH"  = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
-        "node.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-        "broker.node.proverRealProofs"                     = var.PROVER_REAL_PROOFS
-        "broker.node.env.NETWORK"                          = var.NETWORK
-        "broker.node.env.BOOTSTRAP_NODES"                  = "asdf"
-        "agent.node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
-        "agent.node.env.NETWORK"                           = var.NETWORK
-        "agent.replicaCount"                               = var.PROVER_REPLICAS
-        "agent.node.env.BOOTSTRAP_NODES"                   = "asdf"
-        "agent.node.env.AGENT_COUNT"                       = var.PROVER_AGENTS_PER_PROVER
-      }
+      custom_settings = merge(
+        {
+          "node.mnemonic"                                       = var.PROVER_MNEMONIC
+          "node.mnemonicStartIndex"                             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
+          "node.node.logLevel"                                  = var.LOG_LEVEL
+          "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
+          "node.node.env.KEY_INDEX_START"                       = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.env.PUBLISHERS_PER_PROVER"                 = var.PROVER_PUBLISHERS_PER_PROVER
+          "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH"     = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
+          "node.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+          "node.node.env.BLOB_ALLOW_EMPTY_SOURCES"              = var.BLOB_ALLOW_EMPTY_SOURCES
+          "node.node.secret.envEnabled"                         = true
+          "node.node.secret.mnemonic"                           = var.PROVER_MNEMONIC
+          "node.node.secret.mnemonicIndex"                      = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
+          "broker.node.logLevel"                                = var.LOG_LEVEL
+          "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
+          "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
+          "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
+          "agent.replicaCount"                                  = var.PROVER_REPLICAS
+          "agent.node.env.BOOTSTRAP_NODES"                      = "asdf"
+          "agent.node.env.PROVER_AGENT_COUNT"                   = var.PROVER_AGENTS_PER_PROVER
+          "agent.node.env.PROVER_TEST_DELAY_TYPE"               = var.PROVER_TEST_DELAY_TYPE
+          "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
+          "agent.node.logLevel"                                 = var.LOG_LEVEL
+          "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
+          "node.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
+          "node.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
+          "node.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
+          "node.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"         = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+          "node.node.env.P2P_GOSSIPSUB_D"                       = var.P2P_GOSSIPSUB_D
+          "node.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
+          "node.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
+          "node.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
+          "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
+        },
+        # Only set web3signerUrl if proof publishing is enabled
+        !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
+          "node.node.web3signerUrl" = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+        } : {}
+      )
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
       wait                 = true
@@ -232,21 +271,74 @@ locals {
           }
         }
       })] : []
-      custom_settings = {
+
+      custom_settings = merge({
         "nodeType"                                    = "rpc"
         "replicaCount"                                = var.RPC_REPLICAS
-        "node.env.NETWORK"                            = var.NETWORK
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "ingress.rpc.enabled"                         = var.RPC_INGRESS_ENABLED
         "ingress.rpc.host"                            = var.RPC_INGRESS_HOST
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-      }
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
+        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
+        "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
+        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
+        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
+        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
+        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
+        },
+        # Only set RPC mnemonic config in fisherman mode)
+        var.FISHERMAN_MODE ? {
+          "node.secret.envEnabled"       = true
+          "node.env.FISHERMAN_MODE"      = "true"
+          "node.secret.mnemonic"         = var.FISHERMAN_MNEMONIC
+          "node.secret.mnemonicIndex"    = var.FISHERMAN_MNEMONIC_START_INDEX
+          "node.env.KEY_INDEX_START"     = var.FISHERMAN_MNEMONIC_START_INDEX
+          "node.logLevel"                = var.FISHERMAN_LOG_LEVEL
+          "node.env.VALIDATORS_PER_NODE" = "1"
+          "node.preStartScript"          = "source /scripts/get-private-key.sh"
+        } : {}
+      )
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true
     }
+
+
+    full_node = tonumber(var.FULL_NODE_REPLICAS) > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-full-node"
+      chart = "aztec-node"
+      values = [
+        "common.yaml",
+        "full-node.yaml",
+        "full-node-resources-${var.FULL_NODE_RESOURCE_PROFILE}.yaml"
+      ]
+      custom_settings = {
+        "nodeType"                                    = "full-node"
+        "replicaCount"                                = var.FULL_NODE_REPLICAS
+        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
+        "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
+        "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
+        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
+        "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+        "node.otelIncludeMetrics"                     = var.FULL_NODE_INCLUDE_METRICS
+        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
+        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
+        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
+        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
+        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
+      }
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      wait                 = true
+    } : null
 
     archive = var.DEPLOY_ARCHIVAL_NODE ? {
       name  = "${var.RELEASE_PREFIX}-archive"
@@ -258,9 +350,18 @@ locals {
       ]
       custom_settings = {
         "nodeType"                                    = "archive"
-        "node.env.NETWORK"                            = var.NETWORK
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
+        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
+        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
+        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
+        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
+        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
+        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
+        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"

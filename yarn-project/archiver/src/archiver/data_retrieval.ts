@@ -1,4 +1,10 @@
-import { Blob, BlobDeserializationError, SpongeBlob } from '@aztec/blob-lib';
+import {
+  BlobDeserializationError,
+  type CheckpointBlobData,
+  SpongeBlob,
+  decodeCheckpointBlobDataFromBlobs,
+  encodeBlockBlobData,
+} from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type {
   EpochProofPublicInputArgs,
@@ -19,7 +25,7 @@ import { Body, CommitteeAttestation, L2Block, L2BlockHeader, PublishedL2Block } 
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { GlobalVariables, StateReference } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 
 import {
   type GetContractEventsReturnType,
@@ -37,67 +43,108 @@ import type { InboxMessage } from './structs/inbox_message.js';
 import type { L1PublishedData } from './structs/published.js';
 
 export type RetrievedL2Block = {
-  l2BlockNumber: number;
   archiveRoot: Fr;
   stateReference: StateReference;
   header: CheckpointHeader;
-  body: Body;
+  checkpointBlobData: CheckpointBlobData;
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
   attestations: CommitteeAttestation[];
 };
 
-export async function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): Promise<PublishedL2Block> {
-  const {
-    l2BlockNumber,
-    archiveRoot,
-    stateReference,
-    header: checkpointHeader,
-    body,
-    l1,
-    chainId,
-    version,
-    attestations,
-  } = retrievedBlock;
+export async function retrievedBlockToPublishedL2Block({
+  archiveRoot,
+  stateReference,
+  header: checkpointHeader,
+  checkpointBlobData,
+  l1,
+  chainId,
+  version,
+  attestations,
+}: RetrievedL2Block): Promise<PublishedL2Block> {
+  const { blocks: blocksBlobData } = checkpointBlobData;
 
-  const archive = new AppendOnlyTreeSnapshot(
-    archiveRoot,
-    l2BlockNumber + 1, // nextAvailableLeafIndex
-  );
+  // The lastArchiveRoot of a block is the new archive for the previous block.
+  const newArchiveRoots = blocksBlobData
+    .map(b => b.lastArchiveRoot)
+    .slice(1)
+    .concat([archiveRoot]);
 
-  const globalVariables = GlobalVariables.from({
-    chainId,
-    version,
-    blockNumber: l2BlockNumber,
-    slotNumber: checkpointHeader.slotNumber,
-    timestamp: checkpointHeader.timestamp,
-    coinbase: checkpointHeader.coinbase,
-    feeRecipient: checkpointHeader.feeRecipient,
-    gasFees: checkpointHeader.gasFees,
-  });
+  // `blocksBlobData` is created from `decodeCheckpointBlobDataFromBlobs`. An error will be thrown if it can't read a
+  // field for the `l1ToL2MessageRoot` of the first block. So below we can safely assume it exists:
+  const l1toL2MessageTreeRoot = blocksBlobData[0].l1ToL2MessageRoot!;
+
+  const spongeBlob = SpongeBlob.init();
+  const l2Blocks: L2Block[] = [];
+  for (let i = 0; i < blocksBlobData.length; i++) {
+    const blockBlobData = blocksBlobData[i];
+    const { blockEndMarker, blockEndStateField, lastArchiveRoot, noteHashRoot, nullifierRoot, publicDataRoot } =
+      blockBlobData;
+
+    const l2BlockNumber = blockEndMarker.blockNumber;
+
+    const globalVariables = GlobalVariables.from({
+      chainId,
+      version,
+      blockNumber: l2BlockNumber,
+      slotNumber: checkpointHeader.slotNumber,
+      timestamp: blockEndMarker.timestamp,
+      coinbase: checkpointHeader.coinbase,
+      feeRecipient: checkpointHeader.feeRecipient,
+      gasFees: checkpointHeader.gasFees,
+    });
+
+    const state = StateReference.from({
+      l1ToL2MessageTree: new AppendOnlyTreeSnapshot(
+        l1toL2MessageTreeRoot,
+        blockEndStateField.l1ToL2MessageNextAvailableLeafIndex,
+      ),
+      partial: PartialStateReference.from({
+        noteHashTree: new AppendOnlyTreeSnapshot(noteHashRoot, blockEndStateField.noteHashNextAvailableLeafIndex),
+        nullifierTree: new AppendOnlyTreeSnapshot(nullifierRoot, blockEndStateField.nullifierNextAvailableLeafIndex),
+        publicDataTree: new AppendOnlyTreeSnapshot(publicDataRoot, blockEndStateField.publicDataNextAvailableLeafIndex),
+      }),
+    });
+
+    const body = Body.fromTxBlobData(checkpointBlobData.blocks[0].txs);
+
+    const blobFields = encodeBlockBlobData(blockBlobData);
+    await spongeBlob.absorb(blobFields);
+
+    const clonedSpongeBlob = spongeBlob.clone();
+    const spongeBlobHash = await clonedSpongeBlob.squeeze();
+
+    const blockHeader = BlockHeader.from({
+      lastArchive: new AppendOnlyTreeSnapshot(lastArchiveRoot, l2BlockNumber),
+      state,
+      spongeBlobHash,
+      globalVariables,
+      totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
+      totalManaUsed: new Fr(blockEndStateField.totalManaUsed),
+    });
+
+    const header = L2BlockHeader.from({
+      ...blockHeader,
+      blockHeadersHash: checkpointHeader.blockHeadersHash,
+      contentCommitment: checkpointHeader.contentCommitment,
+    });
+
+    const newArchive = new AppendOnlyTreeSnapshot(newArchiveRoots[i], l2BlockNumber + 1);
+
+    l2Blocks.push(new L2Block(newArchive, header, body));
+  }
+
+  const lastBlock = l2Blocks[l2Blocks.length - 1];
+  if (!lastBlock.header.state.equals(stateReference)) {
+    throw new Error(
+      'The claimed state reference submitted to L1 does not match the state reference of the last block.',
+    );
+  }
 
   // TODO(#17027)
-  // This works when there's only one block in the checkpoint.
-  // If there's more than one block, we need to build the spongeBlob from the endSpongeBlob of the previous block.
-  const blobFields = body.toBlobFields();
-  const spongeBlob = SpongeBlob.init(blobFields.length);
-  await spongeBlob.absorb(blobFields);
-  const spongeBlobHash = await spongeBlob.squeeze();
-
-  const header = L2BlockHeader.from({
-    lastArchive: new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, l2BlockNumber),
-    contentCommitment: checkpointHeader.contentCommitment,
-    state: stateReference,
-    globalVariables,
-    totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
-    totalManaUsed: checkpointHeader.totalManaUsed,
-    spongeBlobHash,
-  });
-
-  const block = new L2Block(archive, header, body);
-
-  return PublishedL2Block.fromFields({ block, l1, attestations });
+  // There's only one block per checkpoint at the moment.
+  return PublishedL2Block.fromFields({ block: l2Blocks[0], l1, attestations });
 }
 
 /**
@@ -126,7 +173,7 @@ export async function retrieveBlocksFromRollup(
       break;
     }
     const l2BlockProposedLogs = (
-      await rollup.getEvents.L2BlockProposed(
+      await rollup.getEvents.CheckpointProposed(
         {},
         {
           fromBlock: searchStartBlock,
@@ -141,7 +188,7 @@ export async function retrieveBlocksFromRollup(
 
     const lastLog = l2BlockProposedLogs[l2BlockProposedLogs.length - 1];
     logger.debug(
-      `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.blockNumber}-${lastLog.args.blockNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
+      `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.checkpointNumber}-${lastLog.args.checkpointNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
     if (rollupConstants === undefined) {
@@ -184,13 +231,13 @@ async function processL2BlockProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
-  logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
+  logs: GetContractEventsReturnType<typeof RollupAbi, 'CheckpointProposed'>,
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
   logger: Logger,
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
   await asyncPool(10, logs, async log => {
-    const l2BlockNumber = Number(log.args.blockNumber!);
+    const l2BlockNumber = Number(log.args.checkpointNumber!);
     const archive = log.args.archive!;
     const archiveFromChain = await rollup.read.archiveAt([BigInt(l2BlockNumber)]);
     const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
@@ -306,6 +353,7 @@ async function getBlockFromRollupTx(
   targetCommitteeSize: number,
   logger: Logger,
 ): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version'>> {
+  logger.trace(`Fetching L2 block ${l2BlockNumber} from rollup tx ${txHash}`);
   const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
 
   const rollupData = extractRollupProposeCalldata(forwarderData, rollupAddress);
@@ -341,6 +389,7 @@ async function getBlockFromRollupTx(
     archive: decodedArgs.archive,
     stateReference: decodedArgs.stateReference,
     header: decodedArgs.header,
+    l1BlockHash: blockHash,
     blobHashes,
     attestations,
     packedAttestations,
@@ -353,9 +402,10 @@ async function getBlockFromRollupTx(
     throw new NoBlobBodiesFoundError(l2BlockNumber);
   }
 
-  let blockFields: Fr[];
+  let checkpointBlobData: CheckpointBlobData;
   try {
-    blockFields = Blob.toEncodedFields(blobBodies.map(b => b.blob));
+    // Attempt to decode the checkpoint blob data.
+    checkpointBlobData = decodeCheckpointBlobDataFromBlobs(blobBodies.map(b => b.blob));
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);
@@ -365,19 +415,15 @@ async function getBlockFromRollupTx(
     throw err;
   }
 
-  // The blob source gives us blockFields, and we must construct the body from them:
-  const body = Body.fromBlobFields(blockFields);
-
   const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
   const stateReference = StateReference.fromViem(decodedArgs.stateReference);
 
   return {
-    l2BlockNumber,
     archiveRoot,
     stateReference,
     header,
-    body,
+    checkpointBlobData,
     attestations,
   };
 }
@@ -428,13 +474,13 @@ export async function retrieveL1ToL2Messages(
 
 function mapLogsInboxMessage(logs: GetContractEventsReturnType<typeof InboxAbi, 'MessageSent'>): InboxMessage[] {
   return logs.map(log => {
-    const { index, hash, l2BlockNumber, rollingHash } = log.args;
+    const { index, hash, checkpointNumber, rollingHash } = log.args;
     return {
       index: index!,
       leaf: Fr.fromHexString(hash!),
       l1BlockNumber: log.blockNumber,
       l1BlockHash: Buffer32.fromString(log.blockHash),
-      l2BlockNumber: Number(l2BlockNumber!),
+      l2BlockNumber: Number(checkpointNumber!),
       rollingHash: Buffer16.fromString(rollingHash!),
     };
   });
@@ -457,7 +503,7 @@ export async function retrieveL2ProofVerifiedEvents(
 
   return logs.map(log => ({
     l1BlockNumber: log.blockNumber,
-    l2BlockNumber: Number(log.args.blockNumber),
+    l2BlockNumber: Number(log.args.checkpointNumber),
     proverId: Fr.fromHexString(log.args.proverId),
     txHash: log.transactionHash,
   }));

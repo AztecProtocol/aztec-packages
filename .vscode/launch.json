@@ -32,12 +32,12 @@
       ],
     },
     {
-      // Debug CIVC using msgpack inputs for a particular transaction (e.g. one in yarn-project/end-to-end/example-app-ivc-inputs-out)
-      "name": "Debug CIVC transaction",
+      // Debug chonk using msgpack inputs for a particular transaction (e.g. one in yarn-project/end-to-end/example-app-ivc-inputs-out)
+      "name": "Debug chonk transaction",
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast-no-avm/bin/bb",
-      "args": ["prove", "--scheme", "client_ivc", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack", "--print_bench"],
+      "args": ["prove", "--scheme", "chonk", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack", "--print_bench"],
       "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
@@ -71,18 +71,18 @@
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/api_tests",
-      "args": ["--gtest_filter=ClientIVCAPITests.ProveAndVerifyFileBasedFlow"],
+      "args": ["--gtest_filter=ChonkAPITests.ProveAndVerifyFileBasedFlow"],
       "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],
     },
     {
-      "name": "Debug BB ClientIVC Test",
+      "name": "Debug BB Chonk Test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/client_ivc_tests",
-      "args": ["--gtest_filter=ClientIVCTests.ProveAndVerifyFileBasedFlow"],
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/chonk_tests",
+      "args": ["--gtest_filter=ChonkTests.ProveAndVerifyFileBasedFlow"],
       "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"

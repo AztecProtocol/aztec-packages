@@ -1,5 +1,3 @@
-
-
 #include <array>
 #include <cstdint>
 #include <stdexcept>
@@ -51,7 +49,7 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .is_circuit_satisfied = false,
         .comment = "Arithmetic error, s is larger than (n+1)/2",
         .failure_msg =
-            "ECDSA input validation: the s component of the signature is bigger than Fr::modulus - s.: hi limb.",
+            "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2.: hi limb.",
     },
     WycherproofSecp256k1{
         .x = WycherproofSecp256k1::Fq("0xd6ef20be66c893f741a9bf90d9b74675d1c2a31296397acb3ef174fd0b300c65"),

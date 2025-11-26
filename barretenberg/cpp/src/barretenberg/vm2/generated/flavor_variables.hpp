@@ -143,10 +143,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 129;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3080;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 336;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3072;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 342;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3545;
+    static constexpr size_t NUM_ALL_ENTITIES = 3543;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -238,14 +238,13 @@ struct AvmFlavorVariables {
         lookup_addressing_relative_overflow_result_5_relation<FF_>,
         lookup_addressing_relative_overflow_result_6_relation<FF_>,
         lookup_alu_ff_gt_relation<FF_>,
-        lookup_alu_gt_div_remainder_relation<FF_>,
         lookup_alu_int_gt_relation<FF_>,
         lookup_alu_large_trunc_canonical_dec_relation<FF_>,
         lookup_alu_range_check_decomposition_a_hi_relation<FF_>,
         lookup_alu_range_check_decomposition_a_lo_relation<FF_>,
         lookup_alu_range_check_decomposition_b_hi_relation<FF_>,
         lookup_alu_range_check_decomposition_b_lo_relation<FF_>,
-        lookup_alu_range_check_mul_u128_c_hi_relation<FF_>,
+        lookup_alu_range_check_mul_c_hi_relation<FF_>,
         lookup_alu_range_check_trunc_mid_relation<FF_>,
         lookup_alu_shifts_two_pow_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
@@ -277,8 +276,8 @@ struct AvmFlavorVariables {
         lookup_data_copy_check_dst_addr_in_range_relation<FF_>,
         lookup_data_copy_check_src_addr_in_range_relation<FF_>,
         lookup_data_copy_col_read_relation<FF_>,
-        lookup_data_copy_max_read_index_gt_relation<FF_>,
-        lookup_data_copy_offset_gt_max_read_index_relation<FF_>,
+        lookup_data_copy_data_index_upper_bound_gt_offset_relation<FF_>,
+        lookup_data_copy_offset_plus_size_is_gt_data_size_relation<FF_>,
         lookup_ecc_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_ecc_mem_input_output_ecc_add_relation<FF_>,
         lookup_emit_notehash_notehash_tree_write_relation<FF_>,
@@ -594,22 +593,20 @@ struct AvmFlavorVariables {
         lookup_tx_context_public_inputs_nullifier_tree_relation<FF_>,
         lookup_tx_context_public_inputs_public_data_tree_relation<FF_>,
         lookup_tx_context_public_inputs_read_gas_limit_relation<FF_>,
+        lookup_tx_context_public_inputs_read_reverted_relation<FF_>,
         lookup_tx_context_public_inputs_write_l2_to_l1_message_count_relation<FF_>,
         lookup_tx_context_public_inputs_write_note_hash_count_relation<FF_>,
         lookup_tx_context_public_inputs_write_nullifier_count_relation<FF_>,
         lookup_tx_context_public_inputs_write_unencrypted_log_count_relation<FF_>,
         lookup_tx_context_restore_state_on_revert_relation<FF_>,
-        lookup_tx_dispatch_exec_end_relation<FF_>,
-        lookup_tx_dispatch_exec_start_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_nullifier_append_relation<FF_>,
-        lookup_tx_phase_jump_on_revert_relation<FF_>,
         lookup_tx_read_calldata_hash_relation<FF_>,
         lookup_tx_read_effective_fee_public_inputs_relation<FF_>,
         lookup_tx_read_fee_payer_public_inputs_relation<FF_>,
         lookup_tx_read_l2_l1_msg_relation<FF_>,
         lookup_tx_read_phase_length_relation<FF_>,
-        lookup_tx_read_phase_table_relation<FF_>,
+        lookup_tx_read_phase_spec_relation<FF_>,
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
         lookup_tx_write_fee_public_inputs_relation<FF_>,
@@ -685,7 +682,9 @@ struct AvmFlavorVariables {
         perm_sha256_mem_mem_op_7_relation<FF_>,
         perm_sstore_storage_write_relation<FF_>,
         perm_to_radix_mem_write_mem_relation<FF_>,
-        perm_tx_balance_update_relation<FF_>>;
+        perm_tx_balance_update_relation<FF_>,
+        perm_tx_dispatch_exec_end_relation<FF_>,
+        perm_tx_dispatch_exec_start_relation<FF_>>;
 };
 
 } // namespace bb::avm2

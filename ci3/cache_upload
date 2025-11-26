@@ -43,7 +43,7 @@ else
 fi
 
 # Pipe tar directly to AWS S3 cp
-if aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp $out_tar "s3://aztec-ci-artifacts/build-cache/$name" >&2; then
+if aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp $out_tar "s3://aztec-ci-artifacts/build-cache/$name" &>/dev/null; then
   echo_stderr "Cache upload of $name complete in ${SECONDS}s."
 else
   echo_stderr "Cache upload of $name failed."

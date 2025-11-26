@@ -75,8 +75,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     // static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    // static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -84,11 +82,9 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
-    // subrelation to avoid increasing the degree of Protogalaxy polynomial $G$ (the
-    // combiner) too much.
+    // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using SubrelationSeparator = FF;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
@@ -110,9 +106,9 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->log_circuit_size = FF::from_witness(builder, native_key->log_circuit_size);
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->log_circuit_size = FF::from_witness(builder, typename FF::native(native_key->log_circuit_size));
+            this->num_public_inputs = FF::from_witness(builder, typename FF::native(native_key->num_public_inputs));
+            this->pub_inputs_offset = FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset));
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -158,6 +154,25 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             }
             return VerificationKey(vk_fields);
         }
+
+#ifndef NDEBUG
+        /**
+         * @brief Get the native verification key corresponding to this stdlib verification key
+         *
+         * @return NativeVerificationKey
+         */
+        NativeVerificationKey get_value() const
+        {
+            NativeVerificationKey native_vk;
+            native_vk.log_circuit_size = static_cast<uint64_t>(this->log_circuit_size.get_value());
+            native_vk.num_public_inputs = static_cast<uint64_t>(this->num_public_inputs.get_value());
+            native_vk.pub_inputs_offset = static_cast<uint64_t>(this->pub_inputs_offset.get_value());
+            for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_vk.get_all())) {
+                native_commitment = commitment.get_value();
+            }
+            return native_vk;
+        }
+#endif
     };
 
     /**

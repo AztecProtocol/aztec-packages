@@ -2,8 +2,11 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-hash=$(hash_str $(../cpp/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+# We mix if we're a release into the hash, as releases have all architectures built.
+hash=$(hash_str \
+  $(../cpp/bootstrap.sh hash) \
+  $(cache_content_hash .rebuild_patterns) \
+  $(semver check $REF_NAME && echo 1 || echo 0))
 
 function build {
   echo_header "bb.js build"
@@ -14,8 +17,9 @@ function build {
     yarn clean
     yarn generate
     yarn build:wasm
+    yarn build:native
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
-    cache_upload bb.js-$hash.tar.gz dest
+    cache_upload bb.js-$hash.tar.gz dest build
   fi
 
   # We copy snapshot dirs to dest so we can run tests from dest.
@@ -48,30 +52,22 @@ function test {
 }
 
 function release {
+  cross_copy
   retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
+function cross_copy {
+  ./scripts/copy_cross.sh
+}
+
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  "ci")
-    build
-    test
-    ;;
-  ""|"fast"|"full")
+  "")
     build
     ;;
   "hash")
     echo "$hash"
     ;;
-  bench|bench_cmds)
-    # Empty handling just to make this command valid.
-    ;;
-  test|test_cmds|release)
-    $cmd
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

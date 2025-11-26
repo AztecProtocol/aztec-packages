@@ -11,7 +11,10 @@ namespace bb::avm2::simulation {
 class HybridExecution : public Execution {
   public:
     using Execution::Execution;
-    ExecutionResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
+    EnqueuedCallResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
+
+  private:
+    std::vector<FF> extract_return_data(ContextInterface& context);
 };
 
 } // namespace bb::avm2::simulation

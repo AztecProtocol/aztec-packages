@@ -38,13 +38,32 @@ namespace bb {
 template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecursiveFlavor_<BuilderType> {
   public:
     using NativeFlavor = MegaZKFlavor;
+    using Commitment = typename MegaRecursiveFlavor_<BuilderType>::Commitment;
+    using VerificationKey = typename MegaRecursiveFlavor_<BuilderType>::VerificationKey;
+    using FF = typename MegaRecursiveFlavor_<BuilderType>::FF;
 
     static constexpr bool HasZK = true;
+
+    // The number of entities added for ZK (gemini_masking_poly)
+    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
+
+    // NUM_ALL_ENTITIES includes gemini_masking_poly
+    static constexpr size_t NUM_ALL_ENTITIES =
+        MegaRecursiveFlavor_<BuilderType>::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+    // Override to include ZK entities
+    class AllValues : public MegaFlavor::AllEntities_<FF, HasZK> {
+      public:
+        using Base = MegaFlavor::AllEntities_<FF, HasZK>;
+        using Base::Base;
+    };
+
+    using VerifierCommitments = MegaFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 };
 
 } // namespace bb

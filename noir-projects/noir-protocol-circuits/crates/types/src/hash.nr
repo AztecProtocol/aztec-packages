@@ -7,12 +7,13 @@ use crate::{
         note_hash::NoteHash,
         nullifier::Nullifier,
         private_log::{PrivateLog, PrivateLogData},
+        transaction::tx_request::TxRequest,
     },
     address::{AztecAddress, EthAddress},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE,
         GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__SILOED_NOTE_HASH,
-        GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
+        GENERATOR_INDEX__UNIQUE_NOTE_HASH, NULL_MSG_SENDER_CONTRACT_ADDRESS, TWO_POW_64,
     },
     merkle_tree::root_from_sibling_path,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -118,6 +119,12 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
     } else {
         compute_siloed_nullifier(nullifier.contract_address, value)
     }
+}
+
+pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullifier>> {
+    Nullifier { value: tx_request.hash(), note_hash: 0 }.count(1).scope(
+        NULL_MSG_SENDER_CONTRACT_ADDRESS,
+    )
 }
 
 pub fn compute_siloed_private_log_field(contract_address: AztecAddress, field: Field) -> Field {
@@ -231,13 +238,12 @@ where
     poseidon2_hash(inputs_with_separator)
 }
 
-// Performs a fixed length hash with a subarray of the given input.
-// Useful for SpongeBlob in which we absorb M things and want to check it vs a hash of M elts of an N-len array.
-// Using stdlib poseidon, this will always absorb an extra 1 as a 'variable' hash, and not match spongeblob.squeeze()
-// or any ts implementation. Also checks that any remaining elts not hashed are empty.
+/// Computes a Poseidon2 hash over a dynamic-length subarray of the given input.
+/// Only the first `in_len` fields of `input` are absorbed; any remaining fields are ignored.
+/// The caller is responsible for ensuring that the input is padded with zeros if required.
 #[no_predicates]
 pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Field {
-    let mut sponge = poseidon2_absorb_in_chunks(input, in_len, false);
+    let mut sponge = poseidon2_absorb_in_chunks(input, in_len);
     sponge.squeeze()
 }
 
@@ -245,29 +251,13 @@ pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Fi
 // and absorbing in chunks of 3 below.
 #[no_predicates]
 pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u32) -> Field {
-    let mut sponge = poseidon2_absorb_in_chunks(input, in_len, true);
+    let mut sponge = poseidon2_absorb_in_chunks(input, in_len);
     // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
     // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
     // fixed-length and variable-length hashes do not collide)
     if in_len != N {
         sponge.absorb(1);
     }
-    sponge.squeeze()
-}
-
-pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field
-where
-    T: ToField,
-{
-    let in_len = inputs.len() + 1;
-    let iv: Field = (in_len as Field) * TWO_POW_64;
-    let mut sponge = Poseidon2Sponge::new(iv);
-    sponge.absorb(separator.to_field());
-
-    for i in 0..inputs.len() {
-        sponge.absorb(inputs[i]);
-    }
-
     sponge.squeeze()
 }
 

@@ -66,25 +66,5 @@ TEST(MultilinearBatchingProver, ConstructProof)
     auto proof = prover.construct_proof();
     EXPECT_FALSE(proof.empty());
 }
-
-TEST(MultilinearBatchingVerifier, VerifyProof)
-{
-    auto prover_transcript = std::make_shared<Transcript>();
-    auto accumulator_claim = std::make_shared<MultilinearBatchingProverClaim>(create_valid_claim());
-    auto instance_claim = std::make_shared<MultilinearBatchingProverClaim>(create_valid_claim());
-    MultilinearBatchingProver prover{ accumulator_claim, instance_claim, prover_transcript };
-
-    auto proof = prover.construct_proof();
-    EXPECT_FALSE(proof.empty());
-    auto verifier_transcript = std::make_shared<Transcript>();
-    verifier_transcript->load_proof(proof);
-    MultilinearBatchingVerifier<MultilinearBatchingFlavor> verifier{ verifier_transcript };
-
-    auto [verified, sumcheck_output] = verifier.verify_proof();
-    EXPECT_TRUE(verified);
-    auto challenge = sumcheck_output.challenge;
-    auto new_challenge = std::vector<FF>(MultilinearBatchingFlavor::VIRTUAL_LOG_N);
-}
-
 } // namespace
 } // namespace bb

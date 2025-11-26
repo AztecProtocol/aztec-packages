@@ -57,8 +57,12 @@ contract SignalTest is GovernanceProposerBase {
     governanceProposer.signal(proposal);
   }
 
-  function test_GivenSignalIsForPriorRound() external whenProposalHoldCode givenCanonicalRollupHoldCode 
-  // solhint-disable-next-line no-empty-blocks
+  function test_GivenSignalIsForPriorRound()
+    external
+    whenProposalHoldCode
+    givenCanonicalRollupHoldCode
+    // solhint-disable-next-line no-empty-blocks
+
   {
     // it revert
 

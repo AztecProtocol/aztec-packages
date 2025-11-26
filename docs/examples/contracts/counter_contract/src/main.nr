@@ -25,7 +25,7 @@ pub contract Counter {
     #[external("private")]
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize(headstart: u64, owner: AztecAddress) {
-        let counters = storage.counters;
+        let counters = self.storage.counters;
         counters.at(owner).add(headstart, owner);
     }
     // docs:end:constructor
@@ -34,7 +34,7 @@ pub contract Counter {
     #[external("private")]
     fn increment(owner: AztecAddress) {
         debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
-        let counters = storage.counters;
+        let counters = self.storage.counters;
         counters.at(owner).add(1, owner);
     }
     // docs:end:increment
@@ -42,7 +42,7 @@ pub contract Counter {
     // docs:start:get_counter
     #[external("utility")]
     unconstrained fn get_counter(owner: AztecAddress) -> Field {
-        storage.counters.at(owner).get_value()
+        self.storage.counters.at(owner).get_value()
     }
     // docs:end:get_counter
 }

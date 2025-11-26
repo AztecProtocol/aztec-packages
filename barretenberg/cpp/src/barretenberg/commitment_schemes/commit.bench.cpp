@@ -43,7 +43,7 @@ template <typename FF> struct PolyData {
 // in the structured trace setting, or z_perm if non_zero_complement is set to true).
 template <typename FF> PolyData<FF> structured_random_poly(bool non_zero_complement = false)
 {
-    // An arbitrary but realistic test case taken from the actual structure of a wire in the client_ivc bench
+    // An arbitrary but realistic test case taken from the actual structure of a wire in the chonk bench
     std::vector<uint32_t> fixed_sizes = {
         1 << 10, 1 << 7, 201000, 90000, 9000, 137000, 72000, 1 << 7, 2500, 11500,
     };

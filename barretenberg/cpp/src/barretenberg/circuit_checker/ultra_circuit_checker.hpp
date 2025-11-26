@@ -18,7 +18,7 @@ namespace bb {
 class UltraCircuitChecker {
   public:
     using FF = bb::fr;
-    using Arithmetic = UltraArithmeticRelation<FF>;
+    using Arithmetic = ArithmeticRelation<FF>;
     using Elliptic = EllipticRelation<FF>;
     using Memory = MemoryRelation<FF>;
     using NonNativeField = NonNativeFieldRelation<FF>;

@@ -60,52 +60,52 @@ describe('Rollup', () => {
     await anvil?.stop().catch(err => createLogger('cleanup').error(err));
   });
 
-  describe('makePendingBlockNumberOverride', () => {
-    it('creates state override that correctly overrides pending block number', async () => {
-      const testProvenBlockNumber = 42n;
-      const testPendingBlockNumber = 100n;
-      const newPendingBlockNumber = 150;
+  describe('makePendingCheckpointNumberOverride', () => {
+    it('creates state override that correctly overrides pending checkpoint number', async () => {
+      const testProvenCheckpointNumber = 42n;
+      const testPendingCheckpointNumber = 100n;
+      const newPendingCheckpointNumber = 150;
 
       // Set storage directly using cheat codes
       // The storage slot stores both values: pending (high 128 bits) | proven (low 128 bits)
       const storageSlot = RollupContract.stfStorageSlot;
-      const packedValue = (testPendingBlockNumber << 128n) | testProvenBlockNumber;
+      const packedValue = (testPendingCheckpointNumber << 128n) | testProvenCheckpointNumber;
       await cheatCodes.store(EthAddress.fromString(rollupAddress), BigInt(storageSlot), packedValue);
 
       // Verify the values were set correctly by calling the getters directly
-      const provenBlockNumber = await rollup.getProvenBlockNumber();
-      const pendingBlockNumber = await rollup.getBlockNumber();
+      const provenCheckpointNumber = await rollup.getProvenCheckpointNumber();
+      const pendingCheckpointNumber = await rollup.getCheckpointNumber();
 
-      expect(provenBlockNumber).toBe(testProvenBlockNumber);
-      expect(pendingBlockNumber).toBe(testPendingBlockNumber);
+      expect(provenCheckpointNumber).toBe(testProvenCheckpointNumber);
+      expect(pendingCheckpointNumber).toBe(testPendingCheckpointNumber);
 
       // Create the override
-      const stateOverride = await rollup.makePendingBlockNumberOverride(newPendingBlockNumber);
+      const stateOverride = await rollup.makePendingCheckpointNumberOverride(newPendingCheckpointNumber);
 
       // Test the override using simulateContract
-      const { result: overriddenPendingBlockNumber } = await publicClient.simulateContract({
+      const { result: overriddenPendingCheckpointNumber } = await publicClient.simulateContract({
         address: rollupAddress,
         abi: RollupAbi as Abi,
-        functionName: 'getPendingBlockNumber',
+        functionName: 'getPendingCheckpointNumber',
         stateOverride,
       });
 
-      // The overridden value should be the new pending block number
-      expect(overriddenPendingBlockNumber).toBe(BigInt(newPendingBlockNumber));
+      // The overridden value should be the new pending checkpoint number
+      expect(overriddenPendingCheckpointNumber).toBe(BigInt(newPendingCheckpointNumber));
 
-      // Verify that the proven block number is preserved in the override
-      const { result: overriddenProvenBlockNumber } = await publicClient.simulateContract({
+      // Verify that the proven checkpoint number is preserved in the override
+      const { result: overriddenProvenCheckpointNumber } = await publicClient.simulateContract({
         address: rollupAddress,
         abi: RollupAbi as Abi,
-        functionName: 'getProvenBlockNumber',
+        functionName: 'getProvenCheckpointNumber',
         stateOverride,
       });
 
-      expect(overriddenProvenBlockNumber).toBe(testProvenBlockNumber);
+      expect(overriddenProvenCheckpointNumber).toBe(testProvenCheckpointNumber);
 
       // Verify the actual storage hasn't changed
-      const actualPendingBlockNumber = await rollup.getBlockNumber();
-      expect(actualPendingBlockNumber).toBe(testPendingBlockNumber);
+      const actualPendingCheckpointNumber = await rollup.getCheckpointNumber();
+      expect(actualPendingCheckpointNumber).toBe(testPendingCheckpointNumber);
     });
   });
 

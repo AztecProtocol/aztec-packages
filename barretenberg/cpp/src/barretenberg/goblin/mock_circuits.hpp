@@ -81,7 +81,6 @@ class GoblinMockCircuits {
         // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
-        bb::stdlib::recursion::honk::AppIO::add_default(builder);
     }
 
     /**
@@ -151,7 +150,7 @@ class GoblinMockCircuits {
     /**
      * @brief Construct a mock kernel circuit
      * @details Construct an arbitrary circuit meant to represent the aztec private function execution kernel. Recursive
-     * folding verification is handled internally by ClientIvc, not in the kernel.
+     * folding verification is handled internally by Chonk, not in the kernel.
      *
      * @param builder
      * @param function_fold_proof

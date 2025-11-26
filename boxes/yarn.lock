@@ -94,6 +94,12 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/wallet-sdk@link:../yarn-project/wallet-sdk::locator=%40aztec%2Fexamples%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wallet-sdk@link:../yarn-project/wallet-sdk::locator=%40aztec%2Fexamples%40workspace%3A."
+  languageName: node
+  linkType: soft
+
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.27.1":
   version: 7.27.1
   resolution: "@babel/code-frame@npm:7.27.1"
@@ -3740,6 +3746,7 @@ __metadata:
     "@aztec/pxe": "npm:latest"
     "@aztec/stdlib": "npm:latest"
     "@aztec/test-wallet": "npm:latest"
+    "@aztec/wallet-sdk": "npm:latest"
     "@playwright/test": "npm:1.49.0"
     "@types/node": "npm:^22.15.17"
     buffer: "npm:^6.0.3"

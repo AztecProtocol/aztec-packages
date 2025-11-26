@@ -1,14 +1,14 @@
 ---
 title: Deploying a Token Contract
 sidebar_position: 0
-description: A tutorial going through how to deploy a token contract to the sandbox using typescript.
+description: A tutorial going through how to deploy a token contract to the local network using typescript.
 ---
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will retrieving the Sandbox and deploy a pre-written token contract to it using Aztec.js. [Check out the source code](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). We will then use Aztec.js to interact with this contract and transfer tokens.
+In this guide, we will retrieving the local network and deploy a pre-written token contract to it using Aztec.js. [Check out the source code](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). We will then use Aztec.js to interact with this contract and transfer tokens.
 
-Before starting, make sure to be running Aztec sandbox at version #include_version_without_prefix. Check out [the guide](../../guides/local_env/sandbox.md) for info about that.
+Before starting, make sure to be running Aztec local network at version #include_version_without_prefix. Check out [the guide](../../tutorials/local_network.md) for info about that.
 
 ## Set up the project
 
@@ -41,17 +41,22 @@ Aztec.js assumes your project is using ESM, so make sure you add `"type": "modul
 }
 ```
 
-### Connecting to the sandbox
+### Connecting to the local network
 
-We want to [connect to our running sandbox](../../guides/aztec-js/how_to_connect_to_sandbox.md) and import the test accounts into the local PXE. Let's call them Alice and Bob (of course). Create an `index.ts` with it:
+We want to [connect to our running local network](../../aztec-js/how_to_connect_to_local_network.md) and import the test accounts into a new wallet. Let's call them Alice and Bob (of course). Create an `index.ts` with it:
 
 ```typescript
-import { createPXEClient } from "@aztec/aztec.js";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { TestWallet } from "@aztec/test-wallet/server";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
-const pxe = await createPXEClient("http://localhost:8080");
 
-const alice = (await getInitialTestAccountsData())[0];
-const bob = (await getInitialTestAccountsData())[1];
+const nodeUrl = "http://localhost:8080";
+const node = createAztecNodeClient(nodeUrl);
+const wallet = await TestWallet.create(node);
+
+const [alice, bob] = await getInitialTestAccountsData();
+await wallet.createSchnorrAccount(alice.secret, alice.salt);
+await wallet.createSchnorrAccount(bob.secret, bob.salt);
 ```
 
 ## Deploy the token contract
@@ -64,7 +69,7 @@ Let's import the interface directly, and make Alice the admin:
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
 const token = await TokenContract.deploy(
-  alice,
+  wallet,
   alice.address,
   "TokenName",
   "TKN",
@@ -140,6 +145,6 @@ console.log(`Bob's balance: ${bobBalance}`);
 
 :::info
 
-Have a look at the [contract source](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). Notice is that the `mint_to_private` function we used above actually starts a [partial note](../../concepts/advanced/storage/partial_notes.md). This allows the total balance to increase while keeping the recipient private! How cool is that?
+Have a look at the [contract source](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). Notice is that the `mint_to_private` function we used above actually starts a [partial note](../../foundational-topics/advanced/storage/partial_notes.md). This allows the total balance to increase while keeping the recipient private! How cool is that?
 
 :::

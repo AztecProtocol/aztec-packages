@@ -58,8 +58,8 @@ unconstrained fn insert() {
         // insert creates a new note
         assert_eq(state_var.context.note_hashes.len(), 1);
 
-        assert_eq(emission.note, new_note);
-        assert_eq(emission.storage_slot, state_var.storage_slot);
+        assert_eq(emission.content.note, new_note);
+        assert_eq(emission.content.storage_slot, state_var.storage_slot);
     });
 }
 

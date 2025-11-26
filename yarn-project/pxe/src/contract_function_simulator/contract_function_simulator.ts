@@ -32,12 +32,18 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
-import type { AbiDecoded, FunctionCall } from '@aztec/stdlib/abi';
-import { FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas } from '@aztec/stdlib/gas';
-import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import {
+  computeNoteHashNonce,
+  computeProtocolNullifier,
+  computeUniqueNoteHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
@@ -51,7 +57,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import {
   CallContext,
   HashedValues,
@@ -123,7 +129,7 @@ export class ContractFunctionSimulator {
     }
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
-    const startSideEffectCounter = 1;
+    const startSideEffectCounter = 2;
 
     const callContext = new CallContext(
       msgSender,
@@ -132,8 +138,8 @@ export class ContractFunctionSimulator {
       entryPointArtifact.isStatic,
     );
 
-    const txRequestHash = await request.toTxRequest().hash();
-    const noteCache = new ExecutionNoteCache(txRequestHash);
+    const protocolNullifier = await computeProtocolNullifier(await request.toTxRequest().hash());
+    const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const privateExecutionOracle = new PrivateExecutionOracle(
@@ -170,8 +176,8 @@ export class ContractFunctionSimulator {
         request.functionSelector,
       );
       const simulatorTeardownTimer = new Timer();
-      const { usedTxRequestHashForNonces } = noteCache.finish();
-      const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
+      const { usedProtocolNullifierForNonces } = noteCache.finish();
+      const firstNullifierHint = usedProtocolNullifierForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
 
       const publicCallRequests = collectNested([executionResult], r =>
         r.publicInputs.publicCallRequests
@@ -209,9 +215,9 @@ export class ContractFunctionSimulator {
    * @param authwits - Authentication witnesses required for the function call.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
    * accounts if not specified.
-   * @returns A decoded ABI value containing the function's return data.
+   * @returns A return value of the utility function in a form as returned by the simulator (Noir fields)
    */
-  public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: AztecAddress[]): Promise<AbiDecoded> {
+  public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: AztecAddress[]): Promise<Fr[]> {
     await verifyCurrentClassId(call.to, this.executionDataProvider);
 
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(call.to, call.selector);
@@ -244,9 +250,8 @@ export class ContractFunctionSimulator {
           );
         });
 
-      const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
       this.log.verbose(`Utility simulation for ${call.to}.${call.selector} completed`);
-      return decodeFromAbi(entryPointArtifact.returnTypes, returnWitness);
+      return witnessMapToFields(acirExecutionResult.returnWitness);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
@@ -269,7 +274,7 @@ class OrderedSideEffect<T> {
 }
 
 /**
- * Generates the final public inputs of the tail kernel circuit, an empty ClientIVC proof
+ * Generates the final public inputs of the tail kernel circuit, an empty Chonk proof
  * and the execution steps for a `PrivateExecutionResult` as if it had been
  * processed by the private kernel prover. This skips many of the checks performed by the kernels
  * (allowing state overrides) and is much faster, while still generating a valid
@@ -489,8 +494,8 @@ export async function generateSimulatedProvingResult(
 
   return {
     publicInputs,
-    clientIvcProof: ClientIvcProof.empty(),
-    executionSteps: executionSteps,
+    chonkProof: ChonkProof.empty(),
+    executionSteps,
   };
 }
 

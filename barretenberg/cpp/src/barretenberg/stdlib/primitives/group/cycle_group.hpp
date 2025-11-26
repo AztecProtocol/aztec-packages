@@ -25,6 +25,12 @@ namespace bb::stdlib {
  * @brief cycle_group represents a group Element of the proving system's embedded curve, i.e. a curve with a cofactor 1
  * defined over a field equal to the circuit's native field Builder::FF
  * @details In barretenberg, cycle group is used to represent the Grumpkin curve defined over the bn254 scalar field.
+ * The point at infinity is represented as (0, 0).
+ *
+ * @note For the honest prover, we restrict the construction of cycle group elements in the following ways: (1) x and y
+ * coordinates of a point must have matching constancy, i.e. both are constants or both are witnesses, enforced via a
+ * runtime assert. (2) We disallow construction of points not on the curve via runtime asserts (always) and via circuit
+ * constraints in select situations, e.g. EC operations from noir in DSL.
  *
  * @tparam Builder
  */
@@ -67,8 +73,8 @@ template <typename Builder> class cycle_group {
 
   public:
     cycle_group(Builder* _context = nullptr);
-    cycle_group(field_t _x, field_t _y, bool_t _is_infinity, bool assert_on_curve);
-    cycle_group(const bb::fr& _x, const bb::fr& _y, bool _is_infinity);
+    cycle_group(const field_t& x, const field_t& y, bool_t is_infinity, bool assert_on_curve);
+    cycle_group(const bb::fr& x, const bb::fr& y, bool is_infinity);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group constant_infinity(Builder* _context = nullptr);
@@ -77,7 +83,14 @@ template <typename Builder> class cycle_group {
     Builder* get_context(const cycle_group& other) const;
     Builder* get_context() const { return context; }
     AffineElement get_value() const;
-    [[nodiscard]] bool is_constant() const { return x.is_constant() && y.is_constant() && _is_infinity.is_constant(); }
+
+    // Coordinate accessors (non-owning, const reference)
+    const field_t& x() const { return _x; }
+    const field_t& y() const { return _y; }
+    [[nodiscard]] bool is_constant() const
+    {
+        return _x.is_constant() && _y.is_constant() && _is_infinity.is_constant();
+    }
     bool_t is_point_at_infinity() const { return _is_infinity; }
     [[nodiscard]] bool is_constant_point_at_infinity() const
     {
@@ -87,8 +100,6 @@ template <typename Builder> class cycle_group {
     void set_point_at_infinity(const bool_t& is_infinity);
 #endif
     void standardize();
-    bool is_standard() const { return this->_is_standard; };
-    cycle_group get_standard_form();
     void validate_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
@@ -124,7 +135,6 @@ template <typename Builder> class cycle_group {
     bool_t operator==(cycle_group& other);
     void assert_equal(cycle_group& other, std::string const& msg = "cycle_group::assert_equal");
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
-    cycle_group operator/(const cycle_group& other) const;
 
     /**
      * @brief Set the origin tag for x, y and _is_infinity members of cycle_group
@@ -133,10 +143,11 @@ template <typename Builder> class cycle_group {
      */
     void set_origin_tag(OriginTag tag) const
     {
-        x.set_origin_tag(tag);
-        y.set_origin_tag(tag);
+        _x.set_origin_tag(tag);
+        _y.set_origin_tag(tag);
         _is_infinity.set_origin_tag(tag);
     }
+
     /**
      * @brief Get the origin tag of cycle_group (a merege of origin tags of x, y and _is_infinity members)
      *
@@ -144,7 +155,7 @@ template <typename Builder> class cycle_group {
      */
     OriginTag get_origin_tag() const
     {
-        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+        return OriginTag(_x.get_origin_tag(), _y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
     /**
@@ -152,8 +163,8 @@ template <typename Builder> class cycle_group {
      */
     void set_free_witness_tag()
     {
-        x.set_free_witness_tag();
-        y.set_free_witness_tag();
+        _x.set_free_witness_tag();
+        _y.set_free_witness_tag();
         _is_infinity.set_free_witness_tag();
     }
 
@@ -162,8 +173,8 @@ template <typename Builder> class cycle_group {
      */
     void unset_free_witness_tag()
     {
-        x.unset_free_witness_tag();
-        y.unset_free_witness_tag();
+        _x.unset_free_witness_tag();
+        _y.unset_free_witness_tag();
         _is_infinity.unset_free_witness_tag();
     }
 
@@ -173,8 +184,8 @@ template <typename Builder> class cycle_group {
     void fix_witness()
     {
         // Origin tags should be updated within
-        x.fix_witness();
-        y.fix_witness();
+        _x.fix_witness();
+        _y.fix_witness();
         _is_infinity.fix_witness();
 
         // This is now effectively a constant
@@ -187,8 +198,8 @@ template <typename Builder> class cycle_group {
      */
     uint32_t set_public()
     {
-        uint32_t start_idx = x.set_public();
-        y.set_public();
+        uint32_t start_idx = _x.set_public();
+        _y.set_public();
         return start_idx;
     }
 
@@ -206,19 +217,10 @@ template <typename Builder> class cycle_group {
         return result;
     }
 
-    field_t x;
-    field_t y;
-
   private:
+    field_t _x;
+    field_t _y;
     bool_t _is_infinity;
-    // The point is considered to be `standard` or in `standard form` when:
-    // - It's not a point at infinity, and the coordinates belong to the curve
-    // - It's a point at infinity and both of the coordinates are set to be 0. (0, 0)
-    // Most of the time it is true, so we won't need to do extra conditional_assign
-    // during `get_standard_form`, `assert_equal` or `==` calls
-    // However sometimes it won't be the case(due to some previous design choices),
-    // so we can handle these cases using this flag
-    bool _is_standard;
     Builder* context;
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
@@ -237,6 +239,6 @@ template <typename Builder> class cycle_group {
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)
 {
-    return os << "{ " << v.x << ", " << v.y << " }";
+    return os << "{ " << v.x() << ", " << v.y() << " }";
 }
 } // namespace bb::stdlib

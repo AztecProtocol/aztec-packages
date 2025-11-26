@@ -12,16 +12,16 @@ This tutorial is compatible with the Aztec version `#include_aztec_version`. Ins
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../../getting_started_on_sandbox.md)
-- Running Aztec Sandbox
-- Installed [Noir LSP](../../guides/local_env/installing_noir_lsp.md) (optional)
+- You have followed the [quickstart](../../../getting_started_on_local_network.md)
+- Running Aztec local network
+- Installed [Noir LSP](../../aztec-nr/installation.md) (optional)
 
 ## Set up a project
 
 Run this to create a new contract project:
 
 ```bash
-aztec-nargo new --contract counter
+aztec new --contract counter
 ```
 
 Your structure should look like this:
@@ -125,8 +125,7 @@ Now we've written a simple Aztec.nr smart contract, we can compile it.
 In `./counter/` directory, run these commands:
 
 ```bash
-aztec-nargo compile # generate contract artifacts
-aztec-postprocess-contract # transpile contracts and generate verification keys
+aztec compile # compiles the contract
 ```
 
 The first command compiles your Noir contract and creates a `target` folder with a `.json` artifact inside. The second command processes these artifacts for use with Aztec (transpiling for the AVM and generating verification keys). Do not worry if you see some warnings - Aztec is in fast development and it is likely you will see some irrelevant warning messages.
@@ -145,4 +144,4 @@ You can now use the artifact and/or the TS class in your Aztec.js!
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Functions and annotations like `#[external("private")]`](../../concepts/smart_contracts/functions/function_transforms.md#private-functions)
+- [Functions and annotations like `#[external("private")]`](../../aztec-nr/framework-description/functions/function_transforms.md#private-functions)

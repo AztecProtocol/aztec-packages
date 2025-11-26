@@ -1,8 +1,6 @@
-use crate::tx_base::components::tx_blob_data::{
-    create_tx_start_marker, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS, TxEffectArrayLengths,
-};
 use super::TestBuilder;
 use types::{
+    blob_data::{create_tx_start_marker, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS, TxEffectArrayLengths},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -64,6 +62,7 @@ unconstrained fn full_tx_effects() {
             private_logs: MAX_PRIVATE_LOGS_PER_TX,
             contract_class_logs: MAX_CONTRACT_CLASS_LOGS_PER_TX,
         },
+        MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS,
         FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
         0, // revert_code
@@ -194,6 +193,7 @@ unconstrained fn all_side_effects_non_full() {
             private_logs: private_log_lengths.len(),
             contract_class_logs: contract_class_log_lengths.len(),
         },
+        private_log_lengths.fold(0, |acc, len| acc + len),
         public_logs_length,
         contract_class_log_lengths[0],
         0, // revert_code
@@ -231,7 +231,7 @@ unconstrained fn all_side_effects_non_full() {
     }
     offset += num_public_data_writes * 2;
 
-    let private_logs = builder.private_tail.non_revertible_accumulated_data.private_logs;
+    let private_logs = builder.private_tail.revertible_accumulated_data.private_logs;
     for i in 0..private_log_lengths.len() {
         let log_length = private_log_lengths[i];
         expected_blob_fields[offset] = log_length as Field;
@@ -250,7 +250,7 @@ unconstrained fn all_side_effects_non_full() {
     offset += public_logs_length;
 
     let contract_class_log_hashes =
-        builder.private_tail.non_revertible_accumulated_data.contract_class_logs_hashes;
+        builder.private_tail.revertible_accumulated_data.contract_class_logs_hashes;
     let contract_class_log_fields = builder.contract_class_log_fields;
     for i in 0..contract_class_log_lengths.len() {
         let log_hash = contract_class_log_hashes[i];
@@ -300,6 +300,7 @@ unconstrained fn partially_empty_tx_effects() {
             private_logs: 0,
             contract_class_logs: 0,
         },
+        0, // private_logs_length
         0, // public_logs_length
         0, // contract_class_log_length
         0, // revert_code
@@ -389,6 +390,7 @@ unconstrained fn discard_reverted_side_effects() {
             private_logs: non_revertible_private_log_lengths.len(),
             contract_class_logs: 0, // All contract class logs are reverted.
         },
+        non_revertible_private_log_lengths.fold(0, |acc, len| acc + len),
         public_logs_length,
         0, // contract_class_log_length. All contract class logs are reverted.
         1, // revert_code

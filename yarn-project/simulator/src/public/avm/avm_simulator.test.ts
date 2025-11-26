@@ -14,6 +14,7 @@ import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgets
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import { NoteGetterContract } from '@aztec/noir-test-contracts.js/NoteGetter';
 import { type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -271,8 +272,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    const grumpkin = new Grumpkin();
-    const g3 = await grumpkin.mul(grumpkin.generator(), new Fq(3));
+    const g3 = await Grumpkin.mul(Grumpkin.generator, new Fq(3));
     expect(results.output).toEqual([g3.x, g3.y, Fr.ZERO]);
   });
 
@@ -290,10 +290,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      const grumpkin = new Grumpkin();
-      const g3 = await grumpkin.mul(grumpkin.generator(), new Fq(3));
-      const g20 = await grumpkin.mul(grumpkin.generator(), new Fq(20));
-      const expectedResult = await grumpkin.add(g3, g20);
+      const g3 = await Grumpkin.mul(Grumpkin.generator, new Fq(3));
+      const g20 = await Grumpkin.mul(Grumpkin.generator, new Fq(20));
+      const expectedResult = await Grumpkin.add(g3, g20);
       expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
     });
 
@@ -310,8 +309,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      const grumpkin = new Grumpkin();
-      const expectedResult = await grumpkin.mul(grumpkin.generator(), new Fq(3));
+      const expectedResult = await Grumpkin.mul(Grumpkin.generator, new Fq(3));
       expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
     });
 
@@ -334,10 +332,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      const grumpkin = new Grumpkin();
-      const g1 = await grumpkin.mul(grumpkin.generator(), scalar);
-      const g2 = await grumpkin.mul(grumpkin.generator(), scalar2);
-      const expectedResult = await grumpkin.add(g1, g2);
+      const g1 = await Grumpkin.mul(Grumpkin.generator, scalar);
+      const g2 = await Grumpkin.mul(Grumpkin.generator, scalar2);
+      const expectedResult = await Grumpkin.add(g1, g2);
       expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
     });
   });
@@ -1116,7 +1113,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
 
     it('Logging', async () => {
-      const context = createContext([]);
+      const context = initContext({
+        persistableState,
+        env: initExecutionEnvironment({
+          address,
+          sender,
+          calldata: [],
+          config: PublicSimulatorConfig.from({ collectDebugLogs: true }),
+        }),
+      });
       const bytecode = getAvmTestContractBytecode('debug_logging');
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
@@ -1194,7 +1199,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         treesDB,
         contractsDB,
         trace,
-        doMerkleOperations: true,
         firstNullifier,
       });
     });

@@ -4,6 +4,7 @@
 
 #include "barretenberg/honk/utils/honk_key_gen.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -24,7 +25,7 @@ template <typename Circuit> void generate_keys_honk(const std::string& output_pa
     UltraCircuitBuilder builder = Circuit::generate(public_inputs);
 
     if constexpr (!std::same_as<Circuit, RecursiveCircuit>) {
-        stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
+        stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
     }
 
     auto prover_instance = std::make_shared<ProverInstance>(builder);

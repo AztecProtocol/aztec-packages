@@ -491,7 +491,6 @@ TYPED_TEST(PolynomialTests, interpolation_constructor)
     }
 }
 
-// LegacyPolynomials MLE
 TYPED_TEST(PolynomialTests, evaluate_mle_legacy)
 {
     using FF = TypeParam;

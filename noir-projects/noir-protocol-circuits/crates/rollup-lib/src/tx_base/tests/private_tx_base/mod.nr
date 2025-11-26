@@ -22,9 +22,10 @@ use dep::types::{
         gas::Gas, gas_fees::GasFees,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
         nullifier_leaf_preimage::NullifierLeafPreimage,
-        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
+        partial_state_reference::PartialStateReference,
     },
     address::AztecAddress,
+    blob_data::SpongeBlob,
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -39,7 +40,7 @@ use dep::types::{
         fixture_builder::FixtureBuilder, merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end,
     },
     traits::FromField,
-    utils::arrays::{find_first_index, get_sorted_tuple, subarray},
+    utils::arrays::{find_first_index, get_sorted_tuples, subarray},
 };
 
 // The circuit updates an existing leaf in the public data tree, so we only need to build the tree with a subtree big
@@ -223,7 +224,7 @@ impl TestBuilder {
         let new_nullifiers = self.private_tail.end.nullifiers;
 
         // Safety: This is for testing only.
-        let sorted_tuples = unsafe { get_sorted_tuple(new_nullifiers, |a, b| b.lt(a)) };
+        let sorted_tuples = unsafe { get_sorted_tuples(new_nullifiers, |a, b| b.lt(a)) };
         let sorted_nullifiers = sorted_tuples.map(|tuple| tuple.elem);
         let sorted_nullifier_indexes = sorted_tuples.map(|tuple| tuple.original_index);
         self.tree_snapshot_diff_hints.sorted_nullifiers = sorted_nullifiers;

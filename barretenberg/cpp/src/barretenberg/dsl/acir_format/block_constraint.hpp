@@ -12,12 +12,12 @@
 namespace acir_format {
 
 struct MemOp {
-    uint8_t access_type;
-    bb::poly_triple index;
-    bb::poly_triple value;
+    uint8_t access_type; // always binary: `0` corresponds to a READ and `1` corresponds to a WRITE.
+    bb::arithmetic_triple index;
+    bb::arithmetic_triple value;
 };
 
-enum BlockType {
+enum BlockType : std::uint8_t {
     ROM = 0,
     RAM = 1,
     CallData = 2,
@@ -25,7 +25,7 @@ enum BlockType {
 };
 
 struct BlockConstraint {
-    std::vector<bb::poly_triple> init;
+    std::vector<bb::arithmetic_triple> init;
     std::vector<MemOp> trace;
     BlockType type;
     uint32_t calldata_id{ 0 };
@@ -52,7 +52,9 @@ void process_call_data_operations(Builder& builder,
                                   bool has_valid_witness_assignments,
                                   std::vector<bb::stdlib::field_t<Builder>>& init);
 template <typename Builder>
-void process_return_data_operations(const BlockConstraint& constraint, std::vector<bb::stdlib::field_t<Builder>>& init);
+void process_return_data_operations(Builder& builder,
+                                    const BlockConstraint& constraint,
+                                    std::vector<bb::stdlib::field_t<Builder>>& init);
 
 template <typename B> inline void read(B& buf, MemOp& mem_op)
 {

@@ -5,7 +5,7 @@ import { serializeWitness } from '@aztec/noir-noirc_abi';
 import { Encoder } from 'msgpackr';
 import { z } from 'zod';
 
-import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
+import type { ChonkProof } from '../proofs/chonk_proof.js';
 import type { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';
 import type { PrivateKernelTailCircuitPublicInputs } from './private_kernel_tail_circuit_public_inputs.js';
 
@@ -45,10 +45,10 @@ export interface PrivateKernelExecutionProofOutput<
   /** The public inputs used by the proof generation process. */
   publicInputs: PublicInputsType;
   /** The private IVC proof optimized for user devices. It will be consumed by an Aztec prover,
-   * which recursively verifies it through the "private tx base" or the "public tube" circuit.*/
-  clientIvcProof: ClientIvcProof;
+   * which recursively verifies it through the "private tx base" or the "public chonk verifier" circuit.*/
+  chonkProof: ChonkProof;
   /**
-   * The trace the clientIvcProof corresponds to.
+   * The trace the chonkProof corresponds to.
    * A trace of app circuits interleaved with private kernel circuits.
    * If simulate is ran with profiling mode, also includes gate counts.
    */

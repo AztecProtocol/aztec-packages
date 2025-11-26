@@ -492,7 +492,7 @@ contract HonkVerifier is IVerifier {
     uint256 internal constant G1_Y_LOCATION = 0x80;
     uint256 internal constant SCALAR_LOCATION = 0xa0;
 
-    uint256 internal constant LOWER_128_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+    uint256 internal constant LOWER_127_MASK = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF; // 127 bits
 
     // Group order
     uint256 internal constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order
@@ -669,8 +669,8 @@ contract HonkVerifier is IVerifier {
                 let prev_challenge := mod(keccak256(0x00, eta_input_length), p)
                 mstore(0x00, prev_challenge)
 
-                let eta := and(prev_challenge, LOWER_128_MASK)
-                let etaTwo := shr(128, prev_challenge)
+                let eta := and(prev_challenge, LOWER_127_MASK)
+                let etaTwo := shr(127, prev_challenge)
 
                 mstore(ETA_CHALLENGE, eta)
                 mstore(ETA_TWO_CHALLENGE, etaTwo)
@@ -678,7 +678,7 @@ contract HonkVerifier is IVerifier {
                 prev_challenge := mod(keccak256(0x00, 0x20), p)
 
                 mstore(0x00, prev_challenge)
-                let eta_three := and(prev_challenge, LOWER_128_MASK)
+                let eta_three := and(prev_challenge, LOWER_127_MASK)
                 mstore(ETA_THREE_CHALLENGE, eta_three)
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -706,8 +706,8 @@ contract HonkVerifier is IVerifier {
 
                 prev_challenge := mod(keccak256(0x00, 0xe0), p)
                 mstore(0x00, prev_challenge)
-                let beta := and(prev_challenge, LOWER_128_MASK)
-                let gamma := shr(128, prev_challenge)
+                let beta := and(prev_challenge, LOWER_127_MASK)
+                let gamma := shr(127, prev_challenge)
 
                 mstore(BETA_CHALLENGE, beta)
                 mstore(GAMMA_CHALLENGE, gamma)
@@ -727,34 +727,19 @@ contract HonkVerifier is IVerifier {
 
                 mcopy(0x20, LOOKUP_INVERSES_X_LOC, 0x80)
 
+                // Generate single alpha challenge and compute its powers
                 prev_challenge := mod(keccak256(0x00, 0xa0), p)
                 mstore(0x00, prev_challenge)
-                let alpha_0 := and(prev_challenge, LOWER_128_MASK)
-                let alpha_1 := shr(128, prev_challenge)
-                mstore(ALPHA_CHALLENGE_0, alpha_0)
-                mstore(ALPHA_CHALLENGE_1, alpha_1)
+                let alpha := and(prev_challenge, LOWER_127_MASK)
+                mstore(ALPHA_CHALLENGE_0, alpha)
 
-                // For number of alphas / 2 ( 26 /2 )
-                let alpha_off_set := ALPHA_CHALLENGE_2
-                for {} lt(alpha_off_set, ALPHA_CHALLENGE_26) {} {
-                    prev_challenge := mod(keccak256(0x00, 0x20), p)
-                    mstore(0x00, prev_challenge)
-
-                    let alpha_even := and(prev_challenge, LOWER_128_MASK)
-                    let alpha_odd := shr(128, prev_challenge)
-
-                    mstore(alpha_off_set, alpha_even)
-                    mstore(add(alpha_off_set, 0x20), alpha_odd)
-
-                    alpha_off_set := add(alpha_off_set, 0x40)
+                // Compute powers of alpha: alpha^2, alpha^3, ..., alpha^26
+                let alpha_off_set := ALPHA_CHALLENGE_1
+                for {} lt(alpha_off_set, add(ALPHA_CHALLENGE_26, 0x20)) {} {
+                    let prev_alpha := mload(sub(alpha_off_set, 0x20))
+                    mstore(alpha_off_set, mulmod(prev_alpha, alpha, p))
+                    alpha_off_set := add(alpha_off_set, 0x20)
                 }
-
-                // The final alpha challenge
-                prev_challenge := mod(keccak256(0x00, 0x20), p)
-                mstore(0x00, prev_challenge)
-
-                let alpha_26 := and(prev_challenge, LOWER_128_MASK)
-                mstore(ALPHA_CHALLENGE_26, alpha_26)
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*                       GATE CHALLENGES                      */
@@ -763,7 +748,7 @@ contract HonkVerifier is IVerifier {
                 // Store the first gate challenge
                 prev_challenge := mod(keccak256(0x00, 0x20), p)
                 mstore(0x00, prev_challenge)
-                let gate_challenge := and(prev_challenge, LOWER_128_MASK)
+                let gate_challenge := and(prev_challenge, LOWER_127_MASK)
                 mstore(GATE_CHALLENGE_0, gate_challenge)
 
                 let gate_off := GATE_CHALLENGE_1
@@ -795,7 +780,7 @@ contract HonkVerifier is IVerifier {
                     prev_challenge := mod(keccak256(0x00, 0x120), p)
                     mstore(0x00, prev_challenge)
 
-                    let sumcheck_u_challenge := and(prev_challenge, LOWER_128_MASK)
+                    let sumcheck_u_challenge := and(prev_challenge, LOWER_127_MASK)
                     mstore(write_off, sumcheck_u_challenge)
 
                     // Progress read / write pointers
@@ -855,7 +840,7 @@ contract HonkVerifier is IVerifier {
                 prev_challenge := mod(keccak256(0x00, 0x540), p)
                 mstore(0x00, prev_challenge)
 
-                let rho := and(prev_challenge, LOWER_128_MASK)
+                let rho := and(prev_challenge, LOWER_127_MASK)
 
                 mstore(RHO_CHALLENGE, rho)
 
@@ -874,7 +859,7 @@ contract HonkVerifier is IVerifier {
                 prev_challenge := mod(keccak256(0x00, {{ GEMINI_FOLD_UNIVARIATE_HASH_LENGTH }}), p)
                 mstore(0x00, prev_challenge)
 
-                let geminiR := and(prev_challenge, LOWER_128_MASK)
+                let geminiR := and(prev_challenge, LOWER_127_MASK)
 
                 mstore(GEMINI_R_CHALLENGE, geminiR)
 
@@ -888,7 +873,7 @@ contract HonkVerifier is IVerifier {
                 prev_challenge := mod(keccak256(0x00, {{ GEMINI_EVALS_HASH_LENGTH }}), p)
                 mstore(0x00, prev_challenge)
 
-                let shplonkNu := and(prev_challenge, LOWER_128_MASK)
+                let shplonkNu := and(prev_challenge, LOWER_127_MASK)
                 mstore(SHPLONK_NU_CHALLENGE, shplonkNu)
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -899,7 +884,7 @@ contract HonkVerifier is IVerifier {
                 mcopy(0x20, SHPLONK_Q_X_LOC, 0x40)
                 prev_challenge := mod(keccak256(0x00, 0x60), p)
 
-                let shplonkZ := and(prev_challenge, LOWER_128_MASK)
+                let shplonkZ := and(prev_challenge, LOWER_127_MASK)
                 mstore(SHPLONK_Z_CHALLENGE, shplonkZ)
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

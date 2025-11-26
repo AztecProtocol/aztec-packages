@@ -78,14 +78,13 @@ export class EcAdd extends Instruction {
       throw new EcAddPointNotOnCurveError(/*pointIndex=*/ 2, p2);
     }
 
-    const grumpkin = new Grumpkin();
     let dest;
     if (p1IsInfinite) {
       dest = p2;
     } else if (p2IsInfinite) {
       dest = p1;
     } else {
-      dest = await grumpkin.add(p1, p2);
+      dest = await Grumpkin.add(p1, p2);
     }
 
     // Important to use setSlice() and not set() in the two following statements as

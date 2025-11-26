@@ -4,6 +4,7 @@
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
@@ -30,24 +31,16 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
     using Builder = typename Flavor::CircuitBuilder;
     using VerificationKey = typename Flavor::VerificationKey;
 
-    void set_default_pairing_points_and_ipa_claim_and_proof(typename Flavor::CircuitBuilder& builder)
-    {
-        stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_random_valid_ipa_claim_and_proof(
-                    builder);
-            stdlib_opening_claim.set_public();
-            builder.ipa_proof = ipa_proof;
-        }
-    }
-
     VerificationKey create_vk()
     {
         if constexpr (IsUltraOrMegaHonk<Flavor>) {
             using ProverInstance = ProverInstance_<Flavor>;
             Builder builder;
-            set_default_pairing_points_and_ipa_claim_and_proof(builder);
+            if constexpr (HasIPAAccumulator<Flavor>) {
+                stdlib::recursion::honk::RollupIO::add_default(builder);
+            } else {
+                stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::add_default(builder);
+            }
             auto prover_instance = std::make_shared<ProverInstance>(builder);
             return VerificationKey{ prover_instance->get_precomputed() };
         } else {
@@ -61,34 +54,25 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
 TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
 
 /**
- * @brief Checks that the hash produced from calling to_field_elements and then add_to_independent_hash_buffer is the
- * same as the hash() call and also the same as the hash_through_transcript.
+ * @brief Checks that the hash produced from calling hash() is the same as hash_with_origin_tagging().
  *
  */
 TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
 {
     using Flavor = TypeParam;
     using VerificationKey = typename Flavor::VerificationKey;
-    using Transcript = typename Flavor::Transcript;
-    using DataType = typename Transcript::DataType;
 
     VerificationKey vk(TestFixture::create_vk());
 
-    // First method of hashing: using to_field_elements and add_to_hash_buffer.
-    std::vector<DataType> vk_field_elements = vk.to_field_elements();
-    Transcript transcript;
-    for (const auto& field_element : vk_field_elements) {
-        transcript.add_to_independent_hash_buffer("vk_element", field_element);
-    }
-    fr vk_hash_1 = transcript.hash_independent_buffer();
-    // Second method of hashing: using hash().
-    fr vk_hash_2 = vk.hash();
-    EXPECT_EQ(vk_hash_1, vk_hash_2);
+    // First method of hashing: using hash().
+    fr vk_hash_1 = vk.hash();
+
+    // Second method of hashing: using hash_with_origin_tagging.
+    // (ECCVM and Translator flavors don't support hash_with_origin_tagging as their VKs are hardcoded)
     if constexpr (!IsAnyOf<Flavor, ECCVMFlavor, TranslatorFlavor>) {
-        // Third method of hashing: using hash_through_transcript.
-        typename Flavor::Transcript transcript_2;
-        fr vk_hash_3 = vk.hash_through_transcript("", transcript_2);
-        EXPECT_EQ(vk_hash_2, vk_hash_3);
+        typename Flavor::Transcript transcript;
+        fr vk_hash_2 = vk.hash_with_origin_tagging("", transcript);
+        EXPECT_EQ(vk_hash_1, vk_hash_2);
     }
 }
 

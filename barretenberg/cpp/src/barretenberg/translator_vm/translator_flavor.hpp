@@ -42,7 +42,7 @@ class TranslatorFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using Transcript = NativeTranscript;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
 
     // Indicates that this flavor runs with ZK Sumcheck.
@@ -51,6 +51,9 @@ class TranslatorFlavor {
     static constexpr bool USE_PADDING = false;
     // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
     // they become too small.
+
+    // The number of entities added for ZK (gemini_masking_poly)
+    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
 
     // None of this parameters can be changed
     // Number of wires representing the op queue whose commitments are going to be checked against those from the
@@ -120,11 +123,13 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 187;
+    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 187 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_ALL_ENTITIES = 188;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
     // The total number of witness entities not including shifts.
+    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 90 + NUM_MASKING_POLYNOMIALS)
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 86;
@@ -166,7 +171,6 @@ class TranslatorFlavor {
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -184,26 +188,24 @@ class TranslatorFlavor {
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. accumulated_result */ (num_frs_fq) +
-        /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES - 4) * num_frs_comm) +
-        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
-        /* 3. Libra sum */ (num_frs_fr) +
-        /* 4. CONST_TRANSLATOR_LOG_N sumcheck univariates */
+        /* 2. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES - 3) * num_frs_comm) +
+        /* 3. Libra concatenation commitment*/ (num_frs_comm) +
+        /* 4. Libra sum */ (num_frs_fr) +
+        /* 5. CONST_TRANSLATOR_LOG_N sumcheck univariates */
         (CONST_TRANSLATOR_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
-        /* 6. Libra claimed evaluation */ (num_frs_fr) +
-        /* 7. Libra grand sum commitment */ (num_frs_comm) +
-        /* 8. Libra quotient commitment */ (num_frs_comm) +
-        /* 9. Gemini masking commitment */ (num_frs_comm) +
-        /* 10. Gemini masking evaluation */ (num_frs_fr) +
-        /* 11. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
+        /* 6. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
+        /* 7. Libra claimed evaluation */ (num_frs_fr) +
+        /* 8. Libra grand sum commitment */ (num_frs_comm) +
+        /* 9. Libra quotient commitment */ (num_frs_comm) +
+        /* 10. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
         ((CONST_TRANSLATOR_LOG_N - 1) * num_frs_comm) +
-        /* 12. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
+        /* 11. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
         (CONST_TRANSLATOR_LOG_N * num_frs_fr) +
-        /* 13. Gemini P pos evaluation */ (num_frs_fr) +
-        /* 14. Gemini P neg evaluation */ (num_frs_fr) +
-        /* 15. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-        /* 16. Shplonk Q commitment */ (num_frs_comm) +
-        /* 17. KZG W commitment */ (num_frs_comm);
+        /* 12. Gemini P pos evaluation */ (num_frs_fr) +
+        /* 13. Gemini P neg evaluation */ (num_frs_fr) +
+        /* 14. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+        /* 15. Shplonk Q commitment */ (num_frs_comm) +
+        /* 16. KZG W commitment */ (num_frs_comm);
 
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
@@ -590,19 +592,32 @@ class TranslatorFlavor {
     };
 
     /**
+     * @brief Container for ZK entities (gemini masking polynomial for ZK-PCS)
+     * @details Translator is always ZK, so this always contains the masking polynomial
+     */
+    template <typename DataType> class MaskingEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType, gemini_masking_poly)
+    };
+
+    /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest.
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
      * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
      *
-     * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + ShiftedEntities.
+     * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + ShiftedEntities + MaskingEntities.
      */
     template <typename DataType>
-    class AllEntities : public PrecomputedEntities<DataType>,
+    class AllEntities : public MaskingEntities<DataType>,
+                        public PrecomputedEntities<DataType>,
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
+        DEFINE_COMPOUND_GET_ALL(MaskingEntities<DataType>,
+                                PrecomputedEntities<DataType>,
+                                WitnessEntities<DataType>,
+                                ShiftedEntities<DataType>)
 
         auto get_precomputed() const { return PrecomputedEntities<DataType>::get_all(); };
 
@@ -619,12 +634,15 @@ class TranslatorFlavor {
 
         auto get_unshifted() const
         {
-            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
+            return concatenate(MaskingEntities<DataType>::get_all(),
+                               PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities<DataType>::get_unshifted());
         }
 
         auto get_unshifted_without_interleaved()
         {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
+            return concatenate(MaskingEntities<DataType>::get_all(),
+                               PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities<DataType>::get_unshifted_without_interleaved());
         }
 
@@ -807,11 +825,19 @@ class TranslatorFlavor {
          * @param domain_separator
          * @param transcript
          */
-        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
-                                   [[maybe_unused]] Transcript& transcript) const override
+        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                    [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
+
+#ifndef NDEBUG
+        bool compare(const VerificationKey& other)
+        {
+            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
+                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
+        }
+#endif
     };
 
     /**
@@ -985,7 +1011,7 @@ class TranslatorFlavor {
     /**
      * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
      *
-     * @details When used in LegacyClientIVC, the Translator has a large fixed size, which is often not fully utilized.
+     * @details When used in Chonk, the Translator has a large fixed size, which is often not fully utilized.
      *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
      *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate
      **/

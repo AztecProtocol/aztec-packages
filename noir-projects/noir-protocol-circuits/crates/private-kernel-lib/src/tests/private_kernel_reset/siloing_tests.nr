@@ -99,7 +99,7 @@ fn siloing_note_hashes_again_fails() {
     let _ = builder.execute_with_siloing();
 }
 
-#[test]
+#[test(should_fail_with = "Nullifiers have been siloed in a previous reset")]
 fn siloing_nullifiers_again() {
     let mut builder = TestBuilder::new();
 
@@ -119,7 +119,7 @@ fn siloing_nullifiers_again() {
     );
 }
 
-#[test]
+#[test(should_fail_with = "Private logs have been siloed in a previous reset")]
 fn siloing_private_logs_again() {
     let mut builder = TestBuilder::new();
 

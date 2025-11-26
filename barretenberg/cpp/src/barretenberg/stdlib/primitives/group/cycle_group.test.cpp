@@ -68,22 +68,32 @@ TYPED_TEST(CycleGroupTest, TestBasicTagLogic)
     STDLIB_TYPE_ALIASES
     Builder builder;
 
+    // Create field elements with specific tags before constructing the cycle_group
     auto lhs = TestFixture::generators[0];
-    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
-    // Set the whole tag first
-    a.set_origin_tag(next_challenge_tag);
-    // Set tags of x an y
-    a.x.set_origin_tag(submitted_value_origin_tag);
-    a.y.set_origin_tag(challenge_origin_tag);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, lhs.x);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, lhs.y);
+    auto is_infinity = bool_ct(witness_ct(&builder, lhs.is_point_at_infinity()));
 
-    // The tag of the _is_point_at_infinity member should stay as next_challenge_tag, so the whole thing should be the
-    // union of all 3
+    // Set tags on the individual field elements
+    x.set_origin_tag(submitted_value_origin_tag);
+    y.set_origin_tag(challenge_origin_tag);
+    is_infinity.set_origin_tag(next_challenge_tag);
 
+    // Construct cycle_group from pre-tagged field elements
+    cycle_group_ct a(x, y, is_infinity, /*assert_on_curve=*/true);
+
+    // The tag of the cycle_group should be the union of all 3 member tags
     EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
 
 #ifndef NDEBUG
-    cycle_group_ct b = cycle_group_ct::from_witness(&builder, TestFixture::generators[1]);
-    b.x.set_origin_tag(instant_death_tag);
+    // Test that instant_death_tag on x coordinate propagates correctly
+    auto x_death = stdlib::field_t<Builder>::from_witness(&builder, TestFixture::generators[1].x);
+    auto y_normal = stdlib::field_t<Builder>::from_witness(&builder, TestFixture::generators[1].y);
+    auto is_infinity_normal = bool_ct(witness_ct(&builder, TestFixture::generators[1].is_point_at_infinity()));
+
+    x_death.set_origin_tag(instant_death_tag);
+
+    cycle_group_ct b(x_death, y_normal, is_infinity_normal, /*assert_on_curve=*/true);
     // Even requesting the tag of the whole structure can cause instant death
     EXPECT_THROW(b.get_origin_tag(), std::runtime_error);
 #endif
@@ -180,7 +190,7 @@ TYPED_TEST(CycleGroupTest, TestConstantWitnessMixupRegression)
     auto w27 = w10 - w11; // and here
     (void)w26;
     (void)w27;
-    check_circuit_and_gate_count(builder, 41);
+    check_circuit_and_gate_count(builder, 40);
 }
 
 /**
@@ -211,8 +221,8 @@ TYPED_TEST(CycleGroupTest, TestConditionalAssignSuperMixupRegression)
     auto c0 = cycle_group_ct(TestFixture::generators[0]);
     auto c1 = cycle_group_ct(-TestFixture::generators[0]);
     auto w2 = cycle_group_ct::conditional_assign(bool_ct(witness_ct(&builder, true)), c0, c1);
-    EXPECT_FALSE(w2.x.is_constant());
-    EXPECT_FALSE(w2.y.is_constant());
+    EXPECT_FALSE(w2.x().is_constant());
+    EXPECT_FALSE(w2.y().is_constant());
     EXPECT_TRUE(w2.is_point_at_infinity().is_constant());
     auto w3 = w2.dbl();
     (void)w3;
@@ -248,8 +258,8 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
-    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
-    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
 
     cycle_group_ct a(x, y, /*_is_infinity=*/true, /*assert_on_curve=*/true);
     EXPECT_FALSE(builder.failed());
@@ -267,8 +277,8 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
-    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
-    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
 
     cycle_group_ct a(x, y, /*_is_infinity=*/false, /*assert_on_curve=*/true);
     EXPECT_TRUE(builder.failed());
@@ -286,8 +296,8 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail2)
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
-    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
-    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
 
     cycle_group_ct a(x, y, /*_is_infinity=*/bool_ct(witness_ct(&builder, false)), /*assert_on_curve=*/true);
     EXPECT_TRUE(builder.failed());
@@ -305,8 +315,8 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     cycle_group_ct input_c = cycle_group_ct(Element::random_element());
     cycle_group_ct input_d = cycle_group_ct(affine_infinity);
 
-    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
-    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
     cycle_group_ct input_e = cycle_group_ct(x, y, true, /*assert_on_curve=*/true);
     cycle_group_ct input_f = cycle_group_ct(x, y, bool_ct(witness_ct(&builder, true)), /*assert_on_curve=*/true);
 
@@ -316,12 +326,18 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     input_c.set_origin_tag(next_challenge_tag);
     input_d.set_origin_tag(first_two_merged_tag);
 
-    auto standard_a = input_a.get_standard_form();
-    auto standard_b = input_b.get_standard_form();
-    auto standard_c = input_c.get_standard_form();
-    auto standard_d = input_d.get_standard_form();
-    auto standard_e = input_e.get_standard_form();
-    auto standard_f = input_f.get_standard_form();
+    input_a.standardize();
+    auto standard_a = input_a;
+    input_b.standardize();
+    auto standard_b = input_b;
+    input_c.standardize();
+    auto standard_c = input_c;
+    input_d.standardize();
+    auto standard_d = input_d;
+    input_e.standardize();
+    auto standard_e = input_e;
+    input_f.standardize();
+    auto standard_f = input_f;
 
     EXPECT_EQ(standard_a.is_point_at_infinity().get_value(), false);
     EXPECT_EQ(standard_b.is_point_at_infinity().get_value(), true);
@@ -336,28 +352,28 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(standard_c.get_origin_tag(), next_challenge_tag);
     EXPECT_EQ(standard_d.get_origin_tag(), first_two_merged_tag);
 
-    auto input_a_x = input_a.x.get_value();
-    auto input_a_y = input_a.y.get_value();
-    auto input_c_x = input_c.x.get_value();
-    auto input_c_y = input_c.y.get_value();
+    auto input_a_x = input_a.x().get_value();
+    auto input_a_y = input_a.y().get_value();
+    auto input_c_x = input_c.x().get_value();
+    auto input_c_y = input_c.y().get_value();
 
-    auto standard_a_x = standard_a.x.get_value();
-    auto standard_a_y = standard_a.y.get_value();
+    auto standard_a_x = standard_a.x().get_value();
+    auto standard_a_y = standard_a.y().get_value();
 
-    auto standard_b_x = standard_b.x.get_value();
-    auto standard_b_y = standard_b.y.get_value();
+    auto standard_b_x = standard_b.x().get_value();
+    auto standard_b_y = standard_b.y().get_value();
 
-    auto standard_c_x = standard_c.x.get_value();
-    auto standard_c_y = standard_c.y.get_value();
+    auto standard_c_x = standard_c.x().get_value();
+    auto standard_c_y = standard_c.y().get_value();
 
-    auto standard_d_x = standard_d.x.get_value();
-    auto standard_d_y = standard_d.y.get_value();
+    auto standard_d_x = standard_d.x().get_value();
+    auto standard_d_y = standard_d.y().get_value();
 
-    auto standard_e_x = standard_e.x.get_value();
-    auto standard_e_y = standard_e.y.get_value();
+    auto standard_e_x = standard_e.x().get_value();
+    auto standard_e_y = standard_e.y().get_value();
 
-    auto standard_f_x = standard_f.x.get_value();
-    auto standard_f_y = standard_f.y.get_value();
+    auto standard_f_x = standard_f.x().get_value();
+    auto standard_f_y = standard_f.y().get_value();
 
     EXPECT_EQ(input_a_x, standard_a_x);
     EXPECT_EQ(input_a_y, standard_a_y);
@@ -372,7 +388,7 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(standard_f_x, 0);
     EXPECT_EQ(standard_f_y, 0);
 
-    check_circuit_and_gate_count(builder, 20);
+    check_circuit_and_gate_count(builder, 24);
 }
 TYPED_TEST(CycleGroupTest, TestDbl)
 {
@@ -454,7 +470,7 @@ TYPED_TEST(CycleGroupTest, TestDblNonConstantPoints)
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
         // Note: from_witness sets x,y to witness(0,0) for infinity points
         // After doubling, y becomes -1 (0x3064...) due to the modified_y logic
-        EXPECT_EQ(result.x.get_value(), 0);
+        EXPECT_EQ(result.x().get_value(), 0);
 
         // Same gate count as regular witness points
         check_circuit_and_gate_count(builder, 9);
@@ -509,8 +525,8 @@ TYPED_TEST(CycleGroupTest, TestDblConstantPoints)
 
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
         EXPECT_TRUE(result.is_constant());
-        EXPECT_EQ(result.x.get_value(), 0);
-        EXPECT_EQ(result.y.get_value(), 0);
+        EXPECT_EQ(result.x().get_value(), 0);
+        EXPECT_EQ(result.y().get_value(), 0);
 
         check_circuit_and_gate_count(builder, 0);
     }
@@ -527,38 +543,33 @@ TYPED_TEST(CycleGroupTest, TestDblConstantPoints)
 
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
         EXPECT_TRUE(result.is_constant());
-        EXPECT_EQ(result.x.get_value(), 0);
-        EXPECT_EQ(result.y.get_value(), 0);
+        EXPECT_EQ(result.x().get_value(), 0);
+        EXPECT_EQ(result.y().get_value(), 0);
 
         check_circuit_and_gate_count(builder, 0);
     }
 }
 
-#ifndef NDEBUG
 TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
 {
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
 
     // Test doubling where x is constant but y is witness (edge case)
-    // This currently fails due to implementation issues with mixed constant/witness points
-    // TODO: Fix the implementation to handle this case properly
-
     auto point = TestFixture::generators[1];
     auto x = stdlib::field_t<Builder>(&builder, point.x);             // constant
     auto y = stdlib::field_t<Builder>(witness_ct(&builder, point.y)); // witness
+
+    // Mixed constancy is remedied inside the constructor; x will be converted to a fixed witness
     cycle_group_ct a(x, y, false, /*assert_on_curve=*/false);
 
-    // Currently this crashes with an assertion error about invalid variable_index
-    // The issue is that when we have mixed constant/witness coordinates, the dbl()
-    // implementation tries to access witness indices that don't exist for constants
+    EXPECT_FALSE(a.x().is_constant());
+    EXPECT_FALSE(a.y().is_constant());
 
-    EXPECT_THROW(
-        { [[maybe_unused]] cycle_group_ct result = a.dbl(); },
-        std::exception // Expect exception from assertion failure
-    );
+    a.dbl();
+
+    check_circuit_and_gate_count(builder, 3);
 }
-#endif
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalAddNonConstantPoints)
 {
@@ -1313,7 +1324,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
         EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
-    check_circuit_and_gate_count(builder, 267);
+    check_circuit_and_gate_count(builder, 261);
 }
 
 TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)
@@ -1804,133 +1815,6 @@ TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
     };
     run_test(/*construct_witnesses=*/true);
     run_test(/*construct_witnesses=*/false);
-}
-
-/**
- * @brief Temporary debugging test demonstrating that batch_mul with scalars of different bit lengths is not supported
- *
- */
-TYPED_TEST(CycleGroupTest, MixedLengthScalarsIsNotSupported)
-{
-    STDLIB_TYPE_ALIASES
-    using FF = typename Curve::ScalarField;
-    using FF_ct = stdlib::bigfield<Builder, typename FF::Params>;
-
-    Builder builder;
-
-    // Create two points
-    std::vector<cycle_group_ct> points;
-    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[0]));
-    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[1]));
-
-    // Create two scalars with DIFFERENT bit lengths
-    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-
-    // First scalar: 254 bits (default cycle_scalar::NUM_BITS)
-    auto scalar1_value = FF::random_element(&engine);
-    auto scalar1 = FF_ct::from_witness(&builder, scalar1_value);
-    scalars.emplace_back(scalar1);
-    EXPECT_EQ(scalars[0].num_bits(), cycle_scalar_ct::NUM_BITS);
-
-    // Second scalar: 256 bits
-    uint256_t scalar2_value = uint256_t(987654321);
-    scalars.push_back(cycle_scalar_ct::from_u256_witness(&builder, scalar2_value));
-    EXPECT_EQ(scalars[1].num_bits(), 256);
-
-    // The different sized scalars results in different sized scalar slices arrays which is not handled in batch_mul
-    EXPECT_NE(scalars[0].num_bits(), scalars[1].num_bits());
-    EXPECT_THROW_OR_ABORT(cycle_group_ct::batch_mul(points, scalars), "Assertion failed: (s.num_bits() == num_bits)");
-}
-
-/**
- * @brief Test batch_mul with cycle_scalar created from create_from_bn254_scalar
- * @details This tests the create_from_bn254_scalar constructor path which performs in-field validation
- * against bn254::fr::modulus during construction via split_unique.
- */
-TYPED_TEST(CycleGroupTest, TestBatchMulWithBn254Scalar)
-{
-    STDLIB_TYPE_ALIASES
-    using field_ct = stdlib::field_t<Builder>;
-    Builder builder;
-
-    // Create two points
-    std::vector<cycle_group_ct> points;
-    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[0]));
-    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[1]));
-
-    // Create scalars from bn254 scalar field elements using create_from_bn254_scalar
-    std::vector<cycle_scalar_ct> scalars;
-    auto bn254_scalar1 = field_ct::from_witness(&builder, bb::fr::random_element(&engine));
-    auto bn254_scalar2 = field_ct::from_witness(&builder, bb::fr::random_element(&engine));
-
-    scalars.push_back(cycle_scalar_ct::create_from_bn254_scalar(bn254_scalar1));
-    scalars.push_back(cycle_scalar_ct::create_from_bn254_scalar(bn254_scalar2));
-
-    // Verify both scalars have the standard 254-bit length
-    EXPECT_EQ(scalars[0].num_bits(), cycle_scalar_ct::NUM_BITS);
-    EXPECT_EQ(scalars[1].num_bits(), cycle_scalar_ct::NUM_BITS);
-
-    // Perform batch mul
-    auto result = cycle_group_ct::batch_mul(points, scalars);
-
-    // Compute expected result natively (bn254 scalars treated as Grumpkin scalars via Fr constructor)
-    auto scalar1_as_grumpkin = typename Group::Fr(bn254_scalar1.get_value());
-    auto scalar2_as_grumpkin = typename Group::Fr(bn254_scalar2.get_value());
-    AffineElement expected =
-        TestFixture::generators[0] * scalar1_as_grumpkin + TestFixture::generators[1] * scalar2_as_grumpkin;
-    EXPECT_EQ(result.get_value(), expected);
-
-    // Gate count difference due to additional constants added by default in Mega builder
-    if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 4021); // Mega
-    } else {
-        check_circuit_and_gate_count(builder, 4024); // Ultra
-    }
-}
-
-/**
- * @brief Test batch_mul with cycle_scalar created from from_u256_witness with matching bit lengths
- * @details This tests the from_u256_witness constructor which skips primality testing.
- * Uses 256-bit scalars with matching lengths (unlike MixedLengthScalarsIsNotSupported test).
- */
-TYPED_TEST(CycleGroupTest, TestBatchMulWithU256Witness)
-{
-    STDLIB_TYPE_ALIASES
-    Builder builder;
-
-    // Create two points
-    std::vector<cycle_group_ct> points;
-    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[0]));
-    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[1]));
-
-    // Create two 256-bit scalars using from_u256_witness (both with same bit length)
-    std::vector<cycle_scalar_ct> scalars;
-    uint256_t scalar1_value = uint256_t(engine.get_random_uint256());
-    uint256_t scalar2_value = uint256_t(engine.get_random_uint256());
-
-    scalars.push_back(cycle_scalar_ct::from_u256_witness(&builder, scalar1_value));
-    scalars.push_back(cycle_scalar_ct::from_u256_witness(&builder, scalar2_value));
-
-    // Verify both scalars have 256-bit length
-    EXPECT_EQ(scalars[0].num_bits(), 256);
-    EXPECT_EQ(scalars[1].num_bits(), 256);
-
-    // Perform batch mul
-    auto result = cycle_group_ct::batch_mul(points, scalars);
-
-    // Compute expected result natively (scalars are used modulo grumpkin::fr::modulus in batch_mul)
-    auto scalar1_reduced = typename Group::Fr(scalar1_value);
-    auto scalar2_reduced = typename Group::Fr(scalar2_value);
-    AffineElement expected =
-        TestFixture::generators[0] * scalar1_reduced + TestFixture::generators[1] * scalar2_reduced;
-    EXPECT_EQ(result.get_value(), expected);
-
-    // Gate count difference due to additional constants added by default in Mega builder
-    if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 1245); // Mega
-    } else {
-        check_circuit_and_gate_count(builder, 1248); // Ultra
-    }
 }
 
 /**

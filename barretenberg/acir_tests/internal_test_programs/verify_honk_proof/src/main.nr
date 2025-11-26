@@ -1,5 +1,5 @@
 // This circuit aggregates a single Honk proof from `assert_statement`.
-use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkProof, verify_ultrahonk_proof};
+use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkProof, verify_honk_proof_non_zk};
 
 fn main(
     verification_key: UltraHonkVerificationKey,
@@ -11,7 +11,7 @@ fn main(
     // I believe we want to eventually make it public too though.
     key_hash: Field,
 ) {
-    verify_ultrahonk_proof(
+    verify_honk_proof_non_zk(
         verification_key,
         proof,
         public_inputs,

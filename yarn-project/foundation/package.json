@@ -16,6 +16,7 @@
     "./config": "./dest/config/index.js",
     "./crypto": "./dest/crypto/index.js",
     "./crypto/sync": "./dest/crypto/sync/index.js",
+    "./crypto/bls/bn254_keystore": "./dest/crypto/bls/bn254_keystore.js",
     "./decorators": "./dest/decorators/index.js",
     "./error": "./dest/error/index.js",
     "./eth-address": "./dest/eth-address/index.js",
@@ -106,6 +107,8 @@
     "@aztec/bb.js": "portal:../../barretenberg/ts",
     "@koa/cors": "^5.0.0",
     "@noble/curves": "=1.7.0",
+    "@noble/hashes": "^1.6.1",
+    "@scure/bip39": "^2.0.1",
     "bn.js": "^5.2.1",
     "colorette": "^2.0.20",
     "detect-node": "^2.1.0",
@@ -154,7 +157,7 @@
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3",
     "typescript-eslint": "^8.32.1",
-    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0"
+    "viem": "npm:@aztec/viem@2.38.2"
   },
   "files": [
     "dest",

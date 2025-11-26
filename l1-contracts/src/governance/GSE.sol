@@ -8,7 +8,8 @@ import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 import {
-  DepositDelegationLib, DepositAndDelegationAccounting
+  DepositDelegationLib,
+  DepositAndDelegationAccounting
 } from "@aztec/governance/libraries/DepositDelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -19,7 +20,7 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
-// Struct to store configuration of an attester (block producer)
+// Struct to store configuration of an attester (checkpoint producer)
 // Keep track of the actor who can initiate and control withdraws for the attester.
 // Keep track of the public key in G1 of BN254 that has registered on the instance
 struct AttesterConfig {
@@ -27,7 +28,7 @@ struct AttesterConfig {
   address withdrawer;
 }
 
-// Struct to track the attesters (block producers) on a particular rollup instance
+// Struct to track the attesters (checkpoint producers) on a particular rollup instance
 // throughout time, along with each attester's current config.
 // Finally a flag to track if the instance exists.
 struct InstanceAttesterRegistry {
@@ -643,9 +644,9 @@ contract GSECore is IGSECore, Ownable {
     // We validate the proof of possession using an external contract to limit gas potentially "sacrificed"
     // in case of failure.
     require(
-      BN254_LIB_WRAPPER.proofOfPossession{gas: proofOfPossessionGasLimit}(
-        _publicKeyInG1, _publicKeyInG2, _proofOfPossession
-      ),
+      BN254_LIB_WRAPPER.proofOfPossession{
+        gas: proofOfPossessionGasLimit
+      }(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
       Errors.GSE__InvalidProofOfPossession()
     );
   }
@@ -795,7 +796,12 @@ contract GSE is IGSE, GSECore {
    *
    * @return The number of effective attesters at the instance at the time of `_timestamp`
    */
-  function getAttesterCountAtTime(address _instance, Timestamp _timestamp) public view override(IGSE) returns (uint256) {
+  function getAttesterCountAtTime(address _instance, Timestamp _timestamp)
+    public
+    view
+    override(IGSE)
+    returns (uint256)
+  {
     InstanceAttesterRegistry storage store = instances[_instance];
     uint32 timestamp = Timestamp.unwrap(_timestamp).toUint32();
 

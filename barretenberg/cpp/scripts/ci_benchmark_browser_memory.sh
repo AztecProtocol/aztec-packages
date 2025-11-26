@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs a in-browser memory benchmark for Client IVC proving.
+# Runs a in-browser memory benchmark for Chonk proving.
 # This is used to get as realistic as possible memory usage for the proving of a private transaction in a browser setting.
 
 source $(git rev-parse --show-toplevel)/ci3/source
@@ -14,18 +14,12 @@ export PORT=9339
 
 set -x
 
-# Run server.
-yarn --cwd ../acir_tests/browser-test-app serve &
-server_pid=$!
-trap "kill $server_pid 2>/dev/null" EXIT SIGINT
-sleep 2 # Give server time to start
-
 # Run the benchmark.
 name_path="app-proving/$flow/chrome-wasm"
 output="bench-out/$name_path"
 mkdir -p "$output"
 start=$(date +%s%N)
-BROWSER=chrome ../acir_tests/headless-test/bb.js.browser prove_client_ivc -i $flow_folder/ivc-inputs.msgpack --verbose 2>&1 \
+BROWSER=chrome ../acir_tests/headless-test/bb.js.browser prove_chonk -i $flow_folder/ivc-inputs.msgpack --verbose 2>&1 \
   | tee "$output/benchmark.log"
 end=$(date +%s%N)
 elapsed_ns=$(( end - start ))

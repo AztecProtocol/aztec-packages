@@ -25,7 +25,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields, PrivateLog } from '@aztec/stdlib/logs';
 import type { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import {
   BlockHeader,
   GlobalVariables,
@@ -153,7 +153,7 @@ export async function createTxForPublicCalls(
 
   return await Tx.create({
     data: txData,
-    clientIvcProof: ClientIvcProof.random(),
+    chonkProof: ChonkProof.random(),
     contractClassLogFields: [],
     publicFunctionCalldata: calldata,
   });
@@ -184,7 +184,7 @@ export async function createTxForPrivateOnly(
   );
   return await Tx.create({
     data: txData,
-    clientIvcProof: ClientIvcProof.empty(),
+    chonkProof: ChonkProof.empty(),
     contractClassLogFields: [],
     publicFunctionCalldata: [],
   });

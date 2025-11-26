@@ -12,8 +12,10 @@
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "pairing_points_tagging.hpp"
 #include <utility>
 
+#include <algorithm>
 #include <unordered_map>
 
 namespace bb {
@@ -32,16 +34,10 @@ template <typename FF_> class CircuitBuilderBase {
 
     bool _public_inputs_finalized = false; // Addition of new public inputs disallowed after this is set to true.
 
-    // true if we have dummy witnesses (in the write_vk case)
-    bool _has_dummy_witnesses = false;
-
     // index of next variable in equivalence class (=REAL_VARIABLE if you're last)
     std::vector<uint32_t> next_var_index;
     // index of  previous variable in equivalence class (=FIRST if you're in a cycle alone)
     std::vector<uint32_t> prev_var_index;
-
-    bool _failed = false;
-    std::string _err;
 
     static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
     static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
@@ -59,8 +55,6 @@ template <typename FF_> class CircuitBuilderBase {
     void update_real_variable_indices(uint32_t index, uint32_t new_real_index);
 
   protected:
-    std::unordered_map<uint32_t, std::string> variable_names;
-
     void set_zero_idx(uint32_t value) { _zero_idx = value; }
 
     /**
@@ -107,13 +101,9 @@ template <typename FF_> class CircuitBuilderBase {
     CircuitBuilderBase& operator=(CircuitBuilderBase&& other) noexcept = default;
     virtual ~CircuitBuilderBase() = default;
 
-    bool has_dummy_witnesses() const { return _has_dummy_witnesses; }
-
     bool operator==(const CircuitBuilderBase& other) const = default;
 
     virtual size_t get_num_finalized_gates() const;
-    virtual size_t get_estimated_num_finalized_gates() const;
-    virtual void print_num_estimated_finalized_gates() const;
     virtual size_t get_num_variables() const;
 
     // Get the current number of gates in the circuit
@@ -128,10 +118,6 @@ template <typename FF_> class CircuitBuilderBase {
     // Non-owning getter for the index at which a fixed witness 0 is stored
     uint32_t zero_idx() const { return _zero_idx; }
 
-    virtual void create_add_gate(const add_triple_<FF>& in) = 0;
-    virtual void create_mul_gate(const mul_triple_<FF>& in) = 0;
-    virtual void create_bool_gate(const uint32_t a) = 0;
-    virtual void create_poly_gate(const poly_triple_<FF>& in) = 0;
     virtual size_t get_num_constant_gates() const = 0;
 
     const std::vector<FF>& get_variables() const { return variables; }
@@ -188,6 +174,50 @@ template <typename FF_> class CircuitBuilderBase {
      */
     virtual uint32_t add_variable(const FF& in);
 
+    // Disallow add_variable for non-FF types to prevent implicit conversions (specifically, using indices rather
+    // than values)
+    template <typename OT> uint32_t add_variable(const OT& in) = delete;
+
+    /**
+     * @brief Add a public variable to variables
+     * @details The only difference between this and add_variable is that here it is also added to the public_inputs
+     * vector
+     * @param in The value of the variable
+     * @return The index of the new variable in the variables vector
+     */
+    virtual uint32_t add_public_variable(const FF& in);
+
+    // Disallow add_public_variable for non-FF types to prevent implicit conversions (specifically, using indices rather
+    // than values)
+    template <typename OT> uint32_t add_public_variable(const OT& in) = delete;
+
+    /**
+     * @brief Make a witness variable public
+     * @param witness_index The index of the witness
+     * @return The index of the witness in the public inputs vector
+     */
+    virtual uint32_t set_public_input(uint32_t witness_index);
+    virtual void assert_equal(uint32_t a_idx, uint32_t b_idx, std::string const& msg = "assert_equal");
+
+    size_t get_circuit_subgroup_size(size_t num_gates) const;
+
+    size_t num_public_inputs() const { return _public_inputs.size(); }
+
+    // ========================================================================================
+    // TOOLING: Debug, Error Tracking, and Circuit Export
+    // ========================================================================================
+
+  private:
+    bool _failed = false;
+    std::string _err;
+
+    // True if we have dummy witnesses; Used to disable certain warnings in the write_vk context
+    bool _has_dummy_witnesses = false;
+
+  protected:
+    std::unordered_map<uint32_t, std::string> variable_names;
+
+  public:
     /**
      * @brief Assign a name to a variable (equivalence class)
      * @details Should be one name per equivalence class
@@ -202,31 +232,18 @@ template <typename FF_> class CircuitBuilderBase {
      */
     virtual msgpack::sbuffer export_circuit();
 
-    /**
-     * @brief Add a public variable to variables
-     * @details The only difference between this and add_variable is that here it is also added to the public_inputs
-     * vector
-     * @param in The value of the variable
-     * @return The index of the new variable in the variables vector
-     */
-    virtual uint32_t add_public_variable(const FF& in);
-
-    /**
-     * @brief Make a witness variable public
-     * @param witness_index The index of the witness
-     * @return The index of the witness in the public inputs vector
-     */
-    virtual uint32_t set_public_input(uint32_t witness_index);
-    virtual void assert_equal(uint32_t a_idx, uint32_t b_idx, std::string const& msg = "assert_equal");
-
-    size_t get_circuit_subgroup_size(size_t num_gates) const;
-
-    size_t num_public_inputs() const { return _public_inputs.size(); }
-
     bool failed() const;
     const std::string& err() const;
 
     void failure(std::string msg);
+
+    /**
+     * @brief PairingPoints tagging tool, used to ensure that all pairing points created in this circuit are aggregated
+     * together. This is not related to circuit logic.
+     */
+    mutable PairingPointsTagging pairing_points_tagging;
+
+    bool has_dummy_witnesses() const { return _has_dummy_witnesses; }
 };
 
 /**
@@ -280,6 +297,7 @@ template <typename FF> struct CircuitSchemaInternal {
                    ram_states,
                    circuit_finalized);
 };
+// ========================================================================================
 } // namespace bb
 
 // TODO(#217)(Cody): This will need updating based on the approach we take to ensure no multivariate is zero.

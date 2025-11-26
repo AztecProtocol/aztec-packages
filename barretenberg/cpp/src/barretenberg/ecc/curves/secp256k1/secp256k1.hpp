@@ -307,6 +307,14 @@ struct G1Params {
         fq(0x9C47D08FFB10D4B8UL, 0xFD17B448A6855419UL, 0x5DA4FBFC0E1108A8UL, 0x483ADA7726A3C465UL).to_montgomery_form();
 };
 using g1 = group<fq, fr, G1Params>;
+
+// specialize the name in msgpack schema generation
+// consumed by the typescript schema compiler, helps disambiguate templates
+inline std::string msgpack_schema_name(g1::affine_element const& /*unused*/)
+{
+    return "Secp256k1Point";
+}
+
 } // namespace bb::secp256k1
 
 namespace bb::curve {

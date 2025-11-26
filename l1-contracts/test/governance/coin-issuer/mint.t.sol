@@ -199,7 +199,11 @@ contract MintTest is CoinIssuerBase {
     assertGt(year2Budget, expectedYear0Budget); // Cumulative compounding
   }
 
-  function test_WhenSkippingYears(uint256 _rate, uint256 _yearsToSkip) external withFuzzedRate(_rate) whenCallerIsOwner {
+  function test_WhenSkippingYears(uint256 _rate, uint256 _yearsToSkip)
+    external
+    withFuzzedRate(_rate)
+    whenCallerIsOwner
+  {
     // it shows that skipping years loses their budgets
     uint256 rate = nom.NOMINAL_ANNUAL_PERCENTAGE_CAP();
     uint256 deploymentTime = nom.DEPLOYMENT_TIME();

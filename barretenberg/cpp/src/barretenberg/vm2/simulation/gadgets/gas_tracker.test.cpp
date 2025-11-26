@@ -284,8 +284,8 @@ TEST_F(GasTrackerTest, GasLimitForCall)
 
     EXPECT_CALL(context, gas_left()).WillOnce(Return(gas_left));
 
-    EXPECT_CALL(greater_than, gt(gas_left.l2Gas, allocated_gas.l2Gas)).WillOnce(Return(true));
-    EXPECT_CALL(greater_than, gt(gas_left.daGas, allocated_gas.daGas)).WillOnce(Return(true));
+    EXPECT_CALL(greater_than, gt(gas_left.l2_gas, allocated_gas.l2_gas)).WillOnce(Return(true));
+    EXPECT_CALL(greater_than, gt(gas_left.da_gas, allocated_gas.da_gas)).WillOnce(Return(true));
     EXPECT_EQ(tracker.compute_gas_limit_for_call(allocated_gas), allocated_gas);
 }
 
@@ -299,8 +299,8 @@ TEST_F(GasTrackerTest, GasLimitForCallClamping)
 
     EXPECT_CALL(context, gas_left()).WillOnce(Return(gas_left));
 
-    EXPECT_CALL(greater_than, gt(gas_left.l2Gas, allocated_gas.l2Gas)).WillOnce(Return(false));
-    EXPECT_CALL(greater_than, gt(gas_left.daGas, allocated_gas.daGas)).WillOnce(Return(true));
+    EXPECT_CALL(greater_than, gt(gas_left.l2_gas, allocated_gas.l2_gas)).WillOnce(Return(false));
+    EXPECT_CALL(greater_than, gt(gas_left.da_gas, allocated_gas.da_gas)).WillOnce(Return(true));
     EXPECT_EQ(tracker.compute_gas_limit_for_call(allocated_gas), clamped_gas);
 }
 

@@ -34,20 +34,9 @@ namespace bb::bbapi {
 
 template <typename Flavor> acir_format::ProgramMetadata _create_program_metadata()
 {
-    uint32_t honk_recursion = 0;
+    bool constexpr has_ipa_claim = IsAnyOf<Flavor, UltraRollupFlavor>;
 
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-        honk_recursion = 1;
-    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-        honk_recursion = 2;
-    }
-#ifdef STARKNET_GARAGA_FLAVORS
-    if constexpr (IsAnyOf<Flavor, UltraStarknetFlavor, UltraStarknetZKFlavor>) {
-        honk_recursion = 1;
-    }
-#endif
-
-    return acir_format::ProgramMetadata{ .honk_recursion = honk_recursion };
+    return acir_format::ProgramMetadata{ .has_ipa_claim = has_ipa_claim };
 }
 
 template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
@@ -57,7 +46,7 @@ Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&&
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)) };
 
     if (!witness.empty()) {
-        program.witness = acir_format::witness_buf_to_witness_data(std::move(witness));
+        program.witness = acir_format::witness_buf_to_witness_vector(std::move(witness));
     }
     return acir_format::create_circuit<Circuit>(program, metadata);
 }

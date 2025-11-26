@@ -25,9 +25,6 @@ class ECCVMRecursiveFlavor {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using PCS = IPA<Curve>;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
-    static constexpr bool USE_SHORT_MONOMIALS = ECCVMFlavor::USE_SHORT_MONOMIALS;
-
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
     // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
@@ -100,8 +97,8 @@ class ECCVMRecursiveFlavor {
             // and the verification key.
             this->log_circuit_size = BF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
-            this->num_public_inputs = BF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = BF::from_witness(builder, native_key->pub_inputs_offset);
+            this->num_public_inputs = BF::from_witness(builder, typename BF::native(native_key->num_public_inputs));
+            this->pub_inputs_offset = BF::from_witness(builder, typename BF::native(native_key->pub_inputs_offset));
 
             for (auto [native_commitment, commitment] : zip_view(native_key->get_all(), this->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);
@@ -114,8 +111,8 @@ class ECCVMRecursiveFlavor {
          * @param domain_separator
          * @param transcript
          */
-        FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
-                                   [[maybe_unused]] Transcript& transcript) const override
+        FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                    [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

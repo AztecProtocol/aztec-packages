@@ -34,7 +34,7 @@ struct FakeUnivariateAllEntities {
     FakeUnivariateAllEntities()
     {
         for (DataType& value : fixed_random_values) {
-            value = DataType::random_element();
+            value = DataType::get_random();
         }
     }
     const DataType& get(ColumnAndShifts) const

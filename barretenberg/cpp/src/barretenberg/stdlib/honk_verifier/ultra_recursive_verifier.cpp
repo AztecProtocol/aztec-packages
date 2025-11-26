@@ -70,10 +70,16 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     const std::vector<FF>& public_inputs = verifier_instance->public_inputs;
 
     VerifierCommitments commitments{ verifier_instance->vk_and_hash->vk, verifier_instance->witness_commitments };
+
+    // For ZK flavors: set gemini_masking_poly commitment from verifier instance
+    if constexpr (Flavor::HasZK) {
+        commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
+    }
+
     static constexpr size_t VIRTUAL_LOG_N = Flavor::NativeFlavor::VIRTUAL_LOG_N;
     // Get the gate challenges for sumcheck computation
     verifier_instance->gate_challenges =
-        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", VIRTUAL_LOG_N);
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", VIRTUAL_LOG_N);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
@@ -87,7 +93,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
             compute_padding_indicator_array<Curve, VIRTUAL_LOG_N>(verifier_instance->vk_and_hash->vk->log_circuit_size);
     }
 
-    Sumcheck sumcheck(transcript, verifier_instance->alphas, VIRTUAL_LOG_N);
+    Sumcheck sumcheck(transcript, verifier_instance->alpha, VIRTUAL_LOG_N);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
@@ -120,7 +126,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
 
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    PairingPoints<Curve> pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     // Reconstruct the public inputs
     IO inputs;
@@ -196,7 +202,7 @@ template UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>
     verify_proof<DefaultIO<MegaCircuitBuilder>>(
         const UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>::StdlibProof& proof);
 
-// LegacyClientIVC specialization
+// Chonk specialization
 template UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
     bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::
     verify_proof<HidingKernelIO<UltraCircuitBuilder>>(

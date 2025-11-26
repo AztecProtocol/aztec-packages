@@ -15,7 +15,7 @@ pub contract Router {
     #[external("public")]
     #[view]
     fn check_timestamp(operation: u8, value: u64) {
-        let lhs_field = context.timestamp() as Field;
+        let lhs_field = self.context.timestamp() as Field;
         let rhs_field = value as Field;
         assert(compare(lhs_field, operation, rhs_field), "Timestamp mismatch.");
     }
@@ -27,7 +27,11 @@ pub contract Router {
     #[view]
     fn check_block_number(operation: u8, value: u32) {
         assert(
-            compare(context.block_number() as Field, operation, value as Field),
+            compare(
+                self.context.block_number() as Field,
+                operation,
+                value as Field,
+            ),
             "Block number mismatch.",
         );
     }

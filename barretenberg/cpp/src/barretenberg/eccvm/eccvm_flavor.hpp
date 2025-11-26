@@ -49,28 +49,33 @@ class ECCVMFlavor {
     using MSM = bb::eccvm::MSM<CycleGroup>;
     using Transcript = NativeTranscript;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
     static constexpr bool USE_PADDING = false;
-    // Fixed size of the ECCVM circuits used in LegacyClientIVC
+    // Fixed size of the ECCVM circuits used in Chonk
     // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
     // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
 
     static constexpr size_t NUM_WIRES = 85;
 
+    // The number of entities added for ZK (gemini_masking_poly)
+    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
+
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 116;
+    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 116 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_ALL_ENTITIES = 117;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
     // The total number of witness entities not including shifts.
+    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 86 + NUM_MASKING_POLYNOMIALS)
     static constexpr size_t NUM_WITNESS_ENTITIES = 87;
     // The number of entities in ShiftedEntities.
     static constexpr size_t NUM_SHIFTED_ENTITIES = 26;
@@ -115,7 +120,7 @@ class ECCVMFlavor {
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
+        /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS) * num_frs_comm) +
         /* 2. Libra concatenation commitment*/ (num_frs_comm) +
         /* 3. Libra sum */ (num_frs_fq) +
         /* 4. CONST_ECCVM_LOG_N sumcheck univariates commitments */
@@ -126,29 +131,27 @@ class ECCVMFlavor {
         /* 7. Libra claimed evaluation */ (num_frs_fq) +
         /* 8. Libra grand sum commitment */ (num_frs_comm) +
         /* 9. Libra quotient commitment */ (num_frs_comm) +
-        /* 10. Gemini masking commitment */ (num_frs_comm) +
-        /* 11. Gemini masking evaluation */ (num_frs_fq) +
-        /* 12. CONST_ECCVM_LOG_N - 1 Gemini Fold commitments */
+        /* 10. CONST_ECCVM_LOG_N - 1 Gemini Fold commitments */
         ((CONST_ECCVM_LOG_N - 1) * num_frs_comm) +
-        /* 13. CONST_ECCVM_LOG_N Gemini a evaluations */
+        /* 11. CONST_ECCVM_LOG_N Gemini a evaluations */
         (CONST_ECCVM_LOG_N * num_frs_fq) +
-        /* 14. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fq) +
-        /* 15. Shplonk Q commitment */ (num_frs_comm) +
-        /* 16. Translator concatenated masking term commitment */ (num_frs_comm) +
-        /* 17 Translator op evaluation */ (num_frs_fq) +
-        /* 18 Translator Px evaluation */ (num_frs_fq) +
-        /* 19 Translator Py evaluation */ (num_frs_fq) +
-        /* 20 Translator z1 evaluation */ (num_frs_fq) +
-        /* 21 Translator z2 evaluation */ (num_frs_fq) +
-        /* 22 Translator concatenated masking term evaluation */ (num_frs_fq) +
-        /* 23 Translator grand sum commitment */ (num_frs_comm) +
-        /* 24 Translator quotient commitment */ (num_frs_comm) +
-        /* 25 Translator concatenation eval */ (num_frs_fq) +
-        /* 26 Translator grand sum shift eval */ (num_frs_fq) +
-        /* 27 Translator grand sum eval */ (num_frs_fq) +
-        /* 28 Translator quotient eval */ (num_frs_fq) +
-        /* 29 Shplonk Q commitment */ (num_frs_comm) +
-        /* 30 IPA proof */ IPA_PROOF_LENGTH;
+        /* 12. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fq) +
+        /* 13. Shplonk Q commitment */ (num_frs_comm) +
+        /* 14. Translator concatenated masking term commitment */ (num_frs_comm) +
+        /* 15 Translator op evaluation */ (num_frs_fq) +
+        /* 16 Translator Px evaluation */ (num_frs_fq) +
+        /* 17 Translator Py evaluation */ (num_frs_fq) +
+        /* 18 Translator z1 evaluation */ (num_frs_fq) +
+        /* 19 Translator z2 evaluation */ (num_frs_fq) +
+        /* 20 Translator concatenated masking term evaluation */ (num_frs_fq) +
+        /* 21 Translator grand sum commitment */ (num_frs_comm) +
+        /* 22 Translator quotient commitment */ (num_frs_comm) +
+        /* 23 Translator concatenation eval */ (num_frs_fq) +
+        /* 24 Translator grand sum shift eval */ (num_frs_fq) +
+        /* 25 Translator grand sum eval */ (num_frs_fq) +
+        /* 26 Translator quotient eval */ (num_frs_fq) +
+        /* 27 Shplonk Q commitment */ (num_frs_comm) +
+        /* 28 IPA proof */ IPA_PROOF_LENGTH;
 
     // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
@@ -245,6 +248,15 @@ class ECCVMFlavor {
                               transcript_msm_x_inverse,                   // column 57
                               transcript_msm_count_zero_at_transition,    // column 58
                               transcript_msm_count_at_transition_inverse) // column 59
+    };
+
+    /**
+     * @brief Container for ZK entities (gemini masking polynomial for ZK-PCS)
+     * @details ECCVM is always ZK, so this always contains the masking polynomial
+     */
+    template <typename DataType> class MaskingEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType, gemini_masking_poly)
     };
 
     /**
@@ -398,14 +410,20 @@ class ECCVMFlavor {
      * updating usage sites.
      */
     template <typename DataType>
-    class AllEntities : public PrecomputedEntities<DataType>,
+    class AllEntities : public MaskingEntities<DataType>,
+                        public PrecomputedEntities<DataType>,
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
+        DEFINE_COMPOUND_GET_ALL(MaskingEntities<DataType>,
+                                PrecomputedEntities<DataType>,
+                                WitnessEntities<DataType>,
+                                ShiftedEntities<DataType>)
         auto get_unshifted()
         {
-            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
+            return concatenate(MaskingEntities<DataType>::get_all(),
+                               PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities<DataType>::get_all());
         };
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
@@ -836,8 +854,8 @@ class ECCVMFlavor {
          * @param transcript
          * @returns The hash of the verification key
          */
-        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
-                                   [[maybe_unused]] Transcript& transcript) const override
+        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
+                                    [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
@@ -1023,7 +1041,7 @@ class ECCVMFlavor {
      * @brief   When evaluating the sumcheck protocol - can we skip evaluation of _all_ relations for a given row? This
      *          is purely a prover-side optimization.
      *
-     * @details When used in LegacyClientIVC, the ECCVM has a large fixed size, which is often not fully utilized.
+     * @details When used in Chonk, the ECCVM has a large fixed size, which is often not fully utilized.
      *          If a row is completely empty, the values of `z_perm` and `z_perm_shift` will match,
      *          we can use this as a proxy to determine if we can skip `Sumcheck::compute_univariate_with_row_skipping`.
      *          In fact, here are several other conditions that need to be checked to see if we can skip the computation

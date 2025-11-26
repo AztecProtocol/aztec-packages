@@ -15,7 +15,8 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using Utils = RelationUtils<Flavor>;
+    using SubrelationSeparators = typename Utils::SubrelationSeparators;
 
     // Define three linear univariates of different sizes
     Univariate<FF, 3> univariate_1({ 1, 2, 3 });
@@ -28,10 +29,10 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
                                                   flat_tuple::make_tuple(univariate_2, univariate_3));
 
     // Use scale_univariate_accumulators to scale by challenge powers
-    SubrelationSeparators challenge = {};
+    SubrelationSeparators challenge{};
     challenge[0] = 5;
     challenge[1] = 25;
-    RelationUtils<Flavor>::scale_univariates(tuple_of_tuples, challenge);
+    Utils::scale_univariates(tuple_of_tuples, challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
     GateSeparatorPolynomial<FF> gate_separators({ 1 });
@@ -67,7 +68,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
     using Flavor = UltraFlavor;
     using Utils = RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparators = typename Utils::SubrelationSeparators;
 
     // Define two arrays of arbitrary elements
     std::array<FF, 2> evaluations_1 = { 4, 3 };

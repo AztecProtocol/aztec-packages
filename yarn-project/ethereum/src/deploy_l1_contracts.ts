@@ -276,6 +276,25 @@ export const deploySharedContracts = async (
     feeAssetAddress = deployedFee.address;
     logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
 
+    // Mint a tiny bit of tokens to satisfy coin-issuer constraints
+    const { txHash } = await deployer.sendTransaction(
+      {
+        to: feeAssetAddress.toString(),
+        data: encodeFunctionData({
+          abi: FeeAssetArtifact.contractAbi,
+          functionName: 'mint',
+          args: [l1Client.account.address, 1n * 10n ** 18n],
+        }),
+      },
+      {
+        // contract may not have been deployed yet (CREATE2 returns address before mining),
+        // which causes gas estimation to fail. Hardcode to 100k which is plenty for ERC20 mint.
+        gasLimit: 100_000n,
+      },
+    );
+    await l1Client.waitForTransactionReceipt({ hash: txHash });
+    logger.verbose(`Minted tiny bit of tokens to satisfy coin-issuer constraints in ${txHash}`);
+
     const deployedStaking = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
     stakingAssetAddress = deployedStaking.address;
     logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
@@ -351,12 +370,19 @@ export const deploySharedContracts = async (
     txHashes.push(txHash);
   }
 
+  logger.verbose(`Waiting for deployments to complete`);
+  await deployer.waitForDeployments();
+
   const coinIssuerAddress = (
-    await deployer.deploy(CoinIssuerArtifact, [
-      feeAssetAddress.toString(),
-      2n * 10n ** 17n, // hard cap of 20% per year
-      l1Client.account.address,
-    ])
+    await deployer.deploy(
+      CoinIssuerArtifact,
+      [
+        feeAssetAddress.toString(),
+        2n * 10n ** 17n, // hard cap of 20% per year
+        l1Client.account.address,
+      ],
+      { gasLimit: 1_000_000n, noSimulation: true },
+    )
   ).address;
   logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
@@ -375,17 +401,16 @@ export const deploySharedContracts = async (
     /*                          CHEAT CODES START HERE                            */
     /* -------------------------------------------------------------------------- */
 
-    feeAssetHandlerAddress = (
-      await deployer.deploy(FeeAssetHandlerArtifact, [
-        l1Client.account.address,
-        feeAssetAddress.toString(),
-        BigInt(1000n * 10n ** 18n),
-      ])
-    ).address;
+    const deployedFeeAssetHandler = await deployer.deploy(FeeAssetHandlerArtifact, [
+      l1Client.account.address,
+      feeAssetAddress.toString(),
+      BigInt(1000n * 10n ** 18n),
+    ]);
+    feeAssetHandlerAddress = deployedFeeAssetHandler.address;
     logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 
-    // Only if we are "fresh" will we be adding as a minter, otherwise above will simply get same address
-    if (needToSetGovernance) {
+    // Only add as minter if this is a new deployment (not reusing existing handler from failed previous run)
+    if (!deployedFeeAssetHandler.existed) {
       const { txHash } = await deployer.sendTransaction({
         to: feeAssetAddress.toString(),
         data: encodeFunctionData({
@@ -462,9 +487,9 @@ export const deploySharedContracts = async (
   const rewardDistributorAddress = await registry.getRewardDistributor();
 
   if (!args.existingTokenAddress) {
-    const blockReward = getRewardConfig(networkName).blockReward;
+    const checkpointReward = getRewardConfig(networkName).checkpointReward;
 
-    const funding = blockReward * 200000n;
+    const funding = checkpointReward * 200000n;
     const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
       to: feeAssetAddress.toString(),
       data: encodeFunctionData({
@@ -838,7 +863,8 @@ export const deployRollup = async (
     aztecSlotDuration: BigInt(args.aztecSlotDuration),
     aztecEpochDuration: BigInt(args.aztecEpochDuration),
     targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
-    lagInEpochs: BigInt(args.lagInEpochs),
+    lagInEpochsForValidatorSet: BigInt(args.lagInEpochsForValidatorSet),
+    lagInEpochsForRandao: BigInt(args.lagInEpochsForRandao),
     aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
     slashingQuorum: BigInt(args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1),
     slashingRoundSize: BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration),
@@ -1550,7 +1576,7 @@ export class L1Deployer {
   async deploy<const TAbi extends Abi>(
     params: ContractArtifacts<TAbi>,
     args?: ContractConstructorArgs<TAbi>,
-    opts: { gasLimit?: bigint } = {},
+    opts: { gasLimit?: bigint; noSimulation?: boolean } = {},
   ): Promise<{ address: EthAddress; existed: boolean }> {
     this.logger.debug(`Deploying ${params.name} contract`, { args });
     try {
@@ -1566,6 +1592,7 @@ export class L1Deployer {
           l1TxUtils: this.l1TxUtils,
           acceleratedTestDeployments: this.acceleratedTestDeployments,
           gasLimit: opts.gasLimit,
+          noSimulation: opts.noSimulation,
         },
       );
       if (txHash) {
@@ -1655,6 +1682,7 @@ export async function deployL1Contract(
     l1TxUtils?: L1TxUtils;
     gasLimit?: bigint;
     acceleratedTestDeployments?: boolean;
+    noSimulation?: boolean;
   } = {},
 ): Promise<{
   address: EthAddress;
@@ -1666,7 +1694,7 @@ export async function deployL1Contract(
   let resultingAddress: Hex | null | undefined = undefined;
   const deployedLibraries: VerificationLibraryEntry[] = [];
 
-  const { salt: saltFromOpts, libraries, logger, gasLimit, acceleratedTestDeployments } = opts;
+  const { salt: saltFromOpts, libraries, logger, gasLimit, acceleratedTestDeployments, noSimulation } = opts;
   let { l1TxUtils } = opts;
 
   if (!l1TxUtils) {
@@ -1775,11 +1803,13 @@ export async function deployL1Contract(
     resultingAddress = address;
     const existing = await extendedClient.getCode({ address: resultingAddress });
     if (existing === undefined || existing === '0x') {
-      try {
-        await l1TxUtils.simulate({ to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]), gas: gasLimit });
-      } catch (err) {
-        logger?.error(`Failed to simulate deployment tx using universal deployer`, err);
-        await l1TxUtils.simulate({ to: null, data: encodeDeployData({ abi, bytecode, args }), gas: gasLimit });
+      if (!noSimulation) {
+        try {
+          await l1TxUtils.simulate({ to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]), gas: gasLimit });
+        } catch (err) {
+          logger?.error(`Failed to simulate deployment tx using universal deployer`, err);
+          await l1TxUtils.simulate({ to: null, data: encodeDeployData({ abi, bytecode, args }), gas: gasLimit });
+        }
       }
       const res = await l1TxUtils.sendTransaction(
         { to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) },

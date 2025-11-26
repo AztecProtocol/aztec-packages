@@ -1,9 +1,5 @@
 use super::find_index_of_first_fully_revertible_private_call_request::find_index_of_first_fully_revertible_private_call_request;
-use dep::types::{
-    side_effect::{Ordered, RangeOrdered},
-    traits::Empty,
-    utils::arrays::ClaimedLengthArray,
-};
+use dep::types::{abis::private_call_request::PrivateCallRequest, utils::arrays::ClaimedLengthArray};
 
 // Check that the min_revertible_side_effect_counter does not fall in the middle of any nested calls.
 // E.g. If it were possible, one could create a custom account contract, set the min_revertible_side_effect_counter to a
@@ -51,13 +47,10 @@ use dep::types::{
 // If the current call's min_revertible_side_effect_counter is 0, it means the counter might be set by another
 // function. This check for that function guarantees that the counter won't fall into one of its nested calls.
 // In this case, we can simply use 0 and make the following check pass.
-pub fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame<T, let N: u32>(
+pub fn validate_no_phase_change_within_child_calls<let N: u32>(
     min_revertible_side_effect_counter: u32, // Could be 0.
-    private_call_requests: ClaimedLengthArray<T, N>,
-)
-where
-    T: RangeOrdered + Ordered + Empty,
-{
+    private_call_requests: ClaimedLengthArray<PrivateCallRequest, N>,
+) {
     // Safety: the index is constrained below
     let first_fully_revertible_private_call_index_hint = unsafe {
         find_index_of_first_fully_revertible_private_call_request(
@@ -84,7 +77,7 @@ where
         let first_fully_revertible_private_call_request = private_call_requests.array[index];
         assert(
             min_revertible_side_effect_counter
-                <= first_fully_revertible_private_call_request.counter_start(),
+                <= first_fully_revertible_private_call_request.start_side_effect_counter,
             "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item",
         );
 
@@ -95,7 +88,8 @@ where
             let last_non_revertible_private_call =
                 private_call_requests.array[last_non_revertible_private_call_index];
             assert(
-                min_revertible_side_effect_counter > last_non_revertible_private_call.counter_end(),
+                min_revertible_side_effect_counter
+                    > last_non_revertible_private_call.end_side_effect_counter,
                 "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item",
             );
         }
@@ -104,14 +98,14 @@ where
         // so ensure the last one's counter satisfies this:
         let last_private_call = private_call_requests.array[num_private_call_requests - 1];
         assert(
-            min_revertible_side_effect_counter > last_private_call.counter_end(),
+            min_revertible_side_effect_counter > last_private_call.end_side_effect_counter,
             "expected min_revertible_side_effect_counter to be greater than the counters of all calls",
         );
     }
 }
 
 mod tests {
-    use super::validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame;
+    use super::validate_no_phase_change_within_child_calls;
     use dep::types::tests::fixture_builder::{claimed_length_array_from_bounded_vec, FixtureBuilder};
 
     struct TestBuilder {
@@ -139,7 +133,7 @@ mod tests {
         }
 
         pub fn execute(self) {
-            validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame(
+            validate_no_phase_change_within_child_calls(
                 self.private_call.min_revertible_side_effect_counter,
                 claimed_length_array_from_bounded_vec(self.private_call.private_call_requests),
             );
@@ -147,7 +141,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame_succeeds() {
+    fn validate_no_phase_change_within_child_calls_succeeds() {
         let mut builder = TestBuilder::new();
 
         builder.add_private_call_request(20, 30);
@@ -159,7 +153,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame_empty_revertible_succeeds() {
+    fn validate_no_phase_change_within_child_calls_empty_revertible_succeeds() {
         let mut builder = TestBuilder::new();
 
         builder.add_private_call_request(20, 30);
@@ -170,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame_empty_non_revertible_succeeds() {
+    fn validate_no_phase_change_within_child_calls_empty_non_revertible_succeeds() {
         let mut builder = TestBuilder::new();
 
         builder.split_calls(20);
@@ -181,7 +175,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame_less_than_first_revertible_success() {
+    fn validate_no_phase_change_within_child_calls_less_than_first_revertible_success() {
         let mut builder = TestBuilder::new();
 
         builder.add_private_call_request(20, 30);
@@ -194,7 +188,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
-    fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame_less_than_last_non_revertible_fails() {
+    fn validate_no_phase_change_within_child_calls_less_than_last_non_revertible_fails() {
         let mut builder = TestBuilder::new();
 
         builder.add_private_call_request(20, 30);
@@ -207,7 +201,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "expected min_revertible_side_effect_counter to be greater than the counters of all calls")]
-    fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame_equal_last_non_revertible_fails() {
+    fn validate_no_phase_change_within_child_calls_equal_last_non_revertible_fails() {
         let mut builder = TestBuilder::new();
 
         builder.add_private_call_request(20, 30);
@@ -219,7 +213,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "expected min_revertible_side_effect_counter to be greater than the counters of all calls")]
-    fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame_greater_than_first_revertible_fails() {
+    fn validate_no_phase_change_within_child_calls_greater_than_first_revertible_fails() {
         let mut builder = TestBuilder::new();
 
         builder.add_private_call_request(20, 30);
@@ -232,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame_0_succeeds() {
+    fn validate_no_phase_change_within_child_calls_0_succeeds() {
         let mut builder = TestBuilder::new();
 
         // Set the counter to be 0.
@@ -244,7 +238,7 @@ mod tests {
     }
 
     // #[test(should_fail_with = "first_fully_revertible_private_call_index_hint is out of bounds")]
-    // fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame_0_wrong_hint_fails() {
+    // fn validate_no_phase_change_within_child_calls_0_wrong_hint_fails() {
     //     let mut builder = TestBuilder::new();
 
     //     builder.split_calls(0);
@@ -257,7 +251,7 @@ mod tests {
     // }
 
     // #[test(should_fail_with = "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item")]
-    // fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame_index_hint_greater_than_len_fails() {
+    // fn validate_no_phase_change_within_child_calls_index_hint_greater_than_len_fails() {
     //     let mut builder = TestBuilder::new();
 
     //     builder.add_private_call_request(20, 30);

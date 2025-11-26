@@ -17,7 +17,7 @@ pub contract PrivateToken {
     #[external("private")]
     #[initializer]
     fn constructor(initial_supply: u64, owner: AztecAddress) {
-        let balances = storage.balances;
+        let balances = self.storage.balances;
 
         balances.at(owner).add(initial_supply, owner);
     }
@@ -25,7 +25,7 @@ pub contract PrivateToken {
     // Mints `amount` of tokens to `owner`.
     #[external("private")]
     fn mint(amount: u64, owner: AztecAddress) {
-        let balances = storage.balances;
+        let balances = self.storage.balances;
 
         balances.at(owner).add(amount, owner);
     }
@@ -33,7 +33,7 @@ pub contract PrivateToken {
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[external("private")]
     fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
-        let balances = storage.balances;
+        let balances = self.storage.balances;
 
         balances.at(sender).sub(amount, sender);
         balances.at(recipient).add(amount, recipient);
@@ -42,6 +42,6 @@ pub contract PrivateToken {
     // Helper function to get the balance of a user.
     #[external("utility")]
     unconstrained fn get_balance(owner: AztecAddress) -> Field {
-        storage.balances.at(owner).get_value()
+        self.storage.balances.at(owner).get_value()
     }
 }

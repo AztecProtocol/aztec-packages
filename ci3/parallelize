@@ -51,7 +51,9 @@ fi
 
 echo "Completed run of $(tail -n+2 joblog.txt | wc -l) tests in $SECONDS seconds."
 
-# Post flake comment to PR if in CI
-if [ "$CI" -eq 1 ] && [ -f "$FLAKES_FILE" ]; then
-  $root/scripts/post_flake_comment.py "$FLAKES_FILE"
+# Process flake log (check thresholds and post PR comment in CI)
+if [ "$CI" -eq 1 ]; then
+  $root/scripts/process_flake_log.py "$FLAKES_FILE" --post-comment
+else
+  $root/scripts/process_flake_log.py "$FLAKES_FILE"
 fi

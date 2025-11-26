@@ -4,7 +4,7 @@ import {
   FinalBlobBatchingChallenges,
   Poseidon2Sponge,
   SpongeBlob,
-} from '@aztec/blob-lib';
+} from '@aztec/blob-lib/types';
 import {
   AZTEC_MAX_EPOCH_DURATION,
   BLS12_FQ_LIMBS,
@@ -49,8 +49,8 @@ import {
   EpochConstantData,
   FeeRecipient,
   type PrivateTxBaseRollupPrivateInputs,
-  PublicTubePrivateInputs,
-  PublicTubePublicInputs,
+  PublicChonkVerifierPrivateInputs,
+  PublicChonkVerifierPublicInputs,
   type PublicTxBaseRollupPrivateInputs,
   RootRollupPrivateInputs,
   RootRollupPublicInputs,
@@ -97,9 +97,9 @@ import type {
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateTxBaseRollupPrivateInputs as PrivateTxBaseRollupPrivateInputsNoir,
   ProofData as ProofDataNoir,
+  PublicChonkVerifierPrivateInputs as PublicChonkVerifierPrivateInputsNoir,
+  PublicChonkVerifierPublicInputs as PublicChonkVerifierPublicInputsNoir,
   PublicLogs as PublicLogsNoir,
-  PublicTubePrivateInputs as PublicTubePrivateInputsNoir,
-  PublicTubePublicInputs as PublicTubePublicInputsNoir,
   PublicTxBaseRollupPrivateInputs as PublicTxBaseRollupPrivateInputsNoir,
   RootRollupPrivateInputs as RootRollupPrivateInputsNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
@@ -245,8 +245,7 @@ function mapPoseidon2SpongeFromNoir(sponge: Poseidon2SpongeNoir): Poseidon2Spong
 function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
   return {
     sponge: mapPoseidon2SpongeToNoir(spongeBlob.sponge),
-    fields: mapNumberToNoir(spongeBlob.fields),
-    expected_fields: mapNumberToNoir(spongeBlob.expectedFields),
+    num_absorbed_fields: mapNumberToNoir(spongeBlob.numAbsorbedFields),
   };
 }
 
@@ -258,8 +257,7 @@ function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
 function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
   return new SpongeBlob(
     mapPoseidon2SpongeFromNoir(spongeBlob.sponge),
-    mapNumberFromNoir(spongeBlob.fields),
-    mapNumberFromNoir(spongeBlob.expected_fields),
+    mapNumberFromNoir(spongeBlob.num_absorbed_fields),
   );
 }
 
@@ -593,6 +591,7 @@ export function mapBlockRollupPublicInputsFromNoir(inputs: BlockRollupPublicInpu
     mapSpongeBlobFromNoir(inputs.end_sponge_blob),
     mapU64FromNoir(inputs.start_timestamp),
     mapU64FromNoir(inputs.end_timestamp),
+    mapFieldFromNoir(inputs.block_headers_hash),
     mapFieldFromNoir(inputs.in_hash),
     mapFieldFromNoir(inputs.out_hash),
     mapFieldFromNoir(inputs.accumulated_fees),
@@ -611,6 +610,7 @@ export function mapBlockRollupPublicInputsToNoir(inputs: BlockRollupPublicInputs
     end_sponge_blob: mapSpongeBlobToNoir(inputs.endSpongeBlob),
     start_timestamp: mapU64ToNoir(inputs.startTimestamp),
     end_timestamp: mapU64ToNoir(inputs.endTimestamp),
+    block_headers_hash: mapFieldToNoir(inputs.blockHeadersHash),
     in_hash: mapFieldToNoir(inputs.inHash),
     out_hash: mapFieldToNoir(inputs.outHash),
     accumulated_fees: mapFieldToNoir(inputs.accumulatedFees),
@@ -695,7 +695,9 @@ export function mapParityRootPrivateInputsToNoir(inputs: ParityRootPrivateInputs
   };
 }
 
-export function mapPublicTubePrivateInputsToNoir(inputs: PublicTubePrivateInputs): PublicTubePrivateInputsNoir {
+export function mapPublicChonkVerifierPrivateInputsToNoir(
+  inputs: PublicChonkVerifierPrivateInputs,
+): PublicChonkVerifierPrivateInputsNoir {
   return {
     hiding_kernel_proof_data: mapProofDataToNoir(
       inputs.hidingKernelProofData,
@@ -705,14 +707,16 @@ export function mapPublicTubePrivateInputsToNoir(inputs: PublicTubePrivateInputs
   };
 }
 
-export function mapPublicTubePublicInputsFromNoir(inputs: PublicTubePublicInputsNoir) {
-  return new PublicTubePublicInputs(
+export function mapPublicChonkVerifierPublicInputsFromNoir(inputs: PublicChonkVerifierPublicInputsNoir) {
+  return new PublicChonkVerifierPublicInputs(
     mapPrivateToPublicKernelCircuitPublicInputsFromNoir(inputs.private_tail),
     mapFieldFromNoir(inputs.prover_id),
   );
 }
 
-export function mapPublicTubePublicInputsToNoir(inputs: PublicTubePublicInputs): PublicTubePublicInputsNoir {
+export function mapPublicChonkVerifierPublicInputsToNoir(
+  inputs: PublicChonkVerifierPublicInputs,
+): PublicChonkVerifierPublicInputsNoir {
   return {
     private_tail: mapPrivateToPublicKernelCircuitPublicInputsToNoir(inputs.privateTail),
     prover_id: mapFieldToNoir(inputs.proverId),
@@ -743,7 +747,10 @@ export function mapPublicTxBaseRollupPrivateInputsToNoir(
   inputs: PublicTxBaseRollupPrivateInputs,
 ): PublicTxBaseRollupPrivateInputsNoir {
   return {
-    public_tube_proof_data: mapProofDataToNoir(inputs.publicTubeProofData, mapPublicTubePublicInputsToNoir),
+    public_chonk_verifier_proof_data: mapProofDataToNoir(
+      inputs.publicChonkVerifierProofData,
+      mapPublicChonkVerifierPublicInputsToNoir,
+    ),
     avm_proof_data: mapProofDataToNoir(inputs.avmProofData, mapAvmCircuitPublicInputsToNoir),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     last_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.hints.lastArchive),
@@ -814,7 +821,6 @@ export function mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir(
     previous_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.previousArchive),
     previous_state: mapStateReferenceToNoir(inputs.previousState),
     constants: mapCheckpointConstantDataToNoir(inputs.constants),
-    start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
     timestamp: mapU64ToNoir(inputs.timestamp),
     new_l1_to_l2_message_subtree_root_sibling_path: mapTuple(
       inputs.newL1ToL2MessageSubtreeRootSiblingPath,

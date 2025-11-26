@@ -38,8 +38,8 @@ import {
   convertParityRootPrivateInputsToWitnessMap,
   convertPrivateTxBaseRollupOutputsFromWitnessMap,
   convertPrivateTxBaseRollupPrivateInputsToWitnessMap,
-  convertPublicTubeOutputsFromWitnessMap,
-  convertPublicTubePrivateInputsToWitnessMap,
+  convertPublicChonkVerifierOutputsFromWitnessMap,
+  convertPublicChonkVerifierPrivateInputsToWitnessMap,
   convertPublicTxBaseRollupOutputsFromWitnessMap,
   convertPublicTxBaseRollupPrivateInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
@@ -77,8 +77,8 @@ import {
   CheckpointRootRollupPrivateInputs,
   CheckpointRootSingleBlockRollupPrivateInputs,
   type PrivateTxBaseRollupPrivateInputs,
-  PublicTubePrivateInputs,
-  PublicTubePublicInputs,
+  PublicChonkVerifierPrivateInputs,
+  PublicChonkVerifierPublicInputs,
   PublicTxBaseRollupPrivateInputs,
   type RootRollupPrivateInputs,
   type RootRollupPublicInputs,
@@ -202,17 +202,19 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return proofAndVk;
   }
 
-  public async getPublicTubeProof(
-    inputs: PublicTubePrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    const artifactName = 'PublicTube';
+  public async getPublicChonkVerifierProof(
+    inputs: PublicChonkVerifierPrivateInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<PublicChonkVerifierPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    const artifactName = 'PublicChonkVerifier';
 
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       artifactName,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertPublicTubePrivateInputsToWitnessMap,
-      convertPublicTubeOutputsFromWitnessMap,
+      convertPublicChonkVerifierPrivateInputsToWitnessMap,
+      convertPublicChonkVerifierOutputsFromWitnessMap,
     );
 
     const verificationKey = this.getVerificationKeyDataForCircuit(artifactName);
@@ -585,7 +587,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     convertInput: (input: CircuitInputType) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => CircuitOutputType,
   ): Promise<{ circuitOutput: CircuitOutputType; proof: RecursiveProof<PROOF_LENGTH> }> {
-    // this probably is gonna need to call client ivc
+    // this probably is gonna need to call chonk
     const operation = async (bbWorkingDirectory: string) => {
       const { provingResult, circuitOutput: output } = await this.generateProofWithBB(
         input,

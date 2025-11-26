@@ -2,9 +2,11 @@ import { makeTuple } from '@aztec/foundation/array';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
 import { Blob } from './blob.js';
-import { BatchedBlobAccumulator, FinalBlobBatchingChallenges } from './blob_batching.js';
-import { encodeTxStartMarker } from './encoding.js';
+import { BatchedBlobAccumulator } from './blob_batching.js';
+import { FinalBlobBatchingChallenges } from './circuit_types/index.js';
 import { Poseidon2Sponge, SpongeBlob } from './sponge_blob.js';
+
+export * from './encoding/fixtures.js';
 
 /**
  * Makes arbitrary poseidon sponge for blob inputs.
@@ -21,7 +23,6 @@ export function makeSpongeBlob(seed = 1): SpongeBlob {
       false,
     ),
     seed,
-    seed + 1,
   );
 }
 
@@ -45,39 +46,12 @@ export function makeBatchedBlobAccumulator(seed = 1): BatchedBlobAccumulator {
 }
 
 /**
- * Make an encoded blob with the given length
- *
- * This will deserialise correctly in the archiver
- * @param length
- * @returns
- */
-export function makeEncodedBlob(length: number): Promise<Blob> {
-  const txStartMarker = {
-    numBlobFields: length,
-    // The rest of the values don't matter. The test components using it only look at `numBlobFields` to split the blobs
-    // into fields for tx effects.
-    revertCode: 0,
-    numNoteHashes: 0,
-    numNullifiers: 0,
-    numL2ToL1Msgs: 0,
-    numPublicDataWrites: 0,
-    numPrivateLogs: 0,
-    publicLogsLength: 0,
-    contractClassLogLength: 0,
-  };
-  return Blob.fromFields([
-    encodeTxStartMarker(txStartMarker),
-    ...Array.from({ length: length - 1 }, () => Fr.random()),
-  ]);
-}
-
-/**
  * Make a blob with random fields.
  *
  * This will fail deserialisation in the archiver
  * @param length
  * @returns
  */
-export function makeRandomBlob(length: number): Promise<Blob> {
+export function makeRandomBlob(length: number): Blob {
   return Blob.fromFields([...Array.from({ length: length }, () => Fr.random())]);
 }

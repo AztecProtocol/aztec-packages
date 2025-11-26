@@ -158,13 +158,13 @@ export class BLS12Point {
   }
 
   /**
-   * Converts a Point to two BN254 Fr elements by storing its compressed form as:
-   * +------------------+------------------+
-   * | Field Element 1  | Field Element 2  |
-   * | [bytes 0-31]     | [bytes 32-47]   |
-   * +------------------+------------------+
-   * |     32 bytes     |     16 bytes    |
-   * +------------------+------------------+
+   * Converts a Point to two BN254 Fr elements by storing its compressed form (48 bytes) as:
+   * +-------------------+------------------------+
+   * |      31 bytes     |         17 bytes       |
+   * +-------------------+------------------------+
+   * |  Field Element 1  |     Field Element 2    |
+   * |  [0][bytes 0-30]  |  [0...0][bytes 31-47]  |
+   * +-------------------+------------------------+
    * Used in the rollup circuits to store blob commitments in the native field type. See blob.ts.
    * @param point - A BLS12Point instance.
    * @returns The point fields.

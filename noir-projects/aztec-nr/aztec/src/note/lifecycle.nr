@@ -1,13 +1,12 @@
-use crate::context::PrivateContext;
+use crate::context::{note_hash_read::NoteHashRead, PrivateContext};
 use crate::note::{
     note_emission::NoteEmission,
     note_interface::{NoteHash, NoteType},
     retrieved_note::RetrievedNote,
-    utils::{
-        compute_note_hash_for_nullification_from_read_request, compute_note_hash_for_read_request,
-    },
+    utils::{compute_note_hash_for_nullification_from_note_hash_read, compute_note_hash_read},
 };
 use crate::oracle::notes::notify_created_note;
+use crate::oracle::random::random;
 use protocol_types::traits::Packable;
 
 pub fn create_note<Note>(
@@ -20,11 +19,18 @@ where
 {
     let note_hash_counter = context.side_effect_counter;
 
-    let note_hash = note.compute_note_hash(storage_slot);
+    // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
+    // so a malicious sender could use non-random values to make the note less private. But they already know
+    // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
+    // information. We can therefore assume that the sender will cooperate in the random value generation.
+    let randomness = unsafe { random() };
+
+    let note_hash = note.compute_note_hash(storage_slot, randomness);
 
     let packed_note = Note::pack(note);
     notify_created_note(
         storage_slot,
+        randomness,
         Note::get_id(),
         packed_note,
         note_hash,
@@ -33,7 +39,7 @@ where
 
     context.push_note_hash(note_hash);
 
-    NoteEmission::new(note, storage_slot, note_hash_counter)
+    NoteEmission::new(note, storage_slot, randomness, note_hash_counter, context)
 }
 
 // Note: This function is currently totally unused.
@@ -45,24 +51,21 @@ pub fn destroy_note<Note>(
 where
     Note: NoteHash,
 {
-    let note_hash_for_read_request =
-        compute_note_hash_for_read_request(retrieved_note, storage_slot);
+    let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
 
-    destroy_note_unsafe(context, retrieved_note, note_hash_for_read_request)
+    destroy_note_unsafe(context, retrieved_note, note_hash_read)
 }
 
 pub fn destroy_note_unsafe<Note>(
     context: &mut PrivateContext,
     retrieved_note: RetrievedNote<Note>,
-    note_hash_for_read_request: Field,
+    note_hash_read: NoteHashRead,
 )
 where
     Note: NoteHash,
 {
-    let note_hash_for_nullification = compute_note_hash_for_nullification_from_read_request(
-        retrieved_note,
-        note_hash_for_read_request,
-    );
+    let note_hash_for_nullification =
+        compute_note_hash_for_nullification_from_note_hash_read(retrieved_note, note_hash_read);
     let nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullification);
 
     let note_hash = if retrieved_note.metadata.is_settled() {

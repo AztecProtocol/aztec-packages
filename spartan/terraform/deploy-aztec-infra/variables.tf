@@ -21,54 +21,52 @@ variable "GCP_REGION" {
   type    = string
 }
 
-variable "P2P_BOOTSTRAP_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the p2p bootstrap (dev or prod)"
+variable "FULL_NODE_RESOURCE_PROFILE" {
+  description = "Resource profile to use for the full node"
   type        = string
   default     = "prod"
-  validation {
-    condition     = contains(["dev", "prod"], var.P2P_BOOTSTRAP_RESOURCE_PROFILE)
-    error_message = "P2P_BOOTSTRAP_RESOURCE_PROFILE must be either 'dev' or 'prod'."
-  }
+}
+
+variable "P2P_BOOTSTRAP_RESOURCE_PROFILE" {
+  description = "Resource profile to use for the p2p bootstrap"
+  type        = string
+  default     = "prod"
 }
 
 variable "VALIDATOR_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the validator (dev or prod)"
+  description = "Resource profile to use for the validator"
   type        = string
   default     = "prod"
-  validation {
-    condition     = contains(["dev", "prod"], var.VALIDATOR_RESOURCE_PROFILE)
-    error_message = "VALIDATOR_RESOURCE_PROFILE must be either 'dev' or 'prod'."
-  }
 }
 
 variable "PROVER_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the prover (dev or prod)"
+  description = "Resource profile to use for the prover"
   type        = string
   default     = "prod"
-  validation {
-    condition     = contains(["dev", "prod"], var.PROVER_RESOURCE_PROFILE)
-    error_message = "PROVER_RESOURCE_PROFILE must be either 'dev' or 'prod'."
-  }
 }
 
 variable "RPC_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the rpc (dev or prod)"
+  description = "Resource profile to use for the rpc"
   type        = string
   default     = "prod"
-  validation {
-    condition     = contains(["dev", "prod"], var.RPC_RESOURCE_PROFILE)
-    error_message = "RPC_RESOURCE_PROFILE must be either 'dev' or 'prod'."
-  }
 }
 
 variable "BOT_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the bots (dev or prod)"
+  description = "Resource profile to use for the bots"
   type        = string
   default     = "prod"
-  validation {
-    condition     = contains(["dev", "prod"], var.BOT_RESOURCE_PROFILE)
-    error_message = "BOT_RESOURCE_PROFILE must be either 'dev' or 'prod'."
-  }
+}
+
+variable "DEBUG_P2P_INSTRUMENT_MESSAGES" {
+  description = "Whether to enable debug instrumentation of P2P messages"
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_TEST_VERIFICATION_DELAY_MS" {
+  description = "The delay (ms) to inject during fake proof verification"
+  type        = number
+  default     = 10
 }
 
 variable "K8S_CLUSTER_CONTEXT" {
@@ -187,6 +185,20 @@ variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   default     = 5000
 }
 
+variable "VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE" {
+  description = "Override for validator L1 priority fee bump percentage"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" {
+  description = "Override for validator L1 priority fee retry bump percentage"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "VALIDATOR_REPLICAS" {
   description = "The number of validator replicas"
   type        = string
@@ -205,6 +217,13 @@ variable "PROVER_REPLICAS" {
   default     = 4
 }
 
+variable "PROVER_TEST_DELAY_TYPE" {
+  description = "The type of test delay to introduce in the prover (fixed, realistic)"
+  type        = string
+  default     = "fixed"
+
+}
+
 variable "PROVER_PUBLISHERS_PER_PROVER" {
   description = "Number of publisher keys per prover"
   type        = string
@@ -217,10 +236,41 @@ variable "PROVER_PUBLISHER_MNEMONIC_START_INDEX" {
   default     = 8000
 }
 
+variable "PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE" {
+  description = "Override for prover L1 priority fee bump percentage"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" {
+  description = "Override for prover L1 priority fee retry bump percentage"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
   description = "Whether to disable proof publishing from the prover node"
   type        = bool
   default     = false
+}
+
+variable "P2P_MAX_TX_POOL_SIZE" {
+  description = "Maximum size of the P2P transaction pool"
+  type        = string
+  default     = "100000000"
+}
+variable "FISHERMAN_MNEMONIC" {
+  description = "The fisherman mnemonic for RPC nodes (used when validators are disabled, e.g., fisherman mode)"
+  type        = string
+  default     = ""
+}
+
+variable "FISHERMAN_MNEMONIC_START_INDEX" {
+  description = "The fisherman mnemonic start index for RPC nodes (used when validators are disabled)"
+  type        = string
+  default     = 1
 }
 
 variable "OTEL_COLLECTOR_ENDPOINT" {
@@ -228,6 +278,18 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   type        = string
   default     = null
   nullable    = true
+}
+
+variable "LOG_LEVEL" {
+  description = "Log level for all nodes"
+  type        = string
+  default     = "info"
+}
+
+variable "FISHERMAN_LOG_LEVEL" {
+  description = "Log level for fisherman nodes"
+  type        = string
+  default     = "debug"
 }
 
 variable "SPONSORED_FPC" {
@@ -483,6 +545,12 @@ variable "RPC_REPLICAS" {
   default     = 1
 }
 
+variable "FULL_NODE_REPLICAS" {
+  description = "The number of full node replicas"
+  type        = string
+  default     = 1
+}
+
 variable "P2P_TX_POOL_DELETE_TXS_AFTER_REORG" {
   description = "Whether to delete transactions from the P2P transaction pool after a reorg"
   type        = bool
@@ -493,4 +561,64 @@ variable "PROVER_AGENTS_PER_PROVER" {
   description = "Number of prover agents per prover"
   type        = string
   default     = 1
+}
+
+variable "BLOB_ALLOW_EMPTY_SOURCES" {
+  description = "Whether to allow starting without any consensus client URLs"
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_AGENT_POLL_INTERVAL_MS" {
+  description = "Interval in milliseconds between prover agent polls"
+  type        = number
+  default     = 1000
+}
+
+variable "PROVER_AGENT_INCLUDE_METRICS" {
+  description = "Metrics whitelist in the prover agent"
+  type        = string
+  default     = null
+}
+
+variable "FULL_NODE_INCLUDE_METRICS" {
+  description = "Metrics whitelist in the full node"
+  type        = string
+  default     = null
+}
+
+variable "FISHERMAN_MODE" {
+  description = "Whether to run in fisherman mode"
+  type        = bool
+  default     = false
+}
+
+variable "P2P_GOSSIPSUB_D" {
+  description = "The P2P Gossipsub D parameter"
+  type        = string
+  default     = "6"
+}
+
+variable "P2P_GOSSIPSUB_DLO" {
+  description = "The P2P Gossipsub D parameter"
+  type        = string
+  default     = "4"
+}
+
+variable "P2P_GOSSIPSUB_DHI" {
+  description = "The P2P Gossipsub D parameter"
+  type        = string
+  default     = "12"
+}
+
+variable "P2P_DROP_TX" {
+  description = "Whether to randomly drop incoming transactions in the P2P layer (for testing)"
+  type        = bool
+  default     = false
+}
+
+variable "P2P_DROP_TX_CHANCE" {
+  description = "The chance (0-100) of dropping an incoming transaction in the P2P layer (for testing)"
+  type        = string
+  default     = "0"
 }

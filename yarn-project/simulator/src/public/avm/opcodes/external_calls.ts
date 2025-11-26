@@ -46,7 +46,6 @@ abstract class ExternalCall extends Instruction {
 
     const calldataSize = memory.get(argsSizeOffset).toNumber();
     const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
-    memory.checkTagsRange(TypeTag.FIELD, argsOffset, calldataSize);
 
     const callAddress = memory.getAs<Field>(addrOffset);
     // If we are already in a static call, we propagate the environment.

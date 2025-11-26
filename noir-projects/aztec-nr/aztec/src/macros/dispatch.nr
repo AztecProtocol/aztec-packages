@@ -1,3 +1,4 @@
+use crate::macros::internals_functions_generation::external_functions_registry::get_public_functions;
 use super::utils::compute_fn_selector;
 use poseidon::poseidon2::Poseidon2Hasher;
 use protocol_types::meta::utils::get_params_len_quote;
@@ -5,9 +6,7 @@ use std::{collections::umap::UHashMap, hash::BuildHasherDefault, panic};
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
 pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
-    let functions = m.functions();
-    let functions =
-        functions.filter(|function: FunctionDefinition| function.has_named_attribute("public"));
+    let functions = get_public_functions(m);
 
     let unit = get_type::<()>();
 
@@ -68,9 +67,12 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             args = args.push_back(quote { $param_name });
         }
 
+        // We call a function whose name is prefixed with `__aztec_nr_internals__`. This is necessary because the
+        // original function is intentionally made uncallable, preventing direct invocation within the contract.
+        // Instead, a new function with the same name, but prefixed by `__aztec_nr_internals__`, has been generated to
+        // be called here. For more details see the `process_functions` function.
+        let name = f"__aztec_nr_internals__{fn_name}".quoted_contents();
         let args = args.join(quote { , });
-        // name of the function is assigned just before the call so debug metadata doesn't span most of this macro when figuring out where the call comes from.
-        let name = function.name();
         let call = quote { $name($args) };
 
         let return_code = if return_type == unit {
@@ -104,10 +106,8 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let dispatch = ifs.join(quote {  });
 
         let body = quote {
-            // We mark this as public because our whole system depends on public
-            // functions having this attribute. However, the public MACRO will
-            // handle the public_dispatch function specially and do nothing.
-            #[external("public")]
+            // We mark this as public because our whole system depends on public functions having this attribute.
+            #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
             pub unconstrained fn public_dispatch(selector: Field) {
                 $dispatch
             }

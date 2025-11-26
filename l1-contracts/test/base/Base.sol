@@ -25,8 +25,7 @@ contract TestBase is Test {
   });
 
   StateReference EMPTY_STATE_REFERENCE = StateReference({
-    l1ToL2MessageTree: EMPTY_APPENDONLY_TREE_SNAPSHOT,
-    partialStateReference: EMPTY_PARTIALSTATE_REFERENCE
+    l1ToL2MessageTree: EMPTY_APPENDONLY_TREE_SNAPSHOT, partialStateReference: EMPTY_PARTIALSTATE_REFERENCE
   });
 
   function assertGt(Timestamp a, Timestamp b) internal {

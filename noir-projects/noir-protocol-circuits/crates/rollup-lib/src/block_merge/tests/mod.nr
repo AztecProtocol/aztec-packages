@@ -4,7 +4,10 @@ mod rollup_structure_tests;
 
 use crate::{
     abis::BlockRollupPublicInputs,
-    block_merge::block_merge_rollup_private_inputs::BlockMergeRollupPrivateInputs,
+    block_merge::{
+        block_merge_rollup_private_inputs::BlockMergeRollupPrivateInputs,
+        utils::merge_block_rollups::accumulate_block_headers_hash,
+    },
     tests::RollupFixtureBuilder,
 };
 use types::{
@@ -137,6 +140,10 @@ impl TestBuilder {
         // Each block's timestamp must be larger than the previous block's timestamp. So the range of timestamps must be
         // at least the number of blocks.
         assert(pi.end_timestamp - pi.start_timestamp + 1 >= num_blocks as u64);
+
+        let expected_block_headers_hash =
+            accumulate_block_headers_hash(left.block_headers_hash, right.block_headers_hash);
+        assert_eq(pi.block_headers_hash, expected_block_headers_hash);
 
         assert_eq(pi.in_hash, left.in_hash);
 

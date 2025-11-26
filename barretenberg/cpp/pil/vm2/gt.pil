@@ -10,8 +10,14 @@ include "range_check.pil";
 //
 // Usage:
 //
-// sel { a, b, result } in gt.sel { gt.input_a, gt.input_b, gt.res };
+// sel { a, b, result } in gt.sel_XXX { gt.input_a, gt.input_b, gt.res };
 // where gt.res is a boolean value that is true if input_a > input_b, false otherwise.
+// sel_XXX is one of:
+// - sel_sha256
+// - sel_addressing
+// - sel_alu
+// - sel_gas
+// - sel_others
 namespace gt;
 
     pol commit sel;

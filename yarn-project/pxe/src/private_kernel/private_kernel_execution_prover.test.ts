@@ -1,3 +1,4 @@
+import { BackendType, BarretenbergSync } from '@aztec/bb.js';
 import {
   MAX_INCLUDE_BY_TIMESTAMP_DURATION,
   MAX_NOTE_HASHES_PER_CALL,
@@ -6,6 +7,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -29,6 +31,8 @@ import { mock } from 'jest-mock-extended';
 import { PrivateKernelExecutionProver } from './private_kernel_execution_prover.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
+const logger = createLogger('private_kernel_execution_prover');
+
 describe('Private Kernel Sequencer', () => {
   let txRequest: TxRequest;
   let oracle: ReturnType<typeof mock<PrivateKernelOracle>>;
@@ -40,9 +44,20 @@ describe('Private Kernel Sequencer', () => {
   const blockTimestamp = 12345n;
   const includeByTimestamp = blockTimestamp + BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION);
 
+  beforeAll(async () => {
+    await BarretenbergSync.initSingleton({ backend: BackendType.NativeSharedMemory, logger: logger.debug });
+  });
+
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
-    .map(() => new NoteAndSlot(new Note([Fr.random(), Fr.random(), Fr.random()]), Fr.random(), NoteSelector.random()));
+    .map(() =>
+      NoteAndSlot.from({
+        note: new Note([Fr.random(), Fr.random(), Fr.random()]),
+        storageSlot: Fr.random(),
+        randomness: Fr.random(),
+        noteTypeId: NoteSelector.random(),
+      }),
+    );
 
   const createFakeSiloedCommitment = (commitment: Fr) => new Fr(commitment.value + 1n);
   const generateFakeCommitment = (noteAndSlot: NoteAndSlot) => noteAndSlot.note.items[0];
@@ -66,7 +81,7 @@ describe('Private Kernel Sequencer', () => {
     publicInputs.callContext.contractAddress = contractAddress;
     return new PrivateCallExecutionResult(
       Buffer.alloc(0),
-      VerificationKey.makeFake().toBuffer(),
+      VerificationKey.makeFakeMegaHonk(),
       new Map(),
       publicInputs,
       new Map(),
