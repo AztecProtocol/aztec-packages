@@ -93,16 +93,38 @@ git commit -m "$commit_message" --no-verify
 if [[ "$is_fork" == "true" ]]; then
   # It's a fork - need to push to the fork repository
   echo "Detected fork: pushing to $head_repo"
-  
+
   # Add the fork as a remote (assumes GITHUB_TOKEN env var is set from workflow)
   git remote add fork "https://x-access-token:${GITHUB_TOKEN}@github.com/${head_repo}.git"
-  
+
   # Push to the fork
   git push --force fork "HEAD:refs/heads/$branch"
 else
   # Not a fork - push to origin as before
   echo "Not a fork: pushing to origin"
   git push --force origin "HEAD:refs/heads/$branch"
+fi
+
+# Update PR body with co-authors so GitHub includes them in merge commit
+# This ensures proper attribution when the merge queue creates its merge commit
+if [[ -n "$co_authors" ]]; then
+  # Build new co-authors to add (only those not already in PR body)
+  new_co_authors=""
+  while IFS= read -r co_author_line; do
+    if [[ -n "$co_author_line" ]] && [[ "$pr_body" != *"$co_author_line"* ]]; then
+      new_co_authors="${new_co_authors}${co_author_line}
+"
+    fi
+  done <<< "$co_authors"
+
+  # If there are new co-authors to add, update the PR body
+  if [[ -n "$new_co_authors" ]]; then
+    updated_body="${pr_body}
+
+${new_co_authors}"
+    gh pr edit "$pr_number" --body "$updated_body"
+    echo "Updated PR body with co-authors"
+  fi
 fi
 
 echo "Squashed PR #$pr_number!"
