@@ -85,7 +85,7 @@ The governance process follows these stages:
 5. **Execution Delay** (12 hours): After passing the vote, another mandatory delay before execution (allows time for node upgrades).
 6. **Execution**: Anyone can execute the proposal, which applies the changes.
 
-**Note:** These timeline values may be updated through governance votes as the network evolves.
+**Note:** These timeline values are specific to testnet and are subject to change for future network phases.
 
 ## Signaling Support for a Payload
 
@@ -98,13 +98,13 @@ As a sequencer, you initiate proposals through signaling. When you propose a blo
 - Rounds consist of 300 slots each (180 minutes at 36 seconds per slot). At every 300-block boundary, the system checks if any payload has received 151 or more signals (the quorum threshold, which is >50% of the round size)
 - Payloads that reach quorum can be submitted as official proposals by anyone
 
-**Note:** Round size and quorum threshold may be updated through governance votes. These values represent the current network configuration.
+**Note:** Round size and quorum threshold will change between testnet and ignition. These values and any further references to these values are relevant for testnet only.
 
 ### Configure Your Signaling Preference
 
 Use the `setConfig` method on your node's admin interface to specify which payload address you want to signal support for.
 
-Call the JSON-RPC interface:
+**CLI Method**:
 
 ```bash
 curl -X POST http://localhost:8880 \
@@ -117,7 +117,20 @@ curl -X POST http://localhost:8880 \
   }'
 ```
 
-Replace `0x1234567890abcdef1234567890abcdef12345678` with your actual payload contract address.
+**Docker Method**:
+
+```bash
+docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"nodeAdmin_setConfig",
+    "params":[{"governanceProposerPayload":"0x1234567890abcdef1234567890abcdef12345678"}],
+    "id":1
+  }'
+```
+
+Replace `0x1234567890abcdef1234567890abcdef12345678` with your actual payload contract address and `aztec-sequencer` with your container name.
 
 Expected response:
 ```json
@@ -128,8 +141,22 @@ Expected response:
 
 Use the `getConfig` method to verify the payload address:
 
+**CLI Method**:
+
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"nodeAdmin_getConfig",
+    "id":1
+  }'
+```
+
+**Docker Method**:
+
+```bash
+docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "jsonrpc":"2.0",

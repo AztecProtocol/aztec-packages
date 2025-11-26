@@ -108,11 +108,11 @@ When triggered, the upload process:
 
 Use the node admin API to trigger a snapshot upload. You can upload to Google Cloud Storage, Amazon S3, or Cloudflare R2 by specifying the appropriate storage URI.
 
-**Example uploads** (assumes node admin API is running on `localhost:8880`):
+**Example command**:
 
 **Upload to Google Cloud Storage:**
 ```bash
-curl -XPOST http://localhost:8880 \
+docker exec -it aztec-node curl -XPOST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "method": "nodeAdmin_startSnapshotUpload",
@@ -124,7 +124,7 @@ curl -XPOST http://localhost:8880 \
 
 **Upload to Amazon S3:**
 ```bash
-curl -XPOST http://localhost:8880 \
+docker exec -it aztec-node curl -XPOST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "method": "nodeAdmin_startSnapshotUpload",
@@ -136,7 +136,7 @@ curl -XPOST http://localhost:8880 \
 
 **Upload to Cloudflare R2:**
 ```bash
-curl -XPOST http://localhost:8880 \
+docker exec -it aztec-node curl -XPOST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "method": "nodeAdmin_startSnapshotUpload",
@@ -145,7 +145,8 @@ curl -XPOST http://localhost:8880 \
     "jsonrpc": "2.0"
   }'
 ```
-Replace `[ACCOUNT_ID]` with your Cloudflare account ID.
+
+Replace `aztec-node` with your container name and `[ACCOUNT_ID]` with your Cloudflare account ID.
 
 **Note**: Ensure your storage credentials are configured before uploading:
 - **Google Cloud Storage**: Set up [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
