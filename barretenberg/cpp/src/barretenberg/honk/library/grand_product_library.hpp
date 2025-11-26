@@ -164,15 +164,9 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     // Step (3) Compute z_perm[i] = numerator[i] / denominator[i]
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
-    // We have a 'virtual' 0 at the start (as this is a to-be-shifted polynomial)
+    // the `grand_product_polynomial` (a.k.a. `z_perm`) is shiftable, hence `start_index == 1`.
     BB_ASSERT_EQ(grand_product_polynomial.start_index(), 1U);
-
-    // For Ultra/Mega, the first row is a zero row thus the grand prod takes value 1 at both i = 0 and i = 1
-    if constexpr (IsUltraOrMegaHonk<Flavor>) {
-        grand_product_polynomial.at(1) = 1;
-    }
-
-    // Compute grand product values corresponding
+    // Compute grand product values
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
@@ -181,6 +175,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         }
     });
 
+    BB_ASSERT_EQ(grand_product_polynomial.at(1), 1);
     DEBUG_LOG_ALL(grand_product_polynomial.coeffs());
 }
 

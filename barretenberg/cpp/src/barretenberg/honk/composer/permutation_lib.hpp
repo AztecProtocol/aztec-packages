@@ -115,6 +115,9 @@ using CyclicPermutation = std::vector<cycle_node>;
 
 namespace {
 
+static constexpr size_t PERMUTATION_POLY_START_INDEX =
+    1; // start_index of the Sigma and ID polynomials, which are shiftable. (Note that they are never shifted.)
+
 /**
  * @brief Compute the permutation mapping
  *
@@ -141,37 +144,40 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
 
     // Go through each cycle
     for (size_t cycle_idx = 0; cycle_idx < wire_copy_cycles.size(); ++cycle_idx) {
+        // We go through the cycle and fill-out/modify `mapping`. Following the generalized permutation algorithm, we
+        // take separate care of first/last node handling.
         const CyclicPermutation& cycle = wire_copy_cycles[cycle_idx];
-        for (size_t node_idx = 0; node_idx < cycle.size(); ++node_idx) {
-            // Get the indices (column, row) of the current node in the cycle
+        const auto cycle_size = cycle.size();
+        if (cycle_size == 0) {
+            continue;
+        }
+
+        const cycle_node& first_node = cycle[0];
+        const cycle_node& last_node = cycle[cycle_size - 1];
+
+        const auto first_row = static_cast<ptrdiff_t>(first_node.gate_idx);
+        const auto first_col = first_node.wire_idx;
+        const auto last_row = static_cast<ptrdiff_t>(last_node.gate_idx);
+        const auto last_col = last_node.wire_idx;
+
+        // First node: id gets tagged with the cycle's variable tag
+        mapping.ids[first_col].is_tag[first_row] = true;
+        mapping.ids[first_col].row_idx[first_row] = real_variable_tags[cycle_idx];
+
+        // Last node: sigma gets tagged and points to tau(tag) instead of wrapping to first node
+        mapping.sigmas[last_col].is_tag[last_row] = true;
+        mapping.sigmas[last_col].row_idx[last_row] = circuit_constructor.tau().at(real_variable_tags[cycle_idx]);
+
+        // All nodes except the last: sigma points to the next node in the cycle
+        for (size_t node_idx = 0; node_idx + 1 < cycle_size; ++node_idx) {
             const cycle_node& current_node = cycle[node_idx];
+            const cycle_node& next_node = cycle[node_idx + 1];
+
             const auto current_row = static_cast<ptrdiff_t>(current_node.gate_idx);
-            const auto current_column = current_node.wire_idx;
-
-            // Get indices of next node; If the current node is last in the cycle, then the next is the first one
-            size_t next_node_idx = (node_idx == cycle.size() - 1 ? 0 : node_idx + 1);
-            const cycle_node& next_node = cycle[next_node_idx];
-            const auto next_row = next_node.gate_idx;
-            const auto next_column = static_cast<uint8_t>(next_node.wire_idx);
-
-            // Point current node to the next node
-            mapping.sigmas[current_column].row_idx[current_row] = next_row;
-            mapping.sigmas[current_column].col_idx[current_row] = next_column;
-
-            // modify ID and sigma if we are either at the first or last node of a cycle. this involves both modifying
-            // `is_tag` and the `row_idx`.
-            const bool first_node = (node_idx == 0);
-            const bool last_node = (next_node_idx == 0);
-
-            if (first_node) {
-                mapping.ids[current_column].is_tag[current_row] = true;
-                mapping.ids[current_column].row_idx[current_row] = real_variable_tags[cycle_idx];
-            }
-            if (last_node) {
-                mapping.sigmas[current_column].is_tag[current_row] = true;
-                mapping.sigmas[current_column].row_idx[current_row] =
-                    circuit_constructor.tau().at(real_variable_tags[cycle_idx]);
-            }
+            const auto current_col = current_node.wire_idx;
+            // Point current node to next node.
+            mapping.sigmas[current_col].row_idx[current_row] = next_node.gate_idx;
+            mapping.sigmas[current_col].col_idx[current_row] = static_cast<uint8_t>(next_node.wire_idx);
         }
     }
 
@@ -224,7 +230,9 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
             const size_t end = thread_data.end[j];
             for (size_t i = start; i < end; ++i) {
                 const size_t poly_idx =
-                    i + 1; // Sigma/ID polynomials are allocated starting at index 1 (shiftable), so offset by 1
+                    i +
+                    PERMUTATION_POLY_START_INDEX; // Permutation polynomials (sigma and ID) are shiftable, hence
+                                                  // allocated starting at index `PERMUTATION_POLY_START_INDEX == 1`.
                 const auto idx = static_cast<ptrdiff_t>(poly_idx);
                 const auto& current_row_idx = permutation_mappings[wire_idx].row_idx[idx];
                 const auto& current_col_idx = permutation_mappings[wire_idx].col_idx[idx];
