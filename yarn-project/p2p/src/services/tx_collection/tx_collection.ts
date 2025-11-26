@@ -174,6 +174,12 @@ export class TxCollection {
     txHashes: TxHash[] | string[],
     opts: { deadline: Date; pinnedPeer?: PeerId },
   ) {
+    if (!this.config.txCollectionFastEnabled) {
+      this.log.debug(`Skipping fast tx collection because it is disabled via config`, {
+        ...('block' in input ? input.block.toBlockInfo() : input.blockProposal.toBlockInfo()),
+      });
+      return [];
+    }
     return this.fastCollection.collectFastFor(input, txHashes, opts);
   }
 

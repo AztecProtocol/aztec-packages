@@ -2,6 +2,8 @@ import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from
 import { MAX_RPC_TXS_LEN } from '@aztec/stdlib/interfaces/server';
 
 export type TxCollectionConfig = {
+  /** Whether fast tx collection is enabled */
+  txCollectionFastEnabled: boolean;
   /** How long to wait before starting reqresp for fast collection  */
   txCollectionFastNodesTimeoutBeforeReqRespMs: number;
   /** How often to collect from configured nodes */
@@ -25,6 +27,11 @@ export type TxCollectionConfig = {
 };
 
 export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> = {
+  txCollectionFastEnabled: {
+    env: 'TX_COLLECTION_FAST_ENABLED',
+    description: 'Whether fast tx collection is enabled',
+    ...booleanConfigHelper(true),
+  },
   txCollectionFastNodesTimeoutBeforeReqRespMs: {
     env: 'TX_COLLECTION_FAST_NODES_TIMEOUT_BEFORE_REQ_RESP_MS',
     description: 'How long to wait before starting reqresp for fast collection',

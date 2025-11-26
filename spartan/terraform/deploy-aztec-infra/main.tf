@@ -138,6 +138,8 @@ locals {
         "validator.web3signerUrl"                                  = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "validator.mnemonic"                                       = var.VALIDATOR_MNEMONIC
         "validator.mnemonicStartIndex"                             = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.node.secret.mnemonic"                           = var.VALIDATOR_MNEMONIC
+        "validator.node.secret.mnemonicIndex"                      = var.VALIDATOR_MNEMONIC_START_INDEX
         "validator.validatorsPerNode"                              = var.VALIDATORS_PER_NODE
         "validator.publishersPerValidatorKey"                      = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
         "validator.publisherMnemonicStartIndex"                    = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
@@ -187,6 +189,8 @@ locals {
         {
           "node.mnemonic"                                       = var.PROVER_MNEMONIC
           "node.mnemonicStartIndex"                             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.secret.mnemonic"                                = var.PROVER_MNEMONIC
+          "node.secret.mnemonicIndex"                           = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
           "node.node.logLevel"                                  = var.LOG_LEVEL
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE

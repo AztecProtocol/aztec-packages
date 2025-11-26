@@ -709,6 +709,51 @@ export async function setValidatorTxDrop({
   await restartValidators(namespace, logger);
 }
 
+/**
+ * Enables or disables fast tx collection on validators and waits for rollout.
+ * Wired to env var TX_COLLECTION_FAST_ENABLED via Helm values or pod env.
+ */
+export async function setValidatorFastTx({
+  namespace,
+  enabled,
+  logger,
+}: {
+  namespace: string;
+  enabled: boolean;
+  logger: Logger;
+}) {
+  const fast = enabled ? 'true' : 'false';
+
+  const selectors = ['app=validator', 'app.kubernetes.io/component=validator'];
+  let updated = false;
+  for (const selector of selectors) {
+    try {
+      const list = await execAsync(`kubectl get statefulset -l ${selector} -n ${namespace} --no-headers -o name | cat`);
+      const names = list.stdout
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (names.length === 0) {
+        continue;
+      }
+      const cmd = `kubectl set env statefulset -l ${selector} -n ${namespace} TX_COLLECTION_FAST_ENABLED=${fast}`;
+      logger.info(`command: ${cmd}`);
+      await execAsync(cmd);
+      updated = true;
+    } catch (e) {
+      logger.warn(`Failed to update validators with selector ${selector}: ${String(e)}`);
+    }
+  }
+
+  if (!updated) {
+    logger.warn(`No validator StatefulSets found in ${namespace}. Skipping fast tx toggle.`);
+    return;
+  }
+
+  // Restart validator pods to ensure env vars take effect and wait for readiness
+  await restartValidators(namespace, logger);
+}
+
 export async function restartValidators(namespace: string, logger: Logger) {
   const selectors = ['app=validator', 'app.kubernetes.io/component=validator'];
   let any = false;

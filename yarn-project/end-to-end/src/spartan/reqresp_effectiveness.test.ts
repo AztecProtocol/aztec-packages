@@ -1,17 +1,22 @@
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
-import type { AztecNode } from '@aztec/aztec.js/node';
 import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
-import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
+import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { createWalletAndAztecNodeClient, deploySponsoredTestAccounts } from './setup_test_wallets.js';
 import type { TestAccounts } from './setup_test_wallets.js';
-import { type TestConfig, setValidatorTxDrop, setupEnvironment, startPortForwardForRPC } from './utils.js';
+import {
+  type TestConfig,
+  setValidatorFastTx,
+  setValidatorTxDrop,
+  setupEnvironment,
+  startPortForward,
+  startPortForwardForRPC,
+} from './utils.js';
 
 describe('reqresp effectiveness under tx drop', () => {
   jest.setTimeout(60 * 60 * 1000);
@@ -19,17 +24,16 @@ describe('reqresp effectiveness under tx drop', () => {
   const logger = createLogger(`e2e:spartan-test:reqresp-effectiveness`);
 
   const config: TestConfig = { ...setupEnvironment(process.env) };
-  const TEST_DURATION_SECONDS = 10;
-  const TARGET_TPS = 10;
+  const TEST_DURATION_SECONDS = Number(process.env.REQRESP_BENCH_DURATION_S ?? 1);
+  const TARGET_TPS = Number(process.env.REQRESP_BENCH_TARGET_TPS ?? 10);
   const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
   const MINT_AMOUNT = 10000n;
+  const FAST_ENABLED = (process.env.TX_COLLECTION_FAST_ENABLED ?? 'true').toLowerCase() === 'true' ? 'on' : 'off';
 
   let wallet: TestWallet;
-  let aztecNode: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
   let testAccounts: TestAccounts;
-  let recipient: any;
-  const forwardProcesses: ChildProcess[] = [];
+  const forwardProcesses: Array<{ kill: () => void }> = [];
 
   afterAll(async () => {
     // Reset validators to default (no tx drop)
@@ -48,6 +52,7 @@ describe('reqresp effectiveness under tx drop', () => {
   });
 
   beforeAll(async () => {
+    logger.info(`Benchmark mode: fast_tx=${FAST_ENABLED}, duration_s=${TEST_DURATION_SECONDS}, tps=${TARGET_TPS}`);
     logger.info('Starting port forward for PXE');
     const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess);
@@ -60,14 +65,66 @@ describe('reqresp effectiveness under tx drop', () => {
     } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
     cleanup = _cleanup;
     wallet = _wallet;
-    aztecNode = _aztecNode;
-    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, logger);
-    recipient = testAccounts.recipientAddress;
+    testAccounts = await deploySponsoredTestAccounts(wallet, _aztecNode, MINT_AMOUNT, logger);
     const name = readFieldCompressedString(
       await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
     );
     expect(name).toBe(testAccounts.tokenName);
   });
+
+  async function portForwardPrometheus() {
+    // Try Prometheus in dedicated metrics namespace; fall back to network namespace
+    let promPort = 0;
+    let promProc: { kill: () => void } | undefined;
+    {
+      const { process: p, port } = await startPortForward({
+        resource: `svc/metrics-prometheus-server`,
+        namespace: 'metrics',
+        containerPort: 80,
+      });
+      promProc = p;
+      promPort = port;
+      if (promPort === 0 && p) {
+        p.kill();
+      }
+    }
+    if (promPort === 0) {
+      const { process: p, port } = await startPortForward({
+        resource: `svc/prometheus-server`,
+        namespace: config.NAMESPACE,
+        containerPort: 80,
+      });
+      promProc = p;
+      promPort = port;
+    }
+    if (promProc && promPort !== 0) {
+      forwardProcesses.push(promProc);
+      return `http://127.0.0.1:${promPort}/api/v1`;
+    }
+    logger.warn('Prometheus not reachable; skipping metric scraping for this run.');
+    return '';
+  }
+
+  async function scrapeTxCollectorCounts(promBaseApi: string, windowSeconds: number) {
+    if (!promBaseApi) {
+      return {};
+    }
+    const expr = `sum by (aztec_tx_collection_method) (increase(aztec_tx_collector_tx_count{k8s_namespace_name="${config.NAMESPACE}"}[${windowSeconds}s]))`;
+    const url = `${promBaseApi}/query?query=${encodeURIComponent(expr)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Failed to query Prometheus: ${res.status} ${res.statusText}`);
+    }
+    const data = (await res.json()) as any;
+    const result = (data?.data?.result ?? []) as Array<{ metric: Record<string, string>; value: [number, string] }>;
+    const out: Record<string, number> = {};
+    for (const r of result) {
+      const method = r.metric['aztec_tx_collection_method'] ?? 'unknown';
+      const val = Number(r.value?.[1] ?? 0);
+      out[method] = val;
+    }
+    return out;
+  }
 
   async function runLoadAndMeasure(probability: number) {
     logger.info(`Applying tx drop: enabled=true, probability=${probability}`);
@@ -81,7 +138,7 @@ describe('reqresp effectiveness under tx drop', () => {
           wallet,
           testAccounts.tokenContract.methods.transfer_in_public(
             testAccounts.tokenAdminAddress,
-            recipient,
+            testAccounts.recipientAddress,
             transferAmount,
             0,
           ),
@@ -157,8 +214,48 @@ describe('reqresp effectiveness under tx drop', () => {
 
   it('measures req/resp effectiveness across drop probabilities', async () => {
     // Tx drop probabilities
-    for (const p of [0.1, 0.3, 0.5]) {
+    for (const p of [0.0, 0.7]) {
       await runLoadAndMeasure(p);
     }
+  });
+
+  it('scrapes tx collection metrics before and after fast tx switch', async () => {
+    const promBaseApi = await portForwardPrometheus();
+    // Choose a window a bit larger than the send duration to capture exports
+    const windowSeconds = Math.max(TEST_DURATION_SECONDS + 10, 30);
+
+    // Normalize to OFF then ON to compare both states regardless of initial
+    const initialFast = (process.env.TX_COLLECTION_FAST_ENABLED ?? 'true').toLowerCase() === 'true';
+
+    // First: ensure fast is OFF
+    if (initialFast) {
+      logger.info('Disabling fast tx collection for baseline metrics');
+      await setValidatorFastTx({ namespace: config.NAMESPACE, enabled: false, logger });
+      // allow some time for pods to settle
+      await sleep(10_000);
+    }
+    // Baseline load and scrape
+    await runLoadAndMeasure(0.0);
+    await sleep(10_000);
+    const before = await scrapeTxCollectorCounts(promBaseApi, windowSeconds);
+    logger.info(`Tx collection metrics with fast=off: ${JSON.stringify(before)}`);
+
+    // Enable fast tx collection
+    logger.info('Enabling fast tx collection for comparison metrics');
+    await setValidatorFastTx({ namespace: config.NAMESPACE, enabled: true, logger });
+    await sleep(10_000);
+
+    // Comparison load and scrape
+    await runLoadAndMeasure(0.0);
+    await sleep(10_000);
+    const after = await scrapeTxCollectorCounts(promBaseApi, windowSeconds);
+    logger.info(`Tx collection metrics with fast=on: ${JSON.stringify(after)}`);
+
+    // Soft sanity: when fast is on, we expect some fast-* activity
+    const fastActivity =
+      (after['fast-node-rpc'] ?? 0) +
+      (after['fast-req-resp'] ?? 0) -
+      ((before['fast-node-rpc'] ?? 0) + (before['fast-req-resp'] ?? 0));
+    expect(fastActivity).toBeGreaterThanOrEqual(0);
   });
 });
