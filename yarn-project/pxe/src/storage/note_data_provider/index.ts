@@ -1,2 +1,2 @@
-export { NoteDao } from './note_dao.js';
+export { NoteDao } from '@aztec/stdlib/note';
 export { NoteDataProvider } from './note_data_provider.js';

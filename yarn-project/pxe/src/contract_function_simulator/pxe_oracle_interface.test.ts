@@ -11,7 +11,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } fr
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, deriveKeys } from '@aztec/stdlib/keys';
 import { DirectionalAppTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import { NoteStatus } from '@aztec/stdlib/note';
+import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -28,7 +28,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
-import { NoteDao } from '../storage/note_data_provider/note_dao.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
