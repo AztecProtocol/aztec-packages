@@ -268,306 +268,312 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                                              static_cast<View>(in.get(C::tx_l1_l2_tree_root_shift)));
         std::get<30>(evals) += (tmp * scaling_factor);
     }
-    { // RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY
+    { // L1_L2_TREE_SIZE_CONTINUITY
         using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
-        auto tmp = CView(tx_NOT_LAST_ROW) * (static_cast<View>(in.get(C::tx_next_retrieved_bytecodes_tree_root)) -
-                                             static_cast<View>(in.get(C::tx_prev_retrieved_bytecodes_tree_root_shift)));
+        auto tmp = CView(tx_NOT_LAST_ROW) * (static_cast<View>(in.get(C::tx_l1_l2_tree_size)) -
+                                             static_cast<View>(in.get(C::tx_l1_l2_tree_size_shift)));
         std::get<31>(evals) += (tmp * scaling_factor);
     }
-    { // RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY
+    { // RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY
         using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
-        auto tmp = CView(tx_NOT_LAST_ROW) * (static_cast<View>(in.get(C::tx_next_retrieved_bytecodes_tree_size)) -
-                                             static_cast<View>(in.get(C::tx_prev_retrieved_bytecodes_tree_size_shift)));
+        auto tmp = CView(tx_NOT_LAST_ROW) * (static_cast<View>(in.get(C::tx_next_retrieved_bytecodes_tree_root)) -
+                                             static_cast<View>(in.get(C::tx_prev_retrieved_bytecodes_tree_root_shift)));
         std::get<32>(evals) += (tmp * scaling_factor);
     }
-    { // NUM_UNENCRYPTED_LOGS_CONTINUITY
+    { // RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY
         using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
+        auto tmp = CView(tx_NOT_LAST_ROW) * (static_cast<View>(in.get(C::tx_next_retrieved_bytecodes_tree_size)) -
+                                             static_cast<View>(in.get(C::tx_prev_retrieved_bytecodes_tree_size_shift)));
+        std::get<33>(evals) += (tmp * scaling_factor);
+    }
+    { // NUM_UNENCRYPTED_LOGS_CONTINUITY
+        using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
         auto tmp = CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_reverted))) *
                    (static_cast<View>(in.get(C::tx_next_num_unencrypted_log_fields)) -
                     static_cast<View>(in.get(C::tx_prev_num_unencrypted_log_fields_shift)));
-        std::get<33>(evals) += (tmp * scaling_factor);
+        std::get<34>(evals) += (tmp * scaling_factor);
     }
     { // NUM_L2_TO_L1_MESSAGES_CONTINUITY
-        using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
         auto tmp = CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_reverted))) *
                    (static_cast<View>(in.get(C::tx_next_num_l2_to_l1_messages)) -
                     static_cast<View>(in.get(C::tx_prev_num_l2_to_l1_messages_shift)));
-        std::get<34>(evals) += (tmp * scaling_factor);
-    }
-    { // TX_REVERTED_CONTINUITY
-        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
-        auto tmp = CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_reverted_shift))) *
-                   (static_cast<View>(in.get(C::tx_tx_reverted)) - static_cast<View>(in.get(C::tx_tx_reverted_shift)));
         std::get<35>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // TX_REVERTED_CONTINUITY
         using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_sel)) *
-                   (CView(constants_AVM_TX_PHASE_VALUE_SETUP) - static_cast<View>(in.get(C::tx_setup_phase_value)));
+        auto tmp = CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_reverted_shift))) *
+                   (static_cast<View>(in.get(C::tx_tx_reverted)) - static_cast<View>(in.get(C::tx_tx_reverted_shift)));
         std::get<36>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_L2_GAS_USED
+    {
         using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
-        auto tmp = CView(tx_NOT_LAST_ROW) * (static_cast<View>(in.get(C::tx_next_l2_gas_used)) -
-                                             static_cast<View>(in.get(C::tx_prev_l2_gas_used_shift)));
+        auto tmp = static_cast<View>(in.get(C::tx_sel)) *
+                   (CView(constants_AVM_TX_PHASE_VALUE_SETUP) - static_cast<View>(in.get(C::tx_setup_phase_value)));
         std::get<37>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_DA_GAS_USED
+    { // PROPAGATE_L2_GAS_USED
         using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
-        auto tmp = CView(tx_NOT_LAST_ROW) * (static_cast<View>(in.get(C::tx_next_da_gas_used)) -
-                                             static_cast<View>(in.get(C::tx_prev_da_gas_used_shift)));
+        auto tmp = CView(tx_NOT_LAST_ROW) * (static_cast<View>(in.get(C::tx_next_l2_gas_used)) -
+                                             static_cast<View>(in.get(C::tx_prev_l2_gas_used_shift)));
         std::get<38>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_L2_GAS_LIMIT
+    { // PROPAGATE_DA_GAS_USED
         using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
-        auto tmp =
-            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_is_teardown_shift))) *
-            (static_cast<View>(in.get(C::tx_l2_gas_limit)) - static_cast<View>(in.get(C::tx_l2_gas_limit_shift)));
+        auto tmp = CView(tx_NOT_LAST_ROW) * (static_cast<View>(in.get(C::tx_next_da_gas_used)) -
+                                             static_cast<View>(in.get(C::tx_prev_da_gas_used_shift)));
         std::get<39>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_DA_GAS_LIMIT
+    { // PROPAGATE_L2_GAS_LIMIT
         using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
         auto tmp =
             CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_is_teardown_shift))) *
-            (static_cast<View>(in.get(C::tx_da_gas_limit)) - static_cast<View>(in.get(C::tx_da_gas_limit_shift)));
+            (static_cast<View>(in.get(C::tx_l2_gas_limit)) - static_cast<View>(in.get(C::tx_l2_gas_limit_shift)));
         std::get<40>(evals) += (tmp * scaling_factor);
     }
-    { // NOTE_HASH_ROOT_IMMUTABILITY
+    { // PROPAGATE_DA_GAS_LIMIT
         using View = typename std::tuple_element_t<41, ContainerOverSubrelations>::View;
+        auto tmp =
+            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_is_teardown_shift))) *
+            (static_cast<View>(in.get(C::tx_da_gas_limit)) - static_cast<View>(in.get(C::tx_da_gas_limit_shift)));
+        std::get<41>(evals) += (tmp * scaling_factor);
+    }
+    { // NOTE_HASH_ROOT_IMMUTABILITY
+        using View = typename std::tuple_element_t<42, ContainerOverSubrelations>::View;
         auto tmp =
             (FF(1) - CView(tx_SEL_CAN_EMIT_NOTE_HASH)) * (static_cast<View>(in.get(C::tx_prev_note_hash_tree_root)) -
                                                           static_cast<View>(in.get(C::tx_next_note_hash_tree_root)));
-        std::get<41>(evals) += (tmp * scaling_factor);
+        std::get<42>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_SIZE_IMMUTABILITY
-        using View = typename std::tuple_element_t<42, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<43, ContainerOverSubrelations>::View;
         auto tmp = ((FF(1) - CView(tx_SEL_CAN_EMIT_NOTE_HASH)) - static_cast<View>(in.get(C::tx_is_tree_padding))) *
                    (static_cast<View>(in.get(C::tx_prev_note_hash_tree_size)) -
                     static_cast<View>(in.get(C::tx_next_note_hash_tree_size)));
-        std::get<42>(evals) += (tmp * scaling_factor);
+        std::get<43>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_COUNT_IMMUTABILITY
-        using View = typename std::tuple_element_t<43, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<44, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - CView(tx_SEL_CAN_EMIT_NOTE_HASH)) *
                    (static_cast<View>(in.get(C::tx_prev_num_note_hashes_emitted)) -
                     static_cast<View>(in.get(C::tx_next_num_note_hashes_emitted)));
-        std::get<43>(evals) += (tmp * scaling_factor);
+        std::get<44>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_ROOT_IMMUTABILITY
-        using View = typename std::tuple_element_t<44, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<45, ContainerOverSubrelations>::View;
         auto tmp =
             (FF(1) - CView(tx_SEL_CAN_EMIT_NULLIFIER)) * (static_cast<View>(in.get(C::tx_prev_nullifier_tree_root)) -
                                                           static_cast<View>(in.get(C::tx_next_nullifier_tree_root)));
-        std::get<44>(evals) += (tmp * scaling_factor);
+        std::get<45>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_SIZE_IMMUTABILITY
-        using View = typename std::tuple_element_t<45, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<46, ContainerOverSubrelations>::View;
         auto tmp = ((FF(1) - CView(tx_SEL_CAN_EMIT_NULLIFIER)) - static_cast<View>(in.get(C::tx_is_tree_padding))) *
                    (static_cast<View>(in.get(C::tx_prev_nullifier_tree_size)) -
                     static_cast<View>(in.get(C::tx_next_nullifier_tree_size)));
-        std::get<45>(evals) += (tmp * scaling_factor);
+        std::get<46>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_COUNT_IMMUTABILITY
-        using View = typename std::tuple_element_t<46, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<47, ContainerOverSubrelations>::View;
         auto tmp =
             (FF(1) - CView(tx_SEL_CAN_EMIT_NULLIFIER)) * (static_cast<View>(in.get(C::tx_prev_num_nullifiers_emitted)) -
                                                           static_cast<View>(in.get(C::tx_next_num_nullifiers_emitted)));
-        std::get<46>(evals) += (tmp * scaling_factor);
+        std::get<47>(evals) += (tmp * scaling_factor);
     }
     { // PUBLIC_DATA_ROOT_IMMUTABILITY
-        using View = typename std::tuple_element_t<47, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - CView(tx_SEL_CAN_WRITE_PUBLIC_DATA)) *
                    (static_cast<View>(in.get(C::tx_prev_public_data_tree_root)) -
                     static_cast<View>(in.get(C::tx_next_public_data_tree_root)));
-        std::get<47>(evals) += (tmp * scaling_factor);
+        std::get<48>(evals) += (tmp * scaling_factor);
     }
     { // PUBLIC_DATA_SIZE_IMMUTABILITY
-        using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<49, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - CView(tx_SEL_CAN_WRITE_PUBLIC_DATA)) *
                    (static_cast<View>(in.get(C::tx_prev_public_data_tree_size)) -
                     static_cast<View>(in.get(C::tx_next_public_data_tree_size)));
-        std::get<48>(evals) += (tmp * scaling_factor);
+        std::get<49>(evals) += (tmp * scaling_factor);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY
-        using View = typename std::tuple_element_t<49, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<50, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - CView(tx_SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS)) *
                    (static_cast<View>(in.get(C::tx_prev_written_public_data_slots_tree_root)) -
                     static_cast<View>(in.get(C::tx_next_written_public_data_slots_tree_root)));
-        std::get<49>(evals) += (tmp * scaling_factor);
+        std::get<50>(evals) += (tmp * scaling_factor);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY
-        using View = typename std::tuple_element_t<50, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<51, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - CView(tx_SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS)) *
                    (static_cast<View>(in.get(C::tx_prev_written_public_data_slots_tree_size)) -
                     static_cast<View>(in.get(C::tx_next_written_public_data_slots_tree_size)));
-        std::get<50>(evals) += (tmp * scaling_factor);
+        std::get<51>(evals) += (tmp * scaling_factor);
     }
     { // UNENCRYPTED_LOG_COUNT_IMMUTABILITY
-        using View = typename std::tuple_element_t<51, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<52, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - CView(tx_SEL_CAN_EMIT_UNENCRYPTED_LOG)) *
                    (static_cast<View>(in.get(C::tx_prev_num_unencrypted_log_fields)) -
                     static_cast<View>(in.get(C::tx_next_num_unencrypted_log_fields)));
-        std::get<51>(evals) += (tmp * scaling_factor);
+        std::get<52>(evals) += (tmp * scaling_factor);
     }
     { // L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY
-        using View = typename std::tuple_element_t<52, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<53, ContainerOverSubrelations>::View;
         auto tmp =
             (FF(1) - CView(tx_SEL_CAN_EMIT_L2_L1_MSG)) * (static_cast<View>(in.get(C::tx_prev_num_l2_to_l1_messages)) -
                                                           static_cast<View>(in.get(C::tx_next_num_l2_to_l1_messages)));
-        std::get<52>(evals) += (tmp * scaling_factor);
+        std::get<53>(evals) += (tmp * scaling_factor);
     }
     { // RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY
-        using View = typename std::tuple_element_t<53, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<54, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
                    (static_cast<View>(in.get(C::tx_prev_retrieved_bytecodes_tree_root)) -
                     static_cast<View>(in.get(C::tx_next_retrieved_bytecodes_tree_root)));
-        std::get<53>(evals) += (tmp * scaling_factor);
+        std::get<54>(evals) += (tmp * scaling_factor);
     }
     { // RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY
-        using View = typename std::tuple_element_t<54, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<55, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
                    (static_cast<View>(in.get(C::tx_prev_retrieved_bytecodes_tree_size)) -
                     static_cast<View>(in.get(C::tx_next_retrieved_bytecodes_tree_size)));
-        std::get<54>(evals) += (tmp * scaling_factor);
+        std::get<55>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_ROOT_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<55, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<56, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_note_hash_tree_root)) -
                                                           static_cast<View>(in.get(C::tx_next_note_hash_tree_root)));
-        std::get<55>(evals) += (tmp * scaling_factor);
+        std::get<56>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_SIZE_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<56, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<57, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_note_hash_tree_size)) -
                                                           static_cast<View>(in.get(C::tx_next_note_hash_tree_size)));
-        std::get<56>(evals) += (tmp * scaling_factor);
+        std::get<57>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_COUNT_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<57, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<58, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_is_padded)) *
                    (static_cast<View>(in.get(C::tx_prev_num_note_hashes_emitted)) -
                     static_cast<View>(in.get(C::tx_next_num_note_hashes_emitted)));
-        std::get<57>(evals) += (tmp * scaling_factor);
+        std::get<58>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_ROOT_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<58, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<59, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_nullifier_tree_root)) -
                                                           static_cast<View>(in.get(C::tx_next_nullifier_tree_root)));
-        std::get<58>(evals) += (tmp * scaling_factor);
+        std::get<59>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_SIZE_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<59, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<60, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_nullifier_tree_size)) -
                                                           static_cast<View>(in.get(C::tx_next_nullifier_tree_size)));
-        std::get<59>(evals) += (tmp * scaling_factor);
+        std::get<60>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_COUNT_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<60, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<61, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_num_nullifiers_emitted)) -
                                                           static_cast<View>(in.get(C::tx_next_num_nullifiers_emitted)));
-        std::get<60>(evals) += (tmp * scaling_factor);
+        std::get<61>(evals) += (tmp * scaling_factor);
     }
     { // PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<61, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<62, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_public_data_tree_root)) -
                                                           static_cast<View>(in.get(C::tx_next_public_data_tree_root)));
-        std::get<61>(evals) += (tmp * scaling_factor);
+        std::get<62>(evals) += (tmp * scaling_factor);
     }
     { // PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<62, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<63, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_public_data_tree_size)) -
                                                           static_cast<View>(in.get(C::tx_next_public_data_tree_size)));
-        std::get<62>(evals) += (tmp * scaling_factor);
+        std::get<63>(evals) += (tmp * scaling_factor);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<63, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<64, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_is_padded)) *
                    (static_cast<View>(in.get(C::tx_prev_written_public_data_slots_tree_root)) -
                     static_cast<View>(in.get(C::tx_next_written_public_data_slots_tree_root)));
-        std::get<63>(evals) += (tmp * scaling_factor);
+        std::get<64>(evals) += (tmp * scaling_factor);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<64, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<65, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_is_padded)) *
                    (static_cast<View>(in.get(C::tx_prev_written_public_data_slots_tree_size)) -
                     static_cast<View>(in.get(C::tx_next_written_public_data_slots_tree_size)));
-        std::get<64>(evals) += (tmp * scaling_factor);
+        std::get<65>(evals) += (tmp * scaling_factor);
     }
     { // UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<65, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<66, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_is_padded)) *
                    (static_cast<View>(in.get(C::tx_prev_num_unencrypted_log_fields)) -
                     static_cast<View>(in.get(C::tx_next_num_unencrypted_log_fields)));
-        std::get<65>(evals) += (tmp * scaling_factor);
+        std::get<66>(evals) += (tmp * scaling_factor);
     }
     { // L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY
-        using View = typename std::tuple_element_t<66, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<67, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::tx_is_padded)) * (static_cast<View>(in.get(C::tx_prev_num_l2_to_l1_messages)) -
                                                           static_cast<View>(in.get(C::tx_next_num_l2_to_l1_messages)));
-        std::get<66>(evals) += (tmp * scaling_factor);
-    }
-    { // L2_GAS_USED_IMMUTABILITY
-        using View = typename std::tuple_element_t<67, ContainerOverSubrelations>::View;
-        auto tmp =
-            (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
-            (static_cast<View>(in.get(C::tx_prev_l2_gas_used)) - static_cast<View>(in.get(C::tx_next_l2_gas_used)));
         std::get<67>(evals) += (tmp * scaling_factor);
     }
-    { // DA_GAS_USED_IMMUTABILITY
+    { // L2_GAS_USED_IMMUTABILITY
         using View = typename std::tuple_element_t<68, ContainerOverSubrelations>::View;
         auto tmp =
             (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
-            (static_cast<View>(in.get(C::tx_prev_da_gas_used)) - static_cast<View>(in.get(C::tx_next_da_gas_used)));
+            (static_cast<View>(in.get(C::tx_prev_l2_gas_used)) - static_cast<View>(in.get(C::tx_next_l2_gas_used)));
         std::get<68>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // DA_GAS_USED_IMMUTABILITY
         using View = typename std::tuple_element_t<69, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::tx_is_cleanup)) *
-                   (CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX) -
-                    static_cast<View>(in.get(C::tx_array_length_note_hashes_pi_offset)));
+        auto tmp =
+            (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+            (static_cast<View>(in.get(C::tx_prev_da_gas_used)) - static_cast<View>(in.get(C::tx_next_da_gas_used)));
         std::get<69>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<70, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_is_cleanup)) *
-                   (CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX) -
-                    static_cast<View>(in.get(C::tx_array_length_nullifiers_pi_offset)));
+                   (CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX) -
+                    static_cast<View>(in.get(C::tx_array_length_note_hashes_pi_offset)));
         std::get<70>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<71, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_is_cleanup)) *
-                   (CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX) -
-                    static_cast<View>(in.get(C::tx_array_length_l2_to_l1_messages_pi_offset)));
+                   (CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX) -
+                    static_cast<View>(in.get(C::tx_array_length_nullifiers_pi_offset)));
         std::get<71>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<72, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_is_cleanup)) *
-                   (CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX) -
-                    static_cast<View>(in.get(C::tx_fields_length_unencrypted_logs_pi_offset)));
+                   (CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX) -
+                    static_cast<View>(in.get(C::tx_array_length_l2_to_l1_messages_pi_offset)));
         std::get<72>(evals) += (tmp * scaling_factor);
     }
-    { // NEXT_CONTEXT_ID_INITIAL_VALUE
+    {
         using View = typename std::tuple_element_t<73, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::tx_start_tx)) * (FF(1) - static_cast<View>(in.get(C::tx_next_context_id)));
+        auto tmp = static_cast<View>(in.get(C::tx_is_cleanup)) *
+                   (CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX) -
+                    static_cast<View>(in.get(C::tx_fields_length_unencrypted_logs_pi_offset)));
         std::get<73>(evals) += (tmp * scaling_factor);
     }
-    { // NEXT_CONTEXT_ID_CONTINUITY
+    { // NEXT_CONTEXT_ID_INITIAL_VALUE
         using View = typename std::tuple_element_t<74, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::tx_start_tx)) * (FF(1) - static_cast<View>(in.get(C::tx_next_context_id)));
+        std::get<74>(evals) += (tmp * scaling_factor);
+    }
+    { // NEXT_CONTEXT_ID_CONTINUITY
+        using View = typename std::tuple_element_t<75, ContainerOverSubrelations>::View;
         auto tmp =
             CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
             (static_cast<View>(in.get(C::tx_next_context_id_shift)) - static_cast<View>(in.get(C::tx_next_context_id)));
-        std::get<74>(evals) += (tmp * scaling_factor);
+        std::get<75>(evals) += (tmp * scaling_factor);
     }
 }
 

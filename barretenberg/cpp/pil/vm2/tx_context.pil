@@ -45,6 +45,7 @@ namespace tx;
 
     // L1 to L2 tree doesn't evolve during execution of the AVM
     pol commit l1_l2_tree_root;
+    pol commit l1_l2_tree_size;
 
     pol commit prev_retrieved_bytecodes_tree_root;
     pol commit prev_retrieved_bytecodes_tree_size;
@@ -123,6 +124,10 @@ namespace tx;
     start_tx * (constants.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE - prev_written_public_data_slots_tree_size) = 0;
 
     // Read the state of the l1 to l2 message tree from PI
+    // This tree is immutable during the tx execution of the AVM but for consistency with other trees we read
+    // and write the root/size to public inputs.
+    // The only reason to use l1_l2_tree_size in this trace is to enforce immutability.
+    // l1_l2_tree_root however is sent to execution.pil through a public call request (see #[DISPATCH_EXEC_START] in tx.pil).
     pol commit l1_l2_pi_offset;
     l1_l2_pi_offset = start_tx   * constants.AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX
                     + is_cleanup * constants.AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX;
@@ -130,10 +135,12 @@ namespace tx;
     #[PUBLIC_INPUTS_L1_L2_TREE]
     sel_read_trees_and_gas_used {
         l1_l2_pi_offset,
-        l1_l2_tree_root
+        l1_l2_tree_root,
+        l1_l2_tree_size
     } in public_inputs.sel {
         precomputed.clk,
-        public_inputs.cols[0]
+        public_inputs.cols[0],
+        public_inputs.cols[1]
     };
 
     // Ensure the retrieved bytecodes tree starts with the expected state on every tx execution.
@@ -257,6 +264,8 @@ namespace tx;
     NOT_LAST_ROW * (1 - reverted) * (next_written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
     #[L1_L2_TREE_ROOT_CONTINUITY]
     NOT_LAST_ROW * (l1_l2_tree_root - l1_l2_tree_root') = 0;
+    #[L1_L2_TREE_SIZE_CONTINUITY]
+    NOT_LAST_ROW * (l1_l2_tree_size - l1_l2_tree_size') = 0;
     #[RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY]
     NOT_LAST_ROW * (next_retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root') = 0;
     #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]

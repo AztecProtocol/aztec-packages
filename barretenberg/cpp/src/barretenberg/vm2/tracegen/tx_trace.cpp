@@ -154,6 +154,7 @@ std::vector<std::pair<C, FF>> insert_tree_state(const TxContextEvent& prev_state
           prev_state.written_public_data_slots_tree_snapshot.next_available_leaf_index },
         // L1 to L2 Message Tree Roots
         { C::tx_l1_l2_tree_root, prev_state.tree_states.l1_to_l2_message_tree.tree.root },
+        { C::tx_l1_l2_tree_size, prev_state.tree_states.l1_to_l2_message_tree.tree.next_available_leaf_index },
         // Retrieved bytecodes Tree Roots
         { C::tx_prev_retrieved_bytecodes_tree_root, prev_state.retrieved_bytecodes_tree_snapshot.root },
         { C::tx_prev_retrieved_bytecodes_tree_size,
