@@ -572,7 +572,12 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                                                      .num_bits = 8,
                                                  };
                                              }),
-                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
+                    .result = transform::map(*arg.outputs,
+                                             [&](auto& e) {
+                                                 uint32_t result = e.value + af.acir_gates_offset;
+                                                 af.max_witness_index = std::max(af.max_witness_index, result);
+                                                 return result;
+                                             }),
                 });
                 af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake3>) {
