@@ -234,7 +234,7 @@ describe('e2e_fees failures', () => {
             paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
           },
         }),
-    ).rejects.toThrow(/Setup phase reverted/);
+    ).rejects.toThrow(/\[SETUP\] UNRECOVERABLE ERROR/);
 
     // so does the sequencer
     await expect(

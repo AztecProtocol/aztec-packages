@@ -670,8 +670,7 @@ TEST_F(ExecutionSimulationTest, SStoreDuringStaticCall)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 1 }));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
-    EXPECT_THROW_WITH_MESSAGE(execution.sstore(context, value_addr, slot_addr),
-                              "SSTORE: Cannot write to storage in static context");
+    EXPECT_THROW_WITH_MESSAGE(execution.sstore(context, value_addr, slot_addr), "Static call cannot update the state");
 }
 
 TEST_F(ExecutionSimulationTest, SStoreLimitReached)
@@ -805,8 +804,7 @@ TEST_F(ExecutionSimulationTest, EmitNoteHashDuringStaticCall)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
-    EXPECT_THROW_WITH_MESSAGE(execution.emit_note_hash(context, note_hash_addr),
-                              "EMITNOTEHASH: Cannot emit note hash in static context");
+    EXPECT_THROW_WITH_MESSAGE(execution.emit_note_hash(context, note_hash_addr), "Static call cannot update the state");
 }
 
 TEST_F(ExecutionSimulationTest, EmitNoteHashLimitReached)
@@ -934,8 +932,7 @@ TEST_F(ExecutionSimulationTest, EmitNullifierDuringStaticCall)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
-    EXPECT_THROW_WITH_MESSAGE(execution.emit_nullifier(context, nullifier_addr),
-                              "EMITNULLIFIER: Cannot emit nullifier in static context");
+    EXPECT_THROW_WITH_MESSAGE(execution.emit_nullifier(context, nullifier_addr), "Static call cannot update the state");
 }
 
 TEST_F(ExecutionSimulationTest, EmitNullifierLimitReached)
@@ -1172,7 +1169,7 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
 
     EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
-                              "SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
+                              "Static call cannot update the state");
 }
 
 TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
