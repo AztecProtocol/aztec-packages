@@ -128,14 +128,23 @@ library ValidatorSelectionLib {
 
   /**
    * @notice Initializes the validator selection system with target committee size
+   * @dev It is HIGHLY recommended to use lagInEpochsForValidatorSet > lagInEpochsForRandao, to avoid sequencer bias
+   *      but we allow them being equal because it makes test networks faster to kick off.
    * @dev Sets up the initial configuration and bootstrap seeds for the first two epochs.
    *      The first two epochs use maximum seed values for startup.
    * @param _targetCommitteeSize The desired number of validators in each epoch's committee
    */
-  function initialize(uint256 _targetCommitteeSize, uint256 _lagInEpochs) internal {
+  function initialize(uint256 _targetCommitteeSize, uint256 _lagInEpochsForValidatorSet, uint256 _lagInEpochsForRandao)
+    internal
+  {
+    require(
+      _lagInEpochsForValidatorSet >= _lagInEpochsForRandao,
+      Errors.ValidatorSelection__InvalidLagInEpochs(_lagInEpochsForValidatorSet, _lagInEpochsForRandao)
+    );
     ValidatorSelectionStorage storage store = getStorage();
     store.targetCommitteeSize = _targetCommitteeSize.toUint32();
-    store.lagInEpochs = _lagInEpochs.toUint32();
+    store.lagInEpochsForValidatorSet = _lagInEpochsForValidatorSet.toUint32();
+    store.lagInEpochsForRandao = _lagInEpochsForRandao.toUint32();
 
     checkpointRandao(Epoch.wrap(0));
   }
@@ -544,7 +553,7 @@ library ValidatorSelectionLib {
    */
   function getSampleSeed(Epoch _epoch) internal view returns (uint256) {
     ValidatorSelectionStorage storage store = getStorage();
-    uint32 ts = stableEpochToSampleTime(_epoch);
+    uint32 ts = stableEpochToRandaoSampleTime(_epoch);
     return uint256(keccak256(abi.encode(_epoch, store.randaos.upperLookup(ts))));
   }
 
@@ -556,12 +565,16 @@ library ValidatorSelectionLib {
    * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getSamplingSize(Epoch _epoch) internal view returns (uint256) {
-    uint32 ts = stableEpochToSampleTime(_epoch);
+    uint32 ts = stableEpochToValidatorSetSampleTime(_epoch);
     return StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
   }
 
-  function getLagInEpochs() internal view returns (uint256) {
-    return getStorage().lagInEpochs;
+  function getLagInEpochsForValidatorSet() internal view returns (uint256) {
+    return getStorage().lagInEpochsForValidatorSet;
+  }
+
+  function getLagInEpochsForRandao() internal view returns (uint256) {
+    return getStorage().lagInEpochsForRandao;
   }
 
   /**
@@ -608,7 +621,7 @@ library ValidatorSelectionLib {
    */
   function sampleValidatorsIndices(Epoch _epoch, uint256 _seed) private returns (uint32, uint256[] memory) {
     ValidatorSelectionStorage storage store = getStorage();
-    uint32 ts = stableEpochToSampleTime(_epoch);
+    uint32 ts = stableEpochToValidatorSetSampleTime(_epoch);
     uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
     uint256 targetCommitteeSize = store.targetCommitteeSize;
 
@@ -628,7 +641,7 @@ library ValidatorSelectionLib {
    * @notice Converts a stable epoch number to the timestamp used for validator set sampling
    * @dev Calculates the sampling timestamp by:
    *      1. Taking the epoch start timestamp
-   *      2. Subtracting `lagInEpochs` full epoch duration to ensure stability
+   *      2. Subtracting `lagInEpochsForRandao` full epoch duration to ensure stability
    *
    *      This ensures validator set sampling uses stable historical data that won't be
    *      affected by last-minute changes or L1 reorgs during synchronization.
@@ -638,8 +651,18 @@ library ValidatorSelectionLib {
    * @return The Unix timestamp (uint32) to use for validator set sampling
    * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
-  function stableEpochToSampleTime(Epoch _epoch) private view returns (uint32) {
-    uint32 sub = getStorage().lagInEpochs * TimeLib.getEpochDurationInSeconds().toUint32();
+  function stableEpochToRandaoSampleTime(Epoch _epoch) private view returns (uint32) {
+    uint32 sub = getStorage().lagInEpochsForRandao * TimeLib.getEpochDurationInSeconds().toUint32();
+    uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - sub;
+    require(
+      ts <= block.timestamp,
+      Errors.ValidatorSelection__EpochNotStable(uint256(Epoch.unwrap(_epoch)), uint32(block.timestamp))
+    );
+    return ts;
+  }
+
+  function stableEpochToValidatorSetSampleTime(Epoch _epoch) private view returns (uint32) {
+    uint32 sub = getStorage().lagInEpochsForValidatorSet * TimeLib.getEpochDurationInSeconds().toUint32();
     uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - sub;
     require(
       ts <= block.timestamp,

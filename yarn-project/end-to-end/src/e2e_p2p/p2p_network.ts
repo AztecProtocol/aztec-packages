@@ -292,7 +292,7 @@ export class P2PNetworkTest {
       });
 
       await cheatCodes.rollup.advanceToEpoch(
-        (await cheatCodes.rollup.getEpoch()) + (await rollup.read.getLagInEpochs()) + 1n,
+        (await cheatCodes.rollup.getEpoch()) + (await rollup.read.getLagInEpochsForValidatorSet()) + 1n,
       );
 
       // Send and await a tx to make sure we mine a block for the warp to correctly progress.

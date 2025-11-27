@@ -124,7 +124,9 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 24,
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: 2,
+  lagInEpochsForValidatorSet: 2,
+  /** The number of epochs to lag behind the current epoch for randao selection. */
+  lagInEpochsForRandao: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
   /** How many sequencers must agree with a slash for it to be executed. */
@@ -207,7 +209,9 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 48,
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: DefaultL1ContractsConfig.lagInEpochs,
+  lagInEpochsForValidatorSet: DefaultL1ContractsConfig.lagInEpochsForValidatorSet,
+  /** The number of epochs to lag behind the current epoch for randao selection. */
+  lagInEpochsForRandao: DefaultL1ContractsConfig.lagInEpochsForRandao,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -262,7 +266,9 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 48,
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: DefaultL1ContractsConfig.lagInEpochs,
+  lagInEpochsForValidatorSet: DefaultL1ContractsConfig.lagInEpochsForValidatorSet,
+  /** The number of epochs to lag behind the current epoch for randao selection. */
+  lagInEpochsForRandao: DefaultL1ContractsConfig.lagInEpochsForRandao,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -318,7 +324,9 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 24,
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: 2,
+  lagInEpochsForValidatorSet: 2,
+  /** The number of epochs to lag behind the current epoch for randao selection. */
+  lagInEpochsForRandao: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
 
@@ -407,7 +415,9 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 24,
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: 2,
+  lagInEpochsForValidatorSet: 2,
+  /** The number of epochs to lag behind the current epoch for randao selection. */
+  lagInEpochsForRandao: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
 
@@ -494,7 +504,9 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 1,
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: 1,
+  lagInEpochsForValidatorSet: 1,
+  /** The number of epochs to lag behind the current epoch for randao selection. */
+  lagInEpochsForRandao: 1,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -611,7 +623,8 @@ export function enrichEnvironmentWithChainConfig(config: L2ChainConfig) {
   enrichVar('AZTEC_SLOT_DURATION', config.aztecSlotDuration.toString());
   enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
   enrichVar('AZTEC_TARGET_COMMITTEE_SIZE', config.aztecTargetCommitteeSize.toString());
-  enrichVar('AZTEC_LAG_IN_EPOCHS', config.lagInEpochs.toString());
+  enrichVar('AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET', config.lagInEpochsForValidatorSet.toString());
+  enrichVar('AZTEC_LAG_IN_EPOCHS_FOR_RANDAO', config.lagInEpochsForRandao.toString());
   enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('AZTEC_ACTIVATION_THRESHOLD', config.activationThreshold.toString());
   enrichVar('AZTEC_EJECTION_THRESHOLD', config.ejectionThreshold.toString());

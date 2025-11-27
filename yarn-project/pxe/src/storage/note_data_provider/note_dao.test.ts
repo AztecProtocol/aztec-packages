@@ -1,4 +1,4 @@
-import { NoteDao } from './note_dao.js';
+import { NoteDao } from '@aztec/stdlib/note';
 
 describe('Note DAO', () => {
   it('convert to and from buffer', async () => {

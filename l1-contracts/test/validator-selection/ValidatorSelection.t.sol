@@ -136,10 +136,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     return attesters;
   }
 
-  function testInitialCommitteeMatch() public setup(4, 4) progressEpochs(2) {
+  function testInitialCommitteeMatch() public setup(4, 4) progressEpochsToInclusion {
     address[] memory attesters = getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
-    assertEq(rollup.getCurrentEpoch(), 2);
+    assertEq(rollup.getCurrentEpoch(), rollup.getLagInEpochsForValidatorSet());
     assertEq(attesters.length, 4, "Invalid validator set size");
     assertEq(committee.length, 4, "invalid committee set size");
 
@@ -159,7 +159,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertTrue(_seenCommittee[proposer]);
   }
 
-  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochs(2) {
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochsToInclusion {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(block.timestamp + uint256(_epochsToJump) * rollup.getEpochDuration() * rollup.getSlotDuration());
     Epoch post = rollup.getCurrentEpoch();
@@ -178,7 +178,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function testCommitteeForNonSetupEpoch() public setup(8, 4) progressEpochs(2) {
+  function testCommitteeForNonSetupEpoch() public setup(8, 4) progressEpochsToInclusion {
     Epoch pre = rollup.getCurrentEpoch();
     // Jump 8 epochs into the future to ensure that it haven't been setup.
     vm.warp(block.timestamp + 8 * rollup.getEpochDuration() * rollup.getSlotDuration());
@@ -198,7 +198,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertNotEq(preCommittee, postCommittee, "Committee elements have not changed");
   }
 
-  function testStableCommittee(uint8 _timeToJump) public setup(4, 4) progressEpochs(2) {
+  function testStableCommittee(uint8 _timeToJump) public setup(4, 4) progressEpochsToInclusion {
     Epoch epoch = rollup.getCurrentEpoch();
 
     uint256 preSize = rollup.getActiveAttesterCount();
@@ -237,7 +237,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   // change the committee committment to something unpredictable.
 
   /// forge-config: default.isolate = true
-  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100, 48) progressEpochs(2) {
+  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100, 48) progressEpochsToInclusion {
     uint256 committeeSize = rollup.getTargetCommitteeSize();
     uint256 signatureCount = committeeSize * 2 / 3 + (_insufficientSigs ? 0 : 1);
     assertGt(rollup.getActiveAttesterCount(), committeeSize, "Not enough validators");
@@ -253,12 +253,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testHappyPath() public setup(4, 4) progressEpochs(2) {
+  function testHappyPath() public setup(4, 4) progressEpochsToInclusion {
     _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
     _testCheckpoint("mixed_checkpoint_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
   }
 
-  function testProveWithAttestations() public setup(4, 4) progressEpochs(2) {
+  function testProveWithAttestations() public setup(4, 4) progressEpochsToInclusion {
     _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
     ProposeTestData memory ree2 = _testCheckpoint("mixed_checkpoint_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
     uint256 checkpointNumber = rollup.getPendingCheckpointNumber();
@@ -272,7 +272,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testProveFailWithoutCorrectAttestations() public setup(4, 4) progressEpochs(2) {
+  function testProveFailWithoutCorrectAttestations() public setup(4, 4) progressEpochsToInclusion {
     ProposeTestData memory ree1 = _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
     _testCheckpoint("mixed_checkpoint_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
     uint256 checkpointNumber = rollup.getPendingCheckpointNumber();
@@ -286,7 +286,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testCannotInvalidateProperProposal() public setup(4, 4) progressEpochs(2) {
+  function testCannotInvalidateProperProposal() public setup(4, 4) progressEpochsToInclusion {
     ProposeTestData memory ree = _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
     _invalidateByAttestationCount(ree, Errors.ValidatorSelection__InsufficientAttestations.selector);
 
@@ -295,7 +295,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function testNukeFromOrbit() public setup(4, 4) progressEpochs(2) {
+  function testNukeFromOrbit() public setup(4, 4) progressEpochsToInclusion {
     // We propose some checkpoints, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
     // got finalized.
@@ -333,12 +333,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function testProposerAttested() public setup(4, 4) progressEpochs(2) {
+  function testProposerAttested() public setup(4, 4) progressEpochsToInclusion {
     // Having someone that is not the proposer submit it, but with all signatures (so there is signature from proposer)
     _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 4, 4, TestFlagsLib.empty().invalidateProposer());
   }
 
-  function testProposerAttestationNotProvided() public setup(4, 4) progressEpochs(2) {
+  function testProposerAttestationNotProvided() public setup(4, 4) progressEpochsToInclusion {
     _testCheckpoint(
       "mixed_checkpoint_1",
       Errors.ValidatorSelection__MissingProposerSignature.selector,
@@ -348,7 +348,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInvalidSigners() public setup(4, 4) progressEpochs(2) {
+  function testInvalidSigners() public setup(4, 4) progressEpochsToInclusion {
     _testCheckpoint(
       "mixed_checkpoint_1",
       Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
@@ -358,7 +358,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInvalidAttestationAndSignersSignature() public setup(4, 4) progressEpochs(2) {
+  function testInvalidAttestationAndSignersSignature() public setup(4, 4) progressEpochsToInclusion {
     _testCheckpoint(
       "mixed_checkpoint_1",
       Errors.SignatureLib__InvalidSignature.selector,
@@ -368,13 +368,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInvalidAttestationIndex(uint256 _invalidIndex) public setup(4, 4) progressEpochs(2) {
+  function testInvalidAttestationIndex(uint256 _invalidIndex) public setup(4, 4) progressEpochsToInclusion {
     ProposeTestData memory ree = _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
     uint256 invalidIndex = bound(_invalidIndex, ree.committee.length, type(uint256).max);
     _invalidateByAttestationSig(ree, invalidIndex, Errors.Rollup__InvalidAttestationIndex.selector);
   }
 
-  function testInvalidAttestationSigner() public setup(4, 4) progressEpochs(2) {
+  function testInvalidAttestationSigner() public setup(4, 4) progressEpochsToInclusion {
     ProposeTestData memory ree =
       _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
 
@@ -383,7 +383,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     _invalidateByAttestationSig(ree, 0, NO_REVERT);
   }
 
-  function testInvalidAddressAttestation() public setup(4, 4) progressEpochs(2) {
+  function testInvalidAddressAttestation() public setup(4, 4) progressEpochsToInclusion {
     _testCheckpoint(
       "mixed_checkpoint_1",
       Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
@@ -393,7 +393,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInvalidSignatureSValue() public setup(4, 4) progressEpochs(2) {
+  function testInvalidSignatureSValue() public setup(4, 4) progressEpochsToInclusion {
     // Update one of the signatures such that the S value will make the signature validation fail
 
     ProposeTestData memory ree =
@@ -412,7 +412,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInvalidSignatureAddress0() public setup(4, 4) progressEpochs(2) {
+  function testInvalidSignatureAddress0() public setup(4, 4) progressEpochsToInclusion {
     // Update one of the signatures such that the recovered address will be 0 and signature validations fails
 
     ProposeTestData memory ree =
@@ -431,13 +431,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInsufficientSignatures() public setup(4, 4) progressEpochs(2) {
+  function testInsufficientSignatures() public setup(4, 4) progressEpochsToInclusion {
     ProposeTestData memory ree = _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 2, 4, TestFlagsLib.empty());
 
     _invalidateByAttestationCount(ree, NO_REVERT);
   }
 
-  function testInvalidateMultipleCheckpoints() public setup(4, 4) progressEpochs(2) {
+  function testInvalidateMultipleCheckpoints() public setup(4, 4) progressEpochsToInclusion {
     uint256 initialCheckpointNumber = rollup.getPendingCheckpointNumber();
     ProposeTestData memory ree =
       _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
@@ -446,7 +446,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     _invalidateByAttestationSig(ree, 0, NO_REVERT, initialCheckpointNumber + 1);
   }
 
-  function testProposeCheckpointAfterInvalidate() public setup(4, 4) progressEpochs(2) {
+  function testProposeCheckpointAfterInvalidate() public setup(4, 4) progressEpochsToInclusion {
     uint256 initialCheckpointNumber = rollup.getPendingCheckpointNumber();
     ProposeTestData memory ree =
       _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
@@ -458,7 +458,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testCannotProposeIfAllValidatorsHaveMoved() public setup(4, 4) progressEpochs(2) {
+  function testCannotProposeIfAllValidatorsHaveMoved() public setup(4, 4) progressEpochsToInclusion {
     // Buried in the RollupBuilder, we add initial validators using l1-contracts/src/mock/MultiAdder.sol
     // In that, you see this inconspicuous true at the end of the call to deposit. This means that the
     // validators are going into the "bonus" instance, are are thus not tied directly to the rollup from

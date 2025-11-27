@@ -6,7 +6,7 @@ import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import type { TxHash } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import { UniqueNote } from '@aztec/stdlib/note';
+import { NoteDao } from '@aztec/stdlib/note';
 
 import type { CLIWallet } from '../utils/wallet.js';
 
@@ -121,11 +121,10 @@ async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash
   }
 }
 
-function inspectNote(note: UniqueNote, artifactMap: ArtifactMap, log: LogFn, text = 'Note') {
+function inspectNote(note: NoteDao, artifactMap: ArtifactMap, log: LogFn, text = 'Note') {
   const artifact = artifactMap[note.contractAddress.toString()];
   const contract = artifact?.name ?? note.contractAddress.toString();
   log(`  ${text} at ${contract}`);
-  log(`    Recipient: ${toFriendlyAddress(note.recipient, artifactMap)}`);
   for (const field of note.note.items) {
     log(`    ${field.toString()}`);
   }

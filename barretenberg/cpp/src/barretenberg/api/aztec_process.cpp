@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <nlohmann/json.hpp>
 #include <sstream>
+#include <thread>
 
 #ifdef ENABLE_AVM_TRANSPILER
 // Include avm_transpiler header
@@ -118,23 +119,59 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
 }
 
 /**
- * @brief Generate VKs for all functions in parallel
+ * @brief Generate VKs for all functions in parallel with nested parallelism
  */
 void generate_vks_for_functions(const std::filesystem::path& cache_dir,
                                 std::vector<nlohmann::json*>& functions,
                                 bool force)
 {
-    // Generate VKs in parallel (logging removed to avoid data races)
-    parallel_for(functions.size(), [&](size_t i) {
-        auto* function = functions[i];
-        std::string fn_name = (*function)["name"].get<std::string>();
+#ifdef __wasm__
+    throw_or_abort("VK generation not supported in WASM");
+#endif
 
-        // Get bytecode from function
-        auto bytecode = extract_bytecode(*function);
+    const size_t total_cpus = get_num_cpus();
+    const size_t num_functions = functions.size();
 
-        // Generate and cache VK (this will log internally if needed)
-        get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
-    });
+    // Heuristic for nested parallelism:
+    // - actual_tasks = min(num_functions, total_cpus)
+    // - threads_per_task = min(total_cpus, max(2, total_cpus / actual_tasks * 2))
+    size_t actual_tasks = std::min(num_functions, total_cpus);
+    size_t threads_per_task = std::min(total_cpus, std::max(size_t{ 2 }, total_cpus / actual_tasks * 2));
+
+    // Track work distribution
+    std::atomic<size_t> current_function{ 0 };
+
+    // Worker function
+    auto worker = [&]() {
+        // Set thread-local concurrency for this worker
+        set_parallel_for_concurrency(threads_per_task);
+
+        // Process functions
+        size_t func_idx;
+        while ((func_idx = current_function.fetch_add(1)) < num_functions) {
+            auto* function = functions[func_idx];
+            std::string fn_name = (*function)["name"].get<std::string>();
+
+            // Get bytecode from function
+            auto bytecode = extract_bytecode(*function);
+
+            // Generate and cache VK (can use parallel_for internally)
+            get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
+        }
+    };
+
+    // Spawn threads
+    std::vector<std::thread> threads;
+    threads.reserve(actual_tasks);
+
+    for (size_t i = 0; i < actual_tasks; ++i) {
+        threads.emplace_back(worker);
+    }
+
+    // Wait for completion
+    for (auto& t : threads) {
+        t.join();
+    }
 
     // Update JSON with VKs from cache (sequential is fine here, it's fast)
     for (auto* function : functions) {
@@ -306,6 +343,49 @@ bool process_all_artifacts(const std::string& search_path, bool force)
     }
 
     return all_success;
+}
+
+bool get_cache_paths(const std::string& input_path)
+{
+    try {
+        // Verify input exists
+        if (!std::filesystem::exists(input_path)) {
+            throw_or_abort("Input file does not exist: " + input_path);
+        }
+
+        // Read and parse artifact JSON
+        auto artifact_content = read_file(input_path);
+        std::string artifact_str(artifact_content.begin(), artifact_content.end());
+        auto artifact_json = nlohmann::json::parse(artifact_str);
+
+        if (!artifact_json.contains("functions")) {
+            // No functions, but not an error
+            return true;
+        }
+
+        // Get cache directory
+        auto cache_dir = get_cache_dir();
+
+        // Find all private constrained functions and output their cache paths
+        for (const auto& function : artifact_json["functions"]) {
+            if (!is_private_constrained_function(function)) {
+                continue;
+            }
+
+            std::string fn_name = function["name"].get<std::string>();
+            auto bytecode = extract_bytecode(function);
+            std::string hash_str = compute_bytecode_hash(bytecode);
+            std::filesystem::path vk_cache_path = cache_dir / (hash_str + ".vk");
+
+            // Output format: hash:cache_path:function_name
+            std::cout << hash_str << ":" << vk_cache_path.string() << ":" << fn_name << std::endl;
+        }
+
+        return true;
+    } catch (const std::exception& e) {
+        info("Error getting cache paths: ", e.what());
+        return false;
+    }
 }
 
 } // namespace bb
