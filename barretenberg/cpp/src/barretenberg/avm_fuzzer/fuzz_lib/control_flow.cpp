@@ -183,14 +183,16 @@ std::vector<ProgramBlock*> ControlFlow::get_reachable_blocks(ProgramBlock* block
 
     std::vector<ProgramBlock*> all_blocks = dfs_traverse(start_block);
     std::vector<ProgramBlock*> reachable_blocks;
-    // filter all forbidden blocks (that creates loops in the graph) and blocks with different caller from the list of all blocks
-    // we avoid blocks with different caller to prevent INTERNALRETURN from being executed in the context with empty callstack
+    // filter all forbidden blocks (that creates loops in the graph) and blocks with different caller from the list
+    // of all blocks we avoid blocks with different caller to prevent INTERNALRETURN from being executed in the
+    // context with empty callstack
     std::copy_if(all_blocks.begin(),
                  all_blocks.end(),
                  std::back_inserter(reachable_blocks),
                  [forbidden_blocks, block](ProgramBlock* block_iter) {
                      return std::find(forbidden_blocks.begin(), forbidden_blocks.end(), block_iter) ==
-                            forbidden_blocks.end() && block_iter->caller == block->caller;
+                                forbidden_blocks.end() &&
+                            block_iter->caller == block->caller;
                  });
     return reachable_blocks;
 }
@@ -207,7 +209,7 @@ void ControlFlow::process_cfg_instruction(CFGInstruction instruction)
                    [&](JumpToBlock arg) { process_jump_to_block(arg); },
                    [&](JumpIfToBlock arg) { process_jump_if_to_block(arg); },
                    [&](FinalizeWithReturn arg) { process_finalize_with_return(arg); },
-                [&](SwitchToNonTerminatedBlock arg) { process_switch_to_non_terminated_block(arg); },
+                   [&](SwitchToNonTerminatedBlock arg) { process_switch_to_non_terminated_block(arg); },
                    [&](InsertInternalCall arg) { process_insert_internal_call(arg); } },
                instruction);
 }
@@ -253,7 +255,9 @@ int predict_block_size(ProgramBlock* block)
         return bytecode_length + JMP_IF_SIZE + JMP_SIZE; // finalized with jumpi
     }
     default:
-        throw std::runtime_error("Predict block size: Every block should be terminated with return, jump, or jumpi, got " + std::to_string(static_cast<int>(block->terminator_type)));
+        throw std::runtime_error("Predict block size: Every block should be terminated with return, jump, or jumpi, "
+                                 "got " +
+                                 std::to_string(static_cast<int>(block->terminator_type)));
     }
     throw std::runtime_error("Unreachable");
 }
@@ -334,7 +338,8 @@ std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_opt
             break;
         }
         default:
-            throw std::runtime_error("Inject terminators: Every block should be terminated with return, jump, or jumpi");
+            throw std::runtime_error(
+                "Inject terminators: Every block should be terminated with return, jump, or jumpi");
         }
         block_bytecodes.push_back(create_bytecode(instructions));
     }

@@ -820,8 +820,8 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
 
     // set INTERNALRETURN after RETURN if this block was called by INTERNALCALL
     if (caller != nullptr) {
-        auto internalreturn_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALRETURN)
-                                             .build();
+        auto internalreturn_instruction =
+            bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALRETURN).build();
         instructions.push_back(internalreturn_instruction);
     }
 
@@ -860,9 +860,8 @@ void ProgramBlock::finalize_with_jump_if(ProgramBlock* target_then_block,
 
 void ProgramBlock::insert_internal_call(ProgramBlock* target_block)
 {
-    auto internalcall_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALCALL)
-                                     .operand(0U)
-                                     .build();
+    auto internalcall_instruction =
+        bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALCALL).operand(0U).build();
     instructions.push_back(internalcall_instruction);
     internal_call_instruction_indicies_to_patch[instructions.size() - 1] = target_block;
     this->successors.push_back(target_block);
@@ -870,14 +869,16 @@ void ProgramBlock::insert_internal_call(ProgramBlock* target_block)
     target_block->caller = this->caller;
 }
 
-void ProgramBlock::patch_internal_calls() {
+void ProgramBlock::patch_internal_calls()
+{
     for (auto [instruction_index, target_block] : internal_call_instruction_indicies_to_patch) {
         auto internalcall_instruction = instructions.at(instruction_index);
         if (target_block->offset == -1) {
             throw std::runtime_error("Target block offset is not set, should not happen");
         }
-        auto internalcall_instruction_builder = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALCALL)
-                                                 .operand(static_cast<uint32_t>(target_block->offset))     ;
+        auto internalcall_instruction_builder =
+            bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALCALL)
+                .operand(static_cast<uint32_t>(target_block->offset));
         instructions.at(instruction_index) = internalcall_instruction_builder.build();
     }
     internal_call_instruction_indicies_to_patch.clear();

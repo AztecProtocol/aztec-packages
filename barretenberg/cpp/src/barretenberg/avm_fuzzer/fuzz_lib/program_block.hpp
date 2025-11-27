@@ -28,10 +28,10 @@
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 enum class TerminatorType {
-  RETURN,
-  JUMP,
-  JUMP_IF,
-  NONE,
+    RETURN,
+    JUMP,
+    JUMP_IF,
+    NONE,
 };
 
 class ProgramBlock {
@@ -138,7 +138,7 @@ class ProgramBlock {
 
     bool is_memory_address_set(uint16_t address);
 
-    /// @brief in `insert_internal_call`  we insert INTERNALCALL instruction with 0 offset, because we don't know the resulting block offsets
-    /// this method patches the INTERNALCALL instructions with the actual offset
+    /// @brief in `insert_internal_call`  we insert INTERNALCALL instruction with 0 offset, because we don't know the
+    /// resulting block offsets this method patches the INTERNALCALL instructions with the actual offset
     void patch_internal_calls();
 };
