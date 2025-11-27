@@ -355,13 +355,14 @@ TYPED_TEST(UltraHonkTests, NonTrivialTagPermutation)
     circuit_builder.create_add_gate(
         { c_idx, d_idx, circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), fr::zero() });
 
-    circuit_builder.create_tag(1, 2);
-    circuit_builder.create_tag(2, 1);
+    auto first_tag = circuit_builder.get_new_tag();
+    auto second_tag = circuit_builder.get_new_tag();
+    circuit_builder.set_tau_transposition(first_tag, second_tag);
 
-    circuit_builder.assign_tag(a_idx, 1);
-    circuit_builder.assign_tag(b_idx, 1);
-    circuit_builder.assign_tag(c_idx, 2);
-    circuit_builder.assign_tag(d_idx, 2);
+    circuit_builder.assign_tag(a_idx, first_tag);
+    circuit_builder.assign_tag(b_idx, first_tag);
+    circuit_builder.assign_tag(c_idx, second_tag);
+    circuit_builder.assign_tag(d_idx, second_tag);
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
@@ -386,13 +387,14 @@ TYPED_TEST(UltraHonkTests, NonTrivialTagPermutationAndCycles)
     auto h_idx = circuit_builder.add_variable(c);
     circuit_builder.assert_equal(g_idx, h_idx);
 
-    circuit_builder.create_tag(1, 2);
-    circuit_builder.create_tag(2, 1);
+    auto first_tag = circuit_builder.get_new_tag();
+    auto second_tag = circuit_builder.get_new_tag();
+    circuit_builder.set_tau_transposition(first_tag, second_tag);
 
-    circuit_builder.assign_tag(a_idx, 1);
-    circuit_builder.assign_tag(c_idx, 1);
-    circuit_builder.assign_tag(e_idx, 2);
-    circuit_builder.assign_tag(g_idx, 2);
+    circuit_builder.assign_tag(a_idx, first_tag);
+    circuit_builder.assign_tag(c_idx, first_tag);
+    circuit_builder.assign_tag(e_idx, second_tag);
+    circuit_builder.assign_tag(g_idx, second_tag);
 
     circuit_builder.create_add_gate(
         { b_idx, a_idx, circuit_builder.zero_idx(), fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
@@ -420,13 +422,14 @@ TYPED_TEST(UltraHonkTests, BadTagPermutation)
         circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx(), 1, 1, 0, 0 });
         circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx(), 1, 1, 0, -1 });
 
-        circuit_builder.create_tag(1, 2);
-        circuit_builder.create_tag(2, 1);
+        auto first_tag = circuit_builder.get_new_tag();
+        auto second_tag = circuit_builder.get_new_tag();
+        circuit_builder.set_tau_transposition(first_tag, second_tag);
 
-        circuit_builder.assign_tag(a_idx, 1);
-        circuit_builder.assign_tag(b_idx, 1);
-        circuit_builder.assign_tag(c_idx, 2);
-        circuit_builder.assign_tag(d_idx, 2);
+        circuit_builder.assign_tag(a_idx, first_tag);
+        circuit_builder.assign_tag(b_idx, first_tag);
+        circuit_builder.assign_tag(c_idx, second_tag);
+        circuit_builder.assign_tag(d_idx, second_tag);
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);

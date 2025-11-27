@@ -90,6 +90,14 @@ template <typename FF_> class CircuitBuilderBase {
      * real_variable_index[index] == index, i.e. it is the identity map
      */
     std::vector<uint32_t> real_variable_index;
+    /**
+     * @brief `real_variable_tags` is the tagging mechanism for the the multiset-equality check.
+     *
+     * @details The generalized permutation argument checks both copy constraints and multiset equalities. This is
+     * mediated by a tag; each real variable has a tag. (By default, the tags are set to `DUMMY_TAG == 0`. We assume
+     * that these are not involved in any non-trivial multiset-equality checks.)
+     *
+     */
     std::vector<uint32_t> real_variable_tags;
     uint32_t current_tag = DUMMY_TAG;
 

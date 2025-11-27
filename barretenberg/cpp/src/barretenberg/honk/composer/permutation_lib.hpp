@@ -50,8 +50,9 @@ struct Mapping {
     std::shared_ptr<uint32_t[]> row_idx; // row idx of next entry in copy cycle
     std::shared_ptr<uint8_t[]> col_idx;  // column idx of next entry in copy cycle
     std::shared_ptr<bool[]> is_public_input;
-    std::shared_ptr<bool[]> is_tag; // is this element a tag,  (N.B. For each permutation polynomial (i.e., id_i or
-                                    // sigma_j), only one element per cycle is a tag.)
+    std::shared_ptr<bool[]>
+        is_tag; // is this element a tag,  (N.B. For each permutation polynomial (i.e., id_i or
+                // sigma_j), only one element per cycle is a tag. This follows the generalized permutation argument.)
     size_t _size = 0;
 
     Mapping() = default;
