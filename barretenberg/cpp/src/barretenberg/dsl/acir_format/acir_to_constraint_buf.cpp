@@ -708,24 +708,24 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& blo
         };
     };
 
-    // Lambda to determine whether a memory operation is a ROM or RAM operation
-    auto is_rom_operation = [&](const Acir::Expression& expr) {
-        bool is_rom = true;
+    // Lambda to determine whether a memory operation is a read or write operation
+    auto is_read_operation = [&](const Acir::Expression& expr) {
+        bool is_read = true;
 
         mul_quad_<fr> quad = serialize_mul_quad_gate(expr);
 
         // A ROM operation is given by a zero Expression
-        is_rom &= quad.mul_scaling == fr::zero();
-        is_rom &= quad.a_scaling == fr::zero();
-        is_rom &= quad.b_scaling == fr::zero();
-        is_rom &= quad.c_scaling == fr::zero();
-        is_rom &= quad.d_scaling == fr::zero();
-        is_rom &= quad.const_scaling == fr::zero();
+        is_read &= quad.mul_scaling == fr::zero();
+        is_read &= quad.a_scaling == fr::zero();
+        is_read &= quad.b_scaling == fr::zero();
+        is_read &= quad.c_scaling == fr::zero();
+        is_read &= quad.d_scaling == fr::zero();
+        is_read &= quad.const_scaling == fr::zero();
 
-        return is_rom;
+        return is_read;
     };
 
-    AccessType access_type = is_rom_operation(mem_op.op.operation) ? AccessType::Read : AccessType::Write;
+    AccessType access_type = is_read_operation(mem_op.op.operation) ? AccessType::Read : AccessType::Write;
     if (access_type == AccessType::Write) {
         // We are not allowed to write on the databus
         BB_ASSERT((block.type != BlockType::CallData) && (block.type != BlockType::ReturnData));
