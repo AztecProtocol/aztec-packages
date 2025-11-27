@@ -21,6 +21,7 @@ import {
 } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
+import { NoteDao } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -31,7 +32,6 @@ import { ORACLE_VERSION } from '../oracle_version.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
-import { NoteDao } from '../storage/note_data_provider/note_dao.js';
 import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
@@ -97,16 +97,19 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       status,
       scopes,
     });
-    return noteDaos.map(({ contractAddress, storageSlot, noteNonce, note, noteHash, siloedNullifier, index }) => ({
-      contractAddress,
-      storageSlot,
-      noteNonce,
-      note,
-      noteHash,
-      siloedNullifier,
-      // PXE can use this index to get full MembershipWitness
-      index,
-    }));
+    return noteDaos.map(
+      ({ contractAddress, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
+        contractAddress,
+        storageSlot,
+        randomness,
+        noteNonce,
+        note,
+        noteHash,
+        siloedNullifier,
+        // PXE can use this index to get full MembershipWitness
+        index,
+      }),
+    );
   }
 
   async getFunctionArtifact(
@@ -597,6 +600,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       this.deliverNote(
         request.contractAddress,
         request.storageSlot,
+        request.randomness,
         request.noteNonce,
         request.content,
         request.noteHash,
@@ -627,6 +631,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async deliverNote(
     contractAddress: AztecAddress,
     storageSlot: Fr,
+    randomness: Fr,
     noteNonce: Fr,
     content: Fr[],
     noteHash: Fr,
@@ -678,6 +683,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       new Note(content),
       contractAddress,
       storageSlot,
+      randomness,
       noteNonce,
       noteHash,
       siloedNullifier,
@@ -685,9 +691,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
       uniqueNoteHashTreeIndexInBlock?.l2BlockHash.toString(),
       uniqueNoteHashTreeIndexInBlock?.data,
-      recipient,
     );
 
+    // The note was found by `recipient`, so we use that as the scope when storing the note.
     await this.noteDataProvider.addNotes([noteDao], recipient);
     this.log.verbose('Added note', {
       index: noteDao.index,

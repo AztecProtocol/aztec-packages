@@ -293,7 +293,7 @@ export class EpochsTestContext {
   /** Waits until the given L2 block number is mined. */
   public async waitUntilL2BlockNumber(target: number, timeout = 60) {
     await retryUntil(
-      () => Promise.resolve(target <= this.monitor.l2BlockNumber),
+      () => Promise.resolve(target <= this.monitor.checkpointNumber),
       `Wait until L2 block ${target}`,
       timeout,
       0.1,
@@ -303,12 +303,12 @@ export class EpochsTestContext {
   /** Waits until the given L2 block number is marked as proven. */
   public async waitUntilProvenL2BlockNumber(t: number, timeout = 60) {
     await retryUntil(
-      () => Promise.resolve(t <= this.monitor.l2ProvenBlockNumber),
+      () => Promise.resolve(t <= this.monitor.provenCheckpointNumber),
       `Wait proven L2 block ${t}`,
       timeout,
       0.1,
     );
-    return this.monitor.l2ProvenBlockNumber;
+    return this.monitor.provenCheckpointNumber;
   }
 
   /** Waits until the last slot of the proof submission window for a given epoch. */

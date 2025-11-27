@@ -12,10 +12,10 @@ import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 
 contract FakeRollup {
-  uint256 public getProvenBlockNumber = 0;
+  uint256 public getProvenCheckpointNumber = 0;
 
-  function setProvenBlockNum(uint256 _provenBlockNum) public {
-    getProvenBlockNumber = _provenBlockNum;
+  function setProvenCheckpointNum(uint256 _provenCheckpointNum) public {
+    getProvenCheckpointNumber = _provenCheckpointNum;
   }
 }
 
@@ -58,11 +58,11 @@ contract OutboxTest is Test {
     outbox.insert(1, root);
   }
 
-  function testRevertIfInsertingBlockAlreadyProven() public {
+  function testRevertIfInsertingCheckpointAlreadyProven() public {
     bytes32 root = zeroedTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__BlockAlreadyProven.selector, 0));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__CheckpointAlreadyProven.selector, 0));
     outbox.insert(0, root);
   }
 
@@ -103,14 +103,14 @@ contract OutboxTest is Test {
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root);
 
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
 
     bytes32 actualRoot = outbox.getRootData(1);
     assertEq(root, actualRoot);
   }
 
   function testRevertIfConsumingMessageBelongingToOther() public {
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
 
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
@@ -121,7 +121,7 @@ contract OutboxTest is Test {
   }
 
   function testRevertIfConsumingMessageWithInvalidChainId() public {
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
 
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
@@ -133,7 +133,7 @@ contract OutboxTest is Test {
   }
 
   function testRevertIfVersionMismatch() public {
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
 
     DataStructures.L2ToL1Msg memory message = _fakeMessage(address(this), 123);
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
@@ -145,15 +145,15 @@ contract OutboxTest is Test {
     outbox.consume(message, 1, 1, path);
   }
 
-  function testRevertIfNothingInsertedAtBlockNumber() public {
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
-    uint256 blockNumber = 1;
+  function testRevertIfNothingInsertedAtCheckpointNumber() public {
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
+    uint256 checkpointNumber = 1;
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
 
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsumeAtBlock.selector, blockNumber));
-    outbox.consume(fakeMessage, blockNumber, 1, path);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsumeAtCheckpoint.selector, checkpointNumber));
+    outbox.consume(fakeMessage, checkpointNumber, 1, path);
   }
 
   function testRevertIfTryingToConsumeSameMessage() public {
@@ -167,7 +167,7 @@ contract OutboxTest is Test {
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root);
 
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
 
     uint256 leafIndex = 0;
     uint256 leafId = 2 ** DEFAULT_TREE_HEIGHT + leafIndex;
@@ -189,7 +189,7 @@ contract OutboxTest is Test {
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root);
 
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
 
     NaiveMerkle smallerTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT - 1);
     smallerTree.insertLeaf(leaf);
@@ -217,7 +217,7 @@ contract OutboxTest is Test {
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root);
 
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
 
@@ -226,7 +226,7 @@ contract OutboxTest is Test {
   }
 
   function testRevertIfConsumingFromTreeNotProven() public {
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(0);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(0);
 
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
     bytes32 leaf = fakeMessage.sha256ToField();
@@ -240,7 +240,7 @@ contract OutboxTest is Test {
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__BlockNotProven.selector, 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__CheckpointNotProven.selector, 1));
     outbox.consume(fakeMessage, 1, 0, path);
   }
 
@@ -255,20 +255,20 @@ contract OutboxTest is Test {
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root);
 
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
 
     uint256 leafIndex = 0;
     uint256 leafId = 2 ** DEFAULT_TREE_HEIGHT + leafIndex;
     (bytes32[] memory path,) = tree.computeSiblingPath(leafIndex);
 
-    bool statusBeforeConsumption = outbox.hasMessageBeenConsumedAtBlock(1, leafId);
+    bool statusBeforeConsumption = outbox.hasMessageBeenConsumedAtCheckpoint(1, leafId);
     assertEq(abi.encode(0), abi.encode(statusBeforeConsumption));
 
     vm.expectEmit(true, true, true, true, address(outbox));
     emit IOutbox.MessageConsumed(1, root, leaf, leafId);
     outbox.consume(fakeMessage, 1, leafIndex, path);
 
-    bool statusAfterConsumption = outbox.hasMessageBeenConsumedAtBlock(1, leafId);
+    bool statusAfterConsumption = outbox.hasMessageBeenConsumedAtCheckpoint(1, leafId);
     assertEq(abi.encode(1), abi.encode(statusAfterConsumption));
   }
 
@@ -276,10 +276,10 @@ contract OutboxTest is Test {
   /// forge-config: default.fuzz.runs = 64
   function testInsertAndConsumeWithVariedRecipients(
     address[256] calldata _recipients,
-    uint256 _blockNumber,
+    uint256 _checkpointNumber,
     uint8 _size
   ) public {
-    uint256 blockNumber = bound(_blockNumber, 1, 256);
+    uint256 checkpointNumber = bound(_checkpointNumber, 1, 256);
     uint256 numberOfMessages = bound(_size, 1, _recipients.length);
     DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](numberOfMessages);
 
@@ -297,25 +297,25 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.RootAdded(blockNumber, root);
+    emit IOutbox.RootAdded(checkpointNumber, root);
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(blockNumber, root);
+    outbox.insert(checkpointNumber, root);
 
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(blockNumber);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(checkpointNumber);
 
     for (uint256 i = 0; i < numberOfMessages; i++) {
       (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(i);
       uint256 leafId = 2 ** treeHeight + i;
 
       vm.expectEmit(true, true, true, true, address(outbox));
-      emit IOutbox.MessageConsumed(blockNumber, root, leaf, leafId);
+      emit IOutbox.MessageConsumed(checkpointNumber, root, leaf, leafId);
       vm.prank(_recipients[i]);
-      outbox.consume(messages[i], blockNumber, i, path);
+      outbox.consume(messages[i], checkpointNumber, i, path);
     }
   }
 
-  function testCheckOutOfBoundsStatus(uint256 _blockNumber, uint256 _leafId) public view {
-    bool outOfBounds = outbox.hasMessageBeenConsumedAtBlock(_blockNumber, _leafId);
+  function testCheckOutOfBoundsStatus(uint256 _checkpointNumber, uint256 _leafId) public view {
+    bool outOfBounds = outbox.hasMessageBeenConsumedAtCheckpoint(_checkpointNumber, _leafId);
     assertFalse(outOfBounds);
   }
 
@@ -327,7 +327,7 @@ contract OutboxTest is Test {
     outbox.insert(2, root);
     vm.stopPrank();
 
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
 
     {
       bytes32 actualRoot = outbox.getRootData(1);
@@ -344,18 +344,18 @@ contract OutboxTest is Test {
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
     bytes32 leaf = fakeMessage.sha256ToField();
 
-    // There's only 1 message in the entire block, so the root is the leaf.
+    // There's only 1 message in the entire checkpoint, so the root is the leaf.
     bytes32 root = leaf;
 
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, leaf);
 
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(1);
 
     uint256 leafIndex = 0;
     uint256 leafId = 1;
 
-    bool statusBeforeConsumption = outbox.hasMessageBeenConsumedAtBlock(1, leafId);
+    bool statusBeforeConsumption = outbox.hasMessageBeenConsumedAtCheckpoint(1, leafId);
     assertEq(abi.encode(0), abi.encode(statusBeforeConsumption));
 
     vm.expectEmit(true, true, true, true, address(outbox));
@@ -363,7 +363,7 @@ contract OutboxTest is Test {
     bytes32[] memory path = new bytes32[](0);
     outbox.consume(fakeMessage, 1, leafIndex, path);
 
-    bool statusAfterConsumption = outbox.hasMessageBeenConsumedAtBlock(1, leafId);
+    bool statusAfterConsumption = outbox.hasMessageBeenConsumedAtCheckpoint(1, leafId);
     assertEq(abi.encode(1), abi.encode(statusAfterConsumption));
   }
 
@@ -374,7 +374,7 @@ contract OutboxTest is Test {
       fakeMessages[i] = _fakeMessage(address(this), i);
       leaves[i] = fakeMessages[i].sha256ToField();
     }
-    uint256 blockNumber = 1;
+    uint256 checkpointNumber = 1;
 
     // Build a wonky tree of 3 txs. Each tx has 1 message, so the txOutHash equals the only leaf.
     //    outHash
@@ -402,9 +402,9 @@ contract OutboxTest is Test {
     bytes32 root = topTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(blockNumber, root);
+    outbox.insert(checkpointNumber, root);
 
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(blockNumber);
+    FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(checkpointNumber);
 
     // Consume the message of tx0.
     {
@@ -418,10 +418,10 @@ contract OutboxTest is Test {
         path[0] = subtreePath[0];
         path[1] = topTreePath[0];
       }
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
 
-      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, checkpointNumber, leafId));
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
     }
 
     // Consume the message of tx1.
@@ -436,10 +436,10 @@ contract OutboxTest is Test {
         path[0] = subtreePath[0];
         path[1] = topTreePath[0];
       }
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
 
-      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, checkpointNumber, leafId));
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
     }
 
     // Consume the message of tx2.
@@ -448,10 +448,10 @@ contract OutboxTest is Test {
       uint256 leafIndex = 1;
       uint256 leafId = 2 ** 1 + 1;
       (bytes32[] memory path,) = topTree.computeSiblingPath(1);
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
 
-      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, checkpointNumber, leafId));
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
     }
   }
 
@@ -467,7 +467,7 @@ contract OutboxTest is Test {
       fakeMessages[i] = _fakeMessage(address(this), i);
       leaves[i] = fakeMessages[i].sha256ToField();
     }
-    uint256 blockNumber = 1;
+    uint256 checkpointNumber = 1;
 
     bytes32[] memory txOutHashes = new bytes32[](3);
 
@@ -530,9 +530,9 @@ contract OutboxTest is Test {
       bytes32 root = topTree.computeRoot();
 
       vm.prank(ROLLUP_CONTRACT);
-      outbox.insert(blockNumber, root);
+      outbox.insert(checkpointNumber, root);
 
-      FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(blockNumber);
+      FakeRollup(ROLLUP_CONTRACT).setProvenCheckpointNum(checkpointNumber);
     }
 
     // Consume messages[0] in tx0.
@@ -548,10 +548,10 @@ contract OutboxTest is Test {
       bytes32[] memory path = new bytes32[](2);
       path[0] = txOutHashes[1];
       path[1] = txOutHashes[2];
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
 
-      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, checkpointNumber, leafId));
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
     }
 
     // Consume messages[2] in tx1.
@@ -573,10 +573,10 @@ contract OutboxTest is Test {
       path[1] = leaves[3];
       path[2] = txOutHashes[0];
       path[3] = txOutHashes[2];
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
 
-      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, checkpointNumber, leafId));
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
     }
 
     // Consume messages[4] in tx2.
@@ -595,10 +595,10 @@ contract OutboxTest is Test {
       path[0] = leaves[5];
       path[1] = leaves[6];
       path[2] = subtreeRoot;
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
 
-      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, checkpointNumber, leafId));
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
     }
 
     // Consume messages[6] in tx2.
@@ -614,10 +614,10 @@ contract OutboxTest is Test {
       bytes32[] memory path = new bytes32[](2);
       path[0] = tx2SubtreeRoot;
       path[1] = subtreeRoot;
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
 
-      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
-      outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, checkpointNumber, leafId));
+      outbox.consume(fakeMessages[msgIndex], checkpointNumber, leafIndex, path);
     }
   }
 }

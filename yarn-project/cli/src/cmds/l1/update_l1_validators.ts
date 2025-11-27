@@ -299,9 +299,9 @@ export async function debugRollup({ rpcUrls, chainId, rollupAddress, log }: Roll
   const publicClient = getPublicClient({ l1RpcUrls: rpcUrls, l1ChainId: chainId });
   const rollup = new RollupContract(publicClient, rollupAddress);
 
-  const pendingNum = await rollup.getBlockNumber();
+  const pendingNum = await rollup.getCheckpointNumber();
   log(`Pending block num: ${pendingNum}`);
-  const provenNum = await rollup.getProvenBlockNumber();
+  const provenNum = await rollup.getProvenCheckpointNumber();
   log(`Proven block num: ${provenNum}`);
   const validators = await rollup.getAttesters();
   log(`Validators: ${validators.map(v => v.toString()).join(', ')}`);

@@ -928,7 +928,23 @@ TEST(fuzz, EmitNoteHashThenNoteHashExists)
     auto cpp_simulator = CppSimulator();
     auto result = cpp_simulator.simulate(bytecode, {});
     EXPECT_FALSE(result.reverted);
-    // TODO(sn):fix notes
-    // EXPECT_EQ(result.output.at(0), 1);
+    EXPECT_EQ(result.output.at(0), 1);
 }
 } // namespace notes_and_nullifiers
+
+namespace calldata_returndata {
+TEST(fuzz, CopyCalldataThenReturnData)
+{
+    auto calldatacopy_instruction = CALLDATACOPY_Instruction{
+        .dst_offset = 0, .copy_size = 1, .copy_size_offset = 1, .cd_start = 0, .cd_start_offset = 2
+    };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { calldatacopy_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, { FF(1337) });
+    EXPECT_EQ(result.output.at(0), 1337);
+}
+} // namespace calldata_returndata

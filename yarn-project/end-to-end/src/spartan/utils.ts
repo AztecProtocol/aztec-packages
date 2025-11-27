@@ -160,9 +160,9 @@ export async function startPortForward({
   return { process, port };
 }
 
-export function startPortForwardForRPC(namespace: string) {
+export function startPortForwardForRPC(namespace: string, resourceType = 'services', index = 0) {
   return startPortForward({
-    resource: `services/${namespace}-rpc-aztec-node`,
+    resource: `${resourceType}/${namespace}-rpc-aztec-node-${index}`,
     namespace,
     containerPort: 8080,
   });

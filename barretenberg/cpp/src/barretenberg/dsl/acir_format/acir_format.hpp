@@ -108,11 +108,6 @@ struct AcirFormat {
     // Has length equal to num_acir_opcodes.
     std::vector<size_t> gates_per_opcode;
 
-    // map witness with their minimal bit-range
-    std::map<uint32_t, uint32_t> minimal_range;
-    // map witness with their minimal bit-range implied by array operations
-    std::map<uint32_t, uint32_t> index_range;
-
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
 
@@ -244,5 +239,14 @@ template <typename Builder> class GateCounter {
  * we implicitly get a check that the gate is non-zero when adding it to the Builder.
  */
 template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad);
+
+/**
+ * @brief Check if a mul add gate is valid.
+ *
+ */
+template <typename Builder>
+void check_mul_add_gate(Builder& builder,
+                        const mul_quad_<typename Builder::FF>& mul_quad,
+                        const typename Builder::FF next_wire_w4 = Builder::FF::zero());
 
 } // namespace acir_format

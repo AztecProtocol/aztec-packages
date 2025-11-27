@@ -420,6 +420,120 @@ describe('L1TxUtils', () => {
       expect(retryGasPrice.maxFeePerGas).toBe(expectedMaxFee);
     });
 
+    it('handles fixed priority fee with fractional part', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Test with a fractional priority fee (1.5 gwei)
+      gasUtils.updateConfig({
+        ...defaultL1TxUtilsConfig,
+        fixedPriorityFeePerGas: 1.5,
+      });
+
+      const gasPrice = await gasUtils['getGasPrice']();
+
+      // Priority fee should be 1.5 gwei = 1_500_000_000 wei
+      const expectedPriorityFee = BigInt(Math.trunc(1.5 * Number(WEI_CONST)));
+      expect(gasPrice.maxPriorityFeePerGas).toBe(expectedPriorityFee);
+      expect(gasPrice.maxPriorityFeePerGas).toBe(1_500_000_000n);
+
+      // Test with full 9 decimal places (2.123456789 gwei)
+      gasUtils.updateConfig({
+        ...defaultL1TxUtilsConfig,
+        fixedPriorityFeePerGas: 2.123456789,
+      });
+
+      const gasPrice2 = await gasUtils['getGasPrice']();
+
+      const expectedPriorityFee2 = BigInt(Math.trunc(2.123456789 * Number(WEI_CONST)));
+      expect(gasPrice2.maxPriorityFeePerGas).toBe(expectedPriorityFee2);
+      expect(gasPrice2.maxPriorityFeePerGas).toBe(2_123_456_789n);
+    });
+
+    it('handles maxGwei with fractional part', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Test with a fractional maxGwei (500.5 gwei)
+      gasUtils.updateConfig({
+        ...defaultL1TxUtilsConfig,
+        maxGwei: 500.5,
+      });
+
+      // Set very high base fee to trigger the max cap
+      const highBaseFee = WEI_CONST * 600n; // 600 gwei
+      await cheatCodes.setNextBlockBaseFeePerGas(highBaseFee);
+      await cheatCodes.evmMine();
+
+      const gasPrice = await gasUtils['getGasPrice']();
+
+      // Max fee should be capped at 500.5 gwei = 500_500_000_000 wei
+      const expectedMaxGwei = BigInt(Math.trunc(500.5 * Number(WEI_CONST)));
+      expect(gasPrice.maxFeePerGas).toBe(expectedMaxGwei);
+      expect(gasPrice.maxFeePerGas).toBe(500_500_000_000n);
+
+      // Test with more complex fractional value (123.456789 gwei)
+      gasUtils.updateConfig({
+        ...defaultL1TxUtilsConfig,
+        maxGwei: 123.456789,
+      });
+
+      const gasPrice2 = await gasUtils['getGasPrice']();
+
+      // Should cap at 123.456789 gwei = 123_456_789_000 wei
+      const expectedMaxGwei2 = BigInt(Math.trunc(123.456789 * Number(WEI_CONST)));
+      expect(gasPrice2.maxFeePerGas).toBe(expectedMaxGwei2);
+      expect(gasPrice2.maxFeePerGas).toBe(123_456_789_000n);
+    });
+
+    it('handles maxBlobGwei with fractional part', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Mock the getBlobBaseFee to return our high value
+      const originalGetBlobBaseFee = l1Client.getBlobBaseFee;
+
+      // Test with a fractional maxBlobGwei (100.5 gwei)
+      // Set stallTimeMs to 0 to avoid stall-time bumps in this test
+      gasUtils.updateConfig({
+        ...defaultL1TxUtilsConfig,
+        maxBlobGwei: 100.5,
+        stallTimeMs: 0,
+      });
+
+      try {
+        // Mock high blob base fee to trigger the max cap (200 gwei > 100.5 gwei cap)
+        l1Client.getBlobBaseFee = () => Promise.resolve(WEI_CONST * 200n);
+
+        const gasPrice = await gasUtils['getGasPrice'](undefined, true);
+
+        // Max blob fee should be capped at 100.5 gwei = 100_500_000_000 wei
+        const expectedMaxBlobGwei = BigInt(Math.trunc(100.5 * Number(WEI_CONST)));
+        expect(gasPrice.maxFeePerBlobGas).toBe(expectedMaxBlobGwei);
+        expect(gasPrice.maxFeePerBlobGas).toBe(100_500_000_000n);
+
+        // Test with more complex fractional value (250.123456 gwei)
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          maxBlobGwei: 250.123456,
+          stallTimeMs: 0,
+        });
+
+        // Use higher base fee to trigger this cap (300 gwei > 250.123456 gwei cap)
+        l1Client.getBlobBaseFee = () => Promise.resolve(WEI_CONST * 300n);
+
+        const gasPrice2 = await gasUtils['getGasPrice'](undefined, true);
+
+        // Should cap at 250.123456 gwei = 250_123_456_000 wei
+        const expectedMaxBlobGwei2 = BigInt(Math.trunc(250.123456 * Number(WEI_CONST)));
+        expect(gasPrice2.maxFeePerBlobGas).toBe(expectedMaxBlobGwei2);
+        expect(gasPrice2.maxFeePerBlobGas).toBe(250_123_456_000n);
+      } finally {
+        // Restore original method
+        l1Client.getBlobBaseFee = originalGetBlobBaseFee;
+      }
+    });
+
     it('respects minimum gas price bump for replacements', async () => {
       gasUtils.updateConfig({
         ...defaultL1TxUtilsConfig,

@@ -171,6 +171,8 @@ spec:
           value: "{{ .Values.service.p2p.enabled }}"
         - name: P2P_PORT
           value: "{{ .Values.service.p2p.port }}"
+        - name: P2P_BROADCAST_PORT
+          value: "{{ .Values.service.p2p.announcePort }}"
         - name: PROVER_REAL_PROOFS
           value: "{{ .Values.node.proverRealProofs }}"
         - name: SENTINEL_ENABLED
@@ -260,8 +262,14 @@ spec:
         - name: TEST_ACCOUNTS
           value: {{ .Values.global.testAccounts | quote }}
         {{- if .Values.global.otelCollectorEndpoint }}
+        {{- if .Values.node.otelIncludeMetrics }}
+        - name: OTEL_INCLUDE_METRICS
+          value: {{ .Values.node.otelIncludeMetrics | quote }}
+        {{- end }}
+        {{- if .Values.node.otelExcludeMetrics }}
         - name: OTEL_EXCLUDE_METRICS
           value: {{ .Values.node.otelExcludeMetrics | quote }}
+        {{- end }}
         - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
           value: "{{ .Values.global.otelCollectorEndpoint }}/v1/metrics"
         - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
@@ -288,10 +296,17 @@ spec:
         {{- end }}
         {{- if .Values.service.p2p.enabled }}
         - containerPort: {{ .Values.service.p2p.port }}
+          protocol: TCP
           name: p2p-tcp
+          {{- if and (not .Values.hostNetwork) (not .Values.service.p2p.nodePortEnabled) }}
+          hostPort: {{ .Values.service.p2p.announcePort }}
+          {{- end }}
         - containerPort: {{ .Values.service.p2p.port }}
           protocol: UDP
           name: p2p-udp
+          {{- if and (not .Values.hostNetwork) (not .Values.service.p2p.nodePortEnabled) }}
+          hostPort: {{ .Values.service.p2p.announcePort }}
+          {{- end }}
         {{- end }}
       resources:
         {{- toYaml .Values.node.resources | nindent 8 }}
@@ -307,9 +322,9 @@ spec:
         name: {{ include "chart.fullname" . }}-extra-scripts
     {{- end }}
     {{- if .Values.node.secret.filesEnabled }}
-    - name: config
+    - name: secrets
       secret:
-        secretName: name: {{ include "chart.fullname" . }}-files
+        secretName: {{ include "chart.fullname" . }}-files
     {{- end }}
     {{- if .Values.persistence.enabled }}
     {{- if .Values.persistence.existingClaim }}

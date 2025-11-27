@@ -77,7 +77,7 @@ export async function proverStats(opts: {
   // But if we do, fetch the events for each block submitted, so we can look up their timestamp
   const blockEvents = await getL2BlockEvents(startBlock, lastBlockNum, batchSize, debugLog, publicClient, rollup);
   debugLog.verbose(
-    `First L2 block within range is ${blockEvents[0]?.args.blockNumber} at L1 block ${blockEvents[0]?.blockNumber}`,
+    `First L2 block within range is ${blockEvents[0]?.args.checkpointNumber} at L1 block ${blockEvents[0]?.blockNumber}`,
   );
 
   // Get the timestamps for every block on every log, both for proof and block submissions
@@ -96,7 +96,7 @@ export async function proverStats(opts: {
   // Map from l2 block number to the l1 block in which it was submitted
   const l2BlockSubmissions: Record<string, bigint> = {};
   for (const blockEvent of blockEvents) {
-    l2BlockSubmissions[blockEvent.args.blockNumber!.toString()] = blockEvent.blockNumber;
+    l2BlockSubmissions[blockEvent.args.checkpointNumber!.toString()] = blockEvent.blockNumber;
   }
 
   // If we want raw logs, output them
@@ -188,14 +188,14 @@ async function getL2BlockEvents(
       address: getAddress(rollup.toString()),
       event: getAbiItem({
         abi: RollupAbi,
-        name: 'L2BlockProposed',
+        name: 'CheckpointProposed',
       }),
       fromBlock: blockNum,
       toBlock: end,
     });
 
     events.push(...newEvents);
-    debugLog.verbose(`Got ${newEvents.length} events querying l2 block submitted from block ${blockNum} to ${end}`);
+    debugLog.verbose(`Got ${newEvents.length} events querying checkpoints submitted from block ${blockNum} to ${end}`);
     blockNum += batchSize;
   }
   return events;

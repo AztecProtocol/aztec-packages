@@ -207,7 +207,7 @@ describe('e2e_gov_proposal', () => {
     logger.warn(`Test tx timed out as expected`);
 
     // Check that the block number has indeed increased on L1 so sequencers cant pass the sync check
-    expect(await monitor.run().then(b => b.l2BlockNumber)).toBeGreaterThan(lastBlockSynced);
+    expect(await monitor.run().then(b => b.checkpointNumber)).toBeGreaterThan(lastBlockSynced);
     logger.warn(`L2 block number has increased on L1`);
 
     // Start voting!

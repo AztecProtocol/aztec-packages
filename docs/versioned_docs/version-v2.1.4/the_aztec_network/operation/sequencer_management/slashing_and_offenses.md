@@ -175,8 +175,26 @@ SLASH_EXECUTE_ROUNDS_LOOK_BACK=4  # Check 4 rounds back for executable slashing 
 
 You can update slashing configuration while your node is running using the `nodeAdmin_setConfig` method:
 
+**CLI Method**:
+
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"nodeAdmin_setConfig",
+    "params":[{
+      "slashInactivityPenalty":"2000000000000000000000",
+      "slashInactivityTargetPercentage":0.9
+    }],
+    "id":1
+  }'
+```
+
+**Docker Method**:
+
+```bash
+docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "jsonrpc":"2.0",
@@ -209,8 +227,22 @@ SLASH_VALIDATORS_NEVER=0xabcd...,0xef01...
 
 Check your current slashing configuration:
 
+**CLI Method**:
+
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"nodeAdmin_getConfig",
+    "id":1
+  }'
+```
+
+**Docker Method**:
+
+```bash
+docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "jsonrpc":"2.0",

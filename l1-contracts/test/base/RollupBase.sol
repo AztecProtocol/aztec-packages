@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {DecoderBase} from "./DecoderBase.sol";
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
-import {IRollup, BlockLog, SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollup, CheckpointLog, SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -36,48 +36,53 @@ contract RollupBase is DecoderBase {
   address[] internal signers;
   Signature internal attestationsAndSignersSignature;
 
-  mapping(uint256 => uint256) internal blockFees;
+  mapping(uint256 => uint256) internal checkpointFees;
 
-  function _proveBlocks(string memory _name, uint256 _start, uint256 _end, address _prover) internal {
-    _proveBlocks(_name, _start, _end, _prover, "");
+  function _proveCheckpoints(string memory _name, uint256 _start, uint256 _end, address _prover) internal {
+    _proveCheckpoints(_name, _start, _end, _prover, "");
   }
 
-  function _proveBlocksFail(
+  function _proveCheckpointsFail(
     string memory _name,
     uint256 _start,
     uint256 _end,
     address _prover,
     bytes memory _revertMsg
   ) internal {
-    _proveBlocks(_name, _start, _end, _prover, _revertMsg);
+    _proveCheckpoints(_name, _start, _end, _prover, _revertMsg);
   }
 
-  function _proveBlocks(string memory _name, uint256 _start, uint256 _end, address _prover, bytes memory _revertMsg)
-    private
-  {
+  function _proveCheckpoints(
+    string memory _name,
+    uint256 _start,
+    uint256 _end,
+    address _prover,
+    bytes memory _revertMsg
+  ) private {
     DecoderBase.Full memory startFull = load(string.concat(_name, Strings.toString(_start)));
     DecoderBase.Full memory endFull = load(string.concat(_name, Strings.toString(_end)));
 
-    uint256 startBlockNumber = uint256(startFull.block.blockNumber);
-    uint256 endBlockNumber = uint256(endFull.block.blockNumber);
+    uint256 startCheckpointNumber = uint256(startFull.checkpoint.checkpointNumber);
+    uint256 endCheckpointNumber = uint256(endFull.checkpoint.checkpointNumber);
 
-    assertEq(startBlockNumber, _start, "Invalid start block number");
-    assertEq(endBlockNumber, _end, "Invalid end block number");
+    assertEq(startCheckpointNumber, _start, "Invalid start checkpoint number");
+    assertEq(endCheckpointNumber, _end, "Invalid end checkpoint number");
 
-    BlockLog memory parentBlockLog = rollup.getBlock(startBlockNumber - 1);
+    CheckpointLog memory parentCheckpointLog = rollup.getCheckpoint(startCheckpointNumber - 1);
 
     // What are these even?
     // ^ public inputs to the root proof?
-    PublicInputArgs memory args =
-      PublicInputArgs({previousArchive: parentBlockLog.archive, endArchive: endFull.block.archive, proverId: _prover});
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: parentCheckpointLog.archive, endArchive: endFull.checkpoint.archive, proverId: _prover
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
 
-    uint256 size = endBlockNumber - startBlockNumber + 1;
+    uint256 size = endCheckpointNumber - startCheckpointNumber + 1;
     for (uint256 i = 0; i < size; i++) {
       fees[i * 2] = bytes32(uint256(uint160(bytes20(("sequencer"))))); // Need the address to be left padded within the
         // bytes32
-      fees[i * 2 + 1] = bytes32(uint256(blockFees[startBlockNumber + i]));
+      fees[i * 2 + 1] = bytes32(uint256(checkpointFees[startCheckpointNumber + i]));
     }
 
     // All the way down here if reverting.
@@ -88,43 +93,43 @@ contract RollupBase is DecoderBase {
 
     rollup.submitEpochRootProof(
       SubmitEpochRootProofArgs({
-        start: startBlockNumber,
-        end: endBlockNumber,
+        start: startCheckpointNumber,
+        end: endCheckpointNumber,
         args: args,
         fees: fees,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
-        blobInputs: endFull.block.batchedBlobInputs,
+        blobInputs: endFull.checkpoint.batchedBlobInputs,
         proof: ""
       })
     );
   }
 
-  function _proposeBlock(string memory _name, uint256 _slotNumber) public {
-    _proposeBlock(_name, _slotNumber, 0);
+  function _proposeCheckpoint(string memory _name, uint256 _slotNumber) public {
+    _proposeCheckpoint(_name, _slotNumber, 0);
   }
 
-  function _proposeBlock(string memory _name, uint256 _slotNumber, uint256 _manaUsed) public {
+  function _proposeCheckpoint(string memory _name, uint256 _slotNumber, uint256 _manaUsed) public {
     bytes32[] memory extraBlobHashes = new bytes32[](0);
-    _proposeBlock(_name, _slotNumber, _manaUsed, extraBlobHashes, "");
+    _proposeCheckpoint(_name, _slotNumber, _manaUsed, extraBlobHashes, "");
   }
 
-  function _proposeBlockFail(string memory _name, uint256 _slotNumber, uint256 _manaUsed, bytes memory _revertMsg)
+  function _proposeCheckpointFail(string memory _name, uint256 _slotNumber, uint256 _manaUsed, bytes memory _revertMsg)
     public
   {
     bytes32[] memory extraBlobHashes = new bytes32[](0);
-    _proposeBlock(_name, _slotNumber, _manaUsed, extraBlobHashes, _revertMsg);
+    _proposeCheckpoint(_name, _slotNumber, _manaUsed, extraBlobHashes, _revertMsg);
   }
 
-  function _proposeBlockWithExtraBlobs(
+  function _proposeCheckpointWithExtraBlobs(
     string memory _name,
     uint256 _slotNumber,
     uint256 _manaUsed,
     bytes32[] memory _extraBlobHashes
   ) public {
-    _proposeBlock(_name, _slotNumber, _manaUsed, _extraBlobHashes, "");
+    _proposeCheckpoint(_name, _slotNumber, _manaUsed, _extraBlobHashes, "");
   }
 
-  function _proposeBlock(
+  function _proposeCheckpoint(
     string memory _name,
     uint256 _slotNumber,
     uint256 _manaUsed,
@@ -132,7 +137,7 @@ contract RollupBase is DecoderBase {
     bytes memory _revertMsg
   ) private {
     DecoderBase.Full memory full = load(_name);
-    bytes memory blobCommitments = full.block.blobCommitments;
+    bytes memory blobCommitments = full.checkpoint.blobCommitments;
 
     Slot slotNumber = Slot.wrap(_slotNumber);
 
@@ -140,21 +145,21 @@ contract RollupBase is DecoderBase {
     if (slotNumber != Slot.wrap(0)) {
       Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-      full.block.header.timestamp = ts;
-      full.block.header.slotNumber = slotNumber;
+      full.checkpoint.header.timestamp = ts;
+      full.checkpoint.header.slotNumber = slotNumber;
     }
 
-    uint128 baseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(full.block.header.timestamp, true));
-    full.block.header.gasFees.feePerL2Gas = baseFee;
-    full.block.header.totalManaUsed = _manaUsed;
+    uint128 baseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(full.checkpoint.header.timestamp, true));
+    full.checkpoint.header.gasFees.feePerL2Gas = baseFee;
+    full.checkpoint.header.totalManaUsed = _manaUsed;
 
-    blockFees[full.block.blockNumber] = _manaUsed * baseFee;
+    checkpointFees[full.checkpoint.checkpointNumber] = _manaUsed * baseFee;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, Timestamp.unwrap(full.block.header.timestamp)));
+    vm.warp(max(block.timestamp, Timestamp.unwrap(full.checkpoint.header.timestamp)));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
-    full.block.header.contentCommitment.inHash = rollup.getInbox().getRoot(full.block.blockNumber);
+    full.checkpoint.header.contentCommitment.inHash = rollup.getInbox().getRoot(full.checkpoint.checkpointNumber);
 
     {
       bytes32[] memory blobHashes;
@@ -183,8 +188,8 @@ contract RollupBase is DecoderBase {
     }
 
     ProposeArgs memory args = ProposeArgs({
-      header: full.block.header,
-      archive: full.block.archive,
+      header: full.checkpoint.header,
+      archive: full.checkpoint.archive,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
@@ -205,9 +210,9 @@ contract RollupBase is DecoderBase {
     }
 
     bytes32 l2ToL1MessageTreeRoot;
-    uint32 numTxs = full.block.numTxs;
+    uint32 numTxs = full.checkpoint.numTxs;
     if (numTxs != 0) {
-      // NB: The below works with full blocks because we require the largest possible subtrees
+      // NB: The below works with full checkpoints because we require the largest possible subtrees
       // for L2 to L1 messages - usually we make variable height subtrees, the roots of which
       // form a balanced tree
 
@@ -234,10 +239,10 @@ contract RollupBase is DecoderBase {
     }
 
     outbox = Outbox(address(rollup.getOutbox()));
-    bytes32 root = outbox.getRootData(full.block.blockNumber);
+    bytes32 root = outbox.getRootData(full.checkpoint.checkpointNumber);
 
-    // If we are trying to read a block beyond the proven chain, we should see "nothing".
-    if (rollup.getProvenBlockNumber() >= full.block.blockNumber) {
+    // If we are trying to read a checkpoint beyond the proven chain, we should see "nothing".
+    if (rollup.getProvenCheckpointNumber() >= full.checkpoint.checkpointNumber) {
       assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");

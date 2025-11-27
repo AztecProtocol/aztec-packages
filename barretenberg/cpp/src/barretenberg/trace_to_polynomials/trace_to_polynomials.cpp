@@ -16,14 +16,12 @@
 namespace bb {
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::populate(Builder& builder,
-                                          typename Flavor::ProverPolynomials& polynomials,
-                                          ActiveRegionData& active_region_data)
+void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::ProverPolynomials& polynomials)
 {
 
     BB_BENCH_NAME("trace populate");
 
-    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials, active_region_data);
+    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials);
 
     if constexpr (IsMegaFlavor<Flavor>) {
         BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
@@ -35,13 +33,13 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
     {
         BB_BENCH_NAME("compute_permutation_argument_polynomials");
 
-        compute_permutation_argument_polynomials<Flavor>(builder, polynomials, copy_cycles, active_region_data);
+        compute_permutation_argument_polynomials<Flavor>(builder, polynomials, copy_cycles);
     }
 }
 
 template <class Flavor>
 std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
-    Builder& builder, ProverPolynomials& polynomials, ActiveRegionData& active_region_data)
+    Builder& builder, ProverPolynomials& polynomials)
 {
 
     BB_BENCH_NAME("construct_trace_data");
@@ -56,11 +54,6 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     for (auto& block : builder.blocks.get()) {
         const uint32_t offset = block.trace_offset();
         const uint32_t block_size = static_cast<uint32_t>(block.size());
-
-        // Save ranges over which the blocks are "active" for use in structured commitments
-        if (block.size() > 0) {
-            active_region_data.add_range(offset, offset + block.size());
-        }
 
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code

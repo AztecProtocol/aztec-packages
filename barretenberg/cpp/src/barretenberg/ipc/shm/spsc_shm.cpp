@@ -2,6 +2,7 @@
 #include "futex.hpp"
 #include "utilities.hpp"
 #include <atomic>
+#include <cassert>
 #include <cerrno>
 #include <climits>
 #include <cstdint>
@@ -103,22 +104,36 @@ SpscShm SpscShm::create(const std::string& name, size_t min_capacity)
 
     int fd = shm_open(name.c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fd < 0) {
-        throw std::runtime_error("SpscShm::create: shm_open failed: " + std::string(std::strerror(errno)));
+        std::string error_msg = "SpscShm::create: shm_open failed for '" + name + "': " + std::strerror(errno);
+        if (errno == ENOSPC || errno == ENOMEM) {
+            error_msg += " (likely /dev/shm is full - check df -h /dev/shm)";
+        }
+        throw std::runtime_error(error_msg);
     }
 
     if (ftruncate(fd, static_cast<off_t>(map_len)) != 0) {
         int e = errno;
+        std::string error_msg = "SpscShm::create: ftruncate failed for '" + name +
+                                "' (size=" + std::to_string(map_len) + "): " + std::strerror(e);
+        if (e == ENOSPC || e == ENOMEM) {
+            error_msg += " (likely /dev/shm is full - check df -h /dev/shm)";
+        }
         ::close(fd);
         shm_unlink(name.c_str());
-        throw std::runtime_error("SpscShm::create: ftruncate failed: " + std::string(std::strerror(e)));
+        throw std::runtime_error(error_msg);
     }
 
     void* mem = mmap(nullptr, map_len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (mem == MAP_FAILED) {
         int e = errno;
+        std::string error_msg = "SpscShm::create: mmap failed for '" + name + "' (size=" + std::to_string(map_len) +
+                                "): " + std::strerror(e);
+        if (e == ENOSPC || e == ENOMEM) {
+            error_msg += " (likely /dev/shm is full - check df -h /dev/shm)";
+        }
         ::close(fd);
         shm_unlink(name.c_str());
-        throw std::runtime_error("SpscShm::create: mmap failed: " + std::string(std::strerror(e)));
+        throw std::runtime_error(error_msg);
     }
 
     std::memset(mem, 0, map_len);
@@ -127,12 +142,11 @@ SpscShm SpscShm::create(const std::string& name, size_t min_capacity)
     // Initialize non-atomic fields first
     ctrl->capacity = cap;
     ctrl->mask = cap - 1;
+    ctrl->wrap_head = UINT64_MAX;
 
-    // Initialize atomics with release ordering to ensure capacity/mask are visible
+    // Initialize atomics with release ordering to ensure capacity/mask/wrap_head are visible
     ctrl->head.store(0ULL, std::memory_order_release);
     ctrl->tail.store(0ULL, std::memory_order_release);
-    ctrl->data_seq.store(0U, std::memory_order_release);
-    ctrl->space_seq.store(0U, std::memory_order_release);
     ctrl->consumer_blocked.store(false, std::memory_order_release);
     ctrl->producer_blocked.store(false, std::memory_order_release);
 
@@ -187,13 +201,6 @@ uint64_t SpscShm::available() const
     return head - tail;
 }
 
-uint64_t SpscShm::free_space() const
-{
-    uint64_t cap = ctrl_->capacity;
-    uint64_t used = available();
-    return cap - used;
-}
-
 void* SpscShm::claim(size_t want, uint32_t timeout_ns)
 {
     // Wait for contiguous space to be available
@@ -227,24 +234,20 @@ void SpscShm::publish(size_t n)
 
     // Detect if we published wrapped data
     // If at current head position we can't fit n bytes, it must have wrapped
-    uint64_t total_advance;
+    uint64_t total_advance = n;
     if (n > till_end) {
         // We wrote at the beginning after wrapping - skip padding and our data
-        total_advance = till_end + n;
-    } else {
-        // Normal case: wrote at current position
-        total_advance = n;
+        total_advance += till_end;
+        ctrl_->wrap_head = head;
     }
 
-    // Advance head atomically
+    // Advance head atomically with release - synchronizes wrap_head write
     ctrl_->head.store(head + total_advance, std::memory_order_release);
 
-    // Always increment seq (for futex synchronization)
-    ctrl_->data_seq.fetch_add(1, std::memory_order_release);
-
-    // Conditional wake: Only wake if consumer is blocked on futex
     if (ctrl_->consumer_blocked.load(std::memory_order_acquire)) {
-        futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->data_seq), 1);
+        // Ensure that head update is visible before waking consumer.
+        std::atomic_thread_fence(std::memory_order_release);
+        futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), 1);
     }
 }
 
@@ -255,16 +258,25 @@ void* SpscShm::peek(size_t want, uint32_t timeout_ns)
         return nullptr; // Timeout
     }
 
-    uint64_t cap = ctrl_->capacity;
-    uint64_t mask = ctrl_->mask;
-    uint64_t tail = ctrl_->tail.load(std::memory_order_relaxed);
-    uint64_t pos = tail & mask;
-    uint64_t till_end = cap - pos;
+    // Read head with acquire to synchronize wrap_head
+    ctrl_->head.load(std::memory_order_acquire);
 
-    // Simple rule: if want doesn't fit, wrap to beginning
-    if (want > till_end) {
+    uint64_t tail = ctrl_->tail.load(std::memory_order_relaxed);
+
+    // Check if we're at the position where a message wrapped
+    // If tail == wrap_head, the message starts at position 0
+    if (tail == ctrl_->wrap_head) {
         return buf_;
     }
+
+    uint64_t cap = ctrl_->capacity;
+    uint64_t mask = ctrl_->mask;
+    uint64_t pos = tail & mask;
+    [[maybe_unused]] uint64_t till_end = cap - pos;
+
+    // At this point wait_for_data() has guaranteed contiguity from tail
+    // (or we would have wrapped via wrap_head), so want must fit here.
+    assert(want <= till_end);
 
     // Data fits contiguously at current position
     return buf_ + pos;
@@ -277,30 +289,24 @@ void SpscShm::release(size_t n)
     uint64_t mask = ctrl_->mask;
     uint64_t pos = tail & mask;
     uint64_t till_end = cap - pos;
-    uint64_t head = ctrl_->head.load(std::memory_order_acquire);
 
-    bool was_full = ((head - tail) == cap);
-
-    // Simple rule: if n doesn't fit, we released wrapped data
-    uint64_t total_release;
-    if (n > till_end) {
-        // Data was wrapped - skip padding and our data
+    uint64_t total_release = 0;
+    if (tail == ctrl_->wrap_head) {
+        // We're releasing data from a wrapped message - skip padding
         total_release = till_end + n;
     } else {
+        assert(n <= till_end);
         // Normal case: data was contiguous
         total_release = n;
     }
 
-    ctrl_->tail.store(tail + total_release, std::memory_order_release);
+    uint64_t new_tail = tail + total_release;
+    ctrl_->tail.store(new_tail, std::memory_order_release);
 
-    if (was_full) {
-        // Always increment seq (for futex synchronization)
-        ctrl_->space_seq.fetch_add(1, std::memory_order_release);
-
-        // Conditional wake: Only wake if producer is blocked on futex
-        if (ctrl_->producer_blocked.load(std::memory_order_acquire)) {
-            futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->space_seq), 1);
-        }
+    if (ctrl_->producer_blocked.load(std::memory_order_acquire)) {
+        // Ensure that tail update is visible before waking producer.
+        std::atomic_thread_fence(std::memory_order_release);
+        futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), 1);
     }
 }
 
@@ -354,6 +360,9 @@ bool SpscShm::wait_for_data(size_t need, uint32_t timeout_ns)
     // Spin phase (only if previous call found data)
     if (spin_duration > 0) {
         uint64_t start = mono_ns_now();
+        constexpr uint32_t TIME_CHECK_INTERVAL = 256; // Check time every 256 iterations
+        uint32_t iterations = 0;
+
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
             if (check_available()) {
@@ -361,7 +370,16 @@ bool SpscShm::wait_for_data(size_t need, uint32_t timeout_ns)
                 return true;
             }
             IPC_PAUSE();
-        } while ((mono_ns_now() - start) < spin_duration);
+
+            // Only check time periodically to avoid syscall overhead
+            iterations++;
+            if (iterations >= TIME_CHECK_INTERVAL) {
+                if ((mono_ns_now() - start) >= spin_duration) {
+                    break;
+                }
+                iterations = 0;
+            }
+        } while (true);
 
         // Check after spin
         if (check_available()) {
@@ -377,15 +395,18 @@ bool SpscShm::wait_for_data(size_t need, uint32_t timeout_ns)
     }
 
     // About to block - load seq, final check, then block
-    uint32_t seq = ctrl_->data_seq.load(std::memory_order_acquire);
+    uint32_t head_now = static_cast<uint32_t>(ctrl_->head.load(std::memory_order_acquire));
+
+    ctrl_->consumer_blocked.store(true, std::memory_order_release);
+
     if (check_available()) {
+        ctrl_->consumer_blocked.store(false, std::memory_order_relaxed);
         previous_had_data_ = true; // Found data before blocking
         return true;
     }
 
-    // Set blocked flag RIGHT BEFORE futex_wait
-    ctrl_->consumer_blocked.store(true, std::memory_order_release);
-    futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->data_seq), seq, remaining_timeout);
+    // Wait on futex for producer to signal new data
+    futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), head_now, remaining_timeout);
     ctrl_->consumer_blocked.store(false, std::memory_order_relaxed);
 
     bool result = check_available();
@@ -404,6 +425,8 @@ bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
         uint64_t tail = ctrl_->tail.load(std::memory_order_acquire);
         uint64_t freeb = cap - (head - tail);
 
+        // std::cerr << "Checking space: head=" << head << " tail=" << tail << " free=" << freeb << " need=" << need
+        //           << "\n";
         if (freeb < need) {
             return false; // Not enough total free space
         }
@@ -429,22 +452,21 @@ bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
 
     // Adaptive spinning: only spin if previous call found space
     constexpr uint64_t SPIN_NS = 100000; // 100us
-    uint64_t spin_duration;
-    uint64_t remaining_timeout;
+    uint64_t spin_duration = 0;
+    uint64_t remaining_timeout = timeout_ns;
 
     if (previous_had_space_) {
         // Previous call found space - do full spin (optimistic)
         spin_duration = (timeout_ns < SPIN_NS) ? timeout_ns : SPIN_NS;
         remaining_timeout = (timeout_ns > SPIN_NS) ? (timeout_ns - SPIN_NS) : 0;
-    } else {
-        // Previous call timed out - skip spinning (idle channel)
-        spin_duration = 0;
-        remaining_timeout = timeout_ns;
     }
 
     // Spin phase (only if previous call found space)
     if (spin_duration > 0) {
         uint64_t start = mono_ns_now();
+        constexpr uint32_t TIME_CHECK_INTERVAL = 256; // Check time every 256 iterations
+        uint32_t iterations = 0;
+
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
             if (check_space()) {
@@ -452,7 +474,16 @@ bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
                 return true;
             }
             IPC_PAUSE();
-        } while ((mono_ns_now() - start) < spin_duration);
+
+            // Only check time periodically to avoid syscall overhead
+            iterations++;
+            if (iterations >= TIME_CHECK_INTERVAL) {
+                if ((mono_ns_now() - start) >= spin_duration) {
+                    break;
+                }
+                iterations = 0;
+            }
+        } while (true);
 
         // Check after spin
         if (check_space()) {
@@ -468,15 +499,18 @@ bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
     }
 
     // About to block - load seq, final check, then block
-    uint32_t seq = ctrl_->space_seq.load(std::memory_order_acquire);
+    uint32_t tail_now = static_cast<uint32_t>(ctrl_->tail.load(std::memory_order_acquire));
+
+    // Wait on futex for consumer to signal freed space
+    ctrl_->producer_blocked.store(true, std::memory_order_release);
+
     if (check_space()) {
+        ctrl_->producer_blocked.store(false, std::memory_order_relaxed);
         previous_had_space_ = true; // Found space before blocking
         return true;
     }
 
-    // Set blocked flag RIGHT BEFORE futex_wait
-    ctrl_->producer_blocked.store(true, std::memory_order_release);
-    futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->space_seq), seq, remaining_timeout);
+    futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), tail_now, remaining_timeout);
     ctrl_->producer_blocked.store(false, std::memory_order_relaxed);
 
     bool result = check_space();
@@ -486,10 +520,26 @@ bool SpscShm::wait_for_space(size_t need, uint32_t timeout_ns)
 
 void SpscShm::wakeup_all()
 {
-    // Wake any consumer blocked on data_seq
-    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->data_seq), INT_MAX);
-    // Wake any producer blocked on space_seq
-    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->space_seq), INT_MAX);
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), INT_MAX);
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), INT_MAX);
+}
+
+void SpscShm::debug_dump(const char* prefix) const
+{
+    uint64_t head = ctrl_->head.load(std::memory_order_acquire);
+    uint64_t tail = ctrl_->tail.load(std::memory_order_acquire);
+    uint64_t cap = ctrl_->capacity;
+    uint64_t mask = ctrl_->mask;
+    uint64_t wrap_head = ctrl_->wrap_head;
+
+    uint64_t head_pos = head & mask;
+    uint64_t tail_pos = tail & mask;
+    uint64_t used = head - tail;
+    uint64_t free = cap - used;
+
+    std::cerr << "[" << prefix << "] head=" << head << " tail=" << tail << " | head_pos=" << head_pos
+              << " tail_pos=" << tail_pos << " | used=" << used << " free=" << free << " cap=" << cap
+              << " | wrap_head=" << (wrap_head == UINT64_MAX ? "NONE" : std::to_string(wrap_head)) << '\n';
 }
 
 } // namespace bb::ipc

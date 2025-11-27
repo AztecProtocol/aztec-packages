@@ -107,8 +107,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const sentTx = contract.methods.spam(1, 1n, false).send({ from: context.accounts[0] });
 
     // Disable skipCollectingAttestations after the first L2 block is mined
-    test.monitor.once('l2-block', ({ l2BlockNumber }) => {
-      logger.warn(`Disabling skipCollectingAttestations after L2 block ${l2BlockNumber} has been mined`);
+    test.monitor.once('checkpoint', ({ checkpointNumber }) => {
+      logger.warn(`Disabling skipCollectingAttestations after L2 block ${checkpointNumber} has been mined`);
       sequencers.forEach(sequencer => {
         sequencer.updateConfig({ skipCollectingAttestations: false });
       });
@@ -118,11 +118,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     await Promise.all(sequencers.map(s => s.start()));
     logger.warn(`Started all sequencers with skipCollectingAttestations=true`);
 
-    // Create a filter for BlockInvalidated events
-    const blockInvalidatedFilter = await l1Client.createContractEventFilter({
+    // Create a filter for CheckpointInvalidated events
+    const checkpointInvalidatedFilter = await l1Client.createContractEventFilter({
       address: rollupContract.address,
       abi: RollupAbi,
-      eventName: 'BlockInvalidated',
+      eventName: 'CheckpointInvalidated',
       fromBlock: 1n,
       toBlock: 'latest',
     });
@@ -130,21 +130,21 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // The next proposer should invalidate the previous block and publish a new one
     logger.warn('Waiting for next proposer to invalidate the previous block');
 
-    // Wait for the BlockInvalidated event
-    const blockInvalidatedEvents = await retryUntil(
+    // Wait for the CheckpointInvalidated event
+    const checkpointInvalidatedEvents = await retryUntil(
       async () => {
-        const events = await l1Client.getFilterLogs({ filter: blockInvalidatedFilter });
+        const events = await l1Client.getFilterLogs({ filter: checkpointInvalidatedFilter });
         return events.length > 0 ? events : undefined;
       },
-      'BlockInvalidated event',
+      'CheckpointInvalidated event',
       test.L2_SLOT_DURATION_IN_S * 5,
       0.1,
     );
 
-    // Verify the BlockInvalidated event was emitted and that the block was removed
-    const [event] = blockInvalidatedEvents;
-    logger.warn(`BlockInvalidated event emitted`, { event });
-    expect(event.args.blockNumber).toBeGreaterThan(initialBlockNumber);
+    // Verify the CheckpointInvalidated event was emitted and that the block was removed
+    const [event] = checkpointInvalidatedEvents;
+    logger.warn(`CheckpointInvalidated event emitted`, { event });
+    expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
     expect(test.rollup.address).toEqual(event.address);
 
     // Wait for all nodes to sync the new block
@@ -194,12 +194,12 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Wait until we see two invalidations, both should be for the same block
     let lastInvalidatedBlockNumber: bigint | undefined;
     const invalidatePromise = promiseWithResolvers<void>();
-    const unsubscribe = rollupContract.listenToBlockInvalidated(data => {
-      logger.warn(`Block ${data.blockNumber} has been invalidated`, data);
+    const unsubscribe = rollupContract.listenToCheckpointInvalidated(data => {
+      logger.warn(`Block ${data.checkpointNumber} has been invalidated`, data);
       if (lastInvalidatedBlockNumber === undefined) {
-        lastInvalidatedBlockNumber = data.blockNumber;
+        lastInvalidatedBlockNumber = data.checkpointNumber;
       } else {
-        expect(data.blockNumber).toEqual(lastInvalidatedBlockNumber);
+        expect(data.checkpointNumber).toEqual(lastInvalidatedBlockNumber);
         invalidatePromise.resolve();
         unsubscribe();
       }
@@ -214,7 +214,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Ensure chain progresses
     const targetBlock = lastInvalidatedBlockNumber! + 2n;
     logger.warn(`Waiting until block ${targetBlock} has been mined`);
-    await test.monitor.waitUntilL2Block(targetBlock);
+    await test.monitor.waitUntilCheckpoint(targetBlock);
 
     // Wait for all nodes to sync the new block
     logger.warn(`Waiting for all nodes to sync to block ${targetBlock}`);
@@ -248,12 +248,12 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Wait until we see two invalidations, both should be for the same block
     let lastInvalidatedBlockNumber: bigint | undefined;
     const invalidatePromise = promiseWithResolvers<void>();
-    const unsubscribe = rollupContract.listenToBlockInvalidated(data => {
-      logger.warn(`Block ${data.blockNumber} has been invalidated`, data);
+    const unsubscribe = rollupContract.listenToCheckpointInvalidated(data => {
+      logger.warn(`Block ${data.checkpointNumber} has been invalidated`, data);
       if (lastInvalidatedBlockNumber === undefined) {
-        lastInvalidatedBlockNumber = data.blockNumber;
+        lastInvalidatedBlockNumber = data.checkpointNumber;
       } else {
-        expect(data.blockNumber).toEqual(lastInvalidatedBlockNumber);
+        expect(data.checkpointNumber).toEqual(lastInvalidatedBlockNumber);
         invalidatePromise.resolve();
         unsubscribe();
       }
@@ -271,7 +271,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Ensure chain progresses
     const targetBlock = lastInvalidatedBlockNumber! + 2n;
     logger.warn(`Waiting until block ${targetBlock} has been mined`);
-    await test.monitor.waitUntilL2Block(targetBlock);
+    await test.monitor.waitUntilCheckpoint(targetBlock);
 
     // Wait for all nodes to sync the new block
     logger.warn(`Waiting for all nodes to sync to block ${targetBlock}`);
@@ -327,13 +327,13 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // We should see two invalid blocks being proposed by the bad proposers in those two slots
     const firstBlockPromise = promiseWithResolvers<number>();
     const secondBlockPromise = promiseWithResolvers<number>();
-    test.monitor.on('l2-block', ({ l2BlockNumber, l2SlotNumber }) => {
-      logger.warn(`L2 block ${l2BlockNumber} at slot ${l2SlotNumber} has been mined`);
+    test.monitor.on('checkpoint', ({ checkpointNumber, l2SlotNumber }) => {
+      logger.warn(`L2 block ${checkpointNumber} at slot ${l2SlotNumber} has been mined`);
       if (l2SlotNumber === Number(initialSlot + 2n)) {
-        firstBlockPromise.resolve(l2BlockNumber);
+        firstBlockPromise.resolve(checkpointNumber);
       }
       if (l2SlotNumber === Number(initialSlot + 3n)) {
-        secondBlockPromise.resolve(l2BlockNumber);
+        secondBlockPromise.resolve(checkpointNumber);
       }
     });
 
@@ -346,9 +346,9 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // Subscribe to block invalidation events
     const invalidatePromise = promiseWithResolvers<bigint>();
-    const unsubscribe = rollupContract.listenToBlockInvalidated(event => {
-      logger.warn(`Block ${event.blockNumber} has been invalidated`, event);
-      invalidatePromise.resolve(event.blockNumber);
+    const unsubscribe = rollupContract.listenToCheckpointInvalidated(event => {
+      logger.warn(`Block ${event.checkpointNumber} has been invalidated`, event);
+      invalidatePromise.resolve(event.checkpointNumber);
       unsubscribe();
     });
 
@@ -404,8 +404,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     });
 
     // Disable skipCollectingAttestations after the first block is mined and prevent sequencers from publishing any more blocks
-    test.monitor.once('l2-block', ({ l2BlockNumber }) => {
-      logger.warn(`Disabling skipCollectingAttestations after L2 block ${l2BlockNumber} has been mined`);
+    test.monitor.once('checkpoint', ({ checkpointNumber }) => {
+      logger.warn(`Disabling skipCollectingAttestations after L2 block ${checkpointNumber} has been mined`);
       sequencers.forEach(sequencer => {
         sequencer.updateConfig({ skipCollectingAttestations: false, minTxsPerBlock: 100 });
       });
@@ -415,11 +415,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     await Promise.all(sequencers.map(s => s.start()));
     logger.warn(`Started all sequencers with skipCollectingAttestations=true`);
 
-    // Create a filter for BlockInvalidated events
-    const blockInvalidatedFilter = await l1Client.createContractEventFilter({
+    // Create a filter for CheckpointInvalidated events
+    const checkpointInvalidatedFilter = await l1Client.createContractEventFilter({
       address: rollupContract.address,
       abi: RollupAbi,
-      eventName: 'BlockInvalidated',
+      eventName: 'CheckpointInvalidated',
       fromBlock: 1n,
       toBlock: 'latest',
     });
@@ -427,22 +427,22 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // The next proposer should invalidate the previous block
     logger.warn('Waiting for next proposer to invalidate the previous block');
 
-    // Wait for the BlockInvalidated event
-    const blockInvalidatedEvents = await retryUntil(
+    // Wait for the CheckpointInvalidated event
+    const checkpointInvalidatedEvents = await retryUntil(
       async () => {
-        const events = await l1Client.getFilterLogs({ filter: blockInvalidatedFilter });
+        const events = await l1Client.getFilterLogs({ filter: checkpointInvalidatedFilter });
         return events.length > 0 ? events : undefined;
       },
-      'BlockInvalidated event',
+      'CheckpointInvalidated event',
       test.L2_SLOT_DURATION_IN_S * 5,
       0.1,
     );
 
-    // Verify the BlockInvalidated event was emitted and that the block was removed
-    const [event] = blockInvalidatedEvents;
-    logger.warn(`BlockInvalidated event emitted`, { event });
-    expect(event.args.blockNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getBlockNumber()).toEqual(BigInt(initialBlockNumber));
+    // Verify the CheckpointInvalidated event was emitted and that the block was removed
+    const [event] = checkpointInvalidatedEvents;
+    logger.warn(`CheckpointInvalidated event emitted`, { event });
+    expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
+    expect(await test.rollup.getCheckpointNumber()).toEqual(BigInt(initialBlockNumber));
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
@@ -460,8 +460,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     });
 
     // Disable shuffleAttestationOrdering after the first block is mined and prevent sequencers from publishing any more blocks
-    test.monitor.once('l2-block', ({ l2BlockNumber }) => {
-      logger.warn(`Disabling shuffleAttestationOrdering after L2 block ${l2BlockNumber} has been mined`);
+    test.monitor.once('checkpoint', ({ checkpointNumber }) => {
+      logger.warn(`Disabling shuffleAttestationOrdering after L2 block ${checkpointNumber} has been mined`);
       sequencers.forEach(sequencer => {
         sequencer.updateConfig({ shuffleAttestationOrdering: false, minTxsPerBlock: 100 });
       });
@@ -471,11 +471,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     await Promise.all(sequencers.map(s => s.start()));
     logger.warn(`Started all sequencers with shuffleAttestationOrdering=true`);
 
-    // Create a filter for BlockInvalidated events
-    const blockInvalidatedFilter = await l1Client.createContractEventFilter({
+    // Create a filter for CheckpointInvalidated events
+    const checkpointInvalidatedFilter = await l1Client.createContractEventFilter({
       address: rollupContract.address,
       abi: RollupAbi,
-      eventName: 'BlockInvalidated',
+      eventName: 'CheckpointInvalidated',
       fromBlock: 1n,
       toBlock: 'latest',
     });
@@ -483,22 +483,22 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // The next proposer should invalidate the previous block
     logger.warn('Waiting for next proposer to invalidate the previous block');
 
-    // Wait for the BlockInvalidated event
-    const blockInvalidatedEvents = await retryUntil(
+    // Wait for the CheckpointInvalidated event
+    const checkpointInvalidatedEvents = await retryUntil(
       async () => {
-        const events = await l1Client.getFilterLogs({ filter: blockInvalidatedFilter });
+        const events = await l1Client.getFilterLogs({ filter: checkpointInvalidatedFilter });
         return events.length > 0 ? events : undefined;
       },
-      'BlockInvalidated event',
+      'CheckpointInvalidated event',
       test.L2_SLOT_DURATION_IN_S * 5,
       0.1,
     );
 
-    // Verify the BlockInvalidated event was emitted and that the block was removed
-    const [event] = blockInvalidatedEvents;
-    logger.warn(`BlockInvalidated event emitted`, { event });
-    expect(event.args.blockNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getBlockNumber()).toEqual(BigInt(initialBlockNumber));
+    // Verify the CheckpointInvalidated event was emitted and that the block was removed
+    const [event] = checkpointInvalidatedEvents;
+    logger.warn(`CheckpointInvalidated event emitted`, { event });
+    expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
+    expect(await test.rollup.getCheckpointNumber()).toEqual(BigInt(initialBlockNumber));
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
@@ -521,8 +521,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // Disable skipCollectingAttestations after the first block is mined
     let invalidBlockTimestamp: bigint | undefined;
-    test.monitor.once('l2-block', ({ l2BlockNumber, timestamp }) => {
-      logger.warn(`Disabling skipCollectingAttestations after L2 block ${l2BlockNumber} has been mined`);
+    test.monitor.once('checkpoint', ({ checkpointNumber, timestamp }) => {
+      logger.warn(`Disabling skipCollectingAttestations after L2 block ${checkpointNumber} has been mined`);
       invalidBlockTimestamp = timestamp;
       sequencers.forEach(sequencer => {
         sequencer.updateConfig({ skipCollectingAttestations: false });
@@ -533,11 +533,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     await Promise.all(sequencers.map(s => s.start()));
     logger.warn(`Started all sequencers with skipCollectingAttestations=true`);
 
-    // Create a filter for BlockInvalidated events
-    const blockInvalidatedFilter = await l1Client.createContractEventFilter({
+    // Create a filter for CheckpointInvalidated events
+    const checkpointInvalidatedFilter = await l1Client.createContractEventFilter({
       address: rollupContract.address,
       abi: RollupAbi,
-      eventName: 'BlockInvalidated',
+      eventName: 'CheckpointInvalidated',
       fromBlock: 1n,
       toBlock: 'latest',
     });
@@ -545,21 +545,21 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Some committee member should invalidate the previous block
     logger.warn('Waiting for committee member to invalidate the previous block');
 
-    // Wait for the BlockInvalidated event
-    const blockInvalidatedEvents = await retryUntil(
+    // Wait for the CheckpointInvalidated event
+    const checkpointInvalidatedEvents = await retryUntil(
       async () => {
-        const events = await l1Client.getFilterLogs({ filter: blockInvalidatedFilter });
+        const events = await l1Client.getFilterLogs({ filter: checkpointInvalidatedFilter });
         return events.length > 0 ? events : undefined;
       },
-      'BlockInvalidated event',
+      'CheckpointInvalidated event',
       test.L2_SLOT_DURATION_IN_S * 5,
       0.1,
     );
 
-    // Verify the BlockInvalidated event was emitted
-    const [event] = blockInvalidatedEvents;
-    logger.warn(`BlockInvalidated event emitted`, { event });
-    expect(event.args.blockNumber).toBeGreaterThan(initialBlockNumber);
+    // Verify the CheckpointInvalidated event was emitted
+    const [event] = checkpointInvalidatedEvents;
+    logger.warn(`CheckpointInvalidated event emitted`, { event });
+    expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
 
     // And check that the invalidation happened at least after the specified timeout
     const { timestamp: invalidationTimestamp } = await l1Client.getBlock({ blockNumber: event.blockNumber });
