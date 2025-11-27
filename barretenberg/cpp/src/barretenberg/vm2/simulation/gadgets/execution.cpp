@@ -1100,15 +1100,18 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         // we'll always use this in the loop.
         auto& context = *external_call_stack.top();
 
-        // We'll be filling in the event as we go. And we always emit at the end.
-        ExecutionEvent ex_event;
+        // Members of the execution event which are set in the try block.
+        Instruction instruction;
+        AddressingEvent addressing_event;
+        GasEvent gas_event;
+        ExecutionError error = ExecutionError::NONE;
+
+        // State before doing anything.
+        const auto before_context_event = context.serialize_context_event();
+        const auto next_context_id = context_provider.get_next_context_id();
+        const auto pc = context.get_pc();
 
         try {
-            // State before doing anything.
-            ex_event.before_context_event = context.serialize_context_event();
-            ex_event.next_context_id = context_provider.get_next_context_id();
-            auto pc = context.get_pc();
-
             // Temporality group 1: Bytecode retrieval. //
 
             // We try to get the bytecode id. This can throw if the contract is not deployed or if we have retrieved too
@@ -1119,14 +1122,13 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
             // Temporality group 2: Instruction fetching and addressing. //
 
             // We try to fetch an instruction.
-            Instruction instruction = context.get_bytecode_manager().read_instruction(pc);
+            instruction = context.get_bytecode_manager().read_instruction(pc);
 
-            ex_event.wire_instruction = instruction;
             debug("@", pc, " ", instruction.to_string());
             context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
 
             // Resolve the operands.
-            auto addressing = execution_components.make_addressing(ex_event.addressing_event);
+            auto addressing = execution_components.make_addressing(addressing_event);
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
 
             //// Temporality group 3+ starts ////
@@ -1137,33 +1139,33 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
             //  Temporality group 5: Opcode execution. (in dispatch_opcode())
             //  Temporality group 6: Register write. (in dispatch_opcode())
 
-            gas_tracker = execution_components.make_gas_tracker(ex_event.gas_event, instruction, context);
+            gas_tracker = execution_components.make_gas_tracker(gas_event, instruction, context);
             dispatch_opcode(instruction.get_exec_opcode(), context, resolved_operands);
         }
         // TODO(fcarreiro): handle this in a better way.
         catch (const BytecodeRetrievalError& e) {
             vinfo("Bytecode retrieval error:: ", e.what());
-            ex_event.error = ExecutionError::BYTECODE_RETRIEVAL;
+            error = ExecutionError::BYTECODE_RETRIEVAL;
             handle_exceptional_halt(context, e.what());
         } catch (const InstructionFetchingError& e) {
             vinfo("Instruction fetching error: ", e.what());
-            ex_event.error = ExecutionError::INSTRUCTION_FETCHING;
+            error = ExecutionError::INSTRUCTION_FETCHING;
             handle_exceptional_halt(context, e.what());
         } catch (const AddressingException& e) {
             vinfo("Addressing exception: ", e.what());
-            ex_event.error = ExecutionError::ADDRESSING;
+            error = ExecutionError::ADDRESSING;
             handle_exceptional_halt(context, e.what());
         } catch (const RegisterValidationException& e) {
             vinfo("Register validation exception: ", e.what());
-            ex_event.error = ExecutionError::REGISTER_READ;
+            error = ExecutionError::REGISTER_READ;
             handle_exceptional_halt(context, e.what());
         } catch (const OutOfGasException& e) {
             vinfo("Out of gas exception: ", e.what());
-            ex_event.error = ExecutionError::GAS;
+            error = ExecutionError::GAS;
             handle_exceptional_halt(context, e.what());
         } catch (const OpcodeExecutionException& e) {
             vinfo("Opcode execution exception: ", e.what());
-            ex_event.error = ExecutionError::OPCODE_EXECUTION;
+            error = ExecutionError::OPCODE_EXECUTION;
             handle_exceptional_halt(context, e.what());
         } catch (const std::exception& e) {
             // This is a coding error, we should not get here.
@@ -1178,12 +1180,17 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         execution_id_manager.increment_execution_id();
 
         // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
-        ex_event.inputs = get_inputs();
-        ex_event.output = get_output();
-
-        // State after the opcode.
-        ex_event.after_context_event = context.serialize_context_event();
-        events.emit(std::move(ex_event));
+        events.emit({
+            .error = error,
+            .wire_instruction = instruction,
+            .inputs = get_inputs(),
+            .output = get_output(),
+            .next_context_id = next_context_id,
+            .addressing_event = addressing_event,
+            .before_context_event = before_context_event,
+            .after_context_event = context.serialize_context_event(),
+            .gas_event = gas_event,
+        });
 
         // If the context has halted, we need to exit the external call.
         // The external call stack is expected to be popped.
