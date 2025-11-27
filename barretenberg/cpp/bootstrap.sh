@@ -22,14 +22,14 @@ function inject_version {
   local sentinel='BARRETENBERG_VERSION_SENTINEL'
   local version_space='00000000.00000000.00000000'
   if [ ${#version} -gt ${#version_space} ]; then
-    echo_stderr "Error: version ($version) is longer than available space. Cannot update bb binaries."
+    echo "Error: version ($version) is longer than available space. Cannot update bb binaries." >&2
     exit 1
   fi
   # Find the sentinel and write version at the offset after it
-  local sentinel_offset=$(grep -aobF "$sentinel" "$binary" | head -n 1 | cut -d: -f1)
+  local sentinel_offset=$(grep -aobF "$sentinel" "$binary" 2>/dev/null | head -n 1 | cut -d: -f1)
   if [ -z "$sentinel_offset" ]; then
-    echo_stderr "Error: sentinel not found in $binary. Cannot inject version."
-    exit 1
+    echo "Warning: sentinel not found in $binary - skipping version injection (binary may be from old build)" >&2
+    return 0
   fi
   # Version starts immediately after the sentinel
   local version_offset=$((sentinel_offset + ${#sentinel}))
@@ -70,7 +70,9 @@ function build_native {
   fi
   # Always inject version (even for cached binaries) to ensure correct version on release
   inject_version build/bin/bb
-  [ -f build/bin/bb-avm ] && inject_version build/bin/bb-avm
+  if [ -f build/bin/bb-avm ]; then
+    inject_version build/bin/bb-avm
+  fi
 }
 
 # Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
