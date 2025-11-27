@@ -34,7 +34,7 @@ void ControlFlow::process_insert_simple_instruction_block(InsertSimpleInstructio
     if (instruction_blocks->size() == 0) {
         return;
     }
-    if (this->current_block->terminated) {
+    if (this->current_block->terminator_type != TerminatorType::NONE) {
         return;
     }
     auto instruction_block = instruction_blocks->at(instruction.instruction_block_idx % instruction_blocks->size());
@@ -48,7 +48,7 @@ void ControlFlow::process_jump_to_new_block(JumpToNewBlock instruction)
     if (instruction_blocks->size() == 0) {
         return;
     }
-    if (this->current_block->terminated) {
+    if (this->current_block->terminator_type != TerminatorType::NONE) {
         return;
     }
     auto target_instruction_block =
@@ -66,7 +66,7 @@ void ControlFlow::process_jump_if_to_new_block(JumpIfToNewBlock instruction)
     if (instruction_blocks->size() == 0) {
         return;
     }
-    if (this->current_block->terminated) {
+    if (this->current_block->terminator_type != TerminatorType::NONE) {
         return;
     }
     auto target_then_instruction_block =
@@ -87,7 +87,7 @@ void ControlFlow::process_jump_if_to_new_block(JumpIfToNewBlock instruction)
 
 void ControlFlow::process_jump_to_block(JumpToBlock instruction)
 {
-    if (this->current_block->terminated) {
+    if (this->current_block->terminator_type != TerminatorType::NONE) {
         return;
     }
     std::vector<ProgramBlock*> possible_target_blocks = get_reachable_blocks(current_block);
@@ -106,7 +106,7 @@ void ControlFlow::process_jump_to_block(JumpToBlock instruction)
 
 void ControlFlow::process_jump_if_to_block(JumpIfToBlock instruction)
 {
-    if (this->current_block->terminated) {
+    if (this->current_block->terminator_type != TerminatorType::NONE) {
         return;
     }
     std::vector<ProgramBlock*> possible_target_blocks = get_reachable_blocks(current_block);
@@ -128,12 +128,16 @@ void ControlFlow::process_jump_if_to_block(JumpIfToBlock instruction)
 
 void ControlFlow::process_finalize_with_return(FinalizeWithReturn instruction)
 {
-    if (this->current_block->terminated) {
+    if (this->current_block->terminator_type != TerminatorType::NONE) {
         return;
     }
     current_block->finalize_with_return(instruction.return_options.return_size,
                                         instruction.return_options.return_value_tag,
                                         instruction.return_options.return_value_offset_index);
+    if (current_block->caller != nullptr) {
+        current_block = current_block->caller;
+        return;
+    }
     std::vector<ProgramBlock*> non_terminated_blocks = get_non_terminated_blocks();
     if (non_terminated_blocks.size() == 0) {
         return;
@@ -149,12 +153,29 @@ void ControlFlow::process_switch_to_non_terminated_block(SwitchToNonTerminatedBl
     }
     current_block = non_terminated_blocks.at(instruction.non_terminated_block_idx % non_terminated_blocks.size());
 }
+
+void ControlFlow::process_insert_internal_call(InsertInternalCall instruction)
+{
+    if (instruction_blocks->size() == 0) {
+        return;
+    }
+    auto target_instruction_block =
+        instruction_blocks->at(instruction.target_program_block_instruction_block_idx % instruction_blocks->size());
+    ProgramBlock* target_block = new ProgramBlock();
+    current_block->insert_internal_call(target_block);
+    for (const auto& instr : target_instruction_block) {
+        target_block->process_instruction(instr);
+    }
+    target_block->caller = current_block;
+    current_block = target_block;
+}
+
 std::vector<ProgramBlock*> ControlFlow::get_non_terminated_blocks()
 {
     std::vector<ProgramBlock*> blocks = dfs_traverse(start_block);
     std::vector<ProgramBlock*> non_terminated_blocks;
     std::copy_if(blocks.begin(), blocks.end(), std::back_inserter(non_terminated_blocks), [](ProgramBlock* block) {
-        return !block->terminated;
+        return block->terminator_type != TerminatorType::NONE;
     });
     return non_terminated_blocks;
 }
@@ -167,13 +188,16 @@ std::vector<ProgramBlock*> ControlFlow::get_reachable_blocks(ProgramBlock* block
 
     std::vector<ProgramBlock*> all_blocks = dfs_traverse(start_block);
     std::vector<ProgramBlock*> reachable_blocks;
-    // filter all forbidden blocks from the list of all blocks
+    // filter all forbidden blocks (that creates loops in the graph) and blocks with different caller from the list
+    // of all blocks we avoid blocks with different caller to prevent INTERNALRETURN from being executed in the
+    // context with empty callstack
     std::copy_if(all_blocks.begin(),
                  all_blocks.end(),
                  std::back_inserter(reachable_blocks),
-                 [forbidden_blocks](ProgramBlock* block) {
-                     return std::find(forbidden_blocks.begin(), forbidden_blocks.end(), block) ==
-                            forbidden_blocks.end();
+                 [forbidden_blocks, block](ProgramBlock* block_iter) {
+                     return std::find(forbidden_blocks.begin(), forbidden_blocks.end(), block_iter) ==
+                                forbidden_blocks.end() &&
+                            block_iter->caller == block->caller;
                  });
     return reachable_blocks;
 }
@@ -190,7 +214,8 @@ void ControlFlow::process_cfg_instruction(CFGInstruction instruction)
                    [&](JumpToBlock arg) { process_jump_to_block(arg); },
                    [&](JumpIfToBlock arg) { process_jump_if_to_block(arg); },
                    [&](FinalizeWithReturn arg) { process_finalize_with_return(arg); },
-                   [&](SwitchToNonTerminatedBlock arg) { process_switch_to_non_terminated_block(arg); } },
+                   [&](SwitchToNonTerminatedBlock arg) { process_switch_to_non_terminated_block(arg); },
+                   [&](InsertInternalCall arg) { process_insert_internal_call(arg); } },
                instruction);
 }
 
@@ -212,12 +237,12 @@ int predict_block_size(ProgramBlock* block)
     const int JMP_SIZE = 1 + 4;            // opcode + destination offset
     const int JMP_IF_SIZE = 1 + 1 + 2 + 4; // opcode  + direct/indirect + condition offset + destination offset
     auto bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
-    switch (block->successors.size()) {
-    case 0:
+    switch (block->terminator_type) {
+    case TerminatorType::RETURN:
         return bytecode_length; // finalized with return, already counted
-    case 1:
+    case TerminatorType::JUMP:
         return bytecode_length + JMP_SIZE; // finalized with jump
-    case 2: {
+    case TerminatorType::JUMP_IF: {
         // if boolean condition is not set adding SET_8 instruction to the bytecode
         if (!block->get_terminating_condition_value().has_value()) {
             for (uint16_t address = 0; address < 65535; address++) {
@@ -235,7 +260,9 @@ int predict_block_size(ProgramBlock* block)
         return bytecode_length + JMP_IF_SIZE + JMP_SIZE; // finalized with jumpi
     }
     default:
-        throw std::runtime_error("Unsupported number of successors for block");
+        throw std::runtime_error("Predict block size: Every block should be terminated with return, jump, or jumpi, "
+                                 "got " +
+                                 std::to_string(static_cast<int>(block->terminator_type)));
     }
     throw std::runtime_error("Unreachable");
 }
@@ -257,7 +284,7 @@ std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_opt
 
     // Step 2 terminate all non-terminated blocks with return
     for (ProgramBlock* block : blocks) {
-        if (!block->terminated) {
+        if (block->terminator_type == TerminatorType::NONE) {
             block->finalize_with_return(
                 /*TODO(defkit) fix return size */ 1,
                 return_options.return_value_tag,
@@ -272,15 +299,20 @@ std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_opt
         last_offset += predict_block_size(block);
     }
 
+    // Step 3.1 patch INTERNALCALL instructions with the actual offsets
+    for (ProgramBlock* block : blocks) {
+        block->patch_internal_calls();
+    }
+
     // Step 4 terminate unterminated blocks with jumps with known offsets, get the bytecode for each block
     std::vector<std::vector<uint8_t>> block_bytecodes;
     for (ProgramBlock* block : blocks) {
         std::vector<bb::avm2::simulation::Instruction> instructions = block->get_instructions();
-        switch (block->successors.size()) {
-        case 0: // finalized with return
+        switch (block->terminator_type) {
+        case TerminatorType::RETURN: // finalized with return
             // already terminated with return
             break;
-        case 1: { // finalized with jump
+        case TerminatorType::JUMP: { // finalized with jump
             ProgramBlock* target_block = block->successors.at(0);
             size_t target_block_idx = find_block_idx(target_block, blocks);
             uint32_t jump_offset = static_cast<uint32_t>(blocks.at(target_block_idx)->offset);
@@ -289,7 +321,7 @@ std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_opt
             instructions.push_back(jump_instruction);
             break;
         }
-        case 2: { // finalized with jumpi
+        case TerminatorType::JUMP_IF: { // finalized with jumpi
             ProgramBlock* target_then_block = block->successors.at(0);
             ProgramBlock* target_else_block = block->successors.at(1);
             size_t target_then_block_idx = find_block_idx(target_then_block, blocks);
@@ -311,7 +343,8 @@ std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_opt
             break;
         }
         default:
-            throw std::runtime_error("Unsupported number of successors for block");
+            throw std::runtime_error(
+                "Inject terminators: Every block should be terminated with return, jump, or jumpi");
         }
         block_bytecodes.push_back(create_bytecode(instructions));
     }
