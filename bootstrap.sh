@@ -13,6 +13,29 @@ export DENOISE=${DENOISE:-1}
 # Number of TXE servers to run when testing.
 export NUM_TXES=8
 
+export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
+
+# Cleanup function. Called on script exit.
+function cleanup {
+  set +e
+  if [ -n "${test_engine_pid:-}" ]; then
+    kill -SIGTERM -- -$test_engine_pgid &>/dev/null
+    wait $test_engine_pid
+    test_engine_pid=
+  fi
+  if [ -n "${make_pid:-}" ]; then
+    kill -SIGTERM $make_pid &>/dev/null
+    wait $make_pid
+    make_pid=
+  fi
+  if [ -n "${txe_pids:-}" ]; then
+    kill -SIGTERM $txe_pids &>/dev/null
+    wait $txe_pids
+    txe_pids=
+  fi
+}
+trap cleanup EXIT
+
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
 }
@@ -174,10 +197,8 @@ function test_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
 
-function start_test_env {
+function start_txes {
   # Starting txe servers with incrementing port numbers.
-  trap 'kill -SIGTERM $txe_pids &>/dev/null || true' EXIT
-
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
     existing_pid=$(lsof -ti :$port || true)
@@ -201,10 +222,83 @@ function start_test_env {
   done
 }
 
+export test_cmds_file="/tmp/test_cmds"
+
+function test_engine_start {
+  # This trickery is to overcome an oddity in parallel.
+  # Turns out when we hold an open pipe to parallel, like we do using tail below,
+  # parallel will only process the result of job N when it receives a new job *after* job N has completed.
+  # This can prevent a "fail fast" situation, or prevent the results from the first batch of commands from showing up.
+  # Empty commands fed to run_test_cmd are no-ops, so we keep parallel processing results in timely fashion with this.
+  while ! grep -E '^STOP$' $test_cmds_file; do sleep 5; echo >> $test_cmds_file; done &
+  # Continuously stream the test cmds into parallelize.
+  DENOISE=0 parallelize < <(tail -n+0 -f $test_cmds_file)
+}
+export -f test_engine_start
+
+function prep {
+  pull_submodules
+  check_toolchains
+
+  # Ensure we have yarn set up.
+  corepack enable
+
+  rm -f $test_cmds_file
+}
+
+function build_and_test {
+  local target=${1:-}
+
+  prep
+  echo_header "build and test"
+
+  # Start the test engine.
+  # setsid will put it in it's own process group we can terminate on cleanup.
+  rm -f $test_cmds_file
+  touch $test_cmds_file
+  setsid color_prefix "test-engine" "denoise test_engine_start" &
+  test_engine_pid=$!
+  test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
+
+  # Start the build.
+  if [ -z "$target" ]; then
+    [ "$CI_FULL" -eq 0 ] && target="all" || target="full"
+  fi
+  make $target &
+  make_pid=$!
+
+  # As soon as one of the above fails, terminate the other (as part of exit cleanup).
+  while [ -n "$make_pid" ] || [ -n "$test_engine_pid" ]; do
+    # This will return success only if build or test succeeds.
+    # Otherwise it's an error, which is an exit, which means we enter cleanup.
+    wait -p finished -n $make_pid $test_engine_pid &>/dev/null
+
+    # If make succeeded, start txes and add tests that depend on them.
+    if [ "$finished" == "$make_pid" ]; then
+      make_pid=
+
+      if [ -z "${1:-}" ]; then
+        # TODO: Handle this better to they can be run as part of the Makefile dependency tree.
+        start_txes
+        make noir-projects-txe-tests
+      fi
+
+      # Signal tests complete, handled by parallel -E STOP.
+      echo STOP >> $test_cmds_file
+    fi
+
+    if [ "$finished" == "$test_engine_pid" ]; then
+      test_engine_pid=
+    fi
+  done
+
+  return 0
+}
+
 function test {
   echo_header "test all"
 
-  start_test_env
+  start_txes
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
@@ -231,11 +325,7 @@ function pull_submodules {
 }
 
 function build {
-  pull_submodules
-  check_toolchains
-
-  # Ensure we have yarn set up.
-  corepack enable
+  prep
 
   # These projects are dependent on each other and must be built linearly.
   serial_projects=(
@@ -285,7 +375,7 @@ function build {
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/sol noir-projects/noir-protocol-circuits l1-contracts
+    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/noir-protocol-circuits l1-contracts
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
 }
@@ -444,6 +534,13 @@ case "$cmd" in
     export CI_FULL=1
     build
     test
+    bench
+    ;;
+  "ci-full-no-test-cache-makefile")
+    export CI=1
+    export USE_TEST_CACHE=0
+    export CI_FULL=1
+    build_and_test
     bench
     ;;
   "ci-network-deploy")
