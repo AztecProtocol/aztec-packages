@@ -637,7 +637,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         boomerang_utils.update_finalize_witnesses(finalize_indices);
     }
     void update_constraint_witnesses(uint32_t var_idx) { boomerang_utils.update_constraint_witnesses(var_idx); }
-    void update_constraint_witnesses(std::unordered_set<uint32_t>& witnesses) {boomerang_utils.update_constraint_witnesses(witnesses); }
+    void update_constraint_witnesses(std::unordered_set<uint32_t>& witnesses)
+    {
+        boomerang_utils.update_constraint_witnesses(witnesses);
+    }
     std::unordered_set<uint32_t> get_constraint_witnesses() const { return boomerang_utils.get_constraint_witnesses(); }
     void save_and_clear_logic_witnesses() { boomerang_utils.save_and_clear_logic_witnesses(); }
     const std::vector<std::unordered_set<uint32_t>>& get_all_logic_witnesses() const
@@ -648,6 +651,19 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     const std::vector<std::unordered_set<uint32_t>>& get_all_aes128_witnesses() const
     {
         return boomerang_utils.get_all_aes128_witnesses();
+    }
+    void update_tmp_marked_logic_witnesses(uint32_t var_idx)
+    {
+        boomerang_utils.update_tmp_marked_logic_witnesses(var_idx);
+    }
+    std::unordered_set<uint32_t> get_tmp_marked_logic_witnesses() const
+    {
+        return boomerang_utils.get_tmp_marked_logic_witnesses();
+    }
+    void save_and_clear_tmp_marked_logic_witnesses() { boomerang_utils.save_and_clear_tmp_marked_logic_witnesses(); }
+    const std::vector<std::unordered_set<uint32_t>>& get_all_tmp_logic_witnesses() const
+    {
+        return boomerang_utils.get_all_tmp_logic_witnesses();
     }
 
     // ========================================================================================

@@ -70,7 +70,8 @@ class BoomerangUtils {
     // ========================================================================================
 
     void update_constraint_witnesses(uint32_t var_idx) { constraint_witnesses.emplace(var_idx); }
-    void update_constraint_witnesses(std::unordered_set<uint32_t>& witnesses) {
+    void update_constraint_witnesses(std::unordered_set<uint32_t>& witnesses)
+    {
         constraint_witnesses.insert(witnesses.begin(), witnesses.end());
         witnesses.clear();
     }
@@ -90,6 +91,35 @@ class BoomerangUtils {
      * @return Vector of witness sets, one per logic constraint
      */
     const std::vector<std::unordered_set<uint32_t>>& get_all_logic_witnesses() const { return logic_witnesses; }
+
+    // ========================================================================================
+    // Temporary marked witnesses - for comparing mark_witness_as_logic approach
+    // ========================================================================================
+
+    /**
+     * @brief Add a witness index to the temporary marked witnesses (used by mark_witness_as_logic)
+     */
+    void update_tmp_marked_logic_witnesses(uint32_t var_idx) { tmp_marked_logic_witnesses.emplace(var_idx); }
+
+    /**
+     * @brief Get current temporary marked witnesses
+     */
+    std::unordered_set<uint32_t> get_tmp_marked_logic_witnesses() const { return tmp_marked_logic_witnesses; }
+
+    /**
+     * @brief Save current temporary marked witnesses to storage and clear for next constraint
+     */
+    void save_and_clear_tmp_marked_logic_witnesses()
+    {
+        tmp_logic_witnesses.emplace_back(std::move(tmp_marked_logic_witnesses));
+        tmp_marked_logic_witnesses.clear();
+    }
+
+    /**
+     * @brief Get all temporary logic witnesses organized per constraint (from mark_witness_as_logic)
+     * @return Vector of witness sets, one per logic constraint
+     */
+    const std::vector<std::unordered_set<uint32_t>>& get_all_tmp_logic_witnesses() const { return tmp_logic_witnesses; }
 
     /**
      * @brief Save current constraint witnesses to AES128 storage and clear for next constraint
@@ -116,6 +146,10 @@ class BoomerangUtils {
     // Per-constraint storage for different constraint types
     std::vector<std::unordered_set<uint32_t>> logic_witnesses;
     std::vector<std::unordered_set<uint32_t>> aes128_witnesses;
+
+    // Temporary storage for mark_witness_as_logic approach (for comparison testing)
+    std::unordered_set<uint32_t> tmp_marked_logic_witnesses;
+    std::vector<std::unordered_set<uint32_t>> tmp_logic_witnesses;
 
     // Witnesses that appear in finalize method
     std::unordered_set<uint32_t> finalize_witnesses;

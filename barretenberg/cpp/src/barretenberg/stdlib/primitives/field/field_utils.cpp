@@ -105,7 +105,7 @@ template <typename Builder> void mark_witness_as_used(const field_t<Builder>& fi
 template <typename Builder> void mark_witness_as_logic(const field_t<Builder>& field)
 {
     if (!field.is_constant()) {
-        field.get_context()->update_constraint_witnesses(field.witness_index);
+        field.get_context()->update_tmp_marked_logic_witnesses(field.witness_index);
     }
 }
 

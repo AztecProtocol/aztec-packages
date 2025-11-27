@@ -19,10 +19,10 @@
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_builder_base_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/circuit_builder_base_utils.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -61,7 +61,7 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
 
     // Add logic constraint
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraints.logic_constraints, constraints.original_opcode_indices.logic_constraints)) {
+        zip_view(constraints.logic_constraints, constraints.original_opcode_indices.logic_constraints)) {
         create_logic_gate(
             builder, constraint.a, constraint.b, constraint.result, constraint.num_bits, constraint.is_xor_gate);
         gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
