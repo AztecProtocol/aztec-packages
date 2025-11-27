@@ -1,3 +1,5 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
+
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp, getTimestampRangeForEpoch } from './index.js';
 
 describe('EpochHelpers', () => {
@@ -15,19 +17,19 @@ describe('EpochHelpers', () => {
   });
 
   it('returns timestamp range for initial epoch', () => {
-    const [start, end] = getTimestampRangeForEpoch(0n, constants);
+    const [start, end] = getTimestampRangeForEpoch(EpochNumber.fromBigInt(0n), constants);
     expect(start).toEqual(l1GenesisTime);
     expect(end).toEqual(l1GenesisTime + BigInt(24 * 3 + 12));
   });
 
   it('returns timestamp range for second epoch', () => {
-    const [start, end] = getTimestampRangeForEpoch(1n, constants);
+    const [start, end] = getTimestampRangeForEpoch(EpochNumber.fromBigInt(1n), constants);
     expect(start).toEqual(l1GenesisTime + BigInt(24 * 4));
     expect(end).toEqual(l1GenesisTime + BigInt(24 * 4) + BigInt(24 * 3 + 12));
   });
 
   it('returns proof submission deadline', () => {
-    const deadline = getProofSubmissionDeadlineTimestamp(3n, constants);
+    const deadline = getProofSubmissionDeadlineTimestamp(EpochNumber.fromBigInt(3n), constants);
     expect(deadline).toEqual(l1GenesisTime + BigInt(24 * 4 * 3) + BigInt(24 * 8));
   });
 });

@@ -46,7 +46,13 @@ export class BotFactory {
    * Initializes a new bot by setting up the sender account, registering the recipient,
    * deploying the token contract, and minting tokens if necessary.
    */
-  public async setup() {
+  public async setup(): Promise<{
+    wallet: TestWallet;
+    defaultAccountAddress: AztecAddress;
+    token: TokenContract | PrivateTokenContract;
+    node: AztecNode;
+    recipient: AztecAddress;
+  }> {
     const recipient = (await this.wallet.createAccount()).address;
     const defaultAccountAddress = await this.setupAccount();
     const token = await this.setupToken(defaultAccountAddress);
@@ -54,7 +60,14 @@ export class BotFactory {
     return { wallet: this.wallet, defaultAccountAddress, token, node: this.aztecNode, recipient };
   }
 
-  public async setupAmm() {
+  public async setupAmm(): Promise<{
+    wallet: TestWallet;
+    defaultAccountAddress: AztecAddress;
+    amm: AMMContract;
+    token0: TokenContract;
+    token1: TokenContract;
+    node: AztecNode;
+  }> {
     const defaultAccountAddress = await this.setupAccount();
     const token0 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken0', 'BOT0');
     const token1 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken1', 'BOT1');
