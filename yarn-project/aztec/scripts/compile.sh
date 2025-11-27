@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+NARGO=${NARGO:-nargo}
+BB=${BB:-bb}
+
 # If help is requested, show Aztec-specific info then run nargo compile help and then exit in order to not trigger
 # transpilation
 for arg in "$@"; do
@@ -25,10 +28,10 @@ EOF
 done
 
 # Run nargo compile.
-nargo compile "$@"
+$NARGO compile "$@"
 
 echo "Postprocessing contract..."
-bb aztec_process
+$BB aztec_process
 
 # Strip internal prefixes from all compiled contract JSONs in target directory
 # TODO: This should be part of bb aztec_process!

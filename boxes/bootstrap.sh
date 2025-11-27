@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# We set container name to "" to avoid container name collisions when building boxes
-export AZTEC=$PWD/../yarn-project/aztec/scripts/aztec.sh
+export AZTEC=$(realpath ../yarn-project/aztec/scripts/aztec.sh)
+export BB=$(realpath ../barretenberg/cpp/build/bin/bb)
+export NARGO=$(realpath ../noir/noir-repo/target/release/nargo)
 
 hash=$(hash_str \
   $(../noir/bootstrap.sh hash) \
@@ -10,6 +11,15 @@ hash=$(hash_str \
     .rebuild_patterns \
     ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
     ../barretenberg/*/.rebuild_patterns))
+
+function build_box {
+  cd boxes/$1
+  yarn build
+}
+
+function test_box {
+  CPUS=4 docker_isolate "./scripts/run_test.sh ${1:-vanilla} ${2:-chromium}"
+}
 
 function build {
   echo_header "boxes build"
@@ -27,21 +37,9 @@ function test {
 }
 
 function test_cmds {
-  # Until we get these boxes stable again - just testing on chromium.
-  local browser=chromium
   for box in react vite vanilla; do
-    echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
+    echo "$hash:ISOLATE=1:NET=1:CPUS=4 ./boxes/scripts/run_test.sh $box chromium"
   done
-
-  # for browser in chromium webkit firefox; do
-  #   for box in react vite; do
-  #     echo "$hash:ONLY_TERM_PARENT=1 BOX=$box BROWSER=$browser run_compose_test $box-$browser box boxes"
-  #   done
-  # done
-
-  # # The vanilla app works with deployed contracts configured during the build.
-  # # To avoid building the app three times, we test it with one sandbox and multiple browsers.
-  # echo "$hash:ONLY_TERM_PARENT=1 BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
