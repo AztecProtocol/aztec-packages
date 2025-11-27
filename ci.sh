@@ -298,6 +298,9 @@ case "$cmd" in
   "gh-bench")
     cache_download bench-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
+  "gh-deploy-bench")
+    cache_download deploy-bench-$(git rev-parse HEAD^{tree}).tar.gz
+    ;;
   "uncached-tests")
     if [ -z "$CI_REDIS_AVAILABLE" ]; then
       echo "Not connected to CI redis."
