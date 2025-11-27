@@ -235,7 +235,7 @@ services:
       --node
       --archiver
       --sequencer
-      --network testnet
+      --network mainnet
     networks:
       - aztec
     restart: always
@@ -256,7 +256,7 @@ docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
 ```
 :::
 
-This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
+This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
 ### Step 5: Start the Sequencer
 
@@ -325,7 +325,7 @@ aztec add-l1-validator \
 **Parameter descriptions:**
 
 - `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint
-- `--network`: Network identifier (e.g., `testnet`, `staging-public`)
+- `--network`: Network identifier (e.g., `mainnet`, `testnet`, `staging-public`)
 - `--private-key`: Private key of an Ethereum account with ETH to pay for gas (this is NOT your sequencer key)
 - `--attester`: Your sequencer's attester address from the keystore
 - `--withdrawer`: Ethereum address that can withdraw your stake (typically same as attester)
@@ -416,7 +416,7 @@ This command automatically:
 3. Generates the proof of possession signature by calling the GSE contract
 4. Outputs the complete registration JSON ready for the staking dashboard
 
-**Example for Sepolia testnet:**
+**Example:**
 
 ```bash
 aztec validator-keys staker \
