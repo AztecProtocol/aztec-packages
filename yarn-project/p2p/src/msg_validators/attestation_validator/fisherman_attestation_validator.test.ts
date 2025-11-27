@@ -190,7 +190,6 @@ describe('FishermanAttestationValidator', () => {
       const differentPayload = new ConsensusPayload(
         header.toCheckpointHeader(),
         Fr.random(), // Different archive
-        mockAttestation.payload.stateReference,
       );
       const mockProposal = new BlockProposal(differentPayload, mockAttestation.proposerSignature, []);
 

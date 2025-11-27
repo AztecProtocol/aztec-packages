@@ -779,7 +779,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       block.header.globalVariables.blockNumber,
       block.getCheckpointHeader(),
       block.archive.root,
-      block.header.state,
       txs,
       proposerAddress,
       blockProposalOptions,

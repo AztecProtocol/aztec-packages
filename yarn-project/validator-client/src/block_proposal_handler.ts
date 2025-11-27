@@ -322,12 +322,7 @@ export class BlockProposalHandler {
         actual: proposal.payload.toInspect(),
       });
       this.metrics?.recordFailedReexecution(proposal);
-      throw new ReExStateMismatchError(
-        proposal.archive,
-        block.archive.root,
-        proposal.payload.stateReference,
-        block.header.state,
-      );
+      throw new ReExStateMismatchError(proposal.archive, block.archive.root);
     }
 
     const reexecutionTimeMs = timer.ms();

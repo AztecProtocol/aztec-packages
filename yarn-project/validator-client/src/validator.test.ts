@@ -8,7 +8,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { Hex } from '@aztec/foundation/string';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
-import { unfreeze } from '@aztec/foundation/types';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import {
   AuthRequest,
@@ -121,7 +120,6 @@ describe('ValidatorClient', () => {
         header.globalVariables.blockNumber,
         header.toCheckpointHeader(),
         archive,
-        header.state,
         txs,
         EthAddress.fromString(validatorAccounts[0].address),
         { publishFullTxs: false },
@@ -340,9 +338,9 @@ describe('ValidatorClient', () => {
     });
 
     it('should not attest to proposal if a random field in the proposal does not match', async () => {
-      // Block builder returns a block with a different nullifier tree root
+      // Block builder returns a block with a different archive root
       enableReexecution();
-      unfreeze(blockBuildResult.block.header.state.partial).nullifierTree.root = Fr.random();
+      blockBuildResult.block.archive.root = Fr.random();
 
       // We should not attest to the proposal
       const attestations = await validatorClient.attestToProposal(proposal, sender);

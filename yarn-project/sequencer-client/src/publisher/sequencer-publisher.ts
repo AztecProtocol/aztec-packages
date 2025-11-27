@@ -18,7 +18,6 @@ import {
   type TransactionStats,
   type ViemCommitteeAttestations,
   type ViemHeader,
-  type ViemStateReference,
   WEI_CONST,
   formatViemError,
   tryExtractEvent,
@@ -38,7 +37,6 @@ import { CommitteeAttestation, CommitteeAttestationsAndSigners, type ValidateBlo
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { StateReference } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type StateOverride, type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
@@ -52,8 +50,6 @@ type L1ProcessArgs = {
   header: CheckpointHeader;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
-  /** State reference after the L2 block is applied. */
-  stateReference: StateReference;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** Attestations */
@@ -539,7 +535,6 @@ export class SequencerPublisher {
       {
         header: block.getCheckpointHeader().toViem(),
         archive: toHex(block.archive.root.toBuffer()),
-        stateReference: block.header.state.toViem(),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
@@ -807,7 +802,6 @@ export class SequencerPublisher {
     const proposeTxArgs = {
       header: checkpointHeader,
       archive: block.archive.root.toBuffer(),
-      stateReference: block.header.state,
       body: block.body.toBuffer(),
       blobs,
       attestationsAndSigners,
@@ -985,7 +979,6 @@ export class SequencerPublisher {
       {
         header: encodedData.header.toViem(),
         archive: toHex(encodedData.archive),
-        stateReference: encodedData.stateReference.toViem(),
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
@@ -1013,7 +1006,6 @@ export class SequencerPublisher {
       {
         readonly header: ViemHeader;
         readonly archive: `0x${string}`;
-        readonly stateReference: ViemStateReference;
         readonly oracleInput: {
           readonly feeAssetPriceModifier: 0n;
         };

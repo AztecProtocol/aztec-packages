@@ -56,7 +56,6 @@ import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
   ProtocolContracts,
-  StateReference,
   Tx,
   TxConstantData,
   makeProcessedTxFromPrivateOnlyTx,
@@ -408,7 +407,6 @@ export interface MakeConsensusPayloadOptions {
   proposerSigner?: Secp256k1Signer;
   header?: L2BlockHeader;
   archive?: Fr;
-  stateReference?: StateReference;
   txHashes?: TxHash[];
   txs?: Tx[];
 }
@@ -418,12 +416,11 @@ const makeAndSignConsensusPayload = (
   options?: MakeConsensusPayloadOptions,
 ) => {
   const header = options?.header ?? makeL2BlockHeader(1);
-  const { signer = Secp256k1Signer.random(), archive = Fr.random(), stateReference = header.state } = options ?? {};
+  const { signer = Secp256k1Signer.random(), archive = Fr.random() } = options ?? {};
 
   const payload = ConsensusPayload.fromFields({
     header: header.toCheckpointHeader(),
     archive,
-    stateReference,
   });
 
   const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
@@ -452,18 +449,11 @@ export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockP
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
 export const makeBlockAttestation = (options: MakeConsensusPayloadOptions = {}): BlockAttestation => {
   const header = options.header ?? makeL2BlockHeader(1);
-  const {
-    signer,
-    attesterSigner = signer,
-    proposerSigner = signer,
-    archive = Fr.random(),
-    stateReference = header.state,
-  } = options;
+  const { signer, attesterSigner = signer, proposerSigner = signer, archive = Fr.random() } = options;
 
   const payload = ConsensusPayload.fromFields({
     header: header.toCheckpointHeader(),
     archive,
-    stateReference,
   });
 
   return makeBlockAttestationFromPayload(payload, attesterSigner, proposerSigner);
@@ -476,12 +466,10 @@ export const makeAttestationFromCheckpoint = (
 ): BlockAttestation => {
   const header = checkpoint.header;
   const archive = checkpoint.archive.root;
-  const stateReference = checkpoint.blocks.at(-1)!.header.state;
 
   const payload = ConsensusPayload.fromFields({
     header,
     archive,
-    stateReference,
   });
 
   return makeBlockAttestationFromPayload(payload, attesterSigner, proposerSigner);
@@ -494,12 +482,10 @@ export const makeBlockAttestationFromBlock = (
 ): BlockAttestation => {
   const header = block.header;
   const archive = block.archive.root;
-  const stateReference = block.header.state;
 
   const payload = ConsensusPayload.fromFields({
     header: header.toCheckpointHeader(),
     archive,
-    stateReference,
   });
 
   return makeBlockAttestationFromPayload(payload, attesterSigner, proposerSigner);
