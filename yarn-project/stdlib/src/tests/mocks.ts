@@ -40,8 +40,6 @@ import {
 import { PrivateToAvmAccumulatedData } from '../kernel/private_to_avm_accumulated_data.js';
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
 import { PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
-import { Note } from '../note/note.js';
-import { UniqueNote } from '../note/unique_note.js';
 import { BlockAttestation } from '../p2p/block_attestation.js';
 import { BlockProposal } from '../p2p/block_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
@@ -81,16 +79,6 @@ import {
 } from './factories.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
-
-export const randomUniqueNote = async ({
-  note = Note.random(),
-  contractAddress = undefined,
-  txHash = randomTxHash(),
-  storageSlot = Fr.random(),
-  noteNonce = Fr.random(),
-}: Partial<UniqueNote> = {}) => {
-  return new UniqueNote(note, contractAddress ?? (await AztecAddress.random()), storageSlot, txHash, noteNonce);
-};
 
 export const mockTx = async (
   seed = 1,

@@ -203,6 +203,12 @@ FuzzInstruction generate_instruction(std::mt19937_64& rng)
                                            .notehash_offset = generate_random_uint16(rng),
                                            .leaf_index_offset = generate_random_uint16(rng),
                                            .result_offset = generate_random_uint16(rng) };
+    case InstructionGenerationOptions::CALLDATACOPY:
+        return CALLDATACOPY_Instruction{ .dst_offset = generate_random_uint16(rng),
+                                         .copy_size = generate_random_uint8(rng),
+                                         .copy_size_offset = generate_random_uint16(rng),
+                                         .cd_start = generate_random_uint16(rng),
+                                         .cd_start_offset = generate_random_uint16(rng) };
     }
 }
 template <typename BinaryInstructionType>
@@ -512,6 +518,28 @@ void mutate_note_hash_exists_instruction(NOTEHASHEXISTS_Instruction& instruction
     }
 }
 
+void mutate_calldatacopy_instruction(CALLDATACOPY_Instruction& instruction, std::mt19937_64& rng)
+{
+    CalldataCopyMutationOptions option = BASIC_CALLDATACOPY_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case CalldataCopyMutationOptions::dst_offset:
+        mutate_uint16_t(instruction.dst_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CalldataCopyMutationOptions::copy_size:
+        mutate_uint8_t(instruction.copy_size, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
+        break;
+    case CalldataCopyMutationOptions::copy_size_offset:
+        mutate_uint16_t(instruction.copy_size_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CalldataCopyMutationOptions::cd_start:
+        mutate_uint16_t(instruction.cd_start, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CalldataCopyMutationOptions::cd_start_offset:
+        mutate_uint16_t(instruction.cd_start_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    }
+}
+
 void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
 {
     std::visit(overloaded_instruction{
@@ -558,6 +586,7 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
                    [&rng](NULLIFIEREXISTS_Instruction& instr) { mutate_nullifier_exists_instruction(instr, rng); },
                    [&rng](EMITNOTEHASH_Instruction& instr) { mutate_emit_note_hash_instruction(instr, rng); },
                    [&rng](NOTEHASHEXISTS_Instruction& instr) { mutate_note_hash_exists_instruction(instr, rng); },
+                   [&rng](CALLDATACOPY_Instruction& instr) { mutate_calldatacopy_instruction(instr, rng); },
                    [](auto&) { throw std::runtime_error("Unknown instruction"); } },
                instruction);
 }

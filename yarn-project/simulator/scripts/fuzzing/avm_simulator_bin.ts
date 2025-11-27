@@ -89,7 +89,7 @@ async function getStateManager(): Promise<typeof PublicPersistableStateManager> 
   const treesDb = new PublicTreesDB(merkleTrees);
   const contractsDb = new PublicContractsDB(contractDataSource);
   const trace = new SideEffectTrace();
-  const firstNullifier = new Fr(420000);
+  const firstNullifier = new Fr(0xdeadbeef);
   const stateManager = PublicPersistableStateManager.create(
     treesDb,
     contractsDb,
@@ -295,7 +295,6 @@ async function mainLoop() {
   await initSimulator();
   const rl = createInterface({
     input: process.stdin,
-    output: process.stdout,
     terminal: false,
   });
   rl.on('line', (line: string) => {

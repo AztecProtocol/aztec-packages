@@ -185,7 +185,7 @@ Use the `aztec validator-keys` command with the `--staker-output` flag to automa
 aztec validator-keys new \
   --fee-recipient $AZTEC_ADDRESS \
   --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
   --l1-rpc-urls $RPC_URL
 ```
 

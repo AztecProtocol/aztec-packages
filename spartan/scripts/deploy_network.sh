@@ -142,12 +142,6 @@ P2P_GOSSIPSUB_DHI=${P2P_GOSSIPSUB_DHI:-12}
 P2P_DROP_TX=${P2P_DROP_TX:-false}
 P2P_DROP_TX_CHANCE=${P2P_DROP_TX_CHANCE:-0}
 
-########################
-# CHAOS MESH VARIABLES
-########################
-DESTROY_CHAOS_MESH=${DESTROY_CHAOS_MESH:-false}
-CREATE_CHAOS_MESH=${CREATE_CHAOS_MESH:-false}
-
 
 # Compute validator addresses (skip if no validators)
 if [[ $VALIDATOR_REPLICAS -gt 0 ]]; then
@@ -324,6 +318,15 @@ JOB_TTL_SECONDS_AFTER_FINISHED = 3600
 EOF
 
 tf_run "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${DESTROY_ROLLUP_CONTRACTS}" "${CREATE_ROLLUP_CONTRACTS}"
+
+# Print logs from any failed pods (useful if job succeeded after retries)
+JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
+for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
+  --field-selector=status.phase=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+  echo "=== Failed pod: $pod ==="
+  kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
+done
+
 log "Deployed rollup contracts"
 
 if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
@@ -460,23 +463,3 @@ EOF
 tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}"
 log "Deployed aztec infra"
 
-
-
-########################################
-# Optionally deploy Chaos Mesh via Helm
-########################################
-if [[ "${CREATE_CHAOS_MESH}" == "true" ]]; then
-  log "CREATE_CHAOS_MESH=true - deploying Chaos Mesh"
-  DEPLOY_CHAOS_MESH_DIR="${SCRIPT_DIR}/../terraform/deploy-chaos-mesh"
-  cat > "${DEPLOY_CHAOS_MESH_DIR}/terraform.tfvars" << EOF
-K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
-RELEASE_NAME = "chaos"
-CHAOS_MESH_NAMESPACE = "chaos-mesh"
-EOF
-
-  "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_CHAOS_MESH_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-chaos-mesh/${SALT}"
-  tf_run "${DEPLOY_CHAOS_MESH_DIR}" "${DESTROY_CHAOS_MESH}" "${CREATE_CHAOS_MESH}"
-  log "Chaos Mesh installed"
-else
-  log "CREATE_CHAOS_MESH=false - skipping Chaos Mesh installation"
-fi

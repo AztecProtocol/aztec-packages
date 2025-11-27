@@ -9,8 +9,8 @@ description: Learn how to monitor your Aztec node with metrics, OpenTelemetry, P
 
 This guide covers how to set up monitoring and observability for your Aztec node using OpenTelemetry, Prometheus, and Grafana. Proper monitoring helps you maintain healthy node operations, diagnose issues quickly, and track performance over time.
 
-:::warning Docker Compose Required
-This monitoring setup only works with the Docker Compose method of running your Aztec node.
+:::info Docker Compose Setup
+This monitoring setup is designed to work with Docker Compose deployments of Aztec nodes.
 :::
 
 ## Architecture

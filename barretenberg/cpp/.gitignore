@@ -16,3 +16,4 @@ barretenberg_modules.png
 src/barretenberg/bb/config.hpp
 bench-out
 *.bak
+src/barretenberg/avm_fuzzer/corpus/**
