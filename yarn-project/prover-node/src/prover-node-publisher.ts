@@ -1,4 +1,4 @@
-import type { BatchedBlob } from '@aztec/blob-lib';
+import { BatchedBlob, getEthBlobEvaluationInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
@@ -264,7 +264,7 @@ export class ProverNodePublisher {
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()
           : args.publicInputs.fees[(i - 1) / 2].value.toString(),
       ) /*_fees*/,
-      args.batchedBlobInputs.getEthBlobEvaluationInputs() /*_blobPublicInputs*/,
+      getEthBlobEvaluationInputs(args.batchedBlobInputs) /*_blobPublicInputs*/,
     ] as const;
   }
 

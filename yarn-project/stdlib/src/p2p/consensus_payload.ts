@@ -8,6 +8,7 @@ import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
 import type { L2Block } from '../block/l2_block.js';
+import type { Checkpoint } from '../checkpoint/checkpoint.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { StateReference } from '../tx/state_reference.js';
 import type { Signable, SignatureDomainSeparator } from './signature_utils.js';
@@ -88,6 +89,11 @@ export class ConsensusPayload implements Signable {
 
   static fromBlock(block: L2Block): ConsensusPayload {
     return new ConsensusPayload(block.header.toCheckpointHeader(), block.archive.root, block.header.state);
+  }
+
+  static fromCheckpoint(checkpoint: Checkpoint): ConsensusPayload {
+    const lastBlock = checkpoint.blocks.at(-1)!;
+    return new ConsensusPayload(checkpoint.header, checkpoint.archive.root, lastBlock.header.state);
   }
 
   static empty(): ConsensusPayload {

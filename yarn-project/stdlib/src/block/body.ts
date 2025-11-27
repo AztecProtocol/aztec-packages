@@ -64,14 +64,16 @@ export class Body {
 }`;
   }
 
-  static async random(
+  static async random({
     txsPerBlock = 4,
-    numPublicCallsPerTx = 3,
-    numPublicLogsPerCall = 1,
-    maxEffects: number | undefined = undefined,
-  ) {
-    const txEffects = await timesParallel(txsPerBlock, () =>
-      TxEffect.random(numPublicCallsPerTx, numPublicLogsPerCall, maxEffects),
+    makeTxOptions = () => ({}),
+    ...txEffectOptions
+  }: {
+    txsPerBlock?: number;
+    makeTxOptions?: (txIndex: number) => Partial<Parameters<typeof TxEffect.random>[0]>;
+  } & Partial<Parameters<typeof TxEffect.random>[0]> = {}) {
+    const txEffects = await timesParallel(txsPerBlock, txIndex =>
+      TxEffect.random({ ...makeTxOptions(txIndex), ...txEffectOptions }),
     );
 
     return new Body(txEffects);

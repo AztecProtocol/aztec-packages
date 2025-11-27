@@ -2,28 +2,67 @@ import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT } from '@aztec/constants
 import { poseidon2Hash, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
+import { BatchedBlob } from './batched_blob.js';
 import { Blob } from './blob.js';
 import { getBlobsPerL1Block } from './blob_utils.js';
 import { BlobAccumulator, FinalBlobAccumulator, FinalBlobBatchingChallenges } from './circuit_types/index.js';
-import { computeBlobFieldsHash, computeEthVersionedBlobHash, hashNoirBigNumLimbs } from './hash.js';
+import { computeBlobFieldsHash, hashNoirBigNumLimbs } from './hash.js';
 import { kzg } from './kzg_context.js';
 
 /**
  * A class to create, manage, and prove batched EVM blobs.
+ * See noir-projects/noir-protocol-circuits/crates/blob/src/abis/blob_accumulator.nr
  */
-export class BatchedBlob {
+export class BatchedBlobAccumulator {
   constructor(
     /** Hash of Cs (to link to L1 blob hashes). */
-    public readonly blobCommitmentsHash: Fr,
-    /** Challenge point z such that p_i(z) = y_i. */
-    public readonly z: Fr,
-    /** Evaluation y, linear combination of all evaluations y_i = p_i(z) with gamma. */
-    public readonly y: BLS12Fr,
-    /** Commitment C, linear combination of all commitments C_i = [p_i] with gamma. */
-    public readonly commitment: BLS12Point,
-    /** KZG opening 'proof' Q (commitment to the quotient poly.), linear combination of all blob kzg 'proofs' Q_i with gamma. */
-    public readonly q: BLS12Point,
+    public readonly blobCommitmentsHashAcc: Fr,
+    /** Challenge point z_acc. Final value used such that p_i(z) = y_i. */
+    public readonly zAcc: Fr,
+    /** Evaluation y_acc. Final value is is linear combination of all evaluations y_i = p_i(z) with gamma. */
+    public readonly yAcc: BLS12Fr,
+    /** Commitment c_acc. Final value is linear combination of all commitments C_i = [p_i] with gamma. */
+    public readonly cAcc: BLS12Point,
+    /** KZG opening q_acc. Final value is linear combination of all blob kzg 'proofs' Q_i with gamma. */
+    public readonly qAcc: BLS12Point,
+    /**
+     * Challenge point gamma_acc for multi opening. Used with y, C, and kzg 'proof' Q above.
+     * TODO(#13608): We calculate this by hashing natively in the circuit (hence Fr representation), but it's actually used
+     * as a BLS12Fr field elt. Is this safe? Is there a skew?
+     */
+    public readonly gammaAcc: Fr,
+    /** Simply gamma^(i + 1) at blob i. Used for calculating the i'th element of the above linear comb.s */
+    public readonly gammaPow: BLS12Fr,
+    /** Final challenge values used in evaluation. Optimistically input and checked in the final acc. */
+    public readonly finalBlobChallenges: FinalBlobBatchingChallenges,
   ) {}
+
+  /**
+   * Create the empty accumulation state of the epoch.
+   * @returns An empty blob accumulator with challenges.
+   */
+  static newWithChallenges(finalBlobChallenges: FinalBlobBatchingChallenges): BatchedBlobAccumulator {
+    return new BatchedBlobAccumulator(
+      Fr.ZERO,
+      Fr.ZERO,
+      BLS12Fr.ZERO,
+      BLS12Point.ZERO,
+      BLS12Point.ZERO,
+      Fr.ZERO,
+      BLS12Fr.ZERO,
+      finalBlobChallenges,
+    );
+  }
+
+  /**
+   * Returns an empty BatchedBlobAccumulator with precomputed challenges from all blobs in the epoch.
+   * @dev MUST input all blobs to be broadcast. Does not work in multiple calls because z and gamma are calculated
+   *      beforehand from ALL blobs.
+   */
+  static async fromBlobFields(blobFieldsPerCheckpoint: Fr[][]): Promise<BatchedBlobAccumulator> {
+    const finalBlobChallenges = await this.precomputeBatchedBlobChallenges(blobFieldsPerCheckpoint);
+    return BatchedBlobAccumulator.newWithChallenges(finalBlobChallenges);
+  }
 
   /**
    * Get the final batched opening proof from multiple blobs.
@@ -32,7 +71,7 @@ export class BatchedBlob {
    *
    * @returns A batched blob.
    */
-  static async batch(blobFieldsPerCheckpoint: Fr[][]): Promise<BatchedBlob> {
+  static async batch(blobFieldsPerCheckpoint: Fr[][], verifyProof = false): Promise<BatchedBlob> {
     const numCheckpoints = blobFieldsPerCheckpoint.length;
     if (numCheckpoints > AZTEC_MAX_EPOCH_DURATION) {
       throw new Error(
@@ -41,22 +80,12 @@ export class BatchedBlob {
     }
 
     // Precalculate the values (z and gamma) and initialize the accumulator:
-    let acc = await this.newAccumulator(blobFieldsPerCheckpoint);
+    let acc = await this.fromBlobFields(blobFieldsPerCheckpoint);
     // Now we can create a multi opening proof of all input blobs:
     for (const blobFields of blobFieldsPerCheckpoint) {
       acc = await acc.accumulateFields(blobFields);
     }
-    return await acc.finalize();
-  }
-
-  /**
-   * Returns an empty BatchedBlobAccumulator with precomputed challenges from all blobs in the epoch.
-   * @dev MUST input all blobs to be broadcast. Does not work in multiple calls because z and gamma are calculated
-   *      beforehand from ALL blobs.
-   */
-  static async newAccumulator(blobFieldsPerCheckpoint: Fr[][]): Promise<BatchedBlobAccumulator> {
-    const finalBlobChallenges = await this.precomputeBatchedBlobChallenges(blobFieldsPerCheckpoint);
-    return BatchedBlobAccumulator.newWithChallenges(finalBlobChallenges);
+    return await acc.finalize(verifyProof);
   }
 
   /**
@@ -106,86 +135,6 @@ export class BatchedBlob {
     gamma = await poseidon2Hash([gamma, z]);
 
     return new FinalBlobBatchingChallenges(z, BLS12Fr.fromBN254Fr(gamma));
-  }
-
-  verify() {
-    return kzg.verifyKzgProof(this.commitment.compress(), this.z.toBuffer(), this.y.toBuffer(), this.q.compress());
-  }
-
-  // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash: https://eips.ethereum.org/EIPS/eip-4844#helpers
-  getEthVersionedBlobHash(): Buffer {
-    return computeEthVersionedBlobHash(this.commitment.compress());
-  }
-
-  /**
-   * Returns a proof of opening of the blobs to verify on L1 using the point evaluation precompile:
-   *
-   * input[:32]     - versioned_hash
-   * input[32:64]   - z
-   * input[64:96]   - y
-   * input[96:144]  - commitment C
-   * input[144:192] - commitment Q (a 'proof' committing to the quotient polynomial q(X))
-   *
-   * See https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
-   */
-  getEthBlobEvaluationInputs(): `0x${string}` {
-    const buf = Buffer.concat([
-      this.getEthVersionedBlobHash(),
-      this.z.toBuffer(),
-      this.y.toBuffer(),
-      this.commitment.compress(),
-      this.q.compress(),
-    ]);
-    return `0x${buf.toString('hex')}`;
-  }
-
-  toFinalBlobAccumulator() {
-    return new FinalBlobAccumulator(this.blobCommitmentsHash, this.z, this.y, this.commitment);
-  }
-}
-
-/**
- * See noir-projects/noir-protocol-circuits/crates/blob/src/abis/blob_accumulator.nr
- */
-export class BatchedBlobAccumulator {
-  constructor(
-    /** Hash of Cs (to link to L1 blob hashes). */
-    public readonly blobCommitmentsHashAcc: Fr,
-    /** Challenge point z_acc. Final value used such that p_i(z) = y_i. */
-    public readonly zAcc: Fr,
-    /** Evaluation y_acc. Final value is is linear combination of all evaluations y_i = p_i(z) with gamma. */
-    public readonly yAcc: BLS12Fr,
-    /** Commitment c_acc. Final value is linear combination of all commitments C_i = [p_i] with gamma. */
-    public readonly cAcc: BLS12Point,
-    /** KZG opening q_acc. Final value is linear combination of all blob kzg 'proofs' Q_i with gamma. */
-    public readonly qAcc: BLS12Point,
-    /**
-     * Challenge point gamma_acc for multi opening. Used with y, C, and kzg 'proof' Q above.
-     * TODO(#13608): We calculate this by hashing natively in the circuit (hence Fr representation), but it's actually used
-     * as a BLS12Fr field elt. Is this safe? Is there a skew?
-     */
-    public readonly gammaAcc: Fr,
-    /** Simply gamma^(i + 1) at blob i. Used for calculating the i'th element of the above linear comb.s */
-    public readonly gammaPow: BLS12Fr,
-    /** Final challenge values used in evaluation. Optimistically input and checked in the final acc. */
-    public readonly finalBlobChallenges: FinalBlobBatchingChallenges,
-  ) {}
-
-  /**
-   * Create the empty accumulation state of the epoch.
-   * @returns An empty blob accumulator with challenges.
-   */
-  static newWithChallenges(finalBlobChallenges: FinalBlobBatchingChallenges): BatchedBlobAccumulator {
-    return new BatchedBlobAccumulator(
-      Fr.ZERO,
-      Fr.ZERO,
-      BLS12Fr.ZERO,
-      BLS12Point.ZERO,
-      BLS12Point.ZERO,
-      Fr.ZERO,
-      BLS12Fr.ZERO,
-      finalBlobChallenges,
-    );
   }
 
   /**
@@ -291,11 +240,15 @@ export class BatchedBlobAccumulator {
 
     const batchedBlob = new BatchedBlob(this.blobCommitmentsHashAcc, this.zAcc, this.yAcc, this.cAcc, this.qAcc);
 
-    if (verifyProof && !batchedBlob.verify()) {
+    if (verifyProof && !this.verify()) {
       throw new Error(`KZG proof did not verify.`);
     }
 
     return batchedBlob;
+  }
+
+  verify() {
+    return kzg.verifyKzgProof(this.cAcc.compress(), this.zAcc.toBuffer(), this.yAcc.toBuffer(), this.qAcc.compress());
   }
 
   isEmptyState() {
