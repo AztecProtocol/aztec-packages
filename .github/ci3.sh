@@ -91,7 +91,7 @@ function check_cache {
   local cache_name="ci-success-${CI_MODE}-${tree_hash}.tar.gz"
   # Export for use by ci3-post.sh
   echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
-  if has_label "ci-no-cache"; then
+  if has_label "no-cache"; then
     echo "NO_CACHE=1" >> $GITHUB_ENV
     echo "Cache disabled by label"
   elif cache_download "$cache_name" . 2>/dev/null && [ -f ".ci-success.txt" ]; then
