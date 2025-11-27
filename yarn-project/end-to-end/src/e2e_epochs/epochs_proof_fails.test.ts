@@ -1,6 +1,6 @@
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import type { Logger } from '@aztec/aztec.js/log';
-import { BatchedBlob } from '@aztec/blob-lib';
+import { BatchedBlob } from '@aztec/blob-lib/types';
 import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';

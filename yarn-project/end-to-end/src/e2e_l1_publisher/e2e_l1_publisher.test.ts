@@ -5,7 +5,12 @@ import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { GlobalVariables } from '@aztec/aztec.js/tx';
-import { BatchedBlob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import {
+  BatchedBlob,
+  BatchedBlobAccumulator,
+  getBlobsPerL1Block,
+  getPrefixedEthBlobCommitments,
+} from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -429,7 +434,7 @@ describe('L1Publisher integration', () => {
         blobFieldsPerCheckpoint.push(checkpointBlobFields);
 
         // Batch the blobs so far, so they can be used in the L1 unit tests:
-        currentBatch = await BatchedBlob.batch(blobFieldsPerCheckpoint);
+        currentBatch = await BatchedBlobAccumulator.batch(blobFieldsPerCheckpoint);
 
         await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,

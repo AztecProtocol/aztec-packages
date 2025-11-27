@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { L2BlockNew } from '@aztec/stdlib/block';
 import {
   Attributes,
   type Gauge,
@@ -139,7 +139,7 @@ export class ArchiverInstrumentation {
     return this.telemetry.isEnabled();
   }
 
-  public processNewBlocks(syncTimePerBlock: number, blocks: L2Block[]) {
+  public processNewBlocks(syncTimePerBlock: number, blocks: L2BlockNew[]) {
     this.syncDurationPerBlock.record(Math.ceil(syncTimePerBlock));
     this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
     this.syncBlockCount.add(blocks.length);

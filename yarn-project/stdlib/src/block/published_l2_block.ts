@@ -1,43 +1,18 @@
 // Ignoring import issue to fix portable inferred type issue in zod schema
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { randomBigInt } from '@aztec/foundation/crypto';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import { L2Block } from './l2_block.js';
 import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
-export class L1PublishedData {
-  constructor(
-    public blockNumber: bigint,
-    public timestamp: bigint,
-    public blockHash: string,
-  ) {}
-
-  static get schema() {
-    return z.object({
-      blockNumber: schemas.BigInt,
-      timestamp: schemas.BigInt,
-      blockHash: z.string(),
-    });
-  }
-
-  static random() {
-    return new L1PublishedData(
-      randomBigInt(1000n) + 1n,
-      BigInt(Math.floor(Date.now() / 1000)),
-      Buffer32.random().toString(),
-    );
-  }
-
-  static fromFields(fields: FieldsOf<L1PublishedData>) {
-    return new L1PublishedData(fields.blockNumber, fields.timestamp, fields.blockHash);
-  }
-}
-
+/**
+ * @deprecated `PublishedCheckpoint` is what will be retrieved from L1.
+ * L2 blocks do not need to link to L1PublishedData directly.
+ * TODO: Create another type (AttestedL2Block?) for an L2 block and its attestations.
+ */
 export class PublishedL2Block {
   constructor(
     public block: L2Block,
@@ -78,5 +53,13 @@ export class PublishedL2Block {
       this.attestations.length,
       this.attestations,
     );
+  }
+
+  public toPublishedCheckpoint() {
+    return new PublishedCheckpoint(this.block.toCheckpoint(), this.l1, this.attestations);
+  }
+
+  static fromPublishedCheckpoint(checkpoint: PublishedCheckpoint) {
+    return new PublishedL2Block(L2Block.fromCheckpoint(checkpoint.checkpoint), checkpoint.l1, checkpoint.attestations);
   }
 }

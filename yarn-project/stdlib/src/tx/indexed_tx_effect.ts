@@ -13,7 +13,7 @@ export function indexedTxSchema() {
 
 export async function randomIndexedTxEffect(): Promise<IndexedTxEffect> {
   return {
-    ...randomInBlock(await TxEffect.random()),
+    ...randomInBlock(await TxEffect.random({ numNullifiers: 1 + Math.floor(Math.random() * 64) })),
     txIndexInBlock: Math.floor(Math.random() * 1000),
   };
 }

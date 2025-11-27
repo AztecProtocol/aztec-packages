@@ -1,4 +1,5 @@
 import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
+import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -193,6 +194,20 @@ export class GlobalVariables {
       this.feeRecipient.isZero() &&
       this.gasFees.isEmpty()
     );
+  }
+
+  static random(overrides: Partial<FieldsOf<GlobalVariables>> = {}): GlobalVariables {
+    return GlobalVariables.from({
+      chainId: new Fr(randomInt(100_000)),
+      version: new Fr(randomInt(100_000)),
+      blockNumber: randomInt(100_000),
+      slotNumber: new Fr(randomInt(100_000)),
+      coinbase: EthAddress.random(),
+      feeRecipient: AztecAddress.fromField(Fr.random()),
+      gasFees: GasFees.random(),
+      timestamp: BigInt(randomInt(100_000_000)),
+      ...overrides,
+    });
   }
 
   toInspect() {
