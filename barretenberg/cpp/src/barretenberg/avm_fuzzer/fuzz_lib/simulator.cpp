@@ -10,6 +10,7 @@
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/common/interfaces/simulation_helper.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/common/base64.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
@@ -48,14 +49,14 @@ std::string serialize_bytecode_and_calldata(const std::vector<uint8_t>& bytecode
 GlobalVariables create_default_globals()
 {
     return GlobalVariables{
-        .chain_id = 1,
-        .version = 1,
-        .block_number = 1,
-        .slot_number = 1,
-        .timestamp = 1000000,
-        .coinbase = EthAddress{ 0 },
-        .fee_recipient = AztecAddress{ 0 },
-        .gas_fees = GasFees{ .fee_per_da_gas = 1, .fee_per_l2_gas = 1 },
+        .chain_id = CHAIN_ID,
+        .version = VERSION,
+        .block_number = BLOCK_NUMBER,
+        .slot_number = SLOT_NUMBER,
+        .timestamp = TIMESTAMP,
+        .coinbase = COINBASE,
+        .fee_recipient = FEE_RECIPIENT,
+        .gas_fees = GasFees{ .fee_per_da_gas = FEE_PER_DA_GAS, .fee_per_l2_gas = FEE_PER_L2_GAS },
     };
 }
 
@@ -69,30 +70,27 @@ Tx create_default_tx(const AztecAddress& contract_address,
 {
     return Tx
     {
-        .hash = std::string("0xdeadbeef"),
+        .hash = TRANSACTION_HASH,
         .gas_settings = GasSettings{
             .gas_limits = gas_limit,
         },
-        .effective_gas_fees = GasFees{
-            .fee_per_da_gas = 0,
-            .fee_per_l2_gas = 0,
-        },
+        .effective_gas_fees = EFFECTIVE_GAS_FEES,
         .non_revertible_accumulated_data = AccumulatedData{
-            .note_hashes = {},
+            .note_hashes = NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES,
             // This nullifier is needed to make the nonces for note hashes and expected by simulation_helper
-            .nullifiers = {FF("0x00000000000000000000000000000000000000000000000000000000deadbeef")},
-            .l2_to_l1_messages = {},
+            .nullifiers = NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS,
+            .l2_to_l1_messages = NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESSAGES,
         },
         .revertible_accumulated_data = AccumulatedData{
-            .note_hashes = {},
-            .nullifiers = {},
-            .l2_to_l1_messages = {},
+            .note_hashes = REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES,
+            .nullifiers = REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS,
+            .l2_to_l1_messages = REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESSAGES,
         },
-        .setup_enqueued_calls = {},
+        .setup_enqueued_calls = SETUP_ENQUEUED_CALLS,
         .app_logic_enqueued_calls = {
             PublicCallRequestWithCalldata{
                 .request = PublicCallRequest{
-                    .msg_sender = 100,
+                    .msg_sender = MSG_SENDER,
                     .contract_address = contract_address,
                     .is_static_call = is_static_call,
                     .calldata_hash = 0,
@@ -100,8 +98,8 @@ Tx create_default_tx(const AztecAddress& contract_address,
                 .calldata = calldata,
             },
         },
-        .teardown_enqueued_call = std::nullopt,
-        .gas_used_by_private = Gas{ .l2_gas = 0, .da_gas = 0 },
+        .teardown_enqueued_call = TEARDOWN_ENQUEUED_CALLS,
+        .gas_used_by_private = GAS_USED_BY_PRIVATE,
         .fee_payer = sender_address,
     };
 }
@@ -109,19 +107,19 @@ Tx create_default_tx(const AztecAddress& contract_address,
 class TestSimulator {
   protected:
     FuzzerSimulationHelper helper;
-    AztecAddress contract_address{ 42 };
-    AztecAddress sender_address{ 100 };
-    FF transaction_fee = 0; // This has to be zero for now since we don't handle fee payment right now.
+    AztecAddress contract_address{ CONTRACT_ADDRESS };
+    AztecAddress sender_address{ MSG_SENDER };
+    FF transaction_fee = TRANSACTION_FEE;
     GlobalVariables globals = create_default_globals();
-    bool is_static_call = false;
-    Gas gas_limit{ 1000000, 1000000 }; // Large gas limit for tests
+    bool is_static_call = IS_STATIC_CALL;
+    Gas gas_limit = GAS_LIMIT; // Large gas limit for tests
   public:
     TxSimulationResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
     {
         FuzzerContractDB minimal_contract_db(bytecode);
         FuzzerLowLevelDB minimal_low_level_db;
 
-        const PublicSimulatorConfig config{};
+        const PublicSimulatorConfig config{ .collect_call_metadata = true };
 
         // This is needed so that the contract existence check passes in simulation
         minimal_low_level_db.insert_contract_address(contract_address);
@@ -183,15 +181,12 @@ void JsSimulator::restart_simulator()
     instance->process.write_line("{\"restart\":1}");
 
     std::string response = instance->process.read_line();
-    if (logging_enabled) {
-        std::cout << "Raw restart response length: " << response.length() << std::endl;
-        std::cout << "Raw restart response (first 200 chars): " << response.substr(0, 200) << std::endl;
+    while (response.empty()) {
+        std::cout << "Empty response, reading again" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        response = instance->process.read_line();
     }
     response.erase(response.find_last_not_of('\n') + 1);
-    if (response.empty()) {
-        std::cout << "Received empty response from simulator after restart command" << std::endl;
-        return;
-    }
 
     try {
         std::vector<uint8_t> decoded_response = decode_bytecode(response);
@@ -222,7 +217,7 @@ void JsSimulator::restart_simulator()
             throw std::runtime_error("Restart failed: " + error);
         }
     } catch (const std::exception& e) {
-        std::cout << "Error processing restart response: " << e.what() << std::endl;
+        std::cout << "Error processing restart response: " << e.what() << "Response: " << response << std::endl;
         throw std::runtime_error("Failed to restart simulator: " + std::string(e.what()));
     }
 }
@@ -255,6 +250,11 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
     // Send the request
     process.write_line(serialized);
     std::string response = process.read_line();
+    while (response.empty()) {
+        std::cout << "Empty response, reading again" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        response = process.read_line();
+    }
     // Remove the newline character
     response.erase(response.find_last_not_of('\n') + 1);
 

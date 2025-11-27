@@ -180,6 +180,9 @@ std::vector<ProgramBlock*> ControlFlow::get_reachable_blocks(ProgramBlock* block
 
 void ControlFlow::process_cfg_instruction(CFGInstruction instruction)
 {
+    if (std::getenv("AVM_FUZZER_LOGGING") != nullptr) {
+        info("Processing CFG instruction: ", instruction);
+    }
     std::visit(overloaded_cfg_instruction{
                    [&](InsertSimpleInstructionBlock arg) { process_insert_simple_instruction_block(arg); },
                    [&](JumpToNewBlock arg) { process_jump_to_new_block(arg); },

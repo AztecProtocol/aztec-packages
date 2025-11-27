@@ -1,8 +1,9 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
-
+#include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 
@@ -744,9 +745,15 @@ void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction
     if (!leaf_index.has_value()) {
         return;
     }
+    auto contract_address = CONTRACT_ADDRESS;
+    auto note_hash_counter = static_cast<uint64_t>(*leaf_index);
+    auto siloed_note_computed_hash = bb::avm2::simulation::unconstrained_silo_note_hash(contract_address, *note_hash);
+    auto unique_note_computed_hash = bb::avm2::simulation::unconstrained_make_unique_note_hash(
+        siloed_note_computed_hash, FIRST_NULLIFIER, note_hash_counter);
+
     auto set_note_hash_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
                                                          .offset = instruction.notehash_offset,
-                                                         .value = *note_hash };
+                                                         .value = unique_note_computed_hash };
     this->process_set_ff_instruction(set_note_hash_instruction);
     auto set_leaf_index_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
                                                           .offset = instruction.leaf_index_offset,
@@ -760,6 +767,31 @@ void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction
                                           .build();
     instructions.push_back(notehashexists_instruction);
     memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, instruction.result_offset);
+}
+
+void ProgramBlock::process_calldatacopy_instruction(CALLDATACOPY_Instruction instruction)
+{
+    auto copy_size_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                         .offset = instruction.copy_size_offset,
+                                                         .value = instruction.copy_size };
+    this->process_set_32_instruction(copy_size_set_instruction);
+    auto cd_start_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                        .offset = instruction.cd_start_offset,
+                                                        .value = instruction.cd_start };
+    this->process_set_32_instruction(cd_start_set_instruction);
+    auto calldatacopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALLDATACOPY)
+                                        .operand(instruction.copy_size_offset)
+                                        .operand(instruction.cd_start_offset)
+                                        .operand(instruction.dst_offset)
+                                        .build();
+    instructions.push_back(calldatacopy_instruction);
+
+    // setting calldata_addr to u32 to avoid overflows
+    auto loop_upper_bound =
+        static_cast<uint16_t>(std::min(static_cast<uint32_t>(instruction.dst_offset) + instruction.copy_size, 65535U));
+    for (uint16_t calldata_addr = instruction.dst_offset; calldata_addr < loop_upper_bound; calldata_addr++) {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, calldata_addr);
+    }
 }
 
 void ProgramBlock::finalize_with_return(uint8_t return_size,
@@ -886,6 +918,9 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             },
             [this](NOTEHASHEXISTS_Instruction instruction) {
                 return this->process_notehashexists_instruction(instruction);
+            },
+            [this](CALLDATACOPY_Instruction instruction) {
+                return this->process_calldatacopy_instruction(instruction);
             },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
