@@ -59,7 +59,8 @@ function determine_ci_mode {
   echo "Labels: ${LABELS}"
   # Handle fail-fast override
   if has_label "ci-no-fail-fast"; then
-    echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
+    export NO_FAIL_FAST=1
+    echo "NO_FAIL_FAST=$NO_FAIL_FAST" >> $GITHUB_ENV
   fi
   # Determine CI mode based on event, labels, and target branch
   if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || has_label "ci-merge-queue"; then
@@ -92,7 +93,8 @@ function check_cache {
   # Export for use by ci3-post.sh
   echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
   if has_label "no-cache"; then
-    echo "NO_CACHE=1" >> $GITHUB_ENV
+    export NO_CACHE=1
+    echo "NO_CACHE=$NO_CACHE" >> $GITHUB_ENV
     echo "Cache disabled by label"
     return
   fi
