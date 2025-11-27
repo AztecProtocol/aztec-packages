@@ -236,7 +236,6 @@ describe('reqresp effectiveness under tx drop', () => {
     if (initialFast) {
       logger.info('Disabling fast tx collection for baseline metrics');
       await setValidatorFastTx({ namespace: config.NAMESPACE, enabled: false, logger });
-      // await reinitRpcAndClients();
       await sleep(5_000);
     }
     // Baseline load and scrape
@@ -249,7 +248,6 @@ describe('reqresp effectiveness under tx drop', () => {
     // Enable fast tx collection
     logger.info('Enabling fast tx collection for comparison metrics');
     await setValidatorFastTx({ namespace: config.NAMESPACE, enabled: true, logger });
-    // await reinitRpcAndClients();
     await sleep(5_000);
 
     // Comparison load and scrape
