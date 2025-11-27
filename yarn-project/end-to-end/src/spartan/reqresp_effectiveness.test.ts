@@ -306,7 +306,7 @@ describe('reqresp effectiveness under tx drop', () => {
       await sleep(5_000);
     }
     // Baseline load and scrape
-    await runLoadAndMeasure(0.0);
+    await runLoadAndMeasure(0);
     await sleep(10_000);
     const before = await scrapeTxCollectorCounts(promBaseApi, windowSeconds);
     logger.info(`Tx collection metrics with fast=off: ${JSON.stringify(before)}`);
@@ -318,12 +318,15 @@ describe('reqresp effectiveness under tx drop', () => {
     await sleep(5_000);
 
     // Comparison load and scrape
-    await runLoadAndMeasure(0.0);
+    await runLoadAndMeasure(0);
     await sleep(10_000);
     const after = await scrapeTxCollectorCounts(promBaseApi, windowSeconds);
     logger.info(`Tx collection metrics with fast=on: ${JSON.stringify(after)}`);
 
     // Soft sanity: when fast is on, we expect some fast-* activity
+
+    logger.info(`before fast-node-rpc=${before['fast-node-rpc']}, fast-req-resp=${before['fast-req-resp']}`);
+    logger.info(`after fast-node-rpc=${after['fast-node-rpc']}, fast-req-resp=${after['fast-req-resp']}`);
     const fastActivity =
       (after['fast-node-rpc'] ?? 0) +
       (after['fast-req-resp'] ?? 0) -

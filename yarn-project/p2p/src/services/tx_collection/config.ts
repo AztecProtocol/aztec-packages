@@ -27,11 +27,6 @@ export type TxCollectionConfig = {
 };
 
 export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> = {
-  txCollectionFastEnabled: {
-    env: 'TX_COLLECTION_FAST_ENABLED',
-    description: 'Whether fast tx collection is enabled',
-    ...booleanConfigHelper(true),
-  },
   txCollectionFastNodesTimeoutBeforeReqRespMs: {
     env: 'TX_COLLECTION_FAST_NODES_TIMEOUT_BEFORE_REQ_RESP_MS',
     description: 'How long to wait before starting reqresp for fast collection',
@@ -87,5 +82,10 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
     env: 'TX_COLLECTION_NODE_RPC_MAX_BATCH_SIZE',
     description: 'Maximum number of transactions to request from a node in a single batch',
     ...numberConfigHelper(MAX_RPC_TXS_LEN),
+  },
+  txCollectionFastEnabled: {
+    env: 'TX_COLLECTION_FAST_ENABLED',
+    description: 'Whether fast tx collection is enabled',
+    ...booleanConfigHelper(true),
   },
 };
