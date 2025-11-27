@@ -437,7 +437,7 @@ struct EMITNOTEHASH_Instruction {
 
 /// @brief NOTEHASHEXISTS:  M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset])
 /// len = length(memory_manager.emitted_note_hashes);
-/// M[notehash_offset] = memory_manager.emitted_note_hashes[notehash_index % len];
+/// M[notehash_offset] = unique_note_hash(CONTRACT_ADDRESS, memory_manager.emitted_note_hashes[notehash_index % len]);
 /// M[leaf_index_offset] = notehash_index % len;
 /// M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset]);
 struct NOTEHASHEXISTS_Instruction {
@@ -450,6 +450,17 @@ struct NOTEHASHEXISTS_Instruction {
     // absolute address where the result will be stored
     uint16_t result_offset;
     MSGPACK_FIELDS(notehash_index, notehash_offset, leaf_index_offset, result_offset);
+};
+
+/// @brief CALLDATACOPY: M[dstOffset:dstOffset+M[copySizeOffset]] =
+/// calldata[M[cdStartOffset]:M[cdStartOffset]+M[copySizeOffset]]
+struct CALLDATACOPY_Instruction {
+    uint16_t dst_offset;
+    uint8_t copy_size;
+    uint16_t copy_size_offset; // where copy size will be stored
+    uint16_t cd_start;
+    uint16_t cd_start_offset; // where cd start will be stored
+    MSGPACK_FIELDS(dst_offset, copy_size, copy_size_offset, cd_start, cd_start_offset);
 };
 
 using FuzzInstruction = std::variant<ADD_8_Instruction,
@@ -496,7 +507,8 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      EMITNULLIFIER_Instruction,
                                      NULLIFIEREXISTS_Instruction,
                                      EMITNOTEHASH_Instruction,
-                                     NOTEHASHEXISTS_Instruction>;
+                                     NOTEHASHEXISTS_Instruction,
+                                     CALLDATACOPY_Instruction>;
 
 template <class... Ts> struct overloaded_instruction : Ts... {
     using Ts::operator()...;
@@ -680,6 +692,10 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             [&](NOTEHASHEXISTS_Instruction arg) {
                 os << "NOTEHASHEXISTS_Instruction " << arg.notehash_index << " " << arg.notehash_offset << " "
                    << arg.leaf_index_offset << " " << arg.result_offset;
+            },
+            [&](CALLDATACOPY_Instruction arg) {
+                os << "CALLDATACOPY_Instruction " << arg.dst_offset << " " << static_cast<int>(arg.copy_size) << " "
+                   << arg.copy_size_offset << " " << arg.cd_start << " " << arg.cd_start_offset;
             },
             [&](auto) { os << "Unknown instruction"; },
         },
