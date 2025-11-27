@@ -708,7 +708,6 @@ void ExecutionTraceBuilder::process(
         bool enqueued_call_end = sel_exit_call && !has_parent;
         bool resolves_dying_context = is_failure && is_dying_context;
         bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
-        bool propagate_discard = !enqueued_call_end && !resolves_dying_context && !nested_call_rom_undiscarded_context;
 
         // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error
         // than just an opcode error (i.e., it is on if there are any errors in any temporality group).
@@ -732,7 +731,6 @@ void ExecutionTraceBuilder::process(
                 { C::execution_sel_first_row_in_context, sel_first_row_in_context ? 1 : 0 },
                 { C::execution_resolves_dying_context, resolves_dying_context ? 1 : 0 },
                 { C::execution_nested_call_from_undiscarded_context, nested_call_rom_undiscarded_context ? 1 : 0 },
-                { C::execution_propagate_discard, propagate_discard ? 1 : 0 },
             } });
 
         // Trace-generation is done for this event.
@@ -767,10 +765,6 @@ void ExecutionTraceBuilder::process(
         prev_row_was_enter_call = sel_enter_call;
 
         row++;
-    }
-
-    if (!ex_events.empty()) {
-        trace.set(C::execution_last, row - 1, 1);
     }
 
     // Batch invert the columns.

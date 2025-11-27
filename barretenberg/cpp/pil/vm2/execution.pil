@@ -68,9 +68,7 @@ namespace execution;
 sel = 0;
 
 pol commit sel; // subtrace selector
-pol commit last; // last row selector
 sel * (1 - sel) = 0;
-last * (1 - last) = 0;
 
 // Selector indicating enqueued call boundaries.
 // Used by TX trace for lookups to dispatch and retrieve results/reverted.
@@ -100,8 +98,6 @@ sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
 // If sel = 0, and it's not the first row, then all following rows should have sel = 0.
 #[TRACE_CONTINUITY]
 (1 - sel) * (1 - precomputed.first_row) * sel' = 0;
-#[LAST_IS_LAST]
-last = sel * (1 - sel');
 
 /**************************************************************************************************
  *  Temporality group 1: Bytecode retrieval (unconditional)
