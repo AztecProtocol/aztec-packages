@@ -16,6 +16,18 @@ namespace acir_format {
 /// representations.
 
 /**
+ * @brief Transform a witness index by applying the acir_gates_offset and updating max_witness_index.
+ *
+ * @details Noir directly indexes into the witness vector. However, barretenberg adds some gates at the beginning of
+ * every circuit, so we need to offset the witness indices passed by Noir. Also, we keep track of the maximum witness
+ * index encountered. In write_vk scenario, we use the max witness index to populate the builder with enough dummy
+ * variables. When a witness vector is provided, we check that the max witness index is equal to the length of the
+ * witness vector minus one to avoid buffer overrides.
+ *
+ */
+uint32_t transform_witness_index(uint32_t witness_idx, AcirFormat& af);
+
+/**
  * @brief Parse an Acir::FunctionInput (which can either be a witness or a constant) into a WitnessOrConstant.
  */
 WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input, [[maybe_unused]] AcirFormat& af);

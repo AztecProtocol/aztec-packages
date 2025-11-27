@@ -493,6 +493,11 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
 
 void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index)
 {
+    // Reusable transformers for mapping inputs/outputs
+    auto to_witness_or_constant = [&](auto& e) { return parse_input(e, af); };
+    auto to_witness = [&](auto& e) { return transform_witness_index(e.value, af); };
+    auto to_witness_from_input = [&](auto& e) { return get_witness_from_function_input(e, af); };
+
     std::visit(
         [&](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
@@ -515,28 +520,24 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 });
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::RANGE>) {
-                auto witness_input = get_witness_from_function_input(arg.input, af);
-
                 af.range_constraints.push_back(RangeConstraint{
-                    .witness = witness_input,
+                    .witness = get_witness_from_function_input(arg.input, af),
                     .num_bits = arg.num_bits,
                 });
                 af.original_opcode_indices.range_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
-                    .inputs = transform::map(arg.inputs, [&](auto& e) { return parse_input(e, af); }),
-                    .iv = transform::map(*arg.iv, [&](auto& e) { return parse_input(e, af); }),
-                    .key = transform::map(*arg.key, [&](auto& e) { return parse_input(e, af); }),
-                    .outputs =
-                        transform::map(arg.outputs, [&](auto& e) { return transform_witness_index(e.value, af); }),
+                    .inputs = transform::map(arg.inputs, to_witness_or_constant),
+                    .iv = transform::map(*arg.iv, to_witness_or_constant),
+                    .key = transform::map(*arg.key, to_witness_or_constant),
+                    .outputs = transform::map(arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.aes128_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Sha256Compression>) {
                 af.sha256_compression.push_back(Sha256Compression{
-                    .inputs = transform::map(*arg.inputs, [&](auto& e) { return parse_input(e, af); }),
-                    .hash_values = transform::map(*arg.hash_values, [&](auto& e) { return parse_input(e, af); }),
-                    .result =
-                        transform::map(*arg.outputs, [&](auto& e) { return transform_witness_index(e.value, af); }),
+                    .inputs = transform::map(*arg.inputs, to_witness_or_constant),
+                    .hash_values = transform::map(*arg.hash_values, to_witness_or_constant),
+                    .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.sha256_compression.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake2s>) {
@@ -548,8 +549,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                                                      .num_bits = 8,
                                                  };
                                              }),
-                    .result =
-                        transform::map(*arg.outputs, [&](auto& e) { return transform_witness_index(e.value, af); }),
+                    .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake3>) {
@@ -557,21 +557,16 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .inputs = transform::map(
                         arg.inputs,
                         [&](auto& e) { return Blake3Input{ .blackbox_input = parse_input(e, af), .num_bits = 8 }; }),
-                    .result =
-                        transform::map(*arg.outputs, [&](auto& e) { return transform_witness_index(e.value, af); }),
+                    .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaConstraint{
                     .type = bb::CurveType::SECP256K1,
-                    .hashed_message = transform::map(*arg.hashed_message,
-                                                     [&](auto& e) { return get_witness_from_function_input(e, af); }),
-                    .signature =
-                        transform::map(*arg.signature, [&](auto& e) { return get_witness_from_function_input(e, af); }),
-                    .pub_x_indices = transform::map(*arg.public_key_x,
-                                                    [&](auto& e) { return get_witness_from_function_input(e, af); }),
-                    .pub_y_indices = transform::map(*arg.public_key_y,
-                                                    [&](auto& e) { return get_witness_from_function_input(e, af); }),
+                    .hashed_message = transform::map(*arg.hashed_message, to_witness_from_input),
+                    .signature = transform::map(*arg.signature, to_witness_from_input),
+                    .pub_x_indices = transform::map(*arg.public_key_x, to_witness_from_input),
+                    .pub_y_indices = transform::map(*arg.public_key_y, to_witness_from_input),
                     .predicate = parse_input(arg.predicate, af),
                     .result = transform_witness_index(arg.output.value, af),
                 });
@@ -579,22 +574,18 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
                 af.ecdsa_r1_constraints.push_back(EcdsaConstraint{
                     .type = bb::CurveType::SECP256R1,
-                    .hashed_message = transform::map(*arg.hashed_message,
-                                                     [&](auto& e) { return get_witness_from_function_input(e, af); }),
-                    .signature =
-                        transform::map(*arg.signature, [&](auto& e) { return get_witness_from_function_input(e, af); }),
-                    .pub_x_indices = transform::map(*arg.public_key_x,
-                                                    [&](auto& e) { return get_witness_from_function_input(e, af); }),
-                    .pub_y_indices = transform::map(*arg.public_key_y,
-                                                    [&](auto& e) { return get_witness_from_function_input(e, af); }),
+                    .hashed_message = transform::map(*arg.hashed_message, to_witness_from_input),
+                    .signature = transform::map(*arg.signature, to_witness_from_input),
+                    .pub_x_indices = transform::map(*arg.public_key_x, to_witness_from_input),
+                    .pub_y_indices = transform::map(*arg.public_key_y, to_witness_from_input),
                     .predicate = parse_input(arg.predicate, af),
                     .result = transform_witness_index(arg.output.value, af),
                 });
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::MultiScalarMul>) {
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
-                    .points = transform::map(arg.points, [&](auto& e) { return parse_input(e, af); }),
-                    .scalars = transform::map(arg.scalars, [&](auto& e) { return parse_input(e, af); }),
+                    .points = transform::map(arg.points, to_witness_or_constant),
+                    .scalars = transform::map(arg.scalars, to_witness_or_constant),
                     .predicate = parse_input(arg.predicate, af),
                     .out_point_x = transform_witness_index((*arg.outputs)[0].value, af),
                     .out_point_y = transform_witness_index((*arg.outputs)[1].value, af),
@@ -617,28 +608,22 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Keccakf1600>) {
                 af.keccak_permutations.push_back(Keccakf1600{
-                    .state = transform::map(*arg.inputs, [&](auto& e) { return parse_input(e, af); }),
-                    .result =
-                        transform::map(*arg.outputs, [&](auto& e) { return transform_witness_index(e.value, af); }),
+                    .state = transform::map(*arg.inputs, to_witness_or_constant),
+                    .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::RecursiveAggregation>) {
-                auto input_key = get_witness_from_function_input(arg.key_hash, af);
-
-                auto proof_type_in = arg.proof_type;
                 auto predicate = parse_input(arg.predicate, af);
                 if (predicate.is_constant && predicate.value.is_zero()) {
                     // No constraint if the recursion is disabled
                     return;
                 }
                 auto c = RecursionConstraint{
-                    .key = transform::map(arg.verification_key,
-                                          [&](auto& e) { return get_witness_from_function_input(e, af); }),
-                    .proof = transform::map(arg.proof, [&](auto& e) { return get_witness_from_function_input(e, af); }),
-                    .public_inputs = transform::map(arg.public_inputs,
-                                                    [&](auto& e) { return get_witness_from_function_input(e, af); }),
-                    .key_hash = input_key,
-                    .proof_type = proof_type_in,
+                    .key = transform::map(arg.verification_key, to_witness_from_input),
+                    .proof = transform::map(arg.proof, to_witness_from_input),
+                    .public_inputs = transform::map(arg.public_inputs, to_witness_from_input),
+                    .key_hash = get_witness_from_function_input(arg.key_hash, af),
+                    .proof_type = arg.proof_type,
                     .predicate = predicate,
                 };
 
@@ -671,9 +656,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 }
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Poseidon2Permutation>) {
                 af.poseidon2_constraints.push_back(Poseidon2Constraint{
-                    .state = transform::map(arg.inputs, [&](auto& e) { return parse_input(e, af); }),
-                    .result =
-                        transform::map(arg.outputs, [&](auto& e) { return transform_witness_index(e.value, af); }),
+                    .state = transform::map(arg.inputs, to_witness_or_constant),
+                    .result = transform::map(arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.poseidon2_constraints.push_back(opcode_index);
             } else {
