@@ -93,13 +93,14 @@ function build_cross {
   is_macos=${2:-false}
   if ! cache_download barretenberg-$target-$hash.zst; then
     build_preset zig-$target --target bb --target nodejs_module
-    if [ "$is_macos" == "true" ]; then
-      ldid -S build-zig-$target/bin/bb
-    fi
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
   fi
   # Always inject version (even for cached binaries) to ensure correct version on release
   inject_version build-zig-$target/bin/bb
+  # Code sign for macOS after version injection (must be last modification to binary)
+  if [ "$is_macos" == "true" ]; then
+    ldid -S build-zig-$target/bin/bb
+  fi
 }
 
 # Selectively build components with address sanitizer (with optimizations)
