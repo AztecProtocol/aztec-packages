@@ -50,12 +50,11 @@ Tools are provided for the following themes.
    - **`cache_upload_flag`, `cache_download_flag`**: Mark or detect a particular test's success state. Avoids re-running long tests.
 
 2. **Benchmarking**
-   - **`source_benchmark`**: Source file providing CI timing instrumentation functions.
+   - **`source_benchmark`**: Source file providing CI timing instrumentation functions. Automatically sets up exit traps.
    - **`start_bench`, `end_bench`**: Start/end timing for a benchmark section.
    - **`cache_download_or_start_bench`**: Try cache download; on miss, start timing.
    - **`cache_upload_and_end_bench`**: Upload to cache and end the benchmark timer.
    - **`echo_header_bench`**: Print a header and manage benchmark timing (ends previous, starts new).
-   - **`init_bench_traps`**: Set up exit trap to record final benchmark on script exit.
    - Benchmarks are written to `bench-out/<name>.bench.json` in the format: `[{"name": "ci/<name>", "value": <seconds>, "unit": "seconds"}]`
 
 3. **Test Parallelization & Caching**

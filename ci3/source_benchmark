@@ -10,7 +10,9 @@
 #   cache_download_or_start_bench <bench_name> <artifact_name> - Download cache or start benchmark
 #   cache_upload_and_end_bench <artifact_name> <paths...>      - Upload cache and end benchmark
 #   echo_header_bench <header_text>       - Print header and start/end benchmarks based on headers
-#   init_bench_traps                      - Set up exit trap to end benchmarks on script exit
+#
+# Exit traps are automatically initialized when this file is sourced, so any
+# in-progress benchmark will be recorded on successful script exit.
 #
 # Benchmarks are written to bench-out/<bench_name>.bench.json in the format:
 #   [{"name": "ci/<bench_name>", "value": <seconds>, "unit": "seconds"}]
@@ -126,3 +128,6 @@ function __bench_exit_handler {
 }
 
 export -f start_bench end_bench cache_download_or_start_bench cache_upload_and_end_bench echo_header_bench init_bench_traps __bench_exit_handler
+
+# Automatically initialize bench traps when sourced
+init_bench_traps
