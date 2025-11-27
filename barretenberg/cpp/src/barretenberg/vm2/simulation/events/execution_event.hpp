@@ -28,20 +28,6 @@ enum class ExecutionError {
     OPCODE_EXECUTION
 };
 
-class TagCheckError : public std::exception {
-  public:
-    explicit TagCheckError(MemoryTag expected_tag, MemoryTag actual_tag)
-        : expected_tag(std::make_unique<MemoryTag>(expected_tag))
-        , actual_tag(std::make_unique<MemoryTag>(actual_tag))
-    {}
-
-    const char* what() const noexcept override { return "Tag check failed"; }
-
-  private:
-    std::unique_ptr<MemoryTag> expected_tag;
-    std::unique_ptr<MemoryTag> actual_tag;
-};
-
 struct ExecutionEvent {
     ExecutionError error = ExecutionError::NONE;
     Instruction wire_instruction;
