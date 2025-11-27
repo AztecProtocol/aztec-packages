@@ -2,6 +2,7 @@ import { L2Block } from '@aztec/aztec.js/block';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { omit, pick } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -837,7 +838,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** Breaks the attestations before publishing based on attack configs */
   private manipulateAttestations(
     block: L2Block,
-    epoch: bigint,
+    epoch: EpochNumber,
     seed: bigint,
     committee: EthAddress[],
     attestations: CommitteeAttestation[],

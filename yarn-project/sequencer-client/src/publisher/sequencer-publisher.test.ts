@@ -15,6 +15,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -139,8 +140,8 @@ describe('SequencerPublisher', () => {
     slashFactoryContract = mock<SlashFactoryContract>();
 
     const epochCache = mock<EpochCache>();
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n, now: 3n });
-    epochCache.getCommittee.mockResolvedValue({ committee: [], seed: 1n, epoch: 1n });
+    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: 2n, ts: 3n, now: 3n });
+    epochCache.getCommittee.mockResolvedValue({ committee: [], seed: 1n, epoch: EpochNumber(1) });
 
     publisher = new SequencerPublisher(config, {
       blobSinkClient,

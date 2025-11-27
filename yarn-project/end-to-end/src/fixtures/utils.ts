@@ -32,6 +32,7 @@ import {
   createDelayedL1TxUtilsFromViemWallet,
   startAnvil,
 } from '@aztec/ethereum/test';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -647,7 +648,9 @@ export async function setup(
     ) {
       // We need to advance such that the committee is set up.
       await cheatCodes.rollup.advanceToEpoch(
-        (await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochsForValidatorSet + 1),
+        EpochNumber.fromBigInt(
+          BigInt(await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochsForValidatorSet + 1),
+        ),
       );
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();

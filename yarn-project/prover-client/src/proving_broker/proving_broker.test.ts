@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobStatus } from '@aztec/stdlib/interfaces/server';
@@ -81,7 +82,7 @@ describe.each([
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
         id,
-        epochNumber: 42,
+        epochNumber: EpochNumber(42),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       });
@@ -91,7 +92,7 @@ describe.each([
       await expect(
         broker.enqueueProvingJob({
           id: id2,
-          epochNumber: 1,
+          epochNumber: EpochNumber(1),
           type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
           inputsUri: makeInputsUri(),
         }),
@@ -103,7 +104,7 @@ describe.each([
       const id = makeRandomProvingJobId();
       const enqueueStatus = await broker.enqueueProvingJob({
         id,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       });
@@ -113,7 +114,7 @@ describe.each([
       const id2 = makeRandomProvingJobId();
       const enqueueStatus2 = await broker.enqueueProvingJob({
         id: id2,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
         inputsUri: makeInputsUri(),
       });
@@ -125,7 +126,7 @@ describe.each([
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
 
@@ -139,7 +140,7 @@ describe.each([
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
 
@@ -170,14 +171,14 @@ describe.each([
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
         id,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       });
       await expect(
         broker.enqueueProvingJob({
           id,
-          epochNumber: 1,
+          epochNumber: EpochNumber(1),
           type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
@@ -193,7 +194,7 @@ describe.each([
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
         id,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       });
@@ -207,7 +208,7 @@ describe.each([
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
         id,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       });
@@ -222,7 +223,7 @@ describe.each([
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
 
@@ -238,7 +239,7 @@ describe.each([
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
 
@@ -254,7 +255,7 @@ describe.each([
       const job = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 0,
+        epochNumber: EpochNumber(0),
         inputsUri: makeInputsUri(),
       };
 
@@ -266,7 +267,7 @@ describe.each([
         broker.enqueueProvingJob({
           id: makeRandomProvingJobId(),
           type: ProvingRequestType.PARITY_BASE,
-          epochNumber: 0,
+          epochNumber: EpochNumber(0),
           inputsUri: makeInputsUri(),
         }),
       );
@@ -275,7 +276,7 @@ describe.each([
         broker.enqueueProvingJob({
           id: makeRandomProvingJobId(),
           type: ProvingRequestType.PARITY_BASE,
-          epochNumber: 0,
+          epochNumber: EpochNumber(0),
           inputsUri: makeInputsUri(),
         }),
       );
@@ -307,14 +308,14 @@ describe.each([
       const provingJob1: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
 
       const provingJob2: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       };
 
@@ -328,7 +329,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -342,7 +343,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: baseParity1,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -350,7 +351,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: baseRollup1,
         type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -358,7 +359,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: baseRollup2,
         type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       });
 
@@ -366,7 +367,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: rootParity1,
         type: ProvingRequestType.PARITY_ROOT,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -378,7 +379,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: baseParity1,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -386,7 +387,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: baseRollup1,
         type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -394,7 +395,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: baseRollup2,
         type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       });
 
@@ -402,7 +403,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: rootParity1,
         type: ProvingRequestType.PARITY_ROOT,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -419,7 +420,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: baseParity1,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -427,7 +428,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: baseRollup1,
         type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -435,7 +436,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: baseRollup2,
         type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       });
 
@@ -443,7 +444,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: rootParity1,
         type: ProvingRequestType.PARITY_ROOT,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -455,7 +456,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await broker.getProvingJob();
@@ -465,7 +466,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: id2,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await expect(
@@ -478,7 +479,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await broker.getProvingJob();
@@ -488,7 +489,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: id2,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await expect(
@@ -501,7 +502,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await broker.getProvingJob();
@@ -511,7 +512,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: id2,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await expect(
@@ -524,7 +525,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await broker.getProvingJob();
@@ -536,7 +537,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: id2,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await expect(
@@ -549,14 +550,14 @@ describe.each([
       const job1: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
 
       const job2: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       };
 
@@ -617,14 +618,14 @@ describe.each([
       const job1: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
 
       const job2: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       };
 
@@ -672,14 +673,14 @@ describe.each([
       const job1: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
 
       const job2: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       };
 
@@ -716,13 +717,13 @@ describe.each([
       await broker.enqueueProvingJob({
         id: id1,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await broker.enqueueProvingJob({
         id: id2,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       });
 
@@ -745,13 +746,13 @@ describe.each([
       await broker.enqueueProvingJob({
         id: id1,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await broker.enqueueProvingJob({
         id: id2,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       });
 
@@ -791,7 +792,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -805,7 +806,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -823,7 +824,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -845,7 +846,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 10,
+        epochNumber: EpochNumber(10),
         inputsUri: makeInputsUri(),
       });
 
@@ -859,7 +860,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -897,7 +898,7 @@ describe.each([
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
 
@@ -916,7 +917,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -938,7 +939,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -956,7 +957,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -975,7 +976,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 3,
+        epochNumber: EpochNumber(3),
         inputsUri: makeInputsUri(),
       });
 
@@ -1000,7 +1001,7 @@ describe.each([
       await database.addProvingJob({
         id: id1,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -1008,7 +1009,7 @@ describe.each([
       await database.addProvingJob({
         id: id2,
         type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       });
 
@@ -1021,7 +1022,7 @@ describe.each([
         job: {
           id: id1,
           type: ProvingRequestType.PARITY_BASE,
-          epochNumber: 1,
+          epochNumber: EpochNumber(1),
           inputsUri: expect.any(String),
         },
         time: expect.any(Number),
@@ -1031,7 +1032,7 @@ describe.each([
         job: {
           id: id2,
           type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
-          epochNumber: 2,
+          epochNumber: EpochNumber(2),
           inputsUri: expect.any(String),
         },
         time: expect.any(Number),
@@ -1046,20 +1047,20 @@ describe.each([
     });
 
     it('restores proof results on start', async () => {
-      const id1 = makeRandomProvingJobId(1);
+      const id1 = makeRandomProvingJobId(EpochNumber(1));
 
       await database.addProvingJob({
         id: id1,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
-      const id2 = makeRandomProvingJobId(2);
+      const id2 = makeRandomProvingJobId(EpochNumber(2));
       await database.addProvingJob({
         id: id2,
         type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       });
 
@@ -1085,7 +1086,7 @@ describe.each([
       await database.addProvingJob({
         id: id1,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await database.setProvingJobResult(id1, makeOutputsUri());
@@ -1094,7 +1095,7 @@ describe.each([
       await database.addProvingJob({
         id: id2,
         type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         inputsUri: makeInputsUri(),
       });
 
@@ -1110,7 +1111,7 @@ describe.each([
       const job: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
 
@@ -1129,7 +1130,7 @@ describe.each([
         broker.enqueueProvingJob({
           id,
           type: ProvingRequestType.PARITY_BASE,
-          epochNumber: 1,
+          epochNumber: EpochNumber(1),
           inputsUri: makeInputsUri(),
         }),
       ).rejects.toThrow(new Error('db error'));
@@ -1142,7 +1143,7 @@ describe.each([
       const job: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
       jest.spyOn(database, 'setProvingJobResult');
@@ -1161,7 +1162,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await expect(broker.reportProvingJobSuccess(id, makeOutputsUri())).rejects.toThrow(new Error('db error'));
@@ -1177,7 +1178,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
 
@@ -1194,7 +1195,7 @@ describe.each([
       await broker.enqueueProvingJob({
         id,
         type: ProvingRequestType.PARITY_BASE,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       });
       await expect(broker.reportProvingJobError(id, 'test error')).rejects.toThrow(new Error('db error'));
@@ -1230,16 +1231,16 @@ describe.each([
     it('cleans up old jobs periodically', async () => {
       await broker.start();
       jest.spyOn(database, 'deleteAllProvingJobsOlderThanEpoch');
-      const id1 = makeRandomProvingJobId(1); // makeProvingJobId(); // epoch 1
-      const id2 = makeRandomProvingJobId(2); //makeProvingJobId(); // 2
-      const id3 = makeRandomProvingJobId(3); //makeProvingJobId(); // 3
-      const id4 = makeRandomProvingJobId(4); //makeProvingJobId(); // 4
-      const id5 = makeRandomProvingJobId(5); //makeProvingJobId(); // 4
+      const id1 = makeRandomProvingJobId(EpochNumber(1)); // makeProvingJobId(); // epoch 1
+      const id2 = makeRandomProvingJobId(EpochNumber(2)); //makeProvingJobId(); // 2
+      const id3 = makeRandomProvingJobId(EpochNumber(3)); //makeProvingJobId(); // 3
+      const id4 = makeRandomProvingJobId(EpochNumber(4)); //makeProvingJobId(); // 4
+      const id5 = makeRandomProvingJobId(EpochNumber(5)); //makeProvingJobId(); // 4
 
       await sleep(10);
       await broker.enqueueProvingJob({
         id: id1,
-        epochNumber: 1,
+        epochNumber: EpochNumber(1),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: '' as ProofUri,
       });
@@ -1248,7 +1249,7 @@ describe.each([
       await sleep(10);
       await broker.enqueueProvingJob({
         id: id2,
-        epochNumber: 2,
+        epochNumber: EpochNumber(2),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: '' as ProofUri,
       });
@@ -1262,7 +1263,7 @@ describe.each([
       await sleep(10);
       await broker.enqueueProvingJob({
         id: id3,
-        epochNumber: 3,
+        epochNumber: EpochNumber(3),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: '' as ProofUri,
       });
@@ -1276,7 +1277,7 @@ describe.each([
       await sleep(10);
       await broker.enqueueProvingJob({
         id: id4,
-        epochNumber: 4,
+        epochNumber: EpochNumber(4),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: '' as ProofUri,
       });
@@ -1291,7 +1292,7 @@ describe.each([
       await sleep(10);
       await broker.enqueueProvingJob({
         id: id5,
-        epochNumber: 5,
+        epochNumber: EpochNumber(5),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: '' as ProofUri,
       });

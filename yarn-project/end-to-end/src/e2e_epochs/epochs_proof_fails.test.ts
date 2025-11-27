@@ -4,6 +4,7 @@ import { BatchedBlob } from '@aztec/blob-lib';
 import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNodePublisher } from '@aztec/prover-node';
@@ -62,7 +63,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
       .delayer!;
 
     // Hold off prover tx until end epoch 1
-    const [epoch2Start] = getTimestampRangeForEpoch(2n, constants);
+    const [epoch2Start] = getTimestampRangeForEpoch(EpochNumber(2), constants);
     proverDelayer.pauseNextTxUntilTimestamp(epoch2Start);
     logger.info(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
 
