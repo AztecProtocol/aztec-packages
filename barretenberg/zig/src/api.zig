@@ -80,11 +80,11 @@ pub const MockBackend = struct {
         const self: *Self = @ptrCast(@alignCast(ptr));
         self.call_count += 1;
 
-        // For now, return a mock Blake2s response (32 zero bytes)
-        // TODO: Parse the command name and return appropriate mock responses
+        // Return a mock 32-byte response (zeros).
+        // This is sufficient for testing the API infrastructure.
+        // Full command-specific responses can be added when Zig msgpack is available.
         _ = input;
 
-        // Return a simple mock response
         const response = try self.allocator.alloc(u8, 32);
         @memset(response, 0);
         return response;

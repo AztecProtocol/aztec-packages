@@ -28,9 +28,6 @@ export interface CompilerConfig {
 }
 
 export class SchemaCompiler extends SchemaCompilerBase<TypeInfo> {
-  // WORKTODO(bbapi): AI slop fixup - redundant with typeCache, remove
-  private referencedTypes = new Set<string>();
-
   constructor(private config: CompilerConfig) {
     super();
   }
