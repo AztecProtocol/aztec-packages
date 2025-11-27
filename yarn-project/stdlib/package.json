@@ -64,9 +64,9 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
+    "build": "yarn clean && yarn generate && tsgo -b",
     "generate": "./scripts/copy-contracts.sh",
-    "build:dev": "tsc -b --watch",
+    "build:dev": "tsgo -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -103,6 +103,7 @@
     "@types/lodash.times": "^4.3.9",
     "@types/node": "^22.15.17",
     "@types/pako": "^2.0.3",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "eslint": "^9.26.0",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",

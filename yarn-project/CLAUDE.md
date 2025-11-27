@@ -21,13 +21,13 @@ cd $(git rev-parse --show-toplevel) && ./bootstrap.sh
 
 ### Before Running Tests - ALWAYS COMPILE
 ```bash
-yarn tsc -b  # Full compilation
+yarn tsgo -b  # Full compilation
 # OR for specific package:
-cd <package-name> && yarn tsc -b
+cd <package-name> && yarn tsgo -b
 ```
 
 ### Before Committing - Quality Checklist
-1. **Build**: Ensure project compiles (`yarn tsc -b`)
+1. **Build**: Ensure project compiles (`yarn tsgo -b`)
 2. **Format/Lint**: Run on modified packages (see Format & Lint section)
 3. **Test**: Run unit tests for modified files and ensure they pass
 4. **Breaking Changes**: Update migration notes if applicable (see Git & PR section)
@@ -36,13 +36,13 @@ cd <package-name> && yarn tsc -b
 
 ### Full Project
 ```bash
-yarn tsc -b
+yarn tsgo -b
 ```
 
 ### Specific Package
 ```bash
 cd <package-name>
-yarn tsc -b
+yarn tsgo -b
 ```
 
 ## 🧪 Testing
@@ -306,7 +306,7 @@ When a test intermittently fails but shouldn't block CI:
 ### Common Package Commands
 ```bash
 # Compile
-yarn tsc -b
+yarn tsgo -b
 
 # Test (MUST cd into package first!)
 cd package-name
