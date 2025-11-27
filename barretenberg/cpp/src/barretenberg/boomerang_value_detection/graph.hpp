@@ -183,10 +183,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::unordered_set<uint32_t> constant_variable_indices_set;
 
     std::vector<ConnectedComponent> connected_components;
-
-    std::unordered_set<uint32_t> unique_variables;
-    std::unordered_set<uint32_t> non_unique_variables;
-    std::unordered_set<uint32_t> unknown_variables;
 };
 
 // Type aliases for convenience

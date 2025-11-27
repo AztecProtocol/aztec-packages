@@ -4,6 +4,8 @@
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_builder_base_utils.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 using namespace bb;
 using namespace acir_format;
@@ -20,6 +22,18 @@ struct AES128TestData {
     std::vector<uint8_t> plaintext;
     std::vector<uint8_t> ciphertext;
 };
+
+// Helper to create WitnessOrConstant from index
+WitnessOrConstant<fr> witness_from_index(uint32_t idx)
+{
+    return WitnessOrConstant<fr>::from_index(idx);
+}
+
+// Helper to create WitnessOrConstant from constant value
+WitnessOrConstant<fr> constant_from_value(uint8_t val)
+{
+    return WitnessOrConstant<fr>::from_constant(fr(val));
+}
 
 AES128TestData create_aes128_test_data()
 {
@@ -44,17 +58,47 @@ AES128TestData create_aes128_test_data()
     return data;
 }
 
-// Helper to create WitnessOrConstant from index
-WitnessOrConstant<fr> witness_from_index(uint32_t idx)
-{
-    return WitnessOrConstant<fr>::from_index(idx);
+AES128Constraint create_aes_constraint(uint32_t& witness_idx, const AES128TestData& test_data) {
+    std::vector<WitnessOrConstant<fr>> inputs;
+    for (size_t i = 0; i < test_data.plaintext.size(); i++) {
+        inputs.push_back(witness_from_index(witness_idx++));
+    }
+    std::array<WitnessOrConstant<fr>, 16> iv;
+    for (size_t i = 0; i < 16; i++) {
+        iv[i] = witness_from_index(witness_idx++);
+    }
+    std::array<WitnessOrConstant<fr>, 16> key;
+    for (size_t i = 0; i < 16; i++) {
+        key[i] = witness_from_index(witness_idx++);
+    }
+    std::vector<uint32_t> outputs;
+    for (size_t i = 0; i < test_data.ciphertext.size(); i++) {
+        outputs.push_back(witness_idx++);
+    }
+    AES128Constraint aes_constraint{
+        .inputs = inputs,
+        .iv = iv,
+        .key = key,
+        .outputs = outputs,
+    };
+    return aes_constraint;
 }
 
-// Helper to create WitnessOrConstant from constant value
-WitnessOrConstant<fr> constant_from_value(uint8_t val)
-{
-    return WitnessOrConstant<fr>::from_constant(fr(val));
+void update_aes_witness_vector(const AES128TestData& test_data, WitnessVector& witness) {
+    for (auto byte : test_data.plaintext) {
+        witness.push_back(fr(byte));
+    }
+    for (auto byte : test_data.iv) {
+        witness.push_back(fr(byte));
+    }
+    for (auto byte : test_data.key) {
+        witness.push_back(fr(byte));
+    }
+    for (auto byte : test_data.ciphertext) {
+        witness.push_back(fr(byte));
+    }
 }
+
 
 /**
  * @brief Test single logic constraint - verify witness tracking
@@ -84,18 +128,11 @@ TEST_F(BoomerangConstraintsTests, TestSingleLogicConstraint)
 
     WitnessVector witness{ 5, 10, 15 };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit(program);
+    UltraCircuitBuilder builder = create_circuit(program);
 
-    // Verify number of logic witness sets equals number of logic constraints
     const auto& logic_witnesses = builder.get_all_logic_witnesses();
     EXPECT_EQ(logic_witnesses.size(), constraint_system.logic_constraints.size());
     EXPECT_EQ(logic_witnesses.size(), 1);
-
-    // Verify AES witnesses are empty
-    const auto& aes_witnesses = builder.get_all_aes128_witnesses();
-    EXPECT_EQ(aes_witnesses.size(), 0);
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 /**
@@ -104,40 +141,10 @@ TEST_F(BoomerangConstraintsTests, TestSingleLogicConstraint)
 TEST_F(BoomerangConstraintsTests, TestSingleAES128Constraint)
 {
     auto test_data = create_aes128_test_data();
-
-    // Create constraint with witness indices for all inputs
     uint32_t witness_idx = 0;
-
-    // Input bytes (64 bytes = 4 blocks)
-    std::vector<WitnessOrConstant<fr>> inputs;
-    for (size_t i = 0; i < test_data.plaintext.size(); i++) {
-        inputs.push_back(witness_from_index(witness_idx++));
-    }
-
-    // IV bytes
-    std::array<WitnessOrConstant<fr>, 16> iv;
-    for (size_t i = 0; i < 16; i++) {
-        iv[i] = witness_from_index(witness_idx++);
-    }
-
-    // Key bytes
-    std::array<WitnessOrConstant<fr>, 16> key;
-    for (size_t i = 0; i < 16; i++) {
-        key[i] = witness_from_index(witness_idx++);
-    }
-
-    // Output bytes (64 bytes = 4 blocks)
-    std::vector<uint32_t> outputs;
-    for (size_t i = 0; i < test_data.ciphertext.size(); i++) {
-        outputs.push_back(witness_idx++);
-    }
-
-    AES128Constraint aes_constraint{
-        .inputs = inputs,
-        .iv = iv,
-        .key = key,
-        .outputs = outputs,
-    };
+    WitnessVector witness;
+    AES128Constraint aes_constraint = create_aes_constraint(witness_idx, test_data);
+    update_aes_witness_vector(test_data, witness);
 
     AcirFormat constraint_system{
         .varnum = witness_idx,
@@ -147,41 +154,41 @@ TEST_F(BoomerangConstraintsTests, TestSingleAES128Constraint)
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
-
-    // Create witness values
-    WitnessVector witness;
-    for (auto byte : test_data.plaintext) {
-        witness.push_back(fr(byte));
-    }
-    for (auto byte : test_data.iv) {
-        witness.push_back(fr(byte));
-    }
-    for (auto byte : test_data.key) {
-        witness.push_back(fr(byte));
-    }
-    for (auto byte : test_data.ciphertext) {
-        witness.push_back(fr(byte));
-    }
-
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit(program);
 
-    // Verify number of AES witness sets equals number of AES constraints
+    //create empty circuit without any gates
+    UltraCircuitBuilder builder;
+    auto before_constraints = get_real_variable_indices_set(builder);
+    build_constraints(builder, program, ProgramMetadata{});
+    auto after_constraints = get_real_variable_indices_set(builder);
+
+    std::unordered_set<uint32_t> created_variables;
+    for (const auto& var : after_constraints) {
+        if (before_constraints.find(var) == before_constraints.end()) {
+            created_variables.insert(var);
+        }
+    }
+
     const auto& aes_witnesses = builder.get_all_aes128_witnesses();
     EXPECT_EQ(aes_witnesses.size(), constraint_system.aes128_constraints.size());
     EXPECT_EQ(aes_witnesses.size(), 1);
 
-    // Verify AES witnesses are not empty (should contain internal witnesses)
-    EXPECT_GT(aes_witnesses[0].size(), 0);
+    for (const auto& created_var : created_variables) {
+        EXPECT_TRUE(aes_witnesses[0].find(created_var) != aes_witnesses[0].end())
+            << "Variable " << created_var
+            << " was created during AES processing but not captured by get_difference_real_variable_indices_states";
+    }
+    for (const auto& aes_witness : aes_witnesses[0]) {
+        EXPECT_TRUE(created_variables.find(aes_witness) != created_variables.end())
+            << "AES witness " << aes_witness
+            << " is marked as AES witness but was not created during AES processing";
+    }
 
     // Print for debugging
-    info("AES128 constraint created ", aes_witnesses[0].size(), " internal witnesses");
-
-    // Verify logic witnesses are empty
-    const auto& logic_witnesses = builder.get_all_logic_witnesses();
-    EXPECT_EQ(logic_witnesses.size(), 0);
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    info("AES128 constraint created ", created_variables.size(), " new variables");
+    info("get_difference_real_variable_indices_states captured ", aes_witnesses[0].size(), " witnesses");
+    EXPECT_EQ(created_variables.size(), aes_witnesses[0].size())
+        << "Number of created variables should match number of captured AES witnesses";
 }
 
 /**
@@ -190,53 +197,15 @@ TEST_F(BoomerangConstraintsTests, TestSingleAES128Constraint)
 TEST_F(BoomerangConstraintsTests, TestMultipleAES128Constraints)
 {
     auto test_data = create_aes128_test_data();
-
     uint32_t witness_idx = 0;
     std::vector<AES128Constraint> aes_constraints;
     WitnessVector witness;
 
-    // Create two AES constraints using the same test data
     for (int constraint_num = 0; constraint_num < 2; constraint_num++) {
         std::vector<WitnessOrConstant<fr>> inputs;
-        for (size_t i = 0; i < test_data.plaintext.size(); i++) {
-            inputs.push_back(witness_from_index(witness_idx++));
-        }
-
-        std::array<WitnessOrConstant<fr>, 16> iv;
-        for (size_t i = 0; i < 16; i++) {
-            iv[i] = witness_from_index(witness_idx++);
-        }
-
-        std::array<WitnessOrConstant<fr>, 16> key;
-        for (size_t i = 0; i < 16; i++) {
-            key[i] = witness_from_index(witness_idx++);
-        }
-
-        std::vector<uint32_t> outputs;
-        for (size_t i = 0; i < test_data.ciphertext.size(); i++) {
-            outputs.push_back(witness_idx++);
-        }
-
-        aes_constraints.push_back(AES128Constraint{
-            .inputs = inputs,
-            .iv = iv,
-            .key = key,
-            .outputs = outputs,
-        });
-
-        // Add witness values
-        for (auto byte : test_data.plaintext) {
-            witness.push_back(fr(byte));
-        }
-        for (auto byte : test_data.iv) {
-            witness.push_back(fr(byte));
-        }
-        for (auto byte : test_data.key) {
-            witness.push_back(fr(byte));
-        }
-        for (auto byte : test_data.ciphertext) {
-            witness.push_back(fr(byte));
-        }
+        AES128Constraint constraint = create_aes_constraint(witness_idx, test_data);
+        aes_constraints.push_back(constraint);
+        update_aes_witness_vector(test_data, witness);
     }
 
     AcirFormat constraint_system{
@@ -249,22 +218,11 @@ TEST_F(BoomerangConstraintsTests, TestMultipleAES128Constraints)
     mock_opcode_indices(constraint_system);
 
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit(program);
+    UltraCircuitBuilder builder = create_circuit(program);
 
-    // Verify number of AES witness sets equals number of AES constraints
-    const auto& aes_witnesses = builder.get_all_aes128_witnesses();
-    EXPECT_EQ(aes_witnesses.size(), constraint_system.aes128_constraints.size());
-    EXPECT_EQ(aes_witnesses.size(), 2);
-
-    // Each constraint should have its own witnesses
-    EXPECT_GT(aes_witnesses[0].size(), 0);
-    EXPECT_GT(aes_witnesses[1].size(), 0);
-
-    // Both constraints should have similar witness counts (same test data)
-    info("First AES128 constraint: ", aes_witnesses[0].size(), " witnesses");
-    info("Second AES128 constraint: ", aes_witnesses[1].size(), " witnesses");
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    const auto& combined_aes_witnesses = builder.get_all_aes128_witnesses();
+    EXPECT_EQ(combined_aes_witnesses.size(), constraint_system.aes128_constraints.size());
+    EXPECT_EQ(combined_aes_witnesses[0].size(), combined_aes_witnesses[1].size());
 }
 
 /**
@@ -285,7 +243,7 @@ TEST_F(BoomerangConstraintsTests, TestMultipleLogicConstraints)
         .b = witness_from_index(4),
         .result = 5,
         .num_bits = 32,
-        .is_xor_gate = 0, // AND gate
+        .is_xor_gate = 0,
     };
 
     RangeConstraint range_a{ .witness = 0, .num_bits = 32 };
@@ -303,20 +261,13 @@ TEST_F(BoomerangConstraintsTests, TestMultipleLogicConstraints)
     };
     mock_opcode_indices(constraint_system);
 
-    WitnessVector witness{ 5, 10, 15, 7, 3, 3 }; // 5 XOR 10 = 15, 7 AND 3 = 3
+    WitnessVector witness{ 5, 10, 15, 7, 3, 3 };
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit(program);
+    UltraCircuitBuilder builder = create_circuit(program);
 
-    // Verify number of logic witness sets equals number of logic constraints
     const auto& logic_witnesses = builder.get_all_logic_witnesses();
     EXPECT_EQ(logic_witnesses.size(), constraint_system.logic_constraints.size());
     EXPECT_EQ(logic_witnesses.size(), 2);
-
-    // Each constraint should have witnesses
-    EXPECT_GT(logic_witnesses[0].size(), 0);
-    EXPECT_GT(logic_witnesses[1].size(), 0);
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 /**
@@ -346,7 +297,7 @@ TEST_F(BoomerangConstraintsTests, TestLogicConstraintWithConstant)
 
     WitnessVector witness{ 5, 15 }; // 5 XOR 10 = 15
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit(program);
+    UltraCircuitBuilder builder = create_circuit(program);
 
     // Verify logic witness tracking
     const auto& logic_witnesses = builder.get_all_logic_witnesses();

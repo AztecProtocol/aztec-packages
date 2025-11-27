@@ -62,9 +62,11 @@ std::unordered_set<uint32_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::get_uncons
     return unconstrained_vars;
 }
 
-template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, CircuitBuilder>::process_constraint_system()
+template <typename FF, typename CircuitBuilder> void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
 {
     auto connected_components = analyzer.find_connected_components();
+    process_logic_constraints();
+    process_aes128_constraints(connected_components);
     return;
 }
 
@@ -73,32 +75,24 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints()
 {
     for (size_t i = 0; i < constraint_system.logic_constraints.size(); i++) {
         [[maybe_unused]] const auto& constraint = constraint_system.logic_constraints.at(i);
-        // in this case we use invariant that variable res from create_logic_gate function was appended in the
-        // logic_witnesses after logic constrait were processed. So, we can use the same index as index of logic
-        // constraint
         return;
     }
 }
 
 template <typename FF, typename CircuitBuilder>
-void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_aes128_constraints()
+void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_aes128_constraints(const std::vector<ConnectedComponent>& cc)
 {
-    // First, find all connected components
-    auto connected_components = analyzer.find_connected_components();
-
     // Build a map from witness index to connected component index
     // This leverages the single-component invariant for O(1) lookups
     std::unordered_map<uint32_t, size_t> witness_to_cc;
-    for (size_t cc_idx = 0; cc_idx < connected_components.size(); cc_idx++) {
-        for (uint32_t var_idx : connected_components[cc_idx].vars()) {
+    for (size_t cc_idx = 0; cc_idx < cc.size(); cc_idx++) {
+        for (uint32_t var_idx : cc[cc_idx].vars()) {
             witness_to_cc[var_idx] = cc_idx;
         }
     }
 
-    // Process each AES128 constraint
     for (size_t i = 0; i < constraint_system.aes128_constraints.size(); i++) {
         const auto& constraint = constraint_system.aes128_constraints[i];
-
         std::vector<uint32_t> constraint_witnesses;
 
         for (const auto& input : constraint.inputs) {
@@ -106,33 +100,28 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_aes128_constraints()
                 constraint_witnesses.push_back(input.index);
             }
         }
-
         for (const auto& iv_elem : constraint.iv) {
             if (!iv_elem.is_constant) {
                 constraint_witnesses.push_back(iv_elem.index);
             }
         }
-
         for (const auto& key_elem : constraint.key) {
             if (!key_elem.is_constant) {
                 constraint_witnesses.push_back(key_elem.index);
             }
         }
-
         for (uint32_t output_idx : constraint.outputs) {
             constraint_witnesses.push_back(output_idx);
         }
-
         // Leverage single-component invariant: find CC using any witness
         // All witnesses from this constraint belong to the same CC
         if (!constraint_witnesses.empty()) {
             // Convert to real indices for lookup
-            uint32_t real_idx = analyzer.to_real(constraint_witnesses[0])
-
-                                    auto it = witness_to_cc.find(real_idx);
+            uint32_t real_idx = analyzer.to_real(constraint_witnesses[0]);
+            auto it = witness_to_cc.find(real_idx);
             if (it != witness_to_cc.end()) {
                 // Found the connected component - store its variables
-                aes128_subgraphs.push_back(connected_components[it->second].vars());
+                aes128_subgraphs.push_back(cc[it->second].vars());
             }
         }
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <initializer_list>
 #include <unordered_set>
 #include <vector>
 
@@ -68,7 +69,11 @@ class BoomerangUtils {
     // Constraint Witnesses - per-constraint witness tracking
     // ========================================================================================
 
-    void update_constraint_witnesses(uint32_t var_idx) { constraint_witnesses.insert(var_idx); }
+    void update_constraint_witnesses(uint32_t var_idx) { constraint_witnesses.emplace(var_idx); }
+    void update_constraint_witnesses(std::unordered_set<uint32_t>& witnesses) {
+        constraint_witnesses.insert(witnesses.begin(), witnesses.end());
+        witnesses.clear();
+    }
     std::unordered_set<uint32_t> get_constraint_witnesses() const { return constraint_witnesses; }
 
     /**

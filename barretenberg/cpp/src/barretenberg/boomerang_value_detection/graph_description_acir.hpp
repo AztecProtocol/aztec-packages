@@ -21,13 +21,22 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     // logic to parse constraint system
     void process_constraint_system();
     void process_logic_constraints();
-    void process_aes128_constraints();
-    // getting methods
-    std::vector<std::vector<uint32_t>> get_aes128_subgraphs() const { return aes128_subgraphs; }
+    void process_aes128_constraints(const std::vector<ConnectedComponent>& cc);
+    void process_range_constraints();
+    void process_sha256compression_constraints();
+    void process_blake2s_constraints();
+    void process_blake3s_constraints();
+    void process_poseidon2s_constraints();
+    void process_recursion_constraints();
+    void process_multi_scalar_mul_constraints();
+    void process_ecdsa_constraints();
+    void process_embedded_curve_add_constraints();
+    // getters
+    auto get_aes128_subgraphs() const { return aes128_subgraphs; }
+    auto get_logic_witnesses() const { return builder.get_all_logic_witnesses(); };
 
     // functions for test debugging
     void print_variable_info(uint32_t var_idx) { analyzer.print_variable_info(var_idx); };
-    std::unordered_set<uint32_t> get_logic_witnesses() const { return builder.get_logic_witnesses(); };
 
   private:
     acir_format::AcirFormat constraint_system;

@@ -32,13 +32,6 @@ void test_acir(std::vector<uint8_t>& bytecode)
             tool.print_variable_info(elem);
         }
     }
-    const auto constraint_witnesses = tool.get_constraint_witnesses();
-    if (constraint_witnesses.size() > 0) {
-        info("print_variables_from_constraint_witnesses");
-        for (const auto& elem : constraint_witnesses) {
-            tool.print_variable_info(elem);
-        }
-    }
 }
 
 TEST(BoomerangAcirCircuitBuilder, InitCase)
