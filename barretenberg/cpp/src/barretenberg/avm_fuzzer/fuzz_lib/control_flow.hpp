@@ -70,13 +70,21 @@ struct SwitchToNonTerminatedBlock {
     MSGPACK_FIELDS(non_terminated_block_idx);
 };
 
+/// @brief inserts INTERNALCALL instruction to the current block
+/// creates a new block and sets it as the current block
+struct InsertInternalCall {
+    uint16_t target_program_block_instruction_block_idx;
+    MSGPACK_FIELDS(target_program_block_instruction_block_idx);
+};
+
 using CFGInstruction = std::variant<InsertSimpleInstructionBlock,
                                     JumpToNewBlock,
                                     JumpIfToNewBlock,
                                     JumpToBlock,
                                     JumpIfToBlock,
                                     FinalizeWithReturn,
-                                    SwitchToNonTerminatedBlock>;
+                                    SwitchToNonTerminatedBlock,
+                                    InsertInternalCall>;
 template <class... Ts> struct overloaded_cfg_instruction : Ts... {
     using Ts::operator()...;
 };
@@ -105,6 +113,9 @@ inline std::ostream& operator<<(std::ostream& os, const CFGInstruction& instruct
             },
             [&](SwitchToNonTerminatedBlock arg) {
                 os << "SwitchToNonTerminatedBlock " << arg.non_terminated_block_idx;
+            },
+            [&](InsertInternalCall arg) {
+                os << "InsertInternalCall " << arg.target_program_block_instruction_block_idx;
             },
         },
         instruction);
@@ -145,12 +156,18 @@ class ControlFlow {
     void process_jump_if_to_block(JumpIfToBlock instruction);
 
     /// @brief terminates the current block with Return and switches to the first non-terminated block
+    /// @note if the current block has caller, it inserts INTERNALRETURN only and switches to the caller
     /// @param instruction the instruction to process
     void process_finalize_with_return(FinalizeWithReturn instruction);
 
     /// @brief switches to the non-terminated block with the chosen index
     /// @param instruction the instruction to process
     void process_switch_to_non_terminated_block(SwitchToNonTerminatedBlock instruction);
+
+    /// @brief inserts INTERNALCALL instruction to the current block
+    /// creates a new block and sets it as the current block
+    /// @param instruction the instruction to process
+    void process_insert_internal_call(InsertInternalCall instruction);
 
     /// @brief traverse the control flow graph using DFS
     /// @param start_block the start block
@@ -164,6 +181,7 @@ class ControlFlow {
 
     /// @brief get the list of blocks which are can be reached from the given block without creating a loop in the
     /// graph
+    /// Also filters out blocks with different caller
     std::vector<ProgramBlock*> get_reachable_blocks(ProgramBlock* block);
 
   public:

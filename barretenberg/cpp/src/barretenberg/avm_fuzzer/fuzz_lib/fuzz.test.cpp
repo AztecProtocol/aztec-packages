@@ -947,4 +947,136 @@ TEST(fuzz, CopyCalldataThenReturnData)
     auto result = cpp_simulator.simulate(bytecode, { FF(1337) });
     EXPECT_EQ(result.output.at(0), 1337);
 }
+
+// call internal function overwrites memory address
+TEST(fuzz, InternalCall)
+{
+    auto set_field_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1337 };
+    auto set_field_instruction2 =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 313373 };
+    auto internal_call_instruction = InsertInternalCall{ .target_program_block_instruction_block_idx = 1 };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { set_field_instruction, set_field_instruction2 } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    control_flow.process_cfg_instruction(internal_call_instruction);
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 313373);
+}
 } // namespace calldata_returndata
+
+namespace internal_calls {
+
+// check if internal call does not halt execution on return
+TEST(fuzz, InternalCalledBlockUsesInternalReturn)
+{
+    auto set_field_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1337 };
+    auto set_boolean_instruction = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1, .offset = 1, .value = 1 };
+    auto internal_call_instruction = InsertInternalCall{ .target_program_block_instruction_block_idx = 1 };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { set_field_instruction, set_boolean_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 1 });
+    control_flow.process_cfg_instruction(internal_call_instruction);
+    // this should do nothing, just insert INTERNALRETURN instruction
+    // otherwise it will halt execution and return 1
+    control_flow.process_cfg_instruction(FinalizeWithReturn{
+        .return_options = ReturnOptions{
+            .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 } });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 1337);
+}
+
+// SSTORE(0, 1337); call f1; return SLOAD(0);
+// f1: SSTORE(0, 31337); call f2; INTERNALRETURN
+// f2: SSTORE(0, 313373); INTERNALRETURN
+TEST(fuzz, SeveralInternalCalls)
+{
+    auto set_field_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1337 };
+    auto set_field_instruction2 =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 31337 };
+    auto set_field_instruction3 =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 313373 };
+    auto internal_call_instruction = InsertInternalCall{ .target_program_block_instruction_block_idx = 1 };
+    auto internal_call_instruction2 = InsertInternalCall{ .target_program_block_instruction_block_idx = 2 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{
+        { set_field_instruction, set_field_instruction2, set_field_instruction3 }
+    };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    control_flow.process_cfg_instruction(internal_call_instruction);
+    control_flow.process_cfg_instruction(internal_call_instruction2);
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 313373);
+}
+
+/// START
+/// InternaCall
+///    ...
+///    InternalCall
+///    ...
+///    InternalReturn
+/// InternalReturn
+/// InternaCall
+/// ...
+/// InternalReturn
+/// ...
+/// RETURN
+///
+/// SSTORE(0, 1); call f1; call f3; RETURN SLOAD(0);  // should return 313373
+/// f1: SSTORE(0, 1337); call f2; SSTORE(0, 1337); INTERNALRETURN
+/// f2: SSTORE(0, 31337); INTERNALRETURN
+/// f3: SSTORE(0, 313373); INTERNALRETURN
+TEST(fuzz, Reentrancy)
+{
+    auto set_field_instruction0 = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1 };
+    auto set_field_instruction1 =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1337 };
+    auto set_field_instruction2 =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 31337 };
+    auto set_field_instruction3 =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 313373 };
+    auto internal_call_instruction = InsertInternalCall{ .target_program_block_instruction_block_idx = 1 };
+    auto internal_call_instruction2 = InsertInternalCall{ .target_program_block_instruction_block_idx = 2 };
+    auto internal_call_instruction3 = InsertInternalCall{ .target_program_block_instruction_block_idx = 3 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{
+        { set_field_instruction0, set_field_instruction1, set_field_instruction2, set_field_instruction3 }
+    };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    // call f1
+    control_flow.process_cfg_instruction(internal_call_instruction);
+    // call f2
+    control_flow.process_cfg_instruction(internal_call_instruction2);
+    // Should switch context to f1
+    control_flow.process_cfg_instruction(FinalizeWithReturn{
+        .return_options = ReturnOptions{
+            .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 } });
+    // SSTORE(0, 1337);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 1 });
+    // Should switch context to f0 (START)
+    control_flow.process_cfg_instruction(FinalizeWithReturn{
+        .return_options = ReturnOptions{
+            .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 } });
+    // call f3
+    control_flow.process_cfg_instruction(internal_call_instruction3);
+    // Should switch context to f0 (START)
+    control_flow.process_cfg_instruction(FinalizeWithReturn{
+        .return_options = ReturnOptions{
+            .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 } });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 313373);
+}
+} // namespace internal_calls

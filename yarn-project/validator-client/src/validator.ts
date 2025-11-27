@@ -228,14 +228,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     const myAddresses = this.getValidatorAddresses();
     const inCommittee = await this.epochCache.filterInCommittee('now', myAddresses);
+    this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
     if (inCommittee.length > 0) {
-      this.log.info(
-        `Started validator with addresses in current validator committee: ${inCommittee
-          .map(a => a.toString())
-          .join(', ')}`,
-      );
-    } else {
-      this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
+      this.log.info(`Addresses in current validator committee: ${inCommittee.map(a => a.toString()).join(', ')}`);
     }
     this.epochCacheUpdateLoop.start();
 

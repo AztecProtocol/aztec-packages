@@ -26,9 +26,8 @@ function inject_version {
   # Try to find the default placeholder first
   local offset=$(grep -aobF "$placeholder" $binary | head -n 1 | cut -d: -f1)
   if [ -z "$offset" ]; then
-    # Placeholder not found, try to find the current version (already injected)
-    local current_version=$(git rev-parse --short HEAD)
-    offset=$(grep -aobF "$current_version" $binary | head -n 1 | cut -d: -f1)
+    echo "Placeholder not found in $binary, maybe it's already been added, skipping."
+    exit 0
   fi
   printf "$version\0" | dd of=$binary bs=1 seek=$offset conv=notrunc 2>/dev/null
 }
@@ -260,10 +259,7 @@ function build_with_makefile {
   (cd $root && make bb-cpp)
 }
 
-# Print every individual test command. Can be fed into gnu parallel.
-# Paths are relative to repo root.
-# We prefix the hash. This ensures the test harness and cache and skip future runs.
-function test_cmds {
+function test_cmds_native {
   # E.g. build, build-debug or build-coverage
   cd $(scripts/native-preset-build-dir)
 
@@ -284,28 +280,49 @@ function test_cmds {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  if [ "$CI_FULL" -eq 1 ]; then
-    # We only want to sanity check that we haven't broken wasm ecc in merge queue.
-    echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
-
-    local prefix="$hash:CPUS=4:MEM=8g"
-
-    # Mostly arbitrary set that touches lots of the code.
-    declare -A asan_tests=(
-      ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-      ["chonk_tests"]="ChonkTests.Basic"
-      ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
-      ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
-    )
-    for bin_name in "${!asan_tests[@]}"; do
-      local filter=${asan_tests[$bin_name]}
-      echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
-    done
-
-    echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
-  fi
-
   echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
+}
+
+function test_cmds_wasm_threads {
+  # We only want to sanity check that we haven't broken wasm ecc in merge queue.
+  echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+}
+
+function test_cmds_asan {
+  local prefix="$hash:CPUS=4:MEM=8g"
+
+  # Mostly arbitrary set that touches lots of the code.
+  declare -A asan_tests=(
+    ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+    ["chonk_tests"]="ChonkTests.Basic"
+    ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
+    ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+  )
+  for bin_name in "${!asan_tests[@]}"; do
+    local filter=${asan_tests[$bin_name]}
+    echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+  done
+}
+
+function test_cmds_smt {
+  local prefix="$hash:CPUS=4:MEM=8g"
+  echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
+}
+
+# Print every individual test command. Can be fed into gnu parallel.
+# Paths are relative to repo root.
+# We prefix the hash. This ensures the test harness and cache and skip future runs.
+function test_cmds {
+  if [ -z "${1:-}" ]; then
+    test_cmds_native
+    if [ "$CI_FULL" -eq 1 ]; then
+      test_cmds_wasm_threads
+      test_cmds_asan
+      test_cmds_smt
+    fi
+  else
+    test_cmds_$1
+  fi
 }
 
 # This is not called in ci. It is just for a developer to run the tests.

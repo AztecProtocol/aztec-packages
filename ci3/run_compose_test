@@ -29,6 +29,10 @@ function cleanup {
 }
 trap cleanup EXIT
 
+# Prevent ansi codes from overwriting log headers.
+echo
+echo
+
 started=1
 setsid docker compose --ansi always $name_arg up --exit-code-from=$exit_container --abort-on-container-exit --force-recreate | cat &
 pid=$!
