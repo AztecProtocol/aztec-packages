@@ -23,6 +23,7 @@ function inject_version {
     echo_stderr "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
     exit 1
   fi
+  # Try to find the default placeholder first
   local offset=$(grep -aobF "$placeholder" $binary | head -n 1 | cut -d: -f1)
   if [ -z "$offset" ]; then
     echo "Placeholder not found in $binary, maybe it's already been added, skipping."

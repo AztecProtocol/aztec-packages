@@ -18,6 +18,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   private remoteWasms: BarretenbergWasmThreadWorker[] = [];
   private nextWorker = 0;
   private nextThreadId = 1;
+  private useCustomLogger = false;
 
   // Pre-allocated scratch buffers for msgpack I/O to avoid malloc/free overhead
   private msgpackInputScratch: number = 0; // 8MB input buffer
@@ -34,11 +35,13 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   public async init(
     module: WebAssembly.Module,
     threads = Math.min(getNumCpu(), BarretenbergWasmMain.MAX_THREADS),
-    logger: (msg: string) => void = createDebugLogger('bb_wasm'),
+    logger?: (msg: string) => void,
     initial = 33,
     maximum = this.getDefaultMaximumMemoryPages(),
   ) {
-    this.logger = logger;
+    // Track whether a custom logger was provided so workers know whether to postMessage logs
+    this.useCustomLogger = logger !== undefined;
+    this.logger = logger ?? createDebugLogger('bb_wasm');
 
     const initialMb = (initial * 2 ** 16) / (1024 * 1024);
     const maxMb = (maximum * 2 ** 16) / (1024 * 1024);
@@ -71,8 +74,14 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     if (threads > 1) {
       this.logger(`Creating ${threads} worker threads`);
       this.workers = await Promise.all(Array.from({ length: threads - 1 }).map(createThreadWorker));
+
+      // Set up log message forwarding from workers to our logger (only if custom logger provided)
+      if (this.useCustomLogger) {
+        this.workers.forEach(worker => this.setupWorkerLogForwarding(worker));
+      }
+
       this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
-      await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory)));
+      await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory, this.useCustomLogger)));
     }
   }
 
@@ -83,6 +92,31 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
       return 2 ** 14;
     }
     return 2 ** 16;
+  }
+
+  /**
+   * Set up forwarding of log messages from worker threads to our logger.
+   * Workers post messages with { type: 'log', msg: string } which we intercept here.
+   */
+  private setupWorkerLogForwarding(worker: Worker) {
+    const handler = (data: unknown) => {
+      if (data && typeof data === 'object' && 'type' in data && data.type === 'log' && 'msg' in data) {
+        this.logger(data.msg as string);
+      }
+    };
+
+    // Node Workers use 'on' method, browser Workers use 'addEventListener'
+    // The 'worker' variable is typed as Node's Worker, but at runtime in browser
+    // it will be a browser Worker (due to browser_postprocess.sh import rewriting)
+    if ('on' in worker && typeof worker.on === 'function') {
+      // Node.js worker_threads Worker
+      worker.on('message', handler);
+    } else if ('addEventListener' in worker) {
+      // Browser Web Worker
+      (worker as unknown as globalThis.Worker).addEventListener('message', (event: MessageEvent) => {
+        handler(event.data);
+      });
+    }
   }
 
   /**
