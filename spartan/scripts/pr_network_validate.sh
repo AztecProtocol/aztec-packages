@@ -58,8 +58,7 @@ fi
 K8S_CLUSTER_CONTEXT=$(kubectl config current-context)
 log "Using kubectl context: ${K8S_CLUSTER_CONTEXT}"
 
-# Step 1: Diff configs to get new resources
-log "Step 1: Diffing network configs..."
+log "Diffing network configs..."
 DIFF_OUTPUT=$("$scripts_dir/diff_network_config.sh" "$PR_NUMBER" "$NETWORK_NAME")
 
 if [[ -z "$DIFF_OUTPUT" ]]; then
@@ -85,16 +84,14 @@ if [[ -z "$NEW_BOOTNODES" ]] && [[ -z "$NEW_SNAPSHOTS" ]]; then
   die "No new bootnodes or snapshots to validate"
 fi
 
-# Step 2: Create namespace
-log "Step 2: Creating namespace ${NAMESPACE}..."
+log "Creating namespace ${NAMESPACE}..."
 if kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1; then
   log "Namespace ${NAMESPACE} already exists. Deleting..."
   kubectl delete namespace "${NAMESPACE}" --wait=true --timeout=60s || true
 fi
 kubectl create namespace "${NAMESPACE}"
 
-# Step 3: Get L1 configuration
-log "Step 3: Setting up L1 configuration..."
+log "Setting up L1 configuration..."
 
 # Determine L1 network based on the Aztec network
 # mainnet uses mainnet L1, everything else uses sepolia
@@ -145,8 +142,7 @@ fi
 log "  L1 RPC URLs: ${L1_RPC_URLS}"
 log "  L1 Consensus URLs: ${L1_CONSENSUS_URLS}"
 
-# Step 4: Create Helm values file
-log "Step 4: Creating Helm values..."
+log "Creating Helm values..."
 TMP_DIR=$(mktemp -d)
 trap "rm -rf $TMP_DIR" EXIT
 
@@ -183,6 +179,13 @@ node:
     - --node
     - --archiver
 
+  # Enable P2P with node port to get public IP
+  p2p:
+    enabled: true
+    publicIP: true
+    port: 40400
+    announcePort: 40400
+
   env:
     # Override with ONLY new resources - this is the key to isolated testing
     NETWORK_CONFIG_LOCATION: ""  # Disable remote network config fetch
@@ -198,8 +201,7 @@ EOF
 log "Helm values created:"
 cat "$HELM_VALUES_FILE"
 
-# Step 5: Deploy with Helm
-log "Step 5: Deploying validation nodes..."
+log "Deploying validation nodes..."
 helm upgrade --install \
   "${RELEASE_PREFIX}" \
   "$spartan/aztec-node" \
@@ -209,8 +211,7 @@ helm upgrade --install \
 
 log "Deployment complete. Waiting for pods to start..."
 
-# Step 6: Wait for pods to exist (not Ready - we need to check logs immediately)
-log "Step 6: Waiting for pods to be created..."
+log "Waiting for pods to be created..."
 for i in {1..60}; do
   POD_COUNT=$(kubectl get pods -n "${NAMESPACE}" -l "app.kubernetes.io/instance=${RELEASE_PREFIX}" --no-headers 2>/dev/null | wc -l)
   if [[ "$POD_COUNT" -ge 2 ]]; then
@@ -230,35 +231,74 @@ POD_1=$(kubectl get pods -n "${NAMESPACE}" -l "app.kubernetes.io/instance=${RELE
 log "Validation pods: ${POD_0}, ${POD_1}"
 log "Starting validation checks (will monitor logs as pods start)..."
 
-# Step 7: Validation checks
-log "Step 7: Running validation checks..."
+log "Running validation checks..."
 
 VALIDATION_START=$(date +%s)
-SUCCESS=false
+P2P_SUCCESS=false
+SNAPSHOT_SUCCESS=false
+
+# Determine what we need to validate
+NEED_P2P_CHECK=false
+NEED_SNAPSHOT_CHECK=false
+
+if [[ -n "$NEW_BOOTNODES" ]]; then
+  NEED_P2P_CHECK=true
+  log "Will validate P2P discovery via new bootnode(s)"
+fi
+
+if [[ -n "$NEW_SNAPSHOTS" ]]; then
+  NEED_SNAPSHOT_CHECK=true
+  log "Will validate snapshot download from new URL(s)"
+fi
 
 # Function to check logs for P2P connection
 check_p2p_connection() {
   local pod=$1
-  kubectl logs -n "${NAMESPACE}" "$pod" --tail=100 2>/dev/null | grep -i "peer.*connected\|discovered peer" || true
+  # Look for actual peer connections, not "Connected to 0 peers"
+  # Match patterns like:
+  # - "Connected to X peers" where X > 0
+  # - "peer abc123 connected"
+  # - "discovered peer xyz789"
+  local logs=$(kubectl logs -n "${NAMESPACE}" "$pod" --tail=200 2>/dev/null)
+
+  # Check for "Connected to X peers" where X > 0
+  if echo "$logs" | grep -qE "Connected to [1-9][0-9]* peer"; then
+    echo "$logs" | grep -E "Connected to [1-9][0-9]* peer"
+    return 0
+  fi
+
+  # Check for specific peer connection messages (but exclude "Connected to 0 peers")
+  echo "$logs" | grep -iE "(peer [a-zA-Z0-9]+ connected|discovered peer [a-zA-Z0-9]+|connection established.*peer)" | grep -v "Connected to 0 peer" || true
 }
 
 # Function to check logs for snapshot download
+# Returns: "success", "failed", or "unknown"
 check_snapshot_download() {
   local pod=$1
-  kubectl logs -n "${NAMESPACE}" "$pod" --tail=100 2>/dev/null | grep -i "snapshot.*download\|syncing from snapshot\|downloading snapshot" || true
-}
+  local logs=$(kubectl logs -n "${NAMESPACE}" "$pod" --tail=200 2>/dev/null)
 
-# Function to check if node is syncing from L1 (fallback - should fail if snapshots expected)
-check_l1_sync() {
-  local pod=$1
-  kubectl logs -n "${NAMESPACE}" "$pod" --tail=200 2>/dev/null | grep -i "syncing from l1\|catching up from l1\|starting archiver\|archiver sync" || true
-}
+  # Check for failure messages first
+  if echo "$logs" | grep -qi "No valid snapshots found from any URL, skipping snapshot sync"; then
+    echo "failed"
+    return
+  fi
 
-# Function to check for snapshot failures
-check_snapshot_failure() {
-  local pod=$1
-  # Look for the critical failure message that means all snapshots failed
-  kubectl logs -n "${NAMESPACE}" "$pod" --tail=200 2>/dev/null | grep -i "No valid snapshots found from any URL, skipping snapshot sync\|No snapshot found at.*Skipping this URL\|Fetching.*failed\. Will retry" || true
+  if echo "$logs" | grep -qi "No snapshot found at.*Skipping this URL"; then
+    # This might be trying multiple URLs, check if ALL failed
+    if echo "$logs" | grep -qi "No valid snapshots found from any URL"; then
+      echo "failed"
+      return
+    fi
+  fi
+
+  # Check for success messages
+  if echo "$logs" | grep -qi "snapshot.*download\|syncing from snapshot\|downloading snapshot"; then
+    echo "success"
+    return
+  fi
+
+  # Neither success nor failure detected yet
+  echo "unknown"
 }
 
 # Function to check node status
@@ -280,119 +320,94 @@ while true; do
 
   log "Check iteration (${ELAPSED}s elapsed)..."
 
-  # CRITICAL CHECK: If new snapshots exist, ensure nodes are NOT syncing from L1
-  if [[ -n "$NEW_SNAPSHOTS" ]]; then
-    log "  Checking for L1 sync fallback (should NOT happen with new snapshots)..."
-    L1_SYNC_POD_0=$(check_l1_sync "$POD_0")
-    L1_SYNC_POD_1=$(check_l1_sync "$POD_1")
-
-    if [[ -n "$L1_SYNC_POD_0" ]] || [[ -n "$L1_SYNC_POD_1" ]]; then
-      err "  ✗ FAILURE: Nodes are syncing from L1 instead of using snapshots!"
-      if [[ -n "$L1_SYNC_POD_0" ]]; then
-        err "    Pod 0: $L1_SYNC_POD_0"
-      fi
-      if [[ -n "$L1_SYNC_POD_1" ]]; then
-        err "    Pod 1: $L1_SYNC_POD_1"
-      fi
-      err "  This indicates the snapshot URL is broken or unreachable."
-      SUCCESS=false
-      break
-    fi
-
-    # Check for explicit snapshot failures
-    SNAPSHOT_FAIL_POD_0=$(check_snapshot_failure "$POD_0")
-    SNAPSHOT_FAIL_POD_1=$(check_snapshot_failure "$POD_1")
-
-    if [[ -n "$SNAPSHOT_FAIL_POD_0" ]] || [[ -n "$SNAPSHOT_FAIL_POD_1" ]]; then
-      err "  ✗ FAILURE: Snapshot download failed!"
-      if [[ -n "$SNAPSHOT_FAIL_POD_0" ]]; then
-        err "    Pod 0: $SNAPSHOT_FAIL_POD_0"
-      fi
-      if [[ -n "$SNAPSHOT_FAIL_POD_1" ]]; then
-        err "    Pod 1: $SNAPSHOT_FAIL_POD_1"
-      fi
-      SUCCESS=false
-      break
-    fi
-  fi
-
-  # Check 1: P2P discovery
-  log "  Checking P2P connections..."
-  P2P_POD_0=$(check_p2p_connection "$POD_0")
-  P2P_POD_1=$(check_p2p_connection "$POD_1")
-
-  if [[ -n "$P2P_POD_0" ]] || [[ -n "$P2P_POD_1" ]]; then
-    log "  ✓ P2P connection detected!"
-    if [[ -n "$P2P_POD_0" ]]; then
-      log "    Pod 0: $P2P_POD_0"
-    fi
-    if [[ -n "$P2P_POD_1" ]]; then
-      log "    Pod 1: $P2P_POD_1"
-    fi
-
-    # If we only have new snapshots (no new bootnodes), P2P is not required
-    if [[ -n "$NEW_BOOTNODES" ]]; then
-      SUCCESS=true
-      break
-    fi
-  fi
-
-  # Check 2: Snapshot download (if new snapshots exist)
-  if [[ -n "$NEW_SNAPSHOTS" ]]; then
+  if [[ "$NEED_SNAPSHOT_CHECK" == "true" ]] && [[ "$SNAPSHOT_SUCCESS" == "false" ]]; then
     log "  Checking snapshot downloads..."
-    SNAPSHOT_POD_0=$(check_snapshot_download "$POD_0")
-    SNAPSHOT_POD_1=$(check_snapshot_download "$POD_1")
+    SNAPSHOT_STATUS_POD_0=$(check_snapshot_download "$POD_0")
+    SNAPSHOT_STATUS_POD_1=$(check_snapshot_download "$POD_1")
 
-    if [[ -n "$SNAPSHOT_POD_0" ]] || [[ -n "$SNAPSHOT_POD_1" ]]; then
-      log "  ✓ Snapshot download detected!"
-      if [[ -n "$SNAPSHOT_POD_0" ]]; then
-        log "    Pod 0: $SNAPSHOT_POD_0"
+    if [[ "$SNAPSHOT_STATUS_POD_0" == "failed" ]] || [[ "$SNAPSHOT_STATUS_POD_1" == "failed" ]]; then
+      err "  ✗ FAILURE: Snapshot download failed!"
+      if [[ "$SNAPSHOT_STATUS_POD_0" == "failed" ]]; then
+        err "    Pod 0: Snapshot failed"
+        kubectl logs -n "${NAMESPACE}" "$POD_0" --tail=50 2>/dev/null | grep -i "snapshot\|No valid snapshots" | while IFS= read -r line; do
+          err "      $line"
+        done
       fi
-      if [[ -n "$SNAPSHOT_POD_1" ]]; then
-        log "    Pod 1: $SNAPSHOT_POD_1"
+      if [[ "$SNAPSHOT_STATUS_POD_1" == "failed" ]]; then
+        err "    Pod 1: Snapshot failed"
+        kubectl logs -n "${NAMESPACE}" "$POD_1" --tail=50 2>/dev/null | grep -i "snapshot\|No valid snapshots" | while IFS= read -r line; do
+          err "      $line"
+        done
       fi
-      SUCCESS=true
       break
     fi
+
+    if [[ "$SNAPSHOT_STATUS_POD_0" == "success" ]] || [[ "$SNAPSHOT_STATUS_POD_1" == "success" ]]; then
+      log "  ✓ Snapshot download detected!"
+      if [[ "$SNAPSHOT_STATUS_POD_0" == "success" ]]; then
+        log "    Pod 0: Snapshot download started"
+        kubectl logs -n "${NAMESPACE}" "$POD_0" --tail=50 2>/dev/null | grep -i "snapshot.*download\|syncing from snapshot" | while IFS= read -r line; do
+          log "      $line"
+        done
+      fi
+      if [[ "$SNAPSHOT_STATUS_POD_1" == "success" ]]; then
+        log "    Pod 1: Snapshot download started"
+        kubectl logs -n "${NAMESPACE}" "$POD_1" --tail=50 2>/dev/null | grep -i "snapshot.*download\|syncing from snapshot" | while IFS= read -r line; do
+          log "      $line"
+        done
+      fi
+      SNAPSHOT_SUCCESS=true
+    fi
+
+    if [[ "$SNAPSHOT_STATUS_POD_0" == "unknown" ]] && [[ "$SNAPSHOT_STATUS_POD_1" == "unknown" ]]; then
+      log "    Snapshot status: still waiting..."
+    fi
+  fi
+
+
+  if [[ "$NEED_P2P_CHECK" == "true" ]] && [[ "$P2P_SUCCESS" == "false" ]]; then
+    log "  Checking P2P connections..."
+    P2P_POD_0=$(check_p2p_connection "$POD_0")
+    P2P_POD_1=$(check_p2p_connection "$POD_1")
+
+    if [[ -n "$P2P_POD_0" ]] || [[ -n "$P2P_POD_1" ]]; then
+      log "  ✓ P2P connection detected!"
+      if [[ -n "$P2P_POD_0" ]]; then
+        log "    Pod 0 logs:"
+        echo "$P2P_POD_0" | while IFS= read -r line; do
+          log "      $line"
+        done
+      fi
+      if [[ -n "$P2P_POD_1" ]]; then
+        log "    Pod 1 logs:"
+        echo "$P2P_POD_1" | while IFS= read -r line; do
+          log "      $line"
+        done
+      fi
+      P2P_SUCCESS=true
+    fi
+  fi
+
+  if [[ "$NEED_P2P_CHECK" == "false" || "$P2P_SUCCESS" == "true" ]] && [[ "$NEED_SNAPSHOT_CHECK" == "false" || "$SNAPSHOT_SUCCESS" == "true" ]]; then
+    log "  ✓ All validation checks passed!"
+    break
   fi
 
   log "  Waiting 10s before next check..."
   sleep 10
 done
 
-# Step 8: Report results
-log "Step 8: Validation complete"
 
-if [[ "$SUCCESS" == "true" ]]; then
-  log "✓ VALIDATION PASSED"
-  log "  - New bootnodes: ${NEW_BOOTNODES:-<none>}"
-  log "  - New snapshots: ${NEW_SNAPSHOTS:-<none>}"
-  log "  - Nodes successfully used new resources"
-else
-  err "✗ VALIDATION FAILED"
-  err "  - Could not verify nodes are using new resources"
-  err "  - Check logs below for details"
-
-  # Dump logs for debugging
-  log "Pod 0 logs (last 50 lines):"
-  kubectl logs -n "${NAMESPACE}" "$POD_0" --tail=50 || true
-
-  log "Pod 1 logs (last 50 lines):"
-  kubectl logs -n "${NAMESPACE}" "$POD_1" --tail=50 || true
-fi
-
-# Step 9: Cleanup
 if [[ "$CLEANUP" == "true" ]]; then
-  log "Step 9: Cleaning up namespace ${NAMESPACE}..."
+  log "Cleaning up namespace ${NAMESPACE}..."
   kubectl delete namespace "${NAMESPACE}" --wait=true --timeout=60s || true
   log "Cleanup complete"
 else
-  log "Step 9: Skipping cleanup (CLEANUP=false)"
+  log "Skipping cleanup (CLEANUP=false)"
   log "  To clean up manually: kubectl delete namespace ${NAMESPACE}"
 fi
 
-# Exit with appropriate code
-if [[ "$SUCCESS" == "true" ]]; then
+if [[ "$NEED_P2P_CHECK" == "false" || "$P2P_SUCCESS" == "true" ]] && [[ "$NEED_SNAPSHOT_CHECK" == "false" || "$SNAPSHOT_SUCCESS" == "true" ]]; then
   exit 0
 else
   exit 1
