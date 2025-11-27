@@ -15,6 +15,24 @@
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <gtest/gtest.h>
+#ifdef __linux__
+#include <fstream>
+#include <malloc.h>
+#include <string>
+
+// Get current RSS (not peak) from /proc/self/statm
+inline size_t get_current_rss_mib()
+{
+    std::ifstream statm("/proc/self/statm");
+    size_t size, resident;
+    statm >> size >> resident;
+    // resident is in pages, typically 4KB each
+    return (resident * 4096) / (1024 * 1024);
+}
+#define LOG_CURRENT_MEM(msg) info(msg, " [current RSS: ", get_current_rss_mib(), " MiB]")
+#else
+#define LOG_CURRENT_MEM(msg) info(msg)
+#endif
 
 using namespace bb;
 
@@ -485,4 +503,187 @@ TEST_F(BigfieldTranslatorTest, LightZKProveAndVerify)
 
     EXPECT_TRUE(verified) << "LightZK proof verification failed";
     info("LightZK proof verified successfully!");
+}
+
+/**
+ * @brief Parameterized test to analyze gate count with different batch sizes
+ *
+ * This test helps determine the optimal batch size by measuring:
+ * 1. Sequential powers computation (BATCH_SIZE multiplications)
+ * 2. Batch multipliers computation (log2(num_rows/BATCH_SIZE) squarings + binary exp)
+ * 3. Column sum computation (mult_madd calls)
+ */
+TEST_F(BigfieldTranslatorTest, BatchSizeAnalysis)
+{
+    // Test with 4096 rows (standard OP_QUEUE_SIZE)
+    constexpr size_t NUM_OPS = 100;
+
+    auto op_queue = create_test_op_queue(NUM_OPS);
+    const size_t num_rows = op_queue->get_ultra_ops().size();
+    info("Op queue has ", num_rows, " rows");
+
+    // Test different batch sizes (must be powers of 2 and divide num_rows)
+    std::vector<size_t> batch_sizes = { 32, 64, 128, 256, 512, 1024 };
+
+    info("\n=== Batch Size Analysis ===");
+    info("num_rows = ", num_rows, "\n");
+
+    for (size_t batch_size : batch_sizes) {
+        if (batch_size > num_rows) {
+            continue;
+        }
+
+        // Create fresh builder
+        Builder builder;
+        BigfieldTranslator::populate_ecc_op_block(builder, op_queue);
+
+        Fq x_native = Fq::random_element();
+        Fq v_native = Fq::random_element();
+
+        fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
+        fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
+
+        size_t gates_before = builder.num_gates();
+
+        // ===== Step 1: Sequential powers (x^0 to x^{batch_size-1}) =====
+        std::vector<fq_ct> x_powers_base(batch_size);
+        x_powers_base[0] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(1));
+        x_powers_base[1] = x;
+        for (size_t i = 2; i < batch_size; i++) {
+            x_powers_base[i] = x_powers_base[i - 1] * x;
+        }
+        size_t gates_after_sequential = builder.num_gates();
+        size_t sequential_gates = gates_after_sequential - gates_before;
+
+        // ===== Step 2: Batch multipliers via binary exponentiation =====
+        const size_t num_batches = num_rows / batch_size;
+        const size_t log_num_batches = numeric::get_msb(num_batches);
+
+        std::vector<fq_ct> batch_multipliers(num_batches);
+        batch_multipliers[num_batches - 1] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(1));
+
+        if (num_batches > 1) {
+            fq_ct x_batch = x_powers_base[batch_size - 1] * x; // x^batch_size
+
+            std::vector<fq_ct> powers_of_two(log_num_batches);
+            powers_of_two[0] = x_batch;
+            for (size_t i = 1; i < log_num_batches; i++) {
+                powers_of_two[i] = powers_of_two[i - 1].sqr();
+            }
+
+            for (size_t i = 0; i < num_batches - 1; i++) {
+                size_t exponent = num_batches - 1 - i;
+                fq_ct mult = fq_ct::create_from_u512_as_witness(&builder, uint512_t(1));
+                for (size_t bit = 0; bit < log_num_batches; bit++) {
+                    if ((exponent >> bit) & 1) {
+                        mult = mult * powers_of_two[bit];
+                    }
+                }
+                batch_multipliers[i] = mult;
+            }
+        }
+        size_t gates_after_batch_mult = builder.num_gates();
+        size_t batch_mult_gates = gates_after_batch_mult - gates_after_sequential;
+
+        // ===== Step 3: Create column data from ecc_op block =====
+        using field_ct = stdlib::field_t<Builder>;
+        auto& ecc_op_wires = builder.blocks.ecc_op.wires;
+
+        std::vector<fq_ct> ops(num_rows);
+        std::vector<fq_ct> pxs(num_rows);
+        std::vector<fq_ct> pys(num_rows);
+        std::vector<fq_ct> z1s(num_rows);
+        std::vector<fq_ct> z2s(num_rows);
+
+        for (size_t i = 0; i < num_rows; i++) {
+            size_t row_idx = 2 * i;
+            uint32_t op_idx = ecc_op_wires[0][row_idx];
+            uint32_t x_lo_idx = ecc_op_wires[1][row_idx];
+            uint32_t x_hi_idx = ecc_op_wires[2][row_idx];
+            uint32_t y_lo_idx = ecc_op_wires[3][row_idx];
+            uint32_t y_hi_idx = ecc_op_wires[1][row_idx + 1];
+            uint32_t z1_idx = ecc_op_wires[2][row_idx + 1];
+            uint32_t z2_idx = ecc_op_wires[3][row_idx + 1];
+
+            field_ct op_field = field_ct::from_witness_index(&builder, op_idx);
+            field_ct x_lo = field_ct::from_witness_index(&builder, x_lo_idx);
+            field_ct x_hi = field_ct::from_witness_index(&builder, x_hi_idx);
+            field_ct y_lo = field_ct::from_witness_index(&builder, y_lo_idx);
+            field_ct y_hi = field_ct::from_witness_index(&builder, y_hi_idx);
+            field_ct z1_field = field_ct::from_witness_index(&builder, z1_idx);
+            field_ct z2_field = field_ct::from_witness_index(&builder, z2_idx);
+
+            ops[i] = fq_ct::create_from_single_limb(op_field, 4);
+            pxs[i] = fq_ct(x_lo, x_hi);
+            pys[i] = fq_ct(y_lo, y_hi);
+            z1s[i] = fq_ct::create_from_single_limb(z1_field, 128);
+            z2s[i] = fq_ct::create_from_single_limb(z2_field, 128);
+        }
+        size_t gates_after_columns = builder.num_gates();
+        size_t column_prep_gates = gates_after_columns - gates_after_batch_mult;
+
+        // ===== Step 4: Compute column sums using batched mult_madd =====
+        auto compute_column_sum_with_batch = [&](const std::vector<fq_ct>& column) {
+            fq_ct total_sum = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0));
+            const size_t num_batches_local = (num_rows + batch_size - 1) / batch_size;
+
+            for (size_t batch = 0; batch < num_batches_local; batch++) {
+                const size_t batch_start = batch * batch_size;
+                const size_t batch_end = std::min(batch_start + batch_size, num_rows);
+                const size_t actual_batch_size = batch_end - batch_start;
+
+                std::vector<fq_ct> left(actual_batch_size);
+                std::vector<fq_ct> right(actual_batch_size);
+
+                for (size_t j = 0; j < actual_batch_size; j++) {
+                    left[j] = column[batch_start + j];
+                    right[j] = x_powers_base[batch_size - 1 - j];
+                }
+
+                fq_ct batch_sum = fq_ct::mult_madd(left, right, {});
+                total_sum = total_sum + batch_sum * batch_multipliers[batch];
+            }
+            return total_sum;
+        };
+
+        // Powers of v
+        fq_ct v_ct = v;
+        fq_ct v2 = v_ct.sqr();
+        fq_ct v3 = v2 * v_ct;
+        fq_ct v4 = v3 * v_ct;
+
+        size_t gates_before_sums = builder.num_gates();
+
+        fq_ct op_sum = compute_column_sum_with_batch(ops);
+        fq_ct px_sum = compute_column_sum_with_batch(pxs);
+        fq_ct py_sum = compute_column_sum_with_batch(pys);
+        fq_ct z1_sum = compute_column_sum_with_batch(z1s);
+        fq_ct z2_sum = compute_column_sum_with_batch(z2s);
+
+        size_t gates_after_sums = builder.num_gates();
+        size_t column_sum_gates = gates_after_sums - gates_before_sums;
+
+        // Final combination
+        fq_ct result = fq_ct::mult_madd({ px_sum, py_sum, z1_sum, z2_sum }, { v_ct, v2, v3, v4 }, { op_sum });
+        (void)result;
+
+        size_t gates_final = builder.num_gates();
+        size_t final_combine_gates = gates_final - gates_after_sums;
+
+        size_t total_gates = gates_final - gates_before;
+
+        // Output results
+        info("BATCH_SIZE = ", batch_size, ":");
+        info("  Sequential powers (x^0..x^", batch_size - 1, "): ", sequential_gates);
+        info("  Batch multipliers (", num_batches, " batches, log=", log_num_batches, "): ", batch_mult_gates);
+        info("  Column preparation: ", column_prep_gates);
+        info("  Column sums (5 cols x ", num_batches, " mult_madds): ", column_sum_gates);
+        info("  Final combination: ", final_combine_gates);
+        info("  TOTAL before finalization: ", total_gates);
+
+        size_t finalized = builder.get_num_finalized_gates_inefficient();
+        info("  TOTAL after finalization: ", finalized);
+        info("  Dyadic size: 2^", std::ceil(std::log2(finalized)));
+        info("");
+    }
 }

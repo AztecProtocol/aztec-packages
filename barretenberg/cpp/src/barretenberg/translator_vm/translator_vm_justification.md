@@ -30,6 +30,27 @@ result = Σ(op_i·x^{N-1-i}) + v·Σ(px_i·x^{N-1-i}) + v²·Σ(py_i·x^{N-1-i})
 - Batch multiplier overhead (x^256, x^512, ...)
 - Column sum computation (16 batches × 5 columns)
 
+### Batch Size Optimization Analysis
+
+Tested batch sizes from 32 to 1024 to find optimal value:
+
+| Batch Size | Sequential Powers | Batch Multipliers | Column Sums | Total (finalized) |
+|------------|-------------------|-------------------|-------------|-------------------|
+| 32         | 995               | 14,674            | 81,835      | 357,858           |
+| 64         | 1,955             | 6,452             | 61,745      | 320,574           |
+| 128        | 3,875             | 2,806             | 51,225      | 304,480           |
+| **256**    | **7,715**         | **1,208**         | **46,195**  | **301,374**       |
+| 512        | 15,395            | 514               | 43,595      | 308,838           |
+| 1024       | 30,755            | 212               | 42,339      | 330,508           |
+
+**Conclusion: BATCH_SIZE=256 is optimal** with 301,374 finalized gates.
+
+The trade-off:
+- Smaller batch → more batch multipliers (binary exponentiation overhead) + more mult_madd calls
+- Larger batch → more sequential power multiplications (x^0 to x^{batch-1})
+
+All batch sizes result in **2^19 dyadic size** - changing batch size cannot reduce circuit below 2^18.
+
 ## Gate Count Analysis (4096 op queue rows)
 
 | Component | Gates | Notes |
