@@ -1033,7 +1033,7 @@ TEST(fuzz, SeveralInternalCalls)
 /// RETURN
 ///
 /// SSTORE(0, 1); call f1; call f3; RETURN SLOAD(0);  // should return 313373
-/// f1: SSTORE(0, 1337); call f2; INTERNALRETURN
+/// f1: SSTORE(0, 1337); call f2; SSTORE(0, 1337); INTERNALRETURN
 /// f2: SSTORE(0, 31337); INTERNALRETURN
 /// f3: SSTORE(0, 313373); INTERNALRETURN
 TEST(fuzz, Reentrancy)
@@ -1061,6 +1061,8 @@ TEST(fuzz, Reentrancy)
     control_flow.process_cfg_instruction(FinalizeWithReturn{
         .return_options = ReturnOptions{
             .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 } });
+    // SSTORE(0, 1337);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 1 });
     // Should switch context to f0 (START)
     control_flow.process_cfg_instruction(FinalizeWithReturn{
         .return_options = ReturnOptions{
