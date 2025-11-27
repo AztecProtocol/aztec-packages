@@ -7,17 +7,6 @@
 
 namespace bb::avm2::simulation {
 
-// REMOVE
-// void print_call_stack_metadata(const std::stack<CallStackMetadata>& call_stack_metadata)
-// {
-//     auto copy = call_stack_metadata;
-//     while (!copy.empty()) {
-//         const auto& metadata = copy.top();
-//         vinfo("Metadata:", metadata);
-//         copy.pop();
-//     }
-// }
-
 void CallStackMetadataCollector::set_phase(CoarseTransactionPhase phase)
 {
     current_phase = phase;
@@ -72,6 +61,29 @@ void CallStackMetadataCollector::notify_exit_call(bool success,
     assert(call_stack_metadata.size() > 1);
     call_stack_metadata.pop();
     call_stack_metadata.top().nested.push_back(std::move(top_call_stack_metadata));
+}
+
+void CallStackMetadataCollector::notify_tx_revert(const std::string& revert_message)
+{
+    // Create a synthetic CallStackMetadata entry to capture the revert reason.
+    // This is used when a tx-level revert happens outside of an enqueued call
+    // (e.g., during revertible insertions from private).
+    assert(call_stack_metadata.size() == 1);
+    call_stack_metadata.top().nested.push_back({
+        .timestamp = timestamp++,
+        .phase = current_phase,
+        .contract_address = 0, // No specific contract
+        .caller_pc = 0,
+        .calldata = {},
+        .is_static_call = false,
+        .gas_limit = {},
+        .output = {},
+        .reverted = true,
+        .nested = {},
+        .internal_call_stack_at_exit = {},
+        .halting_message = revert_message,
+        .num_nested_calls = 0,
+    });
 }
 
 std::vector<CallStackMetadata> CallStackMetadataCollector::dump_call_stack_metadata()

@@ -143,7 +143,14 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     try {
         // Insert revertibles. This can throw if there is a nullifier collision.
         // Such an exception should be handled and the tx be provable.
-        insert_revertibles(tx);
+        // We catch separately here to record the revert reason in call stack metadata,
+        // since no calls have populated the metadata yet at this point.
+        try {
+            insert_revertibles(tx);
+        } catch (const TxExecutionException& e) {
+            call_stack_metadata_collector.notify_tx_revert(e.what());
+            throw;
+        }
 
         // App logic.
         if (tx.app_logic_enqueued_calls.empty()) {

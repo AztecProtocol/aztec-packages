@@ -26,6 +26,7 @@ class CallStackMetadataCollector : public CallStackMetadataCollectorInterface {
                           const std::optional<std::string>& halting_message,
                           const ReturnDataProvider& return_data_provider,
                           const InternalCallStackProvider& internal_call_stack_provider) override;
+    void notify_tx_revert(const std::string& revert_message) override;
     std::vector<CallStackMetadata> dump_call_stack_metadata() override;
 
   private:
@@ -56,6 +57,7 @@ class NoopCallStackMetadataCollector : public CallStackMetadataCollectorInterfac
                           const ReturnDataProvider&,
                           const InternalCallStackProvider&) override
     {}
+    void notify_tx_revert(const std::string&) override {}
     std::vector<CallStackMetadata> dump_call_stack_metadata() override { return {}; }
 };
 

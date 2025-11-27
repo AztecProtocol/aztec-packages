@@ -27,6 +27,9 @@ class CallStackMetadataCollectorInterface {
                                   const std::optional<std::string>& halting_message,
                                   const ReturnDataProvider& return_data_provider,
                                   const InternalCallStackProvider& internal_call_stack_provider) = 0;
+    // Notify a tx-level revert that happened outside of an enqueued call (e.g., during revertible insertions).
+    // This creates a synthetic CallStackMetadata entry to capture the revert reason.
+    virtual void notify_tx_revert(const std::string& revert_message) = 0;
     virtual std::vector<CallStackMetadata> dump_call_stack_metadata() = 0;
 };
 
