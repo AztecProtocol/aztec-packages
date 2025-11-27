@@ -25,8 +25,8 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
   beforeAll(async () => {
     // Setup direct WASM access for baseline benchmark (always required)
     wasm = new BarretenbergWasmMain();
-    const { module } = await fetchModuleAndThreads(1);
-    await wasm.init(module, 1);
+    const { module } = await fetchModuleAndThreads(1, undefined, console.log);
+    await wasm.init(module, 1, console.log);
 
     // Setup WASM API
     try {
@@ -65,6 +65,14 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
       );
     }
   }, 20000);
+
+  afterAll(async () => {
+    await wasm.destroy();
+    await wasmApi?.destroy();
+    await nativeSocketApi?.destroy();
+    await nativeShmApi?.destroy();
+    await nativeShmSyncApi?.destroy();
+  });
 
   it.each(SIZES)(
     'benchmark with %p field elements',
