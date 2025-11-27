@@ -49,23 +49,32 @@ Tools are provided for the following themes.
    - **`cache_upload`, `cache_download`**: Upload/download `.tar.gz` artifacts from a remote S3-like cache.
    - **`cache_upload_flag`, `cache_download_flag`**: Mark or detect a particular test's success state. Avoids re-running long tests.
 
-2. **Test Parallelization & Caching**
+2. **Benchmarking**
+   - **`source_benchmark`**: Source file providing CI timing instrumentation functions.
+   - **`start_bench`, `end_bench`**: Start/end timing for a benchmark section.
+   - **`cache_download_or_start_bench`**: Try cache download; on miss, start timing.
+   - **`cache_upload_and_end_bench`**: Upload to cache and end the benchmark timer.
+   - **`echo_header_bench`**: Print a header and manage benchmark timing (ends previous, starts new).
+   - **`init_bench_traps`**: Set up exit trap to record final benchmark on script exit.
+   - Benchmarks are written to `bench-out/<name>.bench.json` in the format: `[{"name": "ci/<name>", "value": <seconds>, "unit": "seconds"}]`
+
+3. **Test Parallelization & Caching**
    - **`parallelize`**: Reads test commands from STDIN, executes in parallel, aggregates logs.
-   - **`run_test_cmd`**: Single test runner that can skip tests cached as “already passed.”
+   - **`run_test_cmd`**: Single test runner that can skip tests cached as "already passed."
    - **`filter_cached_test_cmd`**: Filters out test commands known to have succeeded (based on flags in redis).
 
-3. **Ephemeral Logging**
+4. **Ephemeral Logging**
    - **`denoise`**: Minimizes output spam; prints dots for each line, reveals full logs only if a command fails.
    - **`cache_log`**, **`dump_fail`**: Captures output for ephemeral storage and prints or reveals logs when needed.
 
-4. **AWS Provisioning**
+5. **AWS Provisioning**
    - **`aws_request_instance`** & **`aws_terminate_instance`**: Provision ephemeral spot or on-demand instances.
    - **`aws_handle_evict`**: Detects spot-instance eviction signals, handles graceful shutdown or requeue.
 
-5. **Docker Isolation**
+6. **Docker Isolation**
    - **`docker_isolate`**: Executes a script in a new Docker container with ephemeral volumes, isolating host environment from side effects.
 
-6. **General Utilities**
+7. **General Utilities**
    - **`source_bootstrap`, `source_refname`, `source_color`**: Shared environment, color-coded logging, or version detection.
    - **`echo_header`**: Prints a heading for better log readability.
    - **ci3/source** is the central include-script for Aztec’s build system, automatically configuring Bash strict mode, setting up your `$PATH` to include all ci3 utilities (e.g. caching, parallel test commands), and providing helper functions and color-coded logging. Simply add source `$(git rev-parse --show-toplevel)/ci3/source` at the top of any project script to inherit a robust, preconfigured environment.

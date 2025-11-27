@@ -1,0 +1,128 @@
+# CI benchmark instrumentation functions.
+# Source this file to get benchmark timing utilities for bootstrap scripts.
+#
+# Usage:
+#   source $ci3/source_benchmark
+#
+# Functions:
+#   start_bench <bench_name>              - Start timing a benchmark
+#   end_bench                             - End the current benchmark and write to bench-out/
+#   cache_download_or_start_bench <bench_name> <artifact_name> - Download cache or start benchmark
+#   cache_upload_and_end_bench <artifact_name> <paths...>      - Upload cache and end benchmark
+#   echo_header_bench <header_text>       - Print header and start/end benchmarks based on headers
+#   init_bench_traps                      - Set up exit trap to end benchmarks on script exit
+#
+# Benchmarks are written to bench-out/<bench_name>.bench.json in the format:
+#   [{"name": "ci/<bench_name>", "value": <seconds>, "unit": "seconds"}]
+
+# Track current benchmark state (set by start_bench, used by end_bench)
+export __BENCH_NAME="${__BENCH_NAME:-}"
+export __BENCH_START_TIME="${__BENCH_START_TIME:-}"
+# Track if we've set up the exit trap
+export __BENCH_TRAP_SET="${__BENCH_TRAP_SET:-}"
+
+# Start timing a benchmark.
+# Args: <bench_name> - Name for the benchmark (will be prefixed with "ci/")
+function start_bench {
+  local bench_name="$1"
+  __BENCH_NAME="$bench_name"
+  __BENCH_START_TIME=$(date +%s)
+}
+
+# End the current benchmark and write results to bench-out/.
+# Uses __BENCH_NAME and __BENCH_START_TIME set by start_bench.
+# No-op if no benchmark is in progress.
+function end_bench {
+  if [[ -z "$__BENCH_NAME" || -z "$__BENCH_START_TIME" ]]; then
+    return 0
+  fi
+
+  local end_time=$(date +%s)
+  local duration=$((end_time - __BENCH_START_TIME))
+  local bench_name="$__BENCH_NAME"
+
+  # Clear state before writing (in case write fails)
+  __BENCH_NAME=""
+  __BENCH_START_TIME=""
+
+  # Create bench-out directory if needed
+  mkdir -p bench-out
+
+  # Sanitize bench name for filename (replace / with _)
+  local filename=$(echo "$bench_name" | tr '/' '_')
+
+  # Write benchmark JSON
+  cat > "bench-out/${filename}.bench.json" << EOF
+[{"name": "ci/${bench_name}", "value": ${duration}, "unit": "seconds"}]
+EOF
+}
+
+# Try to download from cache; if cache miss, start a benchmark timer.
+# Args: <bench_name> <artifact_name>
+#   bench_name    - Name for the benchmark (will be prefixed with "ci/")
+#   artifact_name - Cache artifact name (passed to cache_download)
+# Returns: exit code from cache_download (0 = cache hit, non-zero = cache miss)
+function cache_download_or_start_bench {
+  local bench_name="$1"
+  local artifact_name="$2"
+
+  if cache_download "$artifact_name"; then
+    return 0
+  else
+    start_bench "$bench_name"
+    return 1
+  fi
+}
+
+# Upload to cache and end the current benchmark.
+# Args: <artifact_name> <paths...>
+#   artifact_name - Cache artifact name (passed to cache_upload)
+#   paths...      - Paths to include in the cache archive
+function cache_upload_and_end_bench {
+  local artifact_name="$1"
+  shift
+  cache_upload "$artifact_name" "$@"
+  end_bench
+}
+
+# Print a header (like echo_header) and manage benchmarks.
+# When called, ends any in-progress benchmark and starts a new one.
+# The bench name is derived from the header text (spaces replaced with underscores, lowercased).
+# Args: <header_text> - The header text to display
+function echo_header_bench {
+  local header_text="$*"
+
+  # End any in-progress benchmark first
+  end_bench
+
+  # Print the header using echo_header
+  echo_header "$header_text"
+
+  # Derive bench name from header: lowercase and replace spaces with underscores
+  local bench_name=$(echo "$header_text" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
+  start_bench "$bench_name"
+}
+
+# Set up an exit trap to end any in-progress benchmark on script exit.
+# Only ends benchmarks on normal exit (exit code 0).
+# Safe to call multiple times; will only set up the trap once.
+function init_bench_traps {
+  if [[ -n "$__BENCH_TRAP_SET" ]]; then
+    return 0
+  fi
+  export __BENCH_TRAP_SET=1
+
+  # Use trap to catch EXIT and end any in-progress benchmark
+  # We only record benchmarks on successful (exit code 0) completion
+  trap '__bench_exit_handler' EXIT
+}
+
+# Internal exit handler for benchmark traps
+function __bench_exit_handler {
+  local exit_code=$?
+  if [[ $exit_code -eq 0 ]]; then
+    end_bench
+  fi
+}
+
+export -f start_bench end_bench cache_download_or_start_bench cache_upload_and_end_bench echo_header_bench init_bench_traps __bench_exit_handler
