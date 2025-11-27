@@ -11,8 +11,8 @@
   },
   "bin": "./dest/bin/index.js",
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
-    "build:dev": "tsc -b --watch",
+    "build": "yarn clean && yarn generate && tsgo -b",
+    "build:dev": "tsgo -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/config/package_info.ts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "generate": "node ./scripts/generate_package_info.js",
@@ -89,6 +89,7 @@
     "@types/lodash.omit": "^4.5.7",
     "@types/lodash.times": "^4.3.9",
     "@types/node": "^22.15.17",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "lodash.times": "^4.3.2",
