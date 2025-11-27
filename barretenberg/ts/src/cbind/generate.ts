@@ -75,18 +75,17 @@ const VISITOR_GENERATORS: VisitorGeneratorConfig[] = [
     },
   },
   {
-    name: 'Zig (proof of concept)',
-    enabled: true, // Enable Zig bindings for multi-language proof of concept
+    name: 'Zig',
+    enabled: true,
     generate: (visitor) => {
       const compiled = visitor.visit(schema.commands, schema.responses);
       const zigGen = new ZigCodegen();
       const types = zigGen.generateTypes(compiled);
-      const api = zigGen.generateApi(compiled);
+      // Note: api.zig is handwritten with MockBackend - only generate types
 
       return {
         files: [
           { path: '../../../zig/src/generated_types.zig', content: types },
-          { path: '../../../zig/src/api.zig', content: api },
         ],
       };
     },

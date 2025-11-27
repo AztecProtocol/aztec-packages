@@ -1,16 +1,20 @@
 //! Poseidon2 hash tests
 //!
 //! Parallels barretenberg/ts/src/barretenberg/poseidon.test.ts
+//!
+//! These tests require the BB binary to be built. They are skipped if the binary is not found.
 
 #[cfg(test)]
 use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
 #[cfg(test)]
 use crate::utils::{get_bb_binary_path, Timer};
+#[cfg(test)]
+use crate::require_bb_binary;
 
 #[test]
 fn test_poseidon2_hash() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
-    
 
     let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
@@ -33,8 +37,8 @@ fn test_poseidon2_hash() {
 #[test]
 #[ignore] // Performance test - run with --ignored
 fn test_poseidon2_hash_perf() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
-    
 
     let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");

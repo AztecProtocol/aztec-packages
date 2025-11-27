@@ -1,14 +1,19 @@
 //! Pedersen hash and commit tests
 //!
 //! Parallels barretenberg/ts/src/barretenberg/pedersen.test.ts
+//!
+//! These tests require the BB binary to be built. They are skipped if the binary is not found.
 
 #[cfg(test)]
 use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
 #[cfg(test)]
 use crate::utils::{get_bb_binary_path, Timer};
+#[cfg(test)]
+use crate::require_bb_binary;
 
 #[test]
 fn test_pedersen_hash() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
     let backend = PipeBackend::new(&bb_path, Some(1))
@@ -31,6 +36,7 @@ fn test_pedersen_hash() {
 
 #[test]
 fn test_pedersen_hash_buffer() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
     let backend = PipeBackend::new(&bb_path, Some(1))
@@ -54,8 +60,8 @@ fn test_pedersen_hash_buffer() {
 
 #[test]
 fn test_pedersen_commit() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
-    
 
     let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
@@ -82,8 +88,8 @@ fn test_pedersen_commit() {
 #[test]
 #[ignore] // Performance test - run with --ignored
 fn test_pedersen_hash_perf() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
-    
 
     let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
@@ -113,8 +119,8 @@ fn test_pedersen_hash_perf() {
 #[test]
 #[ignore] // Performance test - run with --ignored
 fn test_pedersen_commit_perf() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
-    
 
     let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");

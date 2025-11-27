@@ -48,3 +48,20 @@ pub fn get_bb_binary_path() -> String {
             "../../cpp/build/bin/bb".to_string()
         })
 }
+
+/// Check if BB binary exists at the expected path
+pub fn bb_binary_exists() -> bool {
+    let path = get_bb_binary_path();
+    std::path::Path::new(&path).exists()
+}
+
+/// Skip test if BB binary is not available
+#[macro_export]
+macro_rules! require_bb_binary {
+    () => {
+        if !$crate::utils::bb_binary_exists() {
+            eprintln!("Skipping test: BB binary not found at {}", $crate::utils::get_bb_binary_path());
+            return;
+        }
+    };
+}

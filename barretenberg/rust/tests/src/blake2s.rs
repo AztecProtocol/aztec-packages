@@ -1,16 +1,20 @@
 //! Blake2s hash tests
 //!
 //! Parallels barretenberg/ts/src/barretenberg/blake2s.test.ts
+//!
+//! These tests require the BB binary to be built. They are skipped if the binary is not found.
 
 #[cfg(test)]
 use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
 #[cfg(test)]
 use crate::utils::get_bb_binary_path;
+#[cfg(test)]
+use crate::require_bb_binary;
 
 #[test]
 fn test_blake2s() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
-    
 
     let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
@@ -36,8 +40,8 @@ fn test_blake2s() {
 
 #[test]
 fn test_blake2s_to_field() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
-    
 
     let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");

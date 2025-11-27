@@ -1,6 +1,6 @@
 const std = @import("std");
 const api = @import("api.zig");
-const types = @import("types.zig");
+const generated_types = @import("generated_types.zig");
 
 test "backend interface compiles" {
     // Verify that the Backend interface is well-formed
@@ -59,11 +59,11 @@ test "barretenberg api with mock backend" {
 
 test "types are well-formed" {
     // Verify that generated types have expected structure
-    const cmd = types.Command{ .Blake2s = .{ .data = "test" } };
-    try std.testing.expect(cmd == .Blake2s);
+    const cmd = generated_types.Command{ .blake2s = .{ .data = "test" } };
+    try std.testing.expect(cmd == .blake2s);
 
-    const resp = types.Response{ .Blake2sResponse = .{ .hash = "hash" } };
-    try std.testing.expect(resp == .Blake2sResponse);
+    const resp = generated_types.Response{ .blake2s_response = .{ .hash = "hash" } };
+    try std.testing.expect(resp == .blake2s_response);
 }
 
 test "custom backend implementation" {

@@ -1,14 +1,19 @@
 //! Pipe backend tests
 //!
 //! Tests for the pipe (stdin/stdout) backend implementation
+//!
+//! These tests require the BB binary to be built. They are skipped if the binary is not found.
 
 #[cfg(test)]
 use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
 #[cfg(test)]
 use crate::utils::get_bb_binary_path;
+#[cfg(test)]
+use crate::require_bb_binary;
 
 #[test]
 fn test_pipe_blake2s() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
     let backend = PipeBackend::new(&bb_path, Some(1))
@@ -35,6 +40,7 @@ fn test_pipe_blake2s() {
 
 #[test]
 fn test_pipe_pedersen_hash() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
     let backend = PipeBackend::new(&bb_path, Some(1))
@@ -57,6 +63,7 @@ fn test_pipe_pedersen_hash() {
 
 #[test]
 fn test_pipe_poseidon2_hash() {
+    require_bb_binary!();
     let bb_path = get_bb_binary_path();
 
     let backend = PipeBackend::new(&bb_path, Some(1))

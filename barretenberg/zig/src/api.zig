@@ -12,7 +12,13 @@
 //   var bb = api.BarretenbergApi.init(mock.backend(), std.testing.allocator);
 
 const std = @import("std");
-const types = @import("types.zig");
+const generated_types = @import("generated_types.zig");
+
+// Re-export commonly used types
+pub const Command = generated_types.Command;
+pub const Response = generated_types.Response;
+pub const Blake2s = generated_types.Blake2s;
+pub const Blake2sResponse = generated_types.Blake2sResponse;
 
 /// Backend interface for msgpack communication.
 ///
@@ -109,13 +115,13 @@ pub const BarretenbergApi = struct {
         self.backend_impl.destroy();
     }
 
-    /// Placeholder - full methods will be generated
-    /// Execute Blake2s hash
-    pub fn blake2s(self: *Self, data: []const u8) !types.Blake2sResponse {
-        _ = self;
+    /// Execute Blake2s hash (placeholder - full implementation requires msgpack serialization)
+    pub fn blake2s(self: *Self, data: []const u8) !Blake2sResponse {
         _ = data;
-        // TODO: Implement msgpack serialization
-        // For now return a placeholder
-        return .{ .hash = "00000000000000000000000000000000" };
+        // Send command via backend and parse response
+        // For now, use the mock backend's response directly
+        const result = try self.backend_impl.call("");
+        defer self.allocator.free(result);
+        return .{ .hash = result };
     }
 };
