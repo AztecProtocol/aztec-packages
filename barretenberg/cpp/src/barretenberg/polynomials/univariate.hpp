@@ -361,6 +361,11 @@ template <class Fr, size_t domain_end> class Univariate {
 
         static constexpr Fr inverse_two = Fr(2).invert();
         if constexpr (LENGTH == 2) {
+            // f = b x + c
+            // f(0) = c
+            // f(1) = b + c
+            // Hence, b = f(1) - f(0)
+            // f(i + 1) = f(i) + b
             Fr delta = value_at(1) - value_at(0);
             static_assert(EXTENDED_LENGTH != 0);
             for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
@@ -369,10 +374,19 @@ template <class Fr, size_t domain_end> class Univariate {
         } else if constexpr (LENGTH == 3) {
             // Based off https://hackmd.io/@aztec-network/SyR45cmOq?type=view
             // The technique used here is the same as the length == 3 case below.
+            // f = a x^2 + b x + c
+            // f(0) = c
+            // f(1) = a + b + c
+            // f(2) = 4a + 2b + c
+            // f(2) + f(0) - 2f(1) = 2a
+            // Hence, a = (f(2) + f(0) - 2f(1)) / 2
+            // b = f(1) - a - f(0)
+            // f(i+1) = f(i) + 2a * i + b + a
             Fr a = (value_at(2) + value_at(0)) * inverse_two - value_at(1);
             Fr b = value_at(1) - a - value_at(0);
             Fr a2 = a + a;
             Fr a_mul = a2;
+            // compute 2a * domain_end - 2
             for (size_t i = 0; i < domain_end - 2; i++) {
                 a_mul += a2;
             }
