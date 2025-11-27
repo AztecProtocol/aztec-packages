@@ -134,6 +134,10 @@ void ControlFlow::process_finalize_with_return(FinalizeWithReturn instruction)
     current_block->finalize_with_return(instruction.return_options.return_size,
                                         instruction.return_options.return_value_tag,
                                         instruction.return_options.return_value_offset_index);
+    if (current_block->caller != nullptr) {
+        current_block = current_block->caller;
+        return;
+    }
     std::vector<ProgramBlock*> non_terminated_blocks = get_non_terminated_blocks();
     if (non_terminated_blocks.size() == 0) {
         return;
@@ -162,6 +166,7 @@ void ControlFlow::process_insert_internal_call(InsertInternalCall instruction)
     for (const auto& instr : target_instruction_block) {
         target_block->process_instruction(instr);
     }
+    target_block->caller = current_block;
     current_block = target_block;
 }
 

@@ -798,6 +798,15 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
 {
+    this->terminator_type = TerminatorType::RETURN;
+    // if the block is called by INTERNALCALL, just insert INTERNALRETURN
+    if (caller != nullptr) {
+        auto internalreturn_instruction =
+            bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALRETURN).build();
+        instructions.push_back(internalreturn_instruction);
+        return;
+    }
+
     auto return_addr = memory_manager.get_memory_offset_16_bit(return_value_tag.value, return_value_offset_index);
     if (!return_addr.has_value()) {
         return_addr = std::optional<uint16_t>(0);
@@ -824,8 +833,6 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
             bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALRETURN).build();
         instructions.push_back(internalreturn_instruction);
     }
-
-    this->terminator_type = TerminatorType::RETURN;
 }
 
 void ProgramBlock::finalize_with_jump(ProgramBlock* target_block, bool copy_memory_manager)

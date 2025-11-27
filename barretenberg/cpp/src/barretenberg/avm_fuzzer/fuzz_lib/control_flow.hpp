@@ -156,6 +156,7 @@ class ControlFlow {
     void process_jump_if_to_block(JumpIfToBlock instruction);
 
     /// @brief terminates the current block with Return and switches to the first non-terminated block
+    /// @note if the current block has caller, it inserts INTERNALRETURN only and switches to the caller
     /// @param instruction the instruction to process
     void process_finalize_with_return(FinalizeWithReturn instruction);
 

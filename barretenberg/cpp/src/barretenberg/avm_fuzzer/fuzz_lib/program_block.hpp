@@ -38,6 +38,8 @@ class ProgramBlock {
   private:
     MemoryManager memory_manager;
     std::vector<bb::avm2::simulation::Instruction> instructions;
+
+    /// @brief the offset index of the condition variable (for JUMP_IF)
     uint16_t condition_offset_index = 0;
 
     // At first we insert INTERNALCALL instruction with 0 offset, because we don't know the resulting block offsets
@@ -112,19 +114,20 @@ class ProgramBlock {
 
     /// @brief finalize the program block with a return instruction
     /// Tries to find memory address with the given `return_value_tag`, if there are no such address (zero variables of
-    /// such tag are stored), it sets the return address to 0
+    /// such tag are stored), it sets the return address to 0. Sets the terminator type to RETURN.
+    /// @note if the block has caller, it inserts INTERNALRETURN only
     void finalize_with_return(uint8_t return_size,
                               MemoryTagWrapper return_value_tag,
                               uint16_t return_value_offset_index);
 
     /// @brief finalize the block with a jump
-    /// NOTE: this method does not actually insert the jump instruction, it only sets the target block and the
-    /// terminated flag
+    /// Sets the terminator type to JUMP, adds the target block to the successors and the current block to the
+    /// predecessors.
     void finalize_with_jump(ProgramBlock* target_block, bool copy_memory_manager = true);
 
     /// @brief finalize the block with a jump if
-    /// NOTE: this method does not actually insert the jump if instruction, it only sets the target blocks and the
-    /// terminated flag
+    /// Sets the terminator type to JUMP_IF, adds the target blocks to the successors and the current block to the
+    /// predecessors. Sets the condition offset index.
     void finalize_with_jump_if(ProgramBlock* target_then_block,
                                ProgramBlock* target_else_block,
                                uint16_t condition_offset,
