@@ -1,7 +1,6 @@
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/flavor/ultra_zk_flavor.hpp"
+#include "barretenberg/flavor/sumcheck_test_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -81,7 +80,7 @@ template <typename Flavor> class RowDisablingPolynomialTest : public ::testing::
  */
 TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
 {
-    using Flavor = UltraZKFlavor;
+    using Flavor = SumcheckTestFlavorZK;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using ZKData = ZKSumcheckData<Flavor>;
@@ -124,16 +123,8 @@ TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
     }
 
     // Setup z_perm, lookup_inverses with random values in disabled rows
-    auto z_1 = FF::random_element();
-    auto z_2 = FF::random_element();
-    auto z_3 = FF::random_element();
-    auto z_4 = FF::random_element();
-    auto r = FF::random_element();
-
-    std::array<FF, multivariate_n> z_perm = { 0, 0, 0, 0, z_1, z_2, z_3, z_4 };
-    std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, r, r * r, r * r * r, r * r * r * r };
-    // Disable LogDerivative skipping in disabled rows
-    std::array<FF, multivariate_n> lookup_read_counts = { 0, 0, 0, 0, 1, 1, 1, 1 };
+    // SumcheckTestFlavor doesn't need z_perm, lookup_inverses, lookup_read_counts
+    // Random values in witness polynomials are sufficient for testing row disabling
 
     // Create zero polynomials for all entities
     std::vector<bb::Polynomial<FF>> zero_polynomials(NUM_POLYNOMIALS);
@@ -158,16 +149,12 @@ TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
     full_polynomials.q_o = bb::Polynomial<FF>(q_o);
     full_polynomials.q_c = bb::Polynomial<FF>(q_c);
     full_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
-    full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
-    full_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
-    full_polynomials.lookup_read_counts = bb::Polynomial<FF>(lookup_read_counts);
 
-    // Set relation parameters with random values
-    RelationParameters<FF> relation_parameters{
-        .beta = FF::random_element(),
-        .gamma = FF::random_element(),
-        .public_input_delta = FF::one(),
-    };
+    // SumcheckTestFlavor doesn't have z_perm, lookup_inverses, lookup_read_counts
+    // The row disabling mechanism will handle the random values in witness polynomials
+
+    // Set relation parameters (SumcheckTestFlavor doesn't need beta/gamma)
+    RelationParameters<FF> relation_parameters{};
 
     // Prover: Run ZK Sumcheck with RowDisablingPolynomial
     auto prover_transcript = Flavor::Transcript::prover_init_empty();
@@ -228,7 +215,7 @@ TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
  */
 TEST(RowDisablingPolynomial, ComputeDisabledContribution)
 {
-    using Flavor = UltraZKFlavor;
+    using Flavor = SumcheckTestFlavorZK;
     using TestFixture = RowDisablingPolynomialTest<Flavor>;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -332,7 +319,7 @@ TEST(RowDisablingPolynomial, ComputeDisabledContribution)
  */
 TEST(RowDisablingPolynomial, FailsWithoutRowDisabling)
 {
-    using Flavor = UltraFlavor; // Non-ZK flavor (no RowDisablingPolynomial)
+    using Flavor = SumcheckTestFlavor; // Non-ZK flavor (no RowDisablingPolynomial)
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
@@ -383,9 +370,7 @@ TEST(RowDisablingPolynomial, FailsWithoutRowDisabling)
         q_arith[i] = FF(1); // Keep enabled
     }
 
-    std::vector<FF> z_perm(multivariate_n, FF(0));
-    std::vector<FF> lookup_inverses(multivariate_n, FF(0));
-    std::vector<FF> lookup_read_counts(multivariate_n, FF(0));
+    // SumcheckTestFlavor doesn't need z_perm, lookup_inverses, lookup_read_counts
 
     // Create random polynomials for remaining entities
     std::vector<bb::Polynomial<FF>> random_polynomials(NUM_POLYNOMIALS);
@@ -412,15 +397,11 @@ TEST(RowDisablingPolynomial, FailsWithoutRowDisabling)
     full_polynomials.q_o = bb::Polynomial<FF>(q_o);
     full_polynomials.q_c = bb::Polynomial<FF>(q_c);
     full_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
-    full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
-    full_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
-    full_polynomials.lookup_read_counts = bb::Polynomial<FF>(lookup_read_counts);
 
-    RelationParameters<FF> relation_parameters{
-        .beta = FF::random_element(),
-        .gamma = FF::random_element(),
-        .public_input_delta = FF::one(),
-    };
+    // SumcheckTestFlavor doesn't have z_perm, lookup_inverses, lookup_read_counts
+
+    // Set relation parameters (SumcheckTestFlavor doesn't need beta/gamma)
+    RelationParameters<FF> relation_parameters{};
 
     auto prover_transcript = Flavor::Transcript::prover_init_empty();
     FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");

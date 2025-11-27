@@ -2,9 +2,8 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/tuple.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/sumcheck_test_flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/relations/utils.hpp"
 
 #include <gtest/gtest.h>
@@ -17,25 +16,28 @@ using namespace bb;
  */
 TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = SumcheckTestFlavor;
     using FF = typename Flavor::FF;
     using Utils = RelationUtils<Flavor>;
     using SubrelationSeparators = typename Utils::SubrelationSeparators;
 
     // Define three linear univariates of different sizes
-    Univariate<FF, 3> univariate_1({ 1, 2, 3 });
-    Univariate<FF, 2> univariate_2({ 2, 4 });
-    Univariate<FF, 5> univariate_3({ 3, 4, 5, 6, 7 });
+    // SumcheckTestFlavor has: ArithmeticRelation (2 subrelations) + DependentTestRelation (1 subrelation)
+    Univariate<FF, 3> univariate_1({ 1, 2, 3 });       // ArithmeticRelation subrelation 0
+    Univariate<FF, 5> univariate_2({ 3, 4, 5, 6, 7 }); // ArithmeticRelation subrelation 1
+    Univariate<FF, 2> univariate_3({ 2, 4 });          // DependentTestRelation subrelation 0
     const size_t MAX_LENGTH = 5;
 
-    // Construct a tuple of tuples of the form { {univariate_1}, {univariate_2, univariate_3} }
-    auto tuple_of_tuples = flat_tuple::make_tuple(flat_tuple::make_tuple(univariate_1),
-                                                  flat_tuple::make_tuple(univariate_2, univariate_3));
+    // Construct a tuple of tuples matching SumcheckTestFlavor's relation structure:
+    // {{subrelation_0, subrelation_1}, {subrelation_0}}
+    auto tuple_of_tuples = flat_tuple::make_tuple(flat_tuple::make_tuple(univariate_1, univariate_2),
+                                                  flat_tuple::make_tuple(univariate_3));
 
     // Use scale_univariate_accumulators to scale by challenge powers
+    // SumcheckTestFlavor has 3 subrelations total, so we need 2 separators
     SubrelationSeparators challenge{};
-    challenge[0] = 5;
-    challenge[1] = 25;
+    challenge[0] = 5;  // Separator between arithmetic subrelations
+    challenge[1] = 25; // Separator before dependent test relation
     Utils::scale_univariates(tuple_of_tuples, challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
@@ -55,12 +57,12 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     RelationUtils<Flavor>::zero_univariates(tuple_of_tuples);
 
     // Check that reinitialization was successful
-    Univariate<FF, 3> expected_1({ 0, 0, 0 });
-    Univariate<FF, 2> expected_2({ 0, 0 });
-    Univariate<FF, 5> expected_3({ 0, 0, 0, 0, 0 });
-    EXPECT_EQ(std::get<0>(std::get<0>(tuple_of_tuples)), expected_1);
-    EXPECT_EQ(std::get<0>(std::get<1>(tuple_of_tuples)), expected_2);
-    EXPECT_EQ(std::get<1>(std::get<1>(tuple_of_tuples)), expected_3);
+    Univariate<FF, 3> expected_1({ 0, 0, 0 });                        // Arithmetic subrelation 0
+    Univariate<FF, 5> expected_2({ 0, 0, 0, 0, 0 });                  // Arithmetic subrelation 1
+    Univariate<FF, 2> expected_3({ 0, 0 });                           // DependentTest subrelation 0
+    EXPECT_EQ(std::get<0>(std::get<0>(tuple_of_tuples)), expected_1); // Arithmetic subrelation 0
+    EXPECT_EQ(std::get<1>(std::get<0>(tuple_of_tuples)), expected_2); // Arithmetic subrelation 1
+    EXPECT_EQ(std::get<0>(std::get<1>(tuple_of_tuples)), expected_3); // DependentTest subrelation 0
 }
 
 /**
@@ -69,36 +71,40 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
  */
 TEST(SumcheckRound, TuplesOfEvaluationArrays)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = SumcheckTestFlavor;
     using Utils = RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using SubrelationSeparators = typename Utils::SubrelationSeparators;
 
-    // Define two arrays of arbitrary elements
-    std::array<FF, 2> evaluations_1 = { 4, 3 };
-    std::array<FF, 2> evaluations_2 = { 6, 2 };
+    // SumcheckTestFlavor has 3 subrelations: ArithmeticRelation(2) + DependentTestRelation(1)
+    // So we need arrays matching this structure
+    std::array<FF, 2> evaluations_arithmetic = { 4, 3 }; // ArithmeticRelation's 2 subrelations
+    std::array<FF, 1> evaluations_dependent = { 6 };     // DependentTestRelation's 1 subrelation
 
-    // Construct a tuple
-    auto tuple_of_arrays = flat_tuple::make_tuple(evaluations_1, evaluations_2);
+    // Construct a tuple matching the relation structure
+    auto tuple_of_arrays = flat_tuple::make_tuple(evaluations_arithmetic, evaluations_dependent);
 
     // Use scale_and_batch_elements to scale by challenge powers
-    SubrelationSeparators challenge{ 5, 25, 125 };
+    // SumcheckTestFlavor has 3 subrelations, so SubrelationSeparators has 2 elements
+    SubrelationSeparators challenge{ 5, 25 };
 
     FF result = Utils::scale_and_batch_elements(tuple_of_arrays, challenge);
 
-    // Repeat the batching process manually
-    auto result_expected = evaluations_1[0] + evaluations_1[1] * challenge[0] + evaluations_2[0] * challenge[1] +
-                           evaluations_2[1] * challenge[2];
+    // Repeat the batching process manually: first element not scaled, rest scaled by separators
+    auto result_expected = evaluations_arithmetic[0] +                // no scaling
+                           evaluations_arithmetic[1] * challenge[0] + // separator[0]
+                           evaluations_dependent[0] * challenge[1];   // separator[1]
 
     // Compare batched result
     EXPECT_EQ(result, result_expected);
 
-    // Reinitialize univariate accumulators to zero
+    // Reinitialize elements to zero
     Utils::zero_elements(tuple_of_arrays);
 
-    EXPECT_EQ(std::get<0>(tuple_of_arrays)[0], 0);
-    EXPECT_EQ(std::get<1>(tuple_of_arrays)[0], 0);
-    EXPECT_EQ(std::get<1>(tuple_of_arrays)[1], 0);
+    // Verify all elements were zeroed
+    EXPECT_EQ(std::get<0>(tuple_of_arrays)[0], 0); // ArithmeticRelation subrelation 0
+    EXPECT_EQ(std::get<0>(tuple_of_arrays)[1], 0); // ArithmeticRelation subrelation 1
+    EXPECT_EQ(std::get<1>(tuple_of_arrays)[0], 0); // DependentTestRelation subrelation 0
 }
 
 /**
@@ -107,7 +113,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
  */
 TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = SumcheckTestFlavor;
     using FF = typename Flavor::FF;
 
     // Define some arbitrary univariates
@@ -143,7 +149,7 @@ TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
  */
 TEST(SumcheckRound, ComputeEffectiveRoundSize)
 {
-    using Flavor = UltraFlavor; // Non-ZK flavor
+    using Flavor = SumcheckTestFlavor; // Non-ZK flavor
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
@@ -175,8 +181,8 @@ TEST(SumcheckRound, ComputeEffectiveRoundSize)
         const size_t round_size = full_size;
         SumcheckProverRound<Flavor> round(round_size);
 
-        // Note: AllEntities ordering is: MaskingEntities (if ZK), PrecomputedEntities, WitnessEntities, ShiftedEntities
-        // For UltraFlavor: Precomputed (0-27), Witness (28-35), Shifted (36+)
+        // Note: AllEntities ordering is: PrecomputedEntities, WitnessEntities, ShiftedEntities
+        // For SumcheckTestFlavor: Precomputed (0-7), Witness (8-13), Shifted (14-15)
         std::vector<bb::Polynomial<FF>> random_polynomials(Flavor::NUM_ALL_ENTITIES);
         size_t poly_idx = 0;
         for (auto& poly : random_polynomials) {
@@ -307,7 +313,7 @@ TEST(SumcheckRound, ComputeEffectiveRoundSize)
  */
 TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
 {
-    using Flavor = UltraZKFlavor; // ZK flavor
+    using Flavor = SumcheckTestFlavorZK; // ZK flavor
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
@@ -339,7 +345,7 @@ TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
  */
 TEST(SumcheckRound, ExtendEdgesShortMonomial)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = SumcheckTestFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using SumcheckRound = SumcheckProverRound<Flavor>;
@@ -468,7 +474,7 @@ TEST(SumcheckRound, ExtendEdges)
  */
 TEST(SumcheckRound, AccumulateRelationUnivariatesUltra)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = SumcheckTestFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using SumcheckRound = SumcheckProverRound<Flavor>;
@@ -623,17 +629,15 @@ TEST(SumcheckRound, AccumulateRelationUnivariatesUltra)
     }
     // Test 4: Linearly dependent subrelation should NOT be scaled
     {
-        info("Test 4: LogDerivLookupRelation linearly dependent subrelation is not scaled");
+        info("Test 4: DependentTestRelation (linearly dependent) is not scaled");
 
-        // Create a circuit with lookup-related polynomials
-        std::array<FF, multivariate_n> lookup_read_counts = { FF(1), FF(2), FF(1), FF(0) };
-        std::array<FF, multivariate_n> lookup_inverses = { FF(1), FF(1), FF(1), FF(1) };
-        std::array<FF, multivariate_n> q_lookup = { FF(1), FF(1), FF(1), FF(0) };
+        // Create a circuit with test relation polynomials
+        std::array<FF, multivariate_n> w_test_1 = { FF(1), FF(2), FF(3), FF(4) };
+        std::array<FF, multivariate_n> q_test = { FF(1), FF(1), FF(1), FF(1) };
 
         ProverPolynomials prover_polynomials;
-        prover_polynomials.lookup_read_counts = bb::Polynomial<FF>(lookup_read_counts);
-        prover_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
-        prover_polynomials.q_lookup = bb::Polynomial<FF>(q_lookup);
+        prover_polynomials.w_test_1 = bb::Polynomial<FF>(w_test_1);
+        prover_polynomials.q_test = bb::Polynomial<FF>(q_test);
 
         for (auto& poly : prover_polynomials.get_all()) {
             if (poly.size() == 0) {
@@ -649,42 +653,25 @@ TEST(SumcheckRound, AccumulateRelationUnivariatesUltra)
         RelationUtils<Flavor>::zero_univariates(acc1);
         RelationUtils<Flavor>::zero_univariates(acc2);
 
-        RelationParameters<FF> relation_parameters{
-            .beta = FF::random_element(),
-            .gamma = FF::random_element(),
-            .public_input_delta = FF::one(),
-        };
+        RelationParameters<FF> relation_parameters{};
 
         // Accumulate with scale=1 and scale=2
         round.accumulate_relation_univariates_public(acc1, extended_edges, relation_parameters, FF(1));
         round.accumulate_relation_univariates_public(acc2, extended_edges, relation_parameters, FF(2));
 
-        // LogDerivLookupRelation is at index 2 in UltraFlavor::Relations
-        // It has 3 subrelations: [0] inverse correctness (scaled), [1] lookup sum (NOT scaled), [2] read_tag boolean
-        // (scaled)
+        // SumcheckTestFlavor::Relations = tuple<ArithmeticRelation, DependentTestRelation>
+        // ArithmeticRelation is at index 0 (has 2 subrelations, both linearly independent)
+        // DependentTestRelation is at index 1 (has 1 subrelation, linearly dependent)
 
-        // Check subrelation 0 (inverse correctness) - SHOULD be scaled
-        auto& logderiv_sub0_acc1 = std::get<0>(std::get<2>(acc1));
-        auto& logderiv_sub0_acc2 = std::get<0>(std::get<2>(acc2));
-        EXPECT_EQ(logderiv_sub0_acc2.value_at(0), logderiv_sub0_acc1.value_at(0) * FF(2))
-            << "LogDerivLookup subrelation 0 (inverse correctness) SHOULD be scaled";
+        // Check DependentTestRelation (index 1) - should NOT be scaled (linearly dependent)
+        auto& dependent_test_acc1 = std::get<0>(std::get<1>(acc1));
+        auto& dependent_test_acc2 = std::get<0>(std::get<1>(acc2));
+        EXPECT_EQ(dependent_test_acc2.value_at(0), dependent_test_acc1.value_at(0))
+            << "DependentTestRelation (linearly dependent) should NOT be scaled";
+        EXPECT_EQ(dependent_test_acc2.value_at(1), dependent_test_acc1.value_at(1))
+            << "DependentTestRelation (linearly dependent) should NOT be scaled";
 
-        // Check subrelation 1 (lookup sum) - should NOT be scaled (linearly dependent)
-        auto& logderiv_sub1_acc1 = std::get<1>(std::get<2>(acc1));
-        auto& logderiv_sub1_acc2 = std::get<1>(std::get<2>(acc2));
-        EXPECT_EQ(logderiv_sub1_acc2.value_at(0), logderiv_sub1_acc1.value_at(0))
-            << "LogDerivLookup subrelation 1 (linearly dependent lookup sum) should NOT be scaled";
-        EXPECT_EQ(logderiv_sub1_acc2.value_at(1), logderiv_sub1_acc1.value_at(1))
-            << "LogDerivLookup subrelation 1 (linearly dependent lookup sum) should NOT be scaled";
-
-        // Check subrelation 2 (read_tag boolean) - SHOULD be scaled
-        auto& logderiv_sub2_acc1 = std::get<2>(std::get<2>(acc1));
-        auto& logderiv_sub2_acc2 = std::get<2>(std::get<2>(acc2));
-        EXPECT_EQ(logderiv_sub2_acc2.value_at(0), logderiv_sub2_acc1.value_at(0) * FF(2))
-            << "LogDerivLookup subrelation 2 (read_tag boolean) SHOULD be scaled";
-
-        info("LogDerivLookupRelation: verified that linearly dependent subrelation (index 1) is NOT scaled, while "
-             "others ARE scaled");
+        info("DependentTestRelation: verified that linearly dependent relation is NOT scaled");
     }
 }
 
@@ -694,7 +681,7 @@ TEST(SumcheckRound, AccumulateRelationUnivariatesUltra)
  */
 TEST(SumcheckRound, CheckSumFieldArithmetic)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = SumcheckTestFlavor;
     using FF = typename Flavor::FF;
     using SumcheckVerifierRound = bb::SumcheckVerifierRound<Flavor>;
     constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
@@ -713,9 +700,10 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
         univariate.value_at(1) = large_val_2;
 
         SumcheckVerifierRound verifier_round(target);
-        bool result = verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate, FF(1));
 
-        EXPECT_TRUE(result) << "check_sum should handle large field elements correctly with wraparound";
+        EXPECT_TRUE(!verifier_round.round_failed)
+            << "check_sum should handle large field elements correctly with wraparound";
         info("Large field elements: check_sum correctly handles values near modulus");
     }
 
@@ -727,7 +715,8 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
         univariate.value_at(1) = zero;
 
         SumcheckVerifierRound verifier_round(zero);
-        bool result = verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate, FF(1));
+        bool result = !verifier_round.round_failed;
 
         EXPECT_TRUE(result) << "check_sum should handle zero case correctly";
         info("Zero case: check_sum correctly handles all-zero values");
@@ -744,7 +733,8 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
         univariate.value_at(1) = negative;
 
         SumcheckVerifierRound verifier_round(target);
-        bool result = verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate, FF(1));
+        bool result = !verifier_round.round_failed;
 
         EXPECT_TRUE(result) << "check_sum should handle mixed signs correctly";
         EXPECT_EQ(target, FF(0)) << "Positive + negative should equal zero";
@@ -759,7 +749,7 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
  */
 TEST(SumcheckRound, CheckSumPaddingIndicator)
 {
-    using Flavor = UltraZKFlavor;
+    using Flavor = SumcheckTestFlavorZK;
     using FF = typename Flavor::FF;
     using SumcheckVerifierRound = bb::SumcheckVerifierRound<Flavor>;
     constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
@@ -781,7 +771,8 @@ TEST(SumcheckRound, CheckSumPaddingIndicator)
         info("Test 1: Non-padding round (indicator=1) with wrong target - should FAIL");
 
         SumcheckVerifierRound verifier_round(wrong_target);
-        bool result = verifier_round.check_sum(univariate, FF(1)); // indicator = 1
+        verifier_round.check_sum(univariate, FF(1)); // indicator = 1
+        bool result = !verifier_round.round_failed;
 
         EXPECT_FALSE(result) << "With indicator=1, check_sum should fail when target is wrong";
         EXPECT_TRUE(verifier_round.round_failed) << "round_failed flag should be set";
@@ -793,7 +784,8 @@ TEST(SumcheckRound, CheckSumPaddingIndicator)
         info("Test 3: Padding round (indicator=0) with wrong target - should PASS (bypassed)");
 
         SumcheckVerifierRound verifier_round(wrong_target);
-        bool result = verifier_round.check_sum(univariate, FF(0)); // indicator = 0
+        verifier_round.check_sum(univariate, FF(0)); // indicator = 0
+        bool result = !verifier_round.round_failed;
 
         EXPECT_TRUE(result) << "With indicator=0, check_sum should pass even when target is wrong (padding round)";
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed flag should not be set in padding round";
@@ -807,7 +799,8 @@ TEST(SumcheckRound, CheckSumPaddingIndicator)
         SumcheckVerifierRound verifier_round(wrong_target);
 
         // First round: padding (indicator = 0) - should pass
-        bool result1 = verifier_round.check_sum(univariate, FF(0));
+        verifier_round.check_sum(univariate, FF(0));
+        bool result1 = !verifier_round.round_failed;
         EXPECT_TRUE(result1) << "First padding round should pass";
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should still be false after padding round";
 
@@ -815,7 +808,8 @@ TEST(SumcheckRound, CheckSumPaddingIndicator)
         verifier_round.target_total_sum = correct_sum;
 
         // Second round: non-padding (indicator = 1) with correct target - should pass
-        bool result2 = verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate, FF(1));
+        bool result2 = !verifier_round.round_failed;
         EXPECT_TRUE(result2) << "Non-padding round with correct target should pass";
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should remain false";
 
@@ -829,7 +823,7 @@ TEST(SumcheckRound, CheckSumPaddingIndicator)
  */
 TEST(SumcheckRound, CheckSumRoundFailurePersistence)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = SumcheckTestFlavor;
     using FF = typename Flavor::FF;
     using SumcheckVerifierRound = bb::SumcheckVerifierRound<Flavor>;
     constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
@@ -849,7 +843,8 @@ TEST(SumcheckRound, CheckSumRoundFailurePersistence)
 
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should initially be false";
 
-        bool result = verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate, FF(1));
+        bool result = !verifier_round.round_failed;
 
         EXPECT_FALSE(result) << "check_sum should return false for wrong target";
         EXPECT_TRUE(verifier_round.round_failed) << "round_failed flag should be set after failed check";
@@ -871,12 +866,14 @@ TEST(SumcheckRound, CheckSumRoundFailurePersistence)
         univariate2.value_at(0) = FF(5);
         univariate2.value_at(1) = FF(15);
 
-        bool result1 = verifier_round.check_sum(univariate1, FF(1));
+        verifier_round.check_sum(univariate1, FF(1));
+        bool result1 = !verifier_round.round_failed;
         EXPECT_TRUE(result1) << "First check should pass";
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should be false after first pass";
 
         verifier_round.target_total_sum = FF(20); // Update target for second check
-        bool result2 = verifier_round.check_sum(univariate2, FF(1));
+        verifier_round.check_sum(univariate2, FF(1));
+        bool result2 = !verifier_round.round_failed;
         EXPECT_TRUE(result2) << "Second check should pass";
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should remain false after second pass";
 
@@ -926,7 +923,8 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         // Call check_sum - this adds constraints to the circuit
         // In recursive flavor, assert_equal is called which adds a constraint
         FF indicator = FF(1); // Non-padding round
-        bool check_result = verifier_round.check_sum(univariate, indicator);
+        verifier_round.check_sum(univariate, indicator);
+        bool check_result = !verifier_round.round_failed;
 
         // The check_sum itself should return false (based on witness values)
         EXPECT_FALSE(check_result) << "check_sum should return false for mismatched values";
@@ -963,7 +961,8 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
 
         // Call check_sum
         FF indicator = FF(1);
-        bool check_result = verifier_round.check_sum(univariate, indicator);
+        verifier_round.check_sum(univariate, indicator);
+        bool check_result = !verifier_round.round_failed;
 
         // Check should pass
         EXPECT_TRUE(check_result) << "check_sum should return true for matching values";
@@ -1000,7 +999,8 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
 
         // Padding round - indicator = 0
         FF indicator = FF(0);
-        bool check_result = verifier_round.check_sum(univariate, indicator);
+        verifier_round.check_sum(univariate, indicator);
+        bool check_result = !verifier_round.round_failed;
 
         // Should pass because check is bypassed
         EXPECT_TRUE(check_result) << "check_sum should return true for padding round";
@@ -1032,7 +1032,8 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         SumcheckVerifierRound verifier_round(target_round1);
         FF indicator = FF(1);
 
-        bool result_1 = verifier_round.check_sum(univariate_1, indicator);
+        verifier_round.check_sum(univariate_1, indicator);
+        bool result_1 = !verifier_round.round_failed;
         EXPECT_TRUE(result_1);
         EXPECT_FALSE(builder.failed()) << "First round should not fail";
 
@@ -1045,7 +1046,8 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         univariate_2.value_at(0) = val_0_round2;
         univariate_2.value_at(1) = val_1_round2;
 
-        bool result_2 = verifier_round.check_sum(univariate_2, indicator);
+        verifier_round.check_sum(univariate_2, indicator);
+        bool result_2 = !verifier_round.round_failed;
         EXPECT_FALSE(result_2) << "Second round should fail";
 
         // Builder should now have failed
