@@ -226,7 +226,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
     WitnessComputation<Flavor>::compute_grand_product_polynomial(prover_instance->polynomials,
                                                                  prover_instance->public_inputs,
                                                                  prover_instance->pub_inputs_offset(),
-                                                                 prover_instance->active_region_data,
                                                                  prover_instance->relation_parameters,
                                                                  prover_instance->get_final_active_wire_idx() + 1);
 
