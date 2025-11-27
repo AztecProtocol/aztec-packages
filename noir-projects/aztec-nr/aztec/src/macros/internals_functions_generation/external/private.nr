@@ -52,7 +52,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
         #[allow(unused_variables)]
         let mut self = {
             $args_serialization
-            let args_hash = aztec::hash::hash_args_array($serialized_args_name);
+            let args_hash = aztec::hash::hash_args($serialized_args_name);
             let mut context = aztec::context::private_context::PrivateContext::new(inputs, args_hash);
             $storage_init
             let self_address = context.this_address();

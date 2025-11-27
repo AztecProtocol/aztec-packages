@@ -398,7 +398,7 @@ impl TestEnvironment {
 
         let _ = self.call_private(
             AztecAddress::zero(),
-            PrivateCall::<_, ()>::new(
+            PrivateCall::<_, _, ()>::new(
                 address,
                 comptime { FunctionSelector::from_signature("constructor(Field,Field)") },
                 "constructor",
@@ -494,10 +494,10 @@ impl TestEnvironment {
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.call_private(caller, SampleContract::at(contract_addr).sample_private_function());
     /// ```
-    pub unconstrained fn call_private<T, let M: u32>(
+    pub unconstrained fn call_private<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call: PrivateCall<M, T>,
+        call: PrivateCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
@@ -518,9 +518,9 @@ impl TestEnvironment {
     ///
     /// Unlike `call_private`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_private<T, let M: u32>(
+    pub unconstrained fn view_private<let M: u32, let N: u32, T>(
         _self: Self,
-        call: PrivateStaticCall<M, T>,
+        call: PrivateStaticCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
@@ -546,7 +546,10 @@ impl TestEnvironment {
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.simulate_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
-    pub unconstrained fn simulate_utility<T, let M: u32>(_self: Self, call: UtilityCall<M, T>) -> T
+    pub unconstrained fn simulate_utility<let M: u32, let N: u32, T>(
+        _self: Self,
+        call: UtilityCall<M, N, T>,
+    ) -> T
     where
         T: Deserialize,
     {
@@ -574,10 +577,10 @@ impl TestEnvironment {
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.call_public(caller, SampleContract::at(contract_addr).sample_public_function());
     /// ```
-    pub unconstrained fn call_public<T, let M: u32>(
+    pub unconstrained fn call_public<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call: PublicCall<M, T>,
+        call: PublicCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
@@ -595,10 +598,10 @@ impl TestEnvironment {
     /// Performs a public contract function call, including the processing of any nested public calls. Returns the
     /// result of the called function.
     /// Variant of `call_public`, but the `from` address (`msg_sender`) is set to "null".
-    pub unconstrained fn call_public_incognito<T, let M: u32>(
+    pub unconstrained fn call_public_incognito<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call: PublicCall<M, T>,
+        call: PublicCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
@@ -618,7 +621,10 @@ impl TestEnvironment {
     ///
     /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_public<T, let M: u32>(_self: Self, call: PublicStaticCall<M, T>) -> T
+    pub unconstrained fn view_public<let M: u32, let N: u32, T>(
+        _self: Self,
+        call: PublicStaticCall<M, N, T>,
+    ) -> T
     where
         T: Deserialize,
     {
@@ -637,9 +643,9 @@ impl TestEnvironment {
     ///
     /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_public_incognito<T, let M: u32>(
+    pub unconstrained fn view_public_incognito<let M: u32, let N: u32, T>(
         _self: Self,
-        call: PublicStaticCall<M, T>,
+        call: PublicStaticCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
@@ -731,6 +737,7 @@ impl TestEnvironment {
         let message_plaintext = BoundedVec::from_array(private_note_to_message_plaintext(
             emission.content.note,
             emission.content.storage_slot,
+            emission.content.randomness,
         ));
 
         // Then we fetch the transaction effects from the latest transaction, in which the note from the emission is
@@ -754,17 +761,18 @@ impl TestEnvironment {
         // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
         // typically be created by the macros for the different notes in a given contract. Here we build one specialized
         // for `Note`.
-        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, storage_slot, note_type_id, contract_address, note_nonce| {
+        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
             assert_eq(note_type_id, Note::get_id());
             assert_eq(packed_note.len(), <Note as Packable>::N);
 
             let note = Note::unpack(subarray(packed_note.storage(), 0));
 
-            let note_hash = note.compute_note_hash(storage_slot);
+            let note_hash = note.compute_note_hash(storage_slot, randomness);
             let note_hash_for_nullification = compute_note_hash_for_nullification(
                 RetrievedNote {
                     note,
                     contract_address,
+                    randomness,
                     metadata: SettledNoteMetadata::new(note_nonce).into(),
                 },
                 storage_slot,

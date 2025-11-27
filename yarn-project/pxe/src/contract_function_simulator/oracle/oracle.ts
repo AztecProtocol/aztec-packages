@@ -100,8 +100,7 @@ export class Oracle {
     return Promise.resolve([toACVMField(val)]);
   }
 
-  // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  privateStoreInExecutionCache(_length: ACVMField[], values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
+  privateStoreInExecutionCache(values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
     this.handlerAsPrivate().privateStoreInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
     return Promise.resolve([]);
   }
@@ -283,6 +282,7 @@ export class Oracle {
 
   privateNotifyCreatedNote(
     [storageSlot]: ACVMField[],
+    [randomness]: ACVMField[],
     [noteTypeId]: ACVMField[],
     note: ACVMField[],
     [noteHash]: ACVMField[],
@@ -290,6 +290,7 @@ export class Oracle {
   ): Promise<ACVMField[]> {
     this.handlerAsPrivate().privateNotifyCreatedNote(
       Fr.fromString(storageSlot),
+      Fr.fromString(randomness),
       NoteSelector.fromField(Fr.fromString(noteTypeId)),
       note.map(Fr.fromString),
       Fr.fromString(noteHash),

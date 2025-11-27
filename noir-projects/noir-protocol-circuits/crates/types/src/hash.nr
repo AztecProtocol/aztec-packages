@@ -261,22 +261,6 @@ pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u3
     sponge.squeeze()
 }
 
-pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field
-where
-    T: ToField,
-{
-    let in_len = inputs.len() + 1;
-    let iv: Field = (in_len as Field) * TWO_POW_64;
-    let mut sponge = Poseidon2Sponge::new(iv);
-    sponge.absorb(separator.to_field());
-
-    for i in 0..inputs.len() {
-        sponge.absorb(inputs[i]);
-    }
-
-    sponge.squeeze()
-}
-
 // This function is  unconstrained because it is intended to be used in unconstrained context only as
 // in constrained contexts it would be too inefficient.
 pub unconstrained fn poseidon2_hash_with_separator_bounded_vec<let N: u32, T>(

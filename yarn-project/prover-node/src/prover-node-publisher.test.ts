@@ -130,12 +130,12 @@ describe('prover-node-publisher', () => {
 
       // Return the tips specified by the test
       rollup.getTips.mockResolvedValue({
-        pendingBlockNumber,
-        provenBlockNumber,
+        pending: pendingBlockNumber,
+        proven: provenBlockNumber,
       });
 
       // Return the requested block
-      rollup.getBlock.mockImplementation((blockNumber: bigint) =>
+      rollup.getCheckpoint.mockImplementation((blockNumber: bigint) =>
         Promise.resolve({
           archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
           attestationsHash: '0x', // unused,
@@ -199,12 +199,12 @@ describe('prover-node-publisher', () => {
 
     // Return the tips specified by the test
     rollup.getTips.mockResolvedValue({
-      pendingBlockNumber: 2n,
-      provenBlockNumber: 1n,
+      pending: 2n,
+      proven: 1n,
     });
 
     // Return the requested block
-    rollup.getBlock.mockImplementation((i: bigint) =>
+    rollup.getCheckpoint.mockImplementation((i: bigint) =>
       Promise.resolve({
         archive: blocks[Number(i) - 1].endArchiveRoot.toString(),
         attestationsHash: '0x', // unused,

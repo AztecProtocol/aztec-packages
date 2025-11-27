@@ -159,7 +159,8 @@ describe('e2e_p2p_add_rollup', () => {
         aztecSlotDuration: t.ctx.aztecNodeConfig.aztecSlotDuration,
         aztecEpochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
         aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
-        lagInEpochs: t.ctx.aztecNodeConfig.lagInEpochs,
+        lagInEpochsForValidatorSet: t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet,
+        lagInEpochsForRandao: t.ctx.aztecNodeConfig.lagInEpochsForRandao,
         aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
         slashingRoundSizeInEpochs: t.ctx.aztecNodeConfig.slashingRoundSizeInEpochs,
@@ -359,7 +360,7 @@ describe('e2e_p2p_add_rollup', () => {
         }) as {
           eventName: 'MessageConsumed';
           args: {
-            l2BlockNumber: bigint;
+            checkpointNumber: bigint;
             root: `0x${string}`;
             messageHash: `0x${string}`;
             leafId: bigint;
@@ -534,7 +535,7 @@ describe('e2e_p2p_add_rollup', () => {
     await sleep(4000);
 
     // The new rollup should have no blocks
-    expect(await newRollup.getBlockNumber()).toBe(0n);
+    expect(await newRollup.getCheckpointNumber()).toBe(0n);
 
     // Bridge into and out of the new rollup to ensure that it works.
     await bridging(
@@ -547,8 +548,8 @@ describe('e2e_p2p_add_rollup', () => {
     );
 
     // Both rollups should have a block number greater than 0
-    expect(await rollup.getBlockNumber()).toBeGreaterThan(0n);
-    expect(await newRollup.getBlockNumber()).toBeGreaterThan(0n);
+    expect(await rollup.getCheckpointNumber()).toBeGreaterThan(0n);
+    expect(await newRollup.getCheckpointNumber()).toBeGreaterThan(0n);
 
     await blobSink.stop();
   }, 10_000_000);

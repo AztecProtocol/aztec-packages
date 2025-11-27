@@ -26,7 +26,7 @@ import {Vm} from "forge-std/Vm.sol";
  *      This enables comprehensive testing of blob functionality without requiring actual blob transactions.
  *
  *      Blob Validation Flow:
- *      1. validateBlobs() processes L2 block blob data, extracting commitments and validating against real blobs
+ *      1. validateBlobs() processes checkpoint blob data, extracting commitments and validating against real blobs
  *      2. calculateBlobCommitmentsHash() accumulates commitments across an epoch for rollup circuit validation
  *      3. validateBatchedBlob() verifies batched blob proofs using the EIP-4844 point evaluation precompile
  *      4. calculateBlobHash() computes versioned hashes from commitments following EIP-4844 specification
@@ -87,10 +87,10 @@ library BlobLib {
   function calculateBlobCommitmentsHash(
     bytes32 _previousBlobCommitmentsHash,
     bytes[] memory _blobCommitments,
-    bool _isFirstBlockOfEpoch
+    bool _isFirstCheckpointOfEpoch
   ) internal pure returns (bytes32 currentBlobCommitmentsHash) {
     return CoreBlobLib.calculateBlobCommitmentsHash(
-      _previousBlobCommitmentsHash, _blobCommitments, _isFirstBlockOfEpoch
+      _previousBlobCommitmentsHash, _blobCommitments, _isFirstCheckpointOfEpoch
     );
   }
 

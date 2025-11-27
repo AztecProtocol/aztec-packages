@@ -245,4 +245,13 @@ template <typename Builder> class GateCounter {
  */
 template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad);
 
+/**
+ * @brief Check if a mul add gate is valid.
+ *
+ */
+template <typename Builder>
+void check_mul_add_gate(Builder& builder,
+                        const mul_quad_<typename Builder::FF>& mul_quad,
+                        const typename Builder::FF next_wire_w4 = Builder::FF::zero());
+
 } // namespace acir_format

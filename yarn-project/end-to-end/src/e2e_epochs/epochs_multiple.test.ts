@@ -35,7 +35,7 @@ describe('e2e_epochs/epochs_multiple', () => {
     while (provenBlockNumber < targetProvenBlockNumber) {
       logger.info(`Waiting for the end of epoch ${epochNumber}`);
       await test.waitUntilEpochStarts(epochNumber + 1);
-      const epochTargetBlockNumber = Number(await rollup.getBlockNumber());
+      const epochTargetBlockNumber = Number(await rollup.getCheckpointNumber());
       logger.info(`Epoch ${epochNumber} ended with PENDING block number ${epochTargetBlockNumber}`);
       await test.waitUntilL2BlockNumber(
         epochTargetBlockNumber,
@@ -46,7 +46,7 @@ describe('e2e_epochs/epochs_multiple', () => {
         `Reached PENDING L2 block ${epochTargetBlockNumber}, proving should now start, waiting for PROVEN block to reach ${provenBlockNumber}`,
       );
       await test.waitUntilProvenL2BlockNumber(provenBlockNumber, 240);
-      expect(Number(await rollup.getProvenBlockNumber())).toBeGreaterThanOrEqual(provenBlockNumber);
+      expect(Number(await rollup.getProvenCheckpointNumber())).toBeGreaterThanOrEqual(provenBlockNumber);
       logger.info(`Reached PROVEN block number ${provenBlockNumber}, epoch ${epochNumber} is now proven`);
       epochNumber++;
 

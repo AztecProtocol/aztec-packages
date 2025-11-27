@@ -577,7 +577,7 @@ describe('e2e_synching', () => {
             { blobSinkClient, dateProvider: opts.dateProvider! },
             { blockUntilSync: true },
           );
-          const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
+          const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();
 
           const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
           await worldState.start();
@@ -588,7 +588,7 @@ describe('e2e_synching', () => {
           await opts.cheatCodes!.rollup.markAsProven(provenThrough);
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
-          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const blockLog = await rollup.read.getCheckpoint([(await rollup.read.getProvenCheckpointNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
@@ -666,7 +666,7 @@ describe('e2e_synching', () => {
             client: opts.deployL1ContractsValues!.l1Client,
           });
 
-          const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
+          const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();
           await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
 
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
@@ -675,7 +675,7 @@ describe('e2e_synching', () => {
           const blockBeforePrune = await aztecNode.getBlockNumber();
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
-          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const blockLog = await rollup.read.getCheckpoint([(await rollup.read.getProvenCheckpointNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
@@ -731,11 +731,11 @@ describe('e2e_synching', () => {
             client: opts.deployL1ContractsValues!.l1Client,
           });
 
-          const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
+          const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();
           await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
-          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const blockLog = await rollup.read.getCheckpoint([(await rollup.read.getProvenCheckpointNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });

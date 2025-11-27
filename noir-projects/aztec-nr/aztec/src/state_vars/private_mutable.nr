@@ -351,6 +351,7 @@ where
         NoteEmission::new(
             emission_content.note,
             emission_content.storage_slot,
+            emission_content.randomness,
             emission_content.note_hash_counter,
             self.context,
         )

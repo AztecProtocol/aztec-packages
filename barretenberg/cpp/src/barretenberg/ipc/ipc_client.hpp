@@ -52,7 +52,7 @@ class IpcClient {
      *
      * Must be followed by release() to consume the message.
      */
-    virtual std::span<const uint8_t> recv(uint64_t timeout_ns) = 0;
+    virtual std::span<const uint8_t> receive(uint64_t timeout_ns) = 0;
 
     /**
      * @brief Release the previously received message
@@ -71,7 +71,7 @@ class IpcClient {
 
     // Factory methods
     static std::unique_ptr<IpcClient> create_socket(const std::string& socket_path);
-    static std::unique_ptr<IpcClient> create_shm(const std::string& base_name, size_t max_clients);
+    static std::unique_ptr<IpcClient> create_shm(const std::string& base_name);
 };
 
 } // namespace bb::ipc

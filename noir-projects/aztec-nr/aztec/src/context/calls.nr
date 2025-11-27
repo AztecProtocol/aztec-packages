@@ -5,34 +5,34 @@ use dep::protocol_types::{
 };
 
 use crate::context::{gas::GasOpts, private_context::PrivateContext, public_context::PublicContext};
-use crate::hash::{hash_args, hash_calldata};
+use crate::hash::{hash_args, hash_calldata_array};
 use crate::oracle::execution_cache;
 
 // PrivateCall
 
 #[must_use = "Your private call needs to be passed into the `self.call(...)` method to be executed (e.g. `self.call(MyContract::at(address).my_private_function(...args))`"]
-pub struct PrivateCall<let M: u32, T> {
+pub struct PrivateCall<let M: u32, let N: u32, T> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
     args_hash: Field,
-    pub args: [Field],
+    pub args: [Field; N],
     return_type: T,
 }
 
-impl<let M: u32, T> PrivateCall<M, T> {
+impl<let M: u32, let N: u32, T> PrivateCall<M, N, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
         name: str<M>,
-        args: [Field],
+        args: [Field; N],
     ) -> Self {
         let args_hash = hash_args(args);
         Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
     }
 }
 
-impl<let M: u32, T> PrivateCall<M, T>
+impl<let M: u32, let N: u32, T> PrivateCall<M, N, T>
 where
     T: Deserialize,
 {
@@ -58,21 +58,21 @@ where
 // PrivateStaticCall
 
 #[must_use = "Your private static call needs to be passed into the `self.view(...)` method to be executed (e.g. `self.view(MyContract::at(address).my_private_static_function(...args))`"]
-pub struct PrivateStaticCall<let M: u32, T> {
+pub struct PrivateStaticCall<let M: u32, let N: u32, T> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
     args_hash: Field,
-    pub args: [Field],
+    pub args: [Field; N],
     return_type: T,
 }
 
-impl<let M: u32, T> PrivateStaticCall<M, T> {
+impl<let M: u32, let N: u32, T> PrivateStaticCall<M, N, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
         name: str<M>,
-        args: [Field],
+        args: [Field; N],
     ) -> Self {
         let args_hash = hash_args(args);
         Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
@@ -100,22 +100,21 @@ impl<let M: u32, T> PrivateStaticCall<M, T> {
 // PublicCall
 
 #[must_use = "Your public call needs to be passed into the `self.call(...)`, `self.enqueue(...)` or `self.enqueue_incognito(...)` method to be executed (e.g. `self.call(MyContract::at(address).my_public_function(...args))`"]
-pub struct PublicCall<let M: u32, T> {
+pub struct PublicCall<let M: u32, let N: u32, T> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
-    // TODO(F-131): Determine the length at comptime and drop the use of slices.
-    pub args: [Field],
+    pub args: [Field; N],
     gas_opts: GasOpts,
     return_type: T,
 }
 
-impl<let M: u32, T> PublicCall<M, T> {
+impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
         name: str<M>,
-        args: [Field],
+        args: [Field; N],
     ) -> Self {
         Self {
             target_contract,
@@ -173,8 +172,8 @@ impl<let M: u32, T> PublicCall<M, T> {
         is_static_call: bool,
         hide_msg_sender: bool,
     ) {
-        let calldata = self.args.push_front(self.selector.to_field());
-        let calldata_hash = hash_calldata(calldata);
+        let calldata = [self.selector.to_field()].concat(self.args);
+        let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         context.call_public_function_with_calldata_hash(
             self.target_contract,
@@ -201,8 +200,8 @@ impl<let M: u32, T> PublicCall<M, T> {
     }
 
     fn set_as_teardown_impl(self, context: &mut PrivateContext, hide_msg_sender: bool) {
-        let calldata = self.args.push_front(self.selector.to_field());
-        let calldata_hash = hash_calldata(calldata);
+        let calldata = [self.selector.to_field()].concat(self.args);
+        let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         context.set_public_teardown_function_with_calldata_hash(
             self.target_contract,
@@ -216,21 +215,21 @@ impl<let M: u32, T> PublicCall<M, T> {
 // PublicStaticCall
 
 #[must_use = "Your public static call needs to be passed into the `self.view(...)`, `self.enqueue_view(...)` or `self.enqueue_view_incognito(...)` method to be executed (e.g. `self.view(MyContract::at(address).my_public_static_function(...args))`"]
-pub struct PublicStaticCall<let M: u32, T> {
+pub struct PublicStaticCall<let M: u32, let N: u32, T> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
-    pub args: [Field],
+    pub args: [Field; N],
     return_type: T,
     gas_opts: GasOpts,
 }
 
-impl<let M: u32, T> PublicStaticCall<M, T> {
+impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
         name: str<M>,
-        args: [Field],
+        args: [Field; N],
     ) -> Self {
         Self {
             target_contract,
@@ -269,8 +268,8 @@ impl<let M: u32, T> PublicStaticCall<M, T> {
     /// `self.enqueue_view(MyContract::at(address).my_public_static_function(...args))`
     /// instead of manually constructing and calling `PublicStaticCall`.
     pub fn enqueue_view(self, context: &mut PrivateContext) {
-        let calldata = self.args.push_front(self.selector.to_field());
-        let calldata_hash = hash_calldata(calldata);
+        let calldata = [self.selector.to_field()].concat(self.args);
+        let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         context.call_public_function_with_calldata_hash(
             self.target_contract,
@@ -286,8 +285,8 @@ impl<let M: u32, T> PublicStaticCall<M, T> {
     /// `self.enqueue_view_incognito(MyContract::at(address).my_public_static_function(...args))`
     /// instead of manually constructing and calling `PublicStaticCall`.
     pub fn enqueue_view_incognito(self, context: &mut PrivateContext) {
-        let calldata = self.args.push_front(self.selector.to_field());
-        let calldata_hash = hash_calldata(calldata);
+        let calldata = [self.selector.to_field()].concat(self.args);
+        let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         context.call_public_function_with_calldata_hash(
             self.target_contract,
@@ -301,21 +300,21 @@ impl<let M: u32, T> PublicStaticCall<M, T> {
 
 // UtilityCall
 
-pub struct UtilityCall<let M: u32, T> {
+pub struct UtilityCall<let M: u32, let N: u32, T> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
     args_hash: Field,
-    pub args: [Field],
+    pub args: [Field; N],
     return_type: T,
 }
 
-impl<let M: u32, T> UtilityCall<M, T> {
+impl<let M: u32, let N: u32, T> UtilityCall<M, N, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
         name: str<M>,
-        args: [Field],
+        args: [Field; N],
     ) -> Self {
         let args_hash = hash_args(args);
         Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }

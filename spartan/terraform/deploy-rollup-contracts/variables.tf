@@ -91,8 +91,14 @@ variable "AZTEC_ACTIVATION_THRESHOLD" {
   nullable    = true
 }
 
-variable "AZTEC_LAG_IN_EPOCHS" {
-  description = "Aztec lag in epochs"
+variable "AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET" {
+  description = "Aztec lag in epochs for the validator set size"
+  type        = string
+  nullable    = true
+}
+
+variable "AZTEC_LAG_IN_EPOCHS_FOR_RANDAO" {
+  description = "Aztec lag in epochs for the randao values"
   type        = string
   nullable    = true
 }

@@ -150,7 +150,11 @@ describe('aztec node', () => {
     // on the epoch cache is used so a simple mock will suffice.
     const rollupContract = mock<RollupContract>();
     // We pass MockDateProvider to the epoch cache to have control over the next slot timestamp
-    epochCache = new EpochCache(rollupContract, { ...EmptyL1RollupConstants, lagInEpochs: 0 }, new MockDateProvider());
+    epochCache = new EpochCache(
+      rollupContract,
+      { ...EmptyL1RollupConstants, lagInEpochsForValidatorSet: 0, lagInEpochsForRandao: 0 },
+      new MockDateProvider(),
+    );
 
     node = new AztecNodeService(
       nodeConfig,

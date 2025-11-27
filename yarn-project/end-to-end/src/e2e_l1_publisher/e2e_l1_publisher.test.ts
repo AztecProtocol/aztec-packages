@@ -276,7 +276,7 @@ describe('L1Publisher integration', () => {
     baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
     // We jump two epochs such that the committee can be setup.
-    await rollupCheatCodes.advanceToEpoch(BigInt(config.lagInEpochs + 1));
+    await rollupCheatCodes.advanceToEpoch(BigInt(config.lagInEpochsForValidatorSet + 1));
     await rollupCheatCodes.setupEpoch();
 
     ({ committee } = await epochCache.getCommittee());
@@ -447,17 +447,17 @@ describe('L1Publisher integration', () => {
           address: rollupAddress,
           event: getAbiItem({
             abi: RollupAbi,
-            name: 'L2BlockProposed',
+            name: 'CheckpointProposed',
           }),
           fromBlock: blockNumber + 1n,
         });
         expect(logs).toHaveLength(i + 1);
-        expect(logs[i].args.blockNumber).toEqual(BigInt(i + 1));
+        expect(logs[i].args.checkpointNumber).toEqual(BigInt(i + 1));
         const thisBlockNumber = BigInt(block.header.globalVariables.blockNumber);
         const isFirstBlockOfEpoch =
           thisBlockNumber == 1n ||
-          (await rollup.getEpochNumberForBlock(thisBlockNumber)) >
-            (await rollup.getEpochNumberForBlock(thisBlockNumber - 1n));
+          (await rollup.getEpochNumberForCheckpoint(thisBlockNumber)) >
+            (await rollup.getEpochNumberForCheckpoint(thisBlockNumber - 1n));
         // If we are at the first blob of the epoch, we must initialize the hash:
         prevBlobAccumulatorHash = isFirstBlockOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
         const currentBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
@@ -528,9 +528,9 @@ describe('L1Publisher integration', () => {
     };
 
     it.each([
-      [0, 'empty_block'],
-      [1, 'single_tx_block'],
-      [4, 'mixed_block'],
+      [0, 'empty_checkpoint'],
+      [1, 'single_tx_checkpoint'],
+      [4, 'mixed_checkpoint'],
     ])(
       `builds ${numberOfConsecutiveBlocks} blocks of %i bloated txs building on each other`,
       async (numTxs: number, jsonFileNamePrefix: string) => {
@@ -876,7 +876,7 @@ describe('L1Publisher integration', () => {
       expect(minedTx).toBeDefined();
       const minedTxReceipt = await l1Client.getTransactionReceipt({ hash: minedTx!.hash });
       expect(minedTxReceipt.status).toEqual('success');
-      expect(await rollup.getBlockNumber()).toEqual(BigInt(block.number));
+      expect(await rollup.getCheckpointNumber()).toEqual(BigInt(block.number));
     });
 
     it(`can send two consecutive proposals if the first one times out`, async () => {
@@ -928,8 +928,8 @@ describe('L1Publisher integration', () => {
       expect(sendRequestsResult).not.toBeNull();
       expect(sendRequestsResult!.successfulActions).toEqual(['propose']);
       expect(sendRequestsResult!.failedActions).toEqual([]);
-      expect(await rollup.getBlockNumber()).toEqual(BigInt(block2.number));
-      const rollupBlock = await rollup.getBlock(block2.number);
+      expect(await rollup.getCheckpointNumber()).toEqual(BigInt(block2.number));
+      const rollupBlock = await rollup.getCheckpoint(block2.number);
       expect(rollupBlock.slotNumber).toEqual(block2.slot);
     });
   });
