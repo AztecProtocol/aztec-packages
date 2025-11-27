@@ -676,10 +676,18 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
     return block;
 }
 
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, BlockConstraint& block)
+void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
+    // Lambda to convert the Acir::Expression representing a memory operation into a mul_quad_ gate
+    auto serialize_mul_quad_gate = [](const Acir::Expression& expr) {
+        std::map<uint32_t, bb::fr> linear_terms = process_linear_terms(expr);
+        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(expr, linear_terms);
+        BB_ASSERT_EQ(mul_quads.size(), 1U, "MemoryOp expression must fit in a single mul_quad_ gate");
+        return mul_quads[0];
+    };
+
     // Lambda to convert an Acir::Expression to a witness index
-    auto acir_expression_to_witness_or_constant = [](const Acir::Expression& expr) {
+    auto acir_expression_to_witness_or_constant = [&](const Acir::Expression& expr) {
         mul_quad_<fr> quad = serialize_mul_quad_gate(expr);
 
         // Noir gives us witnesses or constants for read/write operations. We use the following assertions to ensure
@@ -701,7 +709,7 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, Bloc
     };
 
     // Lambda to determine whether a memory operation is a ROM or RAM operation
-    auto is_rom_operation = [](const Acir::Expression& expr) {
+    auto is_rom_operation = [&](const Acir::Expression& expr) {
         bool is_rom = true;
 
         mul_quad_<fr> quad = serialize_mul_quad_gate(expr);
