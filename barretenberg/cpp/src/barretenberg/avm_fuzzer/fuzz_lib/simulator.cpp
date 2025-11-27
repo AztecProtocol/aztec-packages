@@ -183,7 +183,7 @@ void JsSimulator::restart_simulator()
     std::string response = instance->process.read_line();
     while (response.empty()) {
         std::cout << "Empty response, reading again" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         response = instance->process.read_line();
     }
     response.erase(response.find_last_not_of('\n') + 1);
@@ -252,7 +252,7 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
     std::string response = process.read_line();
     while (response.empty()) {
         std::cout << "Empty response, reading again" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         response = process.read_line();
     }
     // Remove the newline character

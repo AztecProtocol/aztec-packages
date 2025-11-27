@@ -72,13 +72,14 @@ spec:
         - /bin/bash
         - -c
         - |
-          {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
           if [ -f /shared/init-nodeport ]; then
             source /shared/init-nodeport;
           fi
-          export P2P_QUERY_FOR_IP=true
+
+          {{- if .Values.service.p2p.publicIP }}
+            export P2P_QUERY_FOR_IP=true
           {{- else }}
-          export P2P_IP=$(hostname -i)
+            export P2P_IP=$(hostname -i)
           {{- end }}
 
           start_cmd=("node" "/usr/src/yarn-project/aztec/dest/bin/index.js" "start" {{ join " " .Values.node.startCmd }})
