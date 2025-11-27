@@ -78,6 +78,7 @@ class ProgramBlock {
     void process_nullifierexists_instruction(NULLIFIEREXISTS_Instruction instruction);
     void process_emitnotehash_instruction(EMITNOTEHASH_Instruction instruction);
     void process_notehashexists_instruction(NOTEHASHEXISTS_Instruction instruction);
+    void process_calldatacopy_instruction(CALLDATACOPY_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;
