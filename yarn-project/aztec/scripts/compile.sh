@@ -33,9 +33,9 @@ bb aztec_process
 # Strip internal prefixes from all compiled contract JSONs in target directory
 # TODO: This should be part of bb aztec_process!
 for json in target/*.json; do
-  local temp_file="${json}.tmp"
+  temp_file="${json}.tmp"
   jq '.functions |= map(.name |= sub("^__aztec_nr_internals__"; ""))' "$json" > "$temp_file"
-  mv "$temp_file" "$json_path"
+  mv "$temp_file" "$json"
 done
 
 echo "Compilation complete!"

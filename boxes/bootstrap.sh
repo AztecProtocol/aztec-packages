@@ -2,8 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # We set container name to "" to avoid container name collisions when building boxes
-export CONTAINER_NAME=""
-export AZTEC=$PWD/../aztec-up/bin/aztec
+export AZTEC=$PWD/../yarn-project/aztec/scripts/aztec.sh
 
 hash=$(hash_str \
   $(../noir/bootstrap.sh hash) \
